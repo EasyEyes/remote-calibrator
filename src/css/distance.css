@@ -1,0 +1,31 @@
+#eye-side {
+  font-weight: bold;
+}
+
+#blind-spot-canvas {
+  z-index: -1;
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#blind-spot-instruction {
+  position: absolute;
+  top: 65%;
+  width: 100%;
+  text-align: center;
+}
+
+#face-video {
+  transform: rotateY(180deg);
+  display: none;
+}
+
+#video-canvas {
+  z-index: 2;
+  position: absolute;
+  display: block;
+  bottom: 1rem;
+  left: 1rem;
+}
