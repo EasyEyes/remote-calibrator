@@ -9,7 +9,7 @@ import {
 import '@tensorflow/tfjs-backend-webgl'
 import '@tensorflow/tfjs-backend-cpu'
 
-const debug = true // Disable fullscreen when debug
+const debug = false // Disable fullscreen when debug
 
 const trainingHTML = `
 <div class="calibration-instruction">

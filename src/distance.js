@@ -176,7 +176,7 @@ export function staticDistance(callback, options = {}) {
 /* -------------------------------- GET DIST -------------------------------- */
 
 function _getDist(x, w, ppi) {
-  return Math.abs(w / 2 - x) / ppi / _getTanDeg(13.5) / 0.3937
+  return Math.abs(w / 2 - x) / ppi / _getTanDeg(15) / 0.3937
 }
 
 function _getTanDeg(deg) {
