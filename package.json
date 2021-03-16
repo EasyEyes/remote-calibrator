@@ -1,6 +1,6 @@
 {
   "name": "remote-calibration-toolbox",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A toolbox for remote testing calibration.",
   "main": "lib/main.js",
   "directories": {
@@ -39,8 +39,5 @@
   },
   "lint-staged": {
     "*.{js,css,md}": "prettier --write"
-  },
-  "dependencies": {
-    "tracking": "^1.1.3"
   }
 }

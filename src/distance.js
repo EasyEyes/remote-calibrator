@@ -54,7 +54,6 @@ export function blindSpotTest(parent, options, callback) {
   let inTest = true // Used to break animation
   let dist = 0
   let tested = 0 // options.repeatedTesting times
-  let trials = 0 // options.trials times
 
   // Add HTML
   const blindSpotDiv = document.createElement('div')
@@ -102,16 +101,13 @@ export function blindSpotTest(parent, options, callback) {
 
       // Enough tests?
       if (tested % options.repeatTesting === 0) {
-        trials++
         callback(dist)
-        if (trials === options.trials) {
-          // ! BREAK
-          inTest = false
-          resizeObserver.unobserve(document.body)
-          document.removeEventListener('keydown', spaceListener)
-          document.body.removeChild(parent)
-          return
-        }
+        // ! BREAK
+        inTest = false
+        resizeObserver.unobserve(document.body)
+        document.removeEventListener('keydown', spaceListener)
+        document.body.removeChild(parent)
+        return
       }
 
       // Switch eye side
@@ -150,7 +146,6 @@ export function staticDistance(callback, options = {}) {
   /**
    * options -
    *
-   * units: ['in', 'cm'] // TODO
    * fullscreen: [Boolean]
    * quitFullscreenOnFinished: [Boolean] // TODO
    * testingEyes: ['both', 'left', 'right'] // TODO
@@ -159,14 +154,12 @@ export function staticDistance(callback, options = {}) {
    */
   options = Object.assign(
     {
-      units: 'in',
       fullscreen: true,
       quitFullscreenOnFinished: false,
       repeatTesting: 2,
     },
     options
   )
-  options.trials = 1 // Adapt for liveDistance
   // Fullscreen
   if (options.fullscreen) getFullscreen()
   // Add HTML
@@ -182,7 +175,7 @@ export function staticDistance(callback, options = {}) {
 /* -------------------------------- GET DIST -------------------------------- */
 
 function _getDist(x, w, ppi) {
-  return Math.abs((w / 2 - x) / ppi) / _getTanDeg(13.5)
+  return Math.abs(w / 2 - x) / ppi / _getTanDeg(13.5) / 0.3937
 }
 
 function _getTanDeg(deg) {

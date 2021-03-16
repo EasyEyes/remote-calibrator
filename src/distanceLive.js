@@ -11,7 +11,6 @@ const trainingHTML = `
 		We'll measure your viewing distance. To do this, we'll perform a <em>blind spot test</em>.
 		Cover or close one of your eyes and focus on the black cross.
 		Press <b>SPACE</b> when the red circle disappears.
-		If it doesn't disappear, you may have to move closer or farther from the screen.
     We'll measure for several trials. After each trial, please move closer or farther,
     stay still again, and repeat the above. The toolbox will then start live estimating of
     your viewing distance. <b>Please enable camera access.</b>
@@ -24,31 +23,26 @@ export function liveDistance(callback, options) {
   /**
    * options -
    *
-   * units: ['in', 'cm'] // TODO
    * fullscreen: [Boolean]
    * quitFullscreenOnFinished: [Boolean] // TODO
    * testingEyes: ['both', 'left', 'right'] // TODO
-   * repeatTestingEachTrial: 2
-   * trials: 3
+   * repeatTesting: 2
    * pip: [Boolean] (Display a small picture at corner or not)
    * pipWidth: [240]
    *
    */
   options = Object.assign(
     {
-      units: 'in',
       fullscreen: true,
       quitFullscreenOnFinished: false,
-      repeatTestingEachTrial: 2,
-      trials: 3,
+      repeatTesting: 2,
       pip: true,
       pipWidth: 208,
     },
     options
   )
-  options.repeatTesting = options.repeatTestingEachTrial
 
-  const addTrialPoint = dist => {}
+  const getStdDist = dist => {}
 
   /* -------------------------------------------------------------------------- */
 
@@ -75,7 +69,8 @@ export function liveDistance(callback, options) {
       interval: 2,
       min_neighbors: 1,
     })
-    if (face[0] && face[0].confidence > 0.3) {
+
+    if (face[0] && face[0].confidence > 0.2) {
       vCtx.fillStyle = '#57068c77'
       vCtx.fillRect(face[0].x, face[0].y, face[0].width, face[0].height)
     }
@@ -100,16 +95,5 @@ export function liveDistance(callback, options) {
     err => console.error(err)
   )
 
-  // navigator.mediaDevices
-  //   .getUserMedia({ audio: false, video: true })
-  //   .then(function (stream) {
-  //     video.srcObject = stream
-  //     video.play()
-  //   })
-  //   .catch(function (error) {
-  //     // Error
-  //     console.error(error)
-  //   })
-
-  blindSpotTest(trainingDiv, options, addTrialPoint)
+  blindSpotTest(trainingDiv, options, getStdDist)
 }
