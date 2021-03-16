@@ -46,9 +46,7 @@ module.exports = env => {
     // Export example only and not minimize
     return exampleConfig
   else if (env.production) {
-    // Export both and minimize both
-    exampleConfig.optimization.minimize = true
-    exampleConfig.mode = 'production'
-    return [exampleConfig, libConfig]
+    // Export lib only
+    return libConfig
   }
 }
