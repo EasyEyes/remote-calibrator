@@ -1,3 +1,5 @@
+const TerserPlugin = require('terser-webpack-plugin')
+
 const config = {
   // entry: { index: './src/index.js', liveDistance: './src/distanceLive.js' },
   entry: './src',
@@ -46,7 +48,16 @@ module.exports = env => {
     // Export example only and not minimize
     return exampleConfig
   else if (env.production) {
-    // Export lib only
-    return libConfig
+    // Export both and minimize both
+    exampleConfig.optimization = {
+      minimize: true,
+      minimizer: [
+        new TerserPlugin({
+          extractComments: false,
+        }),
+      ],
+    }
+    exampleConfig.mode = 'production'
+    return [exampleConfig, libConfig]
   }
 }
