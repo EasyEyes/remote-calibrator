@@ -1,8 +1,15 @@
 import { blindSpotTest } from './distance'
 import { getFullscreen } from './helpers'
+import { addVideoElementToBody, startVideo } from './video'
 
-import ccv from './library/ccv'
-import cascade from './library/face'
+import {
+  SupportedPackages,
+  load,
+} from '@tensorflow-models/face-landmarks-detection'
+import '@tensorflow/tfjs-backend-webgl'
+import '@tensorflow/tfjs-backend-cpu'
+
+const debug = true // Disable fullscreen when debug
 
 const trainingHTML = `
 <div class="calibration-instruction">
@@ -15,9 +22,7 @@ const trainingHTML = `
     stay still again, and repeat the above. The toolbox will then start live estimating of
     your viewing distance. <b>Please enable camera access.</b>
 	</p>
-</div>
-<video id="face-video"></video>
-<canvas id="video-canvas"></canvas>`
+</div>`
 
 export function liveDistance(callback, options) {
   /**
@@ -29,6 +34,7 @@ export function liveDistance(callback, options) {
    * repeatTesting: 2
    * pip: [Boolean] (Display a small picture at corner or not)
    * pipWidth: [240]
+   * landmarkRate: [15] (How many times (each second) to get landmarks of the face, and adjust est distance!)
    *
    */
   options = Object.assign(
@@ -38,15 +44,19 @@ export function liveDistance(callback, options) {
       repeatTesting: 2,
       pip: true,
       pipWidth: 208,
+      landmarkRate: 15,
     },
     options
   )
 
-  const getStdDist = dist => {}
-
   /* -------------------------------------------------------------------------- */
 
-  if (options.fullscreen) getFullscreen()
+  if (options.fullscreen && !debug) getFullscreen()
+
+  // STEP 2 - Live estimate
+  const getStdDist = dist => {
+    // After getting the standard distance
+  }
 
   // STEP 1 - Calibrate for live estimate
   const trainingDiv = document.createElement('div')
@@ -54,46 +64,59 @@ export function liveDistance(callback, options) {
   trainingDiv.innerHTML = trainingHTML
   document.body.appendChild(trainingDiv)
 
-  // ! Start camera
-  const vC = document.querySelector('#video-canvas')
+  // ! CAMERA & CANVAS
+
+  // TODO Move to video.js?
+  const [video, vC] = addVideoElementToBody()
   const vCtx = vC.getContext('2d')
-  const video = document.querySelector('video')
+
   let width, height, scale // Width and height of our video
 
-  let face
+  // Video Canvas
   const projectVideoToCanvas = () => {
-    vCtx.drawImage(video, 0, 0, vC.width, vC.height)
-    face = ccv.detect_objects({
-      canvas: ccv.pre(vC),
-      cascade: cascade,
-      interval: 2,
-      min_neighbors: 1,
-    })
+    vCtx.save()
+    vCtx.translate(options.pipWidth, 0)
+    vCtx.scale(-1, 1)
+    vCtx.drawImage(video, 0, 0, vC.width, vC.height) // Video on canvas
+    vCtx.restore()
 
-    if (face[0] && face[0].confidence > 0.2) {
-      vCtx.fillStyle = '#57068c77'
-      vCtx.fillRect(face[0].x, face[0].y, face[0].width, face[0].height)
+    // Draw landmarks
+    if (face_predictions && face_predictions[0]) {
+      for (let point of face_predictions[0].scaledMesh) {
+        vCtx.fillRect(point[0], point[1], 1, 1)
+      }
     }
+
     requestAnimationFrame(projectVideoToCanvas)
   }
 
-  navigator.getUserMedia(
-    { video: {} },
-    stream => {
-      video.srcObject = stream
-      video.play()
-      ;({ width, height } = stream.getTracks()[0].getSettings())
-      scale = options.pipWidth / width
-      vC.style.width = (vC.width = options.pipWidth) + 'px'
-      vC.style.height = (vC.height = scale * height) + 'px'
+  // Model
+  let face_predictions, estimateInterval
+  async function landmarksDetection() {
+    const model = await load(SupportedPackages.mediapipeFacemesh, {
+      shouldLoadIrisModel: true,
+      maxFace: 1,
+      detectionConfidence: 0.9,
+      iouThreshold: 0.4,
+    })
+    // Prediction Interval
+    estimateInterval = setInterval(async () => {
+      face_predictions = await model.estimateFaces({
+        input: vC,
+      })
+    }, Math.round(1000 / options.landmarkRate))
+  }
 
-      vCtx.translate(options.pipWidth, 0)
-      vCtx.scale(-1, 1)
+  // Video
+  startVideo(video, (stream, element) => {
+    ;({ width, height } = stream.getTracks()[0].getSettings())
+    scale = options.pipWidth / width
+    vC.style.width = (vC.width = options.pipWidth) + 'px'
+    vC.style.height = (vC.height = scale * height) + 'px'
 
-      requestAnimationFrame(projectVideoToCanvas)
-    },
-    err => console.error(err)
-  )
+    requestAnimationFrame(projectVideoToCanvas)
+    landmarksDetection(video)
+  })
 
   blindSpotTest(trainingDiv, options, getStdDist)
 }

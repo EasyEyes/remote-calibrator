@@ -9,7 +9,8 @@
   },
   "scripts": {
     "format": "prettier --write \"**/*.{js,json,md,html,css}\"",
-    "build": "webpack"
+    "dev": "webpack --env=development",
+    "build": "webpack --env=production"
   },
   "repository": {
     "type": "git",
@@ -39,5 +40,12 @@
   },
   "lint-staged": {
     "*.{js,css,md}": "prettier --write"
+  },
+  "dependencies": {
+    "@tensorflow-models/face-landmarks-detection": "^0.0.3",
+    "@tensorflow/tfjs-backend-cpu": "^3.3.0",
+    "@tensorflow/tfjs-backend-webgl": "^3.3.0",
+    "@tensorflow/tfjs-converter": "^3.3.0",
+    "@tensorflow/tfjs-core": "^3.3.0"
   }
 }

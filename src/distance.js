@@ -94,6 +94,7 @@ export function blindSpotTest(parent, options, callback) {
       e.preventDefault()
 
       tested += 1
+      // Average
       dist = (
         (dist * (tested - 1)) / tested +
         _getDist(circleX, window.innerWidth, ppi, 3) / tested
@@ -104,7 +105,7 @@ export function blindSpotTest(parent, options, callback) {
         callback(dist)
         // ! BREAK
         inTest = false
-        resizeObserver.unobserve(document.body)
+        resizeObserver.unobserve(parent)
         document.removeEventListener('keydown', spaceListener)
         document.body.removeChild(parent)
         return

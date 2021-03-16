@@ -17,15 +17,15 @@
   text-align: center;
 }
 
-#face-video {
-  transform: rotateY(180deg);
+#pip-video {
   display: none;
 }
 
 #video-canvas {
-  z-index: 2;
+  z-index: 99999999;
   position: absolute;
   display: block;
   bottom: 1rem;
   left: 1rem;
+  border-radius: 6px;
 }
