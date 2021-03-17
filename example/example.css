@@ -1,3 +1,13 @@
+main {
+  text-align: center;
+}
+
 button {
   cursor: pointer;
+  user-select: none;
+}
+
+button {
+  margin-bottom: 7px;
+  padding: 7px 10px;
 }

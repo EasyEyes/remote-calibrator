@@ -22,7 +22,7 @@
 }
 
 #video-canvas {
-  z-index: 99999999;
+  z-index: 1000;
   position: absolute;
   display: block;
   bottom: 1rem;

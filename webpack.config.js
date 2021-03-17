@@ -8,8 +8,8 @@ const config = {
       {
         test: /\.js/,
         use: 'babel-loader',
-        include: __dirname + 'src',
-        // exclude: __dirname + 'src/library',
+        include: __dirname + 'src/*',
+        // exclude: __dirname + 'src/webgazer',
       },
       {
         test: /\.css$/i,

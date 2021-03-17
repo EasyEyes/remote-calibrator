@@ -12,14 +12,32 @@
     <!-- IMPORT THE TOOLBOX -->
     <script src="lib/main.js"></script>
     <title>Calibration Toolbox | Demo</title>
+    <!-- favicon -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧐</text></svg>"
+    />
   </head>
   <body>
-    <h1>🔬 Doing some experiment here.</h1>
-    <button onclick="">Calibrate screen size</button>
-    <button onclick="calibrateViewingDistance()">
-      Calibrate viewing distance
-    </button>
-    <button onclick="calibrateLiveViewingDistance()">Calibrate viewing distance (Live)</button>
+    <main>
+      <h1>🔬 Doing some experiment here.</h1>
+      <!-- screenSize -->
+      <button onclick="">Calibrate screen size</button>
+      <!-- staticDistance -->
+      <button onclick="calibrateViewingDistance()">
+        Calibrate viewing distance
+      </button>
+      <!-- liveDistance -->
+      <button onclick="calibrateLiveViewingDistance()">
+        Calibrate viewing distance (Live)
+      </button>
+      <br />
+      <!-- gazeTracking -->
+      <button onclick="calibrateGazeTracking()">Gaze tracking</button>
+      <!-- ? -->
+      <button>Blink detection</button>
+    </main>
+
     <script src="example.js"></script>
   </body>
 </html>

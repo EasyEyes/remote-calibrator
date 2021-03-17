@@ -1,0 +1,19 @@
+#webgazerGazeDot {
+  z-index: 9999;
+}
+
+#webgazerVideoContainer {
+  z-index: 9998;
+  display: block;
+  position: absolute;
+  transform-origin: bottom left;
+  /* left: 1rem !important;
+  bottom: 1rem !important; */
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+#webgazerFaceFeedbackBox {
+  /* TODO Set style in sub-module */
+  border-radius: 7px;
+}

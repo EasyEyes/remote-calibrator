@@ -1,0 +1,3 @@
+[submodule "src/WebGazer"]
+	path = src/WebGazer
+	url = https://github.com/peilingjiang-DEV/WebGazer.git

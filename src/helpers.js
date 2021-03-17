@@ -50,6 +50,34 @@ export function getFullscreen() {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+
+export function addBackground(inner) {
+  let b = document.getElementById('calibration-background')
+  if (!b) b = document.createElement('div')
+
+  b.id = 'calibration-background'
+  if (inner) b.innerHTML = inner
+
+  document.body.appendChild(b)
+
+  return b
+}
+
+/**
+ * Remove the calibration background, and its children elements, from the body
+ */
+export function removeBackground() {
+  let b = document.getElementById('calibration-background')
+  if (b) {
+    document.body.removeChild(b)
+    return true
+  }
+  return false
+}
+
+/* ----------------------------- Tiny functions ----------------------------- */
+
 export function constrain(a, b0, b1) {
   return a < b0 ? b0 : a > b1 ? b1 : a
 }

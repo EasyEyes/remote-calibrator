@@ -1,5 +1,9 @@
-import { getFullscreen, constrain } from './helpers'
-import './css/distance.css'
+import {
+  getFullscreen,
+  constrain,
+  removeBackground,
+  addBackground,
+} from './helpers'
 
 const staticHTML = `
 <div class="calibration-instruction">
@@ -107,7 +111,7 @@ export function blindSpotTest(parent, options, callback) {
         inTest = false
         resizeObserver.unobserve(parent)
         document.removeEventListener('keydown', spaceListener)
-        document.body.removeChild(parent)
+        removeBackground()
         return
       }
 
@@ -164,11 +168,7 @@ export function staticDistance(callback, options = {}) {
   // Fullscreen
   if (options.fullscreen) getFullscreen()
   // Add HTML
-  const staticDiv = document.createElement('div')
-  // staticDiv.id = 'static-distance-box'
-  staticDiv.className = 'calibration-background'
-  staticDiv.innerHTML = staticHTML
-  document.body.appendChild(staticDiv)
+  let staticDiv = addBackground(staticHTML)
 
   blindSpotTest(staticDiv, options, callback)
 }
