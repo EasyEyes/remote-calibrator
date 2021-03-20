@@ -5,6 +5,7 @@ import {
   addBackground,
   constructInstructions,
 } from './helpers'
+import data from './results'
 
 const blindSpotHTML = `
 <p id="blind-spot-instruction" class="float-instruction">Now, please close your <span id="eye-side"></span> eye.</p>
@@ -96,7 +97,8 @@ export function blindSpotTest(parent, options, callback) {
 
       // Enough tests?
       if (tested % options.repeatTesting === 0) {
-        callback(dist)
+        // ! Put dist into data and callback function
+        callback((data.viewingDistance = { d: dist, timestamp: new Date() }))
         // ! BREAK
         inTest = false
         resizeObserver.unobserve(parent)
@@ -145,6 +147,8 @@ export function staticDistance(callback, options = {}) {
    * quitFullscreenOnFinished: [Boolean] // TODO
    * testingEyes: ['both', 'left', 'right'] // TODO
    * repeatTesting: 2
+   * headline: [String]
+   * description: [String]
    *
    */
   options = Object.assign(

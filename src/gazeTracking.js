@@ -8,18 +8,14 @@ import {
   shuffle,
 } from './helpers'
 import { gazeCalibrationDotDefault } from './constants'
-// import {
-//   addVideoElementsToBody,
-//   drawVideoOnCanvas,
-//   formatVideoCanvas,
-//   startVideo,
-// } from './video'
+import { checkWebgazerReady } from './video'
+import data from './results'
 
 const debug = true
 
 // [Wait!], etc.
 const instPOutsideWarning =
-  'Make sure your face is at the center of the screen and the square is <b style="color: green">Green</b>.'
+  'Make sure your face is always at the center of the screen.'
 
 export function gazeTracking(callback, options) {
   /**
@@ -29,15 +25,14 @@ export function gazeTracking(callback, options) {
    * showGazer: [Boolean]
    * pipWidth: [208]
    * greedyLearner: [Boolean] If false, stop learning after calibration process // TODO
+   * showVideo: [Boolean]
+   * showFaceOverlay: [Boolean]
+   * checkAccuracy: [Boolean] // TODO
+   * leastRequiredAccuracy: [Boolean] // TODO
+   * headline: [String]
+   * description: [String]
    *
    */
-  // const gazerScript = document.createElement('script')
-  // gazerScript.src = 'https://webgazer.cs.brown.edu/webgazer.js'
-  // gazerScript.async = true
-  // document.body.appendChild(gazerScript)
-  // gazerScript.onload = () => {
-
-  // }
 
   options = Object.assign(
     {
@@ -78,6 +73,7 @@ export function gazeTracking(callback, options) {
   instP.innerHTML = 'Loading... Please wait.' // Init
   background.appendChild(instP)
 
+  // TODO Handle the second entry of the program
   // ! WebGazer
   ////
   webgazer.clearData()
@@ -87,40 +83,31 @@ export function gazeTracking(callback, options) {
   webgazer.showFaceOverlay(options.showFaceOverlay)
   webgazer.showPredictionPoints(options.showGazer)
 
-  // webgazer
-  //   .setGazeListener((data, elapsedTme) => {
-  //     if (data) {
-  //       callback([data.x, data.y])
-  //     }
-  //   })
-  //   .begin()
-  webgazer.begin()
+  webgazer
+    .setGazeListener(d => {
+      // ! Put data into data and callback function
+      if (d) {
+        callback(
+          (data.gazePosition = {
+            x: d.x.toFixed(3),
+            y: d.y.toFixed(3),
+            timestamp: new Date(),
+          })
+        )
+      }
+    })
+    .begin()
 
-  let checkWebgazerReady = setInterval(() => {
-    let v = document.getElementById('webgazerVideoFeed')
-    if (v) {
-      // webgazer.setVideoViewerSize(
-      //   options.pipWidth,
-      //   (options.pipWidth / v.width) * v.height
-      // )
-      v.parentElement.style.transform = `scale(${
-        options.pipWidth / parseInt(v.style.width)
-      })`
-      v.parentElement.style.left = '1rem'
-      v.parentElement.style.bottom = '1rem'
-      v.parentElement.style.top = 'unset'
-
-      setTimeout(() => {
-        // instP
-        instP.innerHTML = instPOutsideWarning
-        startCalibration(background, instP, onCalibrationEnded)
-      }, 3000)
-      clearInterval(checkWebgazerReady)
-    }
-  }, 200)
+  checkWebgazerReady(options, webgazer, () => {
+    // instP
+    instP.innerHTML = instPOutsideWarning
+    startCalibration(background, instP, onCalibrationEnded)
+  })
 
   const onCalibrationEnded = () => {
+    // TODO Check accuracy and re-calibrate if needed
     removeBackground()
+    webgazer.end()
   }
 }
 
@@ -161,7 +148,7 @@ class GazeCalibrationDot {
     parent.appendChild(this.div)
     this.placeDot()
 
-    this.clickThreshold = 5 // How many times required to click for each position
+    this.clickThreshold = debug ? 1 : 5 // How many times required to click for each position
     this.clicks = 0
 
     this.clickDiv.addEventListener('click', this.takeClick.bind(this), false)
@@ -208,6 +195,8 @@ class GazeCalibrationDot {
   deleteSelf() {
     this.clickDiv.removeEventListener('click', this.takeClick, false)
     this.parent.removeChild(this.div)
+
+    // onCalibrationEnded
     this.endCalibrationCallback()
   }
 
@@ -217,3 +206,24 @@ class GazeCalibrationDot {
     shuffle(this.order)
   }
 }
+
+/* -------------------------------------------------------------------------- */
+
+class GazeTracker {
+  constructor(WG) {
+    this.webgazer = WG
+  }
+
+  begin() {
+    this.webgazer.begin()
+  }
+
+  end() {
+    this.webgazer.end()
+  }
+}
+
+// Export for interacting with WebGazer outside
+export const gazeTracker = new GazeTracker(webgazer)
+
+/* -------------------------------------------------------------------------- */

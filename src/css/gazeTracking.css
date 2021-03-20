@@ -22,22 +22,24 @@
 
 #webgazerGazeDot {
   z-index: 9999;
-  opacity: 0.7;
+  opacity: 0.5;
   pointer-events: none;
 }
 
 #webgazerVideoContainer {
   z-index: 9997;
   display: block;
-  position: absolute;
+  position: fixed;
   transform-origin: bottom left;
   /* left: 1rem !important;
   bottom: 1rem !important; */
-  border-radius: 7px;
+  /* border-radius: 7px; */
   overflow: hidden;
 }
 
 #webgazerFaceFeedbackBox {
   /* TODO Set style in sub-module */
+  box-sizing: border-box;
   border-radius: 10px;
+  opacity: 0.6;
 }
