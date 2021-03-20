@@ -7,11 +7,9 @@ import {
   removeBackground,
   shuffle,
 } from './helpers'
-import { gazeCalibrationDotDefault } from './constants'
+import { gazeCalibrationDotDefault, debug } from './constants'
 import { checkWebgazerReady } from './video'
 import data from './results'
-
-const debug = true
 
 // [Wait!], etc.
 const instPOutsideWarning =
@@ -27,6 +25,7 @@ export function gazeTracking(callback, options) {
    * greedyLearner: [Boolean] If false, stop learning after calibration process // TODO
    * showVideo: [Boolean]
    * showFaceOverlay: [Boolean]
+   * decimalPlace: [Number] Default 2
    * checkAccuracy: [Boolean] // TODO
    * leastRequiredAccuracy: [Boolean] // TODO
    * headline: [String]
@@ -42,6 +41,7 @@ export function gazeTracking(callback, options) {
       greedyLearner: true,
       showVideo: true,
       showFaceOverlay: false,
+      decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
       headline: '👀 Live Gaze Tracking',
       description:
         "We'll keep track of your gaze position. First, we need to calibrate for the system. \nPlease enable camera access and move your body to the center so that the square becomes green. \nPlease then follow the instructions below to finish the calibration.",
@@ -50,6 +50,8 @@ export function gazeTracking(callback, options) {
   )
   // Fullscreen
   if (options.fullscreen && !debug) getFullscreen()
+
+  const toFixedN = options.decimalPlace
 
   const background = addBackground(
     constructInstructions(options.headline, options.description)
@@ -89,8 +91,8 @@ export function gazeTracking(callback, options) {
       if (d) {
         callback(
           (data.gazePosition = {
-            x: d.x.toFixed(3),
-            y: d.y.toFixed(3),
+            x: d.x.toFixed(toFixedN),
+            y: d.y.toFixed(toFixedN),
             timestamp: new Date(),
           })
         )
@@ -107,7 +109,7 @@ export function gazeTracking(callback, options) {
   const onCalibrationEnded = () => {
     // TODO Check accuracy and re-calibrate if needed
     removeBackground()
-    webgazer.end()
+    // webgazer.end()
   }
 }
 

@@ -1,13 +1,15 @@
 /* eslint-disable no-undef */
 /* eslint-disable no-unused-vars */
 
+const experimentElement = document.getElementById('experiment')
+
 /**
  *
  * Help format and print the data message.
  *
  */
 function gotData(text) {
-  return `<b>[Got data from the Toolbox]</b> ` + text
+  return `<span class="toolbox-data">Data from Toolbox</span>` + text
 }
 
 /**
@@ -29,7 +31,7 @@ function getAndDisplayStaticDist(data) {
       data.timestamp
     )}.`
   )
-  document.body.appendChild(distP)
+  experimentElement.appendChild(distP)
 }
 
 function calibrateViewingDistance() {
@@ -53,7 +55,7 @@ function displayGazePosition(data) {
   if (!p) {
     p = document.createElement('p')
     p.id = 'gazePosition'
-    document.body.appendChild(p)
+    experimentElement.appendChild(p)
   }
   p.innerHTML = gotData(
     `The gaze position is [${data.x}px, ${data.y}px] at ${parseTimestamp(

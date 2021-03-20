@@ -6,6 +6,7 @@ import {
   constructInstructions,
 } from './helpers'
 import data from './results'
+import { debug } from 'debug'
 
 const blindSpotHTML = `
 <p id="blind-spot-instruction" class="float-instruction">Now, please close your <span id="eye-side"></span> eye.</p>
@@ -13,7 +14,7 @@ const blindSpotHTML = `
 
 /* -------------------------------------------------------------------------- */
 
-const ppi = 108
+const ppi = data.screenPPI || 108
 
 // CROSS
 const crossLW = 32 // Width of a line of the middle cross
@@ -163,7 +164,7 @@ export function staticDistance(callback, options = {}) {
     options
   )
   // Fullscreen
-  if (options.fullscreen) getFullscreen()
+  if (options.fullscreen && !debug) getFullscreen()
   // Add HTML
   let staticDiv = addBackground(
     constructInstructions(options.headline, options.description)

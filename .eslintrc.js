@@ -10,6 +10,10 @@ module.exports = {
   },
   rules: {
     semi: ['off', 'always'],
+    'no-unused-vars': [
+      'warn',
+      { vars: 'all', args: 'after-used', ignoreRestSiblings: false },
+    ],
   },
   ignorePatterns: ['webpack.config.js', '.eslintrc.js', 'WebGazer/', 'lib/'],
 }
