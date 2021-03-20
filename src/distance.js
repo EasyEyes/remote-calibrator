@@ -3,21 +3,11 @@ import {
   constrain,
   removeBackground,
   addBackground,
+  constructInstructions,
 } from './helpers'
 
-const staticHTML = `
-<div class="calibration-instruction">
-	<h1>📏 Viewing Distance Calibration</h1>
-	<p>
-		We'll measure your viewing distance. To do this, we'll perform a <em>blind spot test</em>.
-		Cover or close one of your eyes and focus on the black cross.
-		Press <b>SPACE</b> when the red circle disappears.
-		If it doesn't disappear, you may have to move closer or farther from the screen.
-	</p>
-</div>`
-
 const blindSpotHTML = `
-<p id="blind-spot-instruction">Now, please close your <span id="eye-side"></span> eye.</p>
+<p id="blind-spot-instruction" class="float-instruction">Now, please close your <span id="eye-side"></span> eye.</p>
 <canvas id="blind-spot-canvas"></canvas>`
 
 /* -------------------------------------------------------------------------- */
@@ -162,13 +152,18 @@ export function staticDistance(callback, options = {}) {
       fullscreen: true,
       quitFullscreenOnFinished: false,
       repeatTesting: 2,
+      headline: '📏 Viewing Distance Calibration',
+      description:
+        "We'll measure your viewing distance. To do this, we'll perform a <em>blind spot test</em>. \nCover or close one of your eyes and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer or farther from the screen.",
     },
     options
   )
   // Fullscreen
   if (options.fullscreen) getFullscreen()
   // Add HTML
-  let staticDiv = addBackground(staticHTML)
+  let staticDiv = addBackground(
+    constructInstructions(options.headline, options.description)
+  )
 
   blindSpotTest(staticDiv, options, callback)
 }
@@ -176,6 +171,7 @@ export function staticDistance(callback, options = {}) {
 /* -------------------------------- GET DIST -------------------------------- */
 
 function _getDist(x, w, ppi) {
+  // .3937 - in to cm
   return Math.abs(w / 2 - x) / ppi / _getTanDeg(15) / 0.3937
 }
 

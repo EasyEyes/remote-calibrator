@@ -1,5 +1,6 @@
 // requestAnimationFrame() polyfill by Erik Möller, Paul Irish, and Tino Zijdel.
 // https://gist.github.com/paulirish/1579671
+// eslint-disable-next-line no-extra-semi
 ;(function () {
   var lastTime = 0
   var vendors = ['ms', 'moz', 'webkit', 'o']
@@ -11,6 +12,7 @@
   }
 
   if (!window.requestAnimationFrame)
+    // eslint-disable-next-line no-unused-vars
     window.requestAnimationFrame = function (callback, element) {
       var currTime = new Date().getTime()
       var timeToCall = Math.max(0, 16 - (currTime - lastTime))
@@ -76,8 +78,27 @@ export function removeBackground() {
   return false
 }
 
+export function constructInstructions(headline, description) {
+  return `
+<div class="calibration-instruction">
+  <h1>${headline}</h1>
+  <p>
+${description}
+  </p>
+</div>`
+}
+
 /* ----------------------------- Tiny functions ----------------------------- */
 
 export function constrain(a, b0, b1) {
   return a < b0 ? b0 : a > b1 ? b1 : a
+}
+
+// https://stackoverflow.com/a/12646864/11069914
+export function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[array[i], array[j]] = [array[j], array[i]]
+  }
+  return array
 }

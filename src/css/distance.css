@@ -11,10 +11,7 @@
 }
 
 #blind-spot-instruction {
-  position: absolute;
   top: 65%;
-  width: 100%;
-  text-align: center;
 }
 
 #pip-video {

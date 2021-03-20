@@ -1,4 +1,5 @@
 const TerserPlugin = require('terser-webpack-plugin')
+const ESLintPlugin = require('eslint-webpack-plugin')
 
 const config = {
   // entry: { index: './src/index.js', liveDistance: './src/distanceLive.js' },
@@ -17,6 +18,7 @@ const config = {
       },
     ],
   },
+  plugins: [new ESLintPlugin()],
 }
 
 const output = {
@@ -44,10 +46,11 @@ const libConfig = Object.assign({}, config, {
 })
 
 module.exports = env => {
-  if (env.development)
+  if (env.development) {
     // Export example only and not minimize
+    exampleConfig.watch = true
     return exampleConfig
-  else if (env.production) {
+  } else if (env.production) {
     // Export both and minimize both
     exampleConfig.optimization = {
       minimize: true,

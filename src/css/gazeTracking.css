@@ -1,9 +1,33 @@
+#gaze-system-instruction {
+  top: 65%;
+  white-space: pre;
+}
+
+.gaze-calibration-dot {
+  background: #ff005c80;
+  position: absolute;
+  display: block;
+  cursor: initial;
+  z-index: 9998;
+}
+
+.gaze-calibration-dot-click {
+  position: absolute;
+  background: #ff005c;
+  margin: auto;
+  cursor: pointer;
+}
+
+/* ----------------------------- WebGazer Native ---------------------------- */
+
 #webgazerGazeDot {
   z-index: 9999;
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 #webgazerVideoContainer {
-  z-index: 9998;
+  z-index: 9997;
   display: block;
   position: absolute;
   transform-origin: bottom left;
@@ -15,5 +39,5 @@
 
 #webgazerFaceFeedbackBox {
   /* TODO Set style in sub-module */
-  border-radius: 7px;
+  border-radius: 10px;
 }
