@@ -40,10 +40,10 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "npm run build && lint-staged"
+      "pre-commit": "npm run build && git add lib && lint-staged"
     }
   },
   "lint-staged": {
-    "*.{js,css,md}": "prettier --write"
+    "*.{js,css,md,html,json}": "prettier --write"
   }
 }
