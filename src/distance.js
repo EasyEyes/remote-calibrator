@@ -6,7 +6,7 @@ import {
   constructInstructions,
 } from './helpers'
 import data from './results'
-import { debug } from 'debug'
+import { debug } from './constants'
 
 const blindSpotHTML = `
 <p id="blind-spot-instruction" class="float-instruction">Now, please close your <span id="eye-side"></span> eye.</p>

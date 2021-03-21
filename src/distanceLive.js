@@ -1,6 +1,6 @@
 import { blindSpotTest } from './distance'
 import { addBackground, constructInstructions, getFullscreen } from './helpers'
-import { debug } from 'debug'
+import { debug } from './constants'
 
 export function liveDistance(callback, options) {
   /**

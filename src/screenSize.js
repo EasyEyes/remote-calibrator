@@ -5,7 +5,7 @@ import {
   constructInstructions,
 } from './helpers'
 import data from './results'
-import { debug } from 'debug'
+import { debug } from './constants'
 
 import Card from './media/card.svg'
 import Arrow from './media/arrow.svg'
