@@ -4,4 +4,4 @@ export const gazeCalibrationDotDefault = {
   border: 8,
 }
 
-export const debug = true
+export const debug = false
