@@ -101,8 +101,11 @@ export function blindSpotTest(parent, options, callback) {
         callback((data.viewingDistance = { d: dist, timestamp: new Date() }))
         // ! BREAK
         inTest = false
+
+        // Remove listeners
         resizeObserver.unobserve(parent)
         document.removeEventListener('keydown', spaceListener)
+
         removeBackground()
         return
       }

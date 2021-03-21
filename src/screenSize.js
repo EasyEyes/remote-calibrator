@@ -105,6 +105,12 @@ function getSize(parent, options, callback) {
     setSizes(sliderElement, cardElement, arrowElement, arrowSizes)
   }
 
+  const resizeObserver = new ResizeObserver(() => {
+    setSizes(sliderElement, cardElement, arrowElement, arrowSizes)
+  })
+  resizeObserver.observe(parent)
+
+  // ! RETURN & BREAK
   const onKeydown = e => {
     if (e.key === ' ') {
       e.preventDefault()
@@ -132,6 +138,7 @@ function getSize(parent, options, callback) {
       document.removeEventListener('mousedown', onMouseDown, false)
       document.removeEventListener('input', onSliderInput, false)
       document.removeEventListener('keydown', onKeydown, false)
+      resizeObserver.unobserve(parent)
 
       // Remove DOM
       removeBackground()
