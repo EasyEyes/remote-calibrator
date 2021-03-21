@@ -14,8 +14,6 @@ const blindSpotHTML = `
 
 /* -------------------------------------------------------------------------- */
 
-const ppi = data.screenPPI || 108
-
 // CROSS
 const crossLW = 32 // Width of a line of the middle cross
 const crossLH = 4
@@ -41,11 +39,12 @@ function _circle(ctx, x, y) {
   ctx.arc(x, y, circleR >> 1, 0, Math.PI * 2)
   ctx.closePath()
 
-  ctx.fillStyle = '#ee0000'
+  ctx.fillStyle = '#ac0d0d' // Red fill
   ctx.fill()
 }
 
 export function blindSpotTest(parent, options, callback) {
+  const ppi = data.screen.ppi || 108
   // The dist to
   let inTest = true // Used to break animation
   let dist = 0

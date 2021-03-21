@@ -25,6 +25,7 @@ export function gazeTracking(callback, options) {
    * greedyLearner: [Boolean] If false, stop learning after calibration process // TODO
    * showVideo: [Boolean]
    * showFaceOverlay: [Boolean]
+   * calibrationCount: [Number] Default 5
    * decimalPlace: [Number] Default 2
    * checkAccuracy: [Boolean] // TODO
    * leastRequiredAccuracy: [Boolean] // TODO
@@ -41,6 +42,7 @@ export function gazeTracking(callback, options) {
       greedyLearner: true,
       showVideo: true,
       showFaceOverlay: false,
+      calibrationCount: 5,
       decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
       headline: '👀 Live Gaze Tracking',
       description:
@@ -103,7 +105,7 @@ export function gazeTracking(callback, options) {
   checkWebgazerReady(options, webgazer, () => {
     // instP
     instP.innerHTML = instPOutsideWarning
-    startCalibration(background, instP, onCalibrationEnded)
+    startCalibration(background, instP, options, onCalibrationEnded)
   })
 
   const onCalibrationEnded = () => {
@@ -113,13 +115,13 @@ export function gazeTracking(callback, options) {
   }
 }
 
-const startCalibration = (bg, p, onCalibrationEnded) => {
+const startCalibration = (bg, p, options, onCalibrationEnded) => {
   p.innerHTML += `\nPlease click on the <b style="color: #ff005c">Pink</b> dots on the center and edges of the window until it disappears.`
-  new GazeCalibrationDot(document.body, onCalibrationEnded)
+  new GazeCalibrationDot(document.body, options, onCalibrationEnded)
 }
 
 class GazeCalibrationDot {
-  constructor(parent, endCalibrationCallback) {
+  constructor(parent, options, endCalibrationCallback) {
     // Order
     this._randomOrder()
 
@@ -150,7 +152,7 @@ class GazeCalibrationDot {
     parent.appendChild(this.div)
     this.placeDot()
 
-    this.clickThreshold = debug ? 1 : 5 // How many times required to click for each position
+    this.clickThreshold = debug ? 1 : options.calibrationCount // How many times required to click for each position
     this.clicks = 0
 
     this.clickDiv.addEventListener('click', this.takeClick.bind(this), false)

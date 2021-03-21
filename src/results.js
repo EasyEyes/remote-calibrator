@@ -4,10 +4,17 @@
  *
  */
 const data = {
-  screenSize: undefined,
-  screenPPI: undefined,
-  viewingDistance: undefined,
-  gazePosition: undefined,
+  screen: {
+    width: undefined,
+    height: undefined,
+    diagonal: undefined,
+    size: undefined, // Same as diagonal
+    ppi: undefined,
+    rppi: undefined, // Corrected PPI of retina displays
+    // & timestamp
+  },
+  viewingDistance: undefined, // d, timestamp
+  gazePosition: undefined, // x, y, timestamp
 }
 
 export default data

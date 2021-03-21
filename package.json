@@ -33,6 +33,7 @@
     "lint-staged": "^10.5.4",
     "prettier": "^2.2.1",
     "style-loader": "^2.0.0",
+    "svg-inline-loader": "^0.8.2",
     "terser-webpack-plugin": "^5.1.1",
     "webpack": "^5.25.1",
     "webpack-cli": "^4.5.0"
