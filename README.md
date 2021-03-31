@@ -1,6 +1,8 @@
-# RemoteCalibrator
+# RemoteCalibrator [ 🐛 WIP]
 
-Welcome to RemoteCalibrator! The features/functions marked with 🚧 is still work-in-progress and not available yet.
+Welcome to RemoteCalibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g. crowd-sourced through Amazon Mechanical Turk.
+
+The features/functions marked with 🚧 is still work-in-progress and not available yet.
 
 ## Demo
 
@@ -75,13 +77,13 @@ RemoteCalibrator.init(options, initializationFinished)
 
 The `data` passed into the callback function is an [object](https://www.w3schools.com/js/js_objects.asp) with two fields: `timestamp` and `id`. The `timestamp` is an JavaScript `Date()` object with all the information from the year to the millisecond. You can find how to get these information [here](https://www.w3schools.com/jsref/jsref_obj_date.asp).
 
-### `.displaySize([callback])`
+### 🖥️ `.displaySize([callback])`
 
 Get the display width and height in pixels.
 
 Pass `{ width, height, timestamp, id }` to callback.
 
-### `.screenSize([options, [callback]])`
+### 🖥️ `.screenSize([options, [callback]])`
 
 Get the screen width and height in centimeters. Like many other calibration functions, this function will pop an overlay interface for participants to use. The callback function will be called after the calibration process (the participant presses SPACE in this case).
 
@@ -106,7 +108,7 @@ Pass `{ width, height, timestamp, id }` to callback.
 }
 ```
 
-### `.staticDistance([options, [callback]])`
+### 📏 `.staticDistance([options, [callback]])`
 
 Not recommended. Pop an interface for participate to calibrate the viewing distance at the moment.
 
@@ -119,7 +121,7 @@ Not recommended. Pop an interface for participate to calibrate the viewing dista
   repeatTesting: 2,
   headline: '📏 Viewing Distance Calibration',
   description: "We'll measure your viewing distance. To do this, we'll perform a <em>blind spot test</em>. \nCover or close one of your eyes and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer or farther from the screen.",
-},
+}
 ```
 
 ### Getters
