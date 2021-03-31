@@ -128,7 +128,7 @@ Getters will get `null` if no data can be found, i.e. the corresponding function
 
 - `.id` The id of the subject.
 - `.displayWidth` `.displayHeight` The display width and height in pixels.
-- `.screenWidth` `.screenHeight` `.screenDiagonal` `.screenPPI` `.screenPhysicalPPI` The screen size of the screen in centimeters.
+- `.screenWidth` `.screenHeight` `.screenDiagonal` `.screenPPI` `.screenPhysicalPPI` The screen size in centimeters.
 - `.viewingDistance` Get the latest viewing distance.
 
 ## Development
@@ -155,14 +155,6 @@ This command will give you a quick and continuous build of the package output in
 npm run dev
 ```
 
-### Build
-
-This command will give you a minimized build of the package output into both of the `example/lib` and `lib` folders. You may use the file for production purposes.
-
-```
-npm run build
-```
-
 ### Example
 
 ```
@@ -170,6 +162,14 @@ node server.js
 ```
 
 Then you may access the example at `localhost:8000`.
+
+### Build
+
+This command will give you a minimized build of the package output into both of the `example/lib` and `lib` folders. You may use the file for production purposes.
+
+```
+npm run build
+```
 
 ## References
 
