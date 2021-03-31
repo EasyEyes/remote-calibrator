@@ -45,5 +45,8 @@
   },
   "lint-staged": {
     "*.{js,css,md,html,json}": "prettier --write"
+  },
+  "dependencies": {
+    "uuid": "^8.3.2"
   }
 }

@@ -5,6 +5,17 @@ const experimentElement = document.getElementById('experiment')
 
 /**
  *
+ *
+ *
+ */
+function init() {
+  RemoteCalibrator.init({}, data => {
+    printMessage(`RemoteCalibrator initialized. Subject id is ${data.id}.`)
+  })
+}
+
+/**
+ *
  * Help format the data message.
  *
  */

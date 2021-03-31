@@ -1,3 +1,4 @@
+import { init } from './core'
 import { screenSize } from './screenSize'
 import { staticDistance } from './distance'
 import { trackDistance } from './distanceLive'
@@ -10,6 +11,7 @@ import './css/distance.css'
 import './css/gazeTracking.css'
 
 export {
+  init,
   screenSize,
   staticDistance,
   trackDistance,

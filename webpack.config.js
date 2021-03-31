@@ -25,7 +25,7 @@ const config = {
 }
 
 const output = {
-  filename: 'main.js',
+  filename: 'RemoteCalibrator.js',
   // filename: '[name].bundle.js',
   library: 'RemoteCalibrator',
   libraryTarget: 'umd',
