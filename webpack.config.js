@@ -2,7 +2,6 @@ const TerserPlugin = require('terser-webpack-plugin')
 const ESLintPlugin = require('eslint-webpack-plugin')
 
 const config = {
-  // entry: { index: './src/index.js', liveDistance: './src/distanceLive.js' },
   entry: './src',
   module: {
     rules: [
@@ -28,7 +27,7 @@ const config = {
 const output = {
   filename: 'main.js',
   // filename: '[name].bundle.js',
-  library: 'calibration',
+  library: 'RemoteCalibrator',
   libraryTarget: 'umd',
 }
 

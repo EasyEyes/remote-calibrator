@@ -1,6 +1,6 @@
 import { screenSize } from './screenSize'
 import { staticDistance } from './distance'
-import { liveDistance } from './distanceLive'
+import { trackDistance } from './distanceLive'
 import { gazeTracker, gazeTracking } from './gazeTracking'
 import data from './results'
 
@@ -12,7 +12,7 @@ import './css/gazeTracking.css'
 export {
   screenSize,
   staticDistance,
-  liveDistance,
+  trackDistance,
   gazeTracker,
   gazeTracking,
   data,

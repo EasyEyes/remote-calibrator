@@ -1,6 +1,6 @@
-# remote-calibration-toolbox
+# RemoteCalibrator
 
-Welcome to Remote Calibration Toolbox _(Tentative name)_!
+Welcome to RemoteCalibrator!
 
 ## Development
 
@@ -9,7 +9,7 @@ For building the library locally or development, please follow the steps below.
 ### Setup
 
 ```
-git clone --recurse-submodules https://github.com/peilingjiang/remote-calibration-toolbox.git
+git clone --recurse-submodules https://github.com/peilingjiang/RemoteCalibrator.git
 ```
 
 ### Install

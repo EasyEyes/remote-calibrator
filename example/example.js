@@ -39,7 +39,7 @@ function printMessage(message) {
  *
  */
 function calibrateScreenSize() {
-  calibration.screenSize(data => {
+  RemoteCalibrator.screenSize(data => {
     printMessage(
       `Screen size is ${data.diagonal}in [Width: ${data.width}in, Height: ${
         data.height
@@ -57,8 +57,7 @@ function calibrateScreenSize() {
  *
  */
 function calibrateViewingDistance() {
-  // calibration.staticDistance(getAndDisplayStaticDist)
-  calibration.staticDistance(data => {
+  RemoteCalibrator.staticDistance(data => {
     printMessage(
       `The viewing distance is ${data.d}cm, measured at ${parseTimestamp(
         data.timestamp
@@ -72,8 +71,8 @@ function calibrateViewingDistance() {
  * Calibrate and start predicting the viewing distance of the subject.
  *
  */
-function calibrateLiveViewingDistance() {
-  calibration.liveDistance(data => {})
+function trackViewingDistance() {
+  RemoteCalibrator.trackDistance(data => {})
 }
 
 /**
@@ -81,9 +80,9 @@ function calibrateLiveViewingDistance() {
  * Calibrate and start predicting the gaze position of the subject.
  *
  */
-function calibrateGazeTracking() {
+function startGazeTracking() {
   const gazeP = printMessage(`The gaze position is [ px, px] at .`)
-  calibration.gazeTracking(data => {
+  RemoteCalibrator.gazeTracking(data => {
     gazeP.innerHTML = gotData(
       `The gaze position is [${data.x}px, ${data.y}px] at ${parseTimestamp(
         data.timestamp

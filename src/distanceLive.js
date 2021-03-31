@@ -2,7 +2,7 @@ import { blindSpotTest } from './distance'
 import { addBackground, constructInstructions, getFullscreen } from './helpers'
 import { debug } from './constants'
 
-export function liveDistance(callback, options) {
+export function trackDistance(callback, options) {
   /**
    * options -
    *

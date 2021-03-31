@@ -1,5 +1,5 @@
 {
-  "name": "remote-calibration-toolbox",
+  "name": "RemoteCalibrator",
   "version": "0.1.0",
   "description": "A toolbox for remote testing calibration.",
   "main": "lib/main.js",
@@ -15,14 +15,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/peilingjiang/remote-calibration-toolbox.git"
+    "url": "git+https://github.com/peilingjiang/RemoteCalibrator.git"
   },
   "author": "Peiling Jiang",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/peilingjiang/remote-calibration-toolbox/issues"
+    "url": "https://github.com/peilingjiang/RemoteCalibrator/issues"
   },
-  "homepage": "https://github.com/peilingjiang/remote-calibration-toolbox#readme",
+  "homepage": "https://github.com/peilingjiang/RemoteCalibrator#readme",
   "devDependencies": {
     "babel-loader": "^8.2.2",
     "css-loader": "^5.1.2",
