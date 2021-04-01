@@ -1,21 +1,23 @@
 import webgazer from './WebGazer/dist/webgazer.commonjs2.min'
 
+import RemoteCalibrator from './core'
+
 import {
   addBackground,
   constructInstructions,
   getFullscreen,
   removeBackground,
   shuffle,
+  toFixedNumber,
 } from './helpers'
 import { gazeCalibrationDotDefault, debug } from './constants'
 import { checkWebgazerReady } from './video'
-import data from './results'
 
 // [Wait!], etc.
 const instPOutsideWarning =
   'Make sure your face is always at the center of the screen.'
 
-export function gazeTracking(callback, options) {
+RemoteCalibrator.prototype.gazeTracking = function (options = {}, callback) {
   /**
    * options -
    *
@@ -33,6 +35,8 @@ export function gazeTracking(callback, options) {
    * description: [String]
    *
    */
+
+  const that = this
 
   options = Object.assign(
     {
@@ -91,13 +95,14 @@ export function gazeTracking(callback, options) {
     .setGazeListener(d => {
       // ! Put data into data and callback function
       if (d) {
-        callback(
-          (data.gazePosition = {
-            x: d.x.toFixed(toFixedN),
-            y: d.y.toFixed(toFixedN),
-            timestamp: new Date(),
-          })
-        )
+        if (callback)
+          callback(
+            (that.gazePositionData = {
+              x: toFixedNumber(d.x, toFixedN),
+              y: toFixedNumber(d.y, toFixedN),
+              timestamp: new Date(),
+            })
+          )
       }
     })
     .begin()
@@ -228,6 +233,6 @@ class GazeTracker {
 }
 
 // Export for interacting with WebGazer outside
-export const gazeTracker = new GazeTracker(webgazer)
+RemoteCalibrator.gazeTracker = new GazeTracker(webgazer) // TODO
 
 /* -------------------------------------------------------------------------- */

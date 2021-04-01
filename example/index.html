@@ -22,17 +22,27 @@
     <div id="toolbox">
       <h1 id="toolbox-headline">RemoteCalibrator</h1>
       <!-- Init -->
-      <button onclick="init()">Initialization</button>
+      <button id="init-button" onclick="init()">Initialization</button>
+      <!-- displaySize -->
+      <button class="disabled" onclick="getDisplaySize()">
+        Get display size
+      </button>
       <!-- screenSize -->
-      <button onclick="calibrateScreenSize()">Calibrate screen size</button>
-      <!-- staticDistance -->
-      <button onclick="calibrateViewingDistance()">
-        Calibrate viewing distance
+      <button class="disabled" onclick="calibrateScreenSize()">
+        Calibrate screen size
+      </button>
+      <!-- measureDistance -->
+      <button class="disabled" onclick="measureViewingDistance()">
+        Measure viewing distance
       </button>
       <!-- trackDistance -->
-      <button onclick="trackViewingDistance()">Track viewing distance</button>
+      <button class="disabled" onclick="trackViewingDistance()">
+        Track viewing distance
+      </button>
       <!-- gazeTracking -->
-      <button onclick="startGazeTracking()">Gaze tracking</button>
+      <button class="disabled" onclick="startGazeTracking()">
+        Gaze tracking
+      </button>
     </div>
 
     <div id="experiment">

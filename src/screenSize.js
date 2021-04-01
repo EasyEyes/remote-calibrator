@@ -1,16 +1,17 @@
+import RemoteCalibrator from './core'
 import {
   getFullscreen,
   removeBackground,
   addBackground,
   constructInstructions,
+  toFixedNumber,
 } from './helpers'
-import data from './results'
 import { debug } from './constants'
 
 import Card from './media/card.svg'
 import Arrow from './media/arrow.svg'
 
-export function screenSize(callback, options = {}) {
+RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
   /**
    *
    * options -
@@ -23,6 +24,8 @@ export function screenSize(callback, options = {}) {
    * description: [String]
    *
    */
+  if (!this.checkInitialized()) return
+
   options = Object.assign(
     {
       fullscreen: true,
@@ -41,11 +44,11 @@ export function screenSize(callback, options = {}) {
     constructInstructions(options.headline, options.description)
   )
 
-  getSize(sizeDiv, options, callback)
+  getSize(this, sizeDiv, options, callback)
   return
 }
 
-function getSize(parent, options, callback) {
+function getSize(RC, parent, options, callback) {
   // Slider
   const sliderElement = document.createElement('input')
   sliderElement.id = 'size-slider'
@@ -121,18 +124,11 @@ function getSize(parent, options, callback) {
       let ppi = cardWidth / 3.375 // (in) === 85.6mm
       const toFixedN = options.decimalPlace
 
-      const screenData = {
-        width: (window.screen.width / ppi).toFixed(toFixedN),
-        height: (window.screen.height / ppi).toFixed(toFixedN),
-        rppi: (ppi * window.devicePixelRatio).toFixed(toFixedN),
-        ppi: ppi.toFixed(toFixedN),
-        timestamp: new Date(),
-      }
-      screenData.diagonal = screenData.size = Math.hypot(
-        screenData.width,
-        screenData.height
-      ).toFixed(toFixedN)
-      data.screen = screenData
+      // ! Get screen data
+      const screenData = _getScreenData(ppi, toFixedN)
+      // screenData.id = RC.id.value
+      // ! Record data
+      RC.screenData = screenData
 
       // Remove listeners
       document.removeEventListener('mousedown', onMouseDown, false)
@@ -143,7 +139,8 @@ function getSize(parent, options, callback) {
       // Remove DOM
       removeBackground()
 
-      callback(screenData)
+      // ! Call the callback function
+      if (callback) callback(screenData)
       return
     }
   }
@@ -160,4 +157,32 @@ const setSizes = (slider, card, arrow, aS) => {
   let cardSizes = card.getBoundingClientRect()
   arrow.style.left = cardSizes.left + cardSizes.width + 'px'
   arrow.style.top = cardSizes.top + (cardSizes.height - aS.height) / 2 + 'px'
+}
+
+/**
+ *
+ * Get all screen data from known ppi
+ *
+ */
+const _getScreenData = (ppi, toFixedN) => {
+  const screenData = {
+    screenWidthCM: toFixedNumber((2.54 * window.screen.width) / ppi, toFixedN),
+    screenHeightCM: toFixedNumber(
+      (2.54 * window.screen.height) / ppi,
+      toFixedN
+    ),
+    screenPhysicalPPI: toFixedNumber(ppi * window.devicePixelRatio, toFixedN),
+    screenPPI: toFixedNumber(ppi, toFixedN),
+    timestamp: new Date(),
+  }
+  screenData.screenDiagonalCM = toFixedNumber(
+    Math.hypot(screenData.screenWidthCM, screenData.screenHeightCM),
+    toFixedN
+  )
+  screenData.screenDiagonalIN = toFixedNumber(
+    screenData.screenDiagonalCM / 2.54,
+    toFixedN
+  )
+
+  return screenData
 }

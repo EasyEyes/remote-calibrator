@@ -1,21 +1,16 @@
-import { init } from './core'
-import { screenSize } from './screenSize'
-import { staticDistance } from './distance'
-import { trackDistance } from './distanceLive'
-import { gazeTracker, gazeTracking } from './gazeTracking'
-import data from './results'
+import RemoteCalibrator from './core'
+
+import './screenSize'
+import './displaySize'
+import './distance'
+import './distanceLive'
+import './gazeTracking'
 
 import './css/main.css'
 import './css/screenSize.css'
 import './css/distance.css'
 import './css/gazeTracking.css'
 
-export {
-  init,
-  screenSize,
-  staticDistance,
-  trackDistance,
-  gazeTracker,
-  gazeTracking,
-  data,
-}
+const r = new RemoteCalibrator()
+
+export default r

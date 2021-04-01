@@ -1,11 +1,12 @@
+import RemoteCalibrator from './core'
 import {
   getFullscreen,
   constrain,
   removeBackground,
   addBackground,
   constructInstructions,
+  toFixedNumber,
 } from './helpers'
-import data from './results'
 import { debug } from './constants'
 
 const blindSpotHTML = `
@@ -43,8 +44,13 @@ function _circle(ctx, x, y) {
   ctx.fill()
 }
 
-export function blindSpotTest(parent, options, callback) {
-  const ppi = data.screen.ppi || 108
+export function blindSpotTest(RC, parent, options, callback) {
+  let ppi = 108 // Dangerous! Arbitrary value
+  if (RC.screenPPI) ppi = RC.screenPPI.value
+  else
+    console.error(
+      'Screen size calibration is required to get accurate viewing distance measurement.'
+    )
   // The dist to
   let inTest = true // Used to break animation
   let dist = 0
@@ -90,15 +96,19 @@ export function blindSpotTest(parent, options, callback) {
 
       tested += 1
       // Average
-      dist = (
+      dist = toFixedNumber(
         (dist * (tested - 1)) / tested +
-        _getDist(circleX, window.innerWidth, ppi, 3) / tested
-      ).toFixed(3)
+          _getDist(circleX, window.innerWidth, ppi) / tested,
+        options.decimalPlace
+      )
 
       // Enough tests?
       if (tested % options.repeatTesting === 0) {
         // ! Put dist into data and callback function
-        callback((data.viewingDistance = { d: dist, timestamp: new Date() }))
+        if (callback)
+          callback(
+            (RC.viewingDistanceData = { value: dist, timestamp: new Date() })
+          )
         // ! BREAK
         inTest = false
 
@@ -142,7 +152,7 @@ export function blindSpotTest(parent, options, callback) {
   requestAnimationFrame(runTest)
 }
 
-export function staticDistance(callback, options = {}) {
+RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   /**
    * options -
    *
@@ -150,6 +160,7 @@ export function staticDistance(callback, options = {}) {
    * quitFullscreenOnFinished: [Boolean] // TODO
    * testingEyes: ['both', 'left', 'right'] // TODO
    * repeatTesting: 2
+   * decimalPlace: 3
    * headline: [String]
    * description: [String]
    *
@@ -159,6 +170,7 @@ export function staticDistance(callback, options = {}) {
       fullscreen: true,
       quitFullscreenOnFinished: false,
       repeatTesting: 2,
+      decimalPlace: 3,
       headline: '📏 Viewing Distance Calibration',
       description:
         "We'll measure your viewing distance. To do this, we'll perform a <em>blind spot test</em>. \nCover or close one of your eyes and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer or farther from the screen.",
@@ -172,7 +184,7 @@ export function staticDistance(callback, options = {}) {
     constructInstructions(options.headline, options.description)
   )
 
-  blindSpotTest(staticDiv, options, callback)
+  blindSpotTest(this, staticDiv, options, callback)
 }
 
 /* -------------------------------- GET DIST -------------------------------- */

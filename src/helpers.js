@@ -141,3 +141,8 @@ export function shuffle(array) {
   }
   return array
 }
+
+export function toFixedNumber(n, digits) {
+  let pow = Math.pow(10, digits)
+  return Math.round(n * pow) / pow
+}

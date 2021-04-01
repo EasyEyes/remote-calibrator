@@ -1,8 +1,10 @@
+import RemoteCalibrator from './core'
+
 import { blindSpotTest } from './distance'
 import { addBackground, constructInstructions, getFullscreen } from './helpers'
 import { debug } from './constants'
 
-export function trackDistance(callback, options) {
+RemoteCalibrator.prototype.trackDistance = function (options = {}, callback) {
   /**
    * options -
    *
@@ -39,7 +41,7 @@ export function trackDistance(callback, options) {
   // STEP 2 - Live estimate
   const getStdDist = dist => {
     // After getting the standard distance
-    callback(dist)
+    if (callback) callback(dist)
   }
 
   // STEP 1 - Calibrate for live estimate
@@ -47,5 +49,5 @@ export function trackDistance(callback, options) {
     constructInstructions(options.headline, options.description)
   )
 
-  blindSpotTest(trainingDiv, options, getStdDist)
+  blindSpotTest(this, trainingDiv, options, getStdDist)
 }

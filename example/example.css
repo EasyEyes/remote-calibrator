@@ -54,6 +54,11 @@ button {
   border-radius: 7px;
 }
 
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 button:hover {
   background: #f9f9f9;
 }
