@@ -132,8 +132,6 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
 
 ### 📏 `.trackDistance([options, [callback]])`
 
-🚧
-
 ### 👀 `gazeTracking([options, [callback]])`
 
 Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface for participants to calibrate their gaze position on the screen, then run in the background and continuously predict the current gaze position. Require access to the camera of the participant's computer.
