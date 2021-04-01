@@ -148,8 +148,8 @@ Pass `{ x, y, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to 
   greedyLearner: true, 🚧
   // Show the video of the participant at the left bottom corner
   showVideo: true,
-  // Picture in picture video width
-  pipWidth: 208,
+  // Picture in picture video width in pixels
+  pipWidthPX: 208,
   // Show the face mesh
   showFaceOverlay: false,
   // How many times participant needs to click on each of the calibration dot

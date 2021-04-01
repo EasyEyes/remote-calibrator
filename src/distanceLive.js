@@ -12,7 +12,7 @@ RemoteCalibrator.prototype.trackDistance = function (options = {}, callback) {
    * testingEyes: ['both', 'left', 'right'] // TODO
    * repeatTesting: 2
    * ? pip: [Boolean] (Display a small picture at corner or not)
-   * pipWidth: [208]
+   * pipWidthPX: [208]
    * landmarkRate: [15] (How many times (each second) to get landmarks of the face, and adjust est distance!)
    *
    * (Interface)
@@ -25,7 +25,7 @@ RemoteCalibrator.prototype.trackDistance = function (options = {}, callback) {
       fullscreen: true,
       repeatTesting: 2,
       // pip: true,
-      pipWidth: 208,
+      pipWidthPX: 208,
       landmarkRate: 15,
       headline: `📏 Live Viewing Distance Calibration`,
       description:

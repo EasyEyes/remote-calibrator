@@ -23,9 +23,9 @@ RemoteCalibrator.prototype.gazeTracking = function (options = {}, callback) {
    *
    * fullscreen: [Boolean]
    * showGazer: [Boolean]
-   * pipWidth: [208]
    * greedyLearner: [Boolean] If false, stop learning after calibration process // TODO
    * showVideo: [Boolean]
+   * pipWidthPX: [208]
    * showFaceOverlay: [Boolean]
    * calibrationCount: [Number] Default 5
    * decimalPlace: [Number] Default 2
@@ -42,7 +42,7 @@ RemoteCalibrator.prototype.gazeTracking = function (options = {}, callback) {
     {
       fullscreen: true,
       showGazer: true,
-      pipWidth: 208,
+      pipWidthPX: 208,
       greedyLearner: true,
       showVideo: true,
       showFaceOverlay: false,
@@ -70,7 +70,7 @@ RemoteCalibrator.prototype.gazeTracking = function (options = {}, callback) {
   //   requestAnimationFrame(projectVideoToCanvas)
   // }
   // startVideo(video, (stream) => {
-  //   formatVideoCanvas(vC, stream, options.pipWidth)
+  //   formatVideoCanvas(vC, stream, options.pipWidthPX)
   //   requestAnimationFrame(projectVideoToCanvas)
   // })
 

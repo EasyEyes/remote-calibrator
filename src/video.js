@@ -59,13 +59,13 @@ export function checkWebgazerReady(options, WG, callback) {
     let v = document.getElementById('webgazerVideoContainer')
     if (v) {
       v.style.height =
-        (options.pipWidth / parseInt(v.style.width)) *
+        (options.pipWidthPX / parseInt(v.style.width)) *
           parseInt(v.style.height) +
         'px'
-      v.style.width = options.pipWidth + 'px'
+      v.style.width = options.pipWidthPX + 'px'
       WG.setVideoViewerSize(parseInt(v.style.width), parseInt(v.style.height))
       // v.parentElement.style.transform = `scale(${
-      //   options.pipWidth / parseInt(v.style.width)
+      //   options.pipWidthPX / parseInt(v.style.width)
       // })`
       v.style.left = '10px'
       v.style.bottom = '10px'
