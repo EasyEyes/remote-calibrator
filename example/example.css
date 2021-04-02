@@ -29,7 +29,7 @@ body {
   width: 90%;
   min-width: 288px; /* 320 * .9 */
   max-width: 640px;
-  margin: 3rem auto;
+  margin: 2.5rem auto;
   padding: 1.5rem;
 }
 
@@ -110,6 +110,8 @@ button:active {
 
 #experiment h1 {
   margin: 0 auto 2rem;
+  white-space: pre-wrap;
+  white-space: break-spaces;
 }
 
 #experiment p {
