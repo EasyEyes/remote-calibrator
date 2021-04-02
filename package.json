@@ -48,6 +48,7 @@
     "*.{js,css,md,html,json}": "prettier --write"
   },
   "dependencies": {
+    "@babel/core": "^7.13.14",
     "platform": "^1.3.6",
     "webpack-modules": "^1.0.0"
   }
