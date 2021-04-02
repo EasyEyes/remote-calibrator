@@ -158,7 +158,7 @@ Pass `{ x, y, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to 
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
   headline: '👀 Live Gaze Tracking',
   description:
-    "We'll keep track of your gaze position. First, we need to calibrate for the system. \nPlease enable camera access and move your body to the center so that the square becomes green. \nPlease then follow the instructions below to finish the calibration.",
+    'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed. \nFollow the instructions below.',
 }
 ```
 

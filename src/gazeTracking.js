@@ -1,4 +1,3 @@
-// import webgazer from './WebGazer/dist/webgazer.commonjs2.min'
 import webgazer from './WebGazer/src/index.mjs'
 
 import RemoteCalibrator from './core'
@@ -15,8 +14,7 @@ import { gazeCalibrationDotDefault, debug } from './constants'
 import { checkWebgazerReady } from './video'
 
 // [Wait!], etc.
-const instPOutsideWarning =
-  'Make sure your face is always at the center of the screen.'
+const instPOutsideWarning = 'Keep your face centered in the video feed.'
 
 RemoteCalibrator.prototype.gazeTracking = function (options = {}, callback) {
   /**
@@ -51,7 +49,7 @@ RemoteCalibrator.prototype.gazeTracking = function (options = {}, callback) {
       decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
       headline: '👀 Live Gaze Tracking',
       description:
-        'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed below. \nFollow the instructions below.',
+        'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed. \nFollow the instructions below.',
     },
     options
   )
@@ -122,7 +120,7 @@ RemoteCalibrator.prototype.gazeTracking = function (options = {}, callback) {
 }
 
 const startCalibration = (bg, p, options, onCalibrationEnded) => {
-  p.innerHTML += `\nPlease click on the <b style="color: #ff005c">Pink</b> dots on the center and edges of the window until it disappears.`
+  p.innerHTML += `\nTo calibrate the system for your eyes, please click on the <b style="color: #ff005c">Pink</b> dot at each location that it visits until the dot disappears.`
   new GazeCalibrationDot(document.body, options, onCalibrationEnded)
 }
 
