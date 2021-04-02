@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
+
 * {
   outline: none;
   vertical-align: baseline;
@@ -21,13 +23,12 @@ body {
 
 #toolbox {
   background: #eee;
-  display: flex;
-  flex-wrap: wrap;
   justify-content: center;
   border: 1px solid #aaa;
   border-radius: 7px;
-  width: 50%;
-  min-width: 480px;
+  width: 90%;
+  min-width: 288px; /* 320 * .9 */
+  max-width: 640px;
   margin: 3rem auto;
   padding: 1.5rem;
 }
@@ -39,19 +40,50 @@ body {
   user-select: none;
 }
 
+h1 {
+  font-size: 1.75rem;
+}
+
 #toolbox h1 {
   margin: 0 0 1.5rem;
   width: 100%;
 }
 
-button {
+#toolbox h2 {
+  font-size: 1.25rem;
+  color: #666;
+}
+
+.flex-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.flex-wrapper button {
+  flex: 0 1 45%;
   cursor: pointer;
   user-select: none;
   margin: 3px;
-  padding: 10px 17px;
+  padding: 10px 15px;
   background: #fff;
   border: 1px solid #aaa;
   border-radius: 7px;
+}
+
+.flex-wrapper button code,
+#experiment code {
+  color: #111d5ecc;
+  font-size: 0.75rem;
+  font-family: 'Roboto Mono', 'Courier New', Courier, monospace !important;
+}
+
+.flex-wrapper button code {
+  display: block;
+}
+
+.getters button {
+  flex: 0 1 auto;
 }
 
 .disabled {
@@ -69,18 +101,18 @@ button:active {
 
 #experiment {
   width: 70%;
-  min-width: 480px;
+  min-width: 320px;
+  max-width: 1440px;
   margin: 0 auto 2rem;
   font-family: 'Times New Roman', Times, serif;
   color: #555;
 }
 
 #experiment h1 {
-  margin: 0 0 2rem;
+  margin: 0 auto 2rem;
 }
 
 #experiment p {
-  width: 100%;
   text-align: left;
   margin: 10px;
   padding: 0;
@@ -93,4 +125,10 @@ button:active {
   padding: 5px 7px;
   font-size: 0.75rem;
   border-radius: 3px;
+}
+
+@media (max-width: 480px) {
+  .flex-wrapper button {
+    flex: 100% !important;
+  }
 }

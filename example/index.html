@@ -21,28 +21,15 @@
   <body>
     <div id="toolbox">
       <h1 id="toolbox-headline">RemoteCalibrator</h1>
-      <!-- Init -->
-      <button id="init-button" onclick="init()">Initialization</button>
-      <!-- displaySize -->
-      <button class="disabled" onclick="measureDisplaySize()">
-        Measure display size
-      </button>
-      <!-- screenSize -->
-      <button class="disabled" onclick="measureScreenSize()">
-        Measure screen size
-      </button>
-      <!-- measureDistance -->
-      <button class="disabled" onclick="measureViewingDistance()">
-        Measure viewing distance
-      </button>
-      <!-- trackDistance -->
-      <button class="disabled" onclick="trackViewingDistance()">
-        Track viewing distance
-      </button>
-      <!-- gazeTracking -->
-      <button class="disabled" onclick="startGazeTracking()">
-        Gaze tracking
-      </button>
+
+      <h2>Functions</h2>
+
+      <div id="functions" class="flex-wrapper"></div>
+
+      <h2>Getters</h2>
+
+      <div id="getters-exp" class="getters flex-wrapper"></div>
+      <div id="getters-env" class="getters flex-wrapper"></div>
     </div>
 
     <div id="experiment">
@@ -50,5 +37,81 @@
     </div>
 
     <script src="example.js"></script>
+    <script>
+      /**
+       * Programmatically add buttons for functions, getters, etc.
+       */
+      const functions = [
+        // [name, actual function name, function name used in this demo]
+        ['Initialization', 'init', 'initialization'],
+        ['Measure display size', 'displaySize', 'measureDisplaySize'],
+        ['Measure screen size', 'screenSize', 'measureScreenSize'],
+        [
+          'Measure viewing distance',
+          'measureDistance',
+          'measureViewingDistance',
+        ],
+        ['Track viewing distance', 'trackDistance', 'trackViewingDistance'],
+        ['Gaze tracking', 'gazeTracking', 'startGazeTracking'],
+        // Environment
+        ['Environment', 'environment', 'getEnvironment'],
+      ]
+      const functionsElement = document.getElementById('functions')
+      functions.forEach(f => {
+        let b = document.createElement('button')
+
+        if (f[1] === 'init') b.id = 'init-button'
+        else b.className = 'disabled'
+
+        b.onclick = () => eval(f[2] + '()')
+        b.innerHTML = `${f[0]}<code>.${f[1]}()</code>`
+        functionsElement.appendChild(b)
+      })
+      const gettersExp = [
+        'browser',
+        'displayWidthPX',
+        'displayHeightPX',
+        'windowWidthPX',
+        'windowHeightPX',
+        'screenWidthCM',
+        'screenHeightCM',
+        'screenDiagonalCM',
+        'screenDiagonalIN',
+        'screenPPI',
+        'screenPhysicalPPI',
+        'viewingDistanceCM',
+        'gazePositionPX',
+      ]
+
+      const gettersEnv = [
+        'browser',
+        'browserVersion',
+        'model',
+        'manufacturer',
+        'engine',
+        'system',
+        'systemFamily',
+        'description',
+        'fullDescription',
+      ]
+
+      function setGetters(gE, gS) {
+        gS.forEach(getter => {
+          let b = document.createElement('button')
+          b.className = 'disabled'
+          b.onclick = () =>
+            printMessage(
+              RemoteCalibrator[getter]
+                ? `<code>${JSON.stringify(RemoteCalibrator[getter])}</code>`
+                : 'nodata'
+            )
+          b.innerHTML = `<code>.${getter}</code>`
+          gE.appendChild(b)
+        })
+      }
+
+      setGetters(document.getElementById('getters-exp'), gettersExp)
+      setGetters(document.getElementById('getters-env'), gettersEnv)
+    </script>
   </body>
 </html>

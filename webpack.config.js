@@ -1,6 +1,8 @@
+const webpack = require('webpack')
 const TerserPlugin = require('terser-webpack-plugin')
 const ESLintPlugin = require('eslint-webpack-plugin')
 const WebpackModules = require('webpack-modules')
+const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 
 const config = {
   entry: './src',
@@ -28,7 +30,12 @@ const config = {
       },
     ],
   },
-  plugins: [new WebpackModules(), new ESLintPlugin()],
+  plugins: [
+    new WebpackModules(),
+    new ESLintPlugin(),
+    new webpack.ProgressPlugin(),
+    new CleanWebpackPlugin(),
+  ],
   devtool: 'source-map',
 }
 
@@ -61,6 +68,11 @@ module.exports = env => {
   if (env.development) {
     // Export example only and not minimize
     exampleConfig.watch = true
+    exampleConfig.plugins.push(
+      new webpack.EnvironmentPlugin({
+        DEBUG: true,
+      })
+    )
     return exampleConfig
   } else if (env.production) {
     // Export both and minimize both
@@ -72,6 +84,11 @@ module.exports = env => {
         }),
       ],
     }
+    exampleConfig.plugins.push(
+      new webpack.EnvironmentPlugin({
+        DEBUG: false,
+      })
+    )
     exampleConfig.mode = 'production'
     return [exampleConfig, libConfig]
   }

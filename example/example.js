@@ -30,7 +30,9 @@ function parseTimestamp(timestamp) {
  */
 function printMessage(message) {
   const p = document.createElement('p')
-  p.innerHTML = gotData(message)
+  if (message === 'nodata')
+    p.innerHTML = 'No data can be found. Need measurement or calibration first.'
+  else p.innerHTML = gotData(message)
   experimentElement.appendChild(p)
   return p
 }
@@ -42,7 +44,7 @@ function printMessage(message) {
  * Init RemoteCalibrator
  *
  */
-function init() {
+function initialization() {
   RemoteCalibrator.init({}, id => {
     printMessage(
       `RemoteCalibrator initialized at ${parseTimestamp(
@@ -125,9 +127,22 @@ function startGazeTracking() {
   const gazeP = printMessage(`The gaze position is [ px, px] at .`)
   RemoteCalibrator.gazeTracking({}, data => {
     gazeP.innerHTML = gotData(
-      `The gaze position is [${data.x}px, ${data.y}px] at ${parseTimestamp(
-        data.timestamp
-      )}.`
+      `The gaze position is [${data.value.x}px, ${
+        data.value.y
+      }px] at ${parseTimestamp(data.timestamp)}.`
     )
+  })
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ *
+ * Get environment info
+ *
+ */
+function getEnvironment() {
+  RemoteCalibrator.environment(data => {
+    printMessage('Environment: ' + data.value.description + '.')
   })
 }

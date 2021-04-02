@@ -126,7 +126,6 @@ function getSize(RC, parent, options, callback) {
 
       // ! Get screen data
       const screenData = _getScreenData(ppi, toFixedN)
-      // screenData.id = RC.id.value
       // ! Record data
       RC.screenData = screenData
 
@@ -166,21 +165,26 @@ const setSizes = (slider, card, arrow, aS) => {
  */
 const _getScreenData = (ppi, toFixedN) => {
   const screenData = {
-    screenWidthCM: toFixedNumber((2.54 * window.screen.width) / ppi, toFixedN),
-    screenHeightCM: toFixedNumber(
-      (2.54 * window.screen.height) / ppi,
-      toFixedN
-    ),
-    screenPhysicalPPI: toFixedNumber(ppi * window.devicePixelRatio, toFixedN),
-    screenPPI: toFixedNumber(ppi, toFixedN),
+    value: {
+      screenWidthCM: toFixedNumber(
+        (2.54 * window.screen.width) / ppi,
+        toFixedN
+      ),
+      screenHeightCM: toFixedNumber(
+        (2.54 * window.screen.height) / ppi,
+        toFixedN
+      ),
+      screenPhysicalPPI: toFixedNumber(ppi * window.devicePixelRatio, toFixedN),
+      screenPPI: toFixedNumber(ppi, toFixedN),
+    },
     timestamp: new Date(),
   }
-  screenData.screenDiagonalCM = toFixedNumber(
-    Math.hypot(screenData.screenWidthCM, screenData.screenHeightCM),
+  screenData.value.screenDiagonalCM = toFixedNumber(
+    Math.hypot(screenData.value.screenWidthCM, screenData.value.screenHeightCM),
     toFixedN
   )
-  screenData.screenDiagonalIN = toFixedNumber(
-    screenData.screenDiagonalCM / 2.54,
+  screenData.value.screenDiagonalIN = toFixedNumber(
+    screenData.value.screenDiagonalCM / 2.54,
     toFixedN
   )
 

@@ -97,8 +97,10 @@ RemoteCalibrator.prototype.gazeTracking = function (options = {}, callback) {
         if (callback)
           callback(
             (that.gazePositionData = {
-              x: toFixedNumber(d.x, toFixedN),
-              y: toFixedNumber(d.y, toFixedN),
+              value: {
+                x: toFixedNumber(d.x, toFixedN),
+                y: toFixedNumber(d.y, toFixedN),
+              },
               timestamp: new Date(),
             })
           )

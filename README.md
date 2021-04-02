@@ -122,7 +122,7 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
 {
   fullscreen: true,
   quitFullscreenOnFinished: false, 🚧
-  // How many times each of the eye will be tested
+  // How many times each of the eye will be used to test
   // By default, right eye 3 times, then left eye 3 times
   repeatTesting: 3,
   decimalPlace: 2,
@@ -137,7 +137,7 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
 
 Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface for participants to calibrate their gaze position on the screen, then run in the background and continuously predict the current gaze position. Require access to the camera of the participant's computer.
 
-Pass `{ x, y, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback.
+Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback. `value` is an object of `{ x, y }` positions.
 
 ```js
 // [options] Default value
@@ -166,11 +166,27 @@ Pass `{ x, y, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to 
 
 Getters will get `null` if no data can be found, i.e. the corresponding function is never called. The values returned **by the getter** will be wrapped in an object with its corresponding timestamp. Thus, to get the value, add `.value`, e.g. `RemoteCalibrator.viewingDistanceCM.value` (and use `RemoteCalibrator.viewingDistanceCM.timestamp` to get the corresponding timestamp).
 
-- `.id` The id of the subject.
+#### Experiment
+
+- `.id` The id of the subject. The associated timestamp is the one created at initiation, i.e. when `init()` is called.
 - `.displayWidthPX` `.displayHeightPX` `.windowWidthPX` `.windowHeightPX` The display (and window) width and height in pixels.
 - `.screenWidthCM` `.screenHeightCM` `.screenDiagonalCM` `.screenDiagonalIN` `.screenPPI` `.screenPhysicalPPI` The physical screen size in centimeters.
-- `.viewingDistanceCM` Get the latest viewing distance.
-- `.gazePositionPX` Get the latest gaze position on the screen. You can access the value directly by `.x` and `.y`.
+- `.viewingDistanceCM` The last measured viewing distance.
+- `.gazePositionPX` The last measured gaze position on the screen.
+
+#### Environment
+
+The associated timestamp of the following items is the one created at initiation, i.e. when `init()` is called.
+
+- `.browser` The browser type, e.g. `Safari`, `Chrome`.
+- `.browserVersion` The browser version.
+- `.model` The model type of the device, e.g. `iPad`.
+- `.manufacturer` The device manufacturer.
+- `.engine` The browser engine, e.g. `Webkit`.
+- `.system` The device operating system, e.g. `OS X 11.2.1 64-bit`.
+- `.systemFamily` The family name of the device OS, e.g. `OS X`.
+- `.description` A tidy description of the current environment, e.g. `Chrome 89.0.4389.90 on OS X 11.2.1 64-bit`.
+- `.fullDescription` The full description of the current environment.
 
 ### Others
 

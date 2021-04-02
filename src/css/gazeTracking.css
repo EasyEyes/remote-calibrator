@@ -5,7 +5,7 @@
 
 .gaze-calibration-dot {
   background: #ff005c80;
-  position: absolute;
+  position: fixed !important;
   display: block;
   cursor: initial;
   z-index: 9998;

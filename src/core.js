@@ -4,6 +4,8 @@
  *
  */
 
+import platform from 'platform'
+
 import randomPhrases from './components/randomPhrases'
 import { debug } from './constants'
 import { getFullscreen } from './helpers'
@@ -13,6 +15,9 @@ class RemoteCalibrator {
     this._initialized = false
 
     this._id = null
+
+    this._environmentData = []
+
     this._displayData = []
     this._screenData = []
     this._viewingDistanceData = []
@@ -32,25 +37,76 @@ class RemoteCalibrator {
     if (!cat.length) return null
     let thisData = cat[cat.length - 1]
     return name
-      ? { value: thisData[name], timestamp: thisData.timestamp }
+      ? { value: thisData.value[name], timestamp: thisData.timestamp }
       : thisData
+  }
+
+  // Environment
+
+  get browser() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'browser')
+  }
+
+  get browserVersion() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'browserVersion')
+  }
+
+  get model() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'model')
+  }
+
+  get manufacturer() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'manufacturer')
+  }
+
+  get engine() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'engine')
+  }
+
+  get system() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'system')
+  }
+
+  get systemFamily() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'systemFamily')
+  }
+
+  get description() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'description')
+  }
+
+  get fullDescription() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'fullDescription')
   }
 
   // Screen
 
   get displayWidthPX() {
+    if (!this._displayData.length) this.displaySize()
     return this._helper_get(this._displayData, 'displayWidthPX')
   }
 
   get displayHeightPX() {
+    if (!this._displayData.length) this.displaySize()
     return this._helper_get(this._displayData, 'displayHeightPX')
   }
 
   get windowWidthPX() {
+    if (!this._displayData.length) this.displaySize()
     return this._helper_get(this._displayData, 'windowWidthPX')
   }
 
   get windowHeightPX() {
+    if (!this._displayData.length) this.displaySize()
     return this._helper_get(this._displayData, 'windowHeightPX')
   }
 
@@ -93,14 +149,14 @@ class RemoteCalibrator {
   /* --------------------------------- SETTERS -------------------------------- */
 
   /**
-   * @param {{ displayWidthPX: number; displayHeightPX: number; windowWidthPX: number; windowHeightPX: number; timestamp: Date; }} data
+   * @param {{ value: { displayWidthPX: number; displayHeightPX: number; windowWidthPX: number; windowHeightPX: number; }; timestamp: Date; }} data
    */
   set displayData(data) {
     this._displayData.push(data)
   }
 
   /**
-   * @param {{ screenWidthCM: number; screenHeightCM: number; screenDiagonalCM: number; screenDiagonalIN: number; screenPPI: number; screenPhysicalPPI: number; timestamp: Date; }} data
+   * @param {{ value: { screenWidthCM: number; screenHeightCM: number; screenDiagonalCM: number; screenDiagonalIN: number; screenPPI: number; screenPhysicalPPI: number; }; timestamp: Date; }} data
    */
   set screenData(data) {
     this._screenData.push(data)
@@ -114,10 +170,17 @@ class RemoteCalibrator {
   }
 
   /**
-   * @param {{ x: number; y: number; timestamp: Date; }} data
+   * @param {{ value: { x: number; y: number; }; timestamp: Date; }} data
    */
   set gazePositionData(data) {
     this._gazePositionData.push(data)
+  }
+
+  /**
+   * @param {{ value: { browser: string; browserVersion: string; model: string; manufacturer: string; engine: string; system: string; systemFamily: string; description: string; fullDescription: string; }; timestamp: Date; }} data
+   */
+  set environmentData(data) {
+    this._environmentData.push(data)
   }
 }
 
@@ -145,6 +208,34 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
     }
 
     if (callback) callback(this._id)
+  }
+}
+
+/**
+ *
+ * Get the environment data, e.g. browser type
+ *
+ */
+RemoteCalibrator.prototype.environment = function (callback) {
+  if (this.checkInitialized()) {
+    const data = {
+      value: {
+        browser: platform.name,
+        browserVersion: platform.version,
+        model: platform.product,
+        manufacturer: platform.manufacturer,
+        engine: platform.layout,
+        system: platform.os.toString(),
+        systemFamily: platform.os.family,
+        description: platform.description,
+        fullDescription: platform.ua,
+      },
+      timestamp: this.id.timestamp,
+    }
+
+    this.environmentData = data
+
+    if (callback) callback(data)
   }
 }
 
