@@ -225,10 +225,10 @@ This command will give you a quick and continuous build of the package output in
 ### Example
 
 ```
-node server.js
+npm run serve
 ```
 
-Then you may access the example at `localhost:8000`.
+This will start a local server hosting the example page. You may then access the example at `localhost:8000`.
 
 ### Build
 

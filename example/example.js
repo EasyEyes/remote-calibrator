@@ -67,8 +67,8 @@ function initialization() {
 function measureDisplaySize() {
   RemoteCalibrator.displaySize(displayData => {
     printMessage(
-      `Display size is ${displayData.displayWidthPX}px in width and ${
-        displayData.displayHeightPX
+      `Display size is ${displayData.value.displayWidthPX}px in width and ${
+        displayData.value.displayHeightPX
       }px in height, measured at ${parseTimestamp(displayData.timestamp)}.`
     )
   })
@@ -82,12 +82,12 @@ function measureDisplaySize() {
 function measureScreenSize() {
   RemoteCalibrator.screenSize({}, screenData => {
     printMessage(
-      `Screen size is ${screenData.screenDiagonalIN}in [Width: ${
-        screenData.screenWidthCM
-      }cm, Height: ${screenData.screenHeightCM}cm, PPI: ${
-        screenData.screenPPI
+      `Screen size is ${screenData.value.screenDiagonalIN}in [Width: ${
+        screenData.value.screenWidthCM
+      }cm, Height: ${screenData.value.screenHeightCM}cm, PPI: ${
+        screenData.value.screenPPI
       }, PPI (Physical): ${
-        screenData.screenPhysicalPPI
+        screenData.value.screenPhysicalPPI
       }], measured at ${parseTimestamp(screenData.timestamp)}.`
     )
   })
