@@ -33,11 +33,11 @@ Then, you will be able to use functions listed below under `RemoteCalibrator`. F
 ```js
 RemoteCalibrator.init({ id: 'subj_022' })
 RemoteCalibrator.measureDistance({}, data => {
-  console.log(`The viewing distance is ${data.}cm.`)
+  console.log(`The viewing distance is ${data.value}cm.`)
 })
 ```
 
-You may now dive into the documentation of the functions. Arguments in square brackets are optional, e.g. `.init([options, [callback]])` means both `options` configuration and the `callback` function are optional, while you have to put a `options` if you want to call the callback function. The default values of `options` are listed in each section with explanation.
+You may now dive into the documentation of the functions. Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, while you have to put a `options` if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
 ## Functions
 
@@ -84,13 +84,13 @@ The `data` passed into the callback function is an [object](https://www.w3school
 
 Get the display width and height in pixels. This is just a wrapper of vanilla JavaScript's `window.innerWidth`, `window.screenWidth`, etc.
 
-Pass `{ displayWidthPX, displayHeightPX, windowWidthPX, windowHeightPX, timestamp }` to callback.
+Pass `{ value: { displayWidthPX, displayHeightPX, windowWidthPX, windowHeightPX }, timestamp }` to callback.
 
 ### 🖥️ `.screenSize([options, [callback]])`
 
 Get the screen width and height in centimeters. Like many other calibration functions, this function will pop an overlay interface for participants to use. The callback function will be called after the calibration process (the participant presses SPACE in this case).
 
-Pass `{ screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonalIN, screenPPI, screenPhysicalPPI, timestamp }` to callback. `screenPPI` relates to the pixel data used in JavaScript, and `screenPhysicalPPI` is the [actual PPI](https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio) of some Retina displays.
+Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonalIN, screenPPI, screenPhysicalPPI }, timestamp }` to callback. `screenPPI` relates to the pixel data used in JavaScript, and `screenPhysicalPPI` is the [actual PPI](https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio) of some Retina displays.
 
 ```js
 // [options] Default value
@@ -137,7 +137,7 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
 
 Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface for participants to calibrate their gaze position on the screen, then run in the background and continuously predict the current gaze position. Require access to the camera of the participant's computer.
 
-Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback. `value` is an object of `{ x, y }` positions.
+Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback.
 
 ```js
 // [options] Default value
@@ -162,6 +162,12 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to
 }
 ```
 
+### 💻 `environment([callback])`
+
+Get the setup information of the experiment, including browser type, device model, operating system family and version, etc. This function does not create its own timestamp, but use the one associated with `id`, i.e. the one created when `init()` is called.
+
+Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, systemFamily, description, fullDescription }, timestamp }` to callback.
+
 ### Getters
 
 Getters will get `null` if no data can be found, i.e. the corresponding function is never called. The values returned **by the getter** will be wrapped in an object with its corresponding timestamp. Thus, to get the value, add `.value`, e.g. `RemoteCalibrator.viewingDistanceCM.value` (and use `RemoteCalibrator.viewingDistanceCM.timestamp` to get the corresponding timestamp).
@@ -170,7 +176,7 @@ Getters will get `null` if no data can be found, i.e. the corresponding function
 
 - `.id` The id of the subject. The associated timestamp is the one created at initiation, i.e. when `init()` is called.
 - `.displayWidthPX` `.displayHeightPX` `.windowWidthPX` `.windowHeightPX` The display (and window) width and height in pixels.
-- `.screenWidthCM` `.screenHeightCM` `.screenDiagonalCM` `.screenDiagonalIN` `.screenPPI` `.screenPhysicalPPI` The physical screen size in centimeters.
+- `.screenWidthCM` `.screenHeightCM` `.screenDiagonalCM` `.screenDiagonalIN` `.screenPPI` `.screenPhysicalPPI` The physical screen size and monitor PPI in centimeters.
 - `.viewingDistanceCM` The last measured viewing distance.
 - `.gazePositionPX` The last measured gaze position on the screen.
 
