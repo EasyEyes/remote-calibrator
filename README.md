@@ -133,7 +133,7 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
 
 ### 📏 `.trackDistance([options, [callback]])`
 
-### 👀 `gazeTracking([options, [callback]])`
+### 👀 `.gazeTracking([options, [callback]])`
 
 Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface for participants to calibrate their gaze position on the screen, then run in the background and continuously predict the current gaze position. Require access to the camera of the participant's computer.
 
@@ -162,7 +162,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 }
 ```
 
-### 💻 `environment([callback])`
+### 💻 `.environment([callback])`
 
 Get the setup information of the experiment, including browser type, device model, operating system family and version, etc. This function does not create its own timestamp, but use the one associated with `id`, i.e. the one created when `init()` is called.
 
