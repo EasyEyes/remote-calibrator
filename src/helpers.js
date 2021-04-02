@@ -146,3 +146,10 @@ export function toFixedNumber(n, digits) {
   let pow = Math.pow(10, digits)
   return Math.round(n * pow) / pow
 }
+
+// https://github.com/30-seconds/30-seconds-of-code/blob/master/snippets/median.md
+export const median = arr => {
+  const mid = Math.floor(arr.length / 2),
+    num = [...arr].sort((a, b) => a - b)
+  return arr.length % 2 !== 0 ? num[mid] : (num[mid - 1] + num[mid]) / 2
+}

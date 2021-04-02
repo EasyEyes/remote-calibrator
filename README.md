@@ -100,7 +100,7 @@ Pass `{ screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonalIN, scree
   fullscreen: true,
   // Automatically quit fullscreen when calibration finished
   quitFullscreenOnFinished: false, 🚧
-  // How many times you want the participant to calibrate
+  // How many times the participant needs to calibrate
   repeatTesting: 1,
   // The length  decimal place of the returned value
   decimalPlace: 1,
@@ -122,11 +122,12 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
 {
   fullscreen: true,
   quitFullscreenOnFinished: false, 🚧
-  // The test uses eyes in turns, so by default each eye will be tested for once
-  repeatTesting: 2,
-  decimalPlace: 3,
+  // How many times each of the eye will be tested
+  // By default, right eye 3 times, then left eye 3 times
+  repeatTesting: 3,
+  decimalPlace: 2,
   headline: '📏 Viewing Distance Calibration',
-  description: "We'll measure your viewing distance. To do this, we'll perform a <em>blind spot test</em>. \nCover or close one of your eyes and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer or farther from the screen.",
+  description: "We'll measure your viewing distance. To do this, we'll perform a blind spot test. \nCover or close your left eye and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer to the screen.",
 }
 ```
 

@@ -6,11 +6,12 @@ import {
   addBackground,
   constructInstructions,
   toFixedNumber,
+  median,
 } from './helpers'
 import { debug } from './constants'
 
 const blindSpotHTML = `
-<p id="blind-spot-instruction" class="float-instruction">Now, please close your <span id="eye-side"></span> eye.</p>
+<p id="blind-spot-instruction" class="float-instruction">Please keep your <span id="eye-side"></span> eye closed, and hit SPACE when the dot disappears.</p>
 <canvas id="blind-spot-canvas"></canvas>`
 
 /* -------------------------------------------------------------------------- */
@@ -49,11 +50,11 @@ export function blindSpotTest(RC, parent, options, callback) {
   if (RC.screenPPI) ppi = RC.screenPPI.value
   else
     console.error(
-      'Screen size calibration is required to get accurate viewing distance measurement.'
+      'Screen size measurement is required to get accurate viewing distance measurement.'
     )
-  // The dist to
+
   let inTest = true // Used to break animation
-  let dist = 0
+  let dist = [] // Take the MEDIAN after all tests finished
   let tested = 0 // options.repeatedTesting times
 
   // Add HTML
@@ -96,18 +97,22 @@ export function blindSpotTest(RC, parent, options, callback) {
 
       tested += 1
       // Average
-      dist = toFixedNumber(
-        (dist * (tested - 1)) / tested +
-          _getDist(circleX, window.innerWidth, ppi) / tested,
-        options.decimalPlace
+      dist.push(
+        toFixedNumber(
+          _getDist(circleX, window.innerWidth, ppi),
+          options.decimalPlace
+        )
       )
 
       // Enough tests?
-      if (tested % options.repeatTesting === 0) {
+      if (Math.floor(tested / options.repeatTesting) === 2) {
         // ! Put dist into data and callback function
         if (callback)
           callback(
-            (RC.viewingDistanceData = { value: dist, timestamp: new Date() })
+            (RC.viewingDistanceData = {
+              value: toFixedNumber(median(dist), options.decimalPlace),
+              timestamp: new Date(),
+            })
           )
         // ! BREAK
         inTest = false
@@ -118,14 +123,14 @@ export function blindSpotTest(RC, parent, options, callback) {
 
         removeBackground()
         return
+      } else if (tested % options.repeatTesting === 0) {
+        // Switch eye side
+        if (eyeSide === 'left') eyeSide = eyeSideEle.innerText = 'right'
+        else eyeSide = eyeSideEle.innerText = 'left'
+        circleBounds = _getCircleBounds(eyeSide, c.width)
+        circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
+        v = eyeSide === 'left' ? 1 : -1
       }
-
-      // Switch eye side
-      if (eyeSide === 'left') eyeSide = eyeSideEle.innerText = 'right'
-      else eyeSide = eyeSideEle.innerText = 'left'
-      circleBounds = _getCircleBounds(eyeSide, c.width)
-      circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
-      v = eyeSide === 'left' ? 1 : -1
     }
   })
 
@@ -158,8 +163,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
    *
    * fullscreen: [Boolean]
    * quitFullscreenOnFinished: [Boolean] // TODO
-   * testingEyes: ['both', 'left', 'right'] // TODO
-   * repeatTesting: 2
+   * repeatTesting: 3
    * decimalPlace: 3
    * headline: [String]
    * description: [String]
@@ -169,11 +173,11 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
     {
       fullscreen: true,
       quitFullscreenOnFinished: false,
-      repeatTesting: 2,
-      decimalPlace: 3,
+      repeatTesting: 3,
+      decimalPlace: 2,
       headline: '📏 Viewing Distance Calibration',
       description:
-        "We'll measure your viewing distance. To do this, we'll perform a <em>blind spot test</em>. \nCover or close one of your eyes and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer or farther from the screen.",
+        "We'll measure your viewing distance. To do this, we'll perform a blind spot test. \nCover or close one of your eyes and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer or farther from the screen.",
     },
     options
   )

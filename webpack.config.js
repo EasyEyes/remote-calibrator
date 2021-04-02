@@ -1,5 +1,6 @@
 const TerserPlugin = require('terser-webpack-plugin')
 const ESLintPlugin = require('eslint-webpack-plugin')
+const WebpackModules = require('webpack-modules')
 
 const config = {
   entry: './src',
@@ -9,7 +10,13 @@ const config = {
         test: /\.js/,
         use: 'babel-loader',
         include: __dirname + 'src/*',
-        // exclude: __dirname + 'src/webgazer',
+        exclude: /node_modules/,
+      },
+      {
+        test: /\.mjs/,
+        type: 'javascript/auto',
+        use: 'babel-loader',
+        exclude: /node_modules/,
       },
       {
         test: /\.css$/i,
@@ -21,7 +28,8 @@ const config = {
       },
     ],
   },
-  plugins: [new ESLintPlugin()],
+  plugins: [new WebpackModules(), new ESLintPlugin()],
+  devtool: 'source-map',
 }
 
 const output = {
@@ -29,6 +37,7 @@ const output = {
   library: 'RemoteCalibrator',
   libraryTarget: 'umd',
   libraryExport: 'default',
+  sourceMapFilename: 'RemoteCalibrator.js.map',
 }
 
 const exampleConfig = Object.assign({}, config, {

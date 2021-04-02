@@ -59,10 +59,10 @@ function init() {
 
 /**
  *
- * Get the display size
+ * Measure the display size
  *
  */
-function getDisplaySize() {
+function measureDisplaySize() {
   RemoteCalibrator.displaySize(displayData => {
     printMessage(
       `Display size is ${displayData.displayWidthPX}px in width and ${
@@ -74,10 +74,10 @@ function getDisplaySize() {
 
 /**
  *
- * Calibrate the screen size
+ * Measure the screen size
  *
  */
-function calibrateScreenSize() {
+function measureScreenSize() {
   RemoteCalibrator.screenSize({}, screenData => {
     printMessage(
       `Screen size is ${screenData.screenDiagonalIN}in [Width: ${
@@ -93,7 +93,7 @@ function calibrateScreenSize() {
 
 /**
  *
- * Calibrate the viewing distance of the subject
+ * Measure the viewing distance of the subject
  * ! You should always calibrate the screen size first
  *
  */
