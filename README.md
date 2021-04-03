@@ -238,11 +238,11 @@ This will start a local server hosting the example page. You may then access the
 
 ### Build
 
-This command will give you a minimized build of the package output into both of the `example/lib` and `lib` folders. You may use the file for production purposes.
-
 ```
 npm run build
 ```
+
+This command will give you a minimized build of the package output into both of the `example/lib` and `lib` folders. You may use the file for production purposes.
 
 ## References
 
