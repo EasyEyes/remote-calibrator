@@ -16,7 +16,7 @@ import { checkWebgazerReady } from './video'
 // [Wait!], etc.
 const instPOutsideWarning = 'Keep your face centered in the video feed.'
 
-RemoteCalibrator.prototype.gazeTracking = function (options = {}, callback) {
+RemoteCalibrator.prototype.trackGaze = function (options = {}, callback) {
   /**
    * options -
    *

@@ -4,12 +4,12 @@ import './screenSize'
 import './displaySize'
 import './distance'
 import './distanceLive'
-import './gazeTracking'
+import './gaze'
 
 import './css/main.css'
 import './css/screenSize.css'
 import './css/distance.css'
-import './css/gazeTracking.css'
+import './css/gaze.css'
 
 const r = new RemoteCalibrator()
 

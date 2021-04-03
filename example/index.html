@@ -20,7 +20,9 @@
   </head>
   <body>
     <div id="toolbox">
-      <h1 id="toolbox-headline">RemoteCalibrator</h1>
+      <h1 id="toolbox-headline">
+        RemoteCalibrator <em style="font-weight: 300">Demo</em>
+      </h1>
 
       <h2>Functions</h2>
 
@@ -32,9 +34,7 @@
       <div id="getters-env" class="getters flex-wrapper"></div>
     </div>
 
-    <div id="experiment">
-      <h1>🔬 Doing some experiment here.</h1>
-    </div>
+    <div id="experiment"></div>
 
     <script src="example.js"></script>
     <script>
@@ -43,18 +43,18 @@
        */
       const functions = [
         // [name, actual function name, function name used in this demo]
-        ['Initialization', 'init', 'initialization'],
-        ['Measure display size', 'displaySize', 'measureDisplaySize'],
-        ['Measure screen size', 'screenSize', 'measureScreenSize'],
+        ['Initialize', 'init', 'initialize'],
+        ['Measure display size PX', 'displaySize', 'measureDisplaySize'],
+        ['Measure screen size CM', 'screenSize', 'measureScreenSize'],
         [
           'Measure viewing distance',
           'measureDistance',
           'measureViewingDistance',
         ],
         ['Track viewing distance', 'trackDistance', 'trackViewingDistance'],
-        ['Gaze tracking', 'gazeTracking', 'startGazeTracking'],
+        ['Track Gaze', 'trackGaze', 'trackGaze'],
         // Environment
-        ['Environment', 'environment', 'getEnvironment'],
+        ['Get Environment', 'environment', 'getEnvironment'],
       ]
       const functionsElement = document.getElementById('functions')
       functions.forEach(f => {

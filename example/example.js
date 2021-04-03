@@ -44,7 +44,7 @@ function printMessage(message) {
  * Init RemoteCalibrator
  *
  */
-function initialization() {
+function initialize() {
   RemoteCalibrator.init({}, id => {
     printMessage(
       `RemoteCalibrator initialized at ${parseTimestamp(
@@ -123,9 +123,9 @@ function trackViewingDistance() {
  * Calibrate and start predicting the gaze position of the subject
  *
  */
-function startGazeTracking() {
+function trackGaze() {
   const gazeP = printMessage(`The gaze position is [ px, px] at .`)
-  RemoteCalibrator.gazeTracking({}, data => {
+  RemoteCalibrator.trackGaze({}, data => {
     gazeP.innerHTML = gotData(
       `The gaze position is [${data.value.x}px, ${
         data.value.y
