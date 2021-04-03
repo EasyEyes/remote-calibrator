@@ -63,7 +63,7 @@ const exampleConfig = Object.assign({}, config, {
 const libConfig = Object.assign({}, config, {
   mode: 'production',
   output: Object.assign({}, output, {
-    path: [__dirname + '/lib', __dirname + '/example/lib'],
+    path: __dirname + '/lib',
   }),
   optimization: {
     minimize: true,
@@ -92,6 +92,10 @@ module.exports = env => {
       new webpack.BannerPlugin(`${packageJSON.name} - ${packageJSON.version}`)
     )
 
-    return libConfig
+    const libConfigExample = Object.assign({}, libConfig, {
+      output: exampleConfig.output,
+    })
+
+    return [libConfig, libConfigExample]
   }
 }
