@@ -3,7 +3,7 @@ import RemoteCalibrator from './core'
 import './screenSize'
 import './displaySize'
 import './distance'
-import './distanceLive'
+import './distanceTrack'
 import './gaze'
 
 import './css/main.css'

@@ -12,6 +12,8 @@
  * Available under MIT license
  */
 
+/*! remote-calibrator - 0.0.1 */
+
 /**
     * @license
     * Copyright 2020 Google LLC. All Rights Reserved.

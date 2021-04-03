@@ -1,4 +1,5 @@
 import RemoteCalibrator from './core'
+import { blurAll } from './helpers'
 
 /**
  *
@@ -6,7 +7,10 @@ import RemoteCalibrator from './core'
  *
  */
 RemoteCalibrator.prototype.displaySize = function (callback) {
+  ////
   if (!this.checkInitialized()) return
+  blurAll()
+  ////
 
   const thisData = {
     value: {

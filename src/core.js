@@ -8,7 +8,7 @@ import platform from 'platform'
 
 import randomPhrases from './components/randomPhrases'
 import { debug } from './constants'
-import { getFullscreen } from './helpers'
+import { getFullscreen, blurAll } from './helpers'
 
 class RemoteCalibrator {
   constructor() {
@@ -27,7 +27,10 @@ class RemoteCalibrator {
   /* --------------------------------- GETTERS -------------------------------- */
 
   get id() {
-    return this._id
+    return {
+      value: this._id.value,
+      timestamp: this._id.timestamp,
+    }
   }
 
   /**
@@ -39,6 +42,11 @@ class RemoteCalibrator {
     return name
       ? { value: thisData.value[name], timestamp: thisData.timestamp }
       : thisData
+  }
+
+  get version() {
+    // eslint-disable-next-line no-undef
+    return process.env.VERSION
   }
 
   // Environment
@@ -218,6 +226,7 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
  */
 RemoteCalibrator.prototype.environment = function (callback) {
   if (this.checkInitialized()) {
+    blurAll()
     const data = {
       value: {
         browser: platform.name,

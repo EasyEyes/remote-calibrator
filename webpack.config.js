@@ -1,8 +1,10 @@
 const webpack = require('webpack')
-const TerserPlugin = require('terser-webpack-plugin')
+
 const ESLintPlugin = require('eslint-webpack-plugin')
 const WebpackModules = require('webpack-modules')
 const { CleanWebpackPlugin } = require('clean-webpack-plugin')
+
+const packageJSON = require('./package.json')
 
 const config = {
   entry: './src',
@@ -55,41 +57,41 @@ const exampleConfig = Object.assign({}, config, {
   optimization: {
     minimize: false,
   },
+  watch: true,
 })
 
 const libConfig = Object.assign({}, config, {
   mode: 'production',
   output: Object.assign({}, output, {
-    path: __dirname + '/lib',
+    path: [__dirname + '/lib', __dirname + '/example/lib'],
   }),
+  optimization: {
+    minimize: true,
+  },
 })
 
 module.exports = env => {
   if (env.development) {
-    // Export example only and not minimize
-    exampleConfig.watch = true
     exampleConfig.plugins.push(
       new webpack.EnvironmentPlugin({
+        VERSION: packageJSON.version,
         DEBUG: true,
-      })
+      }),
+      new webpack.BannerPlugin(
+        `${packageJSON.name} - ${packageJSON.version} - DEV`
+      )
     )
+
     return exampleConfig
   } else if (env.production) {
-    // Export both and minimize both
-    exampleConfig.optimization = {
-      minimize: true,
-      minimizer: [
-        new TerserPlugin({
-          extractComments: false,
-        }),
-      ],
-    }
-    exampleConfig.plugins.push(
+    libConfig.plugins.push(
       new webpack.EnvironmentPlugin({
+        VERSION: packageJSON.version,
         DEBUG: false,
-      })
+      }),
+      new webpack.BannerPlugin(`${packageJSON.name} - ${packageJSON.version}`)
     )
-    exampleConfig.mode = 'production'
-    return [exampleConfig, libConfig]
+
+    return libConfig
   }
 }

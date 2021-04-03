@@ -95,7 +95,7 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
 ```js
 // [options] Default value
 {
-  // Automatically enter fullscreen when start calibration
+  // Automatically enter fullscreen when starting calibration
   // Will be ignored if already in fullscreen mode
   fullscreen: true,
   // Automatically quit fullscreen when calibration finished
@@ -156,7 +156,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
-  headline: '👀 Live Gaze Tracking',
+  headline: '👀 Track Gaze',
   description:
     'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed. \nFollow the instructions below.',
 }
@@ -194,11 +194,17 @@ The associated timestamp of the following items is the one created at initiation
 - `.description` A tidy description of the current environment, e.g. `Chrome 89.0.4389.90 on OS X 11.2.1 64-bit`.
 - `.fullDescription` The full description of the current environment.
 
+#### Others
+
+- `.version` The RemoteCalibrator version.
+
 ### Others
 
 - `.checkInitialized()` Check if the model is initialized. Return a boolean.
 
 ## Development
+
+[![Netlify Status](https://api.netlify.com/api/v1/badges/d043b1d3-5e60-474a-9a34-a929fba58375/deploy-status)](https://app.netlify.com/sites/b5-editor/deploys)
 
 For building the library locally or development, please follow the steps below.
 

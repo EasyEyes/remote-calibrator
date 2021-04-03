@@ -7,6 +7,7 @@ import {
   constructInstructions,
   toFixedNumber,
   median,
+  blurAll,
 } from './helpers'
 import { debug } from './constants'
 
@@ -89,7 +90,6 @@ export function blindSpotTest(RC, parent, options, callback) {
   let v = eyeSide === 'left' ? 1 : -1
 
   // ! KEY
-  if ('activeElement' in document) document.activeElement.blur()
   document.addEventListener('keydown', function spaceListener(e) {
     if (e.key === ' ') {
       // Pressed SPACE
@@ -169,6 +169,12 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
    * description: [String]
    *
    */
+
+  ////
+  if (!this.checkInitialized()) return
+  blurAll()
+  ////
+
   options = Object.assign(
     {
       fullscreen: true,

@@ -153,3 +153,12 @@ export const median = arr => {
     num = [...arr].sort((a, b) => a - b)
   return arr.length % 2 !== 0 ? num[mid] : (num[mid - 1] + num[mid]) / 2
 }
+
+/**
+ *
+ * BLUR ALL
+ *
+ */
+export function blurAll() {
+  if ('activeElement' in document) document.activeElement.blur()
+}

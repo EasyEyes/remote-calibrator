@@ -5,6 +5,7 @@ import {
   addBackground,
   constructInstructions,
   toFixedNumber,
+  blurAll,
 } from './helpers'
 import { debug } from './constants'
 
@@ -24,7 +25,10 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
    * description: [String]
    *
    */
+  ////
   if (!this.checkInitialized()) return
+  blurAll()
+  ////
 
   options = Object.assign(
     {

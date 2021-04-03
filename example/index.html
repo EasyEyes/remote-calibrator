@@ -24,6 +24,8 @@
         RemoteCalibrator <em style="font-weight: 300">Demo</em>
       </h1>
 
+      <code id="version"></code>
+
       <h2>Functions</h2>
 
       <div id="functions" class="flex-wrapper"></div>
@@ -38,6 +40,10 @@
 
     <script src="example.js"></script>
     <script>
+      // Get version number
+      document.getElementById('version').innerHTML =
+        'v' + RemoteCalibrator.version
+
       /**
        * Programmatically add buttons for functions, getters, etc.
        */
@@ -63,7 +69,7 @@
         if (f[1] === 'init') b.id = 'init-button'
         else b.className = 'disabled'
 
-        b.onclick = () => eval(f[2] + '()')
+        b.onclick = e => eval(f[2] + '(e)')
         b.innerHTML = `${f[0]}<code>.${f[1]}()</code>`
         functionsElement.appendChild(b)
       })

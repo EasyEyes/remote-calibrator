@@ -1,7 +1,12 @@
 import RemoteCalibrator from './core'
 
 import { blindSpotTest } from './distance'
-import { addBackground, constructInstructions, getFullscreen } from './helpers'
+import {
+  addBackground,
+  constructInstructions,
+  getFullscreen,
+  blurAll,
+} from './helpers'
 import { debug } from './constants'
 
 RemoteCalibrator.prototype.trackDistance = function (options = {}, callback) {
@@ -19,6 +24,12 @@ RemoteCalibrator.prototype.trackDistance = function (options = {}, callback) {
    * description: [String]
    *
    */
+
+  ////
+  if (!this.checkInitialized()) return
+  blurAll()
+  ////
+
   options = Object.assign(
     {
       fullscreen: true,
@@ -26,7 +37,7 @@ RemoteCalibrator.prototype.trackDistance = function (options = {}, callback) {
       // pip: true,
       pipWidthPX: 208,
       landmarkRate: 15,
-      headline: `📏 Live Viewing Distance Calibration`,
+      headline: `📏 Track Viewing Distance`,
       description:
         "We'll measure your viewing distance. To do this, we'll perform a blind spot test. \nCover or close one of your eyes and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer or farther from the screen. \n<b>Please enable camera access.</b>",
     },
