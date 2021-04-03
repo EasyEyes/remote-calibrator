@@ -168,6 +168,10 @@ Get the setup information of the experiment, including browser type, device mode
 
 Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, systemFamily, description, fullDescription }, timestamp }` to callback.
 
+### Other Functions
+
+- `.checkInitialized()` Check if the model is initialized. Return a boolean.
+
 ### Getters
 
 Getters will get `null` if no data can be found, i.e. the corresponding function is never called. The values returned **by the getter** will be wrapped in an object with its corresponding timestamp. Thus, to get the value, add `.value`, e.g. `RemoteCalibrator.viewingDistanceCM.value` (and use `RemoteCalibrator.viewingDistanceCM.timestamp` to get the corresponding timestamp).
@@ -197,10 +201,6 @@ The associated timestamp of the following items is the one created at initiation
 #### Others
 
 - `.version` The RemoteCalibrator version.
-
-### Others
-
-- `.checkInitialized()` Check if the model is initialized. Return a boolean.
 
 ## Development
 
