@@ -62,6 +62,11 @@ class RemoteCalibrator {
     return this._helper_get(this._environmentData, 'browserVersion')
   }
 
+  get deviceType() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'deviceType')
+  }
+
   get model() {
     if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'model')
