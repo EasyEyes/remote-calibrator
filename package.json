@@ -48,6 +48,7 @@
     "*.{js,json,md,html,css}": "prettier --write"
   },
   "dependencies": {
+    "device-detector-js": "^2.2.8",
     "platform": "^1.3.6"
   }
 }
