@@ -12,7 +12,8 @@
     "format": "prettier --write \"**/*.{js,json,md,html,css}\"",
     "dev": "webpack --env=development",
     "build": "webpack --env=production",
-    "serve": "node server.js"
+    "serve": "node server.js",
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
@@ -32,9 +33,9 @@
     "eslint": "^7.23.0",
     "eslint-webpack-plugin": "^2.5.3",
     "express": "^4.17.1",
+    "husky": "^6.0.0",
     "lint-staged": "^10.5.4",
     "prettier": "^2.2.1",
-    "simple-git-hooks": "^2.3.1",
     "style-loader": "^2.0.0",
     "svg-inline-loader": "^0.8.2",
     "terser-webpack-plugin": "^5.1.1",
@@ -42,11 +43,9 @@
     "webpack-cli": "^4.6.0",
     "webpack-modules": "^1.0.0"
   },
-  "simple-git-hooks": {
-    "pre-commit": "npx lint-staged"
-  },
   "lint-staged": {
-    "*.{js,css,md,html,json}": "prettier --write"
+    "*.js": "eslint --cache --fix",
+    "*.{js,json,md,html,css}": "prettier --write"
   },
   "dependencies": {
     "platform": "^1.3.6"
