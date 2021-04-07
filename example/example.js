@@ -60,40 +60,24 @@ function changeClass(target, className) {
 
 /**
  *
- * Wrap the button functions
- * Change the button border to green if complete, and red if catch error
- *
- */
-const functionWrapper = (f, e) => {
-  try {
-    f()
-    changeClass(e.target, 'complete')
-  } catch (error) {
-    console.error(error)
-    changeClass(e.target, 'error')
-  }
-}
-
-/**
- *
  * Init RemoteCalibrator
  *
  */
 function initialize(e) {
-  functionWrapper(() => {
-    RemoteCalibrator.init({}, id => {
-      printMessage(
-        `RemoteCalibrator initialized at ${parseTimestamp(
-          id.timestamp
-        )}. Subject id is ${id.value}.`
-      )
-    })
+  RemoteCalibrator.init({}, id => {
+    printMessage(
+      `RemoteCalibrator initialized at ${parseTimestamp(
+        id.timestamp
+      )}. Subject id is ${id.value}.`
+    )
+
+    changeClass(e.target, 'complete')
 
     Array.from(document.getElementsByClassName('disabled')).forEach(element => {
       element.className = ''
     })
-    document.getElementById('init-button').className = 'disabled'
-  }, e)
+    document.getElementById('init-button').classList.add('disabled')
+  })
 }
 
 /**
@@ -102,15 +86,15 @@ function initialize(e) {
  *
  */
 function measureDisplaySize(e) {
-  functionWrapper(() => {
-    RemoteCalibrator.displaySize(displayData => {
-      printMessage(
-        `Display size is ${displayData.value.displayWidthPX}px in width and ${
-          displayData.value.displayHeightPX
-        }px in height, measured at ${parseTimestamp(displayData.timestamp)}.`
-      )
-    })
-  }, e)
+  RemoteCalibrator.displaySize(displayData => {
+    printMessage(
+      `Display size is ${displayData.value.displayWidthPX}px in width and ${
+        displayData.value.displayHeightPX
+      }px in height, measured at ${parseTimestamp(displayData.timestamp)}.`
+    )
+
+    changeClass(e.target, 'complete')
+  })
 }
 
 /**
@@ -119,19 +103,19 @@ function measureDisplaySize(e) {
  *
  */
 function measureScreenSize(e) {
-  functionWrapper(() => {
-    RemoteCalibrator.screenSize({}, screenData => {
-      printMessage(
-        `Screen size is ${screenData.value.screenDiagonalIN}in [Width: ${
-          screenData.value.screenWidthCM
-        }cm, Height: ${screenData.value.screenHeightCM}cm, PPI: ${
-          screenData.value.screenPPI
-        }, PPI (Physical): ${
-          screenData.value.screenPhysicalPPI
-        }], measured at ${parseTimestamp(screenData.timestamp)}.`
-      )
-    })
-  }, e)
+  RemoteCalibrator.screenSize({}, screenData => {
+    printMessage(
+      `Screen size is ${screenData.value.screenDiagonalIN}in [Width: ${
+        screenData.value.screenWidthCM
+      }cm, Height: ${screenData.value.screenHeightCM}cm, PPI: ${
+        screenData.value.screenPPI
+      }, PPI (Physical): ${
+        screenData.value.screenPhysicalPPI
+      }], measured at ${parseTimestamp(screenData.timestamp)}.`
+    )
+
+    changeClass(e.target, 'complete')
+  })
 }
 
 /**
@@ -141,15 +125,15 @@ function measureScreenSize(e) {
  *
  */
 function measureViewingDistance(e) {
-  functionWrapper(() => {
-    RemoteCalibrator.measureDistance({}, distanceData => {
-      printMessage(
-        `The viewing distance is ${
-          distanceData.value
-        }cm, measured at ${parseTimestamp(distanceData.timestamp)}.`
-      )
-    })
-  }, e)
+  RemoteCalibrator.measureDistance({}, distanceData => {
+    printMessage(
+      `The viewing distance is ${
+        distanceData.value
+      }cm, measured at ${parseTimestamp(distanceData.timestamp)}.`
+    )
+
+    changeClass(e.target, 'complete')
+  })
 }
 
 /**
@@ -158,9 +142,9 @@ function measureViewingDistance(e) {
  *
  */
 function trackViewingDistance(e) {
-  functionWrapper(() => {
-    RemoteCalibrator.trackDistance({}, data => {})
-  }, e)
+  RemoteCalibrator.trackDistance({}, data => {
+    changeClass(e.target, 'complete')
+  })
 }
 
 /**
@@ -169,16 +153,16 @@ function trackViewingDistance(e) {
  *
  */
 function trackGaze(e) {
-  functionWrapper(() => {
-    const gazeP = printMessage(`The gaze position is [ px, px] at .`)
-    RemoteCalibrator.trackGaze({}, data => {
-      gazeP.innerHTML = gotData(
-        `The gaze position is [${data.value.x}px, ${
-          data.value.y
-        }px] at ${parseTimestamp(data.timestamp)}.`
-      )
-    })
-  }, e)
+  const gazeP = printMessage(`The gaze position is [ px, px] at .`)
+  RemoteCalibrator.trackGaze({}, data => {
+    gazeP.innerHTML = gotData(
+      `The gaze position is [${data.value.x}px, ${
+        data.value.y
+      }px] at ${parseTimestamp(data.timestamp)}.`
+    )
+
+    changeClass(e.target, 'complete')
+  })
 }
 
 /* -------------------------------------------------------------------------- */
@@ -189,9 +173,9 @@ function trackGaze(e) {
  *
  */
 function getEnvironment(e) {
-  functionWrapper(() => {
-    RemoteCalibrator.environment(data => {
-      printMessage('Environment: ' + data.value.description + '.')
-    })
-  }, e)
+  RemoteCalibrator.environment(data => {
+    printMessage('Environment: ' + data.value.description + '.')
+
+    changeClass(e.target, 'complete')
+  })
 }

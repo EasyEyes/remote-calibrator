@@ -10,6 +10,7 @@ import {
   blurAll,
 } from './helpers'
 import { debug } from './constants'
+import { bindKeys, unbindKeys } from './components/keyBinder'
 
 const blindSpotHTML = `
 <p id="blind-spot-instruction" class="float-instruction">Please keep your <span id="eye-side"></span> eye closed, and hit SPACE when the dot disappears.</p>
@@ -90,48 +91,53 @@ export function blindSpotTest(RC, parent, options, callback) {
   let v = eyeSide === 'left' ? 1 : -1
 
   // ! KEY
-  document.addEventListener('keydown', function spaceListener(e) {
-    if (e.key === ' ') {
-      // Pressed SPACE
-      e.preventDefault()
+  const breakFunction = () => {
+    // ! BREAK
+    inTest = false
+    resizeObserver.unobserve(parent)
+    removeBackground()
 
-      tested += 1
-      // Average
-      dist.push(
-        toFixedNumber(
-          _getDist(circleX, window.innerWidth, ppi),
-          options.decimalPlace
-        )
+    unbindKeys(bindKeysFunction)
+  }
+
+  // SPACE
+  const finishFunction = () => {
+    tested += 1
+    // Average
+    dist.push(
+      toFixedNumber(
+        _getDist(circleX, window.innerWidth, ppi),
+        options.decimalPlace
       )
+    )
 
-      // Enough tests?
-      if (Math.floor(tested / options.repeatTesting) === 2) {
-        // ! Put dist into data and callback function
-        if (callback)
-          callback(
-            (RC.viewingDistanceData = {
-              value: toFixedNumber(median(dist), options.decimalPlace),
-              timestamp: new Date(),
-            })
-          )
-        // ! BREAK
-        inTest = false
+    // Enough tests?
+    if (Math.floor(tested / options.repeatTesting) === 2) {
+      // ! Put dist into data and callback function
+      if (callback)
+        callback(
+          (RC.viewingDistanceData = {
+            value: toFixedNumber(median(dist), options.decimalPlace),
+            timestamp: new Date(),
+          })
+        )
 
-        // Remove listeners
-        resizeObserver.unobserve(parent)
-        document.removeEventListener('keydown', spaceListener)
-
-        removeBackground()
-        return
-      } else if (tested % options.repeatTesting === 0) {
-        // Switch eye side
-        if (eyeSide === 'left') eyeSide = eyeSideEle.innerText = 'right'
-        else eyeSide = eyeSideEle.innerText = 'left'
-        circleBounds = _getCircleBounds(eyeSide, c.width)
-        circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
-        v = eyeSide === 'left' ? 1 : -1
-      }
+      // Break
+      breakFunction()
+      return
+    } else if (tested % options.repeatTesting === 0) {
+      // Switch eye side
+      if (eyeSide === 'left') eyeSide = eyeSideEle.innerText = 'right'
+      else eyeSide = eyeSideEle.innerText = 'left'
+      circleBounds = _getCircleBounds(eyeSide, c.width)
+      circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
+      v = eyeSide === 'left' ? 1 : -1
     }
+  }
+
+  const bindKeysFunction = bindKeys({
+    Escape: breakFunction,
+    ' ': finishFunction,
   })
 
   // ! ACTUAL TEST

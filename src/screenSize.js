@@ -11,6 +11,7 @@ import { debug } from './constants'
 
 import Card from './media/card.svg'
 import Arrow from './media/arrow.svg'
+import { bindKeys, unbindKeys } from './components/keyBinder'
 
 RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
   /**
@@ -117,39 +118,44 @@ function getSize(RC, parent, options, callback) {
   })
   resizeObserver.observe(parent)
 
+  // Call when ESC pressed
+  const breakFunction = () => {
+    document.removeEventListener('mousedown', onMouseDown, false)
+    document.removeEventListener('input', onSliderInput, false)
+    resizeObserver.unobserve(parent)
+    removeBackground()
+
+    // Unbind keys
+    unbindKeys(bindKeysFunction)
+  }
+
+  // Call when SPACE pressed
   // ! RETURN & BREAK
-  const onKeydown = e => {
-    if (e.key === ' ') {
-      e.preventDefault()
+  const finishFunction = () => {
+    let cardWidth =
+      cardElement.getBoundingClientRect().width ||
+      parseInt(cardElement.style.width) // Pixel
+    let ppi = cardWidth / 3.375 // (in) === 85.6mm
+    const toFixedN = options.decimalPlace
 
-      let cardWidth =
-        cardElement.getBoundingClientRect().width ||
-        parseInt(cardElement.style.width) // Pixel
-      let ppi = cardWidth / 3.375 // (in) === 85.6mm
-      const toFixedN = options.decimalPlace
+    // ! Get screen data
+    const screenData = _getScreenData(ppi, toFixedN)
+    // ! Record data
+    RC.screenData = screenData
 
-      // ! Get screen data
-      const screenData = _getScreenData(ppi, toFixedN)
-      // ! Record data
-      RC.screenData = screenData
+    // Remove listeners and DOM
+    breakFunction()
 
-      // Remove listeners
-      document.removeEventListener('mousedown', onMouseDown, false)
-      document.removeEventListener('input', onSliderInput, false)
-      document.removeEventListener('keydown', onKeydown, false)
-      resizeObserver.unobserve(parent)
-
-      // Remove DOM
-      removeBackground()
-
-      // ! Call the callback function
-      if (callback) callback(screenData)
-      return
-    }
+    // ! Call the callback function
+    if (callback) callback(screenData)
+    return
   }
 
   sliderElement.addEventListener('input', onSliderInput, false)
-  document.addEventListener('keydown', onKeydown, false)
+  const bindKeysFunction = bindKeys({
+    Escape: breakFunction,
+    ' ': finishFunction,
+  })
 }
 
 const setSizes = (slider, card, arrow, aS) => {
