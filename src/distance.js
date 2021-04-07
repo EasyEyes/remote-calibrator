@@ -136,9 +136,9 @@ export function blindSpotTest(RC, parent, options, callback) {
   }
 
   // Bind keys
-  const bindKeysFunction=bindKeys({
-    Escape:breakFunction,
-    ' ':finishFunction,
+  const bindKeysFunction = bindKeys({
+    Escape: breakFunction,
+    ' ': finishFunction,
   })
 
   // ! ACTUAL TEST
@@ -202,7 +202,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   blindSpotTest(this, staticDiv, options, callback)
 }
 
-/* -------------------------------- GET DIST -------------------------------- */
+// Helper functions
 
 function _getDist(x, w, ppi) {
   // .3937 - in to cm
