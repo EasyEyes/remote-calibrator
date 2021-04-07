@@ -8,7 +8,7 @@
     "lib": "lib"
   },
   "scripts": {
-    "setup": "npm i && cd src/WebGazer && npm i && npm run build && cd ../.. && npx simple-git-hooks",
+    "setup": "npm i && cd src/WebGazer && npm i && npm run build && cd ../..",
     "format": "prettier --write \"**/*.{js,json,md,html,css}\"",
     "dev": "webpack --env=development",
     "build": "webpack --env=production",
