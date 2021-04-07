@@ -135,7 +135,8 @@ export function blindSpotTest(RC, parent, options, callback) {
     }
   }
 
-  const bindKeysFunction = bindKeys({
+  // Bind keys
+  const bindKeysFunction=bindKeys({
     Escape: breakFunction,
     ' ': finishFunction,
   })
