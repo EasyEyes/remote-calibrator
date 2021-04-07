@@ -137,14 +137,12 @@ export function blindSpotTest(RC, parent, options, callback) {
 
   // Bind keys
   const bindKeysFunction=bindKeys({
-    Escape: breakFunction,
-    ' ': finishFunction,
+    Escape:breakFunction,
+    ' ':finishFunction,
   })
 
   // ! ACTUAL TEST
   const runTest = () => {
-    // ctx.clearRect(0, 0, c.width, c.height)
-
     ctx.fillStyle = '#ddd'
     ctx.fillRect(0, 0, c.width, c.height)
 
