@@ -160,9 +160,12 @@ function trackGaze(e) {
         data.value.y
       }px] at ${parseTimestamp(data.timestamp)}.`
     )
-
-    changeClass(e.target, 'complete')
   })
+
+  e.target.parentNode.replaceChild(
+    constructFunctionButton(['Pause Gaze', 'pauseGaze', 'pauseGaze'], false),
+    e.target
+  )
 }
 
 /* -------------------------------------------------------------------------- */

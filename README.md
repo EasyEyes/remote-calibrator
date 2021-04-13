@@ -41,7 +41,11 @@ You may now dive into the documentation of the functions. Arguments in square br
 
 ## Functions
 
-### `.init([options, [callback]])`
+### 🎬 Initialize
+
+```js
+.init([options, [callback]])
+```
 
 Initialize RemoteCalibrator. Must be called before any other functions and can only run once. Return `this`.
 
@@ -80,13 +84,23 @@ RemoteCalibrator.init(options, initializationFinished)
 
 The `data` passed into the callback function is an [object](https://www.w3schools.com/js/js_objects.asp) with two fields: `timestamp` and `id`. The `timestamp` is an JavaScript `Date()` object with all the information from the year to the millisecond. You can find how to get these information [here](https://www.w3schools.com/jsref/jsref_obj_date.asp).
 
-### 🖥️ `.displaySize([callback])`
+### 🖥️ Screen
+
+#### Measure Display Pixels
+
+```js
+.displaySize([callback])
+```
 
 Get the display width and height in pixels. This is just a wrapper of vanilla JavaScript's `window.innerWidth`, `window.screenWidth`, etc.
 
 Pass `{ value: { displayWidthPX, displayHeightPX, windowWidthPX, windowHeightPX }, timestamp }` to callback.
 
-### 🖥️ `.screenSize([options, [callback]])`
+#### Measure Screen Size
+
+```js
+.screenSize([options, [callback]])
+```
 
 Get the screen width and height in centimeters. Like many other calibration functions, this function will pop an overlay interface for participants to use. The callback function will be called after the calibration process (the participant presses SPACE in this case).
 
@@ -111,9 +125,17 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
 }
 ```
 
-### 📏 `.measureDistance([options, [callback]])`
+### 📏 Viewing Distance
 
-Not recommended. Pop an interface for participants to calibrate the viewing distance at the moment. Before measuring viewing distance, you need to calibrate the screen size first to get the accurate value.
+Before measuring or tracking viewing distance, calibration of the screen size is required to get the accurate value.
+
+#### Measure
+
+```js
+.measureDistance([options, [callback]])
+```
+
+Not recommended. Pop an interface for participants to calibrate the viewing distance at the moment using Blind Spot Test.
 
 Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`) to callback.
 
@@ -131,9 +153,21 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
 }
 ```
 
-### 📏 `.trackDistance([options, [callback]])`
+#### Track
 
-### 👀 `.trackGaze([options, [callback]])`
+```js
+.trackDistance([options, [callback]])
+```
+
+Measure the viewing distance and then predict the real-time distance based on the change of the size of [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection).
+
+### 👀 Gaze
+
+#### Start Tracking
+
+```js
+.trackGaze([options, [callback]])
+```
 
 Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface for participants to calibrate their gaze position on the screen, then run in the background and continuously predict the current gaze position. Require access to the camera of the participant's computer.
 
@@ -145,7 +179,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
   fullscreen: true,
   // Draw the current gaze position on the screen (as a dot)
   showGazer: true,
-  // Stop or not (greedy) calibrating after the calibration process
+  // Stop or not calibrating after the calibration process
   greedyLearner: true, 🚧
   // Show the video of the participant at the left bottom corner
   showVideo: true,
@@ -162,17 +196,54 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 }
 ```
 
-### 💻 `.environment([callback])`
+#### Pause Tracking
+
+```js
+.pauseGaze([callback])
+```
+
+#### End Tracking
+
+```js
+.endGaze([callback])
+```
+
+#### Calibrate
+
+```js
+.calibrateGaze([options, [callback]])
+```
+
+#### Get Accuracy
+
+```js
+.getGazeAccuracy([callback])
+```
+
+#### Others
+
+- `.gazeLearning([Boolean])`
+- `.showGazer([Boolean])`
+- `.showVideo([Boolean])`
+- `.showFaceOverlay([Boolean])`
+
+### 💻 Environment
+
+```js
+.environment([callback])
+```
 
 Get the setup information of the experiment, including browser type, device model, operating system family and version, etc. This function does not create its own timestamp, but use the one associated with `id`, i.e. the one created when `init()` is called.
 
 Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, systemFamily, description, fullDescription }, timestamp }` to callback.
 
-### Other Functions
+### 📔 Other Functions
 
 - `.checkInitialized()` Check if the model is initialized. Return a boolean.
 
-### Getters
+### 🎣 Getters
+
+Get the value directly.
 
 Getters will get `null` if no data can be found, i.e. the corresponding function is never called. The values returned **by the getter** will be wrapped in an object with its corresponding timestamp. Thus, to get the value, add `.value`, e.g. `RemoteCalibrator.viewingDistanceCM.value` (and use `RemoteCalibrator.viewingDistanceCM.timestamp` to get the corresponding timestamp).
 

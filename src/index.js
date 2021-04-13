@@ -4,7 +4,7 @@ import './screenSize'
 import './displaySize'
 import './distance'
 import './distanceTrack'
-import './gaze'
+import './gaze/gaze'
 
 import './css/main.css'
 import './css/screenSize.css'

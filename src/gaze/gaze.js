@@ -1,6 +1,6 @@
-import webgazer from './WebGazer/src/index.mjs'
+import webgazer from '../WebGazer/src/index.mjs'
 
-import RemoteCalibrator from './core'
+import RemoteCalibrator from '../core'
 
 import {
   addBackground,
@@ -10,9 +10,9 @@ import {
   shuffle,
   toFixedNumber,
   blurAll,
-} from './helpers'
-import { gazeCalibrationDotDefault, debug } from './constants'
-import { checkWebgazerReady } from './video'
+} from '../helpers'
+import { gazeCalibrationDotDefault, debug } from '../constants'
+import { checkWebgazerReady } from '../video'
 
 // [Wait!], etc.
 const instPOutsideWarning = 'Keep your face centered in the video feed.'

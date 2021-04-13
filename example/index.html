@@ -47,32 +47,39 @@
       /**
        * Programmatically add buttons for functions, getters, etc.
        */
+      const constructFunctionButton = (info, disabled) => {
+        let b = document.createElement('button')
+
+        if (info[1] === 'init') b.id = 'init-button'
+        else if (disabled) b.className = 'disabled'
+
+        b.onclick = e => eval(info[2] + '(e)')
+        b.innerHTML = `${info[0]}<code>.${info[1]}()</code>`
+
+        return b
+      }
+
       const functions = [
         // [name, actual function name, function name used in this demo]
         ['Initialize', 'init', 'initialize'],
-        ['Measure display size PX', 'displaySize', 'measureDisplaySize'],
-        ['Measure screen size CM', 'screenSize', 'measureScreenSize'],
+        ['Measure Display Pixels PX', 'displaySize', 'measureDisplaySize'],
+        ['Measure Screen Size CM', 'screenSize', 'measureScreenSize'],
         [
-          'Measure viewing distance',
+          'Measure Viewing Distance',
           'measureDistance',
           'measureViewingDistance',
         ],
-        ['Track viewing distance', 'trackDistance', 'trackViewingDistance'],
+        ['Track Viewing Distance', 'trackDistance', 'trackViewingDistance'],
         ['Track Gaze', 'trackGaze', 'trackGaze'],
         // Environment
         ['Get Environment', 'environment', 'getEnvironment'],
       ]
+
       const functionsElement = document.getElementById('functions')
       functions.forEach(f => {
-        let b = document.createElement('button')
-
-        if (f[1] === 'init') b.id = 'init-button'
-        else b.className = 'disabled'
-
-        b.onclick = e => eval(f[2] + '(e)')
-        b.innerHTML = `${f[0]}<code>.${f[1]}()</code>`
-        functionsElement.appendChild(b)
+        functionsElement.appendChild(constructFunctionButton(f, true))
       })
+
       const gettersExp = [
         'displayWidthPX',
         'displayHeightPX',
