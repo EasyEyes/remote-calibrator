@@ -54,15 +54,13 @@ export function formatVideoCanvas(vC, stream, targetWidth) {
  * Check if WebGazer video is ready. If so, set the style for it.
  *
  */
-export function checkWebgazerReady(options, WG, callback) {
+export function checkWebgazerReady(pipWidthPX, WG, callback) {
   let c = setInterval(() => {
     let v = document.getElementById('webgazerVideoContainer')
     if (v) {
       v.style.height =
-        (options.pipWidthPX / parseInt(v.style.width)) *
-          parseInt(v.style.height) +
-        'px'
-      v.style.width = options.pipWidthPX + 'px'
+        (pipWidthPX / parseInt(v.style.width)) * parseInt(v.style.height) + 'px'
+      v.style.width = pipWidthPX + 'px'
       WG.setVideoViewerSize(parseInt(v.style.width), parseInt(v.style.height))
       // v.parentElement.style.transform = `scale(${
       //   options.pipWidthPX / parseInt(v.style.width)

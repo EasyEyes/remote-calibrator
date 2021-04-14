@@ -76,10 +76,12 @@ function initializationFinished(data) {
 
 let options = { id: 'subj_022' }
 RemoteCalibrator.init(options, initializationFinished)
+```
 
-// If you do not want to change anything in default options,
-// simply use an empty object
-// RemoteCalibrator.init({}, initializationFinished);
+If you do not want to change anything in default options, simply use an empty object like this:
+
+```js
+RemoteCalibrator.init({}, initializationFinished)
 ```
 
 The `data` passed into the callback function is an [object](https://www.w3schools.com/js/js_objects.asp) with two fields: `timestamp` and `id`. The `timestamp` is an JavaScript `Date()` object with all the information from the year to the millisecond. You can find how to get these information [here](https://www.w3schools.com/jsref/jsref_obj_date.asp).
@@ -169,7 +171,9 @@ Measure the viewing distance and then predict the real-time distance based on th
 .trackGaze([options, [callback]])
 ```
 
-Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface for participants to calibrate their gaze position on the screen, then run in the background and continuously predict the current gaze position. Require access to the camera of the participant's computer.
+Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface for participants to calibrate their gaze position on the screen (only when this function is called for the first time), then run in the background and continuously predict the current gaze position. Require access to the camera of the participant's computer. The callback function will be executed repeatedly **every time** there's a new prediction.
+
+This function should only be called once, unless you want to change the callback functions for every prediction.
 
 Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback.
 
@@ -190,7 +194,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
-  headline: '👀 Track Gaze',
+  headline: '👀 Calibrate Gaze',
   description:
     'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed. \nFollow the instructions below.',
 }
@@ -199,19 +203,38 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 #### Pause Tracking
 
 ```js
-.pauseGaze([callback])
+.pauseGaze()
 ```
 
-#### End Tracking
+#### Resume Tracking
 
 ```js
-.endGaze([callback])
+.resumeGaze()
+```
+
+#### End Tracking 🚧
+
+```js
+.endGaze()
 ```
 
 #### Calibrate
 
 ```js
 .calibrateGaze([options, [callback]])
+```
+
+Pop an interface for participants to calibrate their gaze position on the screen. Participants need to click on the dots around the screen for several times each. This function is automatically called in the `.trackGaze()` function when it's called for the first time, but you can always call this function directly as needed, e.g., when the gaze accuracy is low.
+
+```js
+// [options] Default value
+{
+  // How many times participant needs to click on each of the calibration dot
+  calibrationCount: 5,
+  headline: '👀 Calibrate Gaze',
+  description:
+    'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed. \nFollow the instructions below.',
+}
 ```
 
 #### Get Accuracy

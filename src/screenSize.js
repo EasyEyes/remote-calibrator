@@ -1,13 +1,5 @@
 import RemoteCalibrator from './core'
-import {
-  getFullscreen,
-  removeBackground,
-  addBackground,
-  constructInstructions,
-  toFixedNumber,
-  blurAll,
-} from './helpers'
-import { debug } from './constants'
+import { constructInstructions, toFixedNumber, blurAll } from './helpers'
 
 import Card from './media/card.svg'
 import Arrow from './media/arrow.svg'
@@ -43,13 +35,13 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
     options
   )
 
-  if (options.fullscreen && !debug) getFullscreen()
+  this.getFullscreen(options.fullscreen)
 
-  let sizeDiv = addBackground(
+  this._addBackground(
     constructInstructions(options.headline, options.description)
   )
 
-  getSize(this, sizeDiv, options, callback)
+  getSize(this, this.background, options, callback)
   return
 }
 
@@ -123,7 +115,7 @@ function getSize(RC, parent, options, callback) {
     document.removeEventListener('mousedown', onMouseDown, false)
     document.removeEventListener('input', onSliderInput, false)
     resizeObserver.unobserve(parent)
-    removeBackground()
+    RC._removeBackground()
 
     // Unbind keys
     unbindKeys(bindKeysFunction)

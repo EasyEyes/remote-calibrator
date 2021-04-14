@@ -1,15 +1,11 @@
 import RemoteCalibrator from './core'
 import {
-  getFullscreen,
   constrain,
-  removeBackground,
-  addBackground,
   constructInstructions,
   toFixedNumber,
   median,
   blurAll,
 } from './helpers'
-import { debug } from './constants'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 
 const blindSpotHTML = `
@@ -47,7 +43,7 @@ function _circle(ctx, x, y) {
   ctx.fill()
 }
 
-export function blindSpotTest(RC, parent, options, callback) {
+export function blindSpotTest(RC, options, callback) {
   let ppi = 108 // Dangerous! Arbitrary value
   if (RC.screenPPI) ppi = RC.screenPPI.value
   else
@@ -63,7 +59,7 @@ export function blindSpotTest(RC, parent, options, callback) {
   const blindSpotDiv = document.createElement('div')
   blindSpotDiv.className = 'blind-spot-container'
   blindSpotDiv.innerHTML = blindSpotHTML
-  parent.appendChild(blindSpotDiv)
+  RC.background.appendChild(blindSpotDiv)
 
   // Get HTML elements
   const c = document.querySelector('#blind-spot-canvas')
@@ -83,7 +79,7 @@ export function blindSpotTest(RC, parent, options, callback) {
   const resizeObserver = new ResizeObserver(() => {
     _resetCanvasSize()
   })
-  resizeObserver.observe(parent)
+  resizeObserver.observe(RC.background)
   _resetCanvasSize()
 
   let circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
@@ -94,8 +90,8 @@ export function blindSpotTest(RC, parent, options, callback) {
   const breakFunction = () => {
     // ! BREAK
     inTest = false
-    resizeObserver.unobserve(parent)
-    removeBackground()
+    resizeObserver.unobserve(RC.background)
+    RC._removeBackground()
 
     unbindKeys(bindKeysFunction)
   }
@@ -193,13 +189,13 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
     options
   )
   // Fullscreen
-  if (options.fullscreen && !debug) getFullscreen()
+  this.getFullscreen(options.fullscreen)
   // Add HTML
-  let staticDiv = addBackground(
+  this._addBackground(
     constructInstructions(options.headline, options.description)
   )
 
-  blindSpotTest(this, staticDiv, options, callback)
+  blindSpotTest(this, options, callback)
 }
 
 // Helper functions

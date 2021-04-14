@@ -22,15 +22,25 @@ body {
 }
 
 #toolbox {
+  height: calc(100vh - 2rem);
+  overflow-y: scroll;
   background: #eee;
   justify-content: center;
-  /* border: 1px solid #aaa; */
   border-radius: 7px;
-  width: 90%;
-  min-width: 288px; /* 320 * .9 */
-  max-width: 640px;
-  margin: 2.5rem auto;
   padding: 1.5rem;
+  z-index: 1;
+  transition: left 600ms ease-in-out, transform 600ms ease-in-out;
+}
+
+#experiment {
+  display: block;
+  visibility: hidden;
+  opacity: 0;
+  font-family: 'Times New Roman', Times, serif;
+  color: #555;
+  border: 1px solid #ccc;
+  border-radius: 7px;
+  transition: opacity 600ms;
 }
 
 #toolbox *,
@@ -56,12 +66,13 @@ h1 {
 
 .flex-wrapper {
   display: flex;
+  flex-direction: column;
   flex-wrap: wrap;
   justify-content: center;
 }
 
 .flex-wrapper button {
-  flex: 0 1 45%;
+  /* flex: 0 1 45%; */
   cursor: pointer;
   user-select: none;
   margin: 3px;
@@ -85,9 +96,9 @@ code {
   display: block;
 }
 
-.getters button {
+/* .getters button {
   flex: 0 1 auto;
-}
+} */
 
 .disabled {
   opacity: 0.5;
@@ -100,15 +111,6 @@ button:hover {
 
 button:active {
   background: #e3e3e3;
-}
-
-#experiment {
-  width: 70%;
-  min-width: 320px;
-  max-width: 1440px;
-  margin: 0 auto 2rem;
-  font-family: 'Times New Roman', Times, serif;
-  color: #555;
 }
 
 #experiment h1 {
@@ -132,16 +134,63 @@ button:active {
   border-radius: 3px;
 }
 
-@media (max-width: 480px) {
-  .flex-wrapper button {
-    flex: 100% !important;
-  }
-}
-
 .flex-wrapper .complete {
   border: 1px solid #29bb89;
 }
 
 .flex-wrapper .error {
   border: 1px solid #ac0d0d;
+}
+
+/* -------------------------------------------------------------------------- */
+
+@media (min-width: 721px) {
+  body {
+    overflow: hidden;
+  }
+
+  #toolbox {
+    width: 320px; /* ! */
+    position: absolute;
+    top: 0;
+    left: 50%;
+    margin: 1rem 0;
+    transform: translate(-50%, 0);
+  }
+
+  .initialized {
+    left: 1rem !important;
+    transform: translate(0, 0) !important;
+  }
+
+  #experiment {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: calc(100% - 320px - 3rem);
+    height: calc(100vh - 2rem);
+    overflow-y: scroll;
+    margin: 1rem;
+  }
+}
+
+@media (max-width: 720px) {
+  #toolbox {
+    width: 80%;
+    margin: 1rem auto;
+  }
+
+  #experiment {
+    display: none;
+    width: 80% !important;
+    margin: 1rem auto;
+  }
+
+  .flex-wrapper {
+    flex-direction: column;
+  }
+
+  .flex-wrapper button {
+    flex: 100% !important;
+  }
 }

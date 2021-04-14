@@ -1,6 +1,7 @@
 /* eslint-disable no-undef */
 /* eslint-disable no-unused-vars */
 
+const toolboxElement = document.getElementById('toolbox')
 const experimentElement = document.getElementById('experiment')
 
 /* --------------------------------- HELPERS -------------------------------- */
@@ -77,6 +78,11 @@ function initialize(e) {
       element.className = ''
     })
     document.getElementById('init-button').classList.add('disabled')
+
+    toolboxElement.className += ' initialized'
+    experimentElement.style.visibility = 'visible'
+    experimentElement.style.display = 'block'
+    experimentElement.style.opacity = 1
   })
 }
 
@@ -147,6 +153,8 @@ function trackViewingDistance(e) {
   })
 }
 
+/* -------------------------------------------------------------------------- */
+
 /**
  *
  * Calibrate and start predicting the gaze position of the subject
@@ -162,10 +170,20 @@ function trackGaze(e) {
     )
   })
 
-  e.target.parentNode.replaceChild(
+  const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.replaceChild(
     constructFunctionButton(['Pause Gaze', 'pauseGaze', 'pauseGaze'], false),
-    e.target
+    target
   )
+}
+
+/**
+ *
+ * Pause gaze
+ *
+ */
+function pauseGaze(e) {
+  RemoteCalibrator.pauseGaze()
 }
 
 /* -------------------------------------------------------------------------- */

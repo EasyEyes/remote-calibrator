@@ -23,9 +23,24 @@ class RemoteCalibrator {
     this._screenData = []
     this._viewingDistanceData = []
     this._gazePositionData = []
+
+    this._background = {
+      element: null,
+      instructionElement: null,
+    }
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
+
+  get background() {
+    return this._background.element
+  }
+
+  get instructionElement() {
+    return this._background.instructionElement
+  }
+
+  ////
 
   get id() {
     return {
@@ -274,6 +289,87 @@ RemoteCalibrator.prototype.checkInitialized = function () {
   if (this._initialized) return true
   console.error('RemoteCalibrator is not initialized.')
   return false
+}
+
+/**
+ * Get fullscreen
+ * @param {Boolean} f Get fullscreen or not from options
+ */
+RemoteCalibrator.prototype.getFullscreen = function (f) {
+  if (
+    window.fullScreen ||
+    (window.innerWidth === screen.width && window.innerHeight === screen.height)
+  )
+    return
+  if (f && !debug) getFullscreen()
+}
+
+/**
+ *
+ * Add background
+ *
+ */
+RemoteCalibrator.prototype._addBackground = function (inner) {
+  if (this.background !== null) return
+
+  let b = document.getElementById('calibration-background')
+  if (!b) b = document.createElement('div')
+
+  b.id = 'calibration-background'
+  if (inner) b.innerHTML = inner
+
+  document.body.appendChild(b)
+
+  this._background.element = b
+}
+
+/**
+ *
+ * Remove background
+ *
+ */
+RemoteCalibrator.prototype._removeBackground = function () {
+  let b = document.getElementById('calibration-background')
+  if (b) {
+    document.body.removeChild(b)
+
+    this._background = {
+      element: null,
+      instructionElement: null,
+    }
+
+    return true
+  }
+  return false
+}
+
+/**
+ * Construct a floating <p> element for instructions and append to the parent (background) element
+ * @param {string} id id of the element
+ * @param {string} text init text
+ */
+RemoteCalibrator.prototype._constructInstructionElement = function (
+  id = null,
+  text
+) {
+  if (this.background === null) this._addBackground()
+
+  if (this.instructionElement !== null) {
+    if (this.instructionElement.id === id) return
+    else {
+      this.background.removeChild(this.instructionElement)
+      this._background.instructionElement = null
+    }
+  }
+
+  const instP = document.createElement('p')
+  instP.className = 'float-instruction'
+  if (id) instP.id = id
+
+  instP.innerHTML = text // Init
+  this.background.appendChild(instP)
+
+  this._background.instructionElement = instP
 }
 
 export default RemoteCalibrator
