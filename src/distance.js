@@ -17,21 +17,24 @@ const blindSpotHTML = `
 // CROSS
 const crossLW = 32 // Width of a line of the middle cross
 const crossLH = 4
-function _cross(ctx, mX, mY) {
+const _getCrossX = (eyeSide, tX) => {
+  return eyeSide === 'left' ? tX * 0.1 : tX * 0.9
+}
+function _cross(ctx, cX, mY) {
   // Draw a cross at the middle of the canvas
   ctx.fillStyle = '#000'
-  ctx.fillRect(mX - (crossLW >> 1), mY - (crossLH >> 1), crossLW, crossLH)
-  ctx.fillRect(mX - (crossLH >> 1), mY - (crossLW >> 1), crossLH, crossLW)
+  ctx.fillRect(cX - (crossLW >> 1), mY - (crossLH >> 1), crossLW, crossLH)
+  ctx.fillRect(cX - (crossLH >> 1), mY - (crossLW >> 1), crossLH, crossLW)
 }
 
 // CIRCLE
 const circleR = 40
 let circleDeltaX = 5
 
-function _getCircleBounds(side, cW) {
+function _getCircleBounds(side, crossX, cW) {
   return side === 'left'
-    ? [(cW + crossLW + circleR) / 2, cW - (circleR >> 1)]
-    : [circleR >> 1, (cW - crossLW - circleR) / 2]
+    ? [crossX + (crossLW + circleR) / 2, cW - (circleR >> 1)]
+    : [circleR >> 1, crossX - (crossLW + circleR) / 2]
 }
 
 function _circle(ctx, x, y) {
@@ -67,6 +70,7 @@ export function blindSpotTest(RC, options, callback) {
 
   const eyeSideEle = document.getElementById('eye-side')
   let eyeSide = (eyeSideEle.innerText = 'left')
+  let crossX = _getCrossX(eyeSide, c.width)
 
   let circleBounds
 
@@ -74,7 +78,8 @@ export function blindSpotTest(RC, options, callback) {
   const _resetCanvasSize = () => {
     c.style.width = (c.width = window.innerWidth) + 'px'
     c.style.height = (c.height = window.innerHeight) + 'px'
-    circleBounds = _getCircleBounds(eyeSide, c.width)
+    crossX = _getCrossX(eyeSide, c.width)
+    circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
   }
   const resizeObserver = new ResizeObserver(() => {
     _resetCanvasSize()
@@ -101,10 +106,7 @@ export function blindSpotTest(RC, options, callback) {
     tested += 1
     // Average
     dist.push(
-      toFixedNumber(
-        _getDist(circleX, window.innerWidth, ppi),
-        options.decimalPlace
-      )
+      toFixedNumber(_getDist(circleX, crossX, ppi), options.decimalPlace)
     )
 
     // Enough tests?
@@ -125,9 +127,11 @@ export function blindSpotTest(RC, options, callback) {
       // Switch eye side
       if (eyeSide === 'left') eyeSide = eyeSideEle.innerText = 'right'
       else eyeSide = eyeSideEle.innerText = 'left'
-      circleBounds = _getCircleBounds(eyeSide, c.width)
+      circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
       circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
       v = eyeSide === 'left' ? 1 : -1
+      crossX = _getCrossX(eyeSide, c.width)
+      circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
     }
   }
 
@@ -142,7 +146,7 @@ export function blindSpotTest(RC, options, callback) {
     ctx.fillStyle = '#ddd'
     ctx.fillRect(0, 0, c.width, c.height)
 
-    _cross(ctx, c.width / 2, c.height / 2)
+    _cross(ctx, crossX, c.height / 2)
 
     _circle(ctx, circleX, c.height / 2)
     circleX += v * circleDeltaX
@@ -184,7 +188,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       decimalPlace: 2,
       headline: '📏 Viewing Distance Calibration',
       description:
-        "We'll measure your viewing distance. To do this, we'll perform a blind spot test. \nCover or close one of your eyes and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer or farther from the screen.",
+        "We'll measure your viewing distance. To do this, we'll perform a blind spot test. \nCover or close your left eye and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer to the screen.",
     },
     options
   )
@@ -200,9 +204,9 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
 
 // Helper functions
 
-function _getDist(x, w, ppi) {
+function _getDist(x, crossX, ppi) {
   // .3937 - in to cm
-  return Math.abs(w / 2 - x) / ppi / _getTanDeg(15) / 0.3937
+  return Math.abs(crossX - x) / ppi / _getTanDeg(15) / 0.3937
 }
 
 function _getTanDeg(deg) {

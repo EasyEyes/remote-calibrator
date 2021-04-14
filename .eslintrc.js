@@ -14,6 +14,7 @@ module.exports = {
       'warn',
       { vars: 'all', args: 'after-used', ignoreRestSiblings: false },
     ],
+    eqeqeq: ['warn', 'always'],
   },
   ignorePatterns: ['webpack.config.js', '.eslintrc.js', 'WebGazer/', 'lib/'],
 }
