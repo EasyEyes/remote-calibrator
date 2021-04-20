@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2021-04-20
+
+### Fixed
+
+- Fix publish registry for publishing GitHub packages.
+
 ## [0.0.2] - 2021-04-20
 
 ### Fixed
@@ -17,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.2...HEAD
+[unreleased]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/peilingjiang/RemoteCalibrator/releases/tag/v0.0.1
