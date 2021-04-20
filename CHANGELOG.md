@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.3] - 2021-04-20
 
-### Fixed
+### Removed
 
-- Fix publish registry for publishing GitHub packages.
+- Stop publishing to GitHub packages.
 
 ## [0.0.2] - 2021-04-20
 

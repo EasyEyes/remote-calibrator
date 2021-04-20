@@ -12,7 +12,7 @@
  * Available under MIT license
  */
 
-/*! remote-calibrator - 0.0.2 */
+/*! remote-calibrator - 0.0.3 */
 
 /**
     * @license
