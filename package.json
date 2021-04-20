@@ -1,6 +1,6 @@
 {
   "name": "remote-calibrator",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A toolbox for remote testing calibration.",
   "main": "lib/RemoteCalibrator.js",
   "directories": {
@@ -50,5 +50,8 @@
   "dependencies": {
     "device-detector-js": "^2.2.9",
     "platform": "^1.3.6"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
   }
 }
