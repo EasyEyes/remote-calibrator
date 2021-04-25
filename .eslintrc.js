@@ -16,5 +16,12 @@ module.exports = {
     ],
     eqeqeq: ['warn', 'always'],
   },
-  ignorePatterns: ['webpack.config.js', '.eslintrc.js', 'WebGazer/', 'lib/'],
+  ignorePatterns: [
+    'webpack.config.js',
+    '.eslintrc.js',
+    'WebGazer/',
+    'lib/',
+    'server.js',
+    'serverHTTPS.js',
+  ],
 }

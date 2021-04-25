@@ -16,7 +16,7 @@ To use RemoteCalibrator, you can either add the script (the file is in `lib` fol
 <script src="RemoteCalibrator.js"></script>
 ```
 
-Or use package management tools, e.g. NPM. 🚧
+Or use package management tools, e.g. NPM.
 
 ```
 npm i remote-calibrator
@@ -62,7 +62,7 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.id`) to callback.
   id: ...,
   // Enter fullscreen if set to true
   // Will be ignored if already in fullscreen mode
-  fullscreen: true,
+  fullscreen: false,
 }
 ```
 
@@ -249,6 +249,16 @@ Pop an interface for participants to calibrate their gaze position on the screen
 - `.showGazer([Boolean])`
 - `.showVideo([Boolean])`
 - `.showFaceOverlay([Boolean])`
+
+### 📷 Webcam
+
+```js
+.webcam([callback])
+```
+
+To get the information of the webcam, RemoteCalibrator will activate the webcam, take a picture, and extract the EXIF meta data from the image file. 🚧
+
+Pass `{ value: { subjectDistance, ... }, timestamp }`
 
 ### 💻 Environment
 

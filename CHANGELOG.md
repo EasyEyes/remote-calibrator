@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.3] - 2021-04-20
 
+### Added
+
+- Get info of the webcam by taking a picture and read the EXIF meta data from the image file.
+
+### Changed
+
+- By default, fullscreen will not be activated during initiation.
+
 ### Removed
 
 - Stop publishing to GitHub packages.

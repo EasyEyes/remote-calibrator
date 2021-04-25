@@ -9,6 +9,8 @@ import './gaze/gaze'
 import './gaze/gazeCalibration'
 import GazeTracker from './gaze/gazeTracker'
 
+import './webcam'
+
 import './css/main.css'
 import './css/screenSize.css'
 import './css/distance.css'

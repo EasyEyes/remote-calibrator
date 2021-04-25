@@ -49,6 +49,8 @@
   },
   "dependencies": {
     "device-detector-js": "^2.2.9",
+    "exif-js": "^2.3.0",
+    "image-capture": "^0.4.0",
     "platform": "^1.3.6"
   }
 }

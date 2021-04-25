@@ -47,6 +47,18 @@ export function formatVideoCanvas(vC, stream, targetWidth) {
   return [width, height]
 }
 
+/**
+ * Check if the webcam is already running
+ * Return true if it is already occupied
+ *
+ */
+export function checkWebcamStatus() {
+  navigator.mediaDevices.getUserMedia({ video: true }, stream => {
+    if (stream.getVideoTracks().length) return true
+    return false
+  })
+}
+
 /* ----------------------------- WebGazer Video ----------------------------- */
 
 /**

@@ -188,6 +188,16 @@ function pauseGaze(e) {
 
 /* -------------------------------------------------------------------------- */
 
+function webcam(e) {
+  RemoteCalibrator.webcam(data => {
+    console.log(data)
+    printMessage(`EXPERIMENTAL " ${JSON.stringify(data)} "`)
+    changeClass(e.target, 'complete')
+  })
+}
+
+/* -------------------------------------------------------------------------- */
+
 /**
  *
  * Get environment info

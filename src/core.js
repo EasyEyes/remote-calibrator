@@ -224,7 +224,7 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
     options = Object.assign(
       {
         id: randomPhrases(),
-        fullscreen: true,
+        fullscreen: false,
       },
       options
     )
@@ -337,9 +337,10 @@ RemoteCalibrator.prototype._removeBackground = function () {
       element: null,
       instructionElement: null,
     }
-
+    // There is a background and remove successfully
     return true
   }
+  // Cannot find the background
   return false
 }
 
