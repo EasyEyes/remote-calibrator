@@ -55,7 +55,7 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.id`) to callback.
 // [options] Default value
 {
   /**
-   * The id of the subject, a string
+   * The id of the session, a string
    * Will be attached to all the data from calibration
    * A random one will be generated if no value is passed into the function
    */
@@ -74,7 +74,7 @@ function initializationFinished(data) {
   console.log(`RemoteCalibrator was initialized at ${data.timestamp}.`)
 }
 
-let options = { id: 'subj_022' }
+let options = { id: 'session_022' }
 RemoteCalibrator.init(options, initializationFinished)
 ```
 

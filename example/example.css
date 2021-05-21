@@ -29,14 +29,15 @@ body {
   border-radius: 7px;
   padding: 1.5rem;
   z-index: 1;
-  transition: left 600ms ease-in-out, transform 600ms ease-in-out;
+  /* transition: left 600ms ease-in-out, transform 600ms ease-in-out; */
 }
 
 #experiment {
   display: block;
   visibility: hidden;
   opacity: 0;
-  font-family: 'Times New Roman', Times, serif;
+  font-family: 'Roboto Mono', 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
   color: #555;
   border: 1px solid #ccc;
   border-radius: 7px;
@@ -64,6 +65,11 @@ h1 {
   color: #666;
 }
 
+#links a {
+  color: #333;
+  font-size: 0.8rem;
+}
+
 .flex-wrapper {
   display: flex;
   flex-direction: column;
@@ -75,6 +81,7 @@ h1 {
   /* flex: 0 1 45%; */
   cursor: pointer;
   user-select: none;
+  font-size: 0.8rem;
   margin: 3px;
   padding: 10px 15px;
   background: #fff;

@@ -1,9 +1,25 @@
 import RemoteCalibrator from './core'
-import { constructInstructions, toFixedNumber, blurAll } from './helpers'
+import { constructInstructions, toFixedNumber, blurAll, remap } from './helpers'
 
 import Card from './media/card.svg'
 import Arrow from './media/arrow.svg'
+import USBA from './media/usba.svg'
+import USBC from './media/usbc.svg'
 import { bindKeys, unbindKeys } from './components/keyBinder'
+import text from './text.json'
+
+const resources = {
+  card: Card,
+  arrow: Arrow,
+  usba: USBA,
+  usbc: USBC,
+}
+
+const widthDataIN = {
+  card: 3.375, // 85.6mm
+  usba: 0.787402, // 20mm (12mm head)
+  usbc: 0.787402, // 20mm (8.25mm head)
+}
 
 RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
   /**
@@ -29,13 +45,15 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       quitFullscreenOnFinished: false,
       repeatTesting: 1,
       decimalPlace: 1,
-      headline: '🖥️ Screen Size Calibration',
-      description: `We'll measure your physical screen size. To do this, please find a <b>standard credit (or debit) card</b>, \nplace it on the screen and align the top and left edges with those of the picture, and drag the slider \nto match the other two edges. Press <b>SPACE</b> to confirm and submit the alignment.`,
+      headline: text.screenSize.headline,
+      description: text.screenSize.description,
     },
     options
   )
 
   this.getFullscreen(options.fullscreen)
+
+  options.description += ` <b>I have a <select id="matching-obj"><option value="card" selected>Credit Card</option><option value="usba">USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option></select> with me.</b>`
 
   this._addBackground(
     constructInstructions(options.headline, options.description)
@@ -53,7 +71,7 @@ function getSize(RC, parent, options, callback) {
   sliderElement.type = 'range'
   sliderElement.min = 0
   sliderElement.max = 100
-  sliderElement.value = 50
+  sliderElement.value = 40
   sliderElement.step = 0.1
   parent.appendChild(sliderElement)
 
@@ -78,35 +96,37 @@ function getSize(RC, parent, options, callback) {
   }
   document.addEventListener('mousedown', onMouseDown, false)
 
-  // Card
-  let cardElement = document.createElement('div')
-  parent.appendChild(cardElement)
-  cardElement.outerHTML = Card
-  cardElement = document.getElementById('size-card')
-  cardElement.setAttribute('preserveAspectRatio', 'none')
+  // Add all objects
+  const elements = addMatchingObj(['card', 'arrow', 'usba', 'usbc'], parent)
 
-  // Arrow
-  let arrowElement = document.createElement('div')
-  parent.appendChild(arrowElement)
-  arrowElement.outerHTML = Arrow
-  arrowElement = document.getElementById('size-arrow')
-  arrowElement.setAttribute('preserveAspectRatio', 'none')
+  // Switch OBJ
+  let currentMatchingObj
+  document.getElementById('matching-obj').addEventListener('change', e => {
+    switchMatchingObj(e.target.value, elements)
+    currentMatchingObj = e.target.value
+  })
+  switchMatchingObj('card', elements)
 
+  // Card & Arrow
   let arrowFillElement = document.getElementById('size-arrow-fill')
   arrowFillElement.setAttribute('fill', '#aaa')
-
   let arrowSizes = {
-    width: arrowElement.getBoundingClientRect().width,
-    height: arrowElement.getBoundingClientRect().height,
+    width: elements.arrow.getBoundingClientRect().width,
+    height: elements.arrow.getBoundingClientRect().height,
   }
-  setSizes(sliderElement, cardElement, arrowElement, arrowSizes)
+
+  const setSizes = () => {
+    setCardSizes(sliderElement, elements.card, elements.arrow, arrowSizes)
+    setConnectorSizes(sliderElement, elements.usba)
+    setConnectorSizes(sliderElement, elements.usbc)
+  }
+  setSizes()
 
   const onSliderInput = () => {
-    setSizes(sliderElement, cardElement, arrowElement, arrowSizes)
+    setSizes()
   }
-
   const resizeObserver = new ResizeObserver(() => {
-    setSizes(sliderElement, cardElement, arrowElement, arrowSizes)
+    setSizes()
   })
   resizeObserver.observe(parent)
 
@@ -124,10 +144,12 @@ function getSize(RC, parent, options, callback) {
   // Call when SPACE pressed
   // ! RETURN & BREAK
   const finishFunction = () => {
-    let cardWidth =
-      cardElement.getBoundingClientRect().width ||
-      parseInt(cardElement.style.width) // Pixel
-    let ppi = cardWidth / 3.375 // (in) === 85.6mm
+    let eleWidth =
+      elements[currentMatchingObj].getBoundingClientRect().width ||
+      parseInt(elements[currentMatchingObj].style.width) // Pixel
+
+    let ppi = eleWidth / widthDataIN[currentMatchingObj]
+
     const toFixedN = options.decimalPlace
 
     // ! Get screen data
@@ -150,7 +172,7 @@ function getSize(RC, parent, options, callback) {
   })
 }
 
-const setSizes = (slider, card, arrow, aS) => {
+const setCardSizes = (slider, card, arrow, aS) => {
   // Card
   card.style.width =
     (slider.offsetWidth - 30) * (slider.value / 100) + 15 + 'px'
@@ -158,6 +180,39 @@ const setSizes = (slider, card, arrow, aS) => {
   let cardSizes = card.getBoundingClientRect()
   arrow.style.left = cardSizes.left + cardSizes.width + 'px'
   arrow.style.top = cardSizes.top + (cardSizes.height - aS.height) / 2 + 'px'
+}
+
+const setConnectorSizes = (slider, connector) => {
+  connector.style.width = remap(slider.value, 0, 100, 10, 500) + 'px'
+}
+
+const addMatchingObj = (names, parent) => {
+  // Remove all elements from the page first
+  let oldElements = document.getElementsByClassName('size-obj')
+  while (oldElements.length) {
+    oldElements[0].parentNode.removeChild(oldElements[0])
+  }
+
+  const elements = {}
+
+  for (let name of names) {
+    let element = document.createElement('div')
+    parent.appendChild(element)
+    element.outerHTML = resources[name]
+    element = document.getElementById('size-' + name)
+    element.setAttribute('preserveAspectRatio', 'none')
+    element.style.display = 'none'
+    elements[name] = element
+  }
+
+  return elements
+}
+
+const switchMatchingObj = (name, elements) => {
+  for (let obj in elements) {
+    if (obj === name) elements[obj].style.display = 'block'
+    else elements[obj].style.display = 'none'
+  }
 }
 
 /**

@@ -106,10 +106,3 @@ dist
 # Dev
 example/lib
 .DS_Store
-
-certificates/
-.certificates/
-certificate/
-.certificate/
-cert/
-.cert

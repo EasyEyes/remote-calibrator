@@ -69,7 +69,7 @@ function initialize(e) {
     printMessage(
       `RemoteCalibrator initialized at ${parseTimestamp(
         id.timestamp
-      )}. Subject id is ${id.value}.`
+      )}. Session id is ${id.value}.`
     )
 
     changeClass(e.target, 'complete')
@@ -79,7 +79,7 @@ function initialize(e) {
     })
     document.getElementById('init-button').classList.add('disabled')
 
-    toolboxElement.className += ' initialized'
+    // toolboxElement.className += ' initialized'
     experimentElement.style.visibility = 'visible'
     experimentElement.style.display = 'block'
     experimentElement.style.opacity = 1

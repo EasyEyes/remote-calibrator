@@ -3,12 +3,11 @@
   appearance: none;
   display: block;
   position: absolute;
-  width: max(70%, 480px);
-  max-width: 960px;
+  width: calc(100% - 4rem);
   height: 30px;
   background: #fff;
   opacity: 0.6;
-  top: max(40%, 190px);
+  top: max(45%, 200px);
   left: 2rem;
   border-radius: 15px;
   z-index: 1;
@@ -42,10 +41,12 @@
 
 /* -------------------------------------------------------------------------- */
 
-#size-card {
+#size-card,
+#size-usba,
+#size-usbc {
   position: absolute;
   display: block;
-  top: calc(max(40%, 190px) + 50px);
+  top: calc(max(45%, 200px) + 50px);
   left: 2rem;
   height: auto;
   z-index: 2;

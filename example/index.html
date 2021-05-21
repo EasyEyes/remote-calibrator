@@ -19,10 +19,21 @@
     />
   </head>
   <body>
-    <div id="toolbox">
-      <h1 id="toolbox-headline">RemoteCalibrator</h1>
+    <div id="toolbox" class="initialized">
+      <h1 id="toolbox-headline">Remote Calibrator</h1>
 
       <code id="version"></code>
+
+      <p id="links">
+        <a
+          href="https://github.com/peilingjiang/RemoteCalibrator#getting-started"
+          >Getting Started</a
+        >
+        |
+        <a href="https://github.com/peilingjiang/RemoteCalibrator#references"
+          >References</a
+        >
+      </p>
 
       <h2>Functions</h2>
 
@@ -124,6 +135,8 @@
 
       setGetters(document.getElementById('getters-exp'), gettersExp)
       setGetters(document.getElementById('getters-env'), gettersEnv)
+
+      initialize({ target: document.getElementById('init-button') })
     </script>
     <!-- GitHub corner -->
     <div class="github-corner">

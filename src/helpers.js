@@ -109,6 +109,10 @@ export function constrain(a, b0, b1) {
   return a < b0 ? b0 : a > b1 ? b1 : a
 }
 
+export function remap(v, a1, b1, a2, b2) {
+  return a2 + (b2 - a2) * (((v - a1) * 1.0) / (b1 - a1))
+}
+
 // https://stackoverflow.com/a/12646864/11069914
 export function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
