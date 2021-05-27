@@ -1,5 +1,8 @@
 # RemoteCalibrator [ 🐛 WIP]
 
+[![npm version](https://badge.fury.io/js/remote-calibrator.svg)](https://badge.fury.io/js/remote-calibrator)
+[![GitHub license](https://img.shields.io/github/license/peilingjiang/RemoteCalibrator)](https://github.com/peilingjiang/RemoteCalibrator/blob/main/LICENSE)
+
 Welcome to RemoteCalibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g. crowd-sourced through Amazon Mechanical Turk.
 
 The features/functions marked with 🚧 is still work-in-progress and not available yet.
