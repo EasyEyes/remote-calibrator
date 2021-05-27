@@ -7,6 +7,7 @@ import {
   blurAll,
 } from './helpers'
 import { bindKeys, unbindKeys } from './components/keyBinder'
+import text from './text.json'
 
 const blindSpotHTML = `
 <p id="blind-spot-instruction" class="float-instruction">Please keep your <span id="eye-side"></span> eye closed, and hit SPACE when the dot disappears.</p>
@@ -186,9 +187,8 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       quitFullscreenOnFinished: false,
       repeatTesting: 3,
       decimalPlace: 2,
-      headline: '📏 Viewing Distance Calibration',
-      description:
-        "We'll measure your viewing distance. To do this, we'll perform a blind spot test. \nCover or close your left eye and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer to the screen.",
+      headline: text.screenSize.headline,
+      description: text.measureDistance.description,
     },
     options
   )

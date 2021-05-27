@@ -2,5 +2,13 @@
   "screenSize": {
     "headline": "🖥️ Screen Size Calibration",
     "description": "We'll measure your physical screen size. To do this, please find a <b>standard credit (or debit) card</b> or a <b>USB connector</b>, place it on the screen and align the top and left edges with those of the picture, and drag the slider to match the other two edges. Press <b>SPACE</b> to confirm and submit the alignment."
+  },
+  "measureDistance": {
+    "headline": "📏 Viewing Distance Calibration",
+    "description": "We'll measure your viewing distance. To do this, we'll perform a blind spot test. Cover or close your left eye and focus on the black cross. Press <b>SPACE</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen."
+  },
+  "trackGaze": {
+    "headline": "👀 Calibrate Gaze",
+    "description": "With your help, we’ll track your gaze. When asked, please grant permission to access your camera. Please try to keep your face centered in the live video feed. Follow the instructions below."
   }
 }

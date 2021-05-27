@@ -2,6 +2,7 @@ import RemoteCalibrator from '../core'
 
 import { blurAll } from '../helpers'
 import { gazeCalibrationPrepare } from './gazeCalibration'
+import text from '../text.json'
 
 RemoteCalibrator.prototype.trackGaze = function (options = {}, callback) {
   /**
@@ -37,9 +38,8 @@ RemoteCalibrator.prototype.trackGaze = function (options = {}, callback) {
       showFaceOverlay: false,
       calibrationCount: 5,
       decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
-      headline: '👀 Calibrate Gaze',
-      description:
-        'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed. \nFollow the instructions below.',
+      headline: text.trackGaze.headline,
+      description: text.trackGaze.description,
     },
     options
   )

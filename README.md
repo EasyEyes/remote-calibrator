@@ -121,9 +121,9 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
   // The length  decimal place of the returned value
   decimalPlace: 1,
   // Headline on the calibration page (Support HTML)
-  headline: '🖥️ Screen Size Calibration',
+  headline: "🖥️ Screen Size Calibration",
   // Description and instruction on the calibration page (Support HTML)
-  description: `We'll measure your physical screen size. To do this, please find a <b>standard credit (or debit) card</b>, \nplace it on the screen and align the top and left edges with those of the picture, and drag the slider \nto match the other two edges. Press <b>SPACE</b> to confirm and submit the alignment.`,
+  description: "We'll measure your physical screen size. To do this, please find a <b>standard credit (or debit) card</b> or a <b>USB connector</b>, place it on the screen and align the top and left edges with those of the picture, and drag the slider to match the other two edges. Press <b>SPACE</b> to confirm and submit the alignment.",
 }
 ```
 
@@ -150,8 +150,8 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
   // By default, right eye 3 times, then left eye 3 times
   repeatTesting: 3,
   decimalPlace: 2,
-  headline: '📏 Viewing Distance Calibration',
-  description: "We'll measure your viewing distance. To do this, we'll perform a blind spot test. \nCover or close your left eye and focus on the black cross. \nPress <b>SPACE</b> when the red circle disappears. \nIf it doesn't disappear, you may have to move closer to the screen.",
+  headline: "📏 Viewing Distance Calibration",
+  description: "We'll measure your viewing distance. To do this, we'll perform a blind spot test. Cover or close your left eye and focus on the black cross. Press <b>SPACE</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen.",
 }
 ```
 
@@ -194,9 +194,9 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
-  headline: '👀 Calibrate Gaze',
+  headline: "👀 Calibrate Gaze",
   description:
-    'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed. \nFollow the instructions below.',
+    "With your help, we’ll track your gaze. When asked, please grant permission to access your camera. Please try to keep your face centered in the live video feed. Follow the instructions below.",
 }
 ```
 
@@ -231,9 +231,9 @@ Pop an interface for participants to calibrate their gaze position on the screen
 {
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
-  headline: '👀 Calibrate Gaze',
+  headline: "👀 Calibrate Gaze",
   description:
-    'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed. \nFollow the instructions below.',
+    "With your help, we’ll track your gaze. When asked, please grant permission to access your camera. Please try to keep your face centered in the live video feed. Follow the instructions below.",
 }
 ```
 
