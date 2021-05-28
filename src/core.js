@@ -192,7 +192,7 @@ class RemoteCalibrator {
   }
 
   /**
-   * @param {{ value: number; timestamp: Date; }} data
+   * @param {{ value: number; timestamp: Date; method: string; }} data
    */
   set viewingDistanceData(data) {
     this._viewingDistanceData.push(data)
@@ -370,7 +370,7 @@ RemoteCalibrator.prototype._constructInstructionElement = function (
   instP.innerHTML = text // Init
   this.background.appendChild(instP)
 
-  this._background.instructionElement = instP
+  return (this._background.instructionElement = instP)
 }
 
 export default RemoteCalibrator

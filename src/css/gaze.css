@@ -39,7 +39,9 @@
   /* left: 1rem !important;
   bottom: 1rem !important; */
   /* border-radius: 7px; */
+  opacity: 0.8;
   overflow: hidden;
+  pointer-events: none;
 }
 
 #webgazerFaceFeedbackBox {
@@ -47,4 +49,5 @@
   box-sizing: border-box;
   border-radius: 10px;
   opacity: 0.6;
+  pointer-events: none;
 }

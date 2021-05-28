@@ -126,7 +126,7 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
   // Headline on the calibration page (Support HTML)
   headline: "🖥️ Screen Size Calibration",
   // Description and instruction on the calibration page (Support HTML)
-  description: "We'll measure your physical screen size. To do this, please find a <b>standard credit (or debit) card</b> or a <b>USB connector</b>, place it on the screen and align the top and left edges with those of the picture, and drag the slider to match the other two edges. Press <b>SPACE</b> to confirm and submit the alignment.",
+  description: "We'll measure your physical screen size. To do this, please find a <b>standard credit card</b> (or driver's license) or a <b>USB connector</b>, place it on the screen and align the top and left edges with those of the picture, and drag the slider to match the other two edges. Press <b>SPACE</b> to confirm and submit the alignment.",
 }
 ```
 
@@ -150,8 +150,8 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
   fullscreen: true,
   quitFullscreenOnFinished: false, 🚧
   // How many times each of the eye will be used to test
-  // By default, right eye 3 times, then left eye 3 times
-  repeatTesting: 3,
+  // By default, right eye 2 times, then left eye 2 times
+  repeatTesting: 2,
   decimalPlace: 2,
   headline: "📏 Viewing Distance Calibration",
   description: "We'll measure your viewing distance. To do this, we'll perform a blind spot test. Cover or close your left eye and focus on the black cross. Press <b>SPACE</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen.",
@@ -276,6 +276,11 @@ Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, s
 ### 📔 Other Functions
 
 - `.checkInitialized()` Check if the model is initialized. Return a boolean.
+
+### 💄 Customization
+
+- `.backgroundColor` Set the color of the background. Default `#dddddd`. 🚧
+- `.videoOpacity` Set the opacity of the video element (in `trackDistance` and `trackGaze`). Default `0.8`. 🚧
 
 ### 🎣 Getters
 

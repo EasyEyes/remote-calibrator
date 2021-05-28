@@ -1,6 +1,6 @@
 {
   "name": "remote-calibrator",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A toolbox for remote testing calibration.",
   "main": "lib/RemoteCalibrator.js",
   "directories": {
@@ -39,7 +39,7 @@
     "prettier": "^2.3.0",
     "style-loader": "^2.0.0",
     "svg-inline-loader": "^0.8.2",
-    "terser-webpack-plugin": "^5.1.1",
+    "terser-webpack-plugin": "^5.1.2",
     "webpack": "^5.38.0",
     "webpack-cli": "^4.7.0",
     "webpack-modules": "^1.0.0"

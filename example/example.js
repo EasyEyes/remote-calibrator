@@ -12,7 +12,7 @@ const experimentElement = document.getElementById('experiment')
  *
  */
 function gotData(text) {
-  return `<span class="toolbox-data">Data from Toolbox</span>` + text
+  return `<span class="toolbox-data">From RC</span>` + text
 }
 
 /**
@@ -67,7 +67,7 @@ function changeClass(target, className) {
 function initialize(e) {
   RemoteCalibrator.init({}, id => {
     printMessage(
-      `RemoteCalibrator initialized at ${parseTimestamp(
+      `Remote Calibrator initialized at ${parseTimestamp(
         id.timestamp
       )}. Session id is ${id.value}.`
     )
@@ -124,6 +124,16 @@ function measureScreenSize(e) {
   })
 }
 
+const measureDistanceCallback = distanceData => {
+  printMessage(
+    `The viewing distance is ${
+      distanceData.value
+    }cm, measured at ${parseTimestamp(distanceData.timestamp)}, by ${
+      distanceData.method
+    } method.`
+  )
+}
+
 /**
  *
  * Measure the viewing distance of the subject
@@ -132,12 +142,7 @@ function measureScreenSize(e) {
  */
 function measureViewingDistance(e) {
   RemoteCalibrator.measureDistance({}, distanceData => {
-    printMessage(
-      `The viewing distance is ${
-        distanceData.value
-      }cm, measured at ${parseTimestamp(distanceData.timestamp)}.`
-    )
-
+    measureDistanceCallback(distanceData)
     changeClass(e.target, 'complete')
   })
 }
@@ -148,9 +153,22 @@ function measureViewingDistance(e) {
  *
  */
 function trackViewingDistance(e) {
-  RemoteCalibrator.trackDistance({}, data => {
-    changeClass(e.target, 'complete')
-  })
+  let trackP
+  RemoteCalibrator.trackDistance(
+    {},
+    distanceData => {
+      measureDistanceCallback(distanceData)
+      changeClass(e.target, 'complete')
+      trackP = printMessage(`The dynamic viewing distance is cm at .`)
+    },
+    data => {
+      trackP.innerHTML = gotData(
+        `The dynamic viewing distance is ${data.value}cm at ${parseTimestamp(
+          data.timestamp
+        )}, measured by ${data.method} method.`
+      )
+    }
+  )
 }
 
 /* -------------------------------------------------------------------------- */

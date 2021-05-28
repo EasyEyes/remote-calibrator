@@ -49,7 +49,7 @@ RemoteCalibrator.prototype.trackGaze = function (options = {}, callback) {
 
   if (this.gazeTracker.checkInitialized()) {
     // ! Initialized
-    // e.g. called the function before
+    // e.g., called the function before
     // Just try to begin running again
     this.gazeTracker._toFixedN = options.decimalPlace
     this.showGazer(options.showGazer)

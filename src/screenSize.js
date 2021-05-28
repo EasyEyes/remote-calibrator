@@ -100,7 +100,7 @@ function getSize(RC, parent, options, callback) {
   const elements = addMatchingObj(['card', 'arrow', 'usba', 'usbc'], parent)
 
   // Switch OBJ
-  let currentMatchingObj
+  let currentMatchingObj = 'card' // DEFAULT
   document.getElementById('matching-obj').addEventListener('change', e => {
     switchMatchingObj(e.target.value, elements)
     currentMatchingObj = e.target.value
@@ -213,6 +213,8 @@ const switchMatchingObj = (name, elements) => {
     if (obj === name) elements[obj].style.display = 'block'
     else elements[obj].style.display = 'none'
   }
+  if (name === 'card') elements.arrow.style.display = 'block'
+  else elements.arrow.style.display = 'none'
 }
 
 /**

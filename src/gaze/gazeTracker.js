@@ -14,6 +14,7 @@ export default class GazeTracker {
     this._initialized = false
     this._calibrated = false
     this._running = false
+    this._runningVideo = false
 
     this._toFixedN = 1
   }
@@ -23,6 +24,19 @@ export default class GazeTracker {
       if (!this._running) {
         this.webgazer.begin()
         this._running = true
+        this._runningVideo = true
+      }
+
+      checkWebgazerReady(pipWidthPX, this.webgazer, callback)
+    }
+  }
+
+  beginVideo({ pipWidthPX }, callback) {
+    // Begin video only
+    if (this.checkInitialized(true)) {
+      if (!this._runningVideo) {
+        this.webgazer.beginVideo()
+        this._runningVideo = true
       }
 
       checkWebgazerReady(pipWidthPX, this.webgazer, callback)
@@ -53,7 +67,7 @@ GazeTracker.prototype._init = function ({
 }) {
   if (!this.checkInitialized()) {
     this.webgazer.clearData()
-    this.webgazer.saveDataAcrossSessions = false
+    this.webgazer.saveDataAcrossSessions(false)
 
     this._toFixedN = toFixedN
     this.showGazer(showGazer)

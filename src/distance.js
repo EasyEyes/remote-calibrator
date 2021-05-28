@@ -9,9 +9,7 @@ import {
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import text from './text.json'
 
-const blindSpotHTML = `
-<p id="blind-spot-instruction" class="float-instruction">Please keep your <span id="eye-side"></span> eye closed, and hit SPACE when the dot disappears.</p>
-<canvas id="blind-spot-canvas"></canvas>`
+const blindSpotHTML = `<canvas id="blind-spot-canvas"></canvas>`
 
 /* -------------------------------------------------------------------------- */
 
@@ -47,7 +45,7 @@ function _circle(ctx, x, y) {
   ctx.fill()
 }
 
-export function blindSpotTest(RC, options, callback) {
+export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   let ppi = 108 // Dangerous! Arbitrary value
   if (RC.screenPPI) ppi = RC.screenPPI.value
   else
@@ -61,16 +59,19 @@ export function blindSpotTest(RC, options, callback) {
 
   // Add HTML
   const blindSpotDiv = document.createElement('div')
-  blindSpotDiv.className = 'blind-spot-container'
   blindSpotDiv.innerHTML = blindSpotHTML
   RC.background.appendChild(blindSpotDiv)
+  const instructionDiv = RC._constructInstructionElement(
+    'blind-spot-instruction',
+    `Please keep your <span id="eye-side"></span> eye closed, and hit SPACE when the dot disappears.`
+  )
 
   // Get HTML elements
   const c = document.querySelector('#blind-spot-canvas')
   const ctx = c.getContext('2d')
 
   const eyeSideEle = document.getElementById('eye-side')
-  let eyeSide = (eyeSideEle.innerText = 'left')
+  let eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
   let crossX = _getCrossX(eyeSide, c.width)
 
   let circleBounds
@@ -118,16 +119,29 @@ export function blindSpotTest(RC, options, callback) {
           (RC.viewingDistanceData = {
             value: toFixedNumber(median(dist), options.decimalPlace),
             timestamp: new Date(),
+            method: 'Blind Spot',
           })
         )
 
       // Break
-      breakFunction()
-      return
+      if (!toTrackDistance) {
+        breakFunction()
+      } else {
+        // ! For tracking
+        // Stop test
+        inTest = false
+        // Clear canvas, observer, and keys
+        ctx.clearRect(0, 0, c.width, c.height)
+        resizeObserver.unobserve(RC.background)
+        unbindKeys(bindKeysFunction)
+        // Change instructions
+        instructionDiv.innerHTML = `<b style="color: #ac0d0d">PLEASE HOLD</b>`
+      }
     } else if (tested % options.repeatTesting === 0) {
       // Switch eye side
-      if (eyeSide === 'left') eyeSide = eyeSideEle.innerText = 'right'
-      else eyeSide = eyeSideEle.innerText = 'left'
+      if (eyeSide === 'left')
+        eyeSide = (eyeSideEle.innerText = 'RIGHT').toLocaleLowerCase()
+      else eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
       circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
       circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
       v = eyeSide === 'left' ? 1 : -1
@@ -144,8 +158,9 @@ export function blindSpotTest(RC, options, callback) {
 
   // ! ACTUAL TEST
   const runTest = () => {
-    ctx.fillStyle = '#ddd'
-    ctx.fillRect(0, 0, c.width, c.height)
+    // ctx.fillStyle = '#ddd'
+    // ctx.fillRect(0, 0, c.width, c.height)
+    ctx.clearRect(0, 0, c.width, c.height)
 
     _cross(ctx, crossX, c.height / 2)
 
@@ -169,7 +184,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
    *
    * fullscreen: [Boolean]
    * quitFullscreenOnFinished: [Boolean] // TODO
-   * repeatTesting: 3
+   * repeatTesting: 2
    * decimalPlace: 3
    * headline: [String]
    * description: [String]
@@ -185,9 +200,9 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
     {
       fullscreen: true,
       quitFullscreenOnFinished: false,
-      repeatTesting: 3,
+      repeatTesting: 2,
       decimalPlace: 2,
-      headline: text.screenSize.headline,
+      headline: text.measureDistance.headline,
       description: text.measureDistance.description,
     },
     options
@@ -199,7 +214,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
     constructInstructions(options.headline, options.description)
   )
 
-  blindSpotTest(this, options, callback)
+  blindSpotTest(this, options, false, callback)
 }
 
 // Helper functions
