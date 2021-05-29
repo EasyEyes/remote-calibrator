@@ -1,3 +1,3 @@
-[submodule "src/WebGazer"]
-	path = src/WebGazer
-	url = https://github.com/peilingjiang-DEV/WebGazer.git
+[submodule "src/WebGazer4RC"]
+	path = src/WebGazer4RC
+	url = https://github.com/EasyEyes/WebGazer4RC.git

@@ -1,4 +1,4 @@
-import webgazer from '../WebGazer/src/index.mjs'
+import webgazer from '../WebGazer4RC/src/index.mjs'
 
 import { toFixedNumber } from '../helpers'
 import { checkWebgazerReady } from '../video'
