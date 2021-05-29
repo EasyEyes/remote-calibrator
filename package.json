@@ -8,7 +8,7 @@
     "lib": "lib"
   },
   "scripts": {
-    "setup": "npm i && cd src/WebGazer4RC && npm i && cd ../..",
+    "setup": "npm install",
     "format": "prettier --write \"**/*.{js,json,md,html,css}\"",
     "start": "webpack --env=development",
     "dev": "webpack --env=development",
@@ -51,10 +51,15 @@
     "*.{js,json,md,html,css}": "prettier --write"
   },
   "dependencies": {
+    "@tensorflow-models/facemesh": "^0.0.5",
+    "@tensorflow/tfjs": "^3.6.0",
     "animate.css": "^4.1.1",
     "exif-js": "^2.3.0",
     "image-capture": "^0.4.0",
+    "localforage": "^1.9.0",
+    "numeric": "^1.2.6",
     "platform": "^1.3.6",
+    "regression": "^2.0.1",
     "sweetalert2": "^11.0.12"
   }
 }
