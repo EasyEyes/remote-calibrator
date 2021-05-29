@@ -1,5 +1,4 @@
 const webpack = require('webpack')
-const path = require('path')
 
 const ESLintPlugin = require('eslint-webpack-plugin')
 const WebpackModules = require('webpack-modules')
@@ -46,9 +45,6 @@ const config = {
         loader: 'svg-inline-loader',
       },
     ],
-  },
-  resolve: {
-    modules: ['node_modules', 'src/WebGazer4RC/node_modules'],
   },
   plugins: [
     new WebpackModules(),
