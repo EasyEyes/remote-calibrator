@@ -5,7 +5,7 @@
  */
 
 import platform from 'platform'
-import DeviceDetector from 'device-detector-js'
+// import DeviceDetector from 'device-detector-js'
 
 import randomPhrases from './components/randomPhrases'
 import { debug } from './constants'
@@ -276,16 +276,18 @@ RemoteCalibrator.prototype.environment = function (callback) {
       timestamp: this.id.timestamp,
     }
 
-    const detector = new DeviceDetector()
-    const detectorData = detector.parse(data.value.fullDescription)
+    // const detector = new DeviceDetector()
+    // const detectorData = detector.parse(data.value.fullDescription)
 
-    data.value.deviceType = detectorData.device.type
+    // data.value.deviceType = detectorData.device.type
 
     // Model and manufacturer correction
-    if (!data.value.model && detectorData.device.model.length)
-      data.value.model = detectorData.device.model
-    if (!data.value.manufacturer && detectorData.device.brand.length)
-      data.value.manufacturer = detectorData.device.brand
+    if (!data.value.model /*&& detectorData.device.model.length*/)
+      // data.value.model = detectorData.device.model
+      data.value.model = null
+    if (!data.value.manufacturer /*&& detectorData.device.brand.length*/)
+      // data.value.manufacturer = detectorData.device.brand
+      data.value.manufacturer = null
 
     this.environmentData = data
 
