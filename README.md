@@ -9,7 +9,7 @@ The features/functions marked with 🚧 is still work-in-progress and not availa
 
 ## Demo
 
-Please visit https://remotecalibrator.netlify.app for the demo.
+Please visit https://calibrator.app for the demo.
 
 ## Getting Started
 
@@ -125,8 +125,10 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
   decimalPlace: 1,
   // Headline on the calibration page (Support HTML)
   headline: "🖥️ Screen Size Calibration",
-  // Description and instruction on the calibration page (Support HTML)
-  description: "We'll measure your physical screen size. To do this, please find a <b>standard credit card</b> (or driver's license) or a <b>USB connector</b>, place it on the screen and align the top and left edges with those of the picture, and drag the slider to match the other two edges. Press <b>SPACE</b> to confirm and submit the alignment.",
+  // Description and instruction shown in the alert popup (Support HTML)
+  description: "We'll measure your physical screen size. To do this, please find a <b>standard credit card</b> (or driver's license) or a <b>USB connector</b>, place it on the screen and drag the slider to match the sizes of the physical and displayed objects. Press <b>SPACE</b> to confirm and submit when aligned.",
+  // Short description shown in the calibration page (Support HTML)
+  shortDescription: "Match the sizes and press <b>SPACE</b> to confirm."
 }
 ```
 
@@ -142,7 +144,7 @@ Before measuring or tracking viewing distance, calibration of the screen size is
 
 Not recommended. Pop an interface for participants to calibrate the viewing distance at the moment using Blind Spot Test.
 
-Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`) to callback.
+Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDistanceCM`) to callback.
 
 ```js
 // [options] Default value
@@ -164,7 +166,27 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.viewingDistanceCM`)
 .trackDistance([options, [callback]])
 ```
 
-Measure the viewing distance and then predict the real-time distance based on the change of the size of [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection).
+Measure the viewing distance and then predict the real-time distance based on the change of the interpupillary distance, measured by [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection).
+
+Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDistanceCM`) to callback.
+
+`method` can be either `"Blind Spot"` (for measures from blind spot tests) or `"Facemesh Predict"` (for later dynamic estimates).
+
+```js
+// [options] Default value
+{
+  fullscreen: true,
+  repeatTesting: 2,
+  pipWidthPX: 208,
+  showVideo: true,
+  showFaceOverlay: false,
+  decimalPlace: 2,
+  // Measurement per second
+  trackingRate: 3,
+  headline: "👀 Calibrate Gaze",
+  description: "We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen fot eh next 5 seconds.",
+}
+```
 
 ### 👀 Gaze
 
@@ -196,6 +218,8 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
   showFaceOverlay: false,
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
+  // Min accuracy required in degree, set to "none" to pass the accuracy check
+  thresholdDEG: 10,
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
   headline: "👀 Calibrate Gaze",
   description:

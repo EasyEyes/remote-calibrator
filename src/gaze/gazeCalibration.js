@@ -2,6 +2,7 @@ import RemoteCalibrator from '../core'
 
 import { constructInstructions, shuffle, blurAll } from '../helpers'
 import { gazeCalibrationDotDefault, debug } from '../constants'
+import text from '../text.json'
 
 // [Wait!], etc.
 const instPOutsideWarning = 'Keep your face centered in the video feed.'
@@ -10,7 +11,7 @@ export function gazeCalibrationPrepare(RC, options) {
   RC._addBackground(
     constructInstructions(options.headline, options.description)
   )
-  RC._constructInstructionElement(
+  RC._constructFloatInstructionElement(
     'gaze-system-instruction',
     'Loading... Please wait.'
   )
@@ -28,9 +29,8 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
   options = Object.assign(
     {
       calibrationCount: 5,
-      headline: '👀 Calibrate Gaze',
-      description:
-        'With your help, we’ll track your gaze. When asked, please grant permission to access your camera. \nPlease try to keep your face centered in the live video feed. \nFollow the instructions below.',
+      headline: text.calibrateGaze.headline,
+      description: text.calibrateGaze.description,
     },
     options
   )

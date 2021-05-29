@@ -101,6 +101,14 @@ GazeTracker.prototype.pause = function () {
   this.webgazer.pause()
 }
 
+GazeTracker.prototype.startStoringPoints = function () {
+  this.webgazer.params.storingPoints = true
+}
+
+GazeTracker.prototype.stopStoringPoints = function () {
+  this.webgazer.params.storingPoints = false
+}
+
 /* -------------------------------------------------------------------------- */
 
 GazeTracker.prototype.showGazer = function (show) {

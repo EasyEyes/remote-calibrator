@@ -46,6 +46,7 @@
 
 .calibration-instruction p {
   white-space: pre-line;
+  margin-top: 1rem;
 }
 
 .calibration-description {

@@ -188,6 +188,15 @@ function trackGaze(e) {
     )
   })
 
+  const _getAccuracy = setInterval(() => {
+    if (RemoteCalibrator.gazeAccuracyDEG) {
+      clearInterval(_getAccuracy)
+      printMessage(
+        `The calibrated gaze accuracy is within ${RemoteCalibrator.gazeAccuracyDEG.value} degrees averaging over 50 predictions.`
+      )
+    }
+  }, 2000)
+
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.replaceChild(
     constructFunctionButton(['Pause Gaze', 'pauseGaze', 'pauseGaze'], false),

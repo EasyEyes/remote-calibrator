@@ -18,6 +18,10 @@
   cursor: pointer;
 }
 
+.gaze-calibration-dot-click:active {
+  opacity: 0.3;
+}
+
 /* ----------------------------- WebGazer Native ---------------------------- */
 
 #webgazerGazeDot {

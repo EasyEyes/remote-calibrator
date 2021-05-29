@@ -1,11 +1,14 @@
+import Swal from 'sweetalert2/dist/sweetalert2.js'
+
 import RemoteCalibrator from './core'
-import { constructInstructions, toFixedNumber, blurAll, remap } from './helpers'
+import { toFixedNumber, blurAll, remap } from './helpers'
 
 import Card from './media/card.svg'
 import Arrow from './media/arrow.svg'
 import USBA from './media/usba.svg'
 import USBC from './media/usbc.svg'
 import { bindKeys, unbindKeys } from './components/keyBinder'
+import { swalInfoOptions } from './components/swalOptions'
 import text from './text.json'
 
 const resources = {
@@ -47,19 +50,26 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       decimalPlace: 1,
       headline: text.screenSize.headline,
       description: text.screenSize.description,
+      shortDescription: text.screenSize.shortDescription,
     },
     options
   )
 
   this.getFullscreen(options.fullscreen)
 
-  options.description += ` <b>I have a <select id="matching-obj"><option value="card" selected>Credit Card</option><option value="usba">USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option></select> with me.</b>`
+  options.shortDescription += `<br /><b>I have a <select id="matching-obj"><option value="card" selected>Credit Card</option><option value="usba">USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option></select> with me.</b>`
 
-  this._addBackground(
-    constructInstructions(options.headline, options.description)
-  )
+  this._addBackground()
 
-  getSize(this, this.background, options, callback)
+  Swal.fire({
+    ...swalInfoOptions,
+    // title: options.headline,
+    html: options.description,
+  }).then(() => {
+    this._addBackgroundText(options.headline, options.shortDescription)
+    getSize(this, this.background, options, callback)
+  })
+
   return
 }
 

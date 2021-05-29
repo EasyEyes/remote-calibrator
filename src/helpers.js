@@ -68,6 +68,11 @@
   }
 })()
 
+// http://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
+export function sleep(time) {
+  return new Promise(resolve => setTimeout(resolve, time))
+}
+
 /* -------------------------------------------------------------------------- */
 
 // Enter fullscreen
@@ -94,13 +99,7 @@ export function getFullscreen() {
 /* -------------------------------------------------------------------------- */
 
 export function constructInstructions(headline, description) {
-  return `
-<div class="calibration-instruction">
-  <h1>${headline}</h1>
-  <p class="calibration-description">
-    ${description}
-  </p>
-</div>`
+  return `<div class="calibration-instruction"><h1>${headline}</h1><p class="calibration-description">${description}</p></div>`
 }
 
 /* ----------------------------- Tiny functions ----------------------------- */

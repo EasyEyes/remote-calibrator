@@ -9,7 +9,7 @@ import DeviceDetector from 'device-detector-js'
 
 import randomPhrases from './components/randomPhrases'
 import { debug } from './constants'
-import { getFullscreen, blurAll } from './helpers'
+import { getFullscreen, blurAll, constructInstructions } from './helpers'
 
 class RemoteCalibrator {
   constructor() {
@@ -19,10 +19,12 @@ class RemoteCalibrator {
 
     this._environmentData = []
 
-    this._displayData = []
-    this._screenData = []
+    this._displayData = [] // PX
+    this._screenData = [] // CM
     this._viewingDistanceData = []
+
     this._gazePositionData = []
+    this._gazeAccuracyData = []
 
     this._background = {
       element: null,
@@ -175,6 +177,10 @@ class RemoteCalibrator {
     return this._helper_get(this._gazePositionData)
   }
 
+  get gazeAccuracyDEG() {
+    return this._helper_get(this._gazeAccuracyData)
+  }
+
   /* --------------------------------- SETTERS -------------------------------- */
 
   /**
@@ -203,6 +209,13 @@ class RemoteCalibrator {
    */
   set gazePositionData(data) {
     this._gazePositionData.push(data)
+  }
+
+  /**
+   * @param {{ value: number; timestamp: Date; }} data
+   */
+  set gazeAccuracyData(data) {
+    this._gazeAccuracyData.push(data)
   }
 
   /**
@@ -325,6 +338,15 @@ RemoteCalibrator.prototype._addBackground = function (inner) {
 
 /**
  *
+ * Replace background with a new one
+ */
+RemoteCalibrator.prototype._replaceBackground = function (inner) {
+  if (this.background !== null) this._removeBackground()
+  return this._addBackground(inner)
+}
+
+/**
+ *
  * Remove background
  *
  */
@@ -345,11 +367,28 @@ RemoteCalibrator.prototype._removeBackground = function () {
 }
 
 /**
+ * Add page headline and short descriptions
+ */
+RemoteCalibrator.prototype._addBackgroundText = function (
+  headline,
+  shortDescription
+) {
+  // Remove the old if there's any
+  let ins = this.background.getElementsByClassName('calibration-instruction')
+
+  for (let i = 0; i < ins.length; i++) {
+    this.background.removeChild(ins[i])
+  }
+
+  this.background.innerHTML = constructInstructions(headline, shortDescription)
+}
+
+/**
  * Construct a floating <p> element for instructions and append to the parent (background) element
  * @param {string} id id of the element
  * @param {string} text init text
  */
-RemoteCalibrator.prototype._constructInstructionElement = function (
+RemoteCalibrator.prototype._constructFloatInstructionElement = function (
   id = null,
   text
 ) {

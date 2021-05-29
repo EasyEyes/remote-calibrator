@@ -37,9 +37,10 @@ RemoteCalibrator.prototype.trackGaze = function (options = {}, callback) {
       showVideo: true,
       showFaceOverlay: false,
       calibrationCount: 5,
+      thresholdDEG: 10, // minAccuracy
       decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
-      headline: text.trackGaze.headline,
-      description: text.trackGaze.description,
+      headline: text.calibrateGaze.headline,
+      description: text.calibrateGaze.description,
     },
     options
   )
@@ -77,23 +78,44 @@ RemoteCalibrator.prototype.trackGaze = function (options = {}, callback) {
   const gazeTrackerBeginOptions = {
     pipWidthPX: options.pipWidthPX,
   }
+  const calibrateGazeOptions = {
+    calibrationCount: options.calibrationCount,
+    headline: options.headline,
+    description: options.description,
+  }
   this.gazeTracker.begin(gazeTrackerBeginOptions, () => {
-    this.calibrateGaze(
-      {
-        calibrationCount: options.calibrationCount,
-        headline: options.headline,
-        description: options.description,
-      },
-      onCalibrationEnded
-    )
+    this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
   })
 
   // Calibration
 
   const onCalibrationEnded = () => {
-    // TODO Check accuracy and re-calibrate if needed
-    // Start running
-    this.gazeTracker.attachNewCallback(callback)
+    if (options.thresholdDEG === 'none') {
+      this.gazeTracker.attachNewCallback(callback)
+      return
+    } else {
+      if (
+        !this.getGazeAccuracy(
+          {
+            thresholdDEG: options.thresholdDEG,
+          },
+          () => {
+            // Success
+            // Start running
+            this.gazeTracker.attachNewCallback(callback)
+          },
+          () => {
+            // Fail to meet the min accuracy
+            this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
+          }
+        )
+      ) {
+        console.error(
+          'Failed to finish gaze accuracy measurement due to error.'
+        )
+        this.gazeTracker.attachNewCallback(callback)
+      }
+    }
   }
 }
 

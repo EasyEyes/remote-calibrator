@@ -1,6 +1,6 @@
 {
   "name": "remote-calibrator",
-  "version": "0.0.4",
+  "version": "0.0.5-alpha",
   "description": "A toolbox for remote testing calibration.",
   "main": "lib/RemoteCalibrator.js",
   "directories": {
@@ -37,10 +37,12 @@
     "husky": "^6.0.0",
     "lint-staged": "^11.0.0",
     "prettier": "^2.3.0",
+    "sass": "^1.34.0",
+    "sass-loader": "^11.1.1",
     "style-loader": "^2.0.0",
     "svg-inline-loader": "^0.8.2",
     "terser-webpack-plugin": "^5.1.2",
-    "webpack": "^5.38.0",
+    "webpack": "^5.38.1",
     "webpack-cli": "^4.7.0",
     "webpack-modules": "^1.0.0"
   },
@@ -49,9 +51,11 @@
     "*.{js,json,md,html,css}": "prettier --write"
   },
   "dependencies": {
+    "animate.css": "^4.1.1",
     "device-detector-js": "^2.2.9",
     "exif-js": "^2.3.0",
     "image-capture": "^0.4.0",
-    "platform": "^1.3.6"
+    "platform": "^1.3.6",
+    "sweetalert2": "^11.0.12"
   }
 }
