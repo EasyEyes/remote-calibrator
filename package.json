@@ -8,7 +8,7 @@
     "lib": "lib"
   },
   "scripts": {
-    "setup": "npm install",
+    "setup": "cd src/WebGazer4RC && npm i && cd ../.. && npm i",
     "format": "prettier --write \"**/*.{js,json,md,html,css}\"",
     "start": "webpack --env=development",
     "dev": "webpack --env=development",
