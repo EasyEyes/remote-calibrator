@@ -14,7 +14,8 @@
     "dev": "webpack --env=development",
     "build": "webpack --env=production",
     "serve": "node server.js",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "netlify": "npm run setup && npm run build"
   },
   "repository": {
     "type": "git",
