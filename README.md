@@ -116,7 +116,7 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
 {
   // Automatically enter fullscreen when starting calibration
   // Will be ignored if already in fullscreen mode
-  fullscreen: true,
+  fullscreen: false,
   // Automatically quit fullscreen when calibration finished
   quitFullscreenOnFinished: false, 🚧
   // How many times the participant needs to calibrate
@@ -149,7 +149,7 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 ```js
 // [options] Default value
 {
-  fullscreen: true,
+  fullscreen: false,
   quitFullscreenOnFinished: false, 🚧
   // How many times each of the eye will be used to test
   // By default, right eye 2 times, then left eye 2 times
@@ -175,7 +175,7 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 ```js
 // [options] Default value
 {
-  fullscreen: true,
+  fullscreen: false,
   repeatTesting: 2,
   pipWidthPX: 208,
   showVideo: true,
@@ -205,7 +205,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 ```js
 // [options] Default value
 {
-  fullscreen: true,
+  fullscreen: false,
   // Draw the current gaze position on the screen (as a dot)
   showGazer: true,
   // Stop or not calibrating after the calibration process

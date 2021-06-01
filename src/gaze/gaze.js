@@ -30,7 +30,7 @@ RemoteCalibrator.prototype.trackGaze = function (options = {}, callback) {
 
   options = Object.assign(
     {
-      fullscreen: true,
+      fullscreen: false,
       showGazer: true,
       pipWidthPX: 208,
       greedyLearner: true,

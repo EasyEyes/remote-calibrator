@@ -177,7 +177,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
 
   options = Object.assign(
     {
-      fullscreen: true,
+      fullscreen: false,
       quitFullscreenOnFinished: false,
       repeatTesting: 2,
       decimalPlace: 2,

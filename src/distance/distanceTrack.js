@@ -32,7 +32,7 @@ RemoteCalibrator.prototype.trackDistance = function (
 
   options = Object.assign(
     {
-      fullscreen: true,
+      fullscreen: false,
       repeatTesting: 2,
       pipWidthPX: 208,
       showVideo: true,
