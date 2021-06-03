@@ -24,12 +24,12 @@ body {
 .cross,
 .code {
   position: absolute;
-  top: 50%;
-  left: 50%;
 }
 
 .cross {
   background-color: black;
+  top: 50%;
+  left: 50%;
   width: 6px;
   height: 42px;
 }
@@ -49,19 +49,23 @@ body {
 }
 
 .code1 {
-  transform: translate(-50%, -50%) translate(-420px, -250px);
+  top: 6rem;
+  left: 6rem;
 }
 
 .code2 {
-  transform: translate(-50%, -50%) translate(420px, -250px);
+  top: 6rem;
+  right: 6rem;
 }
 
 .code3 {
-  transform: translate(-50%, -50%) translate(-420px, 250px);
+  bottom: 6rem;
+  left: 6rem;
 }
 
 .code4 {
-  transform: translate(-50%, -50%) translate(420px, 250px);
+  bottom: 6rem;
+  right: 6rem;
 }
 
 #gaze-position {
