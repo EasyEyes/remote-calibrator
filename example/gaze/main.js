@@ -23,10 +23,22 @@ function go() {
         averagingCount++
       } else {
         text.innerHTML =
-          Math.round((10 * averagingX) / averagingCount) / 10 +
-          'px, ' +
-          Math.round((10 * averagingY) / averagingCount) / 10 +
-          'px  ' +
+          remap(
+            averagingX / averagingCount,
+            100,
+            window.innerWidth - 100,
+            0,
+            1
+          ) +
+          ', ' +
+          remap(
+            window.innerHeight - averagingY / averagingCount - 100,
+            0,
+            window.innerHeight - 200,
+            0,
+            1
+          ) +
+          ' ' +
           parseTimestamp(data.timestamp)
 
         startingStamp = data.timestamp
@@ -49,7 +61,13 @@ function download() {
   let s = 'x,y,timestamp'
   for (let d of data) {
     s += '\n'
-    s += `${d.value.x},${d.value.y},${parseTimestamp(d.timestamp)}`
+    s += `${remap(d.value.x, 100, window.innerWidth - 100, 0, 1)},${remap(
+      window.innerHeight - d.value.y - 100,
+      0,
+      window.innerHeight - 200,
+      0,
+      1
+    )},${parseTimestamp(d.timestamp)}`
   }
   downloadString(s, 'text/csv', 'calibrator-data.csv')
 }
@@ -69,4 +87,13 @@ function downloadString(text, fileType, fileName) {
   setTimeout(function () {
     URL.revokeObjectURL(a.href)
   }, 1500)
+}
+
+/* --------------------------------- HELPER --------------------------------- */
+
+// https://github.com/LingDong-/q5xjs/blob/bc5fdbff75b7dc893cf470ac1f7045f8af59198a/q5.js#L276
+function remap(value, istart, istop, ostart, ostop) {
+  return (
+    ostart + (ostop - ostart) * (((value - istart) * 1.0) / (istop - istart))
+  )
 }

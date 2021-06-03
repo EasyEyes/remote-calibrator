@@ -49,23 +49,23 @@ body {
 }
 
 .code1 {
-  top: 6rem;
-  left: 6rem;
+  top: 100px;
+  left: 100px;
 }
 
 .code2 {
-  top: 6rem;
-  right: 6rem;
+  top: 100px;
+  right: 100px;
 }
 
 .code3 {
-  bottom: 6rem;
-  left: 6rem;
+  bottom: 100px;
+  left: 100px;
 }
 
 .code4 {
-  bottom: 6rem;
-  right: 6rem;
+  bottom: 100px;
+  right: 100px;
 }
 
 #gaze-position,
