@@ -27,7 +27,7 @@ function go() {
           'px, ' +
           Math.round((10 * averagingY) / averagingCount) / 10 +
           'px  ' +
-          `${data.timestamp.getHours()}:${data.timestamp.getMinutes()}:${data.timestamp.getSeconds()}.${data.timestamp.getMilliseconds()}`
+          parseTimestamp(data.timestamp)
 
         startingStamp = data.timestamp
         averagingX = averagingY = averagingCount = 0
@@ -37,4 +37,36 @@ function go() {
       }
     }
   )
+}
+
+function parseTimestamp(t) {
+  return `${t.getHours()}:${t.getMinutes()}:${t.getSeconds()}.${t.getMilliseconds()}`
+}
+
+function download() {
+  if (!RemoteCalibrator._gazePositionData.length) return
+  const data = [...RemoteCalibrator._gazePositionData]
+  let s = 'x,y,timestamp'
+  for (let d of data) {
+    s += '\n'
+    s += `${d.value.x},${d.value.y},${parseTimestamp(d.timestamp)}`
+  }
+  downloadString(s, 'text/csv', 'calibrator-data.csv')
+}
+
+// https://gist.github.com/danallison/3ec9d5314788b337b682
+function downloadString(text, fileType, fileName) {
+  var blob = new Blob([text], { type: fileType })
+
+  var a = document.createElement('a')
+  a.download = fileName
+  a.href = URL.createObjectURL(blob)
+  a.dataset.downloadurl = [fileType, a.download, a.href].join(':')
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(function () {
+    URL.revokeObjectURL(a.href)
+  }, 1500)
 }
