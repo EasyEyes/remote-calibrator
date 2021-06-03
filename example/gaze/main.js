@@ -9,7 +9,7 @@ function go() {
   RemoteCalibrator.trackGaze(
     {
       fullscreen: false,
-      calibrationCount: 1,
+      calibrationCount: 7,
     },
     data => {
       if (!startingStamp) {

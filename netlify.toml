@@ -11,7 +11,7 @@ environment = { NODE_VERSION = "14", NPM_VERSION = "7.15.0" }
 # the build. This is relative to the base directory if one has been set, or the
 # root directory if a base has not been set. This sample publishes the
 # directory located at the absolute path "root/project/build-output"
-publish = "example/"
+publish = "example/gaze/"
 
 # Default build command.
 command = "npm run netlify"
