@@ -10,6 +10,7 @@ function go() {
     {
       fullscreen: false,
       calibrationCount: 7,
+      pipWidthPX: 104,
     },
     data => {
       if (!startingStamp) {
