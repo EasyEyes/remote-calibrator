@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="../lib/RemoteCalibrator.js"></script>
+    <link rel="stylesheet" href="main.css" />
+    <title>Gaze Accuracy Measurement</title>
+  </head>
+  <body>
+    <div class="cross cross-h"></div>
+    <div class="cross cross-v"></div>
+    <img class="code code1" src="code/1.png" alt="QR code" />
+    <img class="code code2" src="code/2.png" alt="QR code" />
+    <img class="code code3" src="code/3.png" alt="QR code" />
+    <img class="code code4" src="code/4.png" alt="QR code" />
+    <p id="gaze-position">Waiting for data...</p>
+    <button class="start-button" id="start-button" onclick="go()">Start</button>
+    <script src="main.js"></script>
+  </body>
+</html>
