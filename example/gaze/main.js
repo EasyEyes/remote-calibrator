@@ -25,7 +25,7 @@ document.getElementById('code-degree').innerHTML = `QR Codes X &#177;${
   Math.round(codeToCenterXDEG * 1000000) / 1000000
 }deg, Y &#177;${
   Math.round(codeToCenterYDEG * 1000000) / 1000000
-}deg (27in screen, 40cm viewing distance, fullscreen)`
+}deg (27in screen, 40cm viewing distance, fullscreen) | PPI ${ppc * 2.54}`
 
 /* -------------------------------------------------------------------------- */
 const gazeData = []
