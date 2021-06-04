@@ -3,6 +3,34 @@
 const text = document.getElementById('gaze-position')
 let startingStamp, averagingX, averagingY, averagingCount
 
+const screenDiagonalIN = 27 // Test on the specific computer
+const screenDiagonalCM = screenDiagonalIN * 2.54
+const viewingDistanceCM = 40
+
+const ppc = Math.hypot(screen.width, screen.height) / screenDiagonalCM
+
+const codeToCenterXPX = screen.width / 2 - 100
+const codeToCenterYPX = screen.height / 2 - 100
+
+const codeToCenterXCM = codeToCenterXPX / ppc
+const codeToCenterYCM = codeToCenterYPX / ppc
+
+const codeToCenterXDEG =
+  (Math.atan(codeToCenterXCM / viewingDistanceCM) * 180) / Math.PI
+
+const codeToCenterYDEG =
+  (Math.atan(codeToCenterYCM / viewingDistanceCM) * 180) / Math.PI
+
+document.getElementById('code-degree').innerHTML = `QR Codes X &#177;${
+  Math.round(codeToCenterXDEG * 1000000) / 1000000
+}deg, Y &#177;${
+  Math.round(codeToCenterYDEG * 1000000) / 1000000
+}deg (27in screen, 40cm viewing distance, fullscreen)`
+
+/* -------------------------------------------------------------------------- */
+const gazeData = []
+/* -------------------------------------------------------------------------- */
+
 function go() {
   document.getElementById('start-button').style.display = 'none'
   RemoteCalibrator.init()
@@ -23,24 +51,37 @@ function go() {
         averagingY += data.value.y
         averagingCount++
       } else {
+        const xPX = averagingX / averagingCount
+        const yPX = window.innerHeight - averagingY / averagingCount // !
+
         text.innerHTML =
-          remap(
-            averagingX / averagingCount,
-            100,
-            window.innerWidth - 100,
-            0,
-            1
-          ) +
+          remap(xPX, 100, window.innerWidth - 100, 0, 1) +
           ', ' +
-          remap(
-            window.innerHeight - averagingY / averagingCount - 100,
-            0,
-            window.innerHeight - 200,
-            0,
-            1
-          ) +
+          remap(yPX, 100, window.innerHeight - 100, 0, 1) +
           ' ' +
           parseTimestamp(data.timestamp)
+
+        gazeData.push({
+          value: {
+            xPX: xPX,
+            yPX: yPX,
+            xNorm: remap(xPX, 100, window.innerWidth - 100, 0, 1),
+            yNorm: remap(yPX, 100, window.innerHeight - 100, 0, 1),
+            xDEG:
+              (Math.atan(
+                (xPX - window.innerWidth / 2) / ppc / viewingDistanceCM
+              ) *
+                180) /
+              Math.PI,
+            yDEG:
+              (Math.atan(
+                (yPX - window.innerHeight / 2) / ppc / viewingDistanceCM
+              ) *
+                180) /
+              Math.PI,
+          },
+          timestamp: data.timestamp,
+        })
 
         startingStamp = data.timestamp
         averagingX = averagingY = averagingCount = 0
@@ -57,18 +98,14 @@ function parseTimestamp(t) {
 }
 
 function download() {
-  if (!RemoteCalibrator._gazePositionData.length) return
-  const data = [...RemoteCalibrator._gazePositionData]
-  let s = 'x,y,timestamp'
+  if (!gazeData.length) return
+  const data = [...gazeData]
+  let s = 'xPX,yPX,xNorm,yNorm,xDEG,yDEG,timestamp'
   for (let d of data) {
     s += '\n'
-    s += `${remap(d.value.x, 100, window.innerWidth - 100, 0, 1)},${remap(
-      window.innerHeight - d.value.y - 100,
-      0,
-      window.innerHeight - 200,
-      0,
-      1
-    )},${parseTimestamp(d.timestamp)}`
+    s += `${d.value.xPX},${d.value.yPX},${d.value.xNorm},${d.value.yNorm},${
+      d.value.xDEG
+    },${d.value.yDEG},${parseTimestamp(d.timestamp)}`
   }
   downloadString(s, 'text/csv', 'calibrator-data.csv')
 }
