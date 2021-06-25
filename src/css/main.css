@@ -37,6 +37,7 @@
   font-size: 3rem;
   line-height: 100%;
   min-width: 360px;
+  font-weight: 700;
 }
 
 .calibration-instruction * {

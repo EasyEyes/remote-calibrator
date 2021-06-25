@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Dynamic viewing distance tracking.
+- New homepage.
+- `.panel` function that helps set up a graphical user interface for participants to calibrate step by step.
+
+### Fixed
+
+- Various bug and wording fixes.
+
 ## [0.0.3] - 2021-04-20
 
 ### Added

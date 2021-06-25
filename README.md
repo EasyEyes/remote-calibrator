@@ -17,6 +17,8 @@ To use RemoteCalibrator, you can either add the script (the file is in `lib` fol
 
 ```html
 <script src="RemoteCalibrator.js"></script>
+<!-- Or use CDN -->
+<script src="https://cdn.jsdelivr.net/npm/remote-calibrator@latest/lib/RemoteCalibrator.js"></script>
 ```
 
 Or use package management tools, e.g. NPM.
@@ -43,6 +45,8 @@ RemoteCalibrator.measureDistance({}, data => {
 You may now dive into the documentation of the functions. Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, while you have to put a `options` if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
 ## Functions
+
+If you don't want to use the default panel and want to integrate the process into your experiment, you can also call each calibration function individually. Please see the instructions below.
 
 ### 🎬 Initialize
 

@@ -104,5 +104,6 @@ dist
 .tern-port
 
 # Dev
-example/lib
+*homepage/lib
+*example/lib
 .DS_Store

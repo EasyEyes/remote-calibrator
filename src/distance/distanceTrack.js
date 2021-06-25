@@ -51,7 +51,7 @@ RemoteCalibrator.prototype.trackDistance = function (
 
   // STEP 2 - Live estimate
   const getStdDist = distData => {
-    callbackStd(distData)
+    if (callbackStd && typeof callbackStd === 'function') callbackStd(distData)
     // After getting the standard distance
     const trackingOptions = {
       pipWidthPX: options.pipWidthPX,
@@ -112,16 +112,17 @@ const startTrackingPupils = (RC, stdDist, trackingOptions, callbackTrack) => {
               RC._removeBackground()
             }
 
-            callbackTrack(
-              (RC.viewingDistanceData = {
-                value: toFixedNumber(
-                  stdFactor / averageDist,
-                  trackingOptions.decimalPlace
-                ),
-                timestamp: new Date(),
-                method: 'Facemesh Predict',
-              })
-            )
+            if (callbackTrack && typeof callbackTrack === 'function')
+              callbackTrack(
+                (RC.viewingDistanceData = {
+                  value: toFixedNumber(
+                    stdFactor / averageDist,
+                    trackingOptions.decimalPlace
+                  ),
+                  timestamp: new Date(),
+                  method: 'Facemesh Predict',
+                })
+              )
 
             averageDist = 0
             distCount = 1

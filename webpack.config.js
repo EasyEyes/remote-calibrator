@@ -25,13 +25,14 @@ const config = {
       },
       {
         test: /\.css$/i,
-        use: ['style-loader', 'css-loader'],
+        use: ['style-loader', 'css-loader', 'postcss-loader'],
       },
       {
         test: /\.s[ac]ss$/i,
         use: [
           'style-loader',
           'css-loader',
+          'postcss-loader',
           {
             loader: 'sass-loader',
             options: {
@@ -66,7 +67,7 @@ const output = {
 const exampleConfig = Object.assign({}, config, {
   mode: 'development',
   output: Object.assign({}, output, {
-    path: __dirname + '/example/lib',
+    path: __dirname + '/homepage/lib',
   }),
   optimization: {
     minimize: false,

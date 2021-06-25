@@ -12,6 +12,8 @@ import GazeTracker from './gaze/gazeTracker'
 
 import './webcam'
 
+import './panel/panel'
+
 import './css/main.css'
 import './css/screenSize.css'
 import './css/distance.css'

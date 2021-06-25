@@ -24,7 +24,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
 
   if (!screenPPI || !viewingDistanceCM) {
     console.error(
-      'Screen size and viewing distance measurements are required to measure gaze accuracy.'
+      'Screen size and viewing distance measurements are both required to measure gaze accuracy.'
     )
     return false
   }

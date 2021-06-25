@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <script
+      src="https://code.jquery.com/jquery-3.6.0.slim.min.js"
+      integrity="sha256-u7e5khyithlIdTpu22PHhENmPcRdFiHRjhAuHcs05RI="
+      crossorigin="anonymous"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+      integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
+      crossorigin="anonymous"
+    />
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"
+      integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/party-js@latest/bundle/party.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script src="lib/RemoteCalibrator.js"></script>
+    <link rel="stylesheet" href="main.css" />
+    <link rel="stylesheet" href="panel-holder.css" />
+
+    <link rel="apple-touch-icon" href="media/apple-touch-icon.png" />
+    <link rel="shortcut icon" href="media/favicon.ico" type="image/x-icon" />
+    <title>EasyEyes | Remote Calibrator</title>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-sm navbar-light bg-white">
+      <a class="navbar-brand" href="https://easyeyes.app/"
+        ><img
+          class="easyeyes-logo"
+          src="media/easyeyes_orange_holo.svg"
+          alt="EasyEyes"
+      /></a>
+      <button
+        class="navbar-toggler"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#navbarNav"
+        aria-controls="navbarNav"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item active">
+            <a class="nav-link active" href=".">Home</a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="https://github.com/EasyEyes/RemoteCalibrator"
+              >GitHub</a
+            >
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="example/">Example</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link disabled" href="#">Keyboard</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <main>
+      <div id="header">
+        <h1>Remote Calibrator<span style="color: #ff9a00">.</span></h1>
+        <p class="description">
+          Calibrate and Track for remote psychophysics experiments.
+        </p>
+      </div>
+
+      <!-- ----------------------------------------------------------------------- -->
+      <div id="rc-panel-holder"></div>
+      <!-- ----------------------------------------------------------------------- -->
+
+      <section id="start">
+        <h2>Getting Started</h2>
+        <a href="https://badge.fury.io/js/remote-calibrator"
+          ><img
+            src="https://badge.fury.io/js/remote-calibrator.svg"
+            alt="npm version"
+            height="18"
+        /></a>
+        <a href="https://github.com/EasyEyes/RemoteCalibrator/blob/main/LICENSE"
+          ><img
+            alt="GitHub license"
+            src="https://img.shields.io/github/license/peilingjiang/RemoteCalibrator"
+        /></a>
+        <a href="https://www.jsdelivr.com/package/npm/remote-calibrator"
+          ><img
+            alt="jsdelivr"
+            src="https://data.jsdelivr.com/v1/package/npm/remote-calibrator/badge?style=rounded"
+        /></a>
+        <p>
+          The step-by-step calibration panel can be built at the start of the
+          experiment with a few lines of code.
+        </p>
+      </section>
+    </main>
+
+    <script src="main.js"></script>
+  </body>
+</html>
