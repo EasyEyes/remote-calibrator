@@ -25,6 +25,9 @@
       src="https://cdn.jsdelivr.net/npm/party-js@latest/bundle/party.min.js"
       crossorigin="anonymous"
     ></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Ubuntu+Mono:wght@400;700&display=swap');
+    </style>
     <script src="lib/RemoteCalibrator.js"></script>
     <link rel="stylesheet" href="main.css" />
     <link rel="stylesheet" href="panel-holder.css" />
@@ -68,7 +71,7 @@
             <a class="nav-link" href="example/">Example</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link disabled" href="#">Keyboard</a>
+            <a class="nav-link disabled" href="#">Keypad</a>
           </li>
         </ul>
       </div>
@@ -85,14 +88,14 @@
       <!-- ----------------------------------------------------------------------- -->
       <div id="rc-panel-holder"></div>
       <!-- ----------------------------------------------------------------------- -->
+      <div id="rc-panel-results"></div>
 
       <section id="start">
         <h2>Getting Started</h2>
         <a href="https://badge.fury.io/js/remote-calibrator"
           ><img
-            src="https://badge.fury.io/js/remote-calibrator.svg"
             alt="npm version"
-            height="18"
+            src="https://badge.fury.io/js/remote-calibrator.svg"
         /></a>
         <a href="https://github.com/EasyEyes/RemoteCalibrator/blob/main/LICENSE"
           ><img

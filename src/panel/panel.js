@@ -59,7 +59,7 @@ RemoteCalibrator.prototype.panel = function (
 
   // Activate the first one
   let current = { index: 0 }
-  _activateStepAt(current, tasks, callback)
+  _activateStepAt(this, current, tasks, callback)
 }
 
 /**
@@ -95,15 +95,24 @@ const _validTaskList = {
     name: 'System Information',
   },
 }
+const _validTaskListNames = Object.keys(_validTaskList)
 
 const _validateTask = task => {
   if (!Array.isArray(task)) return false
-  for (let t of task) if (!Object.keys(_validTaskList).includes(t)) return false
+  for (let t of task) {
+    if (
+      typeof t === 'object' &&
+      (t === null || !_validTaskListNames.includes(t.name))
+    )
+      return false
+    else if (typeof t === 'string' && !_validTaskListNames.includes(t))
+      return false
+  }
   return true
 }
 
-const _newStepBlock = (index, key) => {
-  let useCode = _validTaskList[key].use
+const _newStepBlock = (index, task) => {
+  let useCode = _validTaskList[_getTaskName(task)].use
   let use, useTip
 
   switch (useCode) {
@@ -135,7 +144,7 @@ const _newStepBlock = (index, key) => {
   b.innerHTML = `<p class="rc-panel-step-header"><span class="rc-panel-step-index">${
     Number(index) + 1
   }</span><span class="rc-panel-step-use">${use}<span class="rc-panel-step-use-tip">${useTip}</span></span></p><p class="rc-panel-step-name">${
-    _validTaskList[key].name
+    _validTaskList[_getTaskName(task)].name
   }</p>`
   // b.disabled = true
   return b
@@ -160,16 +169,18 @@ const _setStepsClassesSL = (steps, panelWidth) => {
   }
 }
 
-const _activateStepAt = (current, tasks, finalCallback) => {
+const _activateStepAt = (RC, current, tasks, finalCallback) => {
   document.querySelectorAll('.rc-panel-step').forEach(e => {
     if (Number(e.dataset.index) === current.index) {
       e.classList.replace('rc-panel-step-inactive', 'rc-panel-step-active')
       if (Number(e.dataset.index) !== tasks.length) {
         e.onclick = () => {
-          eval(`RemoteCalibrator.${tasks[current.index]}()`)
+          RC[_getTaskName(tasks[current.index])](
+            ..._getTaskOptionsCallbacks(tasks[current.index])
+          )
           _finishStepAt(current)
           current.index++
-          _activateStepAt(current, tasks, finalCallback)
+          _activateStepAt(RC, current, tasks, finalCallback)
         }
       } else {
         e.onclick = finalCallback
@@ -185,4 +196,25 @@ const _finishStepAt = current => {
       e.classList.replace('rc-panel-step-active', 'rc-panel-step-inactive')
     }
   })
+}
+
+const _getTaskName = task => {
+  if (typeof task === 'string') return task
+  return task.name
+}
+
+const _getTaskOptionsCallbacks = task => {
+  if (typeof task === 'string') return []
+
+  if (['displaySize', 'environment'].includes(task.name)) {
+    return [task.callback || null]
+  } else if (['screenSize', 'trackGaze'].includes(task.name)) {
+    return [task.options || {}, task.callback || null]
+  } else if (['trackDistance'].includes(task.name)) {
+    return [
+      task.options || {},
+      task.callbackStatic || null,
+      task.callbackTrack || null,
+    ]
+  }
 }

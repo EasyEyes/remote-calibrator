@@ -47,6 +47,8 @@ main {
   width: 80%;
 }
 
+/* -------------------------------------------------------------------------- */
+
 #header {
   margin-top: 3rem;
   width: 80%;
@@ -65,6 +67,33 @@ main {
   font-size: 1.5rem;
   color: #666;
 }
+
+/* -------------------------------------------------------------------------- */
+
+#rc-panel-results {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto 5rem;
+}
+
+#rc-panel-results * {
+  font-family: 'Ubuntu Mono', monospace;
+  color: #999;
+}
+
+#rc-panel-results .rc-results-title {
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+#rc-panel-results .rc-result {
+  font-weight: 400;
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 170%;
+}
+
+/* -------------------------------------------------------------------------- */
 
 section h2 {
   font-size: 2rem;
