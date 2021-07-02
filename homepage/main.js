@@ -47,7 +47,9 @@ RemoteCalibrator.panel(
     },
   ],
   '#rc-panel-holder',
-  {},
+  {
+    _demoActivateAll: true, // Only for this demo
+  },
   () => {
     party.confetti(document.querySelector('.rc-panel-step-finish'), {
       count: party.variation.range(40, 60),
@@ -56,7 +58,7 @@ RemoteCalibrator.panel(
 )
 
 const addTitle = () => {
-  panelHolder.style.marginBottom = '3rem'
+  // panelHolder.style.marginBottom = '3rem'
   resultsElement.innerHTML +=
     '<h3 class="rc-results-title">Results from the Calibrator</h3>'
 }

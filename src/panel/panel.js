@@ -26,6 +26,7 @@ RemoteCalibrator.prototype.panel = function (
     {
       headline: text.panel.headline,
       description: text.panel.description,
+      _demoActivateAll: false,
     },
     options
   )
@@ -50,7 +51,7 @@ RemoteCalibrator.prototype.panel = function (
     steps.className += ' rc-panel-no-steps'
   } else {
     for (let t in tasks) {
-      const b = _newStepBlock(t, tasks[t])
+      const b = _newStepBlock(t, tasks[t], options)
       steps.appendChild(b)
     }
   }
@@ -59,7 +60,7 @@ RemoteCalibrator.prototype.panel = function (
 
   // Activate the first one
   let current = { index: 0 }
-  _activateStepAt(this, current, tasks, callback)
+  _activateStepAt(this, current, tasks, options, callback)
 }
 
 /**
@@ -111,7 +112,7 @@ const _validateTask = task => {
   return true
 }
 
-const _newStepBlock = (index, task) => {
+const _newStepBlock = (index, task, options) => {
   let useCode = _validTaskList[_getTaskName(task)].use
   let use, useTip
 
@@ -139,7 +140,11 @@ const _newStepBlock = (index, task) => {
   }
 
   const b = document.createElement('button')
-  b.className = 'rc-panel-step rc-panel-step-todo rc-panel-step-inactive'
+  b.className =
+    'rc-panel-step rc-panel-step-todo' +
+    (options._demoActivateAll
+      ? ' rc-panel-step-active'
+      : ' rc-panel-step-inactive')
   b.dataset.index = index
   b.innerHTML = `<p class="rc-panel-step-header"><span class="rc-panel-step-index">${
     Number(index) + 1
@@ -169,21 +174,30 @@ const _setStepsClassesSL = (steps, panelWidth) => {
   }
 }
 
-const _activateStepAt = (RC, current, tasks, finalCallback) => {
-  document.querySelectorAll('.rc-panel-step').forEach(e => {
-    if (Number(e.dataset.index) === current.index) {
-      e.classList.replace('rc-panel-step-inactive', 'rc-panel-step-active')
-      if (Number(e.dataset.index) !== tasks.length) {
-        e.onclick = () => {
-          RC[_getTaskName(tasks[current.index])](
-            ..._getTaskOptionsCallbacks(tasks[current.index])
-          )
-          _finishStepAt(current)
-          current.index++
-          _activateStepAt(RC, current, tasks, finalCallback)
+const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
+  document.querySelectorAll('.rc-panel-step').forEach((e, ind) => {
+    if (!options._demoActivateAll) {
+      // Default situation
+      if (Number(e.dataset.index) === current.index) {
+        e.classList.replace('rc-panel-step-inactive', 'rc-panel-step-active')
+        if (Number(e.dataset.index) !== tasks.length) {
+          e.onclick = () => {
+            RC[_getTaskName(tasks[current.index])](
+              ..._getTaskOptionsCallbacks(tasks[current.index])
+            )
+            _finishStepAt(current)
+            current.index++
+            _activateStepAt(RC, current, tasks, options, finalCallback)
+          }
+        } else {
+          e.onclick = finalCallback
         }
-      } else {
-        e.onclick = finalCallback
+      }
+    } else {
+      // Demo active all
+      e.onclick = () => {
+        RC[_getTaskName(tasks[ind])](..._getTaskOptionsCallbacks(tasks[ind]))
+        _finishStepAt(ind)
       }
     }
   })
