@@ -4,6 +4,7 @@
 const panelHolder = document.querySelector('#rc-panel-holder')
 const resultsElement = document.querySelector('#rc-panel-results')
 let resultsTitle, gazeMsg, distanceMsg
+let titleAdded = false // "Results from the Calibrator" title
 
 RemoteCalibrator.init({ id: 'session_demo' })
 RemoteCalibrator.panel(
@@ -22,6 +23,7 @@ RemoteCalibrator.panel(
     {
       name: 'trackGaze',
       callback: data => {
+        addTitle()
         if (!gazeMsg)
           gazeMsg = printMessage('The gaze position is [ px, px] at .')
         printMessage(
@@ -35,6 +37,7 @@ RemoteCalibrator.panel(
     {
       name: 'trackDistance',
       callbackTrack: data => {
+        addTitle()
         if (!distanceMsg)
           distanceMsg = printMessage('The dynamic viewing distance is cm at .')
         printMessage(
@@ -59,8 +62,10 @@ RemoteCalibrator.panel(
 
 const addTitle = () => {
   // panelHolder.style.marginBottom = '3rem'
+  if (titleAdded) return
   resultsElement.innerHTML +=
     '<h3 class="rc-results-title">Results from the Calibrator</h3>'
+  titleAdded = true
 }
 
 const printMessage = (msg, target = null) => {
