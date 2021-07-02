@@ -26,6 +26,7 @@ RemoteCalibrator.prototype.panel = function (
     {
       headline: text.panel.headline,
       description: text.panel.description,
+      nextButton: text.panel.nextButton,
       _demoActivateAll: false,
     },
     options
@@ -56,10 +57,10 @@ RemoteCalibrator.prototype.panel = function (
     }
   }
 
-  steps.appendChild(_nextStepBlock(tasks.length))
+  steps.appendChild(_nextStepBlock(tasks.length, options))
 
   // Activate the first one
-  let current = { index: 0 }
+  let current = { index: 0, finished: [] }
   _activateStepAt(this, current, tasks, options, callback)
 }
 
@@ -155,11 +156,12 @@ const _newStepBlock = (index, task, options) => {
   return b
 }
 
-const _nextStepBlock = index => {
+const _nextStepBlock = (index, options) => {
   const b = document.createElement('button')
-  b.className = 'rc-panel-step rc-panel-step-finish rc-panel-step-inactive'
+  b.className =
+    'rc-panel-step rc-panel-next-button rc-panel-step-finish rc-panel-step-inactive'
   b.dataset.index = index
-  b.innerHTML = '<p class="rc-panel-step-name">Next Step</p>'
+  b.innerHTML = `<p class="rc-panel-step-name">${options.nextButton}</p>`
   // b.disabled = false
   return b
 }
@@ -198,6 +200,18 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
       e.onclick = () => {
         RC[_getTaskName(tasks[ind])](..._getTaskOptionsCallbacks(tasks[ind]))
         _finishStepAt(ind)
+        current.finished.push(_getTaskName(tasks[ind]))
+        // Check if all finished
+        for (let t of tasks) {
+          if (!current.finished.includes(_getTaskName(t))) return
+        }
+        // If so, activate the next step button
+        let finalButton = document.querySelector('.rc-panel-next-button')
+        finalButton.classList.replace(
+          'rc-panel-step-inactive',
+          'rc-panel-step-active'
+        )
+        finalButton.onclick = finalCallback
       }
     }
   })

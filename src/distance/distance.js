@@ -109,7 +109,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         resizeObserver.unobserve(RC.background)
         unbindKeys(bindKeysFunction)
         // Change instructions
-        instructionDiv.innerHTML = `<b style="color: #ac0d0d">PLEASE HOLD</b>`
+        instructionDiv.innerHTML = `<b style="color: #ac0d0d">Starting up... Please hold still.</b>`
       }
     } else if (tested % options.repeatTesting === 0) {
       // Switch eye side

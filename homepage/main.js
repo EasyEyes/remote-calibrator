@@ -51,6 +51,7 @@ RemoteCalibrator.panel(
   ],
   '#rc-panel-holder',
   {
+    nextButton: "You're done",
     _demoActivateAll: true, // Only for this demo
   },
   () => {

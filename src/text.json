@@ -22,6 +22,7 @@
   },
   "panel": {
     "headline": "Let's calibrate first!",
-    "description": "To ensure the following experiments are conducted in a controlled environment, we will help you calibrate and set up tracking with the following steps."
+    "description": "To ensure the following experiments are conducted in a controlled environment, we will help you calibrate and set up tracking with the following steps.",
+    "nextButton": "Next Step"
   }
 }
