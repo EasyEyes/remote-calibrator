@@ -57,11 +57,11 @@ const config = {
 }
 
 const output = {
-  filename: 'RemoteCalibrator.js',
+  filename: 'RemoteCalibrator.min.js',
   library: 'RemoteCalibrator',
   libraryTarget: 'umd',
   libraryExport: 'default',
-  sourceMapFilename: 'RemoteCalibrator.js.map',
+  sourceMapFilename: 'RemoteCalibrator.min.js.map',
 }
 
 const exampleConfig = Object.assign({}, config, {

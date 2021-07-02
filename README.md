@@ -16,9 +16,9 @@ Please visit https://calibrator.app for the demo.
 To use RemoteCalibrator, you can either add the script (the file is in `lib` folder in this repository) directly to your HTML file.
 
 ```html
-<script src="RemoteCalibrator.js"></script>
+<script src="RemoteCalibrator.min.js"></script>
 <!-- Or use CDN -->
-<script src="https://cdn.jsdelivr.net/npm/remote-calibrator@latest/lib/RemoteCalibrator.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/remote-calibrator@latest/lib/RemoteCalibrator.min.js"></script>
 ```
 
 Or use package management tools, e.g. NPM.
