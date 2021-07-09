@@ -54,6 +54,9 @@ class GazeCalibrationDot {
     // Order
     this._randomOrder()
 
+    this.clickThreshold = debug ? 1 : options.calibrationCount // How many times required to click for each position
+    this.clicks = 0
+
     this.position = this.order.shift()
     this.r = gazeCalibrationDotDefault.r
 
@@ -63,6 +66,11 @@ class GazeCalibrationDot {
     this.clickDiv = document.createElement('div')
     this.clickDiv.className = 'gaze-calibration-dot-click'
     this.div.appendChild(this.clickDiv)
+
+    this.clickText = document.createElement('span')
+    this.clickText.className = 'gaze-calibration-dot-text'
+    this.clickDiv.appendChild(this.clickText)
+    this.clickText.innerHTML = this.clickThreshold
 
     Object.assign(this.div.style, {
       width: this.r + 'px',
@@ -80,9 +88,6 @@ class GazeCalibrationDot {
     this.parent = parent
     parent.appendChild(this.div)
     this.placeDot()
-
-    this.clickThreshold = debug ? 1 : options.calibrationCount // How many times required to click for each position
-    this.clicks = 0
 
     this.clickDiv.addEventListener('click', this.takeClick.bind(this), false)
     this.endCalibrationCallback = endCalibrationCallback
@@ -113,9 +118,11 @@ class GazeCalibrationDot {
 
   takeClick() {
     this.clicks++
+    this.clickText.innerHTML = Number(this.clickText.innerHTML) - 1
     if (this.clicks >= this.clickThreshold) {
       if (this.order.length) {
         this.position = this.order.shift()
+        this.clickText.innerHTML = this.clickThreshold
         this.placeDot()
         this.clicks = 0
       } else {

@@ -34,6 +34,7 @@ RemoteCalibrator.prototype.trackGaze = function (options = {}, callback) {
       showGazer: true,
       pipWidthPX: 208,
       greedyLearner: true,
+      framerate: 20,
       showVideo: true,
       showFaceOverlay: false,
       calibrationCount: 5,
