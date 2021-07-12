@@ -98,8 +98,13 @@ export function getFullscreen() {
 
 /* -------------------------------------------------------------------------- */
 
-export function constructInstructions(headline, description) {
-  return `<div class="calibration-instruction"><h1>${headline}</h1><p class="calibration-description">${description}</p></div>`
+export function constructInstructions(headline, description = null) {
+  return (
+    `<div class="calibration-instruction"><h1>${headline}</h1>` +
+    (description
+      ? `<p class="calibration-description">${description}</p></div>`
+      : '')
+  )
 }
 
 /* ----------------------------- Tiny functions ----------------------------- */

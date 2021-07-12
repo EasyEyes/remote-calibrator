@@ -14,6 +14,7 @@ import { getFullscreen, blurAll, constructInstructions } from './helpers'
 class RemoteCalibrator {
   constructor() {
     this._initialized = false
+    this._hasPanel = false
 
     this._id = null
 
@@ -328,12 +329,13 @@ RemoteCalibrator.prototype._addBackground = function (inner) {
   if (this.background !== null) return
 
   let b = document.getElementById('calibration-background')
-  if (!b) b = document.createElement('div')
+  if (!b) {
+    b = document.createElement('div')
+    b.id = 'calibration-background'
+    document.body.appendChild(b)
+  }
 
-  b.id = 'calibration-background'
   if (inner) b.innerHTML = inner
-
-  document.body.appendChild(b)
 
   this._background.element = b
 }

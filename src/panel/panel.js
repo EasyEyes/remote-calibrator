@@ -9,6 +9,9 @@ RemoteCalibrator.prototype.panel = function (
   options = {},
   callback
 ) {
+  if (this._hasPanel) return
+  this._hasPanel = true
+
   // Tasks
   if (!_validateTask(tasks)) {
     console.error('Invalid task name(s).')

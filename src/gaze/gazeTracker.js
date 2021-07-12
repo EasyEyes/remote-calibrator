@@ -11,19 +11,26 @@ export default class GazeTracker {
     this.calibrator = parent
     this.webgazer = webgazer
 
-    this._initialized = false
-    this._calibrated = false
-    this._running = false
+    // ! STATUS
+    this._initialized = {
+      distance: false,
+      gaze: false,
+    } // Either viewing distance or gaze
+    this._calibrated = false // Gaze only
+    this._running = {
+      distance: false,
+      gaze: false,
+    } // Either viewing distance or gaze
     this._runningVideo = false
 
     this._toFixedN = 1
   }
 
   begin({ pipWidthPX }, callback) {
-    if (this.checkInitialized(true)) {
-      if (!this._running) {
+    if (this.checkInitialized('gaze', true)) {
+      if (!this._running.gaze) {
         this.webgazer.begin()
-        this._running = true
+        this._running.gaze = true
         this._runningVideo = true
       }
 
@@ -33,7 +40,7 @@ export default class GazeTracker {
 
   beginVideo({ pipWidthPX }, callback) {
     // Begin video only
-    if (this.checkInitialized(true)) {
+    if (this.checkInitialized('distance', true)) {
       if (!this._runningVideo) {
         this.webgazer.beginVideo()
         this._runningVideo = true
@@ -44,8 +51,8 @@ export default class GazeTracker {
   }
 
   attachNewCallback(callback) {
-    if (this.checkInitialized(true)) {
-      webgazer.setGazeListener(d => {
+    if (this.checkInitialized('gaze', true)) {
+      this.webgazer.setGazeListener(d => {
         if (d) {
           if (callback)
             callback((this.calibrator.gazePositionData = this.getData(d)))
@@ -59,27 +66,29 @@ export default class GazeTracker {
   }
 }
 
-GazeTracker.prototype._init = function ({
-  toFixedN,
-  showVideo,
-  showFaceOverlay,
-  showGazer,
-}) {
-  if (!this.checkInitialized()) {
-    this.webgazer.clearData()
-    this.webgazer.saveDataAcrossSessions(false)
+GazeTracker.prototype._init = function (
+  { greedyLearner, framerate, toFixedN, showVideo, showFaceOverlay, showGazer },
+  task
+) {
+  if (!this.checkInitialized(task)) {
+    if (task === 'gaze') {
+      this.webgazer.clearData()
+      this.webgazer.saveDataAcrossSessions(false)
+      this.webgazer.params.greedyLearner = greedyLearner
+      this.webgazer.params.framerate = framerate
+    }
 
     this._toFixedN = toFixedN
     this.showGazer(showGazer)
     this.showVideo(showVideo)
     this.showFaceOverlay(showFaceOverlay)
 
-    this._initialized = true
+    this._initialized[task] = true
   }
 }
 
-GazeTracker.prototype.checkInitialized = function (warning = false) {
-  if (this._initialized) return true
+GazeTracker.prototype.checkInitialized = function (task, warning = false) {
+  if (this._initialized[task]) return true
   if (warning)
     console.error(
       'RemoteCalibrator.gazeTracker is not initialized. Use .trackGaze() to initialize.'
@@ -99,6 +108,10 @@ GazeTracker.prototype.getData = function (d) {
 
 GazeTracker.prototype.pause = function () {
   this.webgazer.pause()
+}
+
+GazeTracker.prototype.resume = function () {
+  this.webgazer.resume()
 }
 
 GazeTracker.prototype.startStoringPoints = function () {

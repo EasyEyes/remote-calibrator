@@ -89,6 +89,27 @@ function initialize(e) {
 }
 
 /**
+ * Panel
+ */
+function makePanel(e) {
+  RemoteCalibrator.panel(
+    [
+      {
+        name: 'screenSize',
+      },
+      {
+        name: 'trackGaze',
+      },
+      {
+        name: 'trackDistance',
+      },
+    ],
+    '#experiment'
+  )
+  changeClass(e.target, 'complete')
+}
+
+/**
  *
  * Measure the display size
  *
@@ -213,6 +234,23 @@ function trackGaze(e) {
  */
 function pauseGaze(e) {
   RemoteCalibrator.pauseGaze()
+  const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.replaceChild(
+    constructFunctionButton(['Resume Gaze', 'resumeGaze', 'resumeGaze'], false),
+    target
+  )
+}
+
+/**
+ * Resume gaze
+ */
+function resumeGaze(e) {
+  RemoteCalibrator.resumeGaze()
+  const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.replaceChild(
+    constructFunctionButton(['Pause Gaze', 'pauseGaze', 'pauseGaze'], false),
+    target
+  )
 }
 
 /* -------------------------------------------------------------------------- */

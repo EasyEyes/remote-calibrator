@@ -8,12 +8,15 @@ import text from '../text.json'
 const instPOutsideWarning = 'Keep your face centered in the video feed.'
 
 export function gazeCalibrationPrepare(RC, options) {
-  RC._addBackground(
-    constructInstructions(options.headline, options.description)
-  )
+  if (RC.background)
+    RC._replaceBackground(constructInstructions(options.headline))
+  else
+    RC._addBackground(
+      constructInstructions(options.headline, options.description)
+    )
   RC._constructFloatInstructionElement(
     'gaze-system-instruction',
-    'Loading... Please wait.'
+    'Starting up... Please wait.'
   )
 }
 
@@ -22,7 +25,7 @@ export function gazeCalibrationPrepare(RC, options) {
  */
 RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
   ////
-  if (!this.gazeTracker.checkInitialized(true)) return
+  if (!this.gazeTracker.checkInitialized('gaze', true)) return
   blurAll()
   ////
 

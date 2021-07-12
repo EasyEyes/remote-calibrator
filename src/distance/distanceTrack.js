@@ -14,7 +14,7 @@ RemoteCalibrator.prototype.trackDistance = function (
    * options -
    *
    * fullscreen: [Boolean]
-   * repeatTesting: 3
+   * repeatTesting: 2
    * ? pip: [Boolean] (Display a small picture at corner or not)
    * pipWidthPX: [208]
    * landmarkRate: [15] (How many times (each second) to get landmarks of the face, and adjust est distance!)
@@ -38,7 +38,7 @@ RemoteCalibrator.prototype.trackDistance = function (
       showVideo: true,
       showFaceOverlay: true,
       decimalPlace: 2,
-      trackingRate: 3, // FPS
+      framerate: 3, // track rate
       headline: text.trackDistance.headline,
       description: text.trackDistance.description,
     },
@@ -56,7 +56,7 @@ RemoteCalibrator.prototype.trackDistance = function (
     const trackingOptions = {
       pipWidthPX: options.pipWidthPX,
       decimalPlace: options.decimalPlace,
-      trackingRate: options.trackingRate,
+      framerate: options.framerate,
     }
     startTrackingPupils(this, distData, trackingOptions, callbackTrack)
   }
@@ -66,12 +66,16 @@ RemoteCalibrator.prototype.trackDistance = function (
     constructInstructions(options.headline, options.description)
   )
 
-  this.gazeTracker._init({
-    toFixedN: 1,
-    showVideo: options.showVideo,
-    showFaceOverlay: options.showFaceOverlay,
-    showGazer: false,
-  })
+  // TODO Multiple init
+  this.gazeTracker._init(
+    {
+      toFixedN: 1,
+      showVideo: options.showVideo,
+      showFaceOverlay: options.showFaceOverlay,
+      showGazer: false,
+    },
+    'distance'
+  )
 
   blindSpotTest(this, options, true, getStdDist)
 }
@@ -133,7 +137,7 @@ const startTrackingPupils = (RC, stdDist, trackingOptions, callbackTrack) => {
         }
       }
 
-      iRepeat(iFunction, targetCount * trackingOptions.trackingRate) // Default 3 * 5
+      iRepeat(iFunction, targetCount * trackingOptions.framerate) // Default 3 * 5
     }
   )
 }

@@ -9,13 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Customized predicting framerate for gaze tracking.
+- `greedyLearner` option for gaze tracking. Set to `false` (default) to stop active learning and regression to cursor interaction to update the prediction model. (WebGazer use a regression model to always learn and update the model based on the assumption that one would always look at the point where curser makes interaction. However, in a psychophysics experiment, participants may not always look at the place where they click or move the cursor.)
 - Dynamic viewing distance tracking.
-- New homepage.
+- Tracking viewing distance and gaze at the same time.
 - `.panel` function that helps set up a graphical user interface for participants to calibrate step by step.
+- [Swal](https://sweetalert2.github.io/) to handle alerts and text instructions.
+- New homepage at https://easyeyes.app/remote-calibrator/ with the new logo.
+
+### Changed
+
+- Reduced text instructions on the calibration page, moving descriptions and instructions to the [Swal](https://sweetalert2.github.io/) element.
 
 ### Fixed
 
 - Various bug and wording fixes.
+
+## [0.0.4] - 2021-05-28
+
+### Added
+
+- The first prototype of `.trackDistance` for tracking the dynamic viewing distance.
+
+### Fixed
+
+- Various bugs.
 
 ## [0.0.3] - 2021-04-20
 
@@ -41,7 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.3...HEAD
+[unreleased]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/peilingjiang/RemoteCalibrator/releases/tag/v0.0.1
