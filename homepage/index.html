@@ -65,7 +65,7 @@
       /**
        * Programmatically add buttons for functions, getters, etc.
        */
-      const constructFunctionButton = (info, disabled) => {
+      const constructFunctionButton = (info, disabled, id = null) => {
         let b = document.createElement('button')
 
         if (info[1] === 'init') b.id = 'init-button'
@@ -73,6 +73,8 @@
 
         b.onclick = e => eval(info[2] + '(e)')
         b.innerHTML = `${info[0]}<code>.${info[1]}()</code>`
+
+        if (id) b.id = id
 
         return b
       }

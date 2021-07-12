@@ -1,9 +1,9 @@
-# RemoteCalibrator [ 🐛 WIP]
+# RemoteCalibrator
 
 [![npm version](https://badge.fury.io/js/remote-calibrator.svg)](https://badge.fury.io/js/remote-calibrator)
 [![GitHub license](https://img.shields.io/github/license/peilingjiang/RemoteCalibrator)](https://github.com/peilingjiang/RemoteCalibrator/blob/main/LICENSE)
 
-Welcome to RemoteCalibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g. crowd-sourced through Amazon Mechanical Turk.
+Welcome to RemoteCalibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g., crowd-sourced through Amazon Mechanical Turk.
 
 The features/functions marked with 🚧 is still work-in-progress and not available yet.
 
@@ -21,7 +21,7 @@ To use RemoteCalibrator, you can either add the script (the file is in `lib` fol
 <script src="https://cdn.jsdelivr.net/npm/remote-calibrator@latest/lib/RemoteCalibrator.min.js"></script>
 ```
 
-Or use package management tools, e.g. NPM.
+Or use package management tools, e.g., NPM.
 
 ```
 npm i remote-calibrator
@@ -213,7 +213,9 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
   // Draw the current gaze position on the screen (as a dot)
   showGazer: true,
   // Stop or not calibrating after the calibration process
-  greedyLearner: true, 🚧
+  greedyLearner: false,
+  // Tracking (predicting) rate per second
+  framerate: 30,
   // Show the video of the participant at the left bottom corner
   showVideo: true,
   // Picture in picture video width in pixels
@@ -243,7 +245,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 .resumeGaze()
 ```
 
-#### End Tracking 🚧
+#### End Tracking
 
 ```js
 .endGaze()

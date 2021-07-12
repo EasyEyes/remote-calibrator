@@ -1,6 +1,7 @@
 export const swalInfoOptions = {
   icon: 'info',
   allowEscapeKey: false,
+  allowEnterKey: false,
   allowOutsideClick: false,
   showConfirmButton: true,
   confirmButtonText: 'Confirm',

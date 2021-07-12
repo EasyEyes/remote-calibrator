@@ -92,6 +92,9 @@ function initialize(e) {
  * Panel
  */
 function makePanel(e) {
+  printMessage(
+    'A highly-customizable step-by-step calibration panel will be added to the designated HTML node.'
+  )
   RemoteCalibrator.panel(
     [
       {
@@ -235,6 +238,16 @@ function trackGaze(e) {
 function pauseGaze(e) {
   RemoteCalibrator.pauseGaze()
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+
+  target.parentNode.insertBefore(
+    constructFunctionButton(
+      ['Get Gaze Now', 'getGazeNow', 'getGazeNow'],
+      false,
+      'temp-gaze-now'
+    ),
+    target.nextSibling
+  )
+
   target.parentNode.replaceChild(
     constructFunctionButton(['Resume Gaze', 'resumeGaze', 'resumeGaze'], false),
     target
@@ -247,10 +260,15 @@ function pauseGaze(e) {
 function resumeGaze(e) {
   RemoteCalibrator.resumeGaze()
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.removeChild(document.querySelector('#temp-gaze-now'))
   target.parentNode.replaceChild(
     constructFunctionButton(['Pause Gaze', 'pauseGaze', 'pauseGaze'], false),
     target
   )
+}
+
+function getGazeNow() {
+  RemoteCalibrator.getGazeNow()
 }
 
 /* -------------------------------------------------------------------------- */

@@ -9,20 +9,20 @@ RemoteCalibrator.prototype.panel = function (
   options = {},
   callback
 ) {
-  if (this._hasPanel) return
+  if (this._hasPanel) return false
   this._hasPanel = true
 
   // Tasks
   if (!_validateTask(tasks)) {
     console.error('Invalid task name(s).')
-    return
+    return false
   }
 
   // Parent
   const parentElement = document.querySelector(parent)
   if (!parentElement) {
     console.error('Cannot find the parent element.')
-    return
+    return false
   }
 
   options = Object.assign(
@@ -65,6 +65,8 @@ RemoteCalibrator.prototype.panel = function (
   // Activate the first one
   let current = { index: 0, finished: [] }
   _activateStepAt(this, current, tasks, options, callback)
+
+  return true
 }
 
 /**

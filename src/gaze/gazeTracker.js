@@ -11,6 +11,8 @@ export default class GazeTracker {
     this.calibrator = parent
     this.webgazer = webgazer
 
+    this.defaultCallback = null
+
     // ! STATUS
     this._initialized = {
       distance: false,
@@ -59,6 +61,15 @@ export default class GazeTracker {
         }
       })
     }
+  }
+
+  async getGazeNow(callback) {
+    if (callback)
+      callback(
+        (this.calibrator.gazePositionData = this.getData(
+          await this.webgazer.getCurrentPrediction()
+        ))
+      )
   }
 
   end() {
@@ -112,6 +123,12 @@ GazeTracker.prototype.pause = function () {
 
 GazeTracker.prototype.resume = function () {
   this.webgazer.resume()
+}
+
+GazeTracker.prototype.end = function () {
+  this.webgazer.end()
+  this._runningVideo = false
+  this._running.gaze = false
 }
 
 GazeTracker.prototype.startStoringPoints = function () {
