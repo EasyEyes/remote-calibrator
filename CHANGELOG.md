@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - WebGazer's warning when running on `localhost` without `https`.
 - `predicting` status of WebGazer.
 - `_calibrated` status of `RemoteCalibrator.gazeTracker`.
+- `.webcam()` that gets device information of the webcam.
 
 ## [0.0.4] - 2021-05-28
 

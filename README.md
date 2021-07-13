@@ -344,16 +344,6 @@ Pop an interface for participants to calibrate their gaze position on the screen
 - `.showVideo([Boolean])`
 - `.showFaceOverlay([Boolean])`
 
-### 📷 Webcam
-
-```js
-.webcam([callback])
-```
-
-To get the information of the webcam, RemoteCalibrator will activate the webcam, take a picture, and extract the EXIF meta data from the image file. 🚧
-
-Pass `{ value: { subjectDistance, ... }, timestamp }`
-
 ### 💻 Environment
 
 ```js

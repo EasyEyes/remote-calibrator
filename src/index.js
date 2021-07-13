@@ -10,8 +10,6 @@ import './gaze/gazeCalibration'
 import './gaze/gazeAccuracy'
 import GazeTracker from './gaze/gazeTracker'
 
-import './webcam'
-
 import './panel/panel'
 import './customization'
 
