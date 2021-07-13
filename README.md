@@ -8,7 +8,7 @@
 
 Welcome to RemoteCalibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g., crowd-sourced through Amazon Mechanical Turk.
 
-The features/functions marked with 🚧 is still work-in-progress and not available yet.
+The features/functions marked with 🚧 are still work-in-progress and not available yet.
 
 ## Demo
 
@@ -116,7 +116,7 @@ The `data` passed into the callback function is an [object](https://www.w3school
   'screenSize',
   {
     name: 'trackGaze',
-    options: { framerate: 60 } // Same as setting the options for .trackGaze()
+    options: { framerate: 60 }, // Same as setting the options for .trackGaze()
     callback: gotGaze, // Same as setting the callback for .trackGaze()
   },
   // Tracking viewing distance accepts two callbacks just like .trackDistance()
