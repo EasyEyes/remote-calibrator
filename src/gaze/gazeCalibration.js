@@ -2,6 +2,7 @@ import RemoteCalibrator from '../core'
 
 import { constructInstructions, shuffle, blurAll } from '../helpers'
 import { gazeCalibrationDotDefault, debug } from '../constants'
+import { bindKeys, unbindKeys } from '../components/keyBinder'
 import text from '../text.json'
 
 // [Wait!], etc.
@@ -43,16 +44,33 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
   gazeCalibrationPrepare(this, options)
 
   this.instructionElement.innerHTML = instPOutsideWarning
-  startCalibration(this.instructionElement, options, () => {
-    this._removeBackground() // Remove calibration background when the calibration finished
-    // TODO Pass timestamp into callback
-    if (callback && typeof callback === 'function') callback()
+  const calibrationDot = startCalibration(
+    this.instructionElement,
+    options,
+    () => {
+      this._removeBackground() // Remove calibration background when the calibration finished
+      unbindKeys(bindKeysFunction)
+
+      // TODO Pass timestamp into callback
+      if (callback && typeof callback === 'function') callback()
+    }
+  )
+
+  const breakFunction = () => {
+    calibrationDot.deleteSelf(false)
+    this._removeBackground()
+
+    unbindKeys(bindKeysFunction)
+  }
+
+  const bindKeysFunction = bindKeys({
+    Escape: breakFunction,
   })
 }
 
 const startCalibration = (p, options, onCalibrationEnded) => {
   p.innerHTML += `\nTo calibrate the system for your eyes, please click on the <b style="color: #ff005c">PINK</b> dot at each location that it visits until the dot disappears.`
-  new GazeCalibrationDot(document.body, options, onCalibrationEnded)
+  return new GazeCalibrationDot(document.body, options, onCalibrationEnded)
 }
 
 class GazeCalibrationDot {
@@ -133,17 +151,17 @@ class GazeCalibrationDot {
         this.clicks = 0
       } else {
         // Finish calibration
-        this.deleteSelf()
+        this.deleteSelf(true)
       }
     }
   }
 
-  deleteSelf() {
+  deleteSelf(finished = true) {
     this.clickDiv.removeEventListener('click', this.takeClick, false)
     this.parent.removeChild(this.div)
 
     // onCalibrationEnded
-    this.endCalibrationCallback()
+    if (finished) this.endCalibrationCallback()
   }
 
   _randomOrder() {

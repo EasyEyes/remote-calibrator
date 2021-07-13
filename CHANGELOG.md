@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tracking viewing distance and gaze at the same time.
 - End viewing distance tracking and/or gaze tracking and restart fresh.
 - `.panel()` function that helps set up a graphical user interface for participants to calibrate step by step.
+- Universal key binders and un-binders. Binding `Escape` and `Space` keys to functions.
 - [Swal](https://sweetalert2.github.io/) to handle alerts and text instructions.
 - Customizable calibration background color and video opacity.
 - New homepage at https://easyeyes.app/remote-calibrator/ with the new logo.
