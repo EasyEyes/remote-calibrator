@@ -53,6 +53,7 @@ body {
 
 #toolbox img {
   margin: 0 auto 1rem;
+  pointer-events: none;
 }
 
 h1 {

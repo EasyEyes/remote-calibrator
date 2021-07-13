@@ -154,18 +154,18 @@ const _tracking = async (
           RC._removeBackground()
         }
 
+        const data = (RC.viewingDistanceData = {
+          value: toFixedNumber(
+            stdFactor / averageDist,
+            trackingOptions.decimalPlace
+          ),
+          timestamp: new Date(),
+          method: 'Facemesh Predict',
+        })
+
         if (callbackTrack && typeof callbackTrack === 'function') {
           RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
-          callbackTrack(
-            (RC.viewingDistanceData = {
-              value: toFixedNumber(
-                stdFactor / averageDist,
-                trackingOptions.decimalPlace
-              ),
-              timestamp: new Date(),
-              method: 'Facemesh Predict',
-            })
-          )
+          callbackTrack(data)
         }
 
         averageDist = 0

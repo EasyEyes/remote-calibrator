@@ -67,8 +67,8 @@ export default class GazeTracker {
     if (this.checkInitialized('gaze', true)) {
       this.webgazer.setGazeListener(d => {
         if (d) {
-          if (callback)
-            callback((this.calibrator.gazePositionData = this.getData(d)))
+          const data = (this.calibrator.gazePositionData = this.getData(d))
+          if (callback) callback(data)
         }
       })
     }

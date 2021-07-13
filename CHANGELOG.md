@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Various bug and wording fixes.
 - Can't end the gaze due to a WebGazer error.
+- Some functions can't record data when no callback function is defined.
 
 ### Removed
 

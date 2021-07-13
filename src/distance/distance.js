@@ -92,14 +92,12 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     // Enough tests?
     if (Math.floor(tested / options.repeatTesting) === 2) {
       // ! Put dist into data and callback function
-      if (callback)
-        callback(
-          (RC.viewingDistanceData = {
-            value: toFixedNumber(median(dist), options.decimalPlace),
-            timestamp: new Date(),
-            method: 'Blind Spot',
-          })
-        )
+      const data = (RC.viewingDistanceData = {
+        value: toFixedNumber(median(dist), options.decimalPlace),
+        timestamp: new Date(),
+        method: 'Blind Spot',
+      })
+      if (callback) callback(data)
 
       // Break
       if (!toTrackDistance) {
