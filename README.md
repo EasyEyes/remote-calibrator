@@ -370,8 +370,8 @@ Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, s
 
 ### 💄 Customization
 
-- `.backgroundColor()` Set the color of the background. Default `#dddddd`. 🚧
-- `.videoOpacity()` Set the opacity of the video element (in `trackDistance` and `trackGaze`). Default `0.8`. 🚧
+- `.backgroundColor()` Set the color of the background. Default `#dddddd`.
+- `.videoOpacity()` Set the opacity of the video element (in `trackDistance` and `trackGaze`). Default `0.8`.
 
 ### 🎣 Getters
 

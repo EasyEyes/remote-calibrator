@@ -1,9 +1,10 @@
+import Swal from 'sweetalert2'
+
 import RemoteCalibrator from '../core'
 
 import { blurAll } from '../helpers'
 import { gazeCalibrationPrepare } from './gazeCalibration'
 import text from '../text.json'
-import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 
 RemoteCalibrator.prototype.trackGaze = function (

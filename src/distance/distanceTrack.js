@@ -1,9 +1,12 @@
+import Swal from 'sweetalert2'
+
 import RemoteCalibrator from '../core'
 
 import { blindSpotTest } from './distance'
 import { toFixedNumber, constructInstructions, blurAll } from '../helpers'
 import { iRepeat } from '../components/iRepeat'
 import text from '../text.json'
+import { swalInfoOptions } from '../components/swalOptions'
 
 RemoteCalibrator.prototype.trackDistance = function (
   options = {},
@@ -65,24 +68,28 @@ RemoteCalibrator.prototype.trackDistance = function (
   /* -------------------------------------------------------------------------- */
 
   // STEP 1 - Calibrate for live estimate
-  this._addBackground(
-    constructInstructions(options.headline, options.description)
-  )
-
-  // TODO Handle multiple init
-  this.gazeTracker._init(
-    {
-      toFixedN: 1,
-      showVideo: options.showVideo,
-      showFaceOverlay: options.showFaceOverlay,
-    },
-    'distance'
-  )
+  this._addBackground()
 
   const originalGazer = this.gazeTracker.webgazer.params.showGazeDot
-  if (this.gazeTracker.checkInitialized('gaze')) this.showGazer(false)
+  Swal.fire({
+    ...swalInfoOptions,
+    html: options.description,
+  }).then(() => {
+    this._replaceBackground(constructInstructions(options.headline))
 
-  blindSpotTest(this, options, true, getStdDist)
+    // TODO Handle multiple init
+    this.gazeTracker._init(
+      {
+        toFixedN: 1,
+        showVideo: options.showVideo,
+        showFaceOverlay: options.showFaceOverlay,
+      },
+      'distance'
+    )
+
+    if (this.gazeTracker.checkInitialized('gaze')) this.showGazer(false)
+    blindSpotTest(this, options, true, getStdDist)
+  })
 }
 
 /* -------------------------------------------------------------------------- */

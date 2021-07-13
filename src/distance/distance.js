@@ -1,3 +1,5 @@
+import Swal from 'sweetalert2'
+
 import RemoteCalibrator from '../core'
 import {
   constrain,
@@ -15,6 +17,7 @@ import {
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import text from '../text.json'
+import { swalInfoOptions } from '../components/swalOptions'
 
 const blindSpotHTML = `<canvas id="blind-spot-canvas"></canvas>`
 
@@ -38,7 +41,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   RC.background.appendChild(blindSpotDiv)
   const instructionDiv = RC._constructFloatInstructionElement(
     'blind-spot-instruction',
-    `Please keep your <span id="eye-side"></span> eye closed, and hit SPACE when the dot disappears.`
+    `Keep your <span id="eye-side"></span> eye closed, focus on the cross, and hit SPACE when the circle disappears.`
   )
 
   // Get HTML elements
@@ -189,11 +192,15 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   // Fullscreen
   this.getFullscreen(options.fullscreen)
   // Add HTML
-  this._addBackground(
-    constructInstructions(options.headline, options.description)
-  )
+  this._addBackground()
 
-  blindSpotTest(this, options, false, callback)
+  Swal.fire({
+    ...swalInfoOptions,
+    html: options.description,
+  }).then(() => {
+    this._replaceBackground(constructInstructions(options.headline))
+    blindSpotTest(this, options, false, callback)
+  })
 }
 
 // Helper functions

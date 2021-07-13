@@ -18,9 +18,10 @@
 .my__swal2__html {
   color: #444;
   font-size: 1.2rem;
-  line-height: 130%;
+  line-height: 150%;
   font-weight: normal;
   user-select: none;
+  text-align: left;
 }
 
 .animate__animated.animate__fadeInUp,
