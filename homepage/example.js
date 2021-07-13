@@ -195,6 +195,76 @@ function trackViewingDistance(e) {
       )
     }
   )
+
+  const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.insertBefore(
+    constructFunctionButton(
+      ['End Distance', 'endDistance', 'endDistance', 'distance'],
+      false
+    ),
+    target.nextSibling
+  )
+  target.parentNode.replaceChild(
+    constructFunctionButton(
+      ['Pause Distance', 'pauseGDistance', 'pauseDistance', 'distance'],
+      false
+    ),
+    target
+  )
+}
+
+function pauseDistance(e) {
+  RemoteCalibrator.pauseDistance()
+  const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+
+  target.parentNode.insertBefore(
+    constructFunctionButton(
+      ['Get Distance Now', 'getDistanceNow', 'getDistanceNow', 'distance'],
+      false,
+      'temp-distance-now'
+    ),
+    target.nextSibling
+  )
+
+  target.parentNode.replaceChild(
+    constructFunctionButton(
+      ['Resume Distance', 'resumeDistance', 'resumeDistance', 'distance'],
+      false
+    ),
+    target
+  )
+}
+
+function resumeDistance(e) {
+  RemoteCalibrator.resumeDistance()
+  const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.removeChild(document.querySelector('#temp-distance-now'))
+  target.parentNode.replaceChild(
+    constructFunctionButton(
+      ['Pause Distance', 'pauseDistance', 'pauseDistance', 'distance'],
+      false
+    ),
+    target
+  )
+}
+
+function endDistance(e) {
+  RemoteCalibrator.endDistance()
+  const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.insertBefore(
+    constructFunctionButton(
+      ['Track Distance', 'trackDistance', 'trackViewingDistance'],
+      false
+    ),
+    target
+  )
+  document.querySelectorAll('.distance').forEach(e => {
+    e.parentNode.removeChild(e)
+  })
+}
+
+function getDistanceNow() {
+  RemoteCalibrator.getDistanceNow()
 }
 
 /* -------------------------------------------------------------------------- */
@@ -224,8 +294,15 @@ function trackGaze(e) {
   }, 2000)
 
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.insertBefore(
+    constructFunctionButton(['End Gaze', 'endGaze', 'endGaze', 'gaze'], false),
+    target.nextSibling
+  )
   target.parentNode.replaceChild(
-    constructFunctionButton(['Pause Gaze', 'pauseGaze', 'pauseGaze'], false),
+    constructFunctionButton(
+      ['Pause Gaze', 'pauseGaze', 'pauseGaze', 'gaze'],
+      false
+    ),
     target
   )
 }
@@ -241,7 +318,7 @@ function pauseGaze(e) {
 
   target.parentNode.insertBefore(
     constructFunctionButton(
-      ['Get Gaze Now', 'getGazeNow', 'getGazeNow'],
+      ['Get Gaze Now', 'getGazeNow', 'getGazeNow', 'gaze'],
       false,
       'temp-gaze-now'
     ),
@@ -249,7 +326,10 @@ function pauseGaze(e) {
   )
 
   target.parentNode.replaceChild(
-    constructFunctionButton(['Resume Gaze', 'resumeGaze', 'resumeGaze'], false),
+    constructFunctionButton(
+      ['Resume Gaze', 'resumeGaze', 'resumeGaze', 'gaze'],
+      false
+    ),
     target
   )
 }
@@ -262,9 +342,24 @@ function resumeGaze(e) {
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.removeChild(document.querySelector('#temp-gaze-now'))
   target.parentNode.replaceChild(
-    constructFunctionButton(['Pause Gaze', 'pauseGaze', 'pauseGaze'], false),
+    constructFunctionButton(
+      ['Pause Gaze', 'pauseGaze', 'pauseGaze', 'gaze'],
+      false
+    ),
     target
   )
+}
+
+function endGaze(e) {
+  RemoteCalibrator.endGaze()
+  const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.insertBefore(
+    constructFunctionButton(['Track Gaze', 'trackGaze', 'trackGaze'], false),
+    target
+  )
+  document.querySelectorAll('.gaze').forEach(e => {
+    e.parentNode.removeChild(e)
+  })
 }
 
 function getGazeNow() {

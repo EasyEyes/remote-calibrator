@@ -66,17 +66,15 @@ export function checkWebcamStatus() {
  * Check if WebGazer video is ready. If so, set the style for it.
  *
  */
-export function checkWebgazerReady(pipWidthPX, WG, callback) {
+export function checkWebgazerReady(pipWidthPX, opacity, WG, callback) {
   let c = setInterval(() => {
     let v = document.getElementById('webgazerVideoContainer')
     if (v) {
       v.style.height =
         (pipWidthPX / parseInt(v.style.width)) * parseInt(v.style.height) + 'px'
       v.style.width = pipWidthPX + 'px'
+      v.style.opacity = opacity
       WG.setVideoViewerSize(parseInt(v.style.width), parseInt(v.style.height))
-      // v.parentElement.style.transform = `scale(${
-      //   options.pipWidthPX / parseInt(v.style.width)
-      // })`
       v.style.left = '10px'
       v.style.bottom = '10px'
 

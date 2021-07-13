@@ -149,6 +149,11 @@ button:active {
   border: 1px solid #29bb89;
 }
 
+.flex-wrapper .gaze,
+.flex-wrapper .distance {
+  border: 1px solid #ff9a00;
+}
+
 .flex-wrapper .error {
   border: 1px solid #ac0d0d;
 }

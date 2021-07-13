@@ -31,6 +31,11 @@ class RemoteCalibrator {
       element: null,
       instructionElement: null,
     }
+
+    this._params = {
+      backgroundColor: '#ddd',
+      videoOpacity: 0.8,
+    }
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -41,6 +46,12 @@ class RemoteCalibrator {
 
   get instructionElement() {
     return this._background.instructionElement
+  }
+
+  // PARAMS
+
+  get params() {
+    return this._params
   }
 
   ////
@@ -333,6 +344,8 @@ RemoteCalibrator.prototype._addBackground = function (inner) {
     b = document.createElement('div')
     b.id = 'calibration-background'
     document.body.appendChild(b)
+
+    b.style.background = this.params.backgroundColor
   }
 
   if (inner) b.innerHTML = inner

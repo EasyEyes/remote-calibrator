@@ -13,7 +13,7 @@ export const swalInfoOptions = {
     popup: 'animate__animated animate__fadeOutDown',
     // backdrop: 'animate__animated animate__fadeOut',
   },
-  iconColor: '#aaa',
+  iconColor: '#ff9a00',
   confirmButtonColor: '#aaa',
   customClass: {
     icon: 'my__swal2__icon',

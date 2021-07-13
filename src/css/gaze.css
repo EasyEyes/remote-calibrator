@@ -51,10 +51,8 @@
   display: block;
   position: fixed;
   transform-origin: bottom left;
-  /* left: 1rem !important;
-  bottom: 1rem !important; */
   /* border-radius: 7px; */
-  opacity: 0.8;
+  /* opacity: 0.8; */
   overflow: hidden;
   pointer-events: none;
 }

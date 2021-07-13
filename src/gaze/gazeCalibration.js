@@ -31,6 +31,7 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
 
   options = Object.assign(
     {
+      greedyLearner: false,
       calibrationCount: 5,
       headline: text.calibrateGaze.headline,
       description: text.calibrateGaze.description,
@@ -38,17 +39,19 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
     options
   )
 
+  this.gazeTracker.webgazer.params.greedyLearner = options.greedyLearner
   gazeCalibrationPrepare(this, options)
 
   this.instructionElement.innerHTML = instPOutsideWarning
   startCalibration(this.instructionElement, options, () => {
     this._removeBackground() // Remove calibration background when the calibration finished
+    // TODO Pass timestamp into callback
     if (callback && typeof callback === 'function') callback()
   })
 }
 
 const startCalibration = (p, options, onCalibrationEnded) => {
-  p.innerHTML += `\nTo calibrate the system for your eyes, please click on the <b style="color: #ff005c">Pink</b> dot at each location that it visits until the dot disappears.`
+  p.innerHTML += `\nTo calibrate the system for your eyes, please click on the <b style="color: #ff005c">PINK</b> dot at each location that it visits until the dot disappears.`
   new GazeCalibrationDot(document.body, options, onCalibrationEnded)
 }
 

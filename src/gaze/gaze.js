@@ -36,11 +36,11 @@ RemoteCalibrator.prototype.trackGaze = function (
   options = Object.assign(
     {
       fullscreen: false,
-      showGazer: true,
-      pipWidthPX: 208,
       greedyLearner: false, // ! New 0.0.5
       framerate: 30, // ! New 0.0.5
+      showGazer: true,
       showVideo: true,
+      pipWidthPX: 208,
       showFaceOverlay: false,
       calibrationCount: 5,
       thresholdDEG: 10, // minAccuracy
@@ -64,7 +64,7 @@ RemoteCalibrator.prototype.trackGaze = function (
     this.showFaceOverlay(options.showFaceOverlay)
 
     this.gazeTracker.attachNewCallback(callback)
-    this.gazeTracker.defaultCallback = callback
+    this.gazeTracker.defaultGazeCallback = callback
     return
   }
 
@@ -95,6 +95,7 @@ RemoteCalibrator.prototype.trackGaze = function (
       pipWidthPX: options.pipWidthPX,
     }
     const calibrateGazeOptions = {
+      greedyLearner: options.greedyLearner,
       calibrationCount: options.calibrationCount,
       headline: options.headline,
       description: options.description,
@@ -108,12 +109,12 @@ RemoteCalibrator.prototype.trackGaze = function (
     const onCalibrationEnded = () => {
       // ! greedyLearner
       if (!this.gazeTracker.webgazer.params.greedyLearner) {
-        this.gazeTracker.webgazer.stopLearning()
+        this.gazeTracker.stopLearning()
       }
 
       if (options.thresholdDEG === 'none') {
         this.gazeTracker.attachNewCallback(callback)
-        this.gazeTracker.defaultCallback = callback
+        this.gazeTracker.defaultGazeCallback = callback
         return
       } else {
         if (
@@ -125,7 +126,7 @@ RemoteCalibrator.prototype.trackGaze = function (
               // Success
               // Start running
               this.gazeTracker.attachNewCallback(callback)
-              this.gazeTracker.defaultCallback = callback
+              this.gazeTracker.defaultGazeCallback = callback
             },
             () => {
               // Fail to meet the min accuracy
@@ -137,7 +138,7 @@ RemoteCalibrator.prototype.trackGaze = function (
             'Failed to finish gaze accuracy measurement due to error.'
           )
           this.gazeTracker.attachNewCallback(callback)
-          this.gazeTracker.defaultCallback = callback
+          this.gazeTracker.defaultGazeCallback = callback
         }
       }
     }
@@ -152,9 +153,9 @@ RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {
   )
     return
 
-  let c = callback || this.gazeTracker.defaultCallback
+  let c = callback || this.gazeTracker.defaultGazeCallback
 
-  await this.gazeTracker.getGazeNow(c)
+  return await this.gazeTracker.getGazeNow(c)
 }
 
 RemoteCalibrator.prototype.pauseGaze = function () {
@@ -167,9 +168,15 @@ RemoteCalibrator.prototype.resumeGaze = function () {
   this.gazeTracker.resume()
 }
 
-RemoteCalibrator.prototype.endGaze = function () {
+RemoteCalibrator.prototype.endGaze = function (endAll = false) {
   if (!this.gazeTracker.checkInitialized('gaze', true)) return
-  this.gazeTracker.end()
+  this.gazeTracker.end('gaze', endAll)
+}
+
+/* -------------------------------------------------------------------------- */
+
+RemoteCalibrator.prototype.gazeLearning = function (learn = true) {
+  learn ? this.gazeTracker.startLearning() : this.gazeTracker.stopLearning()
 }
 
 /* -------------------------------------------------------------------------- */

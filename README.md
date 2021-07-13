@@ -1,7 +1,10 @@
-# RemoteCalibrator
+<img src="./homepage/media/easyeyes-orange-holo.svg" width="100" />
+
+# EasyEyes Remote Calibrator
 
 [![npm version](https://badge.fury.io/js/remote-calibrator.svg)](https://badge.fury.io/js/remote-calibrator)
 [![GitHub license](https://img.shields.io/github/license/peilingjiang/RemoteCalibrator)](https://github.com/peilingjiang/RemoteCalibrator/blob/main/LICENSE)
+[![](https://data.jsdelivr.com/v1/package/npm/remote-calibrator/badge?style=rounded)](https://www.jsdelivr.com/package/npm/remote-calibrator)
 
 Welcome to RemoteCalibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g., crowd-sourced through Amazon Mechanical Turk.
 
@@ -9,7 +12,7 @@ The features/functions marked with 🚧 is still work-in-progress and not availa
 
 ## Demo
 
-Please visit https://calibrator.app for the demo.
+Please visit https://calibrator.app for the demo. More information can be found at https://easyeyes.app/remote-calibrator/.
 
 ## Getting Started
 
@@ -23,7 +26,7 @@ To use RemoteCalibrator, you can either add the script (the file is in `lib` fol
 
 Or use package management tools, e.g., NPM.
 
-```
+```shell
 npm i remote-calibrator
 ```
 
@@ -36,17 +39,20 @@ import RemoteCalibrator from 'remote-calibrator'
 Then, you will be able to use functions listed below under `RemoteCalibrator`. For example,
 
 ```js
-RemoteCalibrator.init({ id: 'subj_022' })
-RemoteCalibrator.measureDistance({}, data => {
-  console.log(`The viewing distance is ${data.value}cm.`)
-})
+RemoteCalibrator.init({ id: 'session_022' })
+RemoteCalibrator.measureDistance(
+  {
+    /* [options] */
+  },
+  data => {
+    console.log(`The viewing distance is ${data.value}cm.`)
+  }
+)
 ```
 
 You may now dive into the documentation of the functions. Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, while you have to put a `options` if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
 ## Functions
-
-If you don't want to use the default panel and want to integrate the process into your experiment, you can also call each calibration function individually. Please see the instructions below.
 
 ### 🎬 Initialize
 
@@ -66,7 +72,7 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.id`) to callback.
    * Will be attached to all the data from calibration
    * A random one will be generated if no value is passed into the function
    */
-  id: ...,
+  id: /* Randomized value */,
   // Enter fullscreen if set to true
   // Will be ignored if already in fullscreen mode
   fullscreen: false,
@@ -77,7 +83,7 @@ The callback function will be called after the initialization. Like many other f
 
 ```js
 function initializationFinished(data) {
-  // data: { timestamp, id }
+  // data: { timestamp, value }
   console.log(`RemoteCalibrator was initialized at ${data.timestamp}.`)
 }
 
@@ -91,7 +97,51 @@ If you do not want to change anything in default options, simply use an empty ob
 RemoteCalibrator.init({}, initializationFinished)
 ```
 
-The `data` passed into the callback function is an [object](https://www.w3schools.com/js/js_objects.asp) with two fields: `timestamp` and `id`. The `timestamp` is an JavaScript `Date()` object with all the information from the year to the millisecond. You can find how to get these information [here](https://www.w3schools.com/jsref/jsref_obj_date.asp).
+The `data` passed into the callback function is an [object](https://www.w3schools.com/js/js_objects.asp) with two fields: `timestamp` and `value` (the id). The `timestamp` is an JavaScript `Date()` object with all the information from the year to the millisecond. You can find how to get these information [here](https://www.w3schools.com/jsref/jsref_obj_date.asp).
+
+### 🍱 Panel
+
+![Panel](./media/panel.png)
+
+```js
+.panel(tasks, parent, [options, [callback]])
+```
+
+`.panel()` is the most powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Next Step" button can all be customized. It is appended to the parent HTML node as set by `parent`. Can only run once. Return `true` is setting up successfully, otherwise `false`.
+
+`tasks` is an array of tasks which can be a string or an object. Valid names are `screenSize`, `displaySize`, `measureDistance`, `trackDistance`, `trackGaze`, `environment` (system information).
+
+```js
+[
+  'screenSize',
+  {
+    name: 'trackGaze',
+    options: { framerate: 60 } // Same as setting the options for .trackGaze()
+    callback: gotGaze, // Same as setting the callback for .trackGaze()
+  },
+  // Tracking viewing distance accepts two callbacks just like .trackDistance()
+  {
+    name: 'trackDistance',
+    callbackStatic: gotBlindSpotResult,
+    callbackTrack: gotTrackResult,
+  }
+]
+```
+
+You can customize the panel element with the following options.
+
+```js
+// [options] Default value
+{
+  headline: `Let's calibrate first!`,
+  description: `To ensure the following experiments are conducted in a controlled environment, we will help you calibrate and set up tracking with the following steps.`,
+  nextButton: `Next Step`,
+}
+```
+
+`callback` will be called when the next-step button is clicked, which is disabled until all the calibration steps are finished.
+
+If you don't want to use the default panel and want to integrate the process into your experiment, you can also call each calibration function individually. Please see the instructions below.
 
 ### 🖥️ Screen
 
@@ -107,6 +157,8 @@ Pass `{ value: { displayWidthPX, displayHeightPX, windowWidthPX, windowHeightPX 
 
 #### Measure Screen Size
 
+![Screen Size](./media/screenSize.png)
+
 ```js
 .screenSize([options, [callback]])
 ```
@@ -118,14 +170,14 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
 ```js
 // [options] Default value
 {
-  // Automatically enter fullscreen when starting calibration
+  // Enter fullscreen if set to true
   // Will be ignored if already in fullscreen mode
   fullscreen: false,
-  // Automatically quit fullscreen when calibration finished
+  // Quit fullscreen when calibration finished
   quitFullscreenOnFinished: false, 🚧
   // How many times the participant needs to calibrate
   repeatTesting: 1,
-  // The length  decimal place of the returned value
+  // The length of decimal place of the returned value
   decimalPlace: 1,
   // Headline on the calibration page (Support HTML)
   headline: "🖥️ Screen Size Calibration",
@@ -138,15 +190,17 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
 
 ### 📏 Viewing Distance
 
-Before measuring or tracking viewing distance, calibration of the screen size is required to get the accurate value.
+**Before measuring or tracking viewing distance, calibration of the screen size is required to get the accurate value.**
 
 #### Measure
+
+![Measure Viewing Distance](./media/measureDistance.png)
 
 ```js
 .measureDistance([options, [callback]])
 ```
 
-Not recommended. Pop an interface for participants to calibrate the viewing distance at the moment using Blind Spot Test.
+Pop an interface for participants to calibrate the viewing distance at the moment using Blind Spot Test.
 
 Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDistanceCM`) to callback.
 
@@ -167,10 +221,10 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 #### Track
 
 ```js
-.trackDistance([options, [callback]])
+.trackDistance([options, [callbackStatic, [callbackTrack]]])
 ```
 
-Measure the viewing distance and then predict the real-time distance based on the change of the interpupillary distance, measured by [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection).
+Measure the viewing distance and then predict the real-time distance based on the change of the interpupillary distance, measured by [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection). `callbackStatic` is called after getting the blind spot result and `callbackTrack` is called every time a new result from estimation is derived.
 
 Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDistanceCM`) to callback.
 
@@ -192,9 +246,17 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 }
 ```
 
+#### Track Lifecycle
+
+- `.pauseDistance()`
+- `.resumeDistance()`
+- `.endDistance([endAll = false])`
+
 ### 👀 Gaze
 
 #### Start Tracking
+
+![Start Gaze Tracking](./media/trackGaze.png)
 
 ```js
 .trackGaze([options, [callback]])
@@ -210,21 +272,21 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 // [options] Default value
 {
   fullscreen: false,
-  // Draw the current gaze position on the screen (as a dot)
-  showGazer: true,
-  // Stop or not calibrating after the calibration process
+  // Stop learning and improve the regression model after the calibration process
   greedyLearner: false,
   // Tracking (predicting) rate per second
   framerate: 30,
-  // Show the video of the participant at the left bottom corner
+  // Draw the current gaze position on the screen (as a dot)
+  showGazer: true,
+  // Show the picture-in-picture video of the participant at the left bottom corner
   showVideo: true,
-  // Picture in picture video width in pixels
+  // (Picture in picture) video width in pixels
   pipWidthPX: 208,
   // Show the face mesh
   showFaceOverlay: false,
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
-  // Min accuracy required in degree, set to "none" to pass the accuracy check
+  // Min accuracy required in degree, set to 'none' to pass the accuracy check
   thresholdDEG: 10,
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
   headline: "👀 Calibrate Gaze",
@@ -233,23 +295,21 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 }
 ```
 
-#### Pause Tracking
+#### Lifecycle
+
+- `.pauseGaze()`
+- `.resumeGaze()`
+- `.endGaze([endAll = false])`
+
+#### Get Gaze Now
 
 ```js
-.pauseGaze()
+async.getGazeNow([callback])
 ```
 
-#### Resume Tracking
+You can pause active gaze tracking after calibration, and use this function to get the latest gaze position at the moment when users makes reactions, i.e. calling this function in a [event listener](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener). This can help reduce computing and get the gaze at the critical moment. If no callback function is passed in, it will use the one from `.trackGaze()` as the default.
 
-```js
-.resumeGaze()
-```
-
-#### End Tracking
-
-```js
-.endGaze()
-```
+Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback. Return the same thing.
 
 #### Calibrate
 
@@ -262,6 +322,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
 ```js
 // [options] Default value
 {
+  greedyLearner: false,
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
   headline: "👀 Calibrate Gaze",
@@ -270,7 +331,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
 }
 ```
 
-#### Get Accuracy
+#### Get Accuracy 🚧
 
 ```js
 .getGazeAccuracy([callback])
@@ -278,7 +339,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
 
 #### Others
 
-- `.gazeLearning([Boolean])`
+- `.gazeLearning([Boolean])` WebGazer use a regression model to always learn and update the model based on the assumption that one would always look at the point where curser makes interaction. However, in a psychophysics experiment, participants may not always look at the place where they click or move the cursor. Thus, `greedyLearner` option is set to `false` by default so that the tracker stops learning after calibration period. But you may also turn it on (or off if needed) again with this function.
 - `.showGazer([Boolean])`
 - `.showVideo([Boolean])`
 - `.showFaceOverlay([Boolean])`
@@ -309,14 +370,14 @@ Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, s
 
 ### 💄 Customization
 
-- `.backgroundColor` Set the color of the background. Default `#dddddd`. 🚧
-- `.videoOpacity` Set the opacity of the video element (in `trackDistance` and `trackGaze`). Default `0.8`. 🚧
+- `.backgroundColor()` Set the color of the background. Default `#dddddd`. 🚧
+- `.videoOpacity()` Set the opacity of the video element (in `trackDistance` and `trackGaze`). Default `0.8`. 🚧
 
 ### 🎣 Getters
 
 Get the value directly.
 
-Getters will get `null` if no data can be found, i.e. the corresponding function is never called. The values returned **by the getter** will be wrapped in an object with its corresponding timestamp. Thus, to get the value, add `.value`, e.g. `RemoteCalibrator.viewingDistanceCM.value` (and use `RemoteCalibrator.viewingDistanceCM.timestamp` to get the corresponding timestamp).
+Getters will get `null` if no data can be found, i.e. the corresponding function is never called. The values returned **by the getter** will be wrapped in an object with its corresponding timestamp. Thus, to get the value, add `.value`, e.g., `RemoteCalibrator.viewingDistanceCM.value` (and use `RemoteCalibrator.viewingDistanceCM.timestamp` to get the corresponding timestamp).
 
 #### Experiment
 
@@ -330,15 +391,15 @@ Getters will get `null` if no data can be found, i.e. the corresponding function
 
 The associated timestamp of the following items is the one created at initiation, i.e. when `init()` is called.
 
-- `.browser` The browser type, e.g. `Safari`, `Chrome`.
+- `.browser` The browser type, e.g., `Safari`, `Chrome`.
 - `.browserVersion` The browser version.
-- `.deviceType` The type of device, e.g. `desktop`.
-- `.model` The model type of the device, e.g. `iPad`.
+- `.deviceType` The type of device, e.g., `desktop`.
+- `.model` The model type of the device, e.g., `iPad`.
 - `.manufacturer` The device manufacturer.
-- `.engine` The browser engine, e.g. `Webkit`.
-- `.system` The device operating system, e.g. `OS X 11.2.1 64-bit`.
-- `.systemFamily` The family name of the device OS, e.g. `OS X`.
-- `.description` A tidy description of the current environment, e.g. `Chrome 89.0.4389.90 on OS X 11.2.1 64-bit`.
+- `.engine` The browser engine, e.g., `Webkit`.
+- `.system` The device operating system, e.g., `OS X 11.2.1 64-bit`.
+- `.systemFamily` The family name of the device OS, e.g., `OS X`.
+- `.description` A tidy description of the current environment, e.g., `Chrome 89.0.4389.90 on OS X 11.2.1 64-bit`.
 - `.fullDescription` The full description of the current environment.
 
 #### Others
@@ -353,19 +414,19 @@ For building the library locally or development, please follow the steps below.
 
 ### Setup
 
-```
+```shell
 git clone --recurse-submodules https://github.com/peilingjiang/RemoteCalibrator.git
 ```
 
 ### Install
 
-```
+```shell
 npm run setup
 ```
 
 ### Development Build
 
-```
+```shell
 npm run dev
 ```
 
@@ -373,7 +434,7 @@ This command will give you a quick and continuous build of the package output in
 
 ### Example
 
-```
+```shell
 npm run serve
 ```
 
@@ -381,7 +442,7 @@ This will start a local server hosting the example page. You may then access the
 
 ### Build
 
-```
+```shell
 npm run build
 ```
 
@@ -389,5 +450,9 @@ This command will give you a minimized build of the package output into both of 
 
 ## References
 
-1. Li, Q., Joo, S.J., Yeatman, J.D. et al. Controlling for Participants’ Viewing Distance in Large-Scale, Psychophysical Online Experiments Using a Virtual Chinrest. Sci Rep 10, 904 (2020). https://doi.org/10.1038/s41598-019-57204-1
-2. Alexandra Papoutsaki, Patsorn Sangkloy, James Laskey, Nediyana Daskalova, Jeff Huang, & James Hays (2016). WebGazer: Scalable Webcam Eye Tracking Using User Interactions. In Proceedings of the 25th International Joint Conference on Artificial Intelligence (IJCAI) (pp. 3839–3845).
+1. Li, Q., Joo, S. J., Yeatman, J. D., & Reinecke, K. (2020). Controlling for participants’ viewing distance in large-scale, psychophysical online experiments using a virtual chinrest. Scientific reports, 10(1), 1-11.
+2. Papoutsaki, A., Sangkloy, P., Laskey, J., Daskalova, N., Huang, J., & Hays, J. (2016). Webgazer: Scalable webcam eye tracking using user interactions. In Proceedings of the Twenty-Fifth International Joint Conference on Artificial Intelligence-IJCAI 2016.
+
+As we were wrapping up our development of Remote Calibrator, we realized that Thomas Pronk also made a demonstrative project showing integrating WebGazer into PsychoJS. We would love to acknowledge his work here as well.
+
+3. Pronk, T. (2020). Demo of Eye-Tracking via Webcam in PsychoJS (Version 2) [Computer software]. Retrieved from https://gitlab.pavlovia.org/tpronk/demo_eye_tracking2/.

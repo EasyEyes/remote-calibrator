@@ -75,6 +75,7 @@
         b.innerHTML = `${info[0]}<code>.${info[1]}()</code>`
 
         if (id) b.id = id
+        if (info.length === 4) b.className = info[3]
 
         return b
       }

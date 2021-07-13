@@ -11,14 +11,15 @@ export default class GazeTracker {
     this.calibrator = parent
     this.webgazer = webgazer
 
-    this.defaultCallback = null
+    this.defaultGazeCallback = null
+    this.defaultDistanceTrackCallback = null
 
     // ! STATUS
     this._initialized = {
       distance: false,
       gaze: false,
     } // Either viewing distance or gaze
-    this._calibrated = false // Gaze only
+    this._learning = true
     this._running = {
       distance: false,
       gaze: false,
@@ -36,7 +37,12 @@ export default class GazeTracker {
         this._runningVideo = true
       }
 
-      checkWebgazerReady(pipWidthPX, this.webgazer, callback)
+      checkWebgazerReady(
+        pipWidthPX,
+        this.calibrator.params.videoOpacity,
+        this.webgazer,
+        callback
+      )
     }
   }
 
@@ -48,7 +54,12 @@ export default class GazeTracker {
         this._runningVideo = true
       }
 
-      checkWebgazerReady(pipWidthPX, this.webgazer, callback)
+      checkWebgazerReady(
+        pipWidthPX,
+        this.calibrator.params.videoOpacity,
+        this.webgazer,
+        callback
+      )
     }
   }
 
@@ -64,12 +75,11 @@ export default class GazeTracker {
   }
 
   async getGazeNow(callback) {
-    if (callback)
-      callback(
-        (this.calibrator.gazePositionData = this.getData(
-          await this.webgazer.getCurrentPrediction()
-        ))
-      )
+    let data = (this.calibrator.gazePositionData = this.getData(
+      await this.webgazer.getCurrentPrediction()
+    ))
+    if (callback) callback(data)
+    return data
   }
 
   end() {
@@ -87,10 +97,11 @@ GazeTracker.prototype._init = function (
       this.webgazer.saveDataAcrossSessions(false)
       this.webgazer.params.greedyLearner = greedyLearner
       this.webgazer.params.framerate = framerate
+      this.showGazer(showGazer)
     }
 
     this._toFixedN = toFixedN
-    this.showGazer(showGazer)
+
     this.showVideo(showVideo)
     this.showFaceOverlay(showFaceOverlay)
 
@@ -117,18 +128,58 @@ GazeTracker.prototype.getData = function (d) {
   }
 }
 
+// Gaze
 GazeTracker.prototype.pause = function () {
   this.webgazer.pause()
 }
 
+// Gaze
 GazeTracker.prototype.resume = function () {
   this.webgazer.resume()
 }
 
-GazeTracker.prototype.end = function () {
-  this.webgazer.end()
-  this._runningVideo = false
-  this._running.gaze = false
+GazeTracker.prototype.end = function (type, endAll = false) {
+  if (!this.checkInitialized(type, true)) return
+
+  const endEverything =
+    endAll || !this._initialized.gaze || !this._initialized.distance
+
+  if (type === 'gaze') {
+    this._endGaze()
+    if (endEverything && this.checkInitialized('distance'))
+      this.calibrator.endDistance(false, false)
+  } else {
+    // Distance
+    this.defaultDistanceTrackCallback = null
+    if (endEverything && this.checkInitialized('gaze')) this._endGaze()
+  }
+
+  if (endEverything) {
+    this._initialized = {
+      distance: false,
+      gaze: false,
+    }
+    this._running = {
+      distance: false,
+      gaze: false,
+    }
+    this.webgazer.end(true)
+    this._runningVideo = false
+  } else {
+    this._initialized[type] = false
+    this._running[type] = false
+  }
+}
+
+GazeTracker.prototype._endGaze = function () {
+  this.webgazer.params.paused = true
+
+  this._learning = true
+  this.defaultGazeCallback = null
+  this.webgazer.clearData()
+
+  this.webgazer.params.greedyLearner = false
+  this.webgazer.params.framerate = 60
 }
 
 GazeTracker.prototype.startStoringPoints = function () {
@@ -137,6 +188,20 @@ GazeTracker.prototype.startStoringPoints = function () {
 
 GazeTracker.prototype.stopStoringPoints = function () {
   this.webgazer.params.storingPoints = false
+}
+
+GazeTracker.prototype.startLearning = function () {
+  if (!this._learning) {
+    this.webgazer.startLearning()
+    this._learning = true
+  }
+}
+
+GazeTracker.prototype.stopLearning = function () {
+  if (this._learning) {
+    this.webgazer.stopLearning()
+    this._learning = false
+  }
 }
 
 /* -------------------------------------------------------------------------- */

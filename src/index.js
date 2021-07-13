@@ -13,6 +13,7 @@ import GazeTracker from './gaze/gazeTracker'
 import './webcam'
 
 import './panel/panel'
+import './customization'
 
 import './css/main.css'
 import './css/screenSize.css'
