@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Universal key binders and un-binders. Binding `Escape` and `Space` keys to functions.
 - [Swal](https://sweetalert2.github.io/) to handle alerts and text instructions.
 - Customizable calibration background color and video opacity.
+- When calibrating screen size with USB, the virtual handle part will become semitransparent to emphasize the main port part when the user hovers the slider.
 - New homepage at https://easyeyes.app/remote-calibrator/ with the new logo.
 - New theme color `#ff9a00` used in various places.
 
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated information and instructions on the demo page.
 - `paused` status can be accessed beyond WebGazer.
 - New orange icon color for the Swal popups.
+- New remapping relationship between the slider value and the USB connecter sizes, making it easier to make tiny adjustments.
 
 ### Fixed
 

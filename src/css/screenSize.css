@@ -13,7 +13,7 @@
   z-index: 1;
   cursor: grab;
   -webkit-transition: opacity 0.3s;
-  transition: opacity 0.2s;
+  transition: opacity 0.3s;
 }
 
 .slider:hover {
@@ -62,4 +62,12 @@
 
 #size-arrow-fill {
   transition: fill 0.1s;
+}
+
+.minor {
+  transition: opacity 0.3s;
+}
+
+.slider:hover ~ .size-obj .minor {
+  opacity: 0.3;
 }

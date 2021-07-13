@@ -193,7 +193,8 @@ const setCardSizes = (slider, card, arrow, aS) => {
 }
 
 const setConnectorSizes = (slider, connector) => {
-  connector.style.width = remap(slider.value, 0, 100, 10, 500) + 'px'
+  connector.style.width =
+    remap(Math.pow(slider.value, 1.5), 0, 1000, 50, 400) + 'px'
 }
 
 const addMatchingObj = (names, parent) => {
