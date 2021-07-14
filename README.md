@@ -414,7 +414,7 @@ The associated timestamp of the following items is the one created at initiation
 
 ## Development
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/d043b1d3-5e60-474a-9a34-a929fba58375/deploy-status)](https://app.netlify.com/sites/b5-editor/deploys)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/d54b8740-aa4d-446b-8738-49161769a9a8/deploy-status)](https://app.netlify.com/sites/remote-calibrator/deploys)
 
 For building the library locally or development, please follow the steps below.
 
