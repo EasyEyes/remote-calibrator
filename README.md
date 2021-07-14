@@ -1,4 +1,6 @@
-<img src="./homepage/media/easyeyes-orange-holo.svg" width="100" />
+<p align="center">
+  <img src="./homepage/media/easyeyes-orange-holo.svg" width="150" />
+</p>
 
 # EasyEyes Remote Calibrator
 
