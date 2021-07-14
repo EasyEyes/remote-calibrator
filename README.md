@@ -16,12 +16,10 @@ Please visit https://calibrator.app for the demo. More information can be found 
 
 ## Getting Started
 
-To use RemoteCalibrator, you can either add the script (the file is in `lib` folder in this repository) directly to your HTML file.
+To use RemoteCalibrator, you can add the following line into the `<head>` of your HTML file.
 
 ```html
-<script src="RemoteCalibrator.min.js"></script>
-<!-- Or use CDN -->
-<script src="https://cdn.jsdelivr.net/npm/remote-calibrator@latest/lib/RemoteCalibrator.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/remote-calibrator@latest"></script>
 ```
 
 Or use package management tools, e.g., NPM.
@@ -36,23 +34,30 @@ And import the package to your project
 import RemoteCalibrator from 'remote-calibrator'
 ```
 
-Then, you will be able to use functions listed below under `RemoteCalibrator`. For example,
+Either way, you will then be able to use functions listed below under `RemoteCalibrator`. For example,
 
 ```js
 RemoteCalibrator.init({ id: 'session_022' })
-RemoteCalibrator.measureDistance(
-  {
-    /* [options] */
-  },
-  data => {
-    console.log(`The viewing distance is ${data.value}cm.`)
-  }
-)
+RemoteCalibrator.measureDistance({}, data => {
+  console.log(`The viewing distance is ${data.value}cm.`)
+})
 ```
 
-You may now dive into the documentation of the functions. Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, while you have to put a `options` if you want to call the callback function. The default values of `options` are listed in each section with explanation.
+You may now dive into the documentation of the functions. Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
 ## Functions
+
+| Task                                      | Functions                                                                                                                                                                                    |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                   |
+| [🍱 Panel](#-panel)                       | [`panel()`](#-panel)                                                                                                                                                                         |
+| [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                            |
+| [📏 Viewing Distance](#-viewing-distance) | Measure [`measureDistance()`](#measure)<br /> Track [`trackDistance()`](#track) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#track-lifecycle)                            |
+| [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle) [Others](#others) |
+| [💻 Environment](#-environment)           | [`.environment()`](#-environment)                                                                                                                                                            |
+| [📔 Other Functions](#-other-functions)   | `.checkInitialized()`                                                                                                                                                                        |
+| [💄 Customization](#-customization)       | `.backgroundColor()` `.videoOpacity()`                                                                                                                                                       |
+| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [Others](#others-1)                                                                                                                    |
 
 ### 🎬 Initialize
 
@@ -65,7 +70,7 @@ Initialize RemoteCalibrator. Must be called before any other functions and can o
 Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.id`) to callback.
 
 ```js
-// [options] Default value
+/* [options] Default value */
 {
   /**
    * The id of the session, a string
@@ -107,10 +112,11 @@ The `data` passed into the callback function is an [object](https://www.w3school
 .panel(tasks, parent, [options, [callback]])
 ```
 
-`.panel()` is the most powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Next Step" button can all be customized. It is appended to the parent HTML node as set by `parent`. Can only run once. Return `true` is setting up successfully, otherwise `false`.
+`.panel()` is a powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Next Step" button can all be customized. It is appended to the parent HTML node as set by `parent`. Can only run once. Return `true` if set up successfully, otherwise `false`.
 
 `tasks` is an array of tasks which can be a string or an object. Valid names are `screenSize`, `displaySize`, `measureDistance`, `trackDistance`, `trackGaze`, `environment` (system information).
 
+<!-- prettier-ignore -->
 ```js
 [
   'screenSize',
@@ -124,14 +130,14 @@ The `data` passed into the callback function is an [object](https://www.w3school
     name: 'trackDistance',
     callbackStatic: gotBlindSpotResult,
     callbackTrack: gotTrackResult,
-  }
+  },
 ]
 ```
 
 You can customize the panel element with the following options.
 
 ```js
-// [options] Default value
+/* [options] Default value */
 {
   headline: `Let's calibrate first!`,
   description: `To ensure the following experiments are conducted in a controlled environment, we will help you calibrate and set up tracking with the following steps.`,
@@ -168,7 +174,7 @@ Get the screen width and height in centimeters. Like many other calibration func
 Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonalIN, screenPPI, screenPhysicalPPI }, timestamp }` to callback. `screenPPI` relates to the pixel data used in JavaScript, and `screenPhysicalPPI` is the [actual PPI](https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio) of some Retina displays.
 
 ```js
-// [options] Default value
+/* [options] Default value */
 {
   // Enter fullscreen if set to true
   // Will be ignored if already in fullscreen mode
@@ -205,7 +211,7 @@ Pop an interface for participants to calibrate the viewing distance at the momen
 Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDistanceCM`) to callback.
 
 ```js
-// [options] Default value
+/* [options] Default value */
 {
   fullscreen: false,
   quitFullscreenOnFinished: false, 🚧
@@ -231,7 +237,7 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 `method` can be either `"Blind Spot"` (for measures from blind spot tests) or `"Facemesh Predict"` (for later dynamic estimates).
 
 ```js
-// [options] Default value
+/* [options] Default value */
 {
   fullscreen: false,
   repeatTesting: 2,
@@ -245,6 +251,14 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
   description: "We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen fot eh next 5 seconds.",
 }
 ```
+
+#### `async` Get Distance Now
+
+```js
+.getDistanceNow([callback])
+```
+
+You can pause active distance tracking, and use this function to get the latest distance at the moment when the user makes reactions. If no callback function is passed in, it will use the one from `.trackDistance()` as the default.
 
 #### Track Lifecycle
 
@@ -269,7 +283,7 @@ This function should only be called once, unless you want to change the callback
 Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback.
 
 ```js
-// [options] Default value
+/* [options] Default value */
 {
   fullscreen: false,
   // Stop learning and improve the regression model after the calibration process
@@ -295,19 +309,13 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 }
 ```
 
-#### Lifecycle
-
-- `.pauseGaze()`
-- `.resumeGaze()`
-- `.endGaze([endAll = false])`
-
-#### Get Gaze Now
+#### `async` Get Gaze Now
 
 ```js
-async.getGazeNow([callback])
+.getGazeNow([callback])
 ```
 
-You can pause active gaze tracking after calibration, and use this function to get the latest gaze position at the moment when users makes reactions, i.e. calling this function in a [event listener](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener). This can help reduce computing and get the gaze at the critical moment. If no callback function is passed in, it will use the one from `.trackGaze()` as the default.
+You can pause active gaze tracking after calibration, and use this function to get the latest gaze position at the moment when the user makes reactions, i.e. calling this function in a [event listener](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener). This can help reduce computing and get the gaze at the critical moment. If no callback function is passed in, it will use the one from `.trackGaze()` as the default.
 
 Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback. Return the same thing.
 
@@ -320,7 +328,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 Pop an interface for participants to calibrate their gaze position on the screen. Participants need to click on the dots around the screen for several times each. This function is automatically called in the `.trackGaze()` function when it's called for the first time, but you can always call this function directly as needed, e.g., when the gaze accuracy is low.
 
 ```js
-// [options] Default value
+/* [options] Default value */
 {
   greedyLearner: false,
   // How many times participant needs to click on each of the calibration dot
@@ -336,6 +344,12 @@ Pop an interface for participants to calibrate their gaze position on the screen
 ```js
 .getGazeAccuracy([callback])
 ```
+
+#### Lifecycle
+
+- `.pauseGaze()`
+- `.resumeGaze()`
+- `.endGaze([endAll = false])`
 
 #### Others
 
