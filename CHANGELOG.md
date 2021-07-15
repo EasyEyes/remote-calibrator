@@ -9,15 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Bot detection: `.bot` will return the name, category, and producer of the bot if the user agent is one, an empty string will be returned otherwise.
 - `.version` getter on the demo page.
 
 ### Changed
 
+- If no result is found for `.model` and `.manufacturer`, an empty string instead of `null` will be returned as value.
 - Format of the result from `.version` getter - now an object with one field, `value`.
 - Update readme.
 
 ### Fixed
 
+- No value was returned for `.deviceType` getter.
 - Wrong Netlify badge.
 
 ## [0.0.5] - 2021-07-13

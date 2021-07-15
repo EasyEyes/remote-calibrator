@@ -5,7 +5,7 @@
  */
 
 import platform from 'platform'
-// import DeviceDetector from 'device-detector-js'
+import DeviceDetector from 'device-detector-js'
 
 import randomPhrases from './components/randomPhrases'
 import { debug } from './constants'
@@ -36,6 +36,8 @@ class RemoteCalibrator {
       backgroundColor: '#ddd',
       videoOpacity: 0.8,
     }
+
+    this.deviceDetector = new DeviceDetector()
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -82,6 +84,11 @@ class RemoteCalibrator {
   }
 
   // Environment
+
+  get bot() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'bot')
+  }
 
   get browser() {
     if (!this._environmentData.length) this.environment()
@@ -275,12 +282,18 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
 RemoteCalibrator.prototype.environment = function (callback) {
   if (this.checkInitialized()) {
     blurAll()
+
+    const device = this.deviceDetector.parse(platform.ua)
+    const bot = device.bot
+
     const data = {
       value: {
+        bot: bot ? `${bot.name} (${bot.category}) by ${bot.producer.name}` : '',
         browser: platform.name,
         browserVersion: platform.version,
-        model: platform.product,
-        manufacturer: platform.manufacturer,
+        deviceType: device.device.type,
+        model: platform.product || device.device.model,
+        manufacturer: platform.manufacturer || device.device.brand,
         engine: platform.layout,
         system: platform.os.toString(),
         systemFamily: platform.os.family,
@@ -289,19 +302,6 @@ RemoteCalibrator.prototype.environment = function (callback) {
       },
       timestamp: this.id.timestamp,
     }
-
-    // const detector = new DeviceDetector()
-    // const detectorData = detector.parse(data.value.fullDescription)
-
-    // data.value.deviceType = detectorData.device.type
-
-    // Model and manufacturer correction
-    if (!data.value.model /*&& detectorData.device.model.length*/)
-      // data.value.model = detectorData.device.model
-      data.value.model = null
-    if (!data.value.manufacturer /*&& detectorData.device.brand.length*/)
-      // data.value.manufacturer = detectorData.device.brand
-      data.value.manufacturer = null
 
     this.environmentData = data
 
