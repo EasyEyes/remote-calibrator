@@ -75,8 +75,10 @@ class RemoteCalibrator {
   }
 
   get version() {
-    // eslint-disable-next-line no-undef
-    return process.env.VERSION
+    return {
+      // eslint-disable-next-line no-undef
+      value: process.env.VERSION,
+    }
   }
 
   // Environment

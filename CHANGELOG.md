@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `.version` getter on the demo page.
+
 ### Changed
 
+- Format of the result from `.version` getter - now an object with one field, `value`.
 - Update readme.
 
 ### Fixed

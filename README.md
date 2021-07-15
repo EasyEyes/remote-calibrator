@@ -410,7 +410,7 @@ The associated timestamp of the following items is the one created at initiation
 
 #### Others
 
-- `.version` The RemoteCalibrator version.
+- `.version` The RemoteCalibrator version. No associated timestamp.
 
 ## Development
 
