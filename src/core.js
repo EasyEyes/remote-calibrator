@@ -93,7 +93,9 @@ class RemoteCalibrator {
     return {
       value:
         Math.abs(window.innerHeight - screen.height) < 5 &&
-        Math.abs(window.innerWidth - screen.width) < 5,
+        Math.abs(window.innerWidth - screen.width) < 5 &&
+        window.screenX < 5 &&
+        window.screenY < 5,
       timestamp: new Date(),
     }
   }
@@ -361,9 +363,18 @@ RemoteCalibrator.prototype.getFullscreen = function (f = true) {
   if (
     window.fullScreen ||
     (window.innerWidth === screen.width && window.innerHeight === screen.height)
-  )
-    return
+  ) {
+    return true
+  }
+
   if (f && !debug) getFullscreen()
+
+  this.fullscreenData = {
+    value: f && !debug,
+    timestamp: new Date(),
+  }
+
+  return f && !debug
 }
 
 /**
