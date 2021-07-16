@@ -39,7 +39,7 @@
 
 #webgazerGazeDot {
   position: fixed;
-  z-index: 9999;
+  z-index: 999999;
   opacity: 0.5;
   background-color: #111d5e;
   border-radius: 5px;

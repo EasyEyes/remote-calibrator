@@ -23,9 +23,13 @@ class RemoteCalibrator {
     this._displayData = [] // PX
     this._screenData = [] // CM
     this._viewingDistanceData = []
+    this._nearPointData = []
 
     this._gazePositionData = []
     this._gazeAccuracyData = []
+
+    // Status
+    this._fullscreenData = []
 
     this._background = {
       element: null,
@@ -80,6 +84,17 @@ class RemoteCalibrator {
     return {
       // eslint-disable-next-line no-undef
       value: process.env.VERSION,
+    }
+  }
+
+  // Status
+
+  get isFullscreen() {
+    return {
+      value:
+        Math.abs(window.innerHeight - screen.height) < 5 &&
+        Math.abs(window.innerWidth - screen.width) < 5,
+      timestamp: new Date(),
     }
   }
 
@@ -192,6 +207,10 @@ class RemoteCalibrator {
     return this._helper_get(this._viewingDistanceData)
   }
 
+  get nearPointCM() {
+    return this._helper_get(this._nearPointData)
+  }
+
   // Gaze
 
   get gazePositionPX() {
@@ -228,6 +247,13 @@ class RemoteCalibrator {
   /**
    * @param {{ value: { x: number; y: number; }; timestamp: Date; }} data
    */
+  set nearPointData(data) {
+    this._nearPointData.push(data)
+  }
+
+  /**
+   * @param {{ value: { x: number; y: number; }; timestamp: Date; }} data
+   */
   set gazePositionData(data) {
     this._gazePositionData.push(data)
   }
@@ -244,6 +270,13 @@ class RemoteCalibrator {
    */
   set environmentData(data) {
     this._environmentData.push(data)
+  }
+
+  /**
+   * @param {{ value: boolean; timestamp: Date; }} data
+   */
+  set fullscreenData(data) {
+    this._fullscreenData.push(data)
   }
 }
 
@@ -324,7 +357,7 @@ RemoteCalibrator.prototype.checkInitialized = function () {
  * Get fullscreen
  * @param {Boolean} f Get fullscreen or not from options
  */
-RemoteCalibrator.prototype.getFullscreen = function (f) {
+RemoteCalibrator.prototype.getFullscreen = function (f = true) {
   if (
     window.fullScreen ||
     (window.innerWidth === screen.width && window.innerHeight === screen.height)

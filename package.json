@@ -19,14 +19,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/peilingjiang/RemoteCalibrator.git"
+    "url": "git+https://github.com/EasyEyes/remote-calibrator.git"
   },
   "author": "Peiling Jiang",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/peilingjiang/RemoteCalibrator/issues"
+    "url": "https://github.com/EasyEyes/remote-calibrator/issues"
   },
-  "homepage": "https://github.com/peilingjiang/RemoteCalibrator#readme",
+  "homepage": "https://github.com/EasyEyes/remote-calibrator#readme",
   "devDependencies": {
     "@babel/core": "^7.14.6",
     "autoprefixer": "^10.3.1",

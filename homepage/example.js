@@ -181,7 +181,10 @@ function measureViewingDistance(e) {
 function trackViewingDistance(e) {
   let trackP
   RemoteCalibrator.trackDistance(
-    {},
+    {
+      nearPoint: true,
+      showNearPoint: true,
+    },
     distanceData => {
       measureDistanceCallback(distanceData)
       changeClass(e.target, 'complete')
@@ -189,9 +192,13 @@ function trackViewingDistance(e) {
     },
     data => {
       trackP.innerHTML = gotData(
-        `The dynamic viewing distance is ${data.value}cm at ${parseTimestamp(
-          data.timestamp
-        )}, measured by ${data.method} method.`
+        `The dynamic viewing distance is ${
+          data.value.distance
+        }cm at ${parseTimestamp(data.timestamp)}, measured by ${
+          data.method
+        } method. The near point is at [${data.value.nearPoint.x}cm, ${
+          data.value.nearPoint.y
+        }cm] compared to the center of the screen.`
       )
     }
   )
@@ -253,7 +260,11 @@ function endDistance(e) {
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.insertBefore(
     constructFunctionButton(
-      ['Track Distance', 'trackDistance', 'trackViewingDistance'],
+      [
+        'Track Distance<br />& Near Point',
+        'trackDistance',
+        'trackViewingDistance',
+      ],
       false
     ),
     target

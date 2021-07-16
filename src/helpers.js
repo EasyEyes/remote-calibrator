@@ -117,6 +117,10 @@ export function remap(v, a1, b1, a2, b2) {
   return a2 + (b2 - a2) * (((v - a1) * 1.0) / (b1 - a1))
 }
 
+export function dist2d(aX, aY, bX, bY) {
+  return Math.sqrt(Math.pow(aX - bX, 2) + Math.pow(aY - bY, 2))
+}
+
 // https://stackoverflow.com/a/12646864/11069914
 export function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {

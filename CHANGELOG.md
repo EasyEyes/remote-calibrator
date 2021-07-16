@@ -9,11 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Track near point (as an addon of viewing distance tracking).
 - Bot detection: `.bot` will return the name, category, and producer of the bot if the user agent is one, an empty string will be returned otherwise.
+- `.isFullscreen` getter to get the current window mode.
 - `.version` getter on the demo page.
 
 ### Changed
 
+- (Breaking) `.trackDistance` and `.getDistanceNow` now pass `{ value: { distance, nearPoint: { x, y } }, timestamp, method }` into the `callbackTrack` function.
 - If no result is found for `.model` and `.manufacturer`, an empty string instead of `null` will be returned as value.
 - Format of the result from `.version` getter - now an object with one field, `value`.
 - Update readme.

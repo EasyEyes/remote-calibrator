@@ -5,10 +5,10 @@
 # EasyEyes Remote Calibrator
 
 [![npm version](https://badge.fury.io/js/remote-calibrator.svg)](https://badge.fury.io/js/remote-calibrator)
-[![GitHub license](https://img.shields.io/github/license/peilingjiang/RemoteCalibrator)](https://github.com/peilingjiang/RemoteCalibrator/blob/main/LICENSE)
-[![](https://data.jsdelivr.com/v1/package/npm/remote-calibrator/badge?style=rounded)](https://www.jsdelivr.com/package/npm/remote-calibrator)
+[![GitHub license](https://img.shields.io/github/license/EasyEyes/remote-calibrator?style=flat-square)](https://github.com/EasyEyes/remote-calibrator/blob/main/LICENSE)
+[![](https://data.jsdelivr.com/v1/package/npm/remote-calibrator/badge)](https://www.jsdelivr.com/package/npm/remote-calibrator)
 
-Welcome to RemoteCalibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g., crowd-sourced through Amazon Mechanical Turk.
+Welcome to Remote Calibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g., crowd-sourced through Amazon Mechanical Turk.
 
 The features/functions marked with 🚧 are still work-in-progress and not available yet.
 
@@ -18,7 +18,7 @@ Please visit https://calibrator.app for the demo. More information can be found 
 
 ## Getting Started
 
-To use RemoteCalibrator, you can add the following line into the `<head>` of your HTML file.
+To use Remote Calibrator, you can add the following line into the `<head>` of your HTML file.
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/remote-calibrator@latest"></script>
@@ -45,21 +45,21 @@ RemoteCalibrator.measureDistance({}, data => {
 })
 ```
 
-You may now dive into the documentation of the functions. Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
-
 ## Functions
 
-| Task                                      | Functions                                                                                                                                                                                    |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                   |
-| [🍱 Panel](#-panel)                       | [`panel()`](#-panel)                                                                                                                                                                         |
-| [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                            |
-| [📏 Viewing Distance](#-viewing-distance) | Measure [`measureDistance()`](#measure)<br /> Track [`trackDistance()`](#track) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#track-lifecycle)                            |
-| [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle) [Others](#others) |
-| [💻 Environment](#-environment)           | [`.environment()`](#-environment)                                                                                                                                                            |
-| [📔 Other Functions](#-other-functions)   | `.checkInitialized()`                                                                                                                                                                        |
-| [💄 Customization](#-customization)       | `.backgroundColor()` `.videoOpacity()`                                                                                                                                                       |
-| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [Others](#others-1)                                                                                                                    |
+| Task                                      | Functions                                                                                                                                                                                               |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                              |
+| [🍱 Panel](#-panel)                       | [`panel()`](#-panel)                                                                                                                                                                                    |
+| [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                       |
+| [📏 Viewing Distance](#-viewing-distance) | Measure [`measureDistance()`](#measure)<br /> Track (including [near point](#near-point)) [`trackDistance()`](#track) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#track-lifecycle) |
+| [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle) [Others](#others)            |
+| [💻 Environment](#-environment)           | [`environment()`](#-environment)                                                                                                                                                                        |
+| [💄 Customization](#-customization)       | `backgroundColor()` `videoOpacity()`                                                                                                                                                                    |
+| [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()`                                                                                                                                                                  |
+| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [Others](#others-1)                                                                                                                               |
+
+Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
 ### 🎬 Initialize
 
@@ -234,7 +234,7 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 
 Measure the viewing distance and then predict the real-time distance based on the change of the interpupillary distance, measured by [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection). `callbackStatic` is called after getting the blind spot result and `callbackTrack` is called every time a new result from estimation is derived.
 
-Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDistanceCM`) to callback.
+Pass `{ value: { distance, nearPoint: { x, y } }, timestamp, method }` to callback.
 
 `method` can be either `"Blind Spot"` (for measures from blind spot tests) or `"Facemesh Predict"` (for later dynamic estimates).
 
@@ -249,6 +249,9 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
   decimalPlace: 2,
   // Measurement per second
   trackingRate: 3,
+  // Near point
+  nearPoint: true,
+  showNearPoint: false,
   headline: "👀 Calibrate Gaze",
   description: "We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen fot eh next 5 seconds.",
 }
@@ -261,6 +264,14 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 ```
 
 You can pause active distance tracking, and use this function to get the latest distance at the moment when the user makes reactions. If no callback function is passed in, it will use the one from `.trackDistance()` as the default.
+
+#### Near Point
+
+The observer's near point is the orthogonal nearest viewing point in the screen, or the plane containing the screen. To track the near point, we assume that the webcam view is orthogonal to the display, and it is placed around 0.5cm above the top center of the screen (e.g., the built-in webcam of a MacBook). Our method is based on the Facemesh model and can give you an approximate estimation of the near point.
+
+Setting `nearPoint` option to `true` (default) allows the system to track near point and pass the data into the `callbackTrack` function along with the distance data.
+
+The value returned are the horizontal and vertical offsets, in centimeters, compared to the center of the screen. **Positive** values indicate that the near point is **above** and to the **right** of the center point.
 
 #### Track Lifecycle
 
@@ -370,14 +381,15 @@ Get the setup information of the experiment, including browser type, device mode
 
 Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, systemFamily, description, fullDescription }, timestamp }` to callback.
 
-### 📔 Other Functions
-
-- `.checkInitialized()` Check if the model is initialized. Return a boolean.
-
 ### 💄 Customization
 
 - `.backgroundColor()` Set the color of the background. Default `#dddddd`.
 - `.videoOpacity()` Set the opacity of the video element (in `trackDistance` and `trackGaze`). Default `0.8`.
+
+### 📔 Other Functions
+
+- `.checkInitialized()` Check if the model is initialized. Return a boolean.
+- `.getFullscreen()` Get fullscreen mode.
 
 ### 🎣 Getters
 
@@ -391,7 +403,9 @@ Getters will get `null` if no data can be found, i.e. the corresponding function
 - `.displayWidthPX` `.displayHeightPX` `.windowWidthPX` `.windowHeightPX` The display (and window) width and height in pixels.
 - `.screenWidthCM` `.screenHeightCM` `.screenDiagonalCM` `.screenDiagonalIN` `.screenPPI` `.screenPhysicalPPI` The physical screen size and monitor PPI in centimeters.
 - `.viewingDistanceCM` The last measured viewing distance.
+- `.nearPointCM` The last estimated near point.
 - `.gazePositionPX` The last measured gaze position on the screen.
+- `.isFullscreen` Whether the window is in fullscreen mode.
 
 #### Environment
 

@@ -87,6 +87,7 @@ h1 {
   cursor: pointer;
   user-select: none;
   font-size: 0.8rem;
+  line-height: 130%;
   margin: 3px;
   padding: 10px 15px;
   background: #fff;
