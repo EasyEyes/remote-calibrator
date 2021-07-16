@@ -436,7 +436,7 @@ For building the library locally or development, please follow the steps below.
 ### Setup
 
 ```shell
-git clone --recurse-submodules https://github.com/peilingjiang/RemoteCalibrator.git
+git clone --recurse-submodules https://github.com/EasyEyes/remote-calibrator.git
 ```
 
 ### Install
