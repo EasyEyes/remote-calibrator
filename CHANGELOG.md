@@ -7,16 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.6] - 2021-07-16
+
 ### Added
 
 - Track near point (as an addon of viewing distance tracking).
 - Bot detection: `.bot` will return the name, category, and producer of the bot if the user agent is one, an empty string will be returned otherwise.
-- `.isFullscreen` getter to get the current window mode.
+- `.isFullscreen` getter to get the current window mode. `.getFullscreen()` now also records fullscreen mode status data.
 - `.version` getter on the demo page.
 
 ### Changed
 
-- (Breaking) `.trackDistance` and `.getDistanceNow` now pass `{ value: { distance, nearPoint: { x, y } }, timestamp, method }` into the `callbackTrack` function.
+- **(Breaking)** `.trackDistance` and `.getDistanceNow` now pass `{ value: { distance, nearPoint: { x, y } }, timestamp, method }` into the `callbackTrack` function.
 - If no result is found for `.model` and `.manufacturer`, an empty string instead of `null` will be returned as value.
 - Format of the result from `.version` getter - now an object with one field, `value`.
 - Update readme.
@@ -102,9 +104,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.5...HEAD
-[0.0.5]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.4...v0.0.5
-[0.0.4]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.3...v0.0.4
-[0.0.3]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.2...v0.0.3
-[0.0.2]: https://github.com/peilingjiang/RemoteCalibrator/compare/v0.0.1...v0.0.2
-[0.0.1]: https://github.com/peilingjiang/RemoteCalibrator/releases/tag/v0.0.1
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.6...HEAD
+[0.0.6]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.5...v0.0.6
+[0.0.5]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.4...v0.0.5
+[0.0.4]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.3...v0.0.4
+[0.0.3]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.2...v0.0.3
+[0.0.2]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.1...v0.0.2
+[0.0.1]: https://github.com/EasyEyes/remote-calibrator/releases/tag/v0.0.1

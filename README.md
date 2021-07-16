@@ -2,7 +2,7 @@
   <img src="./homepage/media/easyeyes-orange-holo.svg" width="150" />
 </p>
 
-# EasyEyes Remote Calibrator
+# EasyEyes<br /> Remote Calibrator
 
 [![npm version](https://badge.fury.io/js/remote-calibrator.svg)](https://badge.fury.io/js/remote-calibrator)
 [![GitHub license](https://img.shields.io/github/license/EasyEyes/remote-calibrator?style=flat-square)](https://github.com/EasyEyes/remote-calibrator/blob/main/LICENSE)
@@ -24,7 +24,7 @@ To use Remote Calibrator, you can add the following line into the `<head>` of yo
 <script src="https://cdn.jsdelivr.net/npm/remote-calibrator@latest"></script>
 ```
 
-Or use package management tools, e.g., NPM.
+Or use package management tools, e.g., [NPM](https://www.npmjs.com/package/remote-calibrator).
 
 ```shell
 npm i remote-calibrator

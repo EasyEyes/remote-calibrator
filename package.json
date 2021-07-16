@@ -1,6 +1,6 @@
 {
   "name": "remote-calibrator",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "A toolbox for remote testing calibration.",
   "main": "lib/RemoteCalibrator.min.js",
   "directories": {
