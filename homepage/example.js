@@ -193,11 +193,11 @@ function trackViewingDistance(e) {
     data => {
       trackP.innerHTML = gotData(
         `The dynamic viewing distance is ${
-          data.value.distance
+          data.value.viewingDistanceCM
         }cm at ${parseTimestamp(data.timestamp)}, measured by ${
           data.method
-        } method. The near point is at [${data.value.nearPoint.x}cm, ${
-          data.value.nearPoint.y
+        } method. The near point is at [${data.value.nearPointCM.x}cm, ${
+          data.value.nearPointCM.y
         }cm] compared to the center of the screen.`
       )
     }

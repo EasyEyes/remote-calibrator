@@ -234,7 +234,7 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 
 Measure the viewing distance and then predict the real-time distance based on the change of the interpupillary distance, measured by [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection). `callbackStatic` is called after getting the blind spot result and `callbackTrack` is called every time a new result from estimation is derived.
 
-Pass `{ value: { distance, nearPoint: { x, y } }, timestamp, method }` to callback.
+Pass `{ value: { viewingDistanceCM, nearPointCM: { x, y } }, timestamp, method }` to callback.
 
 `method` can be either `"Blind Spot"` (for measures from blind spot tests) or `"Facemesh Predict"` (for later dynamic estimates).
 

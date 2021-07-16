@@ -227,8 +227,8 @@ const _tracking = async (
           RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
           callbackTrack({
             value: {
-              distance: data.value,
-              nearPoint: nPData ? nPData.value : null,
+              viewingDistanceCM: data.value,
+              nearPointCM: nPData ? nPData.value : null,
             },
             timestamp: timestamp,
             method: 'Facemesh Predict',
@@ -391,8 +391,8 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
     if (c)
       c({
         value: {
-          distance: data.value,
-          nearPoint: nPData ? nPData.value : null,
+          viewingDistanceCM: data.value,
+          nearPointCM: nPData ? nPData.value : null,
         },
         timestamp: timestamp,
         method: 'Facemesh Predict',
