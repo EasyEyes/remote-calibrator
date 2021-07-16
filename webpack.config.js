@@ -101,9 +101,7 @@ module.exports = env => {
         VERSION: packageJSON.version,
         DEBUG: true,
       }),
-      new webpack.BannerPlugin(
-        `${packageJSON.name} - ${packageJSON.version} - DEV`
-      )
+      new webpack.BannerPlugin(`${packageJSON.name} - ${packageJSON.version}`)
     )
 
     return exampleConfig
