@@ -101,17 +101,31 @@ module.exports = env => {
         VERSION: packageJSON.version,
         DEBUG: true,
       }),
-      new webpack.BannerPlugin(`${packageJSON.name} - ${packageJSON.version}`)
+      new webpack.BannerPlugin(
+        `${packageJSON.name} - ${packageJSON.version} - DEV`
+      )
     )
 
     return exampleConfig
   } else if (env.production) {
+    const licenseText = `
+    @license
+    EasyEyes Remote Calibrator (${packageJSON.name}) Version ${
+      packageJSON.version
+    }
+    https://github.com/EasyEyes/remote-calibrator
+    
+    Copyright ${new Date().getFullYear()} Denis Pelli Lab
+
+    The source code is available under an MIT-style
+    license that can be found in the LICENSE file.
+    `
     libConfig.plugins.push(
       new webpack.EnvironmentPlugin({
         VERSION: packageJSON.version,
         DEBUG: false,
       }),
-      new webpack.BannerPlugin(`${packageJSON.name} - ${packageJSON.version}`)
+      new webpack.BannerPlugin(licenseText)
     )
 
     const libConfigExample = Object.assign({}, libConfig, {

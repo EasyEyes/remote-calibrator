@@ -1,11 +1,11 @@
 {
   "name": "remote-calibrator",
-  "version": "0.0.6",
-  "description": "A toolbox for remote testing calibration.",
+  "version": "0.0.7",
+  "description": "A toolbox for remote testing calibration and tracking.",
   "main": "lib/RemoteCalibrator.min.js",
   "directories": {
-    "example": "example",
-    "lib": "lib"
+    "lib": "lib",
+    "homepage": "homepage"
   },
   "scripts": {
     "setup": "cd src/WebGazer4RC && npm i && cd ../.. && npm i",
