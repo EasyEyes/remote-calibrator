@@ -4,9 +4,9 @@
 
 # EasyEyes<br /> Remote Calibrator
 
-[![npm version](https://badge.fury.io/js/remote-calibrator.svg)](https://badge.fury.io/js/remote-calibrator)
+[![npm version](https://img.shields.io/npm/v/remote-calibrator.svg?style=flat-square)](https://npmjs.org/package/remote-calibrator)
 [![GitHub license](https://img.shields.io/github/license/EasyEyes/remote-calibrator?style=flat-square)](https://github.com/EasyEyes/remote-calibrator/blob/main/LICENSE)
-[![](https://data.jsdelivr.com/v1/package/npm/remote-calibrator/badge)](https://www.jsdelivr.com/package/npm/remote-calibrator)
+[![jsDelivr](https://data.jsdelivr.com/v1/package/npm/remote-calibrator/badge)](https://www.jsdelivr.com/package/npm/remote-calibrator)
 
 Welcome to Remote Calibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g., crowd-sourced through Amazon Mechanical Turk.
 
