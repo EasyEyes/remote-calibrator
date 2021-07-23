@@ -52,6 +52,12 @@ RemoteCalibrator.prototype.trackDistance = function (
 
   this.getFullscreen(options.fullscreen)
 
+  this._addBackground()
+  this._constructFloatInstructionElement(
+    'gaze-system-instruction',
+    'Starting up... Please wait.'
+  )
+
   // STEP 2 - Live estimate
   const getStdDist = distData => {
     if (this.gazeTracker.checkInitialized('gaze')) this.showGazer(originalGazer)
@@ -59,48 +65,63 @@ RemoteCalibrator.prototype.trackDistance = function (
     if (callbackStatic && typeof callbackStatic === 'function')
       callbackStatic(distData)
 
-    // After getting the standard distance
-    trackingOptions.pipWidthPX = options.pipWidthPX
-    trackingOptions.decimalPlace = options.decimalPlace
-    trackingOptions.framerate = options.framerate
-    trackingOptions.nearPoint = options.nearPoint
-    trackingOptions.showNearPoint = options.showNearPoint
-
-    startTrackingPupils(this, distData, callbackTrack)
+    stdDist.current = distData
   }
 
   /* -------------------------------------------------------------------------- */
 
   // STEP 1 - Calibrate for live estimate
-  this._addBackground()
-
   const originalGazer = this.gazeTracker.webgazer.params.showGazeDot
-  Swal.fire({
-    ...swalInfoOptions,
-    html: options.description,
-  }).then(() => {
-    this._replaceBackground(constructInstructions(options.headline))
+  const _ = () => {
+    this._addBackground()
 
-    // TODO Handle multiple init
-    this.gazeTracker._init(
-      {
-        toFixedN: 1,
-        showVideo: options.showVideo,
-        showFaceOverlay: options.showFaceOverlay,
+    Swal.fire({
+      ...swalInfoOptions,
+      html: options.description,
+    }).then(() => {
+      this._replaceBackground(constructInstructions(options.headline))
+
+      if (this.gazeTracker.checkInitialized('gaze')) this.showGazer(false)
+      blindSpotTest(this, options, true, getStdDist)
+    })
+  }
+
+  trackingOptions.pipWidthPX = options.pipWidthPX
+  trackingOptions.decimalPlace = options.decimalPlace
+  trackingOptions.framerate = options.framerate
+  trackingOptions.nearPoint = options.nearPoint
+  trackingOptions.showNearPoint = options.showNearPoint
+
+  // TODO Handle multiple init
+  this.gazeTracker._init(
+    {
+      toFixedN: 1,
+      showVideo: options.showVideo,
+      showFaceOverlay: options.showFaceOverlay,
+    },
+    'distance'
+  )
+
+  if (options.nearPoint) {
+    startTrackingPupils(
+      this,
+      () => {
+        this.measurePD({}, _)
       },
-      'distance'
+      callbackTrack
     )
-
-    if (this.gazeTracker.checkInitialized('gaze')) this.showGazer(false)
-    blindSpotTest(this, options, true, getStdDist)
-  })
+  } else {
+    startTrackingPupils(this, _, callbackTrack)
+  }
 }
 
 /* -------------------------------------------------------------------------- */
 
-const startTrackingPupils = async (RC, stdDist, callbackTrack) => {
-  const _t = _tracking.bind(this, RC, stdDist, trackingOptions, callbackTrack)
-  RC.gazeTracker.beginVideo({ pipWidthPX: trackingOptions.pipWidthPX }, _t)
+const startTrackingPupils = async (RC, beforeCallbackTrack, callbackTrack) => {
+  RC.gazeTracker.beginVideo({ pipWidthPX: trackingOptions.pipWidthPX }, () => {
+    beforeCallbackTrack()
+    _tracking(RC, trackingOptions, callbackTrack)
+  })
 }
 
 const eyeDist = (a, b) => {
@@ -126,127 +147,130 @@ const trackingOptions = {
   showNearPoint: false,
 }
 
+const stdDist = { current: null }
+
 let stdFactor, viewingDistanceTrackingFunction
 let iRepeatOptions = { framerate: 20, break: true }
 
 let nearPointDot = null
 /* -------------------------------------------------------------------------- */
 
-const _tracking = async (
-  RC,
-  stdDist = null,
-  trackingOptions,
-  callbackTrack
-) => {
-  // const canvas = RC.gazeTracker.webgazer.videoCanvas
-  const video = document.querySelector('#webgazerVideoFeed')
-  let model, faces
+const _tracking = async (RC, trackingOptions, callbackTrack) => {
+  const _ = async () => {
+    // const canvas = RC.gazeTracker.webgazer.videoCanvas
+    const video = document.querySelector('#webgazerVideoFeed')
+    let model, faces
 
-  // Get the average of 2 estimates for one measure
-  let averageDist = 0
-  let distCount = 1
-  const targetCount = 5
+    // Get the average of 2 estimates for one measure
+    let averageDist = 0
+    let distCount = 1
+    const targetCount = 5
 
-  model = await RC.gazeTracker.webgazer.getTracker().model
+    model = await RC.gazeTracker.webgazer.getTracker().model
 
-  // Near point
-  let ppi = RC.screenPPI ? RC.screenPPI.value : 108
-  if (!RC.screenPPI && trackingOptions.nearPoint)
-    console.error(
-      'Screen size measurement is required to get accurate near point tracking.'
-    )
+    // Near point
+    let ppi = RC.screenPPI ? RC.screenPPI.value : 108
+    if (!RC.screenPPI && trackingOptions.nearPoint)
+      console.error(
+        'Screen size measurement is required to get accurate near point tracking.'
+      )
 
-  if (trackingOptions.nearPoint && trackingOptions.showNearPoint) {
-    nearPointDot = document.createElement('div')
-    nearPointDot.id = 'rc-near-point-dot'
-    document.body.appendChild(nearPointDot)
+    if (trackingOptions.nearPoint && trackingOptions.showNearPoint) {
+      nearPointDot = document.createElement('div')
+      nearPointDot.id = 'rc-near-point-dot'
+      document.body.appendChild(nearPointDot)
 
-    Object.assign(nearPointDot.style, {
-      display: 'block',
-      zIndex: 999999,
-      width: '10px', // TODO Make it customizable
-      height: '10px',
-      background: 'green',
-      position: 'fixed',
-      top: '-5px',
-      left: '-5px',
-    })
-  }
+      Object.assign(nearPointDot.style, {
+        display: 'block',
+        zIndex: 999999,
+        width: '10px', // TODO Make it customizable
+        height: '10px',
+        background: 'green',
+        position: 'fixed',
+        top: '-5px',
+        left: '-5px',
+      })
+    }
 
-  viewingDistanceTrackingFunction = async () => {
-    faces = await model.estimateFaces(video)
-    if (faces.length) {
-      // There's at least one face in video
-      const mesh = faces[0].scaledMesh
-      // https://github.com/tensorflow/tfjs-models/blob/master/facemesh/mesh_map.jpg
-      if (targetCount === distCount) {
-        averageDist += eyeDist(mesh[133], mesh[362])
-        averageDist /= 5
+    viewingDistanceTrackingFunction = async () => {
+      faces = await model.estimateFaces(video)
+      if (faces.length) {
+        // There's at least one face in video
+        const mesh = faces[0].scaledMesh
+        // https://github.com/tensorflow/tfjs-models/blob/master/facemesh/mesh_map.jpg
+        if (targetCount === distCount) {
+          averageDist += eyeDist(mesh[133], mesh[362])
+          averageDist /= 5
 
-        if (!stdFactor && stdDist !== null) {
-          // ! First time estimate
-          // Face_Known_PX  *  Distance_Known_CM  =  Face_Now_PX  *  Distance_x_CM
-          // Get the factor to be used for future predictions
-          stdFactor = averageDist * stdDist.value
-          // FINISH
-          RC._removeBackground()
+          if (stdDist.current !== null) {
+            if (!stdFactor) {
+              // ! First time estimate
+              // Face_Known_PX  *  Distance_Known_CM  =  Face_Now_PX  *  Distance_x_CM
+              // Get the factor to be used for future predictions
+              stdFactor = averageDist * stdDist.current.value
+              // FINISH
+              RC._removeBackground()
+            }
+
+            /* -------------------------------------------------------------------------- */
+
+            const timestamp = new Date()
+
+            const data = (RC.viewingDistanceData = {
+              value: toFixedNumber(
+                stdFactor / averageDist,
+                trackingOptions.decimalPlace
+              ),
+              timestamp: timestamp,
+              method: 'Facemesh Predict',
+            })
+
+            /* -------------------------------------------------------------------------- */
+
+            // Near point
+            let nPData
+            if (trackingOptions.nearPoint) {
+              nPData = _getNearPoint(
+                RC,
+                trackingOptions,
+                video,
+                mesh,
+                averageDist,
+                timestamp,
+                ppi
+              )
+            }
+
+            /* -------------------------------------------------------------------------- */
+
+            if (callbackTrack && typeof callbackTrack === 'function') {
+              RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
+              callbackTrack({
+                value: {
+                  viewingDistanceCM: data.value,
+                  nearPointCM: nPData ? nPData.value : null,
+                },
+                timestamp: timestamp,
+                method: 'Facemesh Predict',
+              })
+            }
+          }
+
+          averageDist = 0
+          distCount = 1
+        } else {
+          averageDist += eyeDist(mesh[133], mesh[362])
+          ++distCount
         }
-
-        /* -------------------------------------------------------------------------- */
-
-        const timestamp = new Date()
-
-        const data = (RC.viewingDistanceData = {
-          value: toFixedNumber(
-            stdFactor / averageDist,
-            trackingOptions.decimalPlace
-          ),
-          timestamp: timestamp,
-          method: 'Facemesh Predict',
-        })
-
-        /* -------------------------------------------------------------------------- */
-
-        // Near point
-        let nPData
-        if (trackingOptions.nearPoint) {
-          nPData = _getNearPoint(
-            RC,
-            trackingOptions,
-            video,
-            mesh,
-            averageDist,
-            timestamp,
-            ppi
-          )
-        }
-
-        /* -------------------------------------------------------------------------- */
-
-        if (callbackTrack && typeof callbackTrack === 'function') {
-          RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
-          callbackTrack({
-            value: {
-              viewingDistanceCM: data.value,
-              nearPointCM: nPData ? nPData.value : null,
-            },
-            timestamp: timestamp,
-            method: 'Facemesh Predict',
-          })
-        }
-
-        averageDist = 0
-        distCount = 1
-      } else {
-        averageDist += eyeDist(mesh[133], mesh[362])
-        ++distCount
       }
     }
+
+    iRepeatOptions.break = false
+    iRepeatOptions.framerate = targetCount * trackingOptions.framerate // Default 3 * 5
+    iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
   }
 
-  iRepeatOptions.break = false
-  iRepeatOptions.framerate = targetCount * trackingOptions.framerate // Default 3 * 5
-  iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
+  await _()
 }
 
 const _getNearPoint = (
@@ -332,6 +356,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     trackingOptions.nearPoint = true
     trackingOptions.showNearPoint = false
 
+    stdDist.current = null
     stdFactor = null
     viewingDistanceTrackingFunction = null
 
