@@ -206,7 +206,7 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
   originalStyles.video = RC.gazeTracker.webgazer.params.showVideo
   originalStyles.gaze = RC.gazeTracker.webgazer.params.showGazeDot
   originalStyles.faceOverlay = RC.gazeTracker.webgazer.params.showFaceOverlay
-  console.log('video')
+
   if (!originalStyles.video) RC.showVideo(true)
   if (originalStyles.gaze) RC.showGazer(false)
   if (originalStyles.faceOverlay) RC.showFaceOverlay(false)
