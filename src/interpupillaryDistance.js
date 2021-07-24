@@ -5,6 +5,7 @@ import RemoteCalibrator from './core'
 import { blurAll, constructInstructions, toFixedNumber } from './helpers'
 import { swalInfoOptions } from './components/swalOptions'
 import Arrow from './media/arrow.svg'
+import PD from './media/pd.png'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { colorDarkRed } from './constants'
 import text from './text.json'
@@ -33,6 +34,10 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
 
   Swal.fire({
     ...swalInfoOptions,
+    icon: undefined,
+    imageUrl: PD,
+    imageWidth: 480,
+    imageAlt: 'Measurement Instruction',
     html: options.description,
   }).then(() => {
     this._replaceBackground(
@@ -201,8 +206,9 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
   originalStyles.video = RC.gazeTracker.webgazer.params.showVideo
   originalStyles.gaze = RC.gazeTracker.webgazer.params.showGazeDot
   originalStyles.faceOverlay = RC.gazeTracker.webgazer.params.showFaceOverlay
+  console.log('video')
   if (!originalStyles.video) RC.showVideo(true)
-  if (originalStyles.gaze) RC.showGazer(true)
+  if (originalStyles.gaze) RC.showGazer(false)
   if (originalStyles.faceOverlay) RC.showFaceOverlay(false)
   RC.gazeTracker.webgazer.showFaceFeedbackBox(false)
 

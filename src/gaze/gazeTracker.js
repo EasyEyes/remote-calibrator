@@ -110,7 +110,12 @@ GazeTracker.prototype._init = function (
 }
 
 GazeTracker.prototype.checkInitialized = function (task, warning = false) {
-  if (this._initialized[task]) return true
+  if (
+    task === ''
+      ? this._initialized.gaze || this._initialized.distance
+      : this._initialized[task]
+  )
+    return true
   if (warning)
     console.error(
       'RemoteCalibrator.gazeTracker is not initialized. Use .trackGaze() to initialize.'
