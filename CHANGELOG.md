@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+
+- Measure the interpupillary distance before tracking near point and viewing distance.
+- A new `develop` branch for new feature development. The deployed `main` branch will only use released versions of the package.
+
+## Changed
+
+- Improved starting time of gaze and distance tracking, around 3 times faster.
+
 ## [0.0.7] - 2021-07-17
 
 No new feature updates in this release. Updated dependency packages and the license.
@@ -108,7 +117,7 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.7...HEAD
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.7...develop
 [0.0.7]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.4...v0.0.5
