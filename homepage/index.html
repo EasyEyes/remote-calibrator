@@ -9,8 +9,13 @@
     /> -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="example.css" />
-    <!-- IMPORT THE TOOLBOX -->
-    <script src="lib/RemoteCalibrator.min.js"></script>
+
+    <!-- ----------------------------------------------------------------------- -->
+    <!--                        IMPORT REMOTE CALIBRATOR                         -->
+    <!-- ----------------------------------------------------------------------- -->
+    <script src="https://cdn.jsdelivr.net/npm/remote-calibrator@latest"></script>
+    <!-- ----------------------------------------------------------------------- -->
+
     <title>EasyEyes | Remote Calibrator Demo</title>
     <!-- favicon -->
     <link rel="shortcut icon" href="media/favicon.ico" />
@@ -60,7 +65,7 @@
     <script>
       // Get version number
       document.getElementById('version').innerHTML =
-        'Demo v' + RemoteCalibrator.version.value + '+'
+        'Demo v' + RemoteCalibrator.version.value
 
       /**
        * Programmatically add buttons for functions, getters, etc.
