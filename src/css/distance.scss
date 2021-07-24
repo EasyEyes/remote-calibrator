@@ -32,6 +32,7 @@
 #rc-ruler {
   position: absolute;
   max-height: 120px;
+  overflow: hidden;
 }
 
 #rc-ruler-scales {
@@ -39,12 +40,20 @@
   top: 0;
   left: 30px;
   z-index: 1;
+  pointer-events: none;
 
-  #rc-ruler-zero {
+  #size-arrow {
+    transform: rotate(90deg) translate(0, calc(50% + 3px));
+    opacity: 0.5;
+  }
+
+  .rc-ruler-scale-text {
     position: absolute;
     top: 32px !important;
     margin: 0 !important;
     padding: 0;
+    color: #2c2e43aa;
+    font-weight: 700;
     transform: translate(-50%, 0) !important;
   }
 

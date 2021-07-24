@@ -4,6 +4,9 @@ import RemoteCalibrator from './core'
 
 import { blurAll, constructInstructions, toFixedNumber } from './helpers'
 import { swalInfoOptions } from './components/swalOptions'
+import Arrow from './media/arrow.svg'
+import { bindKeys, unbindKeys } from './components/keyBinder'
+import { colorDarkRed } from './constants'
 import text from './text.json'
 
 // let selfVideo = false // No WebGazer video available and an extra video element needs to be created
@@ -35,12 +38,76 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
     this._replaceBackground(
       constructInstructions(options.headline, options.shortDescription)
     )
+    const screenPPI = this.screenPPI ? this.screenPPI.value : 108
+
     let [videoWidth, videoHeight] = setupVideo(this)
-    setupRuler(this, videoWidth, videoHeight)
+    let [ruler, rulerListener] = setupRuler(
+      this,
+      screenPPI,
+      videoWidth,
+      videoHeight
+    )
+
+    const breakFunction = () => {
+      ruler.removeEventListener('mousedown', rulerListener)
+      this._removeBackground()
+
+      this.showVideo(originalStyles.video)
+      this.showGazer(originalStyles.gaze)
+      this.showFaceOverlay(originalStyles.faceOverlay)
+      this.gazeTracker.webgazer.showFaceFeedbackBox(true)
+
+      Object.assign(document.querySelector('#webgazerVideoContainer').style, {
+        height: originalStyles.videoHeight,
+        width: originalStyles.videoWidth,
+        opacity: originalStyles.opacity,
+        left: '10px',
+        bottom: '10px',
+        borderRadius: '0px',
+      })
+
+      Object.assign(document.querySelector('#webgazerVideoFeed').style, {
+        height: originalStyles.videoHeight,
+        width: originalStyles.videoWidth,
+        top: 'unset',
+        transform: 'scale(-1, 1)',
+        transformOrigin: 'unset',
+      })
+
+      originalStyles.video = false
+      originalStyles.videoWidth = 0
+      originalStyles.videoHeight = 0
+      originalStyles.opacity = 1
+      originalStyles.gaze = false
+      originalStyles.faceOverlay = false
+
+      unbindKeys(bindKeysFunction)
+    }
+
+    const finishFunction = () => {
+      if (offsetPixel !== -100) {
+        const PDData = {
+          value: (offsetPixel * 2.54) / screenPPI,
+          timestamp: new Date(),
+        }
+        this.PDData = PDData
+
+        breakFunction()
+        callback()
+      }
+    }
 
     // if (callback && typeof callback === 'function') callback()
+    const bindKeysFunction = bindKeys({
+      Escape: breakFunction,
+      ' ': finishFunction,
+    })
   })
 }
+
+/* -------------------------------------------------------------------------- */
+/*                                    Video                                   */
+/* -------------------------------------------------------------------------- */
 
 const setupVideo = RC => {
   let video = document.querySelector('#webgazerVideoFeed')
@@ -76,11 +143,13 @@ const originalStyles = {
   video: false,
   videoWidth: 0,
   videoHeight: 0,
+  opacity: 1,
   gaze: false,
   faceOverlay: false,
 }
 
 const videoWidthFactor = 0.9
+const videoHeightFactor = 0.3
 
 const formatVideo = (RC, video, canvas, container, stream = null) => {
   if (!stream) {
@@ -93,11 +162,13 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
   //   ? stream.getTracks()[0].getSettings()
   //   : [video.videoWidth, video.videoHeight]
   let h =
-    ((window.innerWidth * 0.5) / parseInt(video.style.width)) *
+    ((window.innerWidth * videoHeightFactor) / parseInt(video.style.width)) *
     parseInt(video.style.height)
 
   originalStyles.videoWidth = container.style.width
   originalStyles.videoHeight = container.style.height
+  originalStyles.opacity = container.style.opacity
+  // Container
   Object.assign(container.style, {
     height: h + 'px',
     width: window.innerWidth * videoWidthFactor + 'px',
@@ -118,10 +189,11 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
   //   width: window.innerWidth / 2 + 'px',
   // })
 
+  // Video feed
   Object.assign(video.style, {
-    height: h * videoWidthFactor * 2 + 'px',
+    height: (h * videoWidthFactor) / videoHeightFactor + 'px',
     width: window.innerWidth * videoWidthFactor + 'px',
-    top: -h * (videoWidthFactor - 0.5) + 'px',
+    top: -h * (videoWidthFactor - videoHeightFactor) + 'px',
     transform: 'scale(-2, 2)',
     transformOrigin: 'center',
   })
@@ -138,12 +210,14 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
 }
 
 /* -------------------------------------------------------------------------- */
+/*                                    Ruler                                   */
+/* -------------------------------------------------------------------------- */
 
 const sidePadding = 30 // Paddings (px) on both sides of the ruler
 
-const setupRuler = (RC, vWidth, vHeight) => {
-  const screenPPI = RC.screenPPI ? RC.screenPPI.value : 108
+let offsetPixel = -100 // !
 
+const setupRuler = (RC, screenPPI, vWidth, vHeight) => {
   const rulerElement = document.createElement('div')
   rulerElement.id = 'rc-ruler'
   Object.assign(rulerElement.style, {
@@ -154,7 +228,7 @@ const setupRuler = (RC, vWidth, vHeight) => {
     backgroundColor: '#FFD523dd',
     borderRadius: '15px 0 0 0',
     boxSizing: 'border-box',
-    borderBottom: '9px solid #cca500',
+    borderBottom: '7px solid #bb6600',
   })
 
   RC.background.appendChild(rulerElement)
@@ -167,6 +241,7 @@ const setupRuler = (RC, vWidth, vHeight) => {
     ((rulerElement.clientWidth - sidePadding * 2) * 2.54) / screenPPI
   for (let i = 0; i <= toFixedNumber(totalCM, 1) * 10; i++) {
     let thisScale = document.createElement('div')
+    let left = (0.1 * i * screenPPI) / 2.54 + 'px' // Offset from zero
     thisScale.className =
       'rc-ruler-scale ' +
       (i % 10 === 0
@@ -174,12 +249,45 @@ const setupRuler = (RC, vWidth, vHeight) => {
         : i % 5 === 0
         ? 'rc-ruler-secondary'
         : 'rc-ruler-minor')
-    thisScale.style.left = (0.1 * i * screenPPI) / 2.54 + 'px'
+    thisScale.style.left = left
     scales.appendChild(thisScale)
+
+    if (i % 10 === 0) {
+      let thisText = document.createElement('p')
+      thisText.className = 'rc-ruler-scale-text'
+      thisText.style.left = left
+      thisText.innerHTML = i / 10
+      scales.appendChild(thisText)
+
+      if (i === 0) thisText.style.color = colorDarkRed
+    }
   }
 
-  const zeroText = document.createElement('p')
-  zeroText.innerHTML = '0'
-  zeroText.id = 'rc-ruler-zero'
-  scales.appendChild(zeroText)
+  // Selection
+  let selectionElement = document.createElement('div')
+  scales.appendChild(selectionElement)
+  selectionElement.outerHTML = Arrow
+  selectionElement = document.querySelector('#size-arrow')
+  selectionElement.setAttribute('preserveAspectRatio', 'none')
+  selectionElement.style.left = '-100px'
+  selectionElement.style.top = '40px'
+
+  document.getElementById('size-arrow-fill').setAttribute('fill', colorDarkRed)
+
+  const _onDownRuler = e => {
+    selectionElement.style.left = (offsetPixel = e.offsetX - 30) + 'px'
+
+    const _onMoveRuler = e => {
+      selectionElement.style.left = (offsetPixel = e.offsetX - 30) + 'px'
+    }
+    rulerElement.addEventListener('mousemove', _onMoveRuler)
+    rulerElement.addEventListener('mouseup', function _() {
+      rulerElement.removeEventListener('mousemove', _onMoveRuler)
+      rulerElement.removeEventListener('mouseup', _)
+    })
+  }
+
+  rulerElement.addEventListener('mousedown', _onDownRuler)
+
+  return [rulerElement, _onDownRuler]
 }

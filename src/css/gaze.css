@@ -49,14 +49,12 @@
 #webgazerVideoContainer {
   z-index: 9997;
   display: block;
-  position: fixed;
+  position: fixed !important;
   transform-origin: bottom left;
   /* border-radius: 7px; */
   /* opacity: 0.8; */
   overflow: hidden;
   pointer-events: none;
-  transition: left 0.5s, bottom 0.5s, width 0.5s, height 0.5s,
-    border-radius 0.5s;
 }
 
 #webgazerFaceFeedbackBox {

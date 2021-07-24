@@ -16,8 +16,9 @@ import {
   _circle,
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
-import text from '../text.json'
 import { swalInfoOptions } from '../components/swalOptions'
+import { colorDarkRed } from '../constants'
+import text from '../text.json'
 
 const blindSpotHTML = `<canvas id="blind-spot-canvas"></canvas>`
 
@@ -110,7 +111,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         resizeObserver.unobserve(RC.background)
         unbindKeys(bindKeysFunction)
         // Change instructions
-        instructionDiv.innerHTML = `<b style="color: #ac0d0d">Starting up... Please hold still.</b>`
+        instructionDiv.innerHTML = `<b style="color: ${colorDarkRed}>Starting up... Please hold still.</b>`
       }
     } else if (tested % options.repeatTesting === 0) {
       // Switch eye side

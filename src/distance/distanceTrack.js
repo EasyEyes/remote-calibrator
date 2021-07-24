@@ -60,7 +60,8 @@ RemoteCalibrator.prototype.trackDistance = function (
 
   // STEP 2 - Live estimate
   const getStdDist = distData => {
-    if (this.gazeTracker.checkInitialized('gaze')) this.showGazer(originalGazer)
+    if (this.gazeTracker.checkInitialized('gaze', false))
+      this.showGazer(originalGazer)
 
     if (callbackStatic && typeof callbackStatic === 'function')
       callbackStatic(distData)
@@ -81,7 +82,8 @@ RemoteCalibrator.prototype.trackDistance = function (
     }).then(() => {
       this._replaceBackground(constructInstructions(options.headline))
 
-      if (this.gazeTracker.checkInitialized('gaze')) this.showGazer(false)
+      if (this.gazeTracker.checkInitialized('gaze', false))
+        this.showGazer(false)
       blindSpotTest(this, options, true, getStdDist)
     })
   }
@@ -187,8 +189,8 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
         height: '10px',
         background: 'green',
         position: 'fixed',
-        top: '-5px',
-        left: '-5px',
+        top: '-15px',
+        left: '-15px',
       })
     }
 
@@ -292,7 +294,7 @@ const _getNearPoint = (
   offsetToVideoMid.forEach((e, i) => {
     // Average interpupillary distance - 6.4cm
     offsetToVideoMid[i] =
-      (6.4 * e) /
+      ((RC.PDCM ? RC.PDCM.value : 6.4) * e) /
       (averageDist * (videoFactor / 2)) /* Should this be videoFactor? */
   })
 

@@ -81,10 +81,11 @@ export function checkWebgazerReady(pipWidthPX, opacity, WG, callback) {
       v.style.left = '10px'
       v.style.bottom = '10px'
 
-      // Give callback after 3 sec
+      // Give callback after 2 sec
       setTimeout(() => {
+        v.style.transition = `left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
         callback()
-      }, 3000)
+      }, 1000)
       clearInterval(c)
     }
   }, 200)
