@@ -47,11 +47,19 @@ const config = {
       },
       {
         test: /\.(png|jpe?g|gif)$/i,
+<<<<<<< HEAD
         loader: 'file-loader',
         options: {
           name: '[path][name].[ext]',
           outputPath: 'images',
         },
+=======
+        use: [
+          {
+            loader: 'file-loader',
+          },
+        ],
+>>>>>>> a3ab487 (update pd measure)
       },
     ],
   },
