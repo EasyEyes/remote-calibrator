@@ -24,6 +24,7 @@ class RemoteCalibrator {
     this._screenData = [] // CM
     this._viewingDistanceData = []
     this._nearPointData = []
+    this._PDData = []
 
     this._gazePositionData = []
     this._gazeAccuracyData = []
@@ -213,6 +214,10 @@ class RemoteCalibrator {
     return this._helper_get(this._nearPointData)
   }
 
+  get PDCM() {
+    return this._helper_get(this._PDData)
+  }
+
   // Gaze
 
   get gazePositionPX() {
@@ -251,6 +256,13 @@ class RemoteCalibrator {
    */
   set nearPointData(data) {
     this._nearPointData.push(data)
+  }
+
+  /**
+   * @param {{ value: number; timestamp: Date; }} data
+   */
+  set PDData(data) {
+    this._PDData.push(data)
   }
 
   /**

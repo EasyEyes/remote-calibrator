@@ -9,6 +9,7 @@ import USBA from './media/usba.svg'
 import USBC from './media/usbc.svg'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { swalInfoOptions } from './components/swalOptions'
+import { colorDarkRed } from './constants'
 import text from './text.json'
 
 const resources = {
@@ -92,7 +93,7 @@ function getSize(RC, parent, options, callback) {
       e.which === 1
     ) {
       e.target.style.cursor = 'grabbing'
-      arrowFillElement.setAttribute('fill', '#ac0d0d')
+      arrowFillElement.setAttribute('fill', colorDarkRed)
       document.addEventListener(
         'mouseup',
         function _onMouseUp() {

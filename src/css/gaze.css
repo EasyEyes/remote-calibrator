@@ -49,7 +49,7 @@
 #webgazerVideoContainer {
   z-index: 9997;
   display: block;
-  position: fixed;
+  position: fixed !important;
   transform-origin: bottom left;
   /* border-radius: 7px; */
   /* opacity: 0.8; */

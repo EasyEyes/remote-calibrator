@@ -24,5 +24,10 @@
     "headline": "Let's calibrate first!",
     "description": "To ensure the following experiments are conducted in a controlled environment, we will help you calibrate and set up tracking with the following steps.",
     "nextButton": "Next Step"
+  },
+  "measurePD": {
+    "headline": "👁️ Measure Interpupillary Distance",
+    "description": "We will measure the distance between the centers of your two eyes. Use the video image as a reference, use a cable or string to get the length, and then measure the part again the ruler displayed on the screen. Click on the rule and confirm to submit your measurement. If you do have a ruler with you, go ahead and use it.",
+    "shortDescription": "Align one side to the zero, click on the ruler to select the length and press <b>SPACE</b> to confirm."
   }
 }

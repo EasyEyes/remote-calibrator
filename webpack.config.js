@@ -45,6 +45,14 @@ const config = {
         test: /\.svg$/,
         loader: 'svg-inline-loader',
       },
+      {
+        test: /\.(png|jpe?g|gif)$/i,
+        loader: 'file-loader',
+        options: {
+          name: '[path][name].[ext]',
+          outputPath: 'images',
+        },
+      },
     ],
   },
   plugins: [

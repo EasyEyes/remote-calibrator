@@ -4,6 +4,7 @@ import './screenSize'
 import './displaySize'
 import './distance/distance'
 import './distance/distanceTrack'
+import './interpupillaryDistance'
 
 import './gaze/gaze'
 import './gaze/gazeCalibration'
@@ -15,7 +16,7 @@ import './customization'
 
 import './css/main.css'
 import './css/screenSize.css'
-import './css/distance.css'
+import './css/distance.scss'
 import './css/gaze.css'
 
 import 'animate.css'

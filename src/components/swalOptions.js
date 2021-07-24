@@ -1,3 +1,5 @@
+import { colorIconOrange } from '../constants'
+
 export const swalInfoOptions = {
   icon: 'info',
   allowEscapeKey: false,
@@ -13,7 +15,7 @@ export const swalInfoOptions = {
     popup: 'animate__animated animate__fadeOutDown',
     // backdrop: 'animate__animated animate__fadeOut',
   },
-  iconColor: '#ff9a00',
+  iconColor: colorIconOrange,
   confirmButtonColor: '#aaa',
   customClass: {
     icon: 'my__swal2__icon',

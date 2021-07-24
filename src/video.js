@@ -33,16 +33,19 @@ export function startVideo(videoElement, callback) {
       videoElement.play()
 
       // ! CALLBACK
-      callback(stream)
+      if (callback) callback(stream)
     },
     err => console.error(err)
   )
 }
 
-export function formatVideoCanvas(vC, stream, targetWidth) {
-  const { width, height } = stream.getTracks()[0].getSettings()
-  vC.style.width = (vC.width = targetWidth) + 'px'
-  vC.style.height = (vC.height = (targetWidth / width) * height) + 'px'
+export function formatVideoCanvas(video, vC, stream, targetWidth) {
+  const { width, height } = stream
+    ? stream.getTracks()[0].getSettings()
+    : [video.videoWidth, video.videoHeight]
+  vC.style.width = video.style.width = (vC.width = targetWidth) + 'px'
+  vC.style.height = video.style.height =
+    (vC.height = (targetWidth / width) * height) + 'px'
 
   return [width, height]
 }
@@ -78,10 +81,11 @@ export function checkWebgazerReady(pipWidthPX, opacity, WG, callback) {
       v.style.left = '10px'
       v.style.bottom = '10px'
 
-      // Give callback after 3 sec
+      // Give callback after 2 sec
       setTimeout(() => {
+        v.style.transition = `left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
         callback()
-      }, 3000)
+      }, 1000)
       clearInterval(c)
     }
   }, 200)
