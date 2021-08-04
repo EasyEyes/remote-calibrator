@@ -1,12 +1,12 @@
 {
   "screenSize": {
     "headline": "🖥️ Screen Size Calibration",
-    "description": "We'll measure your physical screen size. To do this, please find a <b>standard credit card</b> (or driver's license) or a <b>USB connector</b>, place it on the screen and drag the slider to match the sizes of the physical and displayed objects. Press <b>SPACE</b> to confirm and submit when aligned.",
-    "shortDescription": "Match the sizes and press <b>SPACE</b> to confirm."
+    "description": "We will measure your screen size. To do this, please find a <b>credit card</b> (or any card of the same size) or a <b>USB connector</b> (like the one providing power to your laptop), place it on the screen and drag the slider to match the sizes of the physical and displayed objects. Press <b>SPACE</b> to continue and submit when aligned.",
+    "shortDescription": "Match the sizes and press <b>SPACE</b> to continue."
   },
   "measureDistance": {
     "headline": "📏 Viewing Distance Calibration",
-    "description": "We'll measure your viewing distance. To do this, we'll perform a blind spot test. Cover or close your left eye and focus on the black cross. Press <b>SPACE</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen."
+    "description": "We'll measure your viewing distance. To do this, we will perform a blind spot test. Cover or close your left eye and focus on the black cross. Press <b>SPACE</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen."
   },
   "trackDistance": {
     "headline": "📏 Track Viewing Distance",

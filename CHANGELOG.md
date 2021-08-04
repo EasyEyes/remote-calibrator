@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Default description of various functions.
+
 ## [0.0.9] - 2021-07-24
 
 No new feature updates in this release. Fix image path and update dependencies.

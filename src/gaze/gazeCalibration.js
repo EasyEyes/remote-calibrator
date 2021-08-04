@@ -69,7 +69,7 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
 }
 
 const startCalibration = (p, options, onCalibrationEnded) => {
-  p.innerHTML += `\nTo calibrate the system for your eyes, please click on the <b style="color: #ff005c">PINK</b> dot at each location that it visits until the dot disappears.`
+  p.innerHTML += `\nTo calibrate the system for your eyes, please click on the <b style="color: #ff005c">PINK</b> dot at each location that it visits until the dot disappears.\nMake sure your eyes are on the dot when you click it.`
   return new GazeCalibrationDot(document.body, options, onCalibrationEnded)
 }
 
