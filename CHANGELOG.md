@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2021-08-24
+
 ### Added
 
 - Add virtual clickable buttons to be fully functional on mobile devices without a keyboard.
@@ -138,7 +140,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.9...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.1.0...develop
+[0.1.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.9...v0.1.0
 [0.0.9]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.8...v0.0.9
 [0.0.8]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.7...v0.0.8
 [0.0.7]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.6...v0.0.7
