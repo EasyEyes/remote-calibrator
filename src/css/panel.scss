@@ -43,7 +43,7 @@
     color: #ffffffcc !important;
     margin: 0.5rem 1rem 0 1rem !important;
     font-size: 1rem !important;
-    font-weight: 300 !important;
+    font-weight: 500 !important;
   }
 
   .rc-panel-steps {
@@ -72,8 +72,8 @@
           font-size: 1rem !important;
 
           svg {
-            width: 16px;
-            height: 16px;
+            width: 1rem;
+            height: 1rem;
             fill: var(--rc-panel-darken-color);
           }
         }
@@ -118,29 +118,47 @@
       }
     }
 
-    .rc-panel-next-button {
-      .rc-panel-step-name::after {
-        content: ' →' !important;
-      }
-    }
+    // .rc-panel-next-button {
+    //   .rc-panel-step-name::after {
+    //     content: ' →' !important;
+    //   }
+    // }
 
     .rc-panel-step-use-tip {
-      position: absolute;
       visibility: hidden;
-      width: 100%;
-      background-color: #f73859;
-      color: #fff;
+      opacity: 0;
+      position: absolute !important;
+      display: flex !important;
+      width: max-content !important;
+      background-color: #ff9a00ee !important;
+      // backdrop-filter: blur(2px);
+      color: #fff !important;
       text-align: center !important;
+      justify-content: center !important;
+      align-items: center !important;
       font-size: 1rem !important;
-      border-radius: 7px;
-      padding: 5px 1rem !important;
+      font-weight: 500 !important;
+      border-radius: 7px !important;
+      border: none;
+      // box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 8px !important;
+      padding: 0.75rem 1rem !important;
       margin: 0 !important;
       z-index: 10 !important;
       bottom: 115% !important;
-      left: 0 !important;
-      opacity: 0;
-      line-height: 200% !important;
-      transition: opacity 0.3s;
+      left: 50% !important;
+      transform: translate(-50%, 0) !important;
+      line-height: 100% !important;
+      transition: opacity 0.2s;
+
+      svg {
+        width: 1rem;
+        height: 1rem;
+        fill: #fff;
+      }
+
+      svg:last-of-type {
+        margin-right: 5px;
+      }
     }
 
     .rc-panel-step-todo {

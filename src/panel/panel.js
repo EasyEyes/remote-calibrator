@@ -75,7 +75,9 @@ RemoteCalibrator.prototype.panel = function (
   const panel = document.createElement('div')
   panel.className = panel.id = 'rc-panel'
   panel.innerHTML = `<h1 class="rc-panel-title">${options.headline}</h1>`
-  panel.innerHTML += `<p class="rc-panel-description">${options.description}</p>`
+  panel.innerHTML += options.description
+    ? `<p class="rc-panel-description">${options.description}</p>`
+    : ''
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
   parentElement.appendChild(panel)
 
@@ -174,11 +176,11 @@ const _newStepBlock = (index, task, options) => {
       break
     case 2:
       use = Camera
-      useTip = 'Use webcam.'
+      useTip = 'Uses webcam.'
       break
     case 3:
       use = Camera + Phone
-      useTip = 'Use webcam and smartphone.'
+      useTip = 'Uses webcam and smartphone.'
       break
     default:
       use = ''
@@ -198,7 +200,7 @@ const _newStepBlock = (index, task, options) => {
     `<p class="rc-panel-step-name">${Number(index) + 1}&nbsp;&nbsp;${
       _validTaskList[_getTaskName(task)].name
     }</p>` +
-    (use.length ? `<p class="rc-panel-step-use-tip">${useTip}</p>` : '')
+    (use.length ? `<p class="rc-panel-step-use-tip">${use} ${useTip}</p>` : '')
   // b.disabled = true
   return b
 }

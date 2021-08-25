@@ -143,9 +143,9 @@ You can customize the panel element with the following options.
 ```js
 /* [options] Default value */
 {
-  headline: `Let's calibrate first!`,
-  description: `We need to calibrate and set up tracking before starting the experiment.`,
-  nextButton: `Next Step`,
+  headline: `To calibrate, press a button!`,
+  description: ``,
+  nextButton: `Done`,
 }
 ```
 

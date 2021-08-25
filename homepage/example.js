@@ -107,7 +107,10 @@ function makePanel(e) {
         name: 'trackDistance',
       },
     ],
-    '#experiment'
+    '#experiment',
+    {
+      _demoActivateAll: true,
+    }
   )
   changeClass(e.target, 'complete')
 }

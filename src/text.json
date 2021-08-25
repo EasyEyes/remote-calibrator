@@ -21,9 +21,9 @@
     "description": "We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen for the next 5 seconds."
   },
   "panel": {
-    "headline": "Let's calibrate first!",
-    "description": "We need to calibrate and set up tracking before starting the experiment.",
-    "nextButton": "Next Step"
+    "headline": "To calibrate, press a button!",
+    "description": "",
+    "nextButton": "Done"
   },
   "measurePD": {
     "headline": "👁️ Measure Interpupillary Distance",
