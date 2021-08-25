@@ -29,26 +29,26 @@
   "homepage": "https://github.com/EasyEyes/remote-calibrator#readme",
   "devDependencies": {
     "@babel/core": "^7.15.0",
-    "autoprefixer": "^10.3.1",
+    "autoprefixer": "^10.3.2",
     "babel-loader": "^8.2.2",
     "clean-webpack-plugin": "^3.0.0",
     "css-loader": "^6.2.0",
-    "cssnano": "^5.0.7",
+    "cssnano": "^5.0.8",
     "eslint": "^7.32.0",
     "eslint-webpack-plugin": "^3.0.1",
     "express": "^4.17.1",
-    "husky": "^7.0.1",
+    "husky": "^7.0.2",
     "lint-staged": "^11.1.2",
     "postcss-loader": "^6.1.1",
     "prettier": "^2.3.2",
-    "sass": "^1.37.5",
+    "sass": "^1.38.1",
     "sass-loader": "^12.1.0",
     "style-loader": "^3.2.1",
     "svg-inline-loader": "^0.8.2",
     "terser-webpack-plugin": "^5.1.4",
     "url-loader": "^4.1.1",
     "webpack": "^5.51.1",
-    "webpack-cli": "^4.7.2",
+    "webpack-cli": "^4.8.0",
     "webpack-modules": "^1.0.0"
   },
   "lint-staged": {
@@ -59,7 +59,7 @@
     "animate.css": "^4.1.1",
     "device-detector-js": "^2.2.10",
     "platform": "^1.3.6",
-    "sweetalert2": "^11.1.2",
+    "sweetalert2": "^11.1.4",
     "tinycolor2": "^1.4.2"
   }
 }
