@@ -182,19 +182,19 @@ RemoteCalibrator.prototype.gazeLearning = function (learn = true) {
 
 /* -------------------------------------------------------------------------- */
 
-RemoteCalibrator.prototype.showGazer = function (show) {
+RemoteCalibrator.prototype.showGazer = function (show = true) {
   if (this.gazeTracker.checkInitialized('gaze', false)) {
     this.gazeTracker.showGazer(show)
   }
 }
 
-RemoteCalibrator.prototype.showVideo = function (show) {
+RemoteCalibrator.prototype.showVideo = function (show = true) {
   if (this.gazeTracker.checkInitialized('', false)) {
     this.gazeTracker.showVideo(show)
   }
 }
 
-RemoteCalibrator.prototype.showFaceOverlay = function (show) {
+RemoteCalibrator.prototype.showFaceOverlay = function (show = true) {
   if (this.gazeTracker.checkInitialized('gaze', false)) {
     this.gazeTracker.showFaceOverlay(show)
   }

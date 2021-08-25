@@ -235,7 +235,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
             RC[_getTaskName(tasks[current.index])](
               ..._getTaskOptionsCallbacks(tasks[current.index])
             )
-            _finishStepAt(current)
+            _finishStepAt(current.index)
             current.index++
             _activateStepAt(RC, current, tasks, options, finalCallback)
           }
@@ -265,9 +265,9 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
   })
 }
 
-const _finishStepAt = current => {
+const _finishStepAt = index => {
   document.querySelectorAll('.rc-panel-step').forEach(e => {
-    if (Number(e.dataset.index) === current.index) {
+    if (Number(e.dataset.index) === index) {
       e.classList.replace('rc-panel-step-todo', 'rc-panel-step-finished')
       e.classList.replace('rc-panel-step-active', 'rc-panel-step-inactive')
     }

@@ -47,18 +47,18 @@ RemoteCalibrator.measureDistance({}, data => {
 
 ## Functions
 
-| Task                                      | Functions                                                                                                                                                                                      |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                     |
-| [🍱 Panel](#-panel)                       | [`panel()`](#-panel) [`removePanel()`](#-panel)                                                                                                                                                |
-| [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                              |
-| [📏 Viewing Distance](#-viewing-distance) | `measureDistance()`                                                                                                                                                                            |
-| [🙂 Head Tracking](#-head-tracking)       | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-head-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#lifecycle)                              |
-| [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others) |
-| [💻 Environment](#-environment)           | [`environment()`](#-environment)                                                                                                                                                               |
-| [💄 Customization](#-customization)       | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                      |
-| [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()`                                                                                                                                                         |
-| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [All Data](#all-data) [Others](#others-1)                                                                                                |
+| Task                                      | Functions                                                                                                                                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                       |
+| [🍱 Panel](#-panel)                       | [`panel()`](#-panel) [`removePanel()`](#-panel)                                                                                                                                                  |
+| [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                |
+| [📏 Viewing Distance](#-viewing-distance) | `measureDistance()`                                                                                                                                                                              |
+| [🙂 Head Tracking](#-head-tracking)       | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-head-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#lifecycle) [Others](#others)              |
+| [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1) |
+| [💻 Environment](#-environment)           | [`environment()`](#-environment)                                                                                                                                                                 |
+| [💄 Customization](#-customization)       | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                        |
+| [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()`                                                                                                                                                           |
+| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [All Data](#all-data) [Others](#others-2)                                                                                                  |
 
 Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
@@ -280,6 +280,10 @@ The value returned are the horizontal and vertical offsets, in centimeters, comp
 - `.pauseDistance()`
 - `.resumeDistance()`
 - `.endDistance([endAll = false])`
+
+#### Others
+
+- `.showNearPoint([Boolean])`
 
 ### 👀 Gaze
 

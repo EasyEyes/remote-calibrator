@@ -7,10 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+
+- `.showNearPoint()` to control the display of the near point on the screen (a green square).
+
 ## Changed
 
 - Refined design and default text of panel element.
-- Refined design of screen size measurement interface.
+- Refined design of screen size measurement interface. It now works much better on smartphones.
+
+## Fixed
+
+- Avoid setting up multiple head trackings at the same time.
 
 ## Removed
 

@@ -52,6 +52,17 @@ RemoteCalibrator.prototype.trackDistance = function (
 
   this.getFullscreen(options.fullscreen)
 
+  if (this.gazeTracker.checkInitialized('distance')) {
+    // ! Initialized
+    this.gazeTracker._toFixedN = options.decimalPlace
+    this.showNearPoint(options.showNearPoint)
+    this.showVideo(options.showVideo)
+    this.showFaceOverlay(options.showFaceOverlay)
+
+    // TODO Attach new callbackTrack
+    return
+  }
+
   this._addBackground()
   this._constructFloatInstructionElement(
     'gaze-system-instruction',
@@ -428,4 +439,11 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
   }
 
   return null
+}
+
+RemoteCalibrator.prototype.showNearPoint = function (show = true) {
+  if (this.gazeTracker.checkInitialized('distance', false)) {
+    const n = document.querySelector('#rc-near-point-dot')
+    if (n) n.display = show ? 'block' : 'none'
+  }
 }

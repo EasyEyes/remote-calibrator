@@ -105,6 +105,9 @@ function makePanel(e) {
       },
       {
         name: 'trackDistance',
+        options: {
+          nearPoint: false,
+        },
       },
     ],
     '#experiment',
