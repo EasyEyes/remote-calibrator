@@ -11,6 +11,7 @@
   margin: 0;
   /* background: #ddd; */
   overflow: hidden;
+  overflow-y: scroll;
   user-select: none;
   box-sizing: border-box;
   text-align: center;

@@ -1,8 +1,7 @@
 .rc-buttons {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  margin: 1.25rem;
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
   z-index: 900000;
 }
 

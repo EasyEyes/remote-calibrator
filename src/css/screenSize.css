@@ -54,9 +54,7 @@
 
 #size-arrow {
   position: absolute;
-  /* display: block; */
-  /* TODO */
-  display: none !important;
+  display: block;
   width: 70px;
   height: auto;
   z-index: 3;

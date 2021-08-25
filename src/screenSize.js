@@ -198,16 +198,19 @@ function getSize(RC, parent, options, callback) {
 
 const setCardSizes = (slider, card, arrow, aS) => {
   // Card
-  card.style.width =
+  const targetWidth =
     (slider.offsetWidth - 30) *
       (slider.value / 100) *
       (window.innerWidth < 480 ? 2 : 1) +
-    15 +
-    'px'
+    15
+  card.style.width = targetWidth + 'px'
   // Arrow
   let cardSizes = card.getBoundingClientRect()
-  arrow.style.left = cardSizes.left + cardSizes.width + 'px'
-  arrow.style.top = cardSizes.top + (cardSizes.height - aS.height) / 2 + 'px'
+  if (cardSizes.width !== 0) {
+    arrow.style.left = cardSizes.left + targetWidth + 'px'
+    arrow.style.top =
+      cardSizes.top + (targetWidth * 0.63 - aS.height) / 2 + 'px'
+  }
 }
 
 const setConnectorSizes = (slider, connector) => {
@@ -230,7 +233,7 @@ const addMatchingObj = (names, parent) => {
     element.outerHTML = resources[name]
     element = document.getElementById('size-' + name)
     element.setAttribute('preserveAspectRatio', 'none')
-    element.style.display = 'none'
+    element.style.visibility = 'hidden'
     elements[name] = element
   }
 
@@ -241,12 +244,11 @@ const addMatchingObj = (names, parent) => {
 
 const switchMatchingObj = (name, elements) => {
   for (let obj in elements) {
-    if (obj === name) elements[obj].style.display = 'block'
-    else elements[obj].style.display = 'none'
+    if (obj === name) elements[obj].style.visibility = 'visible'
+    else elements[obj].style.visibility = 'hidden'
   }
-  // TODO
-  // if (name === 'card') elements.arrow.style.display = 'block'
-  // else elements.arrow.style.display = 'none'
+  if (name === 'card') elements.arrow.style.visibility = 'visible'
+  else elements.arrow.style.visibility = 'hidden'
 }
 
 /**
