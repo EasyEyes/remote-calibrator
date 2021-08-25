@@ -3,8 +3,9 @@ import tinycolor from 'tinycolor2'
 import RemoteCalibrator from '../core'
 import text from '../text.json'
 
-import Camera from '../media/photo_camera_black_24dp.svg'
-import Phone from '../media/smartphone_black_24dp.svg'
+// Icons from Google Material UI
+import Camera from '../media/photo_camera.svg'
+import Phone from '../media/smartphone.svg'
 
 import '../css/panel.scss'
 
