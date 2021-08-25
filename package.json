@@ -1,6 +1,6 @@
 {
   "name": "remote-calibrator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A toolbox for remote testing calibration and tracking.",
   "main": "lib/RemoteCalibrator.min.js",
   "directories": {
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "setup": "cd src/WebGazer4RC && npm i && cd ../.. && npm i",
-    "format": "prettier --write \"**/*.{js,json,md,html,css}\"",
+    "format": "prettier --write \"**/*.{js,json,md,html,css,scss}\"",
     "start": "webpack --env=development",
     "dev": "webpack --env=development",
     "build": "webpack --env=production",
@@ -53,7 +53,7 @@
   },
   "lint-staged": {
     "*.js": "eslint --cache --fix",
-    "*.{js,json,md,html,css}": "prettier --write"
+    "*.{js,json,md,html,css,scss}": "prettier --write"
   },
   "dependencies": {
     "animate.css": "^4.1.1",
