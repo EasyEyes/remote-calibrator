@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Changed
 
+- **(Breaking)** `showVideo` and `showGazer` parameters will only be effective after the initial calibration process. Participants would be able to see these visual feedbacks during the calibration even the parameters were set to `false`.
 - Refined design and default text of panel element.
 - Refined design of screen size measurement interface. It now works much better on smartphones.
 - Default instruction text in various functions.
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Fixed
 
 - Avoid setting up multiple head trackings at the same time.
+- Cannot track near point when video is hidden.
 
 ## Removed
 

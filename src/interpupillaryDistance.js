@@ -13,6 +13,18 @@ import text from './text.json'
 
 // let selfVideo = false // No WebGazer video available and an extra video element needs to be created
 
+const originalStyles = {
+  video: false,
+  videoWidth: 0,
+  videoHeight: 0,
+  opacity: 1,
+  gaze: false,
+  faceOverlay: false,
+}
+
+const videoWidthFactor = 0.9
+const videoHeightFactor = 0.3
+
 RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
   ////
   if (!this.checkInitialized()) return
@@ -119,7 +131,7 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
       imageAlt: 'Measurement Instruction',
       html: options.description,
     })
-  }, 1000)
+  }, 700)
 }
 
 /* -------------------------------------------------------------------------- */
@@ -155,18 +167,6 @@ const setupVideo = RC => {
     )
   }
 }
-
-const originalStyles = {
-  video: false,
-  videoWidth: 0,
-  videoHeight: 0,
-  opacity: 1,
-  gaze: false,
-  faceOverlay: false,
-}
-
-const videoWidthFactor = 0.9
-const videoHeightFactor = 0.3
 
 const formatVideo = (RC, video, canvas, container, stream = null) => {
   if (!stream) {

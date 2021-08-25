@@ -8,6 +8,11 @@ import text from '../text.json'
 // [Wait!], etc.
 const instPOutsideWarning = 'Keep your face centered in the video feed.'
 
+const originalStyles = {
+  video: false,
+  gazer: false,
+}
+
 export function gazeCalibrationPrepare(RC, options) {
   if (RC.background)
     RC._replaceBackground(constructInstructions(options.headline))
@@ -40,11 +45,17 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
     options
   )
 
+  originalStyles.video = this.gazeTracker.webgazer.params.showVideo
+  originalStyles.gazer = this.gazeTracker.webgazer.params.showGazeDot
+  if (!originalStyles.video) this.showVideo(true)
+  if (!originalStyles.gaze) this.showGazer(true)
+
   this.gazeTracker.webgazer.params.greedyLearner = options.greedyLearner
   gazeCalibrationPrepare(this, options)
 
   this.instructionElement.innerHTML = instPOutsideWarning
   const calibrationDot = startCalibration(
+    this,
     this.instructionElement,
     options,
     () => {
@@ -60,6 +71,11 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
     calibrationDot.deleteSelf(false)
     this._removeBackground()
 
+    this.showVideo(originalStyles.video)
+    this.showGazer(originalStyles.gazer)
+    originalStyles.video = false
+    originalStyles.gazer = false
+
     unbindKeys(bindKeysFunction)
   }
 
@@ -68,15 +84,17 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
   })
 }
 
-const startCalibration = (p, options, onCalibrationEnded) => {
+const startCalibration = (RC, p, options, onCalibrationEnded) => {
   p.innerHTML += `\nTo calibrate the system for your eyes, please click on the <b style="color: #ff005c">PINK</b> dot at each location that it visits until the dot disappears.\nMake sure your eyes are on the dot when you click it.`
-  return new GazeCalibrationDot(document.body, options, onCalibrationEnded)
+  return new GazeCalibrationDot(RC, document.body, options, onCalibrationEnded)
 }
 
 class GazeCalibrationDot {
-  constructor(parent, options, endCalibrationCallback) {
+  constructor(RC, parent, options, endCalibrationCallback) {
     // Order
     this._randomOrder()
+
+    this.RC = RC
 
     this.clickThreshold = debug ? 1 : options.calibrationCount // How many times required to click for each position
     this.clicks = 0
@@ -161,7 +179,14 @@ class GazeCalibrationDot {
     this.parent.removeChild(this.div)
 
     // onCalibrationEnded
-    if (finished) this.endCalibrationCallback()
+    if (finished) {
+      this.RC.showVideo(originalStyles.video)
+      this.RC.showGazer(originalStyles.gazer)
+      originalStyles.video = false
+      originalStyles.gazer = false
+
+      this.endCalibrationCallback()
+    }
   }
 
   _randomOrder() {

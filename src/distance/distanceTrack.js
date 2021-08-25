@@ -8,6 +8,10 @@ import { iRepeat } from '../components/iRepeat'
 import text from '../text.json'
 import { swalInfoOptions } from '../components/swalOptions'
 
+const originalStyles = {
+  video: false,
+}
+
 RemoteCalibrator.prototype.trackDistance = function (
   options = {},
   callbackStatic,
@@ -71,6 +75,9 @@ RemoteCalibrator.prototype.trackDistance = function (
 
   // STEP 2 - Live estimate
   const getStdDist = distData => {
+    this.showVideo(originalStyles.video)
+    originalStyles.video = false
+
     if (this.gazeTracker.checkInitialized('gaze', false))
       this.showGazer(originalGazer)
 
@@ -105,11 +112,12 @@ RemoteCalibrator.prototype.trackDistance = function (
   trackingOptions.nearPoint = options.nearPoint
   trackingOptions.showNearPoint = options.showNearPoint
 
-  // TODO Handle multiple init
+  originalStyles.video = options.showVideo
+
   this.gazeTracker._init(
     {
       toFixedN: 1,
-      showVideo: options.showVideo,
+      showVideo: true,
       showFaceOverlay: options.showFaceOverlay,
     },
     'distance'

@@ -188,6 +188,7 @@ function trackViewingDistance(e) {
   let trackP
   RemoteCalibrator.trackDistance(
     {
+      showVideo: false,
       nearPoint: true,
       showNearPoint: true,
     },
@@ -293,13 +294,19 @@ function getDistanceNow() {
  */
 function trackGaze(e) {
   const gazeP = printMessage(`The gaze position is [ px, px] at .`)
-  RemoteCalibrator.trackGaze({}, data => {
-    gazeP.innerHTML = gotData(
-      `The gaze position is [${data.value.x}px, ${
-        data.value.y
-      }px] at ${parseTimestamp(data.timestamp)}.`
-    )
-  })
+  RemoteCalibrator.trackGaze(
+    {
+      showVideo: false,
+      showGazer: false,
+    },
+    data => {
+      gazeP.innerHTML = gotData(
+        `The gaze position is [${data.value.x}px, ${
+          data.value.y
+        }px] at ${parseTimestamp(data.timestamp)}.`
+      )
+    }
+  )
 
   const _getAccuracy = setInterval(() => {
     if (RemoteCalibrator.gazeAccuracyDeg) {
