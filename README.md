@@ -320,7 +320,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
   // Min accuracy required in degree, set to 'none' to pass the accuracy check
-  thresholdDeg: 10,
+  thresholdDeg: 10, 🚧
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
   headline: "👀 Calibrate Gaze",
   description: "...",

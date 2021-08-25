@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Refined design and default text of panel element.
 - Refined design of screen size measurement interface. It now works much better on smartphones.
+- Default instruction text in various functions.
 
 ## Fixed
 
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Removed
 
 - Pop-up in various functions. Instructions will be displayed side-by-side with the actual tasks.
+- Disable checking gaze accuracy and setting `thresholdDeg`. Waiting for more robust solutions.
 
 ## [0.1.1] - 2021-08-24
 

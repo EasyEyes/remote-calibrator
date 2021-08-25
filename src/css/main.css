@@ -34,7 +34,7 @@
 }
 
 .calibration-instruction h1 {
-  font-size: 3rem;
+  font-size: 2.5rem;
   line-height: 100%;
   min-width: 360px;
   font-weight: 700;
@@ -71,4 +71,10 @@
   left: 50%;
   transform: translate(-50%, 0);
   border-radius: 10px;
+}
+
+/* -------------------------------------------------------------------------- */
+
+.swal2-container {
+  z-index: 999997 !important;
 }

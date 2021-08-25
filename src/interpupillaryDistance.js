@@ -33,90 +33,93 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
 
   this._replaceBackground()
 
-  Swal.fire({
-    ...swalInfoOptions,
-    icon: undefined,
-    imageUrl: PD,
-    imageWidth: 480,
-    imageAlt: 'Measurement Instruction',
-    html: options.description,
-  }).then(() => {
-    this._replaceBackground(
-      constructInstructions(options.headline, options.shortDescription)
-    )
-    const screenPpi = this.screenPpi ? this.screenPpi.value : 108
+  this._replaceBackground(
+    constructInstructions(options.headline, options.shortDescription)
+  )
+  const screenPpi = this.screenPpi ? this.screenPpi.value : 108
 
-    let [videoWidth, videoHeight] = setupVideo(this)
-    let [ruler, rulerListener] = setupRuler(
-      this,
-      screenPpi,
-      videoWidth,
-      videoHeight
-    )
+  let [videoWidth, videoHeight] = setupVideo(this)
+  let [ruler, rulerListener] = setupRuler(
+    this,
+    screenPpi,
+    videoWidth,
+    videoHeight
+  )
 
-    const breakFunction = () => {
-      ruler.removeEventListener('mousedown', rulerListener)
-      this._removeBackground()
+  const breakFunction = () => {
+    ruler.removeEventListener('mousedown', rulerListener)
+    this._removeBackground()
 
-      this.showVideo(originalStyles.video)
-      this.showGazer(originalStyles.gaze)
-      this.showFaceOverlay(originalStyles.faceOverlay)
-      this.gazeTracker.webgazer.showFaceFeedbackBox(true)
+    this.showVideo(originalStyles.video)
+    this.showGazer(originalStyles.gaze)
+    this.showFaceOverlay(originalStyles.faceOverlay)
+    this.gazeTracker.webgazer.showFaceFeedbackBox(true)
 
-      Object.assign(document.querySelector('#webgazerVideoContainer').style, {
-        height: originalStyles.videoHeight,
-        width: originalStyles.videoWidth,
-        opacity: originalStyles.opacity,
-        left: '10px',
-        bottom: '10px',
-        borderRadius: '0px',
-      })
-
-      Object.assign(document.querySelector('#webgazerVideoFeed').style, {
-        height: originalStyles.videoHeight,
-        width: originalStyles.videoWidth,
-        top: 'unset',
-        transform: 'scale(-1, 1)',
-        transformOrigin: 'unset',
-      })
-
-      originalStyles.video = false
-      originalStyles.videoWidth = 0
-      originalStyles.videoHeight = 0
-      originalStyles.opacity = 1
-      originalStyles.gaze = false
-      originalStyles.faceOverlay = false
-
-      unbindKeys(bindKeysFunction)
-    }
-
-    const finishFunction = () => {
-      if (offsetPixel !== -100) {
-        const newPDData = {
-          value: (offsetPixel * 2.54) / screenPpi,
-          timestamp: new Date(),
-        }
-        this.newPDData = newPDData
-
-        breakFunction()
-        callback()
-      }
-    }
-
-    // if (callback && typeof callback === 'function') callback()
-    const bindKeysFunction = bindKeys({
-      Escape: breakFunction,
-      ' ': finishFunction,
+    Object.assign(document.querySelector('#webgazerVideoContainer').style, {
+      height: originalStyles.videoHeight,
+      width: originalStyles.videoWidth,
+      opacity: originalStyles.opacity,
+      left: '10px',
+      bottom: '10px',
+      borderRadius: '0px',
     })
-    addButtons(
-      this.background,
-      {
-        go: finishFunction,
-        cancel: breakFunction,
-      },
-      this.params.showCancelButton
-    )
+
+    Object.assign(document.querySelector('#webgazerVideoFeed').style, {
+      height: originalStyles.videoHeight,
+      width: originalStyles.videoWidth,
+      top: 'unset',
+      transform: 'scale(-1, 1)',
+      transformOrigin: 'unset',
+    })
+
+    originalStyles.video = false
+    originalStyles.videoWidth = 0
+    originalStyles.videoHeight = 0
+    originalStyles.opacity = 1
+    originalStyles.gaze = false
+    originalStyles.faceOverlay = false
+
+    unbindKeys(bindKeysFunction)
+  }
+
+  const finishFunction = () => {
+    if (offsetPixel !== -100) {
+      const newPDData = {
+        value: (offsetPixel * 2.54) / screenPpi,
+        timestamp: new Date(),
+      }
+      this.newPDData = newPDData
+
+      breakFunction()
+      callback()
+    }
+  }
+
+  // if (callback && typeof callback === 'function') callback()
+  const bindKeysFunction = bindKeys({
+    Escape: breakFunction,
+    ' ': finishFunction,
   })
+  addButtons(
+    this.background,
+    {
+      go: finishFunction,
+      cancel: breakFunction,
+    },
+    this.params.showCancelButton
+  )
+
+  // TODO To be removed
+  setTimeout(() => {
+    Swal.fire({
+      ...swalInfoOptions,
+      icon: undefined,
+      imageUrl: PD,
+      imageWidth: 480,
+      imageAlt: 'Measurement Instruction',
+      html: options.description,
+    })
+  }, 1000)
 }
 
 /* -------------------------------------------------------------------------- */

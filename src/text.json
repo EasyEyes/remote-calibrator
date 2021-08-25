@@ -25,8 +25,8 @@
     "nextButton": "Done"
   },
   "measurePD": {
-    "headline": "👁️ Measure Interpupillary Distance",
-    "description": "We will measure the distance between the centers of your two eyes. Use the video image as a reference, use a cable or string to get the length, and then measure the part again the ruler displayed on the screen. Click on the rule and confirm to submit your measurement. If you do have a ruler with you, go ahead and use it.",
-    "shortDescription": "Align one side to the zero, click on the ruler to select the length and press <b>SPACE</b> to confirm."
+    "headline": "👁️ Measure Pupillary Distance",
+    "description": "We'll measure the distance between the centers of your eyes. Hold the cable to your eyes, align the thumbs with the centers of your pupils. Then hold the cable against the ruler and align the left thumb with zero, check where the right thumb is. Finally, click on the ruler and click <b>OK</b> to submit your measurement. You can use the video image as a reference. If you do have a ruler with you, go ahead and use it.",
+    "shortDescription": "Hold the cable to your eyes, align the thumbs with the centers of your pupils. Then hold the cable against the ruler and align the left thumb with zero, check where the right thumb is. Finally, click on the ruler and click <b>OK</b> to submit your measurement. You can use the video image as a reference. If you do have a ruler with you, go ahead and use it."
   }
 }

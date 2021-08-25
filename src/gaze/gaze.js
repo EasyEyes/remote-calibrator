@@ -22,8 +22,7 @@ RemoteCalibrator.prototype.trackGaze = function (
    * showFaceOverlay: [Boolean]
    * calibrationCount: [Number] Default 5
    * decimalPlace: [Number] Default 2
-   * checkAccuracy: [Boolean] // TODO
-   * leastRequiredAccuracy: [Boolean] // TODO
+   * thresholdDeg: [Number] or 'none'
    * headline: [String]
    * description: [String]
    *
@@ -113,7 +112,9 @@ RemoteCalibrator.prototype.trackGaze = function (
         this.gazeTracker.stopLearning()
       }
 
-      if (options.thresholdDeg === 'none') {
+      // TODO Test accuracy
+      const testAccuracy = false
+      if (options.thresholdDeg === 'none' || !testAccuracy) {
         this.gazeTracker.attachNewCallback(callback)
         this.gazeTracker.defaultGazeCallback = callback
         return
