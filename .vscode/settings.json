@@ -18,5 +18,6 @@
     "**/*.code-search": true,
     "**/package-lock.json": true,
     "**/lib": true
-  }
+  },
+  "liveServer.settings.port": 5501
 }

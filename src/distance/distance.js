@@ -16,6 +16,7 @@ import {
   _circle,
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
+import { addButtons } from '../components/buttons'
 import { swalInfoOptions } from '../components/swalOptions'
 import { colorDarkRed } from '../constants'
 import text from '../text.json'
@@ -26,7 +27,7 @@ const blindSpotHTML = `<canvas id="blind-spot-canvas"></canvas>`
 
 export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   let ppi = 108 // Dangerous! Arbitrary value
-  if (RC.screenPPI) ppi = RC.screenPPI.value
+  if (RC.screenPpi) ppi = RC.screenPpi.value
   else
     console.error(
       'Screen size measurement is required to get accurate viewing distance measurement.'
@@ -93,7 +94,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     // Enough tests?
     if (Math.floor(tested / options.repeatTesting) === 2) {
       // ! Put dist into data and callback function
-      const data = (RC.viewingDistanceData = {
+      const data = (RC.newViewingDistanceData = {
         value: toFixedNumber(median(dist), options.decimalPlace),
         timestamp: new Date(),
         method: 'Blind Spot',
@@ -131,6 +132,14 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     Escape: breakFunction,
     ' ': finishFunction,
   })
+  addButtons(
+    RC.background,
+    {
+      go: finishFunction,
+      cancel: breakFunction,
+    },
+    RC.params.showCancelButton
+  )
 
   // ! ACTUAL TEST
   const runTest = () => {

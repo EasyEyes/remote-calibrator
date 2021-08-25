@@ -18,7 +18,7 @@ RemoteCalibrator.prototype.trackGaze = function (
    * showGazer: [Boolean]
    * greedyLearner: [Boolean] If false, stop learning after calibration process // TODO
    * showVideo: [Boolean]
-   * pipWidthPX: [208]
+   * pipWidthPx: [208]
    * showFaceOverlay: [Boolean]
    * calibrationCount: [Number] Default 5
    * decimalPlace: [Number] Default 2
@@ -41,10 +41,10 @@ RemoteCalibrator.prototype.trackGaze = function (
       framerate: 30, // ! New 0.0.5
       showGazer: true,
       showVideo: true,
-      pipWidthPX: 208,
+      pipWidthPx: 208,
       showFaceOverlay: false,
       calibrationCount: 5,
-      thresholdDEG: 10, // minAccuracy
+      thresholdDeg: 10, // minAccuracy
       decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
       headline: text.calibrateGaze.headline,
       description: text.calibrateGaze.description,
@@ -93,7 +93,7 @@ RemoteCalibrator.prototype.trackGaze = function (
 
     // Begin
     const gazeTrackerBeginOptions = {
-      pipWidthPX: options.pipWidthPX,
+      pipWidthPx: options.pipWidthPx,
     }
     const calibrateGazeOptions = {
       greedyLearner: options.greedyLearner,
@@ -113,7 +113,7 @@ RemoteCalibrator.prototype.trackGaze = function (
         this.gazeTracker.stopLearning()
       }
 
-      if (options.thresholdDEG === 'none') {
+      if (options.thresholdDeg === 'none') {
         this.gazeTracker.attachNewCallback(callback)
         this.gazeTracker.defaultGazeCallback = callback
         return
@@ -121,7 +121,7 @@ RemoteCalibrator.prototype.trackGaze = function (
         if (
           !this.getGazeAccuracy(
             {
-              thresholdDEG: options.thresholdDEG,
+              thresholdDeg: options.thresholdDeg,
             },
             () => {
               // Success

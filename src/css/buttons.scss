@@ -1,0 +1,30 @@
+.rc-buttons {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  margin: 1.25rem;
+  z-index: 900000;
+}
+
+.rc-button {
+  text-align: center;
+  border: none !important;
+  background: #ffffffcc;
+  line-height: 150% !important;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  color: #333;
+  padding: 1rem 1.5rem !important;
+  margin: 0.25rem !important;
+  border-radius: 7px !important;
+  cursor: pointer;
+
+  &:hover {
+    background: #fff;
+  }
+
+  &:active {
+    background: #eeeeeeee;
+    color: #666;
+  }
+}

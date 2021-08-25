@@ -47,17 +47,18 @@ RemoteCalibrator.measureDistance({}, data => {
 
 ## Functions
 
-| Task                                      | Functions                                                                                                                                                                                               |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                              |
-| [🍱 Panel](#-panel)                       | [`panel()`](#-panel)                                                                                                                                                                                    |
-| [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                       |
-| [📏 Viewing Distance](#-viewing-distance) | Measure [`measureDistance()`](#measure)<br /> Track (including [near point](#near-point)) [`trackDistance()`](#track) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#track-lifecycle) |
-| [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle) [Others](#others)            |
-| [💻 Environment](#-environment)           | [`environment()`](#-environment)                                                                                                                                                                        |
-| [💄 Customization](#-customization)       | `backgroundColor()` `videoOpacity()`                                                                                                                                                                    |
-| [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()`                                                                                                                                                                  |
-| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [Others](#others-1)                                                                                                                               |
+| Task                                      | Functions                                                                                                                                                                                      |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                     |
+| [🍱 Panel](#-panel)                       | [`panel()`](#-panel) [`removePanel()`](#-panel)                                                                                                                                                |
+| [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                              |
+| [📏 Viewing Distance](#-viewing-distance) | `measureDistance()`                                                                                                                                                                            |
+| [🙂 Head Tracking](#-head-tracking)       | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-head-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#lifecycle)                              |
+| [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others) |
+| [💻 Environment](#-environment)           | [`environment()`](#-environment)                                                                                                                                                               |
+| [💄 Customization](#-customization)       | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                      |
+| [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()`                                                                                                                                                         |
+| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [All Data](#all-data) [Others](#others-1)                                                                                                |
 
 Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
@@ -114,7 +115,7 @@ The `data` passed into the callback function is an [object](https://www.w3school
 .panel(tasks, parent, [options, [callback]])
 ```
 
-`.panel()` is a powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Next Step" button can all be customized. It is appended to the parent HTML node as set by `parent`. Can only run once. Return `true` if set up successfully, otherwise `false`.
+`.panel()` is a powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Next Step" button can all be customized. It is appended to the parent HTML node as set by `parent`. Can only run once. Return the DOM element of the panel if set up successfully, otherwise `false`.
 
 `tasks` is an array of tasks which can be a string or an object. Valid names are `screenSize`, `displaySize`, `measureDistance`, `trackDistance`, `trackGaze`, `environment` (system information).
 
@@ -132,6 +133,7 @@ The `data` passed into the callback function is an [object](https://www.w3school
     name: 'trackDistance',
     callbackStatic: gotBlindSpotResult,
     callbackTrack: gotTrackResult,
+    color: '#3490de',
   },
 ]
 ```
@@ -142,7 +144,7 @@ You can customize the panel element with the following options.
 /* [options] Default value */
 {
   headline: `Let's calibrate first!`,
-  description: `To ensure the following experiments are conducted in a controlled environment, we will help you calibrate and set up tracking with the following steps.`,
+  description: `We need to calibrate and set up tracking before starting the experiment.`,
   nextButton: `Next Step`,
 }
 ```
@@ -150,6 +152,8 @@ You can customize the panel element with the following options.
 `callback` will be called when the next-step button is clicked, which is disabled until all the calibration steps are finished.
 
 If you don't want to use the default panel and want to integrate the process into your experiment, you can also call each calibration function individually. Please see the instructions below.
+
+You can also use `.removePanel()` to remove the panel element after the calibration is done, e.g., in the callback of `.panel()` function.
 
 ### 🖥️ Screen
 
@@ -161,7 +165,7 @@ If you don't want to use the default panel and want to integrate the process int
 
 Get the display width and height in pixels. This is just a wrapper of vanilla JavaScript's `window.innerWidth`, `window.screenWidth`, etc.
 
-Pass `{ value: { displayWidthPX, displayHeightPX, windowWidthPX, windowHeightPX }, timestamp }` to callback.
+Pass `{ value: { displayWidthPx, displayHeightPx, windowWidthPx, windowHeightPx }, timestamp }` to callback.
 
 #### Measure Screen Size
 
@@ -173,7 +177,7 @@ Pass `{ value: { displayWidthPX, displayHeightPX, windowWidthPX, windowHeightPX 
 
 Get the screen width and height in centimeters. Like many other calibration functions, this function will pop an overlay interface for participants to use. The callback function will be called after the calibration process (the participant presses SPACE in this case).
 
-Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonalIN, screenPPI, screenPhysicalPPI }, timestamp }` to callback. `screenPPI` relates to the pixel data used in JavaScript, and `screenPhysicalPPI` is the [actual PPI](https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio) of some Retina displays.
+Pass `{ value: { screenWidthCm, screenHeightCm, screenDiagonalCm, screenDiagonalIn, screenPpi, screenPhysicalPpi }, timestamp }` to callback. `screenPpi` relates to the pixel data used in JavaScript, and `screenPhysicalPpi` is the [actual PPI](https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio) of some Retina displays.
 
 ```js
 /* [options] Default value */
@@ -190,7 +194,7 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
   // Headline on the calibration page (Support HTML)
   headline: "🖥️ Screen Size Calibration",
   // Description and instruction shown in the alert popup (Support HTML)
-  description: "We'll measure your physical screen size. To do this, please find a <b>standard credit card</b> (or driver's license) or a <b>USB connector</b>, place it on the screen and drag the slider to match the sizes of the physical and displayed objects. Press <b>SPACE</b> to confirm and submit when aligned.",
+  description: "...",
   // Short description shown in the calibration page (Support HTML)
   shortDescription: "Match the sizes and press <b>SPACE</b> to confirm."
 }
@@ -210,7 +214,7 @@ Pass `{ value: { screenWidthCM, screenHeightCM, screenDiagonalCM, screenDiagonal
 
 Pop an interface for participants to calibrate the viewing distance at the moment using Blind Spot Test.
 
-Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDistanceCM`) to callback.
+Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDistanceCm`) to callback.
 
 ```js
 /* [options] Default value */
@@ -222,11 +226,11 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
   repeatTesting: 2,
   decimalPlace: 2,
   headline: "📏 Viewing Distance Calibration",
-  description: "We'll measure your viewing distance. To do this, we'll perform a blind spot test. Cover or close your left eye and focus on the black cross. Press <b>SPACE</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen.",
+  description: "...",
 }
 ```
 
-#### Track
+### 🙂 Head Tracking
 
 ```js
 .trackDistance([options, [callbackStatic, [callbackTrack]]])
@@ -234,7 +238,7 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 
 Measure the viewing distance and then predict the real-time distance based on the change of the interpupillary distance, measured by [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection). `callbackStatic` is called after getting the blind spot result and `callbackTrack` is called every time a new result from estimation is derived.
 
-Pass `{ value: { viewingDistanceCM, nearPointCM: { x, y } }, timestamp, method }` to callback.
+Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y } }, timestamp, method }` to callback.
 
 `method` can be either `"Blind Spot"` (for measures from blind spot tests) or `"Facemesh Predict"` (for later dynamic estimates).
 
@@ -243,17 +247,17 @@ Pass `{ value: { viewingDistanceCM, nearPointCM: { x, y } }, timestamp, method }
 {
   fullscreen: false,
   repeatTesting: 2,
-  pipWidthPX: 208,
+  pipWidthPx: 208,
   showVideo: true,
   showFaceOverlay: false,
   decimalPlace: 2,
   // Measurement per second
-  trackingRate: 3,
+  framerate: 3,
   // Near point
   nearPoint: true,
   showNearPoint: false,
   headline: "👀 Calibrate Gaze",
-  description: "We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen fot eh next 5 seconds.",
+  description: "...",
 }
 ```
 
@@ -273,7 +277,7 @@ Setting `nearPoint` option to `true` (default) allows the system to track near p
 
 The value returned are the horizontal and vertical offsets, in centimeters, compared to **the center of the screen**. **Positive** values indicate that the near point is **above** and to the **right** of the center point.
 
-#### Track Lifecycle
+#### Lifecycle
 
 - `.pauseDistance()`
 - `.resumeDistance()`
@@ -293,7 +297,7 @@ Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface f
 
 This function should only be called once, unless you want to change the callback functions for every prediction.
 
-Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback.
+Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPx`) to callback.
 
 ```js
 /* [options] Default value */
@@ -308,17 +312,16 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
   // Show the picture-in-picture video of the participant at the left bottom corner
   showVideo: true,
   // (Picture in picture) video width in pixels
-  pipWidthPX: 208,
+  pipWidthPx: 208,
   // Show the face mesh
   showFaceOverlay: false,
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
   // Min accuracy required in degree, set to 'none' to pass the accuracy check
-  thresholdDEG: 10,
+  thresholdDeg: 10,
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
   headline: "👀 Calibrate Gaze",
-  description:
-    "With your help, we’ll track your gaze. When asked, please grant permission to access your camera. Please try to keep your face centered in the live video feed. Follow the instructions below.",
+  description: "...",
 }
 ```
 
@@ -330,7 +333,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 
 You can pause active gaze tracking after calibration, and use this function to get the latest gaze position at the moment when the user makes reactions, i.e. calling this function in a [event listener](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener). This can help reduce computing and get the gaze at the critical moment. If no callback function is passed in, it will use the one from `.trackGaze()` as the default.
 
-Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPX`) to callback. Return the same thing.
+Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPx`) to callback. Return the same thing.
 
 #### Calibrate
 
@@ -347,8 +350,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
   // How many times participant needs to click on each of the calibration dot
   calibrationCount: 5,
   headline: "👀 Calibrate Gaze",
-  description:
-    "With your help, we’ll track your gaze. When asked, please grant permission to access your camera. Please try to keep your face centered in the live video feed. Follow the instructions below.",
+  description: "...",
 }
 ```
 
@@ -385,6 +387,7 @@ Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, s
 
 - `.backgroundColor()` Set the color of the background. Default `#dddddd`.
 - `.videoOpacity()` Set the opacity of the video element (in `trackDistance` and `trackGaze`). Default `0.8`.
+- `.showCancelButton()` Show the **Cancel** button or not in the following calibrations. Default `true`.
 
 ### 📔 Other Functions
 
@@ -395,16 +398,16 @@ Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, s
 
 Get the value directly.
 
-Getters will get `null` if no data can be found, i.e. the corresponding function is never called. The values returned **by the getter** will be wrapped in an object with its corresponding timestamp. Thus, to get the value, add `.value`, e.g., `RemoteCalibrator.viewingDistanceCM.value` (and use `RemoteCalibrator.viewingDistanceCM.timestamp` to get the corresponding timestamp).
+Getters will get `null` if no data can be found, i.e. the corresponding function is never called. The values returned **by the getter** will be wrapped in an object with its corresponding timestamp. Thus, to get the value, add `.value`, e.g., `RemoteCalibrator.viewingDistanceCm.value` (and use `RemoteCalibrator.viewingDistanceCm.timestamp` to get the corresponding timestamp).
 
 #### Experiment
 
 - `.id` The id of the subject. The associated timestamp is the one created at initiation, i.e. when `init()` is called.
-- `.displayWidthPX` `.displayHeightPX` `.windowWidthPX` `.windowHeightPX` The display (and window) width and height in pixels.
-- `.screenWidthCM` `.screenHeightCM` `.screenDiagonalCM` `.screenDiagonalIN` `.screenPPI` `.screenPhysicalPPI` The physical screen size and monitor PPI in centimeters.
-- `.viewingDistanceCM` The last measured viewing distance.
-- `.nearPointCM` The last estimated near point.
-- `.gazePositionPX` The last measured gaze position on the screen.
+- `.displayWidthPx` `.displayHeightPx` `.windowWidthPx` `.windowHeightPx` The display (and window) width and height in pixels.
+- `.screenWidthCm` `.screenHeightCm` `.screenDiagonalCm` `.screenDiagonalIn` `.screenPpi` `.screenPhysicalPpi` The physical screen size and monitor PPI in centimeters.
+- `.viewingDistanceCm` The last measured viewing distance.
+- `.nearPointCm` The last estimated near point.
+- `.gazePositionPx` The last measured gaze position on the screen.
 - `.isFullscreen` Whether the window is in fullscreen mode.
 
 #### Environment
@@ -422,6 +425,19 @@ The associated timestamp of the following items is the one created at initiation
 - `.systemFamily` The family name of the device OS, e.g., `OS X`.
 - `.description` A tidy description of the current environment, e.g., `Chrome 89.0.4389.90 on OS X 11.2.1 64-bit`.
 - `.fullDescription` The full description of the current environment.
+
+#### All Data
+
+Use the following keywords to retrieve the whole dataset.
+
+- `.displayData`
+- `.screenData`
+- `.viewingDistanceData`
+- `.nearPointData`
+- `.PDData` (Interpupillary distance data)
+- `.gazeData`
+- `.fullScreenData`
+- `.environmentData`
 
 #### Others
 

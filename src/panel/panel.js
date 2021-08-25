@@ -1,7 +1,24 @@
+import tinycolor from 'tinycolor2'
+
 import RemoteCalibrator from '../core'
 import text from '../text.json'
 
-import './panel.scss'
+import Camera from '../media/photo_camera_black_24dp.svg'
+import Phone from '../media/smartphone_black_24dp.svg'
+
+import '../css/panel.scss'
+
+RemoteCalibrator.prototype.removePanel = function () {
+  if (!this._hasPanel) return false
+  this._panel.panelObserver.unobserve(this._panel.panel)
+  this._panel.panel.remove()
+
+  this._panel.panel = null
+  this._panel.panelObserver = null
+  this._hasPanel = false
+
+  return true
+}
 
 RemoteCalibrator.prototype.panel = function (
   tasks,
@@ -10,7 +27,6 @@ RemoteCalibrator.prototype.panel = function (
   callback
 ) {
   if (this._hasPanel) return false
-  this._hasPanel = true
 
   // Tasks
   if (!_validateTask(tasks)) {
@@ -30,9 +46,29 @@ RemoteCalibrator.prototype.panel = function (
       headline: text.panel.headline,
       description: text.panel.description,
       nextButton: text.panel.nextButton,
+      color: '#3490de',
       _demoActivateAll: false,
     },
     options
+  )
+
+  // Set theme color
+  const darkerColor = tinycolor(options.color).darken(20).toString()
+  document.documentElement.style.setProperty(
+    '--rc-panel-theme-color',
+    options.color
+  )
+  document.documentElement.style.setProperty(
+    '--rc-panel-darken-color',
+    darkerColor
+  )
+  document.documentElement.style.setProperty(
+    '--rc-panel-theme-color-semi',
+    options.color + '66'
+  )
+  document.documentElement.style.setProperty(
+    '--rc-panel-darken-color-semi',
+    darkerColor + '88'
   )
 
   const panel = document.createElement('div')
@@ -66,7 +102,11 @@ RemoteCalibrator.prototype.panel = function (
   let current = { index: 0, finished: [] }
   _activateStepAt(this, current, tasks, options, callback)
 
-  return true
+  this._panel.panel = panel
+  this._panel.panelObserver = panelObserver
+  this._hasPanel = true
+
+  return panel
 }
 
 /**
@@ -91,7 +131,7 @@ const _validTaskList = {
   },
   trackDistance: {
     use: 2,
-    name: 'Viewing Distance Tracking',
+    name: 'Head Tracking',
   },
   trackGaze: {
     use: 2,
@@ -124,24 +164,24 @@ const _newStepBlock = (index, task, options) => {
 
   switch (useCode) {
     case 0:
-      use = '🖱️'
-      useTip = 'Requires no extra device.'
+      use = ''
+      useTip = ''
       break
     case 1:
-      use = '🖥️'
-      useTip = 'Uses screen.'
+      use = ''
+      useTip = ''
       break
     case 2:
-      use = '🖥️ 📷'
-      useTip = 'Uses screen and webcam.'
+      use = Camera
+      useTip = 'Use webcam.'
       break
     case 3:
-      use = '🖥️ 📷 📱'
-      useTip = 'Uses screen, webcam, and smartphone.'
+      use = Camera + Phone
+      useTip = 'Use webcam and smartphone.'
       break
     default:
-      use = '🖱️'
-      useTip = 'Requires no extra device.'
+      use = ''
+      useTip = ''
       break
   }
 
@@ -152,19 +192,19 @@ const _newStepBlock = (index, task, options) => {
       ? ' rc-panel-step-active'
       : ' rc-panel-step-inactive')
   b.dataset.index = index
-  b.innerHTML = `<p class="rc-panel-step-header"><span class="rc-panel-step-index">${
-    Number(index) + 1
-  }</span><span class="rc-panel-step-use">${use}<span class="rc-panel-step-use-tip">${useTip}</span></span></p><p class="rc-panel-step-name">${
-    _validTaskList[_getTaskName(task)].name
-  }</p>`
+  b.innerHTML =
+    (use.length ? `<p class="rc-panel-step-use">${use}</p>` : '') +
+    `<p class="rc-panel-step-name">${Number(index) + 1}&nbsp;&nbsp;${
+      _validTaskList[_getTaskName(task)].name
+    }</p>` +
+    (use.length ? `<p class="rc-panel-step-use-tip">${useTip}</p>` : '')
   // b.disabled = true
   return b
 }
 
 const _nextStepBlock = (index, options) => {
   const b = document.createElement('button')
-  b.className =
-    'rc-panel-step rc-panel-next-button rc-panel-step-finish rc-panel-step-inactive'
+  b.className = 'rc-panel-step rc-panel-next-button rc-panel-step-inactive'
   b.dataset.index = index
   b.innerHTML = `<p class="rc-panel-step-name">${options.nextButton}</p>`
   // b.disabled = false
@@ -172,7 +212,7 @@ const _nextStepBlock = (index, options) => {
 }
 
 const _setStepsClassesSL = (steps, panelWidth) => {
-  if (panelWidth < 540) {
+  if (panelWidth < 640) {
     steps.classList.add('rc-panel-steps-s')
     steps.classList.remove('rc-panel-steps-l')
   } else {

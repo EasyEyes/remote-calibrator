@@ -14,15 +14,15 @@ RemoteCalibrator.prototype.displaySize = function (callback) {
 
   const thisData = {
     value: {
-      displayWidthPX: screen.width,
-      displayHeightPX: screen.height,
-      windowWidthPX: window.innerWidth,
-      windowHeightPX: window.innerHeight,
+      displayWidthPx: screen.width,
+      displayHeightPx: screen.height,
+      windowWidthPx: window.innerWidth,
+      windowHeightPx: window.innerHeight,
     },
     timestamp: new Date(),
     // id: this.id.value
   }
-  this.displayData = thisData
+  this.newDisplayData = thisData
 
   if (callback) callback(thisData)
 }

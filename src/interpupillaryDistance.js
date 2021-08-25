@@ -5,8 +5,9 @@ import RemoteCalibrator from './core'
 import { blurAll, constructInstructions, toFixedNumber } from './helpers'
 import { swalInfoOptions } from './components/swalOptions'
 import Arrow from './media/arrow.svg'
-import PD from './media/pd.png'
+import PD from './media/pd.png?width=480&height=240'
 import { bindKeys, unbindKeys } from './components/keyBinder'
+import { addButtons } from './components/buttons'
 import { colorDarkRed } from './constants'
 import text from './text.json'
 
@@ -43,12 +44,12 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
     this._replaceBackground(
       constructInstructions(options.headline, options.shortDescription)
     )
-    const screenPPI = this.screenPPI ? this.screenPPI.value : 108
+    const screenPpi = this.screenPpi ? this.screenPpi.value : 108
 
     let [videoWidth, videoHeight] = setupVideo(this)
     let [ruler, rulerListener] = setupRuler(
       this,
-      screenPPI,
+      screenPpi,
       videoWidth,
       videoHeight
     )
@@ -91,11 +92,11 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
 
     const finishFunction = () => {
       if (offsetPixel !== -100) {
-        const PDData = {
-          value: (offsetPixel * 2.54) / screenPPI,
+        const newPDData = {
+          value: (offsetPixel * 2.54) / screenPpi,
           timestamp: new Date(),
         }
-        this.PDData = PDData
+        this.newPDData = newPDData
 
         breakFunction()
         callback()
@@ -107,6 +108,14 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
       Escape: breakFunction,
       ' ': finishFunction,
     })
+    addButtons(
+      this.background,
+      {
+        go: finishFunction,
+        cancel: breakFunction,
+      },
+      this.params.showCancelButton
+    )
   })
 }
 
@@ -223,7 +232,7 @@ const sidePadding = 30 // Paddings (px) on both sides of the ruler
 
 let offsetPixel = -100 // !
 
-const setupRuler = (RC, screenPPI, vWidth, vHeight) => {
+const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
   const rulerElement = document.createElement('div')
   rulerElement.id = 'rc-ruler'
   Object.assign(rulerElement.style, {
@@ -243,11 +252,11 @@ const setupRuler = (RC, screenPPI, vWidth, vHeight) => {
   scales.id = 'rc-ruler-scales'
   rulerElement.appendChild(scales)
 
-  const totalCM =
-    ((rulerElement.clientWidth - sidePadding * 2) * 2.54) / screenPPI
-  for (let i = 0; i <= toFixedNumber(totalCM, 1) * 10; i++) {
+  const totalCm =
+    ((rulerElement.clientWidth - sidePadding * 2) * 2.54) / screenPpi
+  for (let i = 0; i <= toFixedNumber(totalCm, 1) * 10; i++) {
     let thisScale = document.createElement('div')
-    let left = (0.1 * i * screenPPI) / 2.54 + 'px' // Offset from zero
+    let left = (0.1 * i * screenPpi) / 2.54 + 'px' // Offset from zero
     thisScale.className =
       'rc-ruler-scale ' +
       (i % 10 === 0

@@ -19,10 +19,10 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
   blurAll()
   ////
 
-  const screenPPI = this.screenPPI
-  const viewingDistanceCM = this.viewingDistanceCM
+  const screenPpi = this.screenPpi
+  const viewingDistanceCm = this.viewingDistanceCm
 
-  if (!screenPPI || !viewingDistanceCM) {
+  if (!screenPpi || !viewingDistanceCm) {
     console.error(
       'Screen size and viewing distance measurements are both required to measure gaze accuracy.'
     )
@@ -32,7 +32,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
   options = Object.assign(
     {
       backgroundColor: '#ddd',
-      thresholdDEG: 10, // minAccuracy
+      thresholdDeg: 10, // minAccuracy
       decimalPlace: 3,
     },
     options
@@ -77,17 +77,17 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
       const averageDegree = getAverageDegree(
         { x: canvas.width / 2, y: canvas.height / 2 },
         points,
-        screenPPI.value,
-        viewingDistanceCM.value
+        screenPpi.value,
+        viewingDistanceCm.value
       )
 
       // ! Store data
-      this.gazeAccuracyData = {
+      this.newGazeAccuracyData = {
         value: toFixedNumber(averageDegree, options.decimalPlace),
         timestamp: new Date(),
       }
 
-      if (averageDegree < options.thresholdDEG)
+      if (averageDegree < options.thresholdDeg)
         // Success
         callbackSuccess()
       else callbackFail()
@@ -114,22 +114,22 @@ const displayCross = (canvas, ctx, options) => {
   requestAnimationFrame(_d)
 }
 
-const getAverageDegree = (fixation, points, screenPPI, viewingDistanceCM) => {
+const getAverageDegree = (fixation, points, screenPpi, viewingDistanceCm) => {
   let degrees = 0
 
   for (let i = 0; i < points[0].length; i++) {
     points[0][i] -= fixation.x
     points[1][i] -= fixation.y
-    // PX
-    let diffInPX = Math.sqrt(
+    // Px
+    let diffInPx = Math.sqrt(
       Math.pow(points[0][i], 2),
       Math.pow(points[1][i], 2)
     )
-    // CM
-    let diffInCM = (2.54 * diffInPX) / screenPPI
+    // Cm
+    let diffInCm = (2.54 * diffInPx) / screenPpi
 
     // Degree
-    degrees += (Math.atan(diffInCM / viewingDistanceCM) * 180) / Math.PI
+    degrees += (Math.atan(diffInCm / viewingDistanceCm) * 180) / Math.PI
   }
 
   degrees /= points[0].length

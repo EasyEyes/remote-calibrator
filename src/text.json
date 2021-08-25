@@ -2,7 +2,7 @@
   "screenSize": {
     "headline": "🖥️ Screen Size Calibration",
     "description": "We will measure your screen size. To do this, please find a <b>credit card</b> (or any card of the same size) or a <b>USB connector</b> (like the one providing power to your laptop), place it on the screen and drag the slider to match the sizes of the physical and displayed objects. Press <b>SPACE</b> to continue and submit when aligned.",
-    "shortDescription": "Match the sizes and press <b>SPACE</b> to continue."
+    "shortDescription": "Match the sizes and press <b>SPACE</b> or click on the <b>Submit</b> button to continue."
   },
   "measureDistance": {
     "headline": "📏 Viewing Distance Calibration",
@@ -22,7 +22,7 @@
   },
   "panel": {
     "headline": "Let's calibrate first!",
-    "description": "To ensure the following experiments are conducted in a controlled environment, we will help you calibrate and set up tracking with the following steps.",
+    "description": "We need to calibrate and set up tracking before starting the experiment.",
     "nextButton": "Next Step"
   },
   "measurePD": {

@@ -18,7 +18,7 @@ RemoteCalibrator.prototype.trackDistance = function (
    *
    * fullscreen: [Boolean]
    * repeatTesting: 2
-   * pipWidthPX: [208]
+   * pipWidthPx: [208]
    *
    * (Interface)
    * headline: [String]
@@ -35,7 +35,7 @@ RemoteCalibrator.prototype.trackDistance = function (
     {
       fullscreen: false,
       repeatTesting: 2,
-      pipWidthPX: 208,
+      pipWidthPx: 208,
       showVideo: true,
       showFaceOverlay: false,
       decimalPlace: 2,
@@ -88,7 +88,7 @@ RemoteCalibrator.prototype.trackDistance = function (
     })
   }
 
-  trackingOptions.pipWidthPX = options.pipWidthPX
+  trackingOptions.pipWidthPx = options.pipWidthPx
   trackingOptions.decimalPlace = options.decimalPlace
   trackingOptions.framerate = options.framerate
   trackingOptions.nearPoint = options.nearPoint
@@ -120,7 +120,7 @@ RemoteCalibrator.prototype.trackDistance = function (
 /* -------------------------------------------------------------------------- */
 
 const startTrackingPupils = async (RC, beforeCallbackTrack, callbackTrack) => {
-  RC.gazeTracker.beginVideo({ pipWidthPX: trackingOptions.pipWidthPX }, () => {
+  RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
     beforeCallbackTrack()
     _tracking(RC, trackingOptions, callbackTrack)
   })
@@ -142,7 +142,7 @@ const cyclopean = (video, a, b) => {
 
 /* -------------------------------------------------------------------------- */
 const trackingOptions = {
-  pipWidthPX: 208,
+  pipWidthPx: 208,
   decimalPlace: 2,
   framerate: 3,
   nearPoint: true,
@@ -171,8 +171,8 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
     model = await RC.gazeTracker.webgazer.getTracker().model
 
     // Near point
-    let ppi = RC.screenPPI ? RC.screenPPI.value : 108
-    if (!RC.screenPPI && trackingOptions.nearPoint)
+    let ppi = RC.screenPpi ? RC.screenPpi.value : 108
+    if (!RC.screenPpi && trackingOptions.nearPoint)
       console.error(
         'Screen size measurement is required to get accurate near point tracking.'
       )
@@ -207,7 +207,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
           if (stdDist.current !== null) {
             if (!stdFactor) {
               // ! First time estimate
-              // Face_Known_PX  *  Distance_Known_CM  =  Face_Now_PX  *  Distance_x_CM
+              // Face_Known_Px  *  Distance_Known_Cm  =  Face_Now_Px  *  Distance_x_Cm
               // Get the factor to be used for future predictions
               stdFactor = averageDist * stdDist.current.value
               // FINISH
@@ -218,7 +218,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
 
             const timestamp = new Date()
 
-            const data = (RC.viewingDistanceData = {
+            const data = (RC.newViewingDistanceData = {
               value: toFixedNumber(
                 stdFactor / averageDist,
                 trackingOptions.decimalPlace
@@ -249,8 +249,8 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
               RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
               callbackTrack({
                 value: {
-                  viewingDistanceCM: data.value,
-                  nearPointCM: nPData ? nPData.value : null,
+                  viewingDistanceCm: data.value,
+                  nearPointCm: nPData ? nPData.value : null,
                 },
                 timestamp: timestamp,
                 method: 'Facemesh Predict',
@@ -294,11 +294,11 @@ const _getNearPoint = (
   offsetToVideoMid.forEach((e, i) => {
     // Average interpupillary distance - 6.4cm
     offsetToVideoMid[i] =
-      ((RC.PDCM ? RC.PDCM.value : 6.4) * e) /
+      ((RC.PDCm ? RC.PDCm.value : 6.4) * e) /
       (averageDist * (videoFactor / 2)) /* Should this be videoFactor? */
   })
 
-  let nPData = (RC.nearPointData = {
+  let nPData = (RC.newNearPointData = {
     value: {
       x: toFixedNumber(offsetToVideoMid[0], trackingOptions.decimalPlace),
       y: toFixedNumber(
@@ -352,7 +352,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     iRepeatOptions.break = true
     iRepeatOptions.framerate = 20
 
-    trackingOptions.pipWidthPX = 208
+    trackingOptions.pipWidthPx = 208
     trackingOptions.decimalPlace = 2
     trackingOptions.framerate = 3
     trackingOptions.nearPoint = true
@@ -396,7 +396,7 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
 
     let timestamp = new Date()
 
-    const data = (this.viewingDistanceData = {
+    const data = (this.newViewingDistanceData = {
       value: toFixedNumber(stdFactor / dist, trackingOptions.decimalPlace),
       timestamp: timestamp,
       method: 'Facemesh Predict',
@@ -411,15 +411,15 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
         mesh,
         dist,
         timestamp,
-        this.screenPPI ? this.screenPPI.value : 108
+        this.screenPpi ? this.screenPpi.value : 108
       )
     }
 
     if (c)
       c({
         value: {
-          viewingDistanceCM: data.value,
-          nearPointCM: nPData ? nPData.value : null,
+          viewingDistanceCm: data.value,
+          nearPointCm: nPData ? nPData.value : null,
         },
         timestamp: timestamp,
         method: 'Facemesh Predict',

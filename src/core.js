@@ -14,14 +14,19 @@ import { getFullscreen, blurAll, constructInstructions } from './helpers'
 class RemoteCalibrator {
   constructor() {
     this._initialized = false
+
     this._hasPanel = false
+    this._panel = {
+      panel: null,
+      panelObserver: null,
+    }
 
     this._id = null
 
     this._environmentData = []
 
-    this._displayData = [] // PX
-    this._screenData = [] // CM
+    this._displayData = [] // Px
+    this._screenData = [] // Cm
     this._viewingDistanceData = []
     this._nearPointData = []
     this._PDData = []
@@ -40,6 +45,7 @@ class RemoteCalibrator {
     this._params = {
       backgroundColor: '#ddd',
       videoOpacity: 0.8,
+      showCancelButton: true,
     }
 
     this.deviceDetector = new DeviceDetector()
@@ -160,136 +166,170 @@ class RemoteCalibrator {
 
   // Screen
 
-  get displayWidthPX() {
+  get displayWidthPx() {
     if (!this._displayData.length) this.displaySize()
-    return this._helper_get(this._displayData, 'displayWidthPX')
+    return this._helper_get(this._displayData, 'displayWidthPx')
   }
 
-  get displayHeightPX() {
+  get displayHeightPx() {
     if (!this._displayData.length) this.displaySize()
-    return this._helper_get(this._displayData, 'displayHeightPX')
+    return this._helper_get(this._displayData, 'displayHeightPx')
   }
 
-  get windowWidthPX() {
+  get windowWidthPx() {
     if (!this._displayData.length) this.displaySize()
-    return this._helper_get(this._displayData, 'windowWidthPX')
+    return this._helper_get(this._displayData, 'windowWidthPx')
   }
 
-  get windowHeightPX() {
+  get windowHeightPx() {
     if (!this._displayData.length) this.displaySize()
-    return this._helper_get(this._displayData, 'windowHeightPX')
+    return this._helper_get(this._displayData, 'windowHeightPx')
   }
 
-  get screenWidthCM() {
-    return this._helper_get(this._screenData, 'screenWidthCM')
+  get screenWidthCm() {
+    return this._helper_get(this._screenData, 'screenWidthCm')
   }
 
-  get screenHeightCM() {
-    return this._helper_get(this._screenData, 'screenHeightCM')
+  get screenHeightCm() {
+    return this._helper_get(this._screenData, 'screenHeightCm')
   }
 
-  get screenDiagonalCM() {
-    return this._helper_get(this._screenData, 'screenDiagonalCM')
+  get screenDiagonalCm() {
+    return this._helper_get(this._screenData, 'screenDiagonalCm')
   }
 
-  get screenDiagonalIN() {
-    return this._helper_get(this._screenData, 'screenDiagonalIN')
+  get screenDiagonalIn() {
+    return this._helper_get(this._screenData, 'screenDiagonalIn')
   }
 
-  get screenPPI() {
-    return this._helper_get(this._screenData, 'screenPPI')
+  get screenPpi() {
+    return this._helper_get(this._screenData, 'screenPpi')
   }
 
-  get screenPhysicalPPI() {
-    return this._helper_get(this._screenData, 'screenPhysicalPPI')
+  get screenPhysicalPpi() {
+    return this._helper_get(this._screenData, 'screenPhysicalPpi')
   }
 
   // Distance
 
-  get viewingDistanceCM() {
+  get viewingDistanceCm() {
     return this._helper_get(this._viewingDistanceData)
   }
 
-  get nearPointCM() {
+  get nearPointCm() {
     return this._helper_get(this._nearPointData)
   }
 
-  get PDCM() {
+  get PDCm() {
     return this._helper_get(this._PDData)
   }
 
   // Gaze
 
-  get gazePositionPX() {
+  get gazePositionPx() {
     return this._helper_get(this._gazePositionData)
   }
 
-  get gazeAccuracyDEG() {
+  get gazeAccuracyDeg() {
     return this._helper_get(this._gazeAccuracyData)
+  }
+
+  /* -------------------------------- ALL DATA -------------------------------- */
+
+  get displayData() {
+    return this._displayData
+  }
+
+  get screenData() {
+    return this._screenData
+  }
+
+  get viewingDistanceData() {
+    return this._viewingDistanceData
+  }
+
+  get nearPointData() {
+    return this._nearPointData
+  }
+
+  get PDData() {
+    return this._PDData
+  }
+
+  get gazeData() {
+    return this._gazePositionData
+  }
+
+  get fullScreenData() {
+    return this._fullscreenData
+  }
+
+  get environmentData() {
+    return this._environmentData
   }
 
   /* --------------------------------- SETTERS -------------------------------- */
 
   /**
-   * @param {{ value: { displayWidthPX: number; displayHeightPX: number; windowWidthPX: number; windowHeightPX: number; }; timestamp: Date; }} data
+   * @param {{ value: { displayWidthPx: number; displayHeightPx: number; windowWidthPx: number; windowHeightPx: number; }; timestamp: Date; }} data
    */
-  set displayData(data) {
+  set newDisplayData(data) {
     this._displayData.push(data)
   }
 
   /**
-   * @param {{ value: { screenWidthCM: number; screenHeightCM: number; screenDiagonalCM: number; screenDiagonalIN: number; screenPPI: number; screenPhysicalPPI: number; }; timestamp: Date; }} data
+   * @param {{ value: { screenWidthCm: number; screenHeightCm: number; screenDiagonalCm: number; screenDiagonalIn: number; screenPpi: number; screenPhysicalPpi: number; }; timestamp: Date; }} data
    */
-  set screenData(data) {
+  set newScreenData(data) {
     this._screenData.push(data)
   }
 
   /**
    * @param {{ value: number; timestamp: Date; method: string; }} data
    */
-  set viewingDistanceData(data) {
+  set newViewingDistanceData(data) {
     this._viewingDistanceData.push(data)
   }
 
   /**
    * @param {{ value: { x: number; y: number; }; timestamp: Date; }} data
    */
-  set nearPointData(data) {
+  set newNearPointData(data) {
     this._nearPointData.push(data)
   }
 
   /**
    * @param {{ value: number; timestamp: Date; }} data
    */
-  set PDData(data) {
+  set newPDData(data) {
     this._PDData.push(data)
   }
 
   /**
    * @param {{ value: { x: number; y: number; }; timestamp: Date; }} data
    */
-  set gazePositionData(data) {
+  set newGazePositionData(data) {
     this._gazePositionData.push(data)
   }
 
   /**
    * @param {{ value: number; timestamp: Date; }} data
    */
-  set gazeAccuracyData(data) {
+  set newGazeAccuracyData(data) {
     this._gazeAccuracyData.push(data)
   }
 
   /**
    * @param {{ value: { browser: string; browserVersion: string; model: string; manufacturer: string; engine: string; system: string; systemFamily: string; description: string; fullDescription: string; }; timestamp: Date; }} data
    */
-  set environmentData(data) {
+  set newEnvironmentData(data) {
     this._environmentData.push(data)
   }
 
   /**
    * @param {{ value: boolean; timestamp: Date; }} data
    */
-  set fullscreenData(data) {
+  set newFullscreenData(data) {
     this._fullscreenData.push(data)
   }
 }
@@ -350,7 +390,7 @@ RemoteCalibrator.prototype.environment = function (callback) {
       timestamp: this.id.timestamp,
     }
 
-    this.environmentData = data
+    this.newEnvironmentData = data
 
     if (callback) callback(data)
   }
@@ -381,7 +421,7 @@ RemoteCalibrator.prototype.getFullscreen = function (f = true) {
 
   if (f && !debug) getFullscreen()
 
-  this.fullscreenData = {
+  this.newFullscreenData = {
     value: f && !debug,
     timestamp: new Date(),
   }

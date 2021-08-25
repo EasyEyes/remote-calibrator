@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add virtual clickable buttons to be fully functional on mobile devices without a keyboard.
+
 ### Changed
 
-- Default description of various functions.
+- **(Breaking)** In the parameter, options, and extension names, the unit name is capitalized only for the first letter, including `Px`, `Cm`, `In`, `Ppi`, `Deg`, e.g., `RemoteCalibrator.viewingDistanceCm`.
+- Redesigned panel for setting up calibration pipeline.
+- Changed default descriptions and instructions for various functions.
+- Viewing distance tracking is rephrased to **Head Tracking** in various context. The function handle `.trackDistance()` stays unchanged.
+
+### Fixed
+
+- Wrong keyword for framerate option for `.trackDistance()` in readme.
 
 ## [0.0.9] - 2021-07-24
 
@@ -41,7 +52,7 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 ### Changed
 
-- **(Breaking)** `.trackDistance` and `.getDistanceNow` now pass `{ value: { viewingDistanceCM, nearPointCM: { x, y } }, timestamp, method }` into the `callbackTrack` function.
+- **(Breaking)** `.trackDistance()` and `.getDistanceNow()` now pass `{ value: { viewingDistanceCM, nearPointCM: { x, y } }, timestamp, method }` into the `callbackTrack` function.
 - If no result is found for `.model` and `.manufacturer`, an empty string instead of `null` will be returned as value.
 - Format of the result from `.version` getter - now an object with one field, `value`.
 - Update readme.

@@ -1,7 +1,7 @@
 # Settings in the [build] context are global and are applied to all contexts
 # unless otherwise overridden by more specific contexts.
 [build]
-environment = { NODE_VERSION = "14", NPM_VERSION = "7.15.0" }
+environment = { NODE_VERSION = "14", NPM_VERSION = "7.20.5" }
 # Directory to change to before starting a build.
 # This is where we will look for package.json/.nvmrc/etc.
 # If not set, defaults to the root directory.
@@ -16,9 +16,9 @@ publish = "homepage/"
 # Default build command.
 command = "npm run netlify"
 
-[[plugins]]
+# [[plugins]]
 # Installs the Lighthouse Build Plugin for all deploy contexts
-package = "@netlify/plugin-lighthouse"
+# package = "@netlify/plugin-lighthouse"
 
 # Deploy Preview context: all deploys generated from a pull/merge request will
 # inherit these settings.

@@ -120,8 +120,8 @@ function makePanel(e) {
 function measureDisplaySize(e) {
   RemoteCalibrator.displaySize(displayData => {
     printMessage(
-      `Display size is ${displayData.value.displayWidthPX}px in width and ${
-        displayData.value.displayHeightPX
+      `Display size is ${displayData.value.displayWidthPx}px in width and ${
+        displayData.value.displayHeightPx
       }px in height, measured at ${parseTimestamp(displayData.timestamp)}.`
     )
 
@@ -137,12 +137,12 @@ function measureDisplaySize(e) {
 function measureScreenSize(e) {
   RemoteCalibrator.screenSize({}, screenData => {
     printMessage(
-      `Screen size is ${screenData.value.screenDiagonalIN}in [Width: ${
-        screenData.value.screenWidthCM
-      }cm, Height: ${screenData.value.screenHeightCM}cm, PPI: ${
-        screenData.value.screenPPI
+      `Screen size is ${screenData.value.screenDiagonalIn}in [Width: ${
+        screenData.value.screenWidthCm
+      }cm, Height: ${screenData.value.screenHeightCm}cm, PPI: ${
+        screenData.value.screenPpi
       }, PPI (Physical): ${
-        screenData.value.screenPhysicalPPI
+        screenData.value.screenPhysicalPpi
       }], measured at ${parseTimestamp(screenData.timestamp)}.`
     )
 
@@ -193,11 +193,11 @@ function trackViewingDistance(e) {
     data => {
       trackP.innerHTML = gotData(
         `The dynamic viewing distance is ${
-          data.value.viewingDistanceCM
+          data.value.viewingDistanceCm
         }cm at ${parseTimestamp(data.timestamp)}, measured by ${
           data.method
-        } method. The near point is at [${data.value.nearPointCM.x}cm, ${
-          data.value.nearPointCM.y
+        } method. The near point is at [${data.value.nearPointCm.x}cm, ${
+          data.value.nearPointCm.y
         }cm] compared to the center of the screen.`
       )
     }
@@ -296,10 +296,10 @@ function trackGaze(e) {
   })
 
   const _getAccuracy = setInterval(() => {
-    if (RemoteCalibrator.gazeAccuracyDEG) {
+    if (RemoteCalibrator.gazeAccuracyDeg) {
       clearInterval(_getAccuracy)
       printMessage(
-        `The calibrated gaze accuracy is within ${RemoteCalibrator.gazeAccuracyDEG.value} degrees averaging over 50 predictions.`
+        `The calibrated gaze accuracy is within ${RemoteCalibrator.gazeAccuracyDeg.value} degrees averaging over 50 predictions.`
       )
     }
   }, 2000)

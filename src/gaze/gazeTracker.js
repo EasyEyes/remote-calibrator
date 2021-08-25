@@ -29,7 +29,7 @@ export default class GazeTracker {
     this._toFixedN = 1
   }
 
-  begin({ pipWidthPX }, callback) {
+  begin({ pipWidthPx }, callback) {
     if (this.checkInitialized('gaze', true)) {
       if (!this._running.gaze) {
         this.webgazer.begin()
@@ -38,7 +38,7 @@ export default class GazeTracker {
       }
 
       checkWebgazerReady(
-        pipWidthPX,
+        pipWidthPx,
         this.calibrator.params.videoOpacity,
         this.webgazer,
         callback
@@ -46,7 +46,7 @@ export default class GazeTracker {
     }
   }
 
-  beginVideo({ pipWidthPX }, callback) {
+  beginVideo({ pipWidthPx }, callback) {
     // Begin video only
     if (this.checkInitialized('distance', true)) {
       if (!this._runningVideo) {
@@ -55,7 +55,7 @@ export default class GazeTracker {
       }
 
       checkWebgazerReady(
-        pipWidthPX,
+        pipWidthPx,
         this.calibrator.params.videoOpacity,
         this.webgazer,
         callback
@@ -67,7 +67,7 @@ export default class GazeTracker {
     if (this.checkInitialized('gaze', true)) {
       this.webgazer.setGazeListener(d => {
         if (d) {
-          const data = (this.calibrator.gazePositionData = this.getData(d))
+          const data = (this.calibrator.newGazePositionData = this.getData(d))
           if (callback) callback(data)
         }
       })
@@ -75,7 +75,7 @@ export default class GazeTracker {
   }
 
   async getGazeNow(callback) {
-    let data = (this.calibrator.gazePositionData = this.getData(
+    let data = (this.calibrator.newGazePositionData = this.getData(
       await this.webgazer.getCurrentPrediction()
     ))
     if (callback) callback(data)

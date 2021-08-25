@@ -8,6 +8,7 @@ import Arrow from './media/arrow.svg'
 import USBA from './media/usba.svg'
 import USBC from './media/usbc.svg'
 import { bindKeys, unbindKeys } from './components/keyBinder'
+import { addButtons } from './components/buttons'
 import { swalInfoOptions } from './components/swalOptions'
 import { colorDarkRed } from './constants'
 import text from './text.json'
@@ -166,7 +167,7 @@ function getSize(RC, parent, options, callback) {
     // ! Get screen data
     const screenData = _getScreenData(ppi, toFixedN)
     // ! Record data
-    RC.screenData = screenData
+    RC.newScreenData = screenData
 
     // Remove listeners and DOM
     breakFunction()
@@ -181,6 +182,15 @@ function getSize(RC, parent, options, callback) {
     Escape: breakFunction,
     ' ': finishFunction,
   })
+
+  addButtons(
+    RC.background,
+    {
+      go: finishFunction,
+      cancel: breakFunction,
+    },
+    RC.params.showCancelButton
+  )
 }
 
 const setCardSizes = (slider, card, arrow, aS) => {
@@ -237,25 +247,25 @@ const switchMatchingObj = (name, elements) => {
 const _getScreenData = (ppi, toFixedN) => {
   const screenData = {
     value: {
-      screenWidthCM: toFixedNumber(
+      screenWidthCm: toFixedNumber(
         (2.54 * window.screen.width) / ppi,
         toFixedN
       ),
-      screenHeightCM: toFixedNumber(
+      screenHeightCm: toFixedNumber(
         (2.54 * window.screen.height) / ppi,
         toFixedN
       ),
-      screenPhysicalPPI: toFixedNumber(ppi * window.devicePixelRatio, toFixedN),
-      screenPPI: toFixedNumber(ppi, toFixedN),
+      screenPhysicalPpi: toFixedNumber(ppi * window.devicePixelRatio, toFixedN),
+      screenPpi: toFixedNumber(ppi, toFixedN),
     },
     timestamp: new Date(),
   }
-  screenData.value.screenDiagonalCM = toFixedNumber(
-    Math.hypot(screenData.value.screenWidthCM, screenData.value.screenHeightCM),
+  screenData.value.screenDiagonalCm = toFixedNumber(
+    Math.hypot(screenData.value.screenWidthCm, screenData.value.screenHeightCm),
     toFixedN
   )
-  screenData.value.screenDiagonalIN = toFixedNumber(
-    screenData.value.screenDiagonalCM / 2.54,
+  screenData.value.screenDiagonalIn = toFixedNumber(
+    screenData.value.screenDiagonalCm / 2.54,
     toFixedN
   )
 
