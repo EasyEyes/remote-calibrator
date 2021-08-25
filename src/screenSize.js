@@ -58,7 +58,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
 
   this.getFullscreen(options.fullscreen)
 
-  options.description += `<br /><b>I have a <select id="matching-obj"><option value="usba" selected>USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option><option value="card">Credit Card</option></select> with me.</b>`
+  options.description += `<br /><br /><b>I have a <select id="matching-obj"><option value="usba" selected>USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option><option value="card">Credit Card</option></select> with me.</b>`
 
   this._addBackground()
   this._addBackgroundText(options.headline, options.description)
@@ -81,6 +81,8 @@ function getSize(RC, parent, options, callback) {
     20
   )
   sliderElement.step = 0.1
+
+  setSliderPosition(sliderElement, parent)
   parent.appendChild(sliderElement)
 
   const onMouseDown = e => {
@@ -135,6 +137,8 @@ function getSize(RC, parent, options, callback) {
   }
   const resizeObserver = new ResizeObserver(() => {
     setSizes()
+    setSliderPosition(sliderElement, parent)
+    setObjectsPosition(elements, sliderElement)
   })
   resizeObserver.observe(parent)
 
@@ -195,7 +199,11 @@ function getSize(RC, parent, options, callback) {
 const setCardSizes = (slider, card, arrow, aS) => {
   // Card
   card.style.width =
-    (slider.offsetWidth - 30) * (slider.value / 100) + 15 + 'px'
+    (slider.offsetWidth - 30) *
+      (slider.value / 100) *
+      (window.innerWidth < 480 ? 2 : 1) +
+    15 +
+    'px'
   // Arrow
   let cardSizes = card.getBoundingClientRect()
   arrow.style.left = cardSizes.left + cardSizes.width + 'px'
@@ -225,6 +233,8 @@ const addMatchingObj = (names, parent) => {
     element.style.display = 'none'
     elements[name] = element
   }
+
+  setObjectsPosition(elements, document.querySelector('#size-slider'))
 
   return elements
 }
@@ -270,4 +280,19 @@ const _getScreenData = (ppi, toFixedN) => {
   )
 
   return screenData
+}
+
+const setSliderPosition = (slider, parent) => {
+  slider.style.top =
+    Math.round(
+      parent.querySelector('.calibration-instruction').getBoundingClientRect()
+        .bottom
+    ) +
+    25 +
+    'px'
+}
+
+const setObjectsPosition = (objects, slider) => {
+  for (let i in objects)
+    objects[i].style.top = slider.getBoundingClientRect().top + 50 + 'px'
 }

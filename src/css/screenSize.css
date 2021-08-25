@@ -1,13 +1,13 @@
 .slider {
+  position: absolute;
+  display: block;
   -webkit-appearance: none;
   appearance: none;
-  display: block;
-  position: absolute;
   width: calc(100% - 4rem);
   height: 30px;
   background: #fff;
   opacity: 0.6;
-  top: max(45%, 200px);
+  /* top: max(45%, 200px); */
   left: 2rem;
   border-radius: 15px;
   z-index: 1;
@@ -46,7 +46,7 @@
 #size-usbc {
   position: absolute;
   display: block;
-  top: calc(max(45%, 200px) + 50px);
+  /* top: calc(max(45%, 200px) + 50px); */
   left: 2rem;
   height: auto;
   z-index: 2;
@@ -79,6 +79,7 @@
 #matching-obj {
   border-radius: 7px;
   border: none;
+  background-color: #fff;
   height: 2rem;
   padding: unset 0.3rem;
   margin: unset 0.3rem;
