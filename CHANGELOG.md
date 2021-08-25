@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Changed
+
+- Refined design and default text of panel element.
+- Refined design of screen size measurement interface.
+
+## Removed
+
+- Pop-up in various functions. Instructions will be displayed side-by-side with the actual tasks.
+
 ## [0.1.1] - 2021-08-24
 
 Minor update.

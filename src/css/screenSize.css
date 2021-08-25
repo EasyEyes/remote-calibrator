@@ -54,7 +54,9 @@
 
 #size-arrow {
   position: absolute;
-  display: block;
+  /* display: block; */
+  /* TODO */
+  display: none !important;
   width: 70px;
   height: auto;
   z-index: 3;
@@ -65,9 +67,20 @@
 }
 
 .minor {
-  transition: opacity 0.3s;
+  transition: opacity 0.1s;
 }
 
 .slider:hover ~ .size-obj .minor {
-  opacity: 0.3;
+  opacity: 0.2;
+}
+
+/* -------------------------------------------------------------------------- */
+
+#matching-obj {
+  border-radius: 7px;
+  border: none;
+  height: 2rem;
+  padding: unset 0.3rem;
+  margin: unset 0.3rem;
+  font-weight: 700;
 }

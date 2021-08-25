@@ -1,5 +1,3 @@
-import Swal from 'sweetalert2/dist/sweetalert2.js'
-
 import RemoteCalibrator from './core'
 import { toFixedNumber, blurAll, remap } from './helpers'
 
@@ -9,9 +7,11 @@ import USBA from './media/usba.svg'
 import USBC from './media/usbc.svg'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
-import { swalInfoOptions } from './components/swalOptions'
 import { colorDarkRed } from './constants'
 import text from './text.json'
+
+// TODO Make it customizable
+const defaultObj = 'usba'
 
 const resources = {
   card: Card,
@@ -20,7 +20,7 @@ const resources = {
   usbc: USBC,
 }
 
-const widthDataIN = {
+const widthDataIn = {
   card: 3.375, // 85.6mm
   usba: 0.787402, // 20mm (12mm head)
   usbc: 0.787402, // 20mm (8.25mm head)
@@ -52,25 +52,18 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       decimalPlace: 1,
       headline: text.screenSize.headline,
       description: text.screenSize.description,
-      shortDescription: text.screenSize.shortDescription,
     },
     options
   )
 
   this.getFullscreen(options.fullscreen)
 
-  options.shortDescription += `<br /><b>I have a <select id="matching-obj"><option value="card" selected>Credit Card</option><option value="usba">USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option></select> with me.</b>`
+  options.description += `<br /><b>I have a <select id="matching-obj"><option value="usba" selected>USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option><option value="card">Credit Card</option></select> with me.</b>`
 
   this._addBackground()
+  this._addBackgroundText(options.headline, options.description)
 
-  Swal.fire({
-    ...swalInfoOptions,
-    // title: options.headline,
-    html: options.description,
-  }).then(() => {
-    this._addBackgroundText(options.headline, options.shortDescription)
-    getSize(this, this.background, options, callback)
-  })
+  getSize(this, this.background, options, callback)
 
   return
 }
@@ -83,7 +76,10 @@ function getSize(RC, parent, options, callback) {
   sliderElement.type = 'range'
   sliderElement.min = 0
   sliderElement.max = 100
-  sliderElement.value = 40
+  sliderElement.value = Math.max(
+    Math.min(Math.round(Math.random() * 100), 80),
+    20
+  )
   sliderElement.step = 0.1
   parent.appendChild(sliderElement)
 
@@ -112,13 +108,13 @@ function getSize(RC, parent, options, callback) {
   const elements = addMatchingObj(['card', 'arrow', 'usba', 'usbc'], parent)
 
   // Switch OBJ
-  let currentMatchingObj = 'card' // DEFAULT
+  let currentMatchingObj = defaultObj // DEFAULT
   document.getElementById('matching-obj').addEventListener('change', e => {
     switchMatchingObj(e.target.value, elements)
     currentMatchingObj = e.target.value
   })
-  switchMatchingObj('card', elements)
 
+  switchMatchingObj('card', elements)
   // Card & Arrow
   let arrowFillElement = document.getElementById('size-arrow-fill')
   arrowFillElement.setAttribute('fill', '#aaa')
@@ -160,7 +156,7 @@ function getSize(RC, parent, options, callback) {
       elements[currentMatchingObj].getBoundingClientRect().width ||
       parseInt(elements[currentMatchingObj].style.width) // Pixel
 
-    let ppi = eleWidth / widthDataIN[currentMatchingObj]
+    let ppi = eleWidth / widthDataIn[currentMatchingObj]
 
     const toFixedN = options.decimalPlace
 
@@ -191,6 +187,9 @@ function getSize(RC, parent, options, callback) {
     },
     RC.params.showCancelButton
   )
+
+  // Set to actual default object
+  switchMatchingObj(currentMatchingObj, elements)
 }
 
 const setCardSizes = (slider, card, arrow, aS) => {
@@ -235,8 +234,9 @@ const switchMatchingObj = (name, elements) => {
     if (obj === name) elements[obj].style.display = 'block'
     else elements[obj].style.display = 'none'
   }
-  if (name === 'card') elements.arrow.style.display = 'block'
-  else elements.arrow.style.display = 'none'
+  // TODO
+  // if (name === 'card') elements.arrow.style.display = 'block'
+  // else elements.arrow.style.display = 'none'
 }
 
 /**

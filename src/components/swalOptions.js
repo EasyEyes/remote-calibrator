@@ -6,7 +6,7 @@ export const swalInfoOptions = {
   allowEnterKey: false,
   allowOutsideClick: false,
   showConfirmButton: true,
-  confirmButtonText: 'Confirm',
+  confirmButtonText: 'OK',
   showClass: {
     popup: 'animate__animated animate__fadeInUp',
     // backdrop: 'animate__animated animate__fadeIn',

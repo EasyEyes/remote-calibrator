@@ -11,7 +11,7 @@ export const addButtons = (parent, { go, cancel }, showCancelButton) => {
     goButton = document.createElement('button')
     goButton.className = 'rc-button rc-go-button'
     goButton.onclick = go
-    goButton.innerHTML = 'Submit'
+    goButton.innerHTML = 'OK'
     buttons.appendChild(goButton)
   }
 

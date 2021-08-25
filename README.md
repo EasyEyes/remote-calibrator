@@ -193,10 +193,8 @@ Pass `{ value: { screenWidthCm, screenHeightCm, screenDiagonalCm, screenDiagonal
   decimalPlace: 1,
   // Headline on the calibration page (Support HTML)
   headline: "🖥️ Screen Size Calibration",
-  // Description and instruction shown in the alert popup (Support HTML)
+  // Description and instruction (Support HTML)
   description: "...",
-  // Short description shown in the calibration page (Support HTML)
-  shortDescription: "Match the sizes and press <b>SPACE</b> to confirm."
 }
 ```
 
