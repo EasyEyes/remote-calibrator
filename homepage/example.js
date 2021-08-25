@@ -297,7 +297,6 @@ function trackGaze(e) {
   RemoteCalibrator.trackGaze(
     {
       showVideo: false,
-      showGazer: false,
     },
     data => {
       gazeP.innerHTML = gotData(
