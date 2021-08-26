@@ -18,7 +18,7 @@ RemoteCalibrator.prototype.trackGaze = function (
    * pipWidthPx: [208]
    * showFaceOverlay: [Boolean]
    * calibrationCount: [Number] Default 5
-   * decimalPlace: [Number] Default 2
+   * decimalPlace: [Number] Default 0
    * thresholdDeg: [Number] or 'none'
    * headline: [String]
    * description: [String]
@@ -41,7 +41,7 @@ RemoteCalibrator.prototype.trackGaze = function (
       showFaceOverlay: false,
       calibrationCount: 5,
       thresholdDeg: 10, // minAccuracy
-      decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
+      decimalPlace: 0, // As the system itself has a high prediction error, it's not necessary to be too precise here
       headline: text.calibrateGaze.headline,
       description: text.calibrateGaze.description,
     },

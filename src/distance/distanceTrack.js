@@ -39,7 +39,7 @@ RemoteCalibrator.prototype.trackDistance = function (
       pipWidthPx: 208,
       showVideo: true,
       showFaceOverlay: false,
-      decimalPlace: 2,
+      decimalPlace: 1,
       framerate: 3, // track rate
       nearPoint: true, // New 0.0.6
       showNearPoint: false, // New 0.0.6

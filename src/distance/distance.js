@@ -172,7 +172,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
    * fullscreen: [Boolean]
    * quitFullscreenOnFinished: [Boolean] // TODO
    * repeatTesting: 2
-   * decimalPlace: 3
+   * decimalPlace: 1
    * headline: [String]
    * description: [String]
    *
@@ -188,7 +188,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       fullscreen: false,
       quitFullscreenOnFinished: false,
       repeatTesting: 2,
-      decimalPlace: 2,
+      decimalPlace: 1,
       headline: text.measureDistance.headline,
       description: text.measureDistance.description,
     },

@@ -222,7 +222,7 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
   // How many times each of the eye will be used to test
   // By default, right eye 2 times, then left eye 2 times
   repeatTesting: 2,
-  decimalPlace: 2,
+  decimalPlace: 1,
   headline: "📏 Viewing Distance Calibration",
   description: "...",
 }
@@ -248,7 +248,7 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y } }, timestamp, method }
   pipWidthPx: 208,
   showVideo: true,
   showFaceOverlay: false,
-  decimalPlace: 2,
+  decimalPlace: 1,
   // Measurement per second
   framerate: 3,
   // Near point

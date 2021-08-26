@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Changed
 
+- Default decimal place value (customized by `decimalPlace` in options) for head (1) and gaze (0) tracking data.
 - **(Breaking)** `showVideo` and `showGazer` parameters will only be effective after the initial calibration process. Participants would be able to see these visual feedbacks during the calibration even the parameters were set to `false`.
 - Refined design and default text of panel element.
 - Refined design of screen size measurement interface. It now works much better on smartphones.
