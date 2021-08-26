@@ -15,7 +15,6 @@ import {
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
-import { colorDarkRed } from '../constants'
 import text from '../text.json'
 
 const blindSpotHTML = `<canvas id="blind-spot-canvas"></canvas>`
@@ -38,9 +37,9 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   const blindSpotDiv = document.createElement('div')
   blindSpotDiv.innerHTML = blindSpotHTML
   RC.background.appendChild(blindSpotDiv)
-  const instructionDiv = RC._constructFloatInstructionElement(
+  RC._constructFloatInstructionElement(
     'blind-spot-instruction',
-    `Keep your <span id="eye-side"></span> eye closed, focus on the cross, and hit SPACE when the circle disappears.`
+    `Keep your <span id="eye-side"></span> eye closed and focus on the cross.`
   )
 
   // Get HTML elements
@@ -108,8 +107,6 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         // Clear observer and keys
         resizeObserver.unobserve(RC.background)
         unbindKeys(bindKeysFunction)
-        // Change instructions
-        instructionDiv.innerHTML = `<b style="color: ${colorDarkRed}>Starting up... Please hold still.</b>`
       }
     } else if (tested % options.repeatTesting === 0) {
       // Switch eye side

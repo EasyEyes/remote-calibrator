@@ -41,7 +41,7 @@
 }
 
 .calibration-instruction * {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   line-height: 170%;
   margin: 0;
   padding: 0;
@@ -73,6 +73,8 @@
   left: 50%;
   transform: translate(-50%, 0);
   border-radius: 10px;
+  font-size: 1.2rem;
+  font-weight: 500;
 }
 
 /* -------------------------------------------------------------------------- */

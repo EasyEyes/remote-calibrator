@@ -134,6 +134,7 @@ RemoteCalibrator.prototype.trackDistance = function (
 const startTrackingPupils = async (RC, beforeCallbackTrack, callbackTrack) => {
   RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
     beforeCallbackTrack()
+    RC._removeFloatInstructionElement()
     _tracking(RC, trackingOptions, callbackTrack)
   })
 }

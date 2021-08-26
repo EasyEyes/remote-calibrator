@@ -6,7 +6,7 @@ import { bindKeys, unbindKeys } from '../components/keyBinder'
 import text from '../text.json'
 
 // [Wait!], etc.
-const instPOutsideWarning = 'Keep your face centered in the video feed.'
+// const instPOutsideWarning = 'Keep your face centered in the video feed.'
 
 const originalStyles = {
   video: false,
@@ -15,7 +15,9 @@ const originalStyles = {
 
 export function gazeCalibrationPrepare(RC, options) {
   if (RC.background)
-    RC._replaceBackground(constructInstructions(options.headline))
+    RC._replaceBackground(
+      constructInstructions(options.headline, options.description)
+    )
   else
     RC._addBackground(
       constructInstructions(options.headline, options.description)
@@ -53,19 +55,14 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
   this.gazeTracker.webgazer.params.greedyLearner = options.greedyLearner
   gazeCalibrationPrepare(this, options)
 
-  this.instructionElement.innerHTML = instPOutsideWarning
-  const calibrationDot = startCalibration(
-    this,
-    this.instructionElement,
-    options,
-    () => {
-      this._removeBackground() // Remove calibration background when the calibration finished
-      unbindKeys(bindKeysFunction)
+  // this.instructionElement.innerHTML = instPOutsideWarning
+  const calibrationDot = startCalibration(this, options, () => {
+    this._removeBackground() // Remove calibration background when the calibration finished
+    unbindKeys(bindKeysFunction)
 
-      // TODO Pass timestamp into callback
-      if (callback && typeof callback === 'function') callback()
-    }
-  )
+    // TODO Pass timestamp into callback
+    if (callback && typeof callback === 'function') callback()
+  })
 
   const breakFunction = () => {
     calibrationDot.deleteSelf(false)
@@ -84,8 +81,8 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
   })
 }
 
-const startCalibration = (RC, p, options, onCalibrationEnded) => {
-  p.innerHTML += `\nTo calibrate the system for your eyes, please click on the <b style="color: #ff005c">PINK</b> dot at each location that it visits until the dot disappears.\nMake sure your eyes are on the dot when you click it.`
+const startCalibration = (RC, options, onCalibrationEnded) => {
+  RC._removeFloatInstructionElement()
   return new GazeCalibrationDot(RC, document.body, options, onCalibrationEnded)
 }
 

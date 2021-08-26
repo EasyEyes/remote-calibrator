@@ -519,12 +519,21 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
 
   const instP = document.createElement('p')
   instP.className = 'float-instruction'
-  if (id) instP.id = id
+  instP.id = id || 'float-instruction'
 
   instP.innerHTML = text // Init
   this.background.appendChild(instP)
 
   return (this._background.instructionElement = instP)
+}
+
+RemoteCalibrator.prototype._removeFloatInstructionElement = function () {
+  if (this.instructionElement) {
+    this.background.removeChild(this.instructionElement)
+    this._background.instructionElement = null
+    return this.background
+  }
+  return false
 }
 
 export default RemoteCalibrator

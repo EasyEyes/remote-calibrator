@@ -69,7 +69,7 @@
 }
 
 .slider:hover ~ .size-obj .minor {
-  opacity: 0.2;
+  opacity: 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -78,8 +78,9 @@
   border-radius: 7px;
   border: none;
   background-color: #fff;
-  height: 2rem;
   padding: unset 0.3rem;
   margin: unset 0.3rem;
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 1.1rem;
+  vertical-align: middle;
 }

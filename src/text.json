@@ -5,15 +5,15 @@
   },
   "measureDistance": {
     "headline": "📏 Viewing Distance Calibration",
-    "description": "We'll measure your viewing distance. To do this, we will perform a blind spot test. Cover or close your left eye and focus on the black cross. Press <b>SPACE</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen."
+    "description": "We'll measure your viewing distance. To do this, we will perform a blind spot test. Cover or close your left eye and focus on the black cross. Press <b>SPACE</b> or click <b>OK</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen."
   },
   "trackDistance": {
     "headline": "📏 Track Viewing Distance",
-    "description": "We'll track your viewing distance. When asked, please grant permission to access your camera. We'll perform a blind spot test first. Cover or close one of your eyes and focus on the black cross. Press <b>SPACE</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen. We will then predict your dynamic viewing distance by your image from the webcam."
+    "description": "We'll track your viewing distance. When asked, please grant permission to access your camera. We'll perform a blind spot test first. Cover or close one of your eyes and focus on the black cross. Press <b>SPACE</b> or click <b>OK</b> when the red circle disappears. If it doesn't disappear, you may have to move closer to the screen. We will then predict your dynamic viewing distance by your image from the webcam."
   },
   "calibrateGaze": {
     "headline": "👀 Calibrate Gaze",
-    "description": "With your help, we’ll track your gaze. When asked, please grant permission to access your camera. Please try to keep your face centered in the live video feed. Follow the instructions below."
+    "description": "With your help, we’ll track your gaze. When asked, please grant permission to access your camera. Keep your face centered in the live video feed. Click on the <b style=\"color: #ff005c\">PINK</b> dot at each location that it visits until the dot disappears. Make sure your eyes are on the dot when you click it."
   },
   "getGazeAccuracy": {
     "headline": "👀 Get Gaze Accuracy",

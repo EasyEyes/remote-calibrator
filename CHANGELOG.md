@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Changed
 
+- The square part of the USB connectors will totally disappear when hovering on the slider and changing their sizes.
 - Default decimal place value (customized by `decimalPlace` in options) for head (1) and gaze (0) tracking data.
 - **(Breaking)** `showVideo` and `showGazer` parameters will only be effective after the initial calibration process. Participants would be able to see these visual feedbacks during the calibration even the parameters were set to `false`.
 - Refined design and default text of panel element.
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Avoid setting up multiple head trackings at the same time.
 - Cannot track near point when video is hidden.
+- After the initial measurement in head tracking, the float instruction block shrink to an ellipse.
 
 ## Removed
 
