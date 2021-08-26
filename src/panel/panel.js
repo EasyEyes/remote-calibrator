@@ -16,18 +16,54 @@ RemoteCalibrator.prototype.removePanel = function () {
 
   this._panel.panel = null
   this._panel.panelObserver = null
+  this._panel.panelTasks = []
+  this._panel.panelParent = null
+  this._panel.panelOptions = {}
+
   this._hasPanel = false
 
   return true
+}
+
+RemoteCalibrator.prototype.resetPanel = function (
+  tasks = null,
+  parent = null,
+  options = null,
+  callback = null
+) {
+  if (!this._hasPanel) return false
+
+  const t = tasks || [...this._panel.panelTasks]
+  const o = options || { ...this._panel.panelOptions }
+  const c =
+    callback && typeof callback === 'function'
+      ? callback
+      : this._panel.panelCallback
+
+  // New parent
+  if (parent !== null && parent !== this._panel.panelParent) {
+    this.removePanel()
+    return this.panel(t, parent, o, c)
+  }
+  // Current parent, just reset
+  return this.panel(t, this._panel.panelParent, o, c, true)
 }
 
 RemoteCalibrator.prototype.panel = function (
   tasks,
   parent,
   options = {},
-  callback
+  callback,
+  _reset = false
 ) {
-  if (this._hasPanel) return false
+  if (this._hasPanel ^ _reset) return false
+  /**
+   * has rest
+   * t   f no
+   * t   t ok
+   * f   f ok
+   * f   t no
+   */
 
   // Tasks
   if (!_validateTask(tasks)) {
@@ -79,9 +115,11 @@ RemoteCalibrator.prototype.panel = function (
     ? `<p class="rc-panel-description">${options.description}</p>`
     : ''
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
-  parentElement.appendChild(panel)
 
-  const steps = parentElement.querySelector('#rc-panel-steps')
+  if (!_reset) parentElement.appendChild(panel)
+  else parentElement.replaceChild(panel, this._panel.panel) // ! reset
+
+  const steps = panel.querySelector('#rc-panel-steps')
 
   // Observe panel size for adjusting steps
   const panelObserver = new ResizeObserver(() => {
@@ -107,6 +145,11 @@ RemoteCalibrator.prototype.panel = function (
 
   this._panel.panel = panel
   this._panel.panelObserver = panelObserver
+  this._panel.panelTasks = tasks
+  this._panel.panelParent = parent
+  this._panel.panelOptions = options
+  this._panel.panelCallback = callback
+
   this._hasPanel = true
 
   return panel

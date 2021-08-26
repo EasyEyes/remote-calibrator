@@ -112,10 +112,10 @@ The `data` passed into the callback function is an [object](https://www.w3school
 ![Panel](./media/panel.png)
 
 ```js
-.panel(tasks, parent, [options, [callback]])
+.panel(tasks, parentQuery, [options, [callback]])
 ```
 
-`.panel()` is a powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Next Step" button can all be customized. It is appended to the parent HTML node as set by `parent`. Can only run once. Return the DOM element of the panel if set up successfully, otherwise `false`.
+`.panel()` is a powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Done" button can all be customized. It is appended to the parent HTML node as set by `parentQuery`, e.g., if the parent node has id `main-area`, put `#main-area` as the `parentQuery`. Can only run once. Return the DOM element of the panel if set up successfully, otherwise `false`.
 
 `tasks` is an array of tasks which can be a string or an object. Valid names are `screenSize`, `displaySize`, `measureDistance`, `trackDistance`, `trackGaze`, `environment` (system information).
 
@@ -154,6 +154,8 @@ You can customize the panel element with the following options.
 If you don't want to use the default panel and want to integrate the process into your experiment, you can also call each calibration function individually. Please see the instructions below.
 
 You can also use `.removePanel()` to remove the panel element after the calibration is done, e.g., in the callback of `.panel()` function.
+
+`.resetPanel([tasks, [parentQuery, [options, [callback]]]])` helps you reset the panel to its initial state, i.e. none of the buttons were pressed. You may also pass in new tasks, options, etc., to refresh the element. However, this will not end the current trackings.
 
 ### 🖥️ Screen
 

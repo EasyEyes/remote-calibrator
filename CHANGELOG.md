@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 
 - `.showNearPoint()` to control the display of the near point on the screen (a green square).
+- `.removePanel()` and `.resetPanel()` functions to better control the panel element.
 
 ## Changed
 
