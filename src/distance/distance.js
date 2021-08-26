@@ -1,5 +1,3 @@
-import Swal from 'sweetalert2'
-
 import RemoteCalibrator from '../core'
 import {
   constrain,
@@ -17,7 +15,6 @@ import {
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
-import { swalInfoOptions } from '../components/swalOptions'
 import { colorDarkRed } from '../constants'
 import text from '../text.json'
 
