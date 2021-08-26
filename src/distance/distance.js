@@ -202,13 +202,10 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   // Add HTML
   this._addBackground()
 
-  Swal.fire({
-    ...swalInfoOptions,
-    html: options.description,
-  }).then(() => {
-    this._replaceBackground(constructInstructions(options.headline))
-    blindSpotTest(this, options, false, callback)
-  })
+  this._replaceBackground(
+    constructInstructions(options.headline, options.description)
+  )
+  blindSpotTest(this, options, false, callback)
 }
 
 // Helper functions

@@ -1,11 +1,8 @@
-import Swal from 'sweetalert2'
-
 import RemoteCalibrator from '../core'
 
 import { blurAll } from '../helpers'
 import { gazeCalibrationPrepare } from './gazeCalibration'
 import text from '../text.json'
-import { swalInfoOptions } from '../components/swalOptions'
 
 RemoteCalibrator.prototype.trackGaze = function (
   options = {},
@@ -71,80 +68,82 @@ RemoteCalibrator.prototype.trackGaze = function (
   // ! Not initialized
   // Init - Begin -  Calibrate - Start running
   this._addBackground()
-  Swal.fire({
-    ...swalInfoOptions,
-    html: options.description,
-  }).then(() => {
-    // Init
-    this.gazeTracker._init(
-      {
-        greedyLearner: options.greedyLearner,
-        framerate: options.framerate,
-        toFixedN: options.decimalPlace,
-        showVideo: options.showVideo,
-        showFaceOverlay: options.showFaceOverlay,
-        showGazer: options.showGazer,
-      },
-      'gaze'
-    )
 
-    gazeCalibrationPrepare(this, options)
-
-    // Begin
-    const gazeTrackerBeginOptions = {
-      pipWidthPx: options.pipWidthPx,
-    }
-    const calibrateGazeOptions = {
+  // Init
+  this.gazeTracker._init(
+    {
       greedyLearner: options.greedyLearner,
-      calibrationCount: options.calibrationCount,
-      headline: options.headline,
-      description: options.description,
+      framerate: options.framerate,
+      toFixedN: options.decimalPlace,
+      showVideo: options.showVideo,
+      showFaceOverlay: options.showFaceOverlay,
+      showGazer: options.showGazer,
+    },
+    'gaze'
+  )
+
+  gazeCalibrationPrepare(this, options)
+
+  // Begin
+  const gazeTrackerBeginOptions = {
+    pipWidthPx: options.pipWidthPx,
+  }
+  const calibrateGazeOptions = {
+    greedyLearner: options.greedyLearner,
+    calibrationCount: options.calibrationCount,
+    headline: options.headline,
+    description: options.description,
+  }
+  this.gazeTracker.begin(gazeTrackerBeginOptions, () => {
+    this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
+  })
+
+  // Calibration
+
+  const onCalibrationEnded = () => {
+    // ! greedyLearner
+    if (!this.gazeTracker.webgazer.params.greedyLearner) {
+      this.gazeTracker.stopLearning()
     }
-    this.gazeTracker.begin(gazeTrackerBeginOptions, () => {
-      this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
-    })
 
-    // Calibration
-
-    const onCalibrationEnded = () => {
-      // ! greedyLearner
-      if (!this.gazeTracker.webgazer.params.greedyLearner) {
-        this.gazeTracker.stopLearning()
-      }
-
-      // TODO Test accuracy
-      const testAccuracy = false
-      if (options.thresholdDeg === 'none' || !testAccuracy) {
+    // TODO Test accuracy
+    const testAccuracy = false
+    if (options.thresholdDeg === 'none' || !testAccuracy) {
+      this.gazeTracker.attachNewCallback(callback)
+      this.gazeTracker.defaultGazeCallback = callback
+      return
+    } else {
+      if (
+        !this.getGazeAccuracy(
+          {
+            thresholdDeg: options.thresholdDeg,
+          },
+          () => {
+            // Success
+            // Start running
+            this.gazeTracker.attachNewCallback(callback)
+            this.gazeTracker.defaultGazeCallback = callback
+          },
+          () => {
+            // Fail to meet the min accuracy
+            this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
+          }
+        )
+      ) {
+        console.error(
+          'Failed to finish gaze accuracy measurement due to error.'
+        )
         this.gazeTracker.attachNewCallback(callback)
         this.gazeTracker.defaultGazeCallback = callback
-        return
-      } else {
-        if (
-          !this.getGazeAccuracy(
-            {
-              thresholdDeg: options.thresholdDeg,
-            },
-            () => {
-              // Success
-              // Start running
-              this.gazeTracker.attachNewCallback(callback)
-              this.gazeTracker.defaultGazeCallback = callback
-            },
-            () => {
-              // Fail to meet the min accuracy
-              this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
-            }
-          )
-        ) {
-          console.error(
-            'Failed to finish gaze accuracy measurement due to error.'
-          )
-          this.gazeTracker.attachNewCallback(callback)
-          this.gazeTracker.defaultGazeCallback = callback
-        }
       }
     }
-  })
+  }
+  // Swal.fire({
+  //   ...swalInfoOptions,
+  //   html: options.description,
+  // }).then(() => {
+
+  // })
 }
 
 RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {

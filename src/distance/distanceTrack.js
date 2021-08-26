@@ -1,12 +1,9 @@
-import Swal from 'sweetalert2'
-
 import RemoteCalibrator from '../core'
 
 import { blindSpotTest } from './distance'
 import { toFixedNumber, constructInstructions, blurAll } from '../helpers'
 import { iRepeat } from '../components/iRepeat'
 import text from '../text.json'
-import { swalInfoOptions } from '../components/swalOptions'
 
 const originalStyles = {
   video: false,
@@ -94,16 +91,12 @@ RemoteCalibrator.prototype.trackDistance = function (
   const _ = () => {
     this._addBackground()
 
-    Swal.fire({
-      ...swalInfoOptions,
-      html: options.description,
-    }).then(() => {
-      this._replaceBackground(constructInstructions(options.headline))
+    this._replaceBackground(
+      constructInstructions(options.headline, options.description)
+    )
 
-      if (this.gazeTracker.checkInitialized('gaze', false))
-        this.showGazer(false)
-      blindSpotTest(this, options, true, getStdDist)
-    })
+    if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
+    blindSpotTest(this, options, true, getStdDist)
   }
 
   trackingOptions.pipWidthPx = options.pipWidthPx
