@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Avoid setting up multiple head trackings at the same time.
 - Cannot track near point when video is hidden.
 - After the initial measurement in head tracking, the float instruction block shrink to an ellipse.
+- No data error for video element when tracking viewing distance.
 
 ## Removed
 
