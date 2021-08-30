@@ -1,7 +1,12 @@
 import RemoteCalibrator from '../core'
 
 import { blindSpotTest } from './distance'
-import { toFixedNumber, constructInstructions, blurAll } from '../helpers'
+import {
+  toFixedNumber,
+  constructInstructions,
+  blurAll,
+  sleep,
+} from '../helpers'
 import { iRepeat } from '../components/iRepeat'
 import text from '../text.json'
 
@@ -171,9 +176,10 @@ let nearPointDot = null
 /* -------------------------------------------------------------------------- */
 
 const _tracking = async (RC, trackingOptions, callbackTrack) => {
+  const video = document.querySelector('#webgazerVideoFeed')
+
   const _ = async () => {
     // const canvas = RC.gazeTracker.webgazer.videoCanvas
-    const video = document.querySelector('#webgazerVideoFeed')
     let model, faces
 
     // Get the average of 2 estimates for one measure
@@ -285,7 +291,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
     iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
   }
 
-  await _()
+  sleep(500).then(_)
 }
 
 const _getNearPoint = (
