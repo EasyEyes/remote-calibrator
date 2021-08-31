@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - After the initial measurement in head tracking, the float instruction block shrink to an ellipse.
 - No data error for video element when tracking viewing distance.
 - Panel final callback is not checked before running, which may cause error.
+- Video feedback box may be selected unexpectedly during gaze calibration.
 
 ## Removed
 
