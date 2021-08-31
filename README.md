@@ -50,7 +50,7 @@ RemoteCalibrator.measureDistance({}, data => {
 | Task                                      | Functions                                                                                                                                                                                        |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                       |
-| [🍱 Panel](#-panel)                       | [`panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                              |
+| [🍱 Panel](#-panel)                       | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                        |
 | [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                |
 | [📏 Viewing Distance](#-viewing-distance) | `measureDistance()`                                                                                                                                                                              |
 | [🙂 Head Tracking](#-head-tracking)       | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-head-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#lifecycle) [Others](#others)              |
@@ -112,10 +112,12 @@ The `data` passed into the callback function is an [object](https://www.w3school
 ![Panel](./media/panel.png)
 
 ```js
-.panel(tasks, parentQuery, [options, [callback]])
+.panel(tasks, parentQuery, [options, [callback, [resolveOnFinish]]])
 ```
 
-`.panel()` is a powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Done" button can all be customized. It is appended to the parent HTML node as set by `parentQuery`, e.g., if the parent node has id `main-area`, put `#main-area` as the `parentQuery`. Can only run once. Return the DOM element of the panel if set up successfully, otherwise `false`.
+**Since 0.2.0:** `.panel()` is now an async function.
+
+`.panel()` is a powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Done" button can all be customized. It is appended to the parent HTML node as set by `parentQuery`, e.g., if the parent node has id `main-area`, put `#main-area` as the `parentQuery`. Can only run once. Return a JavaScript [`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises) that will resolve the `resolveOnFinish` once the "Done" button is pressed.
 
 `tasks` is an array of tasks which can be a string or an object. Valid names are `screenSize`, `displaySize`, `measureDistance`, `trackDistance`, `trackGaze`, `environment` (system information).
 

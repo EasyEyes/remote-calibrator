@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Changed
 
+- **(Breaking)** `.panel()` now becomes an async function and takes one more argument - `resolveOnFinish` that can be resolved after the "Done" button is pressed. This process is independent from the original callback function and provides one more way to deal with the end state of the calibration panel. The logic might be used for all other calibration and tracking functions soon.
 - The square part of the USB connectors will totally disappear when hovering on the slider and changing their sizes.
 - Default decimal place value (customized by `decimalPlace` in options) for head (1) and gaze (0) tracking data.
 - **(Breaking)** `showVideo` and `showGazer` parameters will only be effective after the initial calibration process. Participants would be able to see these visual feedbacks during the calibration even the parameters were set to `false`.
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cannot track near point when video is hidden.
 - After the initial measurement in head tracking, the float instruction block shrink to an ellipse.
 - No data error for video element when tracking viewing distance.
+- Panel final callback is not checked before running, which may cause error.
 
 ## Removed
 

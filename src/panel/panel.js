@@ -21,6 +21,7 @@ RemoteCalibrator.prototype.removePanel = function () {
   this._panel.panelOptions = {}
 
   this._hasPanel = false
+  this._panelFinished = false
 
   return true
 }
@@ -49,12 +50,13 @@ RemoteCalibrator.prototype.resetPanel = function (
   return this.panel(t, this._panel.panelParent, o, c, true)
 }
 
-RemoteCalibrator.prototype.panel = function (
+RemoteCalibrator.prototype.panel = async function (
   tasks,
   parent,
   options = {},
-  callback,
-  _reset = false
+  callback = null,
+  resolveOnFinish = null,
+  _reset = false // ! Not open for users
 ) {
   if (this._hasPanel ^ _reset) return false
   /**
@@ -84,7 +86,7 @@ RemoteCalibrator.prototype.panel = function (
       description: text.panel.description,
       nextButton: text.panel.nextButton,
       color: '#3490de',
-      _demoActivateAll: false,
+      _demoActivateAll: false, // ! Not open for users
     },
     options
   )
@@ -151,8 +153,18 @@ RemoteCalibrator.prototype.panel = function (
   this._panel.panelCallback = callback
 
   this._hasPanel = true
+  this._panelFinished = false
 
-  return panel
+  if (resolveOnFinish === null) resolveOnFinish = true
+
+  return new Promise(resolve => {
+    const _ = setInterval(() => {
+      if (this._panelFinished) {
+        clearInterval(_)
+        resolve(resolveOnFinish)
+      }
+    }, 300)
+  })
 }
 
 /**
@@ -283,7 +295,11 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
             _activateStepAt(RC, current, tasks, options, finalCallback)
           }
         } else {
-          e.onclick = finalCallback
+          e.onclick = () => {
+            RC._panelFinished = true
+            if (finalCallback && typeof finalCallback === 'function')
+              finalCallback()
+          }
         }
       }
     } else {
@@ -302,7 +318,11 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
           'rc-panel-step-inactive',
           'rc-panel-step-active'
         )
-        finalButton.onclick = finalCallback
+        finalButton.onclick = () => {
+          RC._panelFinished = true
+          if (finalCallback && typeof finalCallback === 'function')
+            finalCallback()
+        }
       }
     }
   })
