@@ -16,6 +16,7 @@ class RemoteCalibrator {
     this._initialized = false
 
     this._hasPanel = false
+    this._panelFinished = false
     this._panel = {
       panel: null,
       panelObserver: null,
