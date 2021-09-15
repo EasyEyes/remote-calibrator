@@ -157,7 +157,7 @@ If you don't want to use the default panel and want to integrate the process int
 
 You can also use `.removePanel()` to remove the panel element after the calibration is done, e.g., in the callback of `.panel()` function.
 
-`.resetPanel([tasks, [parentQuery, [options, [callback]]]])` helps you reset the panel to its initial state, i.e. none of the buttons were pressed. You may also pass in new tasks, options, etc., to refresh the element. However, this will not end the current trackings.
+`.resetPanel([tasks, [parentQuery, [options, [callback, [resolveOnFinish]]]]])` helps you reset the panel to its initial state, i.e. none of the buttons were pressed. You may also pass in new tasks, options, etc., to refresh the element. However, this will not end the current trackings.
 
 ### 🖥️ Screen
 

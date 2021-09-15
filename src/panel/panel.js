@@ -19,6 +19,8 @@ RemoteCalibrator.prototype.removePanel = function () {
   this._panel.panelTasks = []
   this._panel.panelParent = null
   this._panel.panelOptions = {}
+  this._panel.panelCallback = null
+  this._panel.panelResolve = null
 
   this._hasPanel = false
   this._panelFinished = false
@@ -30,7 +32,8 @@ RemoteCalibrator.prototype.resetPanel = function (
   tasks = null,
   parent = null,
   options = null,
-  callback = null
+  callback = null,
+  resolveOnFinish = null
 ) {
   if (!this._hasPanel) return false
 
@@ -40,14 +43,15 @@ RemoteCalibrator.prototype.resetPanel = function (
     callback && typeof callback === 'function'
       ? callback
       : this._panel.panelCallback
+  const r = resolveOnFinish || this._panel.panelResolve
 
   // New parent
   if (parent !== null && parent !== this._panel.panelParent) {
     this.removePanel()
-    return this.panel(t, parent, o, c)
+    return this.panel(t, parent, o, c, r)
   }
   // Current parent, just reset
-  return this.panel(t, this._panel.panelParent, o, c, true)
+  return this.panel(t, this._panel.panelParent, o, c, r, true)
 }
 
 RemoteCalibrator.prototype.panel = async function (
@@ -151,6 +155,7 @@ RemoteCalibrator.prototype.panel = async function (
   this._panel.panelParent = parent
   this._panel.panelOptions = options
   this._panel.panelCallback = callback
+  this._panel.panelResolve = resolveOnFinish
 
   this._hasPanel = true
   this._panelFinished = false

@@ -24,6 +24,7 @@ class RemoteCalibrator {
       panelParent: null,
       panelOptions: {},
       panelCallback: null,
+      panelResolve: null,
     }
 
     this._id = null
