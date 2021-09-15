@@ -50,7 +50,7 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
   originalStyles.video = this.gazeTracker.webgazer.params.showVideo
   originalStyles.gazer = this.gazeTracker.webgazer.params.showGazeDot
   if (!originalStyles.video) this.showVideo(true)
-  if (!originalStyles.gaze) this.showGazer(true)
+  if (!originalStyles.gazer) this.showGazer(true)
 
   this.gazeTracker.webgazer.params.greedyLearner = options.greedyLearner
   gazeCalibrationPrepare(this, options)
