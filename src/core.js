@@ -48,7 +48,7 @@ class RemoteCalibrator {
     }
 
     this._params = {
-      backgroundColor: '#ddd',
+      backgroundColor: '#eee',
       videoOpacity: 0.8,
       showCancelButton: true,
     }

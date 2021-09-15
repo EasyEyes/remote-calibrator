@@ -107,3 +107,4 @@ dist
 *homepage/lib
 *example/lib
 .DS_Store
+.vscode

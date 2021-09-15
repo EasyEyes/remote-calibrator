@@ -142,7 +142,15 @@ class GazeCalibrationDot {
           left: `calc(50% - ${gazeCalibrationDotDefault.r / 2}px)`,
           right: 'unset',
         }, // 1
-        { right: gazeCalibrationDotDefault.margin + 'px', left: 'unset' }, // 2
+        // { right: gazeCalibrationDotDefault.margin + 'px', left: 'unset' }, // 2
+        {
+          left:
+            window.innerWidth -
+            gazeCalibrationDotDefault.r -
+            gazeCalibrationDotDefault.margin +
+            'px',
+          right: 'unset',
+        }, // 2
       ][this.position[0]],
       [
         { top: gazeCalibrationDotDefault.margin + 'px', bottom: 'unset' }, // 0
@@ -150,7 +158,15 @@ class GazeCalibrationDot {
           top: `calc(50% - ${gazeCalibrationDotDefault.r / 2}px)`,
           bottom: 'unset',
         }, // 1
-        { bottom: gazeCalibrationDotDefault.margin + 'px', top: 'unset' }, // 2
+        // { bottom: gazeCalibrationDotDefault.margin + 'px', top: 'unset' }, // 2
+        {
+          top:
+            window.innerHeight -
+            gazeCalibrationDotDefault.r -
+            gazeCalibrationDotDefault.margin +
+            'px',
+          bottom: 'unset',
+        }, // 2
       ][this.position[1]]
     )
   }

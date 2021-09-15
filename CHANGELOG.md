@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Added
+## [0.2.0] - 2021-09-14
+
+### Added
 
 - `.showNearPoint()` to control the display of the near point on the screen (a green square).
 - `.removePanel()` and `.resetPanel()` functions to better control the panel element.
+- Animate transitions of the gaze calibration dot.
 
-## Changed
+### Changed
 
 - **(Breaking)** `.panel()` now becomes an async function and takes one more argument - `resolveOnFinish` that can be resolved after the "Done" button is pressed. This process is independent from the original callback function and provides one more way to deal with the end state of the calibration panel. The logic might be used for all other calibration and tracking functions soon.
 - The square part of the USB connectors will totally disappear when hovering on the slider and changing their sizes.
@@ -21,8 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refined design and default text of panel element.
 - Refined design of screen size measurement interface. It now works much better on smartphones.
 - Default instruction text in various functions.
+- A lighter default background color, changed from `#ddd` to `#ccc`.
 
-## Fixed
+### Fixed
 
 - Avoid setting up multiple head trackings at the same time.
 - Cannot track near point when video is hidden.
@@ -31,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Panel final callback is not checked before running, which may cause error.
 - Video feedback box may be selected unexpectedly during gaze calibration.
 
-## Removed
+### Removed
 
 - Pop-up in various functions. Instructions will be displayed side-by-side with the actual tasks.
 - Disable checking gaze accuracy and setting `thresholdDeg`. Waiting for more robust solutions.
@@ -173,7 +177,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.1.1...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.0...develop
+[0.2.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.9...v0.1.0
 [0.0.9]: https://github.com/EasyEyes/remote-calibrator/compare/v0.0.8...v0.0.9

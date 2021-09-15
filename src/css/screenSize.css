@@ -6,7 +6,7 @@
   width: calc(100% - 4rem);
   height: 30px;
   background: #fff;
-  opacity: 0.6;
+  opacity: 0.7;
   /* top: max(45%, 200px); */
   left: 2rem;
   border-radius: 15px;
@@ -17,7 +17,7 @@
 }
 
 .slider:hover {
-  opacity: 0.9;
+  opacity: 0.99;
 }
 
 .slider::-webkit-slider-thumb {

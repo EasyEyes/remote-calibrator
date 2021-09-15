@@ -5,7 +5,7 @@ RemoteCalibrator.prototype.backgroundColor = function (hex = null) {
 
   // https://stackoverflow.com/a/8027444/11069914
   if (hex === null || !/^#([0-9A-F]{3}){1,2}$/i.test(hex)) {
-    this._params.backgroundColor = '#ddd' // Default
+    this._params.backgroundColor = '#eee' // Default
   } else {
     this._params.backgroundColor = hex
   }

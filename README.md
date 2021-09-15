@@ -227,7 +227,7 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
   // By default, right eye 2 times, then left eye 2 times
   repeatTesting: 2,
   decimalPlace: 1,
-  headline: "📏 Viewing Distance Calibration",
+  headline: "📏 Measure Viewing Distance",
   description: "...",
 }
 ```
@@ -258,7 +258,7 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y } }, timestamp, method }
   // Near point
   nearPoint: true,
   showNearPoint: false,
-  headline: "👀 Calibrate Gaze",
+  headline: "🙂 Set up for Head Tracking",
   description: "...",
 }
 ```
@@ -326,7 +326,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
   // Min accuracy required in degree, set to 'none' to pass the accuracy check
   thresholdDeg: 10, 🚧
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
-  headline: "👀 Calibrate Gaze",
+  headline: "👀 Set up for Gaze Tracking",
   description: "...",
 }
 ```
@@ -391,7 +391,7 @@ Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, s
 
 ### 💄 Customization
 
-- `.backgroundColor()` Set the color of the background. Default `#dddddd`.
+- `.backgroundColor()` Set the color of the background. Default `#eeeeee`.
 - `.videoOpacity()` Set the opacity of the video element (in `trackDistance` and `trackGaze`). Default `0.8`.
 - `.showCancelButton()` Show the **Cancel** button or not in the following calibrations. Default `true`.
 

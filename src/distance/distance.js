@@ -137,7 +137,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   // ! ACTUAL TEST
   const runTest = () => {
-    // ctx.fillStyle = '#ddd'
+    // ctx.fillStyle = '#eee'
     // ctx.fillRect(0, 0, c.width, c.height)
     ctx.clearRect(0, 0, c.width, c.height)
     // ctx.beginPath()

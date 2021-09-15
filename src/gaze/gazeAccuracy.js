@@ -31,7 +31,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
 
   options = Object.assign(
     {
-      backgroundColor: '#ddd',
+      backgroundColor: '#eee',
       thresholdDeg: 10, // minAccuracy
       decimalPlace: 3,
     },

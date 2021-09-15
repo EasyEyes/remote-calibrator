@@ -9,6 +9,8 @@
   display: block;
   cursor: initial;
   z-index: 9998;
+  transition-timing-function: ease-in-out;
+  transition: left 0.5s, right 0.5s, top 0.5s, bottom 0.5s;
 }
 
 .gaze-calibration-dot-click {

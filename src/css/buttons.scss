@@ -8,7 +8,7 @@
 .rc-button {
   text-align: center;
   border: none !important;
-  background: #ffffffcc;
+  background: #ffffffee;
   line-height: 150% !important;
   font-size: 1rem !important;
   font-weight: 700 !important;
@@ -19,11 +19,11 @@
   cursor: pointer;
 
   &:hover {
-    background: #fff;
+    background: #ddd;
   }
 
   &:active {
-    background: #eeeeeeee;
-    color: #666;
+    background: #aaa;
+    color: #000;
   }
 }
