@@ -29,7 +29,7 @@
   "homepage": "https://github.com/EasyEyes/remote-calibrator#readme",
   "devDependencies": {
     "@babel/core": "^7.15.5",
-    "autoprefixer": "^10.3.5",
+    "autoprefixer": "^10.3.6",
     "babel-loader": "^8.2.2",
     "clean-webpack-plugin": "^4.0.0",
     "css-loader": "^6.3.0",
@@ -47,7 +47,7 @@
     "svg-inline-loader": "^0.8.2",
     "terser-webpack-plugin": "^5.2.4",
     "url-loader": "^4.1.1",
-    "webpack": "^5.53.0",
+    "webpack": "^5.55.1",
     "webpack-cli": "^4.8.0",
     "webpack-modules": "^1.0.0"
   },

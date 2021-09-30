@@ -147,6 +147,8 @@ You can customize the panel element with the following options.
 {
   headline: `To calibrate, press a button!`,
   description: ``,
+  nextHeadline: `Thanks for calibrating. Hit the button to continue.`,
+  nextDescription: ``,
   nextButton: `Done`,
 }
 ```

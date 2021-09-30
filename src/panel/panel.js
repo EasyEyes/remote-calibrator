@@ -88,9 +88,11 @@ RemoteCalibrator.prototype.panel = async function (
     {
       headline: text.panel.headline,
       description: text.panel.description,
+      nextHeadline: text.panel.nextHeadline,
+      nextDescription: text.panel.nextDescription,
       nextButton: text.panel.nextButton,
       color: '#3490de',
-      _demoActivateAll: false, // ! Not open for users
+      _demoActivateAll: false, // ! Private
     },
     options
   )
@@ -116,10 +118,8 @@ RemoteCalibrator.prototype.panel = async function (
 
   const panel = document.createElement('div')
   panel.className = panel.id = 'rc-panel'
-  panel.innerHTML = `<h1 class="rc-panel-title">${options.headline}</h1>`
-  panel.innerHTML += options.description
-    ? `<p class="rc-panel-description">${options.description}</p>`
-    : ''
+  panel.innerHTML = `<h1 class="rc-panel-title" id="rc-panel-title">${options.headline}</h1>`
+  panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${options.description}</p>`
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
 
   if (!_reset) parentElement.appendChild(panel)
@@ -300,6 +300,15 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
             _activateStepAt(RC, current, tasks, options, finalCallback)
           }
         } else {
+          // Change headline and description
+          const { headline, nextHeadline, description, nextDescription } =
+            options
+          if (headline !== nextHeadline)
+            document.querySelector('#rc-panel-title').innerHTML = nextHeadline
+          if (description !== nextDescription)
+            document.querySelector('#rc-panel-description').innerHTML =
+              nextDescription
+
           e.onclick = () => {
             RC._panelFinished = true
             if (finalCallback && typeof finalCallback === 'function')

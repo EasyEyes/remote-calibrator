@@ -111,9 +111,7 @@ function makePanel(e) {
       },
     ],
     '#experiment',
-    {
-      _demoActivateAll: true,
-    }
+    {}
   )
   changeClass(e.target, 'complete')
 }

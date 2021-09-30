@@ -22,6 +22,8 @@
   "panel": {
     "headline": "To calibrate, press a button!",
     "description": "",
+    "nextHeadline": "Thanks for calibrating. Hit the button to continue.",
+    "nextDescription": "",
     "nextButton": "Done"
   },
   "measurePD": {
