@@ -48,7 +48,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   const eyeSideEle = document.getElementById('eye-side')
   let eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
-  RC._setFloatInstructionElementPos(eyeSide)
+  RC._setFloatInstructionElementPos(eyeSide, 16)
   let crossX = _getCrossX(eyeSide, c.width)
 
   let circleBounds
@@ -114,7 +114,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       if (eyeSide === 'left')
         eyeSide = (eyeSideEle.innerText = 'RIGHT').toLocaleLowerCase()
       else eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
-      RC._setFloatInstructionElementPos(eyeSide)
+      RC._setFloatInstructionElementPos(eyeSide, 16)
 
       circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
       circleX = circleBounds[eyeSide === 'left' ? 0 : 1]

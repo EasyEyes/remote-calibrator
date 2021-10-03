@@ -533,8 +533,13 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
   return (this._background.instructionElement = instP)
 }
 
-RemoteCalibrator.prototype._setFloatInstructionElementPos = function (side) {
+RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
+  side,
+  yOffset = 16
+) {
+  // For blind spot test instructions
   const r = this.instructionElement.getBoundingClientRect()
+  this.instructionElement.style.top = `calc(50% + ${yOffset + 10}px)`
   if (side === 'left') {
     this.instructionElement.style.left = '10%'
     this.instructionElement.style.right = 'unset'
@@ -547,6 +552,7 @@ RemoteCalibrator.prototype._setFloatInstructionElementPos = function (side) {
     // Reset to center
     this.instructionElement.style.left = '50%'
     this.instructionElement.style.right = 'unset'
+    this.instructionElement.style.top = 'unset'
     this.instructionElement.style.transform = 'translate(-50%, 0)'
   }
 }
