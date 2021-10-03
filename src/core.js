@@ -533,6 +533,24 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
   return (this._background.instructionElement = instP)
 }
 
+RemoteCalibrator.prototype._setFloatInstructionElementPos = function (side) {
+  const r = this.instructionElement.getBoundingClientRect()
+  if (side === 'left') {
+    this.instructionElement.style.left = '10%'
+    this.instructionElement.style.right = 'unset'
+    this.instructionElement.style.transform = `translate(${-r.width / 2}px, 0)`
+  } else if (side === 'right') {
+    this.instructionElement.style.right = '10%'
+    this.instructionElement.style.left = 'unset'
+    this.instructionElement.style.transform = `translate(${r.width / 2}px, 0)`
+  } else {
+    // Reset to center
+    this.instructionElement.style.left = '50%'
+    this.instructionElement.style.right = 'unset'
+    this.instructionElement.style.transform = 'translate(-50%, 0)'
+  }
+}
+
 RemoteCalibrator.prototype._removeFloatInstructionElement = function () {
   if (this.instructionElement) {
     this.background.removeChild(this.instructionElement)

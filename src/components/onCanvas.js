@@ -5,12 +5,11 @@ import { colorDarkRed } from '../constants'
 
 // CROSS
 const crossLW = 32 // Width of a line of the middle cross
-const crossLH = 4
+const crossLH = 3
 export const _getCrossX = (eyeSide, tX) => {
   return eyeSide === 'left' ? tX * 0.1 : tX * 0.9
 }
 export function _cross(ctx, cX, mY) {
-  // Draw a cross at the middle of the canvas
   ctx.fillStyle = '#000'
   ctx.fillRect(cX - (crossLW >> 1), mY - (crossLH >> 1), crossLW, crossLH)
   ctx.fillRect(cX - (crossLH >> 1), mY - (crossLW >> 1), crossLH, crossLW)

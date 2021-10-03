@@ -39,7 +39,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   RC.background.appendChild(blindSpotDiv)
   RC._constructFloatInstructionElement(
     'blind-spot-instruction',
-    `Keep your <span id="eye-side"></span> eye closed and focus on the cross.`
+    `Close <span id="eye-side"></span> eye.`
   )
 
   // Get HTML elements
@@ -48,6 +48,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   const eyeSideEle = document.getElementById('eye-side')
   let eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
+  RC._setFloatInstructionElementPos(eyeSide)
   let crossX = _getCrossX(eyeSide, c.width)
 
   let circleBounds
@@ -113,6 +114,8 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       if (eyeSide === 'left')
         eyeSide = (eyeSideEle.innerText = 'RIGHT').toLocaleLowerCase()
       else eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
+      RC._setFloatInstructionElementPos(eyeSide)
+
       circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
       circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
       v = eyeSide === 'left' ? 1 : -1

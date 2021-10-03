@@ -10,9 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `nextHeadline` and `nextDescription` in panel options to change panel text after finishing all calibrations.
+- Blind spot floating instructions move along with the crosshair.
+
+### Changed
+
+- Changed "cross" to "crosshair" in default task descriptions.
+- SLightly thinner crosshair line width.
+- When not tracking near point, `nearPointCm` is stored as `[null, null]` instead of `null`.
 
 ### Fixed
 
+- Floating instructions don't show in blind spot test for head tracking, when near point is turned off.
 - Dependency security issues.
 
 ## [0.2.1] - 2021-09-14
