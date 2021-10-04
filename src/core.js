@@ -566,4 +566,16 @@ RemoteCalibrator.prototype._removeFloatInstructionElement = function () {
   return false
 }
 
+RemoteCalibrator.prototype._addCreditOnBackground = function (creditText) {
+  if (this.background === null) this._addBackground()
+
+  const p = document.createElement('p')
+  p.className = 'calibration-credit-text'
+  p.id = 'calibration-credit-text'
+  p.innerHTML = creditText
+  this.background.appendChild(p)
+
+  return p
+}
+
 export default RemoteCalibrator

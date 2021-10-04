@@ -62,6 +62,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
 
   this._addBackground()
   this._addBackgroundText(options.headline, options.description)
+  this._addCreditOnBackground(this._CONST.CREDIT_TEXT.CREDIT_CARD)
 
   getSize(this, this.background, options, callback)
 

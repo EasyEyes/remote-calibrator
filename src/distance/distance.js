@@ -41,6 +41,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     'blind-spot-instruction',
     `Close <span id="eye-side"></span> eye.`
   )
+  RC._addCreditOnBackground(RC._CONST.CREDIT_TEXT.BLIND_SPOT_TEST)
 
   // Get HTML elements
   const c = document.querySelector('#blind-spot-canvas')

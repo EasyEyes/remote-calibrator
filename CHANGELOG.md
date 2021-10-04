@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `nextHeadline` and `nextDescription` in panel options to change panel text after finishing all calibrations.
 - Blind spot floating instructions move along with the crosshair.
+- Add credit text for blind spot test and credit card trick on the corresponding pages.
 
 ### Changed
 
