@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `showNextButton` option for panel. If set to `false` (default), automatically proceed to the final callback after finishing the last task.
 - `nextHeadline` and `nextDescription` in panel options to change panel text after finishing all calibrations.
 - Blind spot floating instructions move along with the crosshair.
 - Add credit text for blind spot test and credit card trick on the corresponding pages.

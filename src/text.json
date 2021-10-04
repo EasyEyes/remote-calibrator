@@ -20,7 +20,7 @@
     "description": "We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen for the next 5 seconds."
   },
   "panel": {
-    "headline": "To calibrate, press a button!",
+    "headline": "Please press a button, to calibrate.",
     "description": "",
     "nextHeadline": "Thanks for calibrating. Hit the button to continue.",
     "nextDescription": "",

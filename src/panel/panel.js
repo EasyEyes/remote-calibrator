@@ -88,6 +88,7 @@ RemoteCalibrator.prototype.panel = async function (
     {
       headline: text.panel.headline,
       description: text.panel.description,
+      showNextButton: false,
       nextHeadline: text.panel.nextHeadline,
       nextDescription: text.panel.nextDescription,
       nextButton: text.panel.nextButton,
@@ -143,7 +144,8 @@ RemoteCalibrator.prototype.panel = async function (
     }
   }
 
-  steps.appendChild(_nextStepBlock(tasks.length, options))
+  if (options.showNextButton || options._demoActivateAll)
+    steps.appendChild(_nextStepBlock(tasks.length, options))
 
   // Activate the first one
   let current = { index: 0, finished: [] }
@@ -168,7 +170,7 @@ RemoteCalibrator.prototype.panel = async function (
         clearInterval(_)
         resolve(resolveOnFinish)
       }
-    }, 300)
+    }, 200)
   })
 }
 
@@ -299,7 +301,20 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
             current.index++
             _activateStepAt(RC, current, tasks, options, finalCallback)
           }
-        } else {
+        } else if (
+          Number(e.dataset.index) === tasks.length &&
+          !options.showNextButton
+        ) {
+          e.onclick = () => {
+            RC[_getTaskName(tasks[current.index])](
+              ..._getTaskOptionsCallbacks(tasks[current.index], finalCallback)
+            )
+            _finishStepAt(current.index)
+          }
+        } else if (
+          Number(e.dataset.index) === tasks.length &&
+          options.showNextButton
+        ) {
           // Change headline and description
           const { headline, nextHeadline, description, nextDescription } =
             options
@@ -356,17 +371,27 @@ const _getTaskName = task => {
   return task.name
 }
 
-const _getTaskOptionsCallbacks = task => {
+const _getTaskOptionsCallbacks = (task, finalCallback = null) => {
   if (typeof task === 'string') return []
 
+  const _ = () => {
+    if (task.callback && typeof task.callback === 'function') task.callback()
+    if (finalCallback && typeof finalCallback === 'function') finalCallback()
+  }
+
   if (['displaySize', 'environment'].includes(task.name)) {
-    return [task.callback || null]
+    return [_]
   } else if (['screenSize', 'trackGaze'].includes(task.name)) {
-    return [task.options || {}, task.callback || null]
+    return [task.options || {}, _]
   } else if (['trackDistance'].includes(task.name)) {
     return [
       task.options || {},
-      task.callbackStatic || null,
+      () => {
+        if (task.callbackStatic && typeof task.callbackStatic === 'function')
+          task.callbackStatic()
+        if (finalCallback && typeof finalCallback === 'function')
+          finalCallback()
+      },
       task.callbackTrack || null,
     ]
   }
