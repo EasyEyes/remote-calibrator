@@ -58,7 +58,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
 
   this.getFullscreen(options.fullscreen)
 
-  options.description += `<br /><b>I have a <select id="matching-obj"><option value="usba" selected>USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option><option value="card">Credit Card</option></select> with me.</b>`
+  options.description += `<br /><b style="display: inline-flex">I have a <select id="matching-obj"><option value="usba" selected>USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option><option value="card">Credit Card</option></select> with me.</b>`
 
   this._addBackground()
   this._addBackgroundText(options.headline, options.description)
