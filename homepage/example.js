@@ -111,7 +111,10 @@ function makePanel(e) {
       },
     ],
     '#experiment',
-    {}
+    {},
+    () => {
+      printMessage('Panel finished!')
+    }
   )
   changeClass(e.target, 'complete')
 }

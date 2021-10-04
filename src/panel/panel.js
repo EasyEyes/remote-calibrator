@@ -288,33 +288,31 @@ const _setStepsClassesSL = (steps, panelWidth) => {
 
 const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
   document.querySelectorAll('.rc-panel-step').forEach((e, ind) => {
+    const eIndex = Number(e.dataset.index)
+
     if (!options._demoActivateAll) {
       // Default situation
-      if (Number(e.dataset.index) === current.index) {
+      if (eIndex === current.index) {
         e.classList.replace('rc-panel-step-inactive', 'rc-panel-step-active')
-        if (Number(e.dataset.index) !== tasks.length) {
-          e.onclick = () => {
-            RC[_getTaskName(tasks[current.index])](
-              ..._getTaskOptionsCallbacks(tasks[current.index])
-            )
-            _finishStepAt(current.index)
-            current.index++
-            _activateStepAt(RC, current, tasks, options, finalCallback)
+        if (eIndex !== tasks.length) {
+          if (eIndex === tasks.length - 1 && !options.showNextButton) {
+            e.onclick = () => {
+              RC[_getTaskName(tasks[current.index])](
+                ..._getTaskOptionsCallbacks(tasks[current.index], finalCallback)
+              )
+              _finishStepAt(current.index)
+            }
+          } else {
+            e.onclick = () => {
+              RC[_getTaskName(tasks[current.index])](
+                ..._getTaskOptionsCallbacks(tasks[current.index])
+              )
+              _finishStepAt(current.index)
+              current.index++
+              _activateStepAt(RC, current, tasks, options, finalCallback)
+            }
           }
-        } else if (
-          Number(e.dataset.index) === tasks.length &&
-          !options.showNextButton
-        ) {
-          e.onclick = () => {
-            RC[_getTaskName(tasks[current.index])](
-              ..._getTaskOptionsCallbacks(tasks[current.index], finalCallback)
-            )
-            _finishStepAt(current.index)
-          }
-        } else if (
-          Number(e.dataset.index) === tasks.length &&
-          options.showNextButton
-        ) {
+        } else if (eIndex === tasks.length && options.showNextButton) {
           // Change headline and description
           const { headline, nextHeadline, description, nextDescription } =
             options
