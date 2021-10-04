@@ -86,10 +86,11 @@
 /* -------------------------------------------------------------------------- */
 
 .calibration-credit-text {
-  position: fixed;
-  left: 3px;
-  bottom: 3px;
-  font-size: 0.9rem;
-  color: #999;
-  margin: 0;
+  position: fixed !important;
+  left: 50% !important;
+  bottom: 3px !important;
+  transform: translate(-50%, 0) !important;
+  font-size: 0.9rem !important;
+  color: #999 !important;
+  margin: 0 !important;
 }
