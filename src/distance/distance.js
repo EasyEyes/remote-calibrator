@@ -15,6 +15,7 @@ import {
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
+import { soundFeedback } from '../components/sound'
 import text from '../text.json'
 
 const blindSpotHTML = `<canvas id="blind-spot-canvas"></canvas>`
@@ -83,6 +84,8 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   // SPACE
   const finishFunction = () => {
+    soundFeedback()
+
     tested += 1
     // Average
     dist.push(
