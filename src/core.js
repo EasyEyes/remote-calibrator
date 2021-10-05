@@ -533,6 +533,30 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
   return (this._background.instructionElement = instP)
 }
 
+RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
+  side,
+  yOffset = 16
+) {
+  // For blind spot test instructions
+  const r = this.instructionElement.getBoundingClientRect()
+  this.instructionElement.style.top = `calc(50% + ${yOffset + 10}px)`
+  if (side === 'left') {
+    this.instructionElement.style.left = '10%'
+    this.instructionElement.style.right = 'unset'
+    this.instructionElement.style.transform = `translate(${-r.width / 2}px, 0)`
+  } else if (side === 'right') {
+    this.instructionElement.style.right = '10%'
+    this.instructionElement.style.left = 'unset'
+    this.instructionElement.style.transform = `translate(${r.width / 2}px, 0)`
+  } else {
+    // Reset to center
+    this.instructionElement.style.left = '50%'
+    this.instructionElement.style.right = 'unset'
+    this.instructionElement.style.top = 'unset'
+    this.instructionElement.style.transform = 'translate(-50%, 0)'
+  }
+}
+
 RemoteCalibrator.prototype._removeFloatInstructionElement = function () {
   if (this.instructionElement) {
     this.background.removeChild(this.instructionElement)
@@ -540,6 +564,18 @@ RemoteCalibrator.prototype._removeFloatInstructionElement = function () {
     return this.background
   }
   return false
+}
+
+RemoteCalibrator.prototype._addCreditOnBackground = function (creditText) {
+  if (this.background === null) this._addBackground()
+
+  const p = document.createElement('p')
+  p.className = 'calibration-credit-text'
+  p.id = 'calibration-credit-text'
+  p.innerHTML = creditText
+  this.background.appendChild(p)
+
+  return p
 }
 
 export default RemoteCalibrator

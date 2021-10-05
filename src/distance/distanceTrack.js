@@ -138,8 +138,8 @@ RemoteCalibrator.prototype.trackDistance = function (
 
 const startTrackingPupils = async (RC, beforeCallbackTrack, callbackTrack) => {
   RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
-    beforeCallbackTrack()
     RC._removeFloatInstructionElement()
+    beforeCallbackTrack()
     _tracking(RC, trackingOptions, callbackTrack)
   })
 }
@@ -269,7 +269,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
               callbackTrack({
                 value: {
                   viewingDistanceCm: data.value,
-                  nearPointCm: nPData ? nPData.value : null,
+                  nearPointCm: nPData ? nPData.value : [null, null],
                 },
                 timestamp: timestamp,
                 method: 'Facemesh Predict',

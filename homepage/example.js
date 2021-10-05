@@ -111,8 +111,9 @@ function makePanel(e) {
       },
     ],
     '#experiment',
-    {
-      _demoActivateAll: true,
+    {},
+    () => {
+      printMessage('Panel finished!')
     }
   )
   changeClass(e.target, 'complete')
@@ -126,9 +127,9 @@ function makePanel(e) {
 function measureDisplaySize(e) {
   RemoteCalibrator.displaySize(displayData => {
     printMessage(
-      `Display size is ${displayData.value.displayWidthPx}px in width and ${
+      `Display size is ${displayData.value.displayWidthPx} px in width and ${
         displayData.value.displayHeightPx
-      }px in height, measured at ${parseTimestamp(displayData.timestamp)}.`
+      } px in height, measured at ${parseTimestamp(displayData.timestamp)}.`
     )
 
     changeClass(e.target, 'complete')
@@ -143,9 +144,9 @@ function measureDisplaySize(e) {
 function measureScreenSize(e) {
   RemoteCalibrator.screenSize({}, screenData => {
     printMessage(
-      `Screen size is ${screenData.value.screenDiagonalIn}in [Width: ${
+      `Screen size is ${screenData.value.screenDiagonalIn} in [Width: ${
         screenData.value.screenWidthCm
-      }cm, Height: ${screenData.value.screenHeightCm}cm, PPI: ${
+      } cm, Height: ${screenData.value.screenHeightCm} cm, PPI: ${
         screenData.value.screenPpi
       }, PPI (Physical): ${
         screenData.value.screenPhysicalPpi
@@ -160,7 +161,7 @@ const measureDistanceCallback = distanceData => {
   printMessage(
     `The viewing distance is ${
       distanceData.value
-    }cm, measured at ${parseTimestamp(distanceData.timestamp)}, by ${
+    } cm, measured at ${parseTimestamp(distanceData.timestamp)}, by ${
       distanceData.method
     } method.`
   )
@@ -201,11 +202,11 @@ function trackViewingDistance(e) {
       trackP.innerHTML = gotData(
         `The dynamic viewing distance is ${
           data.value.viewingDistanceCm
-        }cm at ${parseTimestamp(data.timestamp)}, measured by ${
+        } cm at ${parseTimestamp(data.timestamp)}, measured by ${
           data.method
-        } method. The near point is at [${data.value.nearPointCm.x}cm, ${
+        } method. The near point is at [${data.value.nearPointCm.x} cm, ${
           data.value.nearPointCm.y
-        }cm] compared to the center of the screen.`
+        } cm] compared to the center of the screen.`
       )
     }
   )
@@ -300,9 +301,9 @@ function trackGaze(e) {
     },
     data => {
       gazeP.innerHTML = gotData(
-        `The gaze position is [${data.value.x}px, ${
+        `The gaze position is [${data.value.x} px, ${
           data.value.y
-        }px] at ${parseTimestamp(data.timestamp)}.`
+        } px] at ${parseTimestamp(data.timestamp)}.`
       )
     }
   )

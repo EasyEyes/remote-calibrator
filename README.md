@@ -145,8 +145,12 @@ You can customize the panel element with the following options.
 ```js
 /* [options] Default value */
 {
-  headline: `To calibrate, press a button!`,
+  headline: `Please press a button, to calibrate.`,
   description: ``,
+  color: '#3490de', // Main color of the panel
+  showNextButton: false, // If set to false, will execute the callback right after the last calibration task
+  nextHeadline: `Thanks for calibrating. Hit the button to continue.`,
+  nextDescription: ``,
   nextButton: `Done`,
 }
 ```

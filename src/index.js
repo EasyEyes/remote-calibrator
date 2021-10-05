@@ -1,5 +1,7 @@
 import RemoteCalibrator from './core'
 
+import './const'
+
 import './screenSize'
 import './displaySize'
 import './distance/distance'

@@ -82,3 +82,15 @@
 .swal2-container {
   z-index: 999997 !important;
 }
+
+/* -------------------------------------------------------------------------- */
+
+.calibration-credit-text {
+  position: fixed !important;
+  left: 50% !important;
+  bottom: 3px !important;
+  transform: translate(-50%, 0) !important;
+  font-size: 0.9rem !important;
+  color: #999 !important;
+  margin: 0 !important;
+}

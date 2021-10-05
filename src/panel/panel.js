@@ -88,9 +88,12 @@ RemoteCalibrator.prototype.panel = async function (
     {
       headline: text.panel.headline,
       description: text.panel.description,
+      showNextButton: false,
+      nextHeadline: text.panel.nextHeadline,
+      nextDescription: text.panel.nextDescription,
       nextButton: text.panel.nextButton,
       color: '#3490de',
-      _demoActivateAll: false, // ! Not open for users
+      _demoActivateAll: false, // ! Private
     },
     options
   )
@@ -116,10 +119,8 @@ RemoteCalibrator.prototype.panel = async function (
 
   const panel = document.createElement('div')
   panel.className = panel.id = 'rc-panel'
-  panel.innerHTML = `<h1 class="rc-panel-title">${options.headline}</h1>`
-  panel.innerHTML += options.description
-    ? `<p class="rc-panel-description">${options.description}</p>`
-    : ''
+  panel.innerHTML = `<h1 class="rc-panel-title" id="rc-panel-title">${options.headline}</h1>`
+  panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${options.description}</p>`
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
 
   if (!_reset) parentElement.appendChild(panel)
@@ -143,7 +144,8 @@ RemoteCalibrator.prototype.panel = async function (
     }
   }
 
-  steps.appendChild(_nextStepBlock(tasks.length, options))
+  if (options.showNextButton || options._demoActivateAll)
+    steps.appendChild(_nextStepBlock(tasks.length, options))
 
   // Activate the first one
   let current = { index: 0, finished: [] }
@@ -168,7 +170,7 @@ RemoteCalibrator.prototype.panel = async function (
         clearInterval(_)
         resolve(resolveOnFinish)
       }
-    }, 300)
+    }, 200)
   })
 }
 
@@ -286,20 +288,40 @@ const _setStepsClassesSL = (steps, panelWidth) => {
 
 const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
   document.querySelectorAll('.rc-panel-step').forEach((e, ind) => {
+    const eIndex = Number(e.dataset.index)
+
     if (!options._demoActivateAll) {
       // Default situation
-      if (Number(e.dataset.index) === current.index) {
+      if (eIndex === current.index) {
         e.classList.replace('rc-panel-step-inactive', 'rc-panel-step-active')
-        if (Number(e.dataset.index) !== tasks.length) {
-          e.onclick = () => {
-            RC[_getTaskName(tasks[current.index])](
-              ..._getTaskOptionsCallbacks(tasks[current.index])
-            )
-            _finishStepAt(current.index)
-            current.index++
-            _activateStepAt(RC, current, tasks, options, finalCallback)
+        if (eIndex !== tasks.length) {
+          if (eIndex === tasks.length - 1 && !options.showNextButton) {
+            e.onclick = () => {
+              RC[_getTaskName(tasks[current.index])](
+                ..._getTaskOptionsCallbacks(tasks[current.index], finalCallback)
+              )
+              _finishStepAt(current.index)
+            }
+          } else {
+            e.onclick = () => {
+              RC[_getTaskName(tasks[current.index])](
+                ..._getTaskOptionsCallbacks(tasks[current.index])
+              )
+              _finishStepAt(current.index)
+              current.index++
+              _activateStepAt(RC, current, tasks, options, finalCallback)
+            }
           }
-        } else {
+        } else if (eIndex === tasks.length && options.showNextButton) {
+          // Change headline and description
+          const { headline, nextHeadline, description, nextDescription } =
+            options
+          if (headline !== nextHeadline)
+            document.querySelector('#rc-panel-title').innerHTML = nextHeadline
+          if (description !== nextDescription)
+            document.querySelector('#rc-panel-description').innerHTML =
+              nextDescription
+
           e.onclick = () => {
             RC._panelFinished = true
             if (finalCallback && typeof finalCallback === 'function')
@@ -347,17 +369,27 @@ const _getTaskName = task => {
   return task.name
 }
 
-const _getTaskOptionsCallbacks = task => {
+const _getTaskOptionsCallbacks = (task, finalCallback = null) => {
   if (typeof task === 'string') return []
 
+  const _ = () => {
+    if (task.callback && typeof task.callback === 'function') task.callback()
+    if (finalCallback && typeof finalCallback === 'function') finalCallback()
+  }
+
   if (['displaySize', 'environment'].includes(task.name)) {
-    return [task.callback || null]
+    return [_]
   } else if (['screenSize', 'trackGaze'].includes(task.name)) {
-    return [task.options || {}, task.callback || null]
+    return [task.options || {}, _]
   } else if (['trackDistance'].includes(task.name)) {
     return [
       task.options || {},
-      task.callbackStatic || null,
+      () => {
+        if (task.callbackStatic && typeof task.callbackStatic === 'function')
+          task.callbackStatic()
+        if (finalCallback && typeof finalCallback === 'function')
+          finalCallback()
+      },
       task.callbackTrack || null,
     ]
   }

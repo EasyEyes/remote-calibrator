@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Sound feedback (2000 Hz, 0.05 s) for responses in blind spot test.
+- `showNextButton` option for panel. If set to `false` (default), automatically proceed to the final callback after finishing the last task.
+- `nextHeadline` and `nextDescription` in panel options to change panel text after finishing all calibrations.
+- Blind spot floating instructions move along with the crosshair.
+- Add credit text for blind spot test and credit card trick on the corresponding pages.
+
+### Changed
+
+- Changed "cross" to "crosshair" in default task descriptions.
+- SLightly thinner crosshair line width.
+- When not tracking near point, `nearPointCm` is stored as `[null, null]` instead of `null`.
+
+### Fixed
+
+- Floating instructions don't show in blind spot test for head tracking, when near point is turned off.
+- Dependency security issues.
+
 ## [0.2.1] - 2021-09-14
 
 Minor fixes and updates.
