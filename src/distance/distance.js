@@ -143,6 +143,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   )
 
   // ! ACTUAL TEST
+  let frameCount = 0
   const runTest = () => {
     // ctx.fillStyle = '#eee'
     // ctx.fillRect(0, 0, c.width, c.height)
@@ -151,7 +152,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
     _cross(ctx, crossX, c.height / 2)
 
-    _circle(ctx, circleX, c.height / 2)
+    _circle(ctx, circleX, c.height / 2, frameCount, options.sparkle)
     circleX += v * circleDeltaX
     tempX = constrain(circleX, ...circleBounds)
     if (circleX !== tempX) {
@@ -160,6 +161,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     }
 
     if (inTest) {
+      frameCount++
       requestAnimationFrame(runTest)
     } else {
       ctx.clearRect(0, 0, c.width, c.height)
@@ -176,6 +178,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
    * fullscreen: [Boolean]
    * quitFullscreenOnFinished: [Boolean] // TODO
    * repeatTesting: 2
+   * sparkle: true
    * decimalPlace: 1
    * headline: [String]
    * description: [String]
@@ -192,6 +195,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       fullscreen: false,
       quitFullscreenOnFinished: false,
       repeatTesting: 2,
+      sparkle: true,
       decimalPlace: 1,
       headline: text.measureDistance.headline,
       description: text.measureDistance.description,

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `sparkle` option (default `true`) for measuring and tracking viewing distance. The red dot sparkles at 10 Hz to make it more prominent when absent from the view.
 - Ignore the Return key in screen size calibration.
 
 ## [0.2.2] - 2021-10-04

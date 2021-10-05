@@ -41,6 +41,7 @@ RemoteCalibrator.prototype.trackDistance = function (
     {
       fullscreen: false,
       repeatTesting: 2,
+      sparkle: true,
       pipWidthPx: 208,
       showVideo: true,
       showFaceOverlay: false,

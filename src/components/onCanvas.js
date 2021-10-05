@@ -16,7 +16,7 @@ export function _cross(ctx, cX, mY) {
 }
 
 // CIRCLE
-const circleR = 40
+const circleR = 30
 export let circleDeltaX = 5
 
 export function _getCircleBounds(side, crossX, cW) {
@@ -25,11 +25,18 @@ export function _getCircleBounds(side, crossX, cW) {
     : [circleR >> 1, crossX - (crossLW + circleR) / 2]
 }
 
-export function _circle(ctx, x, y) {
+export function _circle(ctx, x, y, frameCount, sparkle = true) {
   ctx.beginPath()
   ctx.arc(x, y, circleR >> 1, 0, Math.PI * 2)
   ctx.closePath()
 
-  ctx.fillStyle = colorDarkRed // Red fill
+  if (!sparkle) ctx.fillStyle = colorDarkRed
+  else {
+    // 10 Hz
+    if (frameCount % 6 < 3) ctx.fillStyle = colorDarkRed
+    else if (frameCount % 6 >= 3) ctx.fillStyle = '#fff'
+  }
+
+  // ctx.fillStyle = colorDarkRed // Red fill
   ctx.fill()
 }
