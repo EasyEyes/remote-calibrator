@@ -32,9 +32,8 @@ export function _circle(ctx, x, y, frameCount, sparkle = true) {
 
   if (!sparkle) ctx.fillStyle = colorDarkRed
   else {
-    // 10 Hz
-    if (frameCount % 6 < 3) ctx.fillStyle = colorDarkRed
-    else if (frameCount % 6 >= 3) ctx.fillStyle = '#fff'
+    if (frameCount % 4 < 2) ctx.fillStyle = colorDarkRed
+    else ctx.fillStyle = '#fff'
   }
 
   // ctx.fillStyle = colorDarkRed // Red fill
