@@ -1,7 +1,7 @@
 {
   "screenSize": {
     "headline": "🖥️ Screen Size Calibration",
-    "description": "We will measure your screen size. Find a <b>USB connector</b> (like the one providing power to your laptop) or a <b>credit card</b> (or any card of the same size), place it on the screen and drag the slider to match the sizes of the physical and displayed objects. Press <b>SPACE</b> or click <b>OK</b> to submit when sizes match."
+    "description": "We will measure your screen size. Find a <b>USB connector</b> (like the one providing power to your laptop) or a <b>credit card</b> (or any card of the same size), place it on the screen and drag the slider to match the sizes of the physical and displayed objects. When the sizes match, press <b>SPACE</b> or click <b>OK</b>."
   },
   "measureDistance": {
     "headline": "📏 Measure Viewing Distance",

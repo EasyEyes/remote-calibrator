@@ -182,6 +182,7 @@ function getSize(RC, parent, options, callback) {
   const bindKeysFunction = bindKeys({
     Escape: breakFunction,
     ' ': finishFunction,
+    Enter: () => {},
   })
 
   addButtons(
