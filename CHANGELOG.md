@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Changed "cross" to "crosshair" in default task descriptions.
-- SLightly thinner crosshair line width.
+- Slightly thinner crosshair line width.
 - When not tracking near point, `nearPointCm` is stored as `[null, null]` instead of `null`.
 
 ### Fixed
