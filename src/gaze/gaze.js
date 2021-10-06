@@ -6,7 +6,8 @@ import text from '../text.json'
 
 RemoteCalibrator.prototype.trackGaze = function (
   options = {},
-  callback = null
+  callbackOnCalibrationEnd = null,
+  callbackTrack = null
 ) {
   /**
    * options -
@@ -60,8 +61,8 @@ RemoteCalibrator.prototype.trackGaze = function (
     this.showVideo(options.showVideo)
     this.showFaceOverlay(options.showFaceOverlay)
 
-    this.gazeTracker.attachNewCallback(callback)
-    this.gazeTracker.defaultGazeCallback = callback
+    this.gazeTracker.attachNewCallback(callbackTrack)
+    this.gazeTracker.defaultGazeCallback = callbackTrack
     return
   }
 
@@ -101,6 +102,12 @@ RemoteCalibrator.prototype.trackGaze = function (
   // Calibration
 
   const onCalibrationEnded = () => {
+    if (
+      callbackOnCalibrationEnd &&
+      typeof callbackOnCalibrationEnd === 'function'
+    )
+      callbackOnCalibrationEnd()
+
     // ! greedyLearner
     if (!this.gazeTracker.webgazer.params.greedyLearner) {
       this.gazeTracker.stopLearning()
@@ -109,8 +116,8 @@ RemoteCalibrator.prototype.trackGaze = function (
     // TODO Test accuracy
     const testAccuracy = false
     if (options.thresholdDeg === 'none' || !testAccuracy) {
-      this.gazeTracker.attachNewCallback(callback)
-      this.gazeTracker.defaultGazeCallback = callback
+      this.gazeTracker.attachNewCallback(callbackTrack)
+      this.gazeTracker.defaultGazeCallback = callbackTrack
       return
     } else {
       if (
@@ -121,8 +128,8 @@ RemoteCalibrator.prototype.trackGaze = function (
           () => {
             // Success
             // Start running
-            this.gazeTracker.attachNewCallback(callback)
-            this.gazeTracker.defaultGazeCallback = callback
+            this.gazeTracker.attachNewCallback(callbackTrack)
+            this.gazeTracker.defaultGazeCallback = callbackTrack
           },
           () => {
             // Fail to meet the min accuracy
@@ -133,8 +140,8 @@ RemoteCalibrator.prototype.trackGaze = function (
         console.error(
           'Failed to finish gaze accuracy measurement due to error.'
         )
-        this.gazeTracker.attachNewCallback(callback)
-        this.gazeTracker.defaultGazeCallback = callback
+        this.gazeTracker.attachNewCallback(callbackTrack)
+        this.gazeTracker.defaultGazeCallback = callbackTrack
       }
     }
   }

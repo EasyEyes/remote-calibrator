@@ -52,7 +52,7 @@ RemoteCalibrator.measureDistance({}, data => {
 | [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                       |
 | [🍱 Panel](#-panel)                       | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                        |
 | [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                |
-| [📏 Viewing Distance](#-viewing-distance) | `measureDistance()`                                                                                                                                                                              |
+| [📏 Viewing Distance](#-viewing-distance) | [`measureDistance()`](#-viewing-distance)                                                                                                                                                        |
 | [🙂 Head Tracking](#-head-tracking)       | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-head-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#lifecycle) [Others](#others)              |
 | [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1) |
 | [💻 Environment](#-environment)           | [`environment()`](#-environment)                                                                                                                                                                 |
@@ -128,7 +128,7 @@ The `data` passed into the callback function is an [object](https://www.w3school
   {
     name: 'trackGaze',
     options: { framerate: 60 }, // Same as setting the options for .trackGaze()
-    callback: gotGaze, // Same as setting the callback for .trackGaze()
+    callbackTrack: gotGaze, // Same as setting the callback for .trackGaze()
   },
   // Tracking viewing distance accepts two callbacks just like .trackDistance()
   {
@@ -300,14 +300,14 @@ The value returned are the horizontal and vertical offsets, in centimeters, comp
 ![Start Gaze Tracking](./media/trackGaze.png)
 
 ```js
-.trackGaze([options, [callback]])
+.trackGaze([options, [callbackOnCalibrationEnd, [callbackTrack]]])
 ```
 
 Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface for participants to calibrate their gaze position on the screen (only when this function is called for the first time), then run in the background and continuously predict the current gaze position. Require access to the camera of the participant's computer. The callback function will be executed repeatedly **every time** there's a new prediction.
 
 This function should only be called once, unless you want to change the callback functions for every prediction.
 
-Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPx`) to callback.
+Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPx`) to `callbackTrack` function.
 
 ```js
 /* [options] Default value */

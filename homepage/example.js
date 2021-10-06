@@ -299,6 +299,7 @@ function trackGaze(e) {
     {
       showVideo: false,
     },
+    null,
     data => {
       gazeP.innerHTML = gotData(
         `The gaze position is [${data.value.x} px, ${
