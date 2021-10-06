@@ -215,7 +215,7 @@ No new feature updates in this release. Updated dependency packages and the lice
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
 [unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.3...develop
-[0.2.2]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.2...v0.2.3
+[0.2.3]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.1.1...v0.2.0

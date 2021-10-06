@@ -47,7 +47,7 @@
     "svg-inline-loader": "^0.8.2",
     "terser-webpack-plugin": "^5.2.4",
     "url-loader": "^4.1.1",
-    "webpack": "^5.56.1",
+    "webpack": "^5.57.1",
     "webpack-cli": "^4.8.0",
     "webpack-modules": "^1.0.0"
   },
