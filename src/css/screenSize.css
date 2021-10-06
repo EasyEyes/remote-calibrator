@@ -68,7 +68,8 @@
   transition: opacity 0.1s;
 }
 
-.slider:hover ~ .size-obj .minor {
+.slider:hover ~ .size-obj .minor,
+.slider:active ~ .size-obj .minor {
   opacity: 0;
 }
 

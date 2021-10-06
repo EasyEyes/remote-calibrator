@@ -377,10 +377,26 @@ const _getTaskOptionsCallbacks = (task, finalCallback = null) => {
     if (finalCallback && typeof finalCallback === 'function') finalCallback()
   }
 
+  // TODO Refine this process
+  // Replace hardcoded strings with RC CONST
   if (['displaySize', 'environment'].includes(task.name)) {
     return [_]
-  } else if (['screenSize', 'trackGaze'].includes(task.name)) {
+  } else if (['screenSize', 'measureDistance'].includes(task.name)) {
     return [task.options || {}, _]
+  } else if (['trackGaze'].includes(task.name)) {
+    return [
+      task.options || {},
+      () => {
+        if (
+          task.callbackOnCalibrationEnd &&
+          typeof task.callbackOnCalibrationEnd === 'function'
+        )
+          task.callbackOnCalibrationEnd()
+        if (finalCallback && typeof finalCallback === 'function')
+          finalCallback()
+      },
+      task.callbackTrack || null,
+    ]
   } else if (['trackDistance'].includes(task.name)) {
     return [
       task.options || {},
