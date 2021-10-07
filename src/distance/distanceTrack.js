@@ -42,7 +42,8 @@ RemoteCalibrator.prototype.trackDistance = function (
       fullscreen: false,
       repeatTesting: 2,
       sparkle: true,
-      pipWidthPx: 208,
+      pipWidthPx:
+        this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP'],
       showVideo: true,
       showFaceOverlay: false,
       decimalPlace: 1,
@@ -161,7 +162,7 @@ const cyclopean = (video, a, b) => {
 
 /* -------------------------------------------------------------------------- */
 const trackingOptions = {
-  pipWidthPx: 208,
+  pipWidthPx: 0,
   decimalPlace: 2,
   framerate: 3,
   nearPoint: true,
@@ -372,7 +373,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     iRepeatOptions.break = true
     iRepeatOptions.framerate = 20
 
-    trackingOptions.pipWidthPx = 208
+    trackingOptions.pipWidthPx = 0
     trackingOptions.decimalPlace = 2
     trackingOptions.framerate = 3
     trackingOptions.nearPoint = true

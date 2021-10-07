@@ -1,8 +1,6 @@
 // Draw cross and circle on the canvas
 // For blind spot test and more
 
-import { colorDarkRed } from '../constants'
-
 // CROSS
 const crossLW = 32 // Width of a line of the middle cross
 const crossLH = 3
@@ -25,17 +23,16 @@ export function _getCircleBounds(side, crossX, cW) {
     : [circleR >> 1, crossX - (crossLW + circleR) / 2]
 }
 
-export function _circle(ctx, x, y, frameCount, sparkle = true) {
+export function _circle(RC, ctx, x, y, frameCount, sparkle = true) {
   ctx.beginPath()
   ctx.arc(x, y, circleR >> 1, 0, Math.PI * 2)
   ctx.closePath()
 
-  if (!sparkle) ctx.fillStyle = colorDarkRed
+  if (!sparkle) ctx.fillStyle = RC._CONST.COLOR.DARK_RED
   else {
-    if (frameCount % 4 < 2) ctx.fillStyle = colorDarkRed
+    if (frameCount % 4 < 2) ctx.fillStyle = RC._CONST.COLOR.DARK_RED
     else ctx.fillStyle = '#fff'
   }
 
-  // ctx.fillStyle = colorDarkRed // Red fill
   ctx.fill()
 }

@@ -7,7 +7,6 @@ import USBA from './media/usba.svg'
 import USBC from './media/usbc.svg'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
-import { colorDarkRed } from './constants'
 import text from './text.json'
 
 // TODO Make it customizable
@@ -58,7 +57,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
 
   this.getFullscreen(options.fullscreen)
 
-  options.description += `<br /><b style="display: inline-flex">I have a <select id="matching-obj"><option value="usba" selected>USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option><option value="card">Credit Card</option></select> with me.</b>`
+  options.description += `<br /><b class="rc-size-obj-selection">I have a <select id="matching-obj"><option value="usba" selected>USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option><option value="card">Credit Card</option></select> with me.</b>`
 
   this._addBackground()
   this._addBackgroundText(options.headline, options.description)
@@ -86,26 +85,46 @@ function getSize(RC, parent, options, callback) {
   setSliderPosition(sliderElement, parent)
   parent.appendChild(sliderElement)
 
-  const onMouseDown = e => {
+  const _onDown = (e, type) => {
     if (
       e.target.className === 'slider' &&
       e.target.id === 'size-slider' &&
-      e.which === 1
+      ((type === RC._CONST.S.CLICK_TYPE.MOUSE && e.which === 1) ||
+        type === RC._CONST.S.CLICK_TYPE.TOUCH)
     ) {
       e.target.style.cursor = 'grabbing'
-      arrowFillElement.setAttribute('fill', colorDarkRed)
-      document.addEventListener(
-        'mouseup',
-        function _onMouseUp() {
-          sliderElement.style.cursor = 'grab'
-          arrowFillElement.setAttribute('fill', '#aaa')
-          document.removeEventListener('mouseup', _onMouseUp, false)
-        },
-        false
-      )
+      arrowFillElement.setAttribute('fill', RC._CONST.COLOR.DARK_RED)
+      if (type === RC._CONST.S.CLICK_TYPE.MOUSE)
+        document.addEventListener(
+          'mouseup',
+          function _onMouseUp() {
+            sliderElement.style.cursor = 'grab'
+            arrowFillElement.setAttribute('fill', '#aaa')
+            document.removeEventListener('mouseup', _onMouseUp, false)
+          },
+          false
+        )
+      else if (type === RC._CONST.S.CLICK_TYPE.TOUCH)
+        document.addEventListener(
+          'touchend',
+          function _onTouchend() {
+            sliderElement.style.cursor = 'grab'
+            arrowFillElement.setAttribute('fill', '#aaa')
+            document.removeEventListener('mouseup', _onTouchend, false)
+          },
+          false
+        )
     }
   }
+
+  const onMouseDown = e => {
+    _onDown(e, 'mouse')
+  }
+  const onTouchStart = e => {
+    _onDown(e, 'touch')
+  }
   document.addEventListener('mousedown', onMouseDown, false)
+  document.addEventListener('touchstart', onTouchStart, false)
 
   // Add all objects
   const elements = addMatchingObj(['card', 'arrow', 'usba', 'usbc'], parent)
@@ -113,7 +132,7 @@ function getSize(RC, parent, options, callback) {
   // Switch OBJ
   let currentMatchingObj = defaultObj // DEFAULT
   document.getElementById('matching-obj').addEventListener('change', e => {
-    switchMatchingObj(e.target.value, elements)
+    switchMatchingObj(e.target.value, elements, setSizes)
     currentMatchingObj = e.target.value
   })
 
@@ -127,12 +146,12 @@ function getSize(RC, parent, options, callback) {
   }
 
   const setSizes = () => {
-    setCardSizes(sliderElement, elements.card, elements.arrow, arrowSizes)
+    setCardSizes(RC, sliderElement, elements.card, elements.arrow, arrowSizes)
     setConnectorSizes(sliderElement, elements.usba)
     setConnectorSizes(sliderElement, elements.usbc)
   }
-  setSizes()
 
+  setSizes()
   const onSliderInput = () => {
     setSizes()
   }
@@ -146,6 +165,7 @@ function getSize(RC, parent, options, callback) {
   // Call when ESC pressed
   const breakFunction = () => {
     document.removeEventListener('mousedown', onMouseDown, false)
+    document.removeEventListener('touchstart', onTouchStart, false)
     document.removeEventListener('input', onSliderInput, false)
     resizeObserver.unobserve(parent)
     RC._removeBackground()
@@ -195,10 +215,10 @@ function getSize(RC, parent, options, callback) {
   )
 
   // Set to actual default object
-  switchMatchingObj(currentMatchingObj, elements)
+  switchMatchingObj(currentMatchingObj, elements, setSizes)
 }
 
-const setCardSizes = (slider, card, arrow, aS) => {
+const setCardSizes = (RC, slider, card, arrow, aS) => {
   // Card
   const targetWidth =
     (slider.offsetWidth - 30) *
@@ -211,7 +231,10 @@ const setCardSizes = (slider, card, arrow, aS) => {
   if (cardSizes.width !== 0) {
     arrow.style.left = cardSizes.left + targetWidth + 'px'
     arrow.style.top =
-      cardSizes.top + (targetWidth * 0.63 - aS.height) / 2 + 'px'
+      cardSizes.top +
+      RC.background.scrollTop +
+      (targetWidth * 0.63 - aS.height) / 2 +
+      'px'
   }
 }
 
@@ -244,13 +267,14 @@ const addMatchingObj = (names, parent) => {
   return elements
 }
 
-const switchMatchingObj = (name, elements) => {
+const switchMatchingObj = (name, elements, setSizes) => {
   for (let obj in elements) {
     if (obj === name) elements[obj].style.visibility = 'visible'
     else elements[obj].style.visibility = 'hidden'
   }
   if (name === 'card') elements.arrow.style.visibility = 'visible'
   else elements.arrow.style.visibility = 'hidden'
+  if (setSizes) setSizes()
 }
 
 /**

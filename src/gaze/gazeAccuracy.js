@@ -58,7 +58,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
   _resizeCanvas()
 
   Swal.fire({
-    ...swalInfoOptions,
+    ...swalInfoOptions(this),
     // title: text.getGazeAccuracy.headline,
     html: text.getGazeAccuracy.description,
   }).then(() => {

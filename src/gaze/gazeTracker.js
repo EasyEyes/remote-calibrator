@@ -38,6 +38,7 @@ export default class GazeTracker {
       }
 
       checkWebgazerReady(
+        this.calibrator,
         pipWidthPx,
         this.calibrator.params.videoOpacity,
         this.webgazer,
@@ -55,6 +56,7 @@ export default class GazeTracker {
       }
 
       checkWebgazerReady(
+        this.calibrator,
         pipWidthPx,
         this.calibrator.params.videoOpacity,
         this.webgazer,

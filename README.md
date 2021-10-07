@@ -428,6 +428,7 @@ The associated timestamp of the following items is the one created at initiation
 - `.browser` The browser type, e.g., `Safari`, `Chrome`.
 - `.browserVersion` The browser version.
 - `.deviceType` The type of device, e.g., `desktop`.
+- `.isMobile` The type of device is mobile or not.
 - `.model` The model type of the device, e.g., `iPad`.
 - `.manufacturer` The device manufacturer.
 - `.engine` The browser engine, e.g., `Webkit`.

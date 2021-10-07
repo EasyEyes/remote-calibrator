@@ -1,7 +1,7 @@
 import RemoteCalibrator from '../core'
 
 import { constructInstructions, shuffle, blurAll } from '../helpers'
-import { gazeCalibrationDotDefault, debug } from '../constants'
+import { debug } from '../debug'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import text from '../text.json'
 
@@ -97,7 +97,7 @@ class GazeCalibrationDot {
     this.clicks = 0
 
     this.position = this.order.shift()
-    this.r = gazeCalibrationDotDefault.r
+    this.r = this.RC._CONST.N.GAZE_CALIBRATION.R
 
     // HTML div
     this.div = document.createElement('div')
@@ -116,12 +116,14 @@ class GazeCalibrationDot {
       height: this.r + 'px',
       borderRadius: this.r / 2 + 'px',
     })
+
+    const _b = this.RC._CONST.N.GAZE_CALIBRATION.BORDER
     Object.assign(this.clickDiv.style, {
-      width: this.r - gazeCalibrationDotDefault.border + 'px',
-      height: this.r - gazeCalibrationDotDefault.border + 'px',
-      borderRadius: (this.r - gazeCalibrationDotDefault.border) / 2 + 'px',
-      top: `${gazeCalibrationDotDefault.border / 2}px`,
-      left: `${gazeCalibrationDotDefault.border / 2}px`,
+      width: this.r - _b + 'px',
+      height: this.r - _b + 'px',
+      borderRadius: (this.r - _b) / 2 + 'px',
+      top: `${_b / 2}px`,
+      left: `${_b / 2}px`,
     })
 
     this.parent = parent
@@ -137,33 +139,39 @@ class GazeCalibrationDot {
     Object.assign(
       this.div.style,
       [
-        { left: gazeCalibrationDotDefault.margin + 'px', right: 'unset' }, // 0
         {
-          left: `calc(50% - ${gazeCalibrationDotDefault.r / 2}px)`,
+          left: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px',
+          right: 'unset',
+        }, // 0
+        {
+          left: `calc(50% - ${this.RC._CONST.N.GAZE_CALIBRATION.R / 2}px)`,
           right: 'unset',
         }, // 1
-        // { right: gazeCalibrationDotDefault.margin + 'px', left: 'unset' }, // 2
+        // { right: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px', left: 'unset' }, // 2
         {
           left:
             window.innerWidth -
-            gazeCalibrationDotDefault.r -
-            gazeCalibrationDotDefault.margin +
+            this.RC._CONST.N.GAZE_CALIBRATION.R -
+            this.RC._CONST.N.GAZE_CALIBRATION.MARGIN +
             'px',
           right: 'unset',
         }, // 2
       ][this.position[0]],
       [
-        { top: gazeCalibrationDotDefault.margin + 'px', bottom: 'unset' }, // 0
         {
-          top: `calc(50% - ${gazeCalibrationDotDefault.r / 2}px)`,
+          top: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px',
+          bottom: 'unset',
+        }, // 0
+        {
+          top: `calc(50% - ${this.RC._CONST.N.GAZE_CALIBRATION.R / 2}px)`,
           bottom: 'unset',
         }, // 1
-        // { bottom: gazeCalibrationDotDefault.margin + 'px', top: 'unset' }, // 2
+        // { bottom: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px', top: 'unset' }, // 2
         {
           top:
             window.innerHeight -
-            gazeCalibrationDotDefault.r -
-            gazeCalibrationDotDefault.margin +
+            this.RC._CONST.N.GAZE_CALIBRATION.R -
+            this.RC._CONST.N.GAZE_CALIBRATION.MARGIN +
             'px',
           bottom: 'unset',
         }, // 2

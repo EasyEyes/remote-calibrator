@@ -152,7 +152,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
     _cross(ctx, crossX, c.height / 2)
 
-    _circle(ctx, circleX, c.height / 2, frameCount, options.sparkle)
+    _circle(RC, ctx, circleX, c.height / 2, frameCount, options.sparkle)
     circleX += v * circleDeltaX
     tempX = constrain(circleX, ...circleBounds)
     if (circleX !== tempX) {

@@ -69,7 +69,7 @@ export function checkWebcamStatus() {
  * Check if WebGazer video is ready. If so, set the style for it.
  *
  */
-export function checkWebgazerReady(pipWidthPx, opacity, WG, callback) {
+export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
   let c = setInterval(() => {
     let v = document.getElementById('webgazerVideoContainer')
     if (v) {
@@ -78,15 +78,34 @@ export function checkWebgazerReady(pipWidthPx, opacity, WG, callback) {
       v.style.width = pipWidthPx + 'px'
       v.style.opacity = opacity
       WG.setVideoViewerSize(parseInt(v.style.width), parseInt(v.style.height))
-      v.style.left = '10px'
-      v.style.bottom = '10px'
+
+      // Set position
+      setDefaultVideoPosition(RC, v)
 
       // Give callback after 2 sec
       setTimeout(() => {
-        v.style.transition = `left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
+        if (RC.isMobile.value)
+          v.style.transition = `right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
+        else
+          v.style.transition = `left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
         callback()
       }, 1000)
       clearInterval(c)
     }
   }, 200)
+}
+
+export function setDefaultVideoPosition(RC, v) {
+  if (RC.isMobile.value) {
+    // Mobile
+    v.style.left = 'unset'
+    v.style.right = RC._CONST.N.VIDEO_MARGIN
+    v.style.top = RC._CONST.N.VIDEO_MARGIN
+    v.style.bottom = 'unset'
+  } else {
+    v.style.left = RC._CONST.N.VIDEO_MARGIN
+    v.style.right = 'unset'
+    v.style.top = 'unset'
+    v.style.bottom = RC._CONST.N.VIDEO_MARGIN
+  }
 }

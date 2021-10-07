@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `.isMobile` getter.
+- Call `.environment()` automatically when initializing the calibrator.
+
 ### Changed
 
+- Improved UI and performance for small screens and mobile devices.
 - Take Return instead of Space for confirming screen size measurement.
 
 ## [0.2.3] - 2021-10-05

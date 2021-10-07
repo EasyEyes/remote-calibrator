@@ -28,14 +28,11 @@
 
 .calibration-instruction {
   position: absolute;
-  margin: 2rem;
   text-align: left;
   user-select: none;
 }
 
 .calibration-instruction h1 {
-  font-size: 2.5rem !important;
-  line-height: 100%;
   min-width: 360px;
   font-weight: 700;
 }
@@ -53,13 +50,58 @@
 }
 
 .calibration-description {
-  width: calc(100% - 4rem);
-  width: max(min(100% - 4rem, 960px), 300px);
+  line-height: 170%;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Screen size specific */
+
+@media (min-width: 481px) {
+  .calibration-instruction {
+    margin: 2rem;
+  }
+
+  .calibration-instruction h1 {
+    line-height: 100%;
+    font-size: 2.5rem !important;
+  }
+
+  .calibration-description {
+    width: calc(100% - 4rem);
+    width: max(min(100% - 4rem, 960px), 300px);
+  }
+
+  .calibration-description,
+  .calibration-description * {
+    font-size: 1.2rem;
+  }
+
+  .calibration-credit-text {
+    font-size: 0.9rem !important;
+  }
 }
 
 @media (max-width: 480px) {
+  .calibration-instruction {
+    margin: 1rem;
+  }
+
+  .calibration-instruction h1 {
+    line-height: 120%;
+    font-size: 1.8rem !important;
+  }
+
   .calibration-description {
-    font-size: 0.9rem;
+    width: calc(100% - 1rem);
+  }
+
+  .calibration-description,
+  .calibration-description * {
+    font-size: 1rem;
+  }
+
+  .calibration-credit-text {
+    font-size: 0.7rem !important;
   }
 }
 
@@ -67,7 +109,7 @@
   position: absolute;
   text-align: center;
   user-select: none;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.9);
   padding: 10px 17px;
   margin: 0;
   left: 50%;
@@ -75,6 +117,7 @@
   border-radius: 10px;
   font-size: 1.2rem;
   font-weight: 500;
+  z-index: 9999;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -87,10 +130,18 @@
 
 .calibration-credit-text {
   position: fixed !important;
-  left: 50% !important;
+  width: 100% !important;
   bottom: 3px !important;
+  left: 50% !important;
   transform: translate(-50%, 0) !important;
-  font-size: 0.9rem !important;
   color: #999 !important;
   margin: 0 !important;
+  padding: 0 !important;
+  line-height: 100% !important;
+}
+
+/* -------------------------------------------------------------------------- */
+
+.lock-view {
+  overflow: hidden !important;
 }

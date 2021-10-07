@@ -8,7 +8,7 @@ import platform from 'platform'
 import DeviceDetector from 'device-detector-js'
 
 import randomPhrases from './components/randomPhrases'
-import { debug } from './constants'
+import { debug } from './debug'
 import { getFullscreen, blurAll, constructInstructions } from './helpers'
 
 class RemoteCalibrator {
@@ -133,6 +133,15 @@ class RemoteCalibrator {
   get deviceType() {
     if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'deviceType')
+  }
+
+  get isMobile() {
+    if (!this._environmentData.length) this.environment()
+    const d = this._helper_get(this._environmentData, 'deviceType')
+    return {
+      value: d.value !== 'desktop',
+      timestamp: d.timestamp,
+    }
   }
 
   get model() {
@@ -363,7 +372,9 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
       timestamp: new Date(),
     }
 
-    if (callback) callback(this._id)
+    this.environment()
+
+    if (callback && typeof callback === 'function') callback(this._id)
   }
 }
 
@@ -447,6 +458,8 @@ RemoteCalibrator.prototype._addBackground = function (inner) {
   if (!b) {
     b = document.createElement('div')
     b.id = 'calibration-background'
+
+    document.body.classList.add('lock-view')
     document.body.appendChild(b)
 
     b.style.background = this.params.backgroundColor
@@ -474,6 +487,7 @@ RemoteCalibrator.prototype._replaceBackground = function (inner) {
 RemoteCalibrator.prototype._removeBackground = function () {
   let b = document.getElementById('calibration-background')
   if (b) {
+    document.body.classList.remove('lock-view')
     document.body.removeChild(b)
 
     this._background = {
@@ -541,11 +555,11 @@ RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
   const r = this.instructionElement.getBoundingClientRect()
   this.instructionElement.style.top = `calc(50% + ${yOffset + 10}px)`
   if (side === 'left') {
-    this.instructionElement.style.left = '10%'
+    this.instructionElement.style.left = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.right = 'unset'
     this.instructionElement.style.transform = `translate(${-r.width / 2}px, 0)`
   } else if (side === 'right') {
-    this.instructionElement.style.right = '10%'
+    this.instructionElement.style.right = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.left = 'unset'
     this.instructionElement.style.transform = `translate(${r.width / 2}px, 0)`
   } else {

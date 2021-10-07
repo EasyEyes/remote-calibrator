@@ -85,3 +85,15 @@
   font-size: 1.1rem;
   vertical-align: middle;
 }
+
+@media (min-width: 481px) {
+  .rc-size-obj-selection {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .rc-size-obj-selection {
+    display: inline-block;
+  }
+}

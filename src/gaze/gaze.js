@@ -38,7 +38,8 @@ RemoteCalibrator.prototype.trackGaze = function (
       framerate: 30, // ! New 0.0.5
       showGazer: true,
       showVideo: true,
-      pipWidthPx: 208,
+      pipWidthPx:
+        this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP'],
       showFaceOverlay: false,
       calibrationCount: 5,
       thresholdDeg: 10, // minAccuracy
@@ -145,12 +146,6 @@ RemoteCalibrator.prototype.trackGaze = function (
       }
     }
   }
-  // Swal.fire({
-  //   ...swalInfoOptions,
-  //   html: options.description,
-  // }).then(() => {
-
-  // })
 }
 
 RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {
