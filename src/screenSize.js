@@ -181,8 +181,8 @@ function getSize(RC, parent, options, callback) {
   sliderElement.addEventListener('input', onSliderInput, false)
   const bindKeysFunction = bindKeys({
     Escape: breakFunction,
+    Enter: finishFunction,
     ' ': finishFunction,
-    Enter: () => {},
   })
 
   addButtons(

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Take Return instead of Space for confirming screen size measurement.
+
 ## [0.2.3] - 2021-10-05
 
 ### Added

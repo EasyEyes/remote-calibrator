@@ -1,7 +1,7 @@
 import webgazer from '../WebGazer4RC/src/index.mjs'
 
 import { toFixedNumber } from '../helpers'
-import { checkWebgazerReady } from '../video'
+import { checkWebgazerReady } from '../components/video'
 
 /**
  * The gaze tracker object to wrap all gaze-related functions
