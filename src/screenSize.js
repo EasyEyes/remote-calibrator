@@ -71,8 +71,8 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
 function getSize(RC, parent, options, callback) {
   // Slider
   const sliderElement = document.createElement('input')
-  sliderElement.id = 'size-slider'
-  sliderElement.className = 'slider'
+  sliderElement.id = 'rc-size-slider'
+  sliderElement.className = 'rc-slider'
   sliderElement.type = 'range'
   sliderElement.min = 0
   sliderElement.max = 100
@@ -83,37 +83,27 @@ function getSize(RC, parent, options, callback) {
   sliderElement.step = 0.1
 
   setSliderPosition(sliderElement, parent)
+  setSliderStyle(sliderElement)
   parent.appendChild(sliderElement)
 
   const _onDown = (e, type) => {
     if (
-      e.target.className === 'slider' &&
-      e.target.id === 'size-slider' &&
+      e.target.className === 'rc-slider' &&
+      e.target.id === 'rc-size-slider' &&
       ((type === RC._CONST.S.CLICK_TYPE.MOUSE && e.which === 1) ||
         type === RC._CONST.S.CLICK_TYPE.TOUCH)
     ) {
       e.target.style.cursor = 'grabbing'
-      arrowFillElement.setAttribute('fill', RC._CONST.COLOR.DARK_RED)
+      arrowFillElement.setAttribute('fill', RC._CONST.COLOR.ORANGE)
+      const _onEnd = () => {
+        sliderElement.style.cursor = 'grab'
+        arrowFillElement.setAttribute('fill', RC._CONST.COLOR.LIGHT_GREY)
+        document.removeEventListener('mouseup', _onEnd, false)
+      }
       if (type === RC._CONST.S.CLICK_TYPE.MOUSE)
-        document.addEventListener(
-          'mouseup',
-          function _onMouseUp() {
-            sliderElement.style.cursor = 'grab'
-            arrowFillElement.setAttribute('fill', '#aaa')
-            document.removeEventListener('mouseup', _onMouseUp, false)
-          },
-          false
-        )
+        document.addEventListener('mouseup', _onEnd, false)
       else if (type === RC._CONST.S.CLICK_TYPE.TOUCH)
-        document.addEventListener(
-          'touchend',
-          function _onTouchend() {
-            sliderElement.style.cursor = 'grab'
-            arrowFillElement.setAttribute('fill', '#aaa')
-            document.removeEventListener('mouseup', _onTouchend, false)
-          },
-          false
-        )
+        document.addEventListener('touchend', _onEnd, false)
     }
   }
 
@@ -139,7 +129,7 @@ function getSize(RC, parent, options, callback) {
   switchMatchingObj('card', elements)
   // Card & Arrow
   let arrowFillElement = document.getElementById('size-arrow-fill')
-  arrowFillElement.setAttribute('fill', '#aaa')
+  arrowFillElement.setAttribute('fill', RC._CONST.COLOR.LIGHT_GREY)
   let arrowSizes = {
     width: elements.arrow.getBoundingClientRect().width,
     height: elements.arrow.getBoundingClientRect().height,
@@ -153,6 +143,7 @@ function getSize(RC, parent, options, callback) {
 
   setSizes()
   const onSliderInput = () => {
+    setSliderStyle(sliderElement)
     setSizes()
   }
   const resizeObserver = new ResizeObserver(() => {
@@ -262,7 +253,7 @@ const addMatchingObj = (names, parent) => {
     elements[name] = element
   }
 
-  setObjectsPosition(elements, document.querySelector('#size-slider'))
+  setObjectsPosition(elements, document.querySelector('#rc-size-slider'))
 
   return elements
 }
@@ -323,4 +314,13 @@ const setSliderPosition = (slider, parent) => {
 const setObjectsPosition = (objects, slider) => {
   for (let i in objects)
     objects[i].style.top = slider.getBoundingClientRect().top + 50 + 'px'
+}
+
+/* -------------------------------------------------------------------------- */
+
+const setSliderStyle = ele => {
+  const ratio = ele.value / ele.max
+  ele.style.background = `linear-gradient(90deg, #ffc772, #ffc772 ${
+    ratio * 100
+  }%, #fff ${ratio * 100}%)`
 }

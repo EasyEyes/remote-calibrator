@@ -1,41 +1,42 @@
-.slider {
+.rc-slider {
   position: absolute;
   display: block;
   -webkit-appearance: none;
   appearance: none;
   width: calc(100% - 4rem);
-  height: 30px;
-  background: #fff;
-  opacity: 0.7;
+  height: 10px;
+  background: linear-gradient(90deg, #ffc772, #ffc772 60%, #fff 60%);
+  opacity: 0.8;
   /* top: max(45%, 200px); */
   left: 2rem;
-  border-radius: 15px;
+  border-radius: 5px;
   z-index: 1;
   cursor: grab;
   -webkit-transition: opacity 0.3s;
   transition: opacity 0.3s;
 }
 
-.slider:hover {
+.rc-slider:hover {
   opacity: 0.99;
 }
 
-.slider::-webkit-slider-thumb {
+.rc-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 30px;
   height: 30px;
   border-radius: 15px;
-  background: #666;
+  background: #ff9a00;
+  box-shadow: 0 0 12px 0 #88520077;
   cursor: inherit;
 }
 
-.slider::-moz-range-thumb,
-.slider::-ms-thumb {
-  width: 20px;
+.rc-slider::-moz-range-thumb,
+.rc-slider::-ms-thumb {
+  width: 30px;
   height: 30px;
   border-radius: 15px;
-  background: #666;
+  background: #ff9a00;
   cursor: inherit;
 }
 
@@ -68,8 +69,8 @@
   transition: opacity 0.1s;
 }
 
-.slider:hover ~ .size-obj .minor,
-.slider:active ~ .size-obj .minor {
+.rc-slider:hover ~ .size-obj .minor,
+.rc-slider:active ~ .size-obj .minor {
   opacity: 0;
 }
 
