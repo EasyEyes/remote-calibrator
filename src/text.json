@@ -9,7 +9,7 @@
   },
   "trackDistance": {
     "headline": "🙂 Set up for Head Tracking",
-    "description": "Now we'll set up head tracking, to monitor viewing distance. When asked, please grant permission to access your camera. We'll perform a blind spot test first. Close/Cover one of your eyes (as instructed below) and focus on the black crosshair. Please press <b>SPACE</b> or click <b>OK</b> when the red dot disappears. If it doesn't disappear, try moving closer to the screen. You'll do this twice with each eye. Once you're done, head tracking will begin."
+    "description": "Now we'll set up head tracking, to monitor viewing distance. When asked, please grant permission to access your camera. Every eye has a blind spot. We'll find yours to discover how far your eye is from the screen. Close/Cover one of your eyes (as instructed below) and focus on the black crosshair. Please press <b>SPACE</b> or click <b>OK</b> when the dot disappears or stops flickering in your sight. If it doesn't disappear, try moving closer to the screen. You'll do this twice with each eye. Once you're done, head tracking will begin."
   },
   "calibrateGaze": {
     "headline": "👀 Set up for Gaze Tracking",
