@@ -15,7 +15,8 @@
     "build": "webpack --env=production",
     "serve": "node server.js",
     "prepare": "husky install",
-    "netlify": "cp -r ./lib ./homepage"
+    "netlify": "cp -r ./lib ./homepage",
+    "phrases": "node i18n/fetch-languages-sheets.js && git add src/i18n.js"
   },
   "repository": {
     "type": "git",
@@ -37,8 +38,10 @@
     "eslint": "^7.32.0",
     "eslint-webpack-plugin": "^3.0.1",
     "express": "^4.17.1",
+    "googleapis": "^88.2.0",
     "husky": "^7.0.2",
     "lint-staged": "^11.2.0",
+    "nodemon": "^2.0.13",
     "postcss-loader": "^6.1.1",
     "prettier": "^2.4.1",
     "sass": "^1.42.1",
@@ -47,9 +50,10 @@
     "svg-inline-loader": "^0.8.2",
     "terser-webpack-plugin": "^5.2.4",
     "url-loader": "^4.1.1",
-    "webpack": "^5.57.1",
+    "webpack": "^5.58.1",
     "webpack-cli": "^4.8.0",
-    "webpack-modules": "^1.0.0"
+    "webpack-modules": "^1.0.0",
+    "xlsx": "^0.17.2"
   },
   "lint-staged": {
     "*.js": "eslint --cache --fix",
