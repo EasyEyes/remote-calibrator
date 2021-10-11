@@ -5,7 +5,7 @@ import {
   toFixedNumber,
   median,
   blurAll,
-} from '../helpers'
+} from '../components/utils'
 import {
   _getCrossX,
   _cross,

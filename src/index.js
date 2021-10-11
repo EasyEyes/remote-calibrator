@@ -13,7 +13,7 @@ import './gaze/gazeCalibration'
 import './gaze/gazeAccuracy'
 import GazeTracker from './gaze/gazeTracker'
 
-import './panel/panel'
+import './panel'
 import './customization'
 
 import './css/main.css'

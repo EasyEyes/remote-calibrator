@@ -3,7 +3,7 @@ import Swal from 'sweetalert2/dist/sweetalert2.js'
 import RemoteCalibrator from '../core'
 
 import { _cross } from '../components/onCanvas'
-import { blurAll, sleep, toFixedNumber } from '../helpers'
+import { blurAll, sleep, toFixedNumber } from '../components/utils'
 import { swalInfoOptions } from '../components/swalOptions'
 
 let inGetAccuracy = false

@@ -2,7 +2,11 @@ import Swal from 'sweetalert2'
 
 import RemoteCalibrator from './core'
 
-import { blurAll, constructInstructions, toFixedNumber } from './helpers'
+import {
+  blurAll,
+  constructInstructions,
+  toFixedNumber,
+} from './components/utils'
 import { swalInfoOptions } from './components/swalOptions'
 import Arrow from './media/arrow.svg'
 import PD from './media/pd.png?width=480&height=240'

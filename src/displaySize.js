@@ -1,5 +1,5 @@
 import RemoteCalibrator from './core'
-import { blurAll } from './helpers'
+import { blurAll } from './components/utils'
 
 /**
  *

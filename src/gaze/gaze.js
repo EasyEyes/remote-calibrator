@@ -1,6 +1,6 @@
 import RemoteCalibrator from '../core'
 
-import { blurAll } from '../helpers'
+import { blurAll } from '../components/utils'
 import { gazeCalibrationPrepare } from './gazeCalibration'
 import { phrases } from '../i18n'
 

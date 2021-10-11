@@ -1,5 +1,5 @@
 import RemoteCalibrator from './core'
-import { toFixedNumber, blurAll, remap } from './helpers'
+import { toFixedNumber, blurAll, remap } from './components/utils'
 
 import Card from './media/card.svg'
 import Arrow from './media/arrow.svg'
@@ -50,17 +50,14 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       repeatTesting: 1,
       decimalPlace: 1,
       headline: '🖥️ ' + phrases.RC_screenSizeTitle[this.L],
-      description:
-        phrases.RC_screenSizeIntro[this.L] +
-        ' ' +
-        phrases.RC_screenSizeMatch[this.L],
+      description: phrases.RC_screenSizeIntro[this.L],
     },
     options
   )
 
   this.getFullscreen(options.fullscreen)
 
-  options.description += `<br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
+  options.description += `<br /><br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
     this.L
   ].replace(
     'xxx',

@@ -1,6 +1,6 @@
 import RemoteCalibrator from '../core'
 
-import { constructInstructions, shuffle, blurAll } from '../helpers'
+import { constructInstructions, shuffle, blurAll } from '../components/utils'
 import { debug } from '../debug'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { phrases } from '../i18n'

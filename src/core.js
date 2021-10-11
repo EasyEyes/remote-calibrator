@@ -9,7 +9,11 @@ import DeviceDetector from 'device-detector-js'
 
 import randomPhrases from './components/randomPhrases'
 import { debug } from './debug'
-import { getFullscreen, blurAll, constructInstructions } from './helpers'
+import {
+  getFullscreen,
+  blurAll,
+  constructInstructions,
+} from './components/utils'
 import { looseSetLanguage } from './components/language'
 import { phrases } from './i18n'
 

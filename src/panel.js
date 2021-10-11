@@ -1,13 +1,13 @@
 import tinycolor from 'tinycolor2'
 
-import RemoteCalibrator from '../core'
-import { phrases } from '../i18n'
+import RemoteCalibrator from './core'
+import { phrases } from './i18n'
 
 // Icons from Google Material UI
-import Camera from '../media/photo_camera.svg'
-import Phone from '../media/smartphone.svg'
+import Camera from './media/photo_camera.svg'
+import Phone from './media/smartphone.svg'
 
-import '../css/panel.scss'
+import './css/panel.scss'
 
 RemoteCalibrator.prototype.removePanel = function () {
   if (!this._hasPanel) return false

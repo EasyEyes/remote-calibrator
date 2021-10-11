@@ -6,7 +6,7 @@ import {
   constructInstructions,
   blurAll,
   sleep,
-} from '../helpers'
+} from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n'
 
