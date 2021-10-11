@@ -1,3 +1,5 @@
+import { phrases } from '../i18n'
+
 export const swalInfoOptions = RC => {
   return {
     icon: 'info',
@@ -5,7 +7,7 @@ export const swalInfoOptions = RC => {
     allowEnterKey: false,
     allowOutsideClick: false,
     showConfirmButton: true,
-    confirmButtonText: 'OK',
+    confirmButtonText: phrases.RC_ok[RC.L],
     showClass: {
       popup: 'animate__animated animate__fadeInUp',
       // backdrop: 'animate__animated animate__fadeIn',

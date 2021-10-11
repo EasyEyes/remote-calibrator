@@ -1,7 +1,7 @@
 import tinycolor from 'tinycolor2'
 
 import RemoteCalibrator from '../core'
-import text from '../text.json'
+import { phrases } from '../i18n'
 
 // Icons from Google Material UI
 import Camera from '../media/photo_camera.svg'
@@ -86,12 +86,12 @@ RemoteCalibrator.prototype.panel = async function (
 
   options = Object.assign(
     {
-      headline: text.panel.headline,
-      description: text.panel.description,
+      headline: phrases.RC_panelTitle[this.L],
+      description: phrases.RC_panelIntro[this.L],
       showNextButton: false,
-      nextHeadline: text.panel.nextHeadline,
-      nextDescription: text.panel.nextDescription,
-      nextButton: text.panel.nextButton,
+      nextHeadline: phrases.RC_panelTitleNext[this.L],
+      nextDescription: phrases.RC_panelIntroNext[this.L],
+      nextButton: phrases.RC_panelButton[this.L],
       color: '#3490de',
       _demoActivateAll: false, // ! Private
     },
@@ -139,7 +139,7 @@ RemoteCalibrator.prototype.panel = async function (
     steps.className += ' rc-panel-no-steps'
   } else {
     for (let t in tasks) {
-      const b = _newStepBlock(t, tasks[t], options)
+      const b = _newStepBlock(this, t, tasks[t], options)
       steps.appendChild(b)
     }
   }
@@ -155,7 +155,21 @@ RemoteCalibrator.prototype.panel = async function (
   this._panel.panelObserver = panelObserver
   this._panel.panelTasks = tasks
   this._panel.panelParent = parent
-  this._panel.panelOptions = options
+
+  const tempOptions = { ...options }
+  if (options.headline === phrases.RC_panelTitle[this.L])
+    delete tempOptions.headline
+  if (options.description === phrases.RC_panelIntro[this.L])
+    delete tempOptions.description
+  if (options.nextHeadline === phrases.RC_panelTitleNext[this.L])
+    delete tempOptions.nextHeadline
+  if (options.nextDescription === phrases.RC_panelIntroNext[this.L])
+    delete tempOptions.nextDescription
+  if (options.nextButton === phrases.RC_panelButton[this.L])
+    delete tempOptions.nextButton
+
+  this._panel.panelOptions = tempOptions
+
   this._panel.panelCallback = callback
   this._panel.panelResolve = resolveOnFinish
 
@@ -184,27 +198,33 @@ RemoteCalibrator.prototype.panel = async function (
 const _validTaskList = {
   screenSize: {
     use: 1,
-    name: 'Screen Size',
+    name: phrases.RC_screenSize['en-US'],
+    phraseHandle: 'RC_screenSize',
   },
   displaySize: {
     use: 0,
-    name: 'Display Size',
+    name: phrases.RC_displaySize['en-US'],
+    phraseHandle: 'RC_displaySize',
   },
   measureDistance: {
     use: 2,
-    name: 'Viewing Distance',
+    name: phrases.RC_viewingDistance['en-US'],
+    phraseHandle: 'RC_viewingDistance',
   },
   trackDistance: {
     use: 2,
-    name: 'Head Tracking',
+    name: phrases.RC_headTracking['en-US'],
+    phraseHandle: 'RC_headTracking',
   },
   trackGaze: {
     use: 2,
-    name: 'Gaze Tracking',
+    name: phrases.RC_gazeTracking['en-US'],
+    phraseHandle: 'RC_gazeTracking',
   },
   environment: {
     use: 0,
-    name: 'System Information',
+    name: phrases.RC_environment['en-US'],
+    phraseHandle: 'RC_environment',
   },
 }
 const _validTaskListNames = Object.keys(_validTaskList)
@@ -223,7 +243,7 @@ const _validateTask = task => {
   return true
 }
 
-const _newStepBlock = (index, task, options) => {
+const _newStepBlock = (RC, index, task, options) => {
   let useCode = _validTaskList[_getTaskName(task)].use
   let use, useTip
 
@@ -260,7 +280,7 @@ const _newStepBlock = (index, task, options) => {
   b.innerHTML =
     (use.length ? `<p class="rc-panel-step-use">${use}</p>` : '') +
     `<p class="rc-panel-step-name">${Number(index) + 1}&nbsp;&nbsp;${
-      _validTaskList[_getTaskName(task)].name
+      phrases[_validTaskList[_getTaskName(task)].phraseHandle][RC.L]
     }</p>` +
     (use.length ? `<p class="rc-panel-step-use-tip">${use} ${useTip}</p>` : '')
   // b.disabled = true

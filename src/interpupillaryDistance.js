@@ -8,8 +8,8 @@ import Arrow from './media/arrow.svg'
 import PD from './media/pd.png?width=480&height=240'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
-import text from './text.json'
 import { setDefaultVideoPosition } from './components/video'
+import { phrases } from './i18n'
 
 // let selfVideo = false // No WebGazer video available and an extra video element needs to be created
 
@@ -34,9 +34,9 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
   options = Object.assign(
     {
       fullscreen: false,
-      headline: text.measurePD.headline,
-      description: text.measurePD.description,
-      shortDescription: text.measurePD.shortDescription,
+      headline: '👁️ ' + phrases.RC_nearPointTitle[this.L],
+      description: phrases.RC_nearPointIntroCaption[this.L],
+      shortDescription: phrases.RC_nearPointIntro[this.L],
     },
     options
   )
@@ -117,6 +117,7 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
     ' ': finishFunction,
   })
   addButtons(
+    this.L,
     this.background,
     {
       go: finishFunction,

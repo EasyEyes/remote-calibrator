@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+**i18n!**
+
+- Internationalization! A full list of supported languages can be found at https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0.
+- A few new getters related to languages:
+  - `.userLanguage` (as a part of `.environment()`)
+  - `.language` (e.g., `en-US`, `zh-CN`)
+  - `.languageNameEnglish` (e.g., `English`, `Chinese (Simplified)`)
+  - `.languageNameNative` (e.g., `简体中文`)
+  - `.languageDirection` (`LTR` or `RTL`)
+  - `.languagePhraseSource` (e.g., `Denis Pelli & Peiling Jiang 2021.10.10`)
+  - `.languageData` gets the whole data history of languages.
+  - `.supportedLanguages` gets an array of supported languages.
+- `.newLanguage(lang = 'en-US')` to set a new language for the calibrator.
+- Allows researchers to set language on initialization using the `language` option. Set to `AUTO` (default) will let the calibrator go with the user language.
 - `.isMobile` getter.
 - Call `.environment()` automatically when initializing the calibrator.
 
@@ -16,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improved UI and performance for small screens and mobile devices.
 - Take Return instead of Space for confirming screen size measurement.
+
+### Removed
+
+- The responsive arrow in the screen size calibration with credit card.
 
 ## [0.2.3] - 2021-10-05
 

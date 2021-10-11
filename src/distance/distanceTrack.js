@@ -8,7 +8,7 @@ import {
   sleep,
 } from '../helpers'
 import { iRepeat } from '../components/iRepeat'
-import text from '../text.json'
+import { phrases } from '../i18n'
 
 const originalStyles = {
   video: false,
@@ -50,8 +50,8 @@ RemoteCalibrator.prototype.trackDistance = function (
       framerate: 3, // track rate
       nearPoint: true, // New 0.0.6
       showNearPoint: false, // New 0.0.6
-      headline: text.trackDistance.headline,
-      description: text.trackDistance.description,
+      headline: '🙂 ' + phrases.RC_headTrackingTitle[this.L],
+      description: phrases.RC_headTrackingIntro[this.L],
     },
     options
   )
@@ -74,7 +74,7 @@ RemoteCalibrator.prototype.trackDistance = function (
   this._addBackground()
   this._constructFloatInstructionElement(
     'gaze-system-instruction',
-    'Starting up... Please wait.'
+    phrases.RC_starting[this.L]
   )
 
   // STEP 2 - Live estimate

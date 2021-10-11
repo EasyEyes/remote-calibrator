@@ -14,6 +14,7 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
     },
   },
   S: {
+    AUTO: 'AUTO',
     CLICK_TYPE: {
       MOUSE: 'mouse',
       TOUCH: 'touch',
@@ -23,9 +24,5 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
     LIGHT_GREY: '#cccccc',
     ORANGE: '#ff9a00',
     DARK_RED: '#ac0d0d',
-  },
-  CREDIT_TEXT: {
-    BLIND_SPOT_TEST: `As suggested by the Li et al. (2020) "Virtual Chinrest" paper.`,
-    CREDIT_CARD: `Credit card suggested by the Li et al. (2020) "Virtual Chinrest" paper.`,
   },
 })

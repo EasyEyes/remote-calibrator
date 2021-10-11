@@ -27,7 +27,7 @@
   height: 30px;
   border-radius: 15px;
   background: #ff9a00;
-  box-shadow: 0 0 12px 0 #88520077;
+  box-shadow: 0 0 12px 0 #88520033;
   cursor: inherit;
 }
 
@@ -56,6 +56,7 @@
 #size-arrow {
   position: absolute;
   display: block;
+  /* display: none; */
   width: 70px;
   height: auto;
   z-index: 3;

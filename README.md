@@ -424,7 +424,7 @@ Getters will get `null` if no data can be found, i.e. the corresponding function
 
 The associated timestamp of the following items is the one created at initiation, i.e. when `init()` is called.
 
-- `.bot` If the user agent is a bot or not, an empty string will be returned if no bot detected, e.g., `Googlebot (Search bot) by Google Inc.`.
+- `.bot` If the user agent is a bot or not, `null` will be returned if no bot detected, e.g., `Googlebot (Search bot) by Google Inc.`.
 - `.browser` The browser type, e.g., `Safari`, `Chrome`.
 - `.browserVersion` The browser version.
 - `.deviceType` The type of device, e.g., `desktop`.

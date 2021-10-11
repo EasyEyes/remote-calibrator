@@ -3,7 +3,7 @@ import RemoteCalibrator from '../core'
 import { constructInstructions, shuffle, blurAll } from '../helpers'
 import { debug } from '../debug'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
-import text from '../text.json'
+import { phrases } from '../i18n'
 
 // [Wait!], etc.
 // const instPOutsideWarning = 'Keep your face centered in the video feed.'
@@ -24,7 +24,7 @@ export function gazeCalibrationPrepare(RC, options) {
     )
   RC._constructFloatInstructionElement(
     'gaze-system-instruction',
-    'Starting up... Please wait.'
+    phrases.RC_starting[RC.L]
   )
 }
 
@@ -41,8 +41,8 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
     {
       greedyLearner: false,
       calibrationCount: 5,
-      headline: text.calibrateGaze.headline,
-      description: text.calibrateGaze.description,
+      headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
+      description: phrases.RC_gazeTrackingIntro[this.L],
     },
     options
   )

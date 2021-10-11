@@ -160,6 +160,10 @@ button:active {
   border: 1px solid #ac0d0d;
 }
 
+#lang-picker {
+  padding: 0.25rem;
+}
+
 /* -------------------------------------------------------------------------- */
 
 @media (min-width: 721px) {

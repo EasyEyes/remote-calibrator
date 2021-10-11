@@ -10,6 +10,8 @@ import DeviceDetector from 'device-detector-js'
 import randomPhrases from './components/randomPhrases'
 import { debug } from './debug'
 import { getFullscreen, blurAll, constructInstructions } from './helpers'
+import { looseSetLanguage } from './components/language'
+import { phrases } from './i18n'
 
 class RemoteCalibrator {
   constructor() {
@@ -28,6 +30,9 @@ class RemoteCalibrator {
     }
 
     this._id = null
+
+    this._lang = null // A single string, e.g., 'en-US'
+    this._langData = []
 
     this._environmentData = []
 
@@ -76,6 +81,7 @@ class RemoteCalibrator {
   ////
 
   get id() {
+    if (!this._id) return null
     return {
       value: this._id.value,
       timestamp: this._id.timestamp,
@@ -98,6 +104,43 @@ class RemoteCalibrator {
       // eslint-disable-next-line no-undef
       value: process.env.VERSION,
     }
+  }
+
+  get supportedLanguages() {
+    const a = []
+    for (let l in phrases.EE_languageNameEnglish) {
+      a.push({
+        language: l,
+        languageNameEnglish: phrases.EE_languageNameEnglish[l],
+        languageNameNative: phrases.EE_languageNameNative[l],
+      })
+    }
+
+    return a
+  }
+
+  get L() {
+    return this._lang
+  }
+
+  get language() {
+    return this._helper_get(this._langData, 'language')
+  }
+
+  get languageNameEnglish() {
+    return this._helper_get(this._langData, 'languageNameEnglish')
+  }
+
+  get languageNameNative() {
+    return this._helper_get(this._langData, 'languageNameNative')
+  }
+
+  get languageDirection() {
+    return this._helper_get(this._langData, 'languageDirection')
+  }
+
+  get languagePhraseSource() {
+    return this._helper_get(this._langData, 'languagePhraseSource')
   }
 
   // Status
@@ -177,6 +220,11 @@ class RemoteCalibrator {
   get fullDescription() {
     if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'fullDescription')
+  }
+
+  get userLanguage() {
+    if (!this._environmentData.length) this.environment()
+    return this._helper_get(this._environmentData, 'userLanguage')
   }
 
   // Screen
@@ -283,6 +331,10 @@ class RemoteCalibrator {
     return this._environmentData
   }
 
+  get languageData() {
+    return this._langData
+  }
+
   /* --------------------------------- SETTERS -------------------------------- */
 
   /**
@@ -347,6 +399,13 @@ class RemoteCalibrator {
   set newFullscreenData(data) {
     this._fullscreenData.push(data)
   }
+
+  /**
+   * @param {{ value: { language: string; languageNameEnglish: string; languageNameNative: string; languageDirection: string; languagePhraseSource: string; }; timestamp: Date; }} data
+   */
+  set newLanguageData(data) {
+    this._langData.push(data)
+  }
 }
 
 /**
@@ -360,6 +419,7 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
     options = Object.assign(
       {
         id: randomPhrases(),
+        language: 'AUTO',
         fullscreen: false,
       },
       options
@@ -373,6 +433,12 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
     }
 
     this.environment()
+
+    if (this._CONST.S.AUTO === options.language)
+      // AUTO
+      this.newLanguageData = looseSetLanguage(this.userLanguage.value)
+    else this.newLanguageData = looseSetLanguage(options.language)
+    this._lang = this.language.value
 
     if (callback && typeof callback === 'function') callback(this._id)
   }
@@ -392,7 +458,9 @@ RemoteCalibrator.prototype.environment = function (callback) {
 
     const data = {
       value: {
-        bot: bot ? `${bot.name} (${bot.category}) by ${bot.producer.name}` : '',
+        bot: bot
+          ? `${bot.name} (${bot.category}) by ${bot.producer.name}`
+          : null,
         browser: platform.name,
         browserVersion: platform.version,
         deviceType: device.device.type,
@@ -403,6 +471,8 @@ RemoteCalibrator.prototype.environment = function (callback) {
         systemFamily: platform.os.family,
         description: platform.description,
         fullDescription: platform.ua,
+        userLanguage:
+          window.navigator.userLanguage || window.navigator.language,
       },
       timestamp: this.id.timestamp,
     }
@@ -444,6 +514,18 @@ RemoteCalibrator.prototype.getFullscreen = function (f = true) {
   }
 
   return f && !debug
+}
+
+/**
+ * Set a new language
+ */
+RemoteCalibrator.prototype.newLanguage = function (lang) {
+  if (this.checkInitialized()) {
+    let data
+    this.newLanguageData = data = looseSetLanguage(lang)
+    this._lang = this.language.value
+    return data
+  }
 }
 
 /**

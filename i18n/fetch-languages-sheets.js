@@ -20,7 +20,7 @@ async function processLanguageSheet() {
   })
 
   const rowsJSON = XLSX.utils.sheet_to_json(
-    XLSX.utils.aoa_to_sheet(rows.data.values.slice(0, 12)),
+    XLSX.utils.aoa_to_sheet(rows.data.values),
     {
       defval: '',
     }
@@ -29,7 +29,8 @@ async function processLanguageSheet() {
   const data = {}
   for (let phrase of rowsJSON) {
     const { language, ...translations } = phrase
-    data[language] = translations
+    if (language.includes('RC_') || language.includes('EE_'))
+      data[language] = translations
   }
 
   const exportWarning = `/*

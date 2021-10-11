@@ -2,7 +2,7 @@ import RemoteCalibrator from '../core'
 
 import { blurAll } from '../helpers'
 import { gazeCalibrationPrepare } from './gazeCalibration'
-import text from '../text.json'
+import { phrases } from '../i18n'
 
 RemoteCalibrator.prototype.trackGaze = function (
   options = {},
@@ -44,8 +44,8 @@ RemoteCalibrator.prototype.trackGaze = function (
       calibrationCount: 5,
       thresholdDeg: 10, // minAccuracy
       decimalPlace: 0, // As the system itself has a high prediction error, it's not necessary to be too precise here
-      headline: text.calibrateGaze.headline,
-      description: text.calibrateGaze.description,
+      headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
+      description: phrases.RC_gazeTrackingIntro[this.L],
     },
     options
   )

@@ -7,7 +7,7 @@ import USBA from './media/usba.svg'
 import USBC from './media/usbc.svg'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
-import text from './text.json'
+import { phrases } from './i18n'
 
 // TODO Make it customizable
 const defaultObj = 'usba'
@@ -49,19 +49,33 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       quitFullscreenOnFinished: false,
       repeatTesting: 1,
       decimalPlace: 1,
-      headline: text.screenSize.headline,
-      description: text.screenSize.description,
+      headline: '🖥️ ' + phrases.RC_screenSizeTitle[this.L],
+      description:
+        phrases.RC_screenSizeIntro[this.L] +
+        ' ' +
+        phrases.RC_screenSizeMatch[this.L],
     },
     options
   )
 
   this.getFullscreen(options.fullscreen)
 
-  options.description += `<br /><b class="rc-size-obj-selection">I have a <select id="matching-obj"><option value="usba" selected>USB Type-A Connector</option><option value="usbc">USB Type-C Connector</option><option value="card">Credit Card</option></select> with me.</b>`
+  options.description += `<br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
+    this.L
+  ].replace(
+    'xxx',
+    `<select id="matching-obj"><option value="usba" selected>${
+      phrases.RC_screenSizeUSBA[this.L]
+    }</option><option value="usbc">${
+      phrases.RC_screenSizeUSBC[this.L]
+    }</option><option value="card">${
+      phrases.RC_screenSizeCreditCard[this.L]
+    }</option></select>`
+  )}</b>`
 
   this._addBackground()
   this._addBackgroundText(options.headline, options.description)
-  this._addCreditOnBackground(this._CONST.CREDIT_TEXT.CREDIT_CARD)
+  this._addCreditOnBackground(phrases.RC_screenSizeCredit[this.L])
 
   getSize(this, this.background, options, callback)
 
@@ -197,6 +211,7 @@ function getSize(RC, parent, options, callback) {
   })
 
   addButtons(
+    RC.L,
     RC.background,
     {
       go: finishFunction,
@@ -263,8 +278,9 @@ const switchMatchingObj = (name, elements, setSizes) => {
     if (obj === name) elements[obj].style.visibility = 'visible'
     else elements[obj].style.visibility = 'hidden'
   }
-  if (name === 'card') elements.arrow.style.visibility = 'visible'
-  else elements.arrow.style.visibility = 'hidden'
+  // if (name === 'card') elements.arrow.style.visibility = 'visible'
+  // else elements.arrow.style.visibility = 'hidden'
+  elements.arrow.style.visibility = 'hidden'
   if (setSizes) setSizes()
 }
 

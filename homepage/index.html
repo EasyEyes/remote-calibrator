@@ -51,6 +51,8 @@
         >
       </p>
 
+      <div id="rc-language"></div>
+
       <h2>Functions</h2>
 
       <div id="functions" class="flex-wrapper"></div>
@@ -128,6 +130,12 @@
         'nearPointCm',
         'gazePositionPx',
         'isFullscreen',
+        'id',
+        'language',
+        'languageNameEnglish',
+        'languageNameNative',
+        'languageDirection',
+        'languagePhraseSource',
       ]
 
       const gettersEnv = [
@@ -142,6 +150,7 @@
         'systemFamily',
         'description',
         'fullDescription',
+        'userLanguage',
         'version',
       ]
 
@@ -162,6 +171,23 @@
 
       setGetters(document.getElementById('getters-exp'), gettersExp)
       setGetters(document.getElementById('getters-env'), gettersEnv)
+
+      // i18n
+      const langPickerParent = document.getElementById('rc-language')
+      let langInner = '<select name="lang" id="lang-picker">'
+      for (let lang of RemoteCalibrator.supportedLanguages) {
+        langInner += `<option value="${lang.language}">${lang.languageNameNative}</option>`
+      }
+      langInner += '</select>'
+      langPickerParent.innerHTML = langInner
+
+      document.querySelector('#lang-picker').onchange = e => {
+        RemoteCalibrator.newLanguage(
+          document.querySelector('#lang-picker').value
+        )
+        RemoteCalibrator.resetPanel()
+      }
+      //
 
       initialize({ target: document.getElementById('init-button') })
     </script>

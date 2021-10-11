@@ -16,7 +16,7 @@ import {
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
 import { soundFeedback } from '../components/sound'
-import text from '../text.json'
+import { phrases } from '../i18n'
 
 const blindSpotHTML = `<canvas id="blind-spot-canvas"></canvas>`
 
@@ -40,16 +40,17 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   RC.background.appendChild(blindSpotDiv)
   RC._constructFloatInstructionElement(
     'blind-spot-instruction',
-    `Close <span id="eye-side"></span> eye.`
+    phrases.RC_headTrackingCloseL[RC.L]
   )
-  RC._addCreditOnBackground(RC._CONST.CREDIT_TEXT.BLIND_SPOT_TEST)
+  RC._addCreditOnBackground(phrases.RC_viewingBlindSpotCredit[RC.L])
 
   // Get HTML elements
   const c = document.querySelector('#blind-spot-canvas')
   const ctx = c.getContext('2d')
 
-  const eyeSideEle = document.getElementById('eye-side')
-  let eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
+  const eyeSideEle = document.getElementById('blind-spot-instruction')
+  // let eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
+  let eyeSide = 'left'
   RC._setFloatInstructionElementPos(eyeSide, 16)
   let crossX = _getCrossX(eyeSide, c.width)
 
@@ -115,9 +116,14 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       }
     } else if (tested % options.repeatTesting === 0) {
       // Switch eye side
-      if (eyeSide === 'left')
-        eyeSide = (eyeSideEle.innerText = 'RIGHT').toLocaleLowerCase()
-      else eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
+      if (eyeSide === 'left') {
+        // Change to RIGHT
+        eyeSide = 'right'
+        eyeSideEle.innerHTML = phrases.RC_headTrackingCloseR[RC.L]
+      } else {
+        eyeSide = 'left'
+        eyeSideEle.innerHTML = phrases.RC_headTrackingCloseL[RC.L]
+      }
       RC._setFloatInstructionElementPos(eyeSide, 16)
 
       circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
@@ -134,6 +140,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     ' ': finishFunction,
   })
   addButtons(
+    RC.L,
     RC.background,
     {
       go: finishFunction,
@@ -197,8 +204,8 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       repeatTesting: 2,
       sparkle: true,
       decimalPlace: 1,
-      headline: text.measureDistance.headline,
-      description: text.measureDistance.description,
+      headline: '📏 ' + phrases.RC_viewingDistanceTitle[this.L],
+      description: phrases.RC_viewingDistanceIntro[this.L],
     },
     options
   )
