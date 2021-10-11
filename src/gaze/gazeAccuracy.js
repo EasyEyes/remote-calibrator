@@ -4,7 +4,6 @@ import RemoteCalibrator from '../core'
 
 import { _cross } from '../components/onCanvas'
 import { blurAll, sleep, toFixedNumber } from '../helpers'
-import text from '../text.json'
 import { swalInfoOptions } from '../components/swalOptions'
 
 let inGetAccuracy = false
@@ -60,7 +59,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
   Swal.fire({
     ...swalInfoOptions(this),
     // title: text.getGazeAccuracy.headline,
-    html: text.getGazeAccuracy.description,
+    html: `We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen for the next 5 seconds.`,
   }).then(() => {
     // ! After confirming alert
     inGetAccuracy = true
