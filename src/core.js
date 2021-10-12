@@ -512,6 +512,10 @@ RemoteCalibrator.prototype.getFullscreen = function (f = true) {
 
   if (f && !debug) getFullscreen()
 
+  // Minimize address bar on mobile devices
+  // ! Experimental
+  if (this.isMobile.value) window.scrollBy(0, 1)
+
   this.newFullscreenData = {
     value: f && !debug,
     timestamp: new Date(),

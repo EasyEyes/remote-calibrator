@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.isMobile` getter.
 - Call `.environment()` automatically when initializing the calibrator.
 - Instructions in the viewing distance measurement (and head tracking setup) is scrollable to avoid overlapping with the canvas on small screen sizes.
+- Automatically minimize the mobile address bar when a calibration task starts.
 
 ### Changed
 

@@ -99,7 +99,7 @@ RemoteCalibrator.prototype.trackDistance = function (
     this._addBackground()
 
     this._replaceBackground(
-      constructInstructions(options.headline, options.description)
+      constructInstructions(options.headline, options.description, true)
     )
 
     if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
