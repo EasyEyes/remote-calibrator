@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved UI and performance for small screens and mobile devices.
 - Take Return instead of Space for confirming screen size measurement.
 
+### Fixed
+
+- Fatal error due to cannot detect device for VR headsets.
+
 ### Removed
 
 - The responsive arrow in the screen size calibration with credit card.
