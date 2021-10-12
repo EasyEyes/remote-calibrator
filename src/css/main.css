@@ -32,6 +32,10 @@
   user-select: none;
 }
 
+.calibration-instruction-scrollable {
+  height: 200%;
+}
+
 .calibration-instruction h1 {
   min-width: 360px;
   font-weight: 700;
@@ -106,7 +110,7 @@
 }
 
 .float-instruction {
-  position: absolute;
+  position: fixed;
   text-align: center;
   user-select: none;
   background: rgba(255, 255, 255, 0.9);

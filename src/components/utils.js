@@ -98,9 +98,15 @@ export function getFullscreen() {
 
 /* -------------------------------------------------------------------------- */
 
-export function constructInstructions(headline, description = null) {
+export function constructInstructions(
+  headline,
+  description = null,
+  scrollable = false
+) {
   return (
-    `<div class="calibration-instruction"><h1>${headline}</h1>` +
+    `<div class="calibration-instruction${
+      scrollable ? ' calibration-instruction-scrollable' : ''
+    }"><h1>${headline}</h1>` +
     (description
       ? `<p class="calibration-description">${description}</p></div>`
       : '')
