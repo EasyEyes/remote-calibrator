@@ -460,6 +460,13 @@ RemoteCalibrator.prototype.environment = function (callback) {
     const device = this.deviceDetector.parse(platform.ua)
     const bot = device.bot
 
+    if (!device.device)
+      device.device = {
+        type: null,
+        model: null,
+        brand: null,
+      }
+
     const data = {
       value: {
         bot: bot
