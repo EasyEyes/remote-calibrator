@@ -21,7 +21,7 @@ export const swalInfoOptions = RC => {
     customClass: {
       icon: 'my__swal2__icon',
       title: 'my__swal2__title',
-      htmlContainer: 'my__swal2__html',
+      htmlContainer: 'my__swal2__html' + ` rc-lang-${RC.LD.toLowerCase()}`,
     },
   }
 }

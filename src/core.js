@@ -127,6 +127,10 @@ class RemoteCalibrator {
     return this._lang
   }
 
+  get LD() {
+    return this.languageDirection.value
+  }
+
   get language() {
     return this._helper_get(this._langData, 'language')
   }
@@ -555,6 +559,7 @@ RemoteCalibrator.prototype._addBackground = function (inner) {
   if (!b) {
     b = document.createElement('div')
     b.id = 'calibration-background'
+    b.className = 'calibration-background' + ` rc-lang-${this.LD.toLowerCase()}`
 
     document.body.classList.add('lock-view')
     document.body.appendChild(b)

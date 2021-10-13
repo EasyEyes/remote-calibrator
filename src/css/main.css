@@ -28,7 +28,6 @@
 
 .calibration-instruction {
   position: absolute;
-  text-align: left;
   user-select: none;
 }
 
@@ -136,16 +135,27 @@
   position: fixed !important;
   width: 100% !important;
   bottom: 3px !important;
-  left: 50% !important;
-  transform: translate(-50%, 0) !important;
   color: #999 !important;
   margin: 0 !important;
   padding: 0 !important;
   line-height: 100% !important;
+  text-align: center !important;
 }
 
 /* -------------------------------------------------------------------------- */
 
 .lock-view {
   overflow: hidden !important;
+}
+
+/* -------------------------------------------------------------------------- */
+
+.rc-lang-ltr {
+  direction: ltr !important;
+  text-align: left !important;
+}
+
+.rc-lang-rtl {
+  direction: rtl !important;
+  text-align: right !important;
 }

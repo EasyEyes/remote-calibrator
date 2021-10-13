@@ -17,7 +17,6 @@
   border-radius: 10px !important;
   box-shadow: var(--rc-panel-darken-color-semi) 0px 50px 100px -20px,
     var(--rc-panel-theme-color-semi) 0px 30px 60px -30px !important;
-  text-align: left !important;
 
   * {
     outline: none;
@@ -99,10 +98,6 @@
 
     &.rc-panel-steps-s {
       flex-flow: column nowrap;
-
-      .rc-panel-step {
-        text-align: left;
-      }
 
       .rc-panel-step-name {
         margin: 1.2rem 1.5rem !important;

@@ -31,6 +31,15 @@ async function processLanguageSheet() {
       data[language] = translations
   }
 
+  for (let phrase in data) {
+    for (let lang in data[phrase]) {
+      if (data[phrase][lang].includes('XX'))
+        data[phrase][lang] = data[phrase][lang]
+          .replace('XXX', 'xxx')
+          .replace('XX', 'xx')
+    }
+  }
+
   const exportWarning = `/*
   Do not modify this file! Run npm \`npm run phrases\` at ROOT of this project to fetch from the Google Sheets.
   https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0

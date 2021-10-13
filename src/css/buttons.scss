@@ -8,15 +8,31 @@
 .rc-button {
   text-align: center;
   border: none !important;
-  background: #ffffffee;
   line-height: 150% !important;
   font-size: 1rem !important;
   font-weight: 700 !important;
-  color: #333;
   padding: 1rem 1.5rem !important;
   margin: 0.25rem !important;
   border-radius: 7px !important;
   cursor: pointer;
+}
+
+.rc-go-button {
+  background: #ff9a00aa;
+  color: #fff;
+
+  &:hover {
+    background: #ff9a00;
+  }
+
+  &:active {
+    background: #d68200;
+  }
+}
+
+.rc-cancel-button {
+  background: #ffffffee;
+  color: #333;
 
   &:hover {
     background: #ddd;

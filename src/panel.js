@@ -119,6 +119,9 @@ RemoteCalibrator.prototype.panel = async function (
 
   const panel = document.createElement('div')
   panel.className = panel.id = 'rc-panel'
+  if (this.LD === this._CONST.RTL) panel.className += ' rc-lang-rtl'
+  else panel.className += ' rc-lang-ltr'
+
   panel.innerHTML = `<h1 class="rc-panel-title" id="rc-panel-title">${options.headline}</h1>`
   panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${options.description}</p>`
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
@@ -129,11 +132,12 @@ RemoteCalibrator.prototype.panel = async function (
   const steps = panel.querySelector('#rc-panel-steps')
 
   // Observe panel size for adjusting steps
+  const RC = this
   const panelObserver = new ResizeObserver(() => {
-    _setStepsClassesSL(steps, panel.offsetWidth)
+    _setStepsClassesSL(steps, panel.offsetWidth, RC.LD)
   })
   panelObserver.observe(panel)
-  _setStepsClassesSL(steps, panel.offsetWidth)
+  _setStepsClassesSL(steps, panel.offsetWidth, this.LD)
 
   if (tasks.length === 0) {
     steps.className += ' rc-panel-no-steps'
@@ -296,13 +300,22 @@ const _nextStepBlock = (index, options) => {
   return b
 }
 
-const _setStepsClassesSL = (steps, panelWidth) => {
+const _setStepsClassesSL = (steps, panelWidth, LD) => {
   if (panelWidth < 640) {
     steps.classList.add('rc-panel-steps-s')
     steps.classList.remove('rc-panel-steps-l')
+
+    steps.childNodes.forEach(e => {
+      e.classList.add(`rc-lang-${LD.toLowerCase()}`)
+    })
   } else {
     steps.classList.add('rc-panel-steps-l')
     steps.classList.remove('rc-panel-steps-s')
+
+    steps.childNodes.forEach(e => {
+      e.classList.remove(`rc-lang-ltr`)
+      e.classList.remove(`rc-lang-rtl`)
+    })
   }
 }
 

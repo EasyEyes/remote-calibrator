@@ -42,18 +42,18 @@
     "husky": "^7.0.2",
     "lint-staged": "^11.2.3",
     "nodemon": "^2.0.13",
-    "postcss-loader": "^6.1.1",
+    "postcss-loader": "^6.2.0",
     "prettier": "^2.4.1",
     "sass": "^1.42.1",
-    "sass-loader": "^12.1.0",
+    "sass-loader": "^12.2.0",
     "style-loader": "^3.3.0",
     "svg-inline-loader": "^0.8.2",
     "terser-webpack-plugin": "^5.2.4",
     "url-loader": "^4.1.1",
-    "webpack": "^5.58.1",
+    "webpack": "^5.58.2",
     "webpack-cli": "^4.9.0",
     "webpack-modules": "^1.0.0",
-    "xlsx": "^0.17.2"
+    "xlsx": "^0.17.3"
   },
   "lint-staged": {
     "*.js": "eslint --cache --fix",

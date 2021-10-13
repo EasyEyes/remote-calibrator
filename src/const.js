@@ -25,4 +25,6 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
     ORANGE: '#ff9a00',
     DARK_RED: '#ac0d0d',
   },
+  LTR: 'LTR',
+  RTL: 'RTL',
 })
