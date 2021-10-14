@@ -64,6 +64,11 @@ class RemoteCalibrator {
     }
 
     this.deviceDetector = new DeviceDetector()
+
+    window.console.log(
+      `%c\nEasyEyes Remote Calibrator ${this.version.value}\n`,
+      `color: ${this._CONST.COLOR.ORANGE}`
+    )
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
