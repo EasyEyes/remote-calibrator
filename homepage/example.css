@@ -42,6 +42,7 @@ body {
   border: 1px solid #ccc;
   border-radius: 7px;
   transition: opacity 600ms;
+  overflow-wrap: break-word;
 }
 
 #toolbox *,
@@ -109,9 +110,9 @@ code {
   display: block;
 }
 
-/* .getters button {
-  flex: 0 1 auto;
-} */
+.getters {
+  margin-bottom: 1rem;
+}
 
 .disabled {
   opacity: 0.5;

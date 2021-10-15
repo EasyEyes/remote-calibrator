@@ -86,14 +86,31 @@ export function getFullscreen() {
     const element = document.documentElement
     if (element.requestFullscreen) {
       element.requestFullscreen()
+      return true
     } else if (element.mozRequestFullScreen) {
       element.mozRequestFullScreen()
+      return true
     } else if (element.webkitRequestFullscreen) {
       element.webkitRequestFullscreen()
+      return true
     } else if (element.msRequestFullscreen) {
       element.msRequestFullscreen()
+      return true
+    } else {
+      return false
     }
+  } else {
+    return false
   }
+}
+
+export function isFullscreen() {
+  return (
+    Math.abs(window.innerHeight - screen.height) < 5 &&
+    Math.abs(window.innerWidth - screen.width) < 5 &&
+    window.screenX < 5 &&
+    window.screenY < 5
+  )
 }
 
 /* -------------------------------------------------------------------------- */

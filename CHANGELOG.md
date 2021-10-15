@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Internationalization! A full list of supported languages can be found at https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0.
 - A few new getters related to languages:
-  - `.userLanguage` (as a part of `.environment()`)
+  - `.userLanguage`
   - `.language` (e.g., `en-US`, `zh-CN`)
   - `.languageNameEnglish` (e.g., `English`, `Chinese (Simplified)`)
   - `.languageNameNative` (e.g., `简体中文`)
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.newLanguage(lang = 'en-US')` to set a new language for the calibrator.
 - Allows researchers to set language on initialization using the `language` option. Set to `AUTO` (default) will let the calibrator go with the user language.
 - `.isMobile` getter.
-- Call `.environment()` automatically when initializing the calibrator.
+- Call `._environment()` and `._displaySize()` automatically when initializing the calibrator.
 - Instructions in the viewing distance measurement (and head tracking setup) is scrollable to avoid overlapping with the canvas on small screen sizes.
 - Automatically minimize the mobile address bar when a calibration task starts.
 - Version console log.
@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improved UI and performance for small screens and mobile devices.
 - Take Return instead of Space for confirming screen size measurement.
+- (Breaking) `.fullScreenData` getter is changed to `.fullscreenData`.
 
 ### Fixed
 
@@ -40,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- (Breaking) `.environment()` and `.displaySize()`. Values can be accessed directly throw the getters.
 - The responsive arrow in the screen size calibration with credit card.
 
 ## [0.2.3] - 2021-10-05

@@ -51,11 +51,11 @@ RemoteCalibrator.measureDistance({}, data => {
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                       |
 | [🍱 Panel](#-panel)                       | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                        |
-| [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                |
+| [🖥️ Screen](#️-screen)                    | [`Display Pixel Dimensions`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                     |
 | [📏 Viewing Distance](#-viewing-distance) | [`measureDistance()`](#-viewing-distance)                                                                                                                                                        |
 | [🙂 Head Tracking](#-head-tracking)       | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-head-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#lifecycle) [Others](#others)              |
 | [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1) |
-| [💻 Environment](#-environment)           | [`environment()`](#-environment)                                                                                                                                                                 |
+| [💻 Environment](#-environment)           | [`System and Browser Environment`](#-environment)                                                                                                                                                |
 | [💄 Customization](#-customization)       | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                        |
 | [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                           |
 | [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                                    |
@@ -126,7 +126,7 @@ The `data` passed into the callback function is an [object](https://www.w3school
 
 `.panel()` is a powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Done" button can all be customized. It is appended to the parent HTML node as set by `parentQuery`, e.g., if the parent node has id `main-area`, put `#main-area` as the `parentQuery`. Can only run once. Return a JavaScript [`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises) that will resolve the `resolveOnFinish` once the "Done" button is pressed.
 
-`tasks` is an array of tasks which can be a string or an object. Valid names are `screenSize`, `displaySize`, `measureDistance`, `trackDistance`, `trackGaze`, `environment` (system information).
+`tasks` is an array of tasks which can be a string or an object. Valid names are `screenSize`, `measureDistance`, `trackDistance`, `trackGaze`.
 
 <!-- prettier-ignore -->
 ```js
@@ -174,13 +174,7 @@ You can also use `.removePanel()` to remove the panel element after the calibrat
 
 #### Measure Display Pixels
 
-```js
-.displaySize([callback])
-```
-
-Get the display width and height in pixels. This is just a wrapper of vanilla JavaScript's `window.innerWidth`, `window.screenWidth`, etc.
-
-Pass `{ value: { displayWidthPx, displayHeightPx, windowWidthPx, windowHeightPx }, timestamp }` to callback.
+Get the display width and height in pixels. You can use `.displayWidthPx` `.displayHeightPx` `.windowWidthPx` `.windowHeightPx` getters. For example, `RemoteCalibrator.windowWidthPx.value` will give you the inner width of the current browser window.
 
 #### Measure Screen Size
 
@@ -392,13 +386,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
 
 ### 💻 Environment
 
-```js
-.environment([callback])
-```
-
-Get the setup information of the experiment, including browser type, device model, operating system family and version, etc. This function does not create its own timestamp, but use the one associated with `id`, i.e. the one created when `init()` is called.
-
-Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, systemFamily, description, fullDescription, userLanguage }, timestamp }` to callback.
+Get the setup information of the experiment, including browser type, device model, operating system family and version, etc. See the Getters section for more details.
 
 ### 💄 Customization
 
@@ -465,7 +453,7 @@ Use the following keywords to retrieve the whole dataset.
 - `.nearPointData`
 - `.PDData` (Interpupillary distance data)
 - `.gazeData`
-- `.fullScreenData`
+- `.fullscreenData`
 - `.environmentData`
 - `.languageData`
 

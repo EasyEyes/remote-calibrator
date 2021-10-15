@@ -13,9 +13,11 @@ import {
   getFullscreen,
   blurAll,
   constructInstructions,
+  isFullscreen,
 } from './components/utils'
 import { looseSetLanguage } from './components/language'
 import { phrases } from './i18n'
+import isEqual from 'react-fast-compare'
 
 class RemoteCalibrator {
   constructor() {
@@ -159,40 +161,36 @@ class RemoteCalibrator {
   // Status
 
   get isFullscreen() {
-    return {
-      value:
-        Math.abs(window.innerHeight - screen.height) < 5 &&
-        Math.abs(window.innerWidth - screen.width) < 5 &&
-        window.screenX < 5 &&
-        window.screenY < 5,
-      timestamp: new Date(),
-    }
+    if (
+      !this.fullscreenData.length ||
+      !isEqual(isFullscreen(), this._helper_get(this._fullscreenData).value)
+    )
+      this.newFullscreenData = {
+        value: isFullscreen(),
+        timestamp: new Date(),
+      }
+    return this._helper_get(this._fullscreenData)
   }
 
   // Environment
 
   get bot() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'bot')
   }
 
   get browser() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'browser')
   }
 
   get browserVersion() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'browserVersion')
   }
 
   get deviceType() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'deviceType')
   }
 
   get isMobile() {
-    if (!this._environmentData.length) this.environment()
     const d = this._helper_get(this._environmentData, 'deviceType')
     return {
       value: d.value !== 'desktop',
@@ -201,64 +199,56 @@ class RemoteCalibrator {
   }
 
   get model() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'model')
   }
 
   get manufacturer() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'manufacturer')
   }
 
   get engine() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'engine')
   }
 
   get system() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'system')
   }
 
   get systemFamily() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'systemFamily')
   }
 
   get description() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'description')
   }
 
   get fullDescription() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'fullDescription')
   }
 
   get userLanguage() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'userLanguage')
   }
 
   // Screen
 
   get displayWidthPx() {
-    if (!this._displayData.length) this.displaySize()
+    this._displaySize()
     return this._helper_get(this._displayData, 'displayWidthPx')
   }
 
   get displayHeightPx() {
-    if (!this._displayData.length) this.displaySize()
+    this._displaySize()
     return this._helper_get(this._displayData, 'displayHeightPx')
   }
 
   get windowWidthPx() {
-    if (!this._displayData.length) this.displaySize()
+    this._displaySize()
     return this._helper_get(this._displayData, 'windowWidthPx')
   }
 
   get windowHeightPx() {
-    if (!this._displayData.length) this.displaySize()
+    this._displaySize()
     return this._helper_get(this._displayData, 'windowHeightPx')
   }
 
@@ -336,7 +326,7 @@ class RemoteCalibrator {
     return this._gazePositionData
   }
 
-  get fullScreenData() {
+  get fullscreenData() {
     return this._fullscreenData
   }
 
@@ -445,7 +435,8 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
       timestamp: new Date(),
     }
 
-    this.environment()
+    this._environment()
+    this._displaySize()
 
     if (this._CONST.S.AUTO === options.language)
       // AUTO
@@ -462,7 +453,7 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
  * Get the environment data, e.g. browser type
  *
  */
-RemoteCalibrator.prototype.environment = function (callback) {
+RemoteCalibrator.prototype._environment = function () {
   if (this.checkInitialized()) {
     blurAll()
 
@@ -498,8 +489,6 @@ RemoteCalibrator.prototype.environment = function (callback) {
     }
 
     this.newEnvironmentData = data
-
-    if (callback) callback(data)
   }
 }
 
@@ -519,25 +508,20 @@ RemoteCalibrator.prototype.checkInitialized = function () {
  * @param {Boolean} f Get fullscreen or not from options
  */
 RemoteCalibrator.prototype.getFullscreen = function (f = true) {
-  if (
-    window.fullScreen ||
-    (window.innerWidth === screen.width && window.innerHeight === screen.height)
-  ) {
+  if (isFullscreen()) {
     return true
   }
 
-  if (f && !debug) getFullscreen()
+  this.newFullscreenData = {
+    value: f && !debug ? getFullscreen() : false,
+    timestamp: new Date(),
+  }
 
   // Minimize address bar on mobile devices
   // ! Experimental
   if (this.isMobile.value) window.scrollBy(0, 1)
 
-  this.newFullscreenData = {
-    value: f && !debug,
-    timestamp: new Date(),
-  }
-
-  return f && !debug
+  return this.isFullscreen
 }
 
 /**

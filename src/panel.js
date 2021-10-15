@@ -205,11 +205,6 @@ const _validTaskList = {
     name: phrases.RC_screenSize['en-US'],
     phraseHandle: 'RC_screenSize',
   },
-  displaySize: {
-    use: 0,
-    name: phrases.RC_displaySize['en-US'],
-    phraseHandle: 'RC_displaySize',
-  },
   measureDistance: {
     use: 2,
     name: phrases.RC_viewingDistance['en-US'],
@@ -224,11 +219,6 @@ const _validTaskList = {
     use: 2,
     name: phrases.RC_gazeTracking['en-US'],
     phraseHandle: 'RC_gazeTracking',
-  },
-  environment: {
-    use: 0,
-    name: phrases.RC_environment['en-US'],
-    phraseHandle: 'RC_environment',
   },
 }
 const _validTaskListNames = Object.keys(_validTaskList)
@@ -412,9 +402,7 @@ const _getTaskOptionsCallbacks = (task, finalCallback = null) => {
 
   // TODO Refine this process
   // Replace hardcoded strings with RC CONST
-  if (['displaySize', 'environment'].includes(task.name)) {
-    return [_]
-  } else if (['screenSize', 'measureDistance'].includes(task.name)) {
+  if (['screenSize', 'measureDistance'].includes(task.name)) {
     return [task.options || {}, _]
   } else if (['trackGaze'].includes(task.name)) {
     return [

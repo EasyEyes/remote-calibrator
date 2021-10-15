@@ -1,3 +1,5 @@
+import isEqual from 'react-fast-compare'
+
 import RemoteCalibrator from './core'
 import { blurAll } from './components/utils'
 
@@ -6,7 +8,7 @@ import { blurAll } from './components/utils'
  * Get the display (and window) size
  *
  */
-RemoteCalibrator.prototype.displaySize = function (callback) {
+RemoteCalibrator.prototype._displaySize = function () {
   ////
   if (!this.checkInitialized()) return
   blurAll()
@@ -20,9 +22,14 @@ RemoteCalibrator.prototype.displaySize = function (callback) {
       windowHeightPx: window.innerHeight,
     },
     timestamp: new Date(),
-    // id: this.id.value
   }
-  this.newDisplayData = thisData
 
-  if (callback) callback(thisData)
+  if (
+    !this.displayData.length ||
+    !isEqual(
+      thisData.value,
+      this.displayData[this.displayData.length - 1].value
+    )
+  )
+    this.newDisplayData = thisData
 }
