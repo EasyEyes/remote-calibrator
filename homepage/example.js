@@ -113,7 +113,7 @@ function makePanel(e) {
     '#experiment',
     {},
     () => {
-      printMessage('Panel finished!')
+      printMessage(`Panel finished at ${parseTimestamp(d.timestamp)}!`)
     }
   )
   changeClass(e.target, 'complete')

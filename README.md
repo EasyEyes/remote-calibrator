@@ -118,8 +118,6 @@ The `data` passed into the callback function is an [object](https://www.w3school
 
 ### 🍱 Panel
 
-![Panel](./media/panel.png)
-
 ```js
 /* async */ .panel(tasks, parentQuery, [options, [callback, [resolveOnFinish]]])
 ```
@@ -178,8 +176,6 @@ Get the display width and height in pixels. You can use `.displayWidthPx` `.disp
 
 #### Measure Screen Size
 
-![Screen Size](./media/screenSize.png)
-
 ```js
 .screenSize([options, [callback]])
 ```
@@ -212,8 +208,6 @@ Pass `{ value: { screenWidthCm, screenHeightCm, screenDiagonalCm, screenDiagonal
 **Before measuring or tracking viewing distance, calibration of the screen size is required to get the accurate value.**
 
 #### Measure
-
-![Measure Viewing Distance](./media/measureDistance.png)
 
 ```js
 .measureDistance([options, [callback]])
@@ -297,8 +291,6 @@ The value returned are the horizontal and vertical offsets, in centimeters, comp
 ### 👀 Gaze
 
 #### Start Tracking
-
-![Start Gaze Tracking](./media/trackGaze.png)
 
 ```js
 .trackGaze([options, [callbackOnCalibrationEnd, [callbackTrack]]])
