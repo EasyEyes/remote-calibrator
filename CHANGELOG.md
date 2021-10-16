@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2021-10-16
+
 ### Added
 
 **i18n!**
@@ -40,9 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Participants can now continue (restart) calibration tasks after quitting at the middle of the last one.
-- Various fix and update for the panel.
-- Gaze and head trackers stop working on Safari when video preview is turned off. (#49)
-- Fatal error due to cannot detect device for VR headsets.
+- Various fixes and updates for the panel.
+- Gaze and head trackers stop working on Safari when the video preview is turned off. (#49)
+- Fatal error due to cannot detect devices for VR headsets.
 - Remove wrongly labelled camera icon for measuring viewing distance task in the panel.
 
 ### Removed
@@ -257,7 +259,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.3...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.3.0...develop
+[0.3.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.0...v0.2.1
