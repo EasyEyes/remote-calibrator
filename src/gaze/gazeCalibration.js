@@ -77,6 +77,11 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
     originalStyles.video = false
     originalStyles.gazer = false
 
+    if (!this._trackingSetupFinishedStatus.gaze) {
+      this._trackingSetupFinishedStatus.gaze = true
+      this.endGaze()
+    }
+
     unbindKeys(bindKeysFunction)
   }
 
@@ -211,6 +216,7 @@ class GazeCalibrationDot {
       originalStyles.gazer = false
 
       safeExecuteFunc(this.endCalibrationCallback)
+      this.RC._trackingSetupFinishedStatus.gaze = true
     }
   }
 

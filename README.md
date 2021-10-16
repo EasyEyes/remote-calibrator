@@ -188,8 +188,6 @@ Pass `{ value: { screenWidthCm, screenHeightCm, screenDiagonalCm, screenDiagonal
   // Enter fullscreen if set to true
   // Will be ignored if already in fullscreen mode
   fullscreen: false,
-  // Quit fullscreen when calibration finished
-  quitFullscreenOnFinished: false, 🚧
   // How many times the participant needs to calibrate
   repeatTesting: 1,
   // The length of decimal place of the returned value
@@ -219,7 +217,6 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 /* [options] Default value */
 {
   fullscreen: false,
-  quitFullscreenOnFinished: false, 🚧
   // How many times each of the eye will be used to test
   // By default, right eye 2 times, then left eye 2 times
   repeatTesting: 2,

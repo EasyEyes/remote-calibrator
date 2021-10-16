@@ -63,7 +63,6 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
    * options -
    *
    * fullscreen: [Boolean]
-   * quitFullscreenOnFinished: [Boolean] // TODO
    * repeatTesting: 1 // TODO
    * decimalPlace: [Number] Default 1
    * headline: [String]
@@ -78,7 +77,6 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
   options = Object.assign(
     {
       fullscreen: false,
-      quitFullscreenOnFinished: false,
       repeatTesting: 1,
       decimalPlace: 1,
       headline: '🖥️ ' + phrases.RC_screenSizeTitle[this.L],

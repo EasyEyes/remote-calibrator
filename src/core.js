@@ -24,8 +24,16 @@ class RemoteCalibrator {
   constructor() {
     this._initialized = false
 
-    this._hasPanel = false
-    this._panelFinished = false
+    this._id = null
+
+    this._lang = null // A single string, e.g., 'en-US'
+    this._langData = []
+
+    this._panelStatus = {
+      hasPanel: false,
+      panelFinished: false,
+      panelResolveIntervals: [],
+    }
     this._panel = {
       panel: null,
       panelObserver: null,
@@ -36,10 +44,10 @@ class RemoteCalibrator {
       panelResolve: null,
     }
 
-    this._id = null
-
-    this._lang = null // A single string, e.g., 'en-US'
-    this._langData = []
+    this._trackingSetupFinishedStatus = {
+      gaze: true,
+      distance: true,
+    }
 
     this._environmentData = []
 

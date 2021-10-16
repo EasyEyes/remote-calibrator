@@ -35,6 +35,7 @@ function printMessage(message) {
     p.innerHTML = 'No data can be found. Need measurement or calibration first.'
   else p.innerHTML = gotData(message)
   experimentElement.appendChild(p)
+  experimentElement.scrollTop = experimentElement.scrollHeight
   return p
 }
 

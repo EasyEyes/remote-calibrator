@@ -65,7 +65,7 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
 
   const RC = this
 
-  const breakFunction = () => {
+  const breakFunction = (toBreak = true) => {
     ruler.removeEventListener('mousedown', rulerListener)
     this._removeBackground()
 
@@ -78,7 +78,7 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
       height: originalStyles.videoHeight,
       width: originalStyles.videoWidth,
       opacity: originalStyles.opacity,
-      borderRadius: '0px',
+      borderRadius: '5px',
     })
     setDefaultVideoPosition(
       RC,
@@ -100,6 +100,11 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
     originalStyles.gaze = false
     originalStyles.faceOverlay = false
 
+    if (!RC._trackingSetupFinishedStatus.distance && toBreak) {
+      RC._trackingSetupFinishedStatus.distance = true
+      RC.endDistance()
+    }
+
     unbindKeys(bindKeysFunction)
   }
 
@@ -111,13 +116,14 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
       }
       this.newPDData = newPDData
 
-      breakFunction()
+      breakFunction(false)
       safeExecuteFunc(callback, newPDData)
     }
   }
 
   const bindKeysFunction = bindKeys({
     Escape: breakFunction,
+    Enter: finishFunction,
     ' ': finishFunction,
   })
   addButtons(

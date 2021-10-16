@@ -11,7 +11,7 @@ import Phone from './media/smartphone.svg'
 import './css/panel.scss'
 
 RemoteCalibrator.prototype.removePanel = function () {
-  if (!this._hasPanel) return false
+  if (!this._panelStatus.hasPanel) return false
   this._panel.panelObserver.unobserve(this._panel.panel)
   this._panel.panel.remove()
 
@@ -23,8 +23,9 @@ RemoteCalibrator.prototype.removePanel = function () {
   this._panel.panelCallback = null
   this._panel.panelResolve = null
 
-  this._hasPanel = false
-  this._panelFinished = false
+  this._panelStatus.hasPanel = false
+  this._panelStatus.panelFinished = false
+  _clearPanelIntervals(this)
 
   return true
 }
@@ -36,7 +37,7 @@ RemoteCalibrator.prototype.resetPanel = function (
   callback = null,
   resolveOnFinish = null
 ) {
-  if (!this._hasPanel) return false
+  if (!this._panelStatus.hasPanel) return false
 
   const t = tasks || [...this._panel.panelTasks]
   const o = options || { ...this._panel.panelOptions }
@@ -51,7 +52,9 @@ RemoteCalibrator.prototype.resetPanel = function (
     this.removePanel()
     return this.panel(t, parent, o, c, r)
   }
+
   // Current parent, just reset
+  _clearPanelIntervals(this)
   return this.panel(t, this._panel.panelParent, o, c, r, true)
 }
 
@@ -61,9 +64,9 @@ RemoteCalibrator.prototype.panel = async function (
   options = {},
   callback = null,
   resolveOnFinish = null,
-  _reset = false // ! Not open for users
+  _reset = false // ! Not available to users
 ) {
-  if (this._hasPanel ^ _reset) return false
+  if (this._panelStatus.hasPanel ^ _reset) return false
   /**
    * has rest
    * t   f no
@@ -178,18 +181,19 @@ RemoteCalibrator.prototype.panel = async function (
   this._panel.panelCallback = callback
   this._panel.panelResolve = resolveOnFinish
 
-  this._hasPanel = true
-  this._panelFinished = false
+  this._panelStatus.hasPanel = true
+  this._panelStatus.panelFinished = false
 
   if (resolveOnFinish === null) resolveOnFinish = true
 
   return new Promise(resolve => {
     const _ = setInterval(() => {
-      if (this._panelFinished) {
+      if (this._panelStatus.panelFinished) {
         clearInterval(_)
         resolve(resolveOnFinish)
       }
-    }, 200)
+    }, 100)
+    this._panelStatus.panelResolveIntervals.push(_)
   })
 }
 
@@ -207,7 +211,7 @@ const _validTaskList = {
     phraseHandle: 'RC_screenSize',
   },
   measureDistance: {
-    use: 2,
+    use: 1,
     name: phrases.RC_viewingDistance['en-US'],
     phraseHandle: 'RC_viewingDistance',
   },
@@ -325,27 +329,36 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
               RC[_getTaskName(tasks[current.index])](
                 ..._getTaskOptionsCallbacks(
                   tasks[current.index],
+                  // Fixed task callback
+                  () => {
+                    _finishStepAt(current.index)
+                  },
                   finalCallback,
                   // Fixed final callback
                   () => {
-                    RC._panelFinished = true
+                    RC._panelStatus.panelFinished = true
                   }
                 )
               )
-              _finishStepAt(current.index)
             }
           } else {
             // Interim tasks
             e.onclick = () => {
               RC[_getTaskName(tasks[current.index])](
-                ..._getTaskOptionsCallbacks(tasks[current.index])
+                ..._getTaskOptionsCallbacks(
+                  tasks[current.index],
+                  // Fixed task callback
+                  () => {
+                    _finishStepAt(current.index)
+                    current.index++
+                    _activateStepAt(RC, current, tasks, options, finalCallback)
+                  }
+                )
               )
-              _finishStepAt(current.index)
-              current.index++
-              _activateStepAt(RC, current, tasks, options, finalCallback)
             }
           }
         } else if (eIndex === tasks.length && options.showNextButton) {
+          // All tasks finished with next button
           // Change headline and description
           const { headline, nextHeadline, description, nextDescription } =
             options
@@ -356,7 +369,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
               nextDescription
 
           e.onclick = () => {
-            RC._panelFinished = true
+            RC._panelStatus.panelFinished = true
             safeExecuteFunc(finalCallback, { timestamp: new Date() })
           }
         }
@@ -378,7 +391,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
           'rc-panel-step-active'
         )
         finalButton.onclick = () => {
-          RC._panelFinished = true
+          RC._panelStatus.panelFinished = true
           safeExecuteFunc(finalCallback, { timestamp: new Date() })
         }
       }
@@ -402,6 +415,7 @@ const _getTaskName = task => {
 
 const _getTaskOptionsCallbacks = (
   task,
+  fixedTaskCallback,
   finalCallback = null,
   fixedFinalCallback = null
 ) => {
@@ -411,6 +425,9 @@ const _getTaskOptionsCallbacks = (
     }
 
   const getFinalCallbacks = () => {
+    // Task
+    safeExecuteFunc(fixedTaskCallback)
+    // Panel
     safeExecuteFunc(finalCallback, { timestamp: new Date() })
     safeExecuteFunc(fixedFinalCallback)
   }
@@ -442,4 +459,9 @@ const _getTaskOptionsCallbacks = (
       task.callbackTrack || null,
     ]
   }
+}
+
+const _clearPanelIntervals = RC => {
+  RC._panelStatus.panelResolveIntervals.forEach(i => clearInterval(i))
+  RC._panelStatus.panelResolveIntervals = []
 }

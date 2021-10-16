@@ -54,7 +54,7 @@
   display: block;
   position: fixed !important;
   transform-origin: bottom left;
-  /* border-radius: 7px; */
+  border-radius: 5px;
   /* opacity: 0.8; */
   overflow: hidden;
   pointer-events: none;

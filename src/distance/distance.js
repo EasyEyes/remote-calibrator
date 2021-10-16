@@ -75,11 +75,16 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   let v = eyeSide === 'left' ? 1 : -1
 
   // ! KEY
-  const breakFunction = () => {
+  const breakFunction = (toBreakTracking = true) => {
     // ! BREAK
     inTest = false
     resizeObserver.unobserve(RC.background)
     RC._removeBackground()
+
+    if (!RC._trackingSetupFinishedStatus.distance && toBreakTracking) {
+      RC._trackingSetupFinishedStatus.distance = true
+      if (RC.gazeTracker.checkInitialized('distance', false)) RC.endDistance()
+    }
 
     unbindKeys(bindKeysFunction)
   }
@@ -106,7 +111,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
       // Break
       if (!toTrackDistance) {
-        breakFunction()
+        breakFunction(false)
       } else {
         // ! For tracking
         // Stop test
@@ -184,7 +189,6 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
    * options -
    *
    * fullscreen: [Boolean]
-   * quitFullscreenOnFinished: [Boolean] // TODO
    * repeatTesting: 2
    * sparkle: true
    * decimalPlace: 1
@@ -201,7 +205,6 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   options = Object.assign(
     {
       fullscreen: false,
-      quitFullscreenOnFinished: false,
       repeatTesting: 2,
       sparkle: true,
       decimalPlace: 1,

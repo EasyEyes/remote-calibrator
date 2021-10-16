@@ -97,6 +97,7 @@ RemoteCalibrator.prototype.trackGaze = function (
     description: options.description,
   }
   this.gazeTracker.begin(gazeTrackerBeginOptions, () => {
+    this._trackingSetupFinishedStatus.gaze = false
     this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
   })
 

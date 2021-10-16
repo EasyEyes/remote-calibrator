@@ -122,6 +122,8 @@ RemoteCalibrator.prototype.trackDistance = function (
     'distance'
   )
 
+  this._trackingSetupFinishedStatus.distance = false
+
   if (options.nearPoint) {
     startTrackingPupils(
       this,
@@ -230,8 +232,9 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
               // Face_Known_Px  *  Distance_Known_Cm  =  Face_Now_Px  *  Distance_x_Cm
               // Get the factor to be used for future predictions
               stdFactor = averageDist * stdDist.current.value
-              // FINISH
+              // ! FINISH
               RC._removeBackground()
+              RC._trackingSetupFinishedStatus.distance = true
             }
 
             /* -------------------------------------------------------------------------- */
