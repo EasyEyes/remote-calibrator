@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+**i18n!**
+
+- Internationalization! A full list of supported languages can be found at https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0.
+- A few new getters related to languages:
+  - `.userLanguage`
+  - `.language` (e.g., `en-US`, `zh-CN`)
+  - `.languageNameEnglish` (e.g., `English`, `Chinese (Simplified)`)
+  - `.languageNameNative` (e.g., `简体中文`)
+  - `.languageDirection` (`LTR` or `RTL`)
+  - `.languagePhraseSource` (e.g., `Denis Pelli & Peiling Jiang 2021.10.10`)
+  - `.languageData` gets the whole data history of languages.
+  - `.supportedLanguages` gets an array of supported languages.
+- `.newLanguage(lang = 'en-US')` to set a new language for the calibrator.
+- Allows researchers to set language on initialization using the `language` option. Set to `AUTO` (default) will let the calibrator go with the user language.
+- `.isMobile` getter.
+- Call `._environment()` and `._displaySize()` automatically when initializing the calibrator.
+- Instructions in the viewing distance measurement (and head tracking setup) is scrollable to avoid overlapping with the canvas on small screen sizes.
+- Automatically minimize the mobile address bar when a calibration task starts.
+- Safer type check for callback functions to avoid fatal errors.
+- Version console log on loading.
+
+### Changed
+
+- Improved UI and performance for small screens and mobile devices.
+- Take Return instead of Space for confirming screen size measurement.
+- (Breaking) `.fullScreenData` getter is changed to `.fullscreenData`.
+- Viewing distance methods become `BlindSpot` or `FaceMesh`.
+
+### Fixed
+
+- Participants can now continue (restart) calibration tasks after quitting at the middle of the last one.
+- Various fix and update for the panel.
+- Gaze and head trackers stop working on Safari when video preview is turned off. (#49)
+- Fatal error due to cannot detect device for VR headsets.
+- Remove wrongly labelled camera icon for measuring viewing distance task in the panel.
+
+### Removed
+
+- (Breaking) `.environment()` and `.displaySize()`. Values can be accessed directly throw the getters.
+- The responsive arrow in the screen size calibration with credit card.
+
 ## [0.2.3] - 2021-10-05
 
 ### Added

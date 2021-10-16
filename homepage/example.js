@@ -35,6 +35,7 @@ function printMessage(message) {
     p.innerHTML = 'No data can be found. Need measurement or calibration first.'
   else p.innerHTML = gotData(message)
   experimentElement.appendChild(p)
+  experimentElement.scrollTop = experimentElement.scrollHeight
   return p
 }
 
@@ -99,21 +100,33 @@ function makePanel(e) {
     [
       {
         name: 'screenSize',
+        callback: data => {
+          printMessage(
+            `[CALLBACK] Screen size calibration finished! This message is printed in the callback function. Only this task's callback is set up with a print function.`
+          )
+        },
       },
       {
         name: 'trackGaze',
+        callbackOnCalibrationEnd: data => {
+          console.log(data)
+        },
       },
+      'measureDistance',
       {
         name: 'trackDistance',
         options: {
           nearPoint: false,
         },
+        callbackStatic: data => {
+          console.log(data)
+        },
       },
     ],
     '#experiment',
     {},
-    () => {
-      printMessage('Panel finished!')
+    data => {
+      printMessage(`Panel finished at ${parseTimestamp(data.timestamp)}!`)
     }
   )
   changeClass(e.target, 'complete')
@@ -124,17 +137,17 @@ function makePanel(e) {
  * Measure the display size
  *
  */
-function measureDisplaySize(e) {
-  RemoteCalibrator.displaySize(displayData => {
-    printMessage(
-      `Display size is ${displayData.value.displayWidthPx} px in width and ${
-        displayData.value.displayHeightPx
-      } px in height, measured at ${parseTimestamp(displayData.timestamp)}.`
-    )
+// function measureDisplaySize(e) {
+//   RemoteCalibrator.displaySize(displayData => {
+//     printMessage(
+//       `Display size is ${displayData.value.displayWidthPx} px in width and ${
+//         displayData.value.displayHeightPx
+//       } px in height, measured at ${parseTimestamp(displayData.timestamp)}.`
+//     )
 
-    changeClass(e.target, 'complete')
-  })
-}
+//     changeClass(e.target, 'complete')
+//   })
+// }
 
 /**
  *
@@ -398,10 +411,10 @@ function getGazeNow() {
  * Get environment info
  *
  */
-function getEnvironment(e) {
-  RemoteCalibrator.environment(data => {
-    printMessage('Environment: ' + data.value.description + '.')
+// function getEnvironment(e) {
+//   RemoteCalibrator.environment(data => {
+//     printMessage('Environment: ' + data.value.description + '.')
 
-    changeClass(e.target, 'complete')
-  })
-}
+//     changeClass(e.target, 'complete')
+//   })
+// }

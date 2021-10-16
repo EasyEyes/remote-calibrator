@@ -8,15 +8,32 @@ import platform from 'platform'
 import DeviceDetector from 'device-detector-js'
 
 import randomPhrases from './components/randomPhrases'
-import { debug } from './constants'
-import { getFullscreen, blurAll, constructInstructions } from './helpers'
+import { debug } from './debug'
+import {
+  getFullscreen,
+  blurAll,
+  constructInstructions,
+  isFullscreen,
+  safeExecuteFunc,
+} from './components/utils'
+import { looseSetLanguage } from './components/language'
+import { phrases } from './i18n'
+import isEqual from 'react-fast-compare'
 
 class RemoteCalibrator {
   constructor() {
     this._initialized = false
 
-    this._hasPanel = false
-    this._panelFinished = false
+    this._id = null
+
+    this._lang = null // A single string, e.g., 'en-US'
+    this._langData = []
+
+    this._panelStatus = {
+      hasPanel: false,
+      panelFinished: false,
+      panelResolveIntervals: [],
+    }
     this._panel = {
       panel: null,
       panelObserver: null,
@@ -27,7 +44,10 @@ class RemoteCalibrator {
       panelResolve: null,
     }
 
-    this._id = null
+    this._trackingSetupFinishedStatus = {
+      gaze: true,
+      distance: true,
+    }
 
     this._environmentData = []
 
@@ -55,6 +75,11 @@ class RemoteCalibrator {
     }
 
     this.deviceDetector = new DeviceDetector()
+
+    window.console.log(
+      `%c\nEasyEyes Remote Calibrator ${this.version.value}\n`,
+      `color: ${this._CONST.COLOR.ORANGE}`
+    )
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -76,6 +101,7 @@ class RemoteCalibrator {
   ////
 
   get id() {
+    if (!this._id) return null
     return {
       value: this._id.value,
       timestamp: this._id.timestamp,
@@ -100,95 +126,138 @@ class RemoteCalibrator {
     }
   }
 
+  get supportedLanguages() {
+    const a = []
+    for (let l in phrases.EE_languageNameEnglish) {
+      a.push({
+        language: l,
+        languageNameEnglish: phrases.EE_languageNameEnglish[l],
+        languageNameNative: phrases.EE_languageNameNative[l],
+      })
+    }
+
+    return a
+  }
+
+  get L() {
+    return this._lang
+  }
+
+  get LD() {
+    return this.languageDirection.value
+  }
+
+  get language() {
+    return this._helper_get(this._langData, 'language')
+  }
+
+  get languageNameEnglish() {
+    return this._helper_get(this._langData, 'languageNameEnglish')
+  }
+
+  get languageNameNative() {
+    return this._helper_get(this._langData, 'languageNameNative')
+  }
+
+  get languageDirection() {
+    return this._helper_get(this._langData, 'languageDirection')
+  }
+
+  get languagePhraseSource() {
+    return this._helper_get(this._langData, 'languagePhraseSource')
+  }
+
   // Status
 
   get isFullscreen() {
-    return {
-      value:
-        Math.abs(window.innerHeight - screen.height) < 5 &&
-        Math.abs(window.innerWidth - screen.width) < 5 &&
-        window.screenX < 5 &&
-        window.screenY < 5,
-      timestamp: new Date(),
-    }
+    if (
+      !this.fullscreenData.length ||
+      !isEqual(isFullscreen(), this._helper_get(this._fullscreenData).value)
+    )
+      this.newFullscreenData = {
+        value: isFullscreen(),
+        timestamp: new Date(),
+      }
+    return this._helper_get(this._fullscreenData)
   }
 
   // Environment
 
   get bot() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'bot')
   }
 
   get browser() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'browser')
   }
 
   get browserVersion() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'browserVersion')
   }
 
   get deviceType() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'deviceType')
   }
 
+  get isMobile() {
+    const d = this._helper_get(this._environmentData, 'deviceType')
+    return {
+      value: d.value !== 'desktop',
+      timestamp: d.timestamp,
+    }
+  }
+
   get model() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'model')
   }
 
   get manufacturer() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'manufacturer')
   }
 
   get engine() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'engine')
   }
 
   get system() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'system')
   }
 
   get systemFamily() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'systemFamily')
   }
 
   get description() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'description')
   }
 
   get fullDescription() {
-    if (!this._environmentData.length) this.environment()
     return this._helper_get(this._environmentData, 'fullDescription')
+  }
+
+  get userLanguage() {
+    return this._helper_get(this._environmentData, 'userLanguage')
   }
 
   // Screen
 
   get displayWidthPx() {
-    if (!this._displayData.length) this.displaySize()
+    this._displaySize()
     return this._helper_get(this._displayData, 'displayWidthPx')
   }
 
   get displayHeightPx() {
-    if (!this._displayData.length) this.displaySize()
+    this._displaySize()
     return this._helper_get(this._displayData, 'displayHeightPx')
   }
 
   get windowWidthPx() {
-    if (!this._displayData.length) this.displaySize()
+    this._displaySize()
     return this._helper_get(this._displayData, 'windowWidthPx')
   }
 
   get windowHeightPx() {
-    if (!this._displayData.length) this.displaySize()
+    this._displaySize()
     return this._helper_get(this._displayData, 'windowHeightPx')
   }
 
@@ -266,12 +335,16 @@ class RemoteCalibrator {
     return this._gazePositionData
   }
 
-  get fullScreenData() {
+  get fullscreenData() {
     return this._fullscreenData
   }
 
   get environmentData() {
     return this._environmentData
+  }
+
+  get languageData() {
+    return this._langData
   }
 
   /* --------------------------------- SETTERS -------------------------------- */
@@ -338,6 +411,13 @@ class RemoteCalibrator {
   set newFullscreenData(data) {
     this._fullscreenData.push(data)
   }
+
+  /**
+   * @param {{ value: { language: string; languageNameEnglish: string; languageNameNative: string; languageDirection: string; languagePhraseSource: string; }; timestamp: Date; }} data
+   */
+  set newLanguageData(data) {
+    this._langData.push(data)
+  }
 }
 
 /**
@@ -351,6 +431,7 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
     options = Object.assign(
       {
         id: randomPhrases(),
+        language: 'AUTO',
         fullscreen: false,
       },
       options
@@ -363,7 +444,16 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
       timestamp: new Date(),
     }
 
-    if (callback) callback(this._id)
+    this._environment()
+    this._displaySize()
+
+    if (this._CONST.S.AUTO === options.language)
+      // AUTO
+      this.newLanguageData = looseSetLanguage(this.userLanguage.value)
+    else this.newLanguageData = looseSetLanguage(options.language)
+    this._lang = this.language.value
+
+    safeExecuteFunc(callback, this._id)
   }
 }
 
@@ -372,16 +462,25 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
  * Get the environment data, e.g. browser type
  *
  */
-RemoteCalibrator.prototype.environment = function (callback) {
+RemoteCalibrator.prototype._environment = function () {
   if (this.checkInitialized()) {
     blurAll()
 
     const device = this.deviceDetector.parse(platform.ua)
     const bot = device.bot
 
+    if (!device.device)
+      device.device = {
+        type: null,
+        model: null,
+        brand: null,
+      }
+
     const data = {
       value: {
-        bot: bot ? `${bot.name} (${bot.category}) by ${bot.producer.name}` : '',
+        bot: bot
+          ? `${bot.name} (${bot.category}) by ${bot.producer.name}`
+          : null,
         browser: platform.name,
         browserVersion: platform.version,
         deviceType: device.device.type,
@@ -392,13 +491,13 @@ RemoteCalibrator.prototype.environment = function (callback) {
         systemFamily: platform.os.family,
         description: platform.description,
         fullDescription: platform.ua,
+        userLanguage:
+          window.navigator.userLanguage || window.navigator.language,
       },
       timestamp: this.id.timestamp,
     }
 
     this.newEnvironmentData = data
-
-    if (callback) callback(data)
   }
 }
 
@@ -418,21 +517,32 @@ RemoteCalibrator.prototype.checkInitialized = function () {
  * @param {Boolean} f Get fullscreen or not from options
  */
 RemoteCalibrator.prototype.getFullscreen = function (f = true) {
-  if (
-    window.fullScreen ||
-    (window.innerWidth === screen.width && window.innerHeight === screen.height)
-  ) {
+  if (isFullscreen()) {
     return true
   }
 
-  if (f && !debug) getFullscreen()
-
   this.newFullscreenData = {
-    value: f && !debug,
+    value: f && !debug ? getFullscreen() : false,
     timestamp: new Date(),
   }
 
-  return f && !debug
+  // Minimize address bar on mobile devices
+  // ! Experimental
+  if (this.isMobile.value) window.scrollBy(0, 1)
+
+  return this.isFullscreen
+}
+
+/**
+ * Set a new language
+ */
+RemoteCalibrator.prototype.newLanguage = function (lang) {
+  if (this.checkInitialized()) {
+    let data
+    this.newLanguageData = data = looseSetLanguage(lang)
+    this._lang = this.language.value
+    return data
+  }
 }
 
 /**
@@ -447,6 +557,9 @@ RemoteCalibrator.prototype._addBackground = function (inner) {
   if (!b) {
     b = document.createElement('div')
     b.id = 'calibration-background'
+    b.className = 'calibration-background' + ` rc-lang-${this.LD.toLowerCase()}`
+
+    document.body.classList.add('lock-view')
     document.body.appendChild(b)
 
     b.style.background = this.params.backgroundColor
@@ -474,6 +587,7 @@ RemoteCalibrator.prototype._replaceBackground = function (inner) {
 RemoteCalibrator.prototype._removeBackground = function () {
   let b = document.getElementById('calibration-background')
   if (b) {
+    document.body.classList.remove('lock-view')
     document.body.removeChild(b)
 
     this._background = {
@@ -541,11 +655,11 @@ RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
   const r = this.instructionElement.getBoundingClientRect()
   this.instructionElement.style.top = `calc(50% + ${yOffset + 10}px)`
   if (side === 'left') {
-    this.instructionElement.style.left = '10%'
+    this.instructionElement.style.left = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.right = 'unset'
     this.instructionElement.style.transform = `translate(${-r.width / 2}px, 0)`
   } else if (side === 'right') {
-    this.instructionElement.style.right = '10%'
+    this.instructionElement.style.right = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.left = 'unset'
     this.instructionElement.style.transform = `translate(${r.width / 2}px, 0)`
   } else {

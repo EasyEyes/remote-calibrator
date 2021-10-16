@@ -51,6 +51,8 @@
         >
       </p>
 
+      <div id="rc-language"></div>
+
       <h2>Functions</h2>
 
       <div id="functions" class="flex-wrapper"></div>
@@ -59,6 +61,7 @@
 
       <div id="getters-exp" class="getters flex-wrapper"></div>
       <div id="getters-env" class="getters flex-wrapper"></div>
+      <div id="getters-data" class="getters flex-wrapper"></div>
     </div>
 
     <div id="experiment"></div>
@@ -91,7 +94,7 @@
         // [name, actual function name, function name used in this demo]
         ['Initialize', 'init', 'initialize'],
         ['Make a Panel', 'panel', 'makePanel'],
-        ['Measure Display Pixels Px', 'displaySize', 'measureDisplaySize'],
+        // ['Measure Display Pixels Px', 'displaySize', 'measureDisplaySize'],
         ['Measure Screen Size Cm', 'screenSize', 'measureScreenSize'],
         [
           'Measure Viewing Distance',
@@ -105,7 +108,7 @@
         ],
         ['Track Gaze', 'trackGaze', 'trackGaze'],
         // Environment
-        ['Get Environment', 'environment', 'getEnvironment'],
+        // ['Get Environment', 'environment', 'getEnvironment'],
       ]
 
       const functionsElement = document.getElementById('functions')
@@ -114,6 +117,7 @@
       })
 
       const gettersExp = [
+        'id',
         'displayWidthPx',
         'displayHeightPx',
         'windowWidthPx',
@@ -128,6 +132,11 @@
         'nearPointCm',
         'gazePositionPx',
         'isFullscreen',
+        'language',
+        'languageNameEnglish',
+        'languageNameNative',
+        'languageDirection',
+        'languagePhraseSource',
       ]
 
       const gettersEnv = [
@@ -142,19 +151,33 @@
         'systemFamily',
         'description',
         'fullDescription',
+        'userLanguage',
         'version',
+      ]
+
+      const gettersData = [
+        'displayData',
+        'screenData',
+        'viewingDistanceData',
+        'nearPointData',
+        'PDData',
+        'gazeData',
+        'fullscreenData',
+        'environmentData',
+        'languageData',
       ]
 
       function setGetters(gE, gS) {
         gS.forEach(getter => {
           let b = document.createElement('button')
           b.className = 'disabled'
-          b.onclick = () =>
+          b.onclick = () => {
             printMessage(
               RemoteCalibrator[getter]
                 ? `<code>${JSON.stringify(RemoteCalibrator[getter])}</code>`
                 : 'nodata'
             )
+          }
           b.innerHTML = `<code>.${getter}</code>`
           gE.appendChild(b)
         })
@@ -162,6 +185,24 @@
 
       setGetters(document.getElementById('getters-exp'), gettersExp)
       setGetters(document.getElementById('getters-env'), gettersEnv)
+      setGetters(document.getElementById('getters-data'), gettersData)
+
+      // i18n
+      const langPickerParent = document.getElementById('rc-language')
+      let langInner = '<select name="lang" id="lang-picker">'
+      for (let lang of RemoteCalibrator.supportedLanguages) {
+        langInner += `<option value="${lang.language}">${lang.languageNameNative}</option>`
+      }
+      langInner += '</select>'
+      langPickerParent.innerHTML = langInner
+
+      document.querySelector('#lang-picker').onchange = e => {
+        RemoteCalibrator.newLanguage(
+          document.querySelector('#lang-picker').value
+        )
+        RemoteCalibrator.resetPanel()
+      }
+      //
 
       initialize({ target: document.getElementById('init-button') })
     </script>

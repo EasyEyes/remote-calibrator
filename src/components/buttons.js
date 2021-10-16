@@ -1,6 +1,7 @@
+import { phrases } from '../i18n'
 import '../css/buttons.scss'
 
-export const addButtons = (parent, { go, cancel }, showCancelButton) => {
+export const addButtons = (RCL, parent, { go, cancel }, showCancelButton) => {
   const buttons = document.createElement('div')
   buttons.className = 'rc-buttons'
   buttons.id = 'rc-buttons'
@@ -11,7 +12,7 @@ export const addButtons = (parent, { go, cancel }, showCancelButton) => {
     goButton = document.createElement('button')
     goButton.className = 'rc-button rc-go-button'
     goButton.onclick = go
-    goButton.innerHTML = 'OK'
+    goButton.innerHTML = phrases.RC_ok[RCL]
     buttons.appendChild(goButton)
   }
 
@@ -19,7 +20,7 @@ export const addButtons = (parent, { go, cancel }, showCancelButton) => {
     cancelButton = document.createElement('button')
     cancelButton.className = 'rc-button rc-cancel-button'
     cancelButton.onclick = cancel
-    cancelButton.innerHTML = 'Cancel'
+    cancelButton.innerHTML = phrases.RC_cancel[RCL]
     buttons.appendChild(cancelButton)
   }
 

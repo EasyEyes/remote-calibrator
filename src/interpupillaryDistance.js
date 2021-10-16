@@ -2,14 +2,19 @@ import Swal from 'sweetalert2'
 
 import RemoteCalibrator from './core'
 
-import { blurAll, constructInstructions, toFixedNumber } from './helpers'
+import {
+  blurAll,
+  constructInstructions,
+  safeExecuteFunc,
+  toFixedNumber,
+} from './components/utils'
 import { swalInfoOptions } from './components/swalOptions'
 import Arrow from './media/arrow.svg'
 import PD from './media/pd.png?width=480&height=240'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
-import { colorDarkRed } from './constants'
-import text from './text.json'
+import { setDefaultVideoPosition } from './components/video'
+import { phrases } from './i18n'
 
 // let selfVideo = false // No WebGazer video available and an extra video element needs to be created
 
@@ -25,7 +30,7 @@ const originalStyles = {
 const videoWidthFactor = 0.9
 const videoHeightFactor = 0.3
 
-RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
+RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
   ////
   if (!this.checkInitialized()) return
   blurAll()
@@ -34,9 +39,9 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
   options = Object.assign(
     {
       fullscreen: false,
-      headline: text.measurePD.headline,
-      description: text.measurePD.description,
-      shortDescription: text.measurePD.shortDescription,
+      headline: '👁️ ' + phrases.RC_nearPointTitle[this.L],
+      description: phrases.RC_nearPointIntroCaption[this.L],
+      shortDescription: phrases.RC_nearPointIntro[this.L],
     },
     options
   )
@@ -58,7 +63,9 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
     videoHeight
   )
 
-  const breakFunction = () => {
+  const RC = this
+
+  const breakFunction = (toBreak = true) => {
     ruler.removeEventListener('mousedown', rulerListener)
     this._removeBackground()
 
@@ -71,10 +78,12 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
       height: originalStyles.videoHeight,
       width: originalStyles.videoWidth,
       opacity: originalStyles.opacity,
-      left: '10px',
-      bottom: '10px',
-      borderRadius: '0px',
+      borderRadius: '5px',
     })
+    setDefaultVideoPosition(
+      RC,
+      document.querySelector('#webgazerVideoContainer')
+    )
 
     Object.assign(document.querySelector('#webgazerVideoFeed').style, {
       height: originalStyles.videoHeight,
@@ -91,6 +100,11 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
     originalStyles.gaze = false
     originalStyles.faceOverlay = false
 
+    if (!RC._trackingSetupFinishedStatus.distance && toBreak) {
+      RC._trackingSetupFinishedStatus.distance = true
+      RC.endDistance()
+    }
+
     unbindKeys(bindKeysFunction)
   }
 
@@ -102,17 +116,18 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
       }
       this.newPDData = newPDData
 
-      breakFunction()
-      callback()
+      breakFunction(false)
+      safeExecuteFunc(callback, newPDData)
     }
   }
 
-  // if (callback && typeof callback === 'function') callback()
   const bindKeysFunction = bindKeys({
     Escape: breakFunction,
+    Enter: finishFunction,
     ' ': finishFunction,
   })
   addButtons(
+    this.L,
     this.background,
     {
       go: finishFunction,
@@ -124,7 +139,7 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
   // TODO To be removed
   setTimeout(() => {
     Swal.fire({
-      ...swalInfoOptions,
+      ...swalInfoOptions(this),
       icon: undefined,
       imageUrl: PD,
       imageWidth: 480,
@@ -190,15 +205,20 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
     height: h + 'px',
     width: window.innerWidth * videoWidthFactor + 'px',
     opacity: 1,
-    // left: `50%`,
-    // top: `50%`,
-    // transform: `translate(${(-window.innerWidth * videoWidthFactor) / 2}px, ${
-    //   -h * 0.5
-    // }px)`,
-    left: 0.5 * window.innerWidth * (1 - videoWidthFactor) + 'px',
-    bottom: 0.5 * (window.innerHeight - h) + 'px',
     borderRadius: '15px',
   })
+
+  if (RC.isMobile.value) {
+    Object.assign(container.style, {
+      right: 0.5 * window.innerWidth * (1 - videoWidthFactor) + 'px',
+      top: 0.5 * (window.innerHeight - h) + 'px',
+    })
+  } else {
+    Object.assign(container.style, {
+      left: 0.5 * window.innerWidth * (1 - videoWidthFactor) + 'px',
+      bottom: 0.5 * (window.innerHeight - h) + 'px',
+    })
+  }
 
   // Canvas
   // Object.assign(canvas.style, {
@@ -277,7 +297,7 @@ const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
       thisText.innerHTML = i / 10
       scales.appendChild(thisText)
 
-      if (i === 0) thisText.style.color = colorDarkRed
+      if (i === 0) thisText.style.color = RC._CONST.COLOR.DARK_RED
     }
   }
 
@@ -290,7 +310,9 @@ const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
   selectionElement.style.left = '-100px'
   selectionElement.style.top = '40px'
 
-  document.getElementById('size-arrow-fill').setAttribute('fill', colorDarkRed)
+  document
+    .getElementById('size-arrow-fill')
+    .setAttribute('fill', RC._CONST.COLOR.DARK_RED)
 
   const _onDownRuler = e => {
     selectionElement.style.left = (offsetPixel = e.offsetX - 30) + 'px'

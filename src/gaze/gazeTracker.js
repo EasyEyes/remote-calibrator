@@ -1,7 +1,7 @@
 import webgazer from '../WebGazer4RC/src/index.mjs'
 
-import { toFixedNumber } from '../helpers'
-import { checkWebgazerReady } from '../video'
+import { safeExecuteFunc, toFixedNumber } from '../components/utils'
+import { checkWebgazerReady } from '../components/video'
 
 /**
  * The gaze tracker object to wrap all gaze-related functions
@@ -38,6 +38,7 @@ export default class GazeTracker {
       }
 
       checkWebgazerReady(
+        this.calibrator,
         pipWidthPx,
         this.calibrator.params.videoOpacity,
         this.webgazer,
@@ -55,6 +56,7 @@ export default class GazeTracker {
       }
 
       checkWebgazerReady(
+        this.calibrator,
         pipWidthPx,
         this.calibrator.params.videoOpacity,
         this.webgazer,
@@ -68,7 +70,7 @@ export default class GazeTracker {
       this.webgazer.setGazeListener(d => {
         if (d) {
           const data = (this.calibrator.newGazePositionData = this.getData(d))
-          if (callback) callback(data)
+          safeExecuteFunc(callback, data)
         }
       })
     }
@@ -78,7 +80,7 @@ export default class GazeTracker {
     let data = (this.calibrator.newGazePositionData = this.getData(
       await this.webgazer.getCurrentPrediction()
     ))
-    if (callback) callback(data)
+    safeExecuteFunc(callback, data)
     return data
   }
 
@@ -93,8 +95,9 @@ GazeTracker.prototype._init = function (
 ) {
   if (!this.checkInitialized(task)) {
     if (task === 'gaze') {
-      this.webgazer.clearData()
-      this.webgazer.saveDataAcrossSessions(false)
+      // TODO Manually clear data
+      // this.webgazer.clearData()
+      // this.webgazer.saveDataAcrossSessions(false)
       this.webgazer.params.greedyLearner = greedyLearner
       this.webgazer.params.framerate = framerate
       this.showGazer(showGazer)
@@ -216,7 +219,7 @@ GazeTracker.prototype.showGazer = function (show) {
 }
 
 GazeTracker.prototype.showVideo = function (show) {
-  this.webgazer.showVideo(show)
+  this.webgazer.showVideo(show, this.calibrator._params.videoOpacity)
 }
 
 GazeTracker.prototype.showFaceOverlay = function (show) {

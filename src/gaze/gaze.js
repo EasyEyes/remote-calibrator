@@ -1,8 +1,8 @@
 import RemoteCalibrator from '../core'
 
-import { blurAll } from '../helpers'
+import { blurAll, safeExecuteFunc } from '../components/utils'
 import { gazeCalibrationPrepare } from './gazeCalibration'
-import text from '../text.json'
+import { phrases } from '../i18n'
 
 RemoteCalibrator.prototype.trackGaze = function (
   options = {},
@@ -38,13 +38,14 @@ RemoteCalibrator.prototype.trackGaze = function (
       framerate: 30, // ! New 0.0.5
       showGazer: true,
       showVideo: true,
-      pipWidthPx: 208,
+      pipWidthPx:
+        this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP'],
       showFaceOverlay: false,
       calibrationCount: 5,
       thresholdDeg: 10, // minAccuracy
       decimalPlace: 0, // As the system itself has a high prediction error, it's not necessary to be too precise here
-      headline: text.calibrateGaze.headline,
-      description: text.calibrateGaze.description,
+      headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
+      description: phrases.RC_gazeTrackingIntro[this.L],
     },
     options
   )
@@ -96,17 +97,14 @@ RemoteCalibrator.prototype.trackGaze = function (
     description: options.description,
   }
   this.gazeTracker.begin(gazeTrackerBeginOptions, () => {
+    this._trackingSetupFinishedStatus.gaze = false
     this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
   })
 
   // Calibration
 
-  const onCalibrationEnded = () => {
-    if (
-      callbackOnCalibrationEnd &&
-      typeof callbackOnCalibrationEnd === 'function'
-    )
-      callbackOnCalibrationEnd()
+  const onCalibrationEnded = data => {
+    safeExecuteFunc(callbackOnCalibrationEnd, data)
 
     // ! greedyLearner
     if (!this.gazeTracker.webgazer.params.greedyLearner) {
@@ -145,12 +143,6 @@ RemoteCalibrator.prototype.trackGaze = function (
       }
     }
   }
-  // Swal.fire({
-  //   ...swalInfoOptions,
-  //   html: options.description,
-  // }).then(() => {
-
-  // })
 }
 
 RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {

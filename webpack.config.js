@@ -3,7 +3,9 @@ const webpack = require('webpack')
 const ESLintPlugin = require('eslint-webpack-plugin')
 const WebpackModules = require('webpack-modules')
 const { CleanWebpackPlugin } = require('clean-webpack-plugin')
+
 const TerserPlugin = require('terser-webpack-plugin')
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
 
 const packageJSON = require('./package.json')
 
@@ -98,6 +100,7 @@ const libConfig = Object.assign({}, config, {
           },
         },
       }),
+      new CssMinimizerPlugin(),
     ],
   },
 })

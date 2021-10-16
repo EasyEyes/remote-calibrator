@@ -6,9 +6,10 @@ import {
   constructInstructions,
   blurAll,
   sleep,
-} from '../helpers'
+  safeExecuteFunc,
+} from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
-import text from '../text.json'
+import { phrases } from '../i18n'
 
 const originalStyles = {
   video: false,
@@ -42,15 +43,16 @@ RemoteCalibrator.prototype.trackDistance = function (
       fullscreen: false,
       repeatTesting: 2,
       sparkle: true,
-      pipWidthPx: 208,
+      pipWidthPx:
+        this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP'],
       showVideo: true,
       showFaceOverlay: false,
       decimalPlace: 1,
       framerate: 3, // track rate
       nearPoint: true, // New 0.0.6
       showNearPoint: false, // New 0.0.6
-      headline: text.trackDistance.headline,
-      description: text.trackDistance.description,
+      headline: '🙂 ' + phrases.RC_headTrackingTitle[this.L],
+      description: phrases.RC_headTrackingIntro[this.L],
     },
     options
   )
@@ -73,7 +75,7 @@ RemoteCalibrator.prototype.trackDistance = function (
   this._addBackground()
   this._constructFloatInstructionElement(
     'gaze-system-instruction',
-    'Starting up... Please wait.'
+    phrases.RC_starting[this.L]
   )
 
   // STEP 2 - Live estimate
@@ -84,9 +86,7 @@ RemoteCalibrator.prototype.trackDistance = function (
     if (this.gazeTracker.checkInitialized('gaze', false))
       this.showGazer(originalGazer)
 
-    if (callbackStatic && typeof callbackStatic === 'function')
-      callbackStatic(distData)
-
+    safeExecuteFunc(callbackStatic, distData)
     stdDist.current = distData
   }
 
@@ -98,7 +98,7 @@ RemoteCalibrator.prototype.trackDistance = function (
     this._addBackground()
 
     this._replaceBackground(
-      constructInstructions(options.headline, options.description)
+      constructInstructions(options.headline, options.description, true)
     )
 
     if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
@@ -122,11 +122,13 @@ RemoteCalibrator.prototype.trackDistance = function (
     'distance'
   )
 
+  this._trackingSetupFinishedStatus.distance = false
+
   if (options.nearPoint) {
     startTrackingPupils(
       this,
       () => {
-        this.measurePD({}, _)
+        this._measurePD({}, _)
       },
       callbackTrack
     )
@@ -140,7 +142,7 @@ RemoteCalibrator.prototype.trackDistance = function (
 const startTrackingPupils = async (RC, beforeCallbackTrack, callbackTrack) => {
   RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
     RC._removeFloatInstructionElement()
-    beforeCallbackTrack()
+    safeExecuteFunc(beforeCallbackTrack)
     _tracking(RC, trackingOptions, callbackTrack)
   })
 }
@@ -161,7 +163,7 @@ const cyclopean = (video, a, b) => {
 
 /* -------------------------------------------------------------------------- */
 const trackingOptions = {
-  pipWidthPx: 208,
+  pipWidthPx: 0,
   decimalPlace: 2,
   framerate: 3,
   nearPoint: true,
@@ -230,8 +232,9 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
               // Face_Known_Px  *  Distance_Known_Cm  =  Face_Now_Px  *  Distance_x_Cm
               // Get the factor to be used for future predictions
               stdFactor = averageDist * stdDist.current.value
-              // FINISH
+              // ! FINISH
               RC._removeBackground()
+              RC._trackingSetupFinishedStatus.distance = true
             }
 
             /* -------------------------------------------------------------------------- */
@@ -244,7 +247,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
                 trackingOptions.decimalPlace
               ),
               timestamp: timestamp,
-              method: 'Facemesh Predict',
+              method: RC._CONST.VIEW_METHOD.F,
             })
 
             /* -------------------------------------------------------------------------- */
@@ -273,7 +276,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
                   nearPointCm: nPData ? nPData.value : [null, null],
                 },
                 timestamp: timestamp,
-                method: 'Facemesh Predict',
+                method: RC._CONST.VIEW_METHOD.F,
               })
             }
           }
@@ -292,7 +295,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
     iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
   }
 
-  sleep(500).then(_)
+  sleep(1000).then(_)
 }
 
 const _getNearPoint = (
@@ -372,7 +375,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     iRepeatOptions.break = true
     iRepeatOptions.framerate = 20
 
-    trackingOptions.pipWidthPx = 208
+    trackingOptions.pipWidthPx = 0
     trackingOptions.decimalPlace = 2
     trackingOptions.framerate = 3
     trackingOptions.nearPoint = true
@@ -419,7 +422,7 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
     const data = (this.newViewingDistanceData = {
       value: toFixedNumber(stdFactor / dist, trackingOptions.decimalPlace),
       timestamp: timestamp,
-      method: 'Facemesh Predict',
+      method: this._CONST.VIEW_METHOD.F,
     })
 
     let nPData
@@ -435,15 +438,14 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
       )
     }
 
-    if (c)
-      c({
-        value: {
-          viewingDistanceCm: data.value,
-          nearPointCm: nPData ? nPData.value : null,
-        },
-        timestamp: timestamp,
-        method: 'Facemesh Predict',
-      })
+    safeExecuteFunc(c, {
+      value: {
+        viewingDistanceCm: data.value,
+        nearPointCm: nPData ? nPData.value : null,
+      },
+      timestamp: timestamp,
+      method: this._CONST.VIEW_METHOD.F,
+    })
     return data
   }
 

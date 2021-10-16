@@ -19,9 +19,9 @@ module.exports = {
   ignorePatterns: [
     'webpack.config.js',
     '.eslintrc.js',
+    'i18n.js',
     'WebGazer/',
     'lib/',
     'server.js',
-    'serverHTTPS.js',
   ],
 }

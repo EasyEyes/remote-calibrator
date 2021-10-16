@@ -10,8 +10,6 @@
 
 Welcome to Remote Calibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g., crowd-sourced through Amazon Mechanical Turk.
 
-The features/functions marked with 🚧 are still work-in-progress and not available yet.
-
 ## Demo
 
 Please visit https://calibrator.app for the demo. More information can be found at https://easyeyes.app/remote-calibrator/.
@@ -51,14 +49,14 @@ RemoteCalibrator.measureDistance({}, data => {
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                       |
 | [🍱 Panel](#-panel)                       | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                        |
-| [🖥️ Screen](#️-screen)                    | [`displaySize()`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                |
+| [🖥️ Screen](#️-screen)                    | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                       |
 | [📏 Viewing Distance](#-viewing-distance) | [`measureDistance()`](#-viewing-distance)                                                                                                                                                        |
 | [🙂 Head Tracking](#-head-tracking)       | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-head-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#lifecycle) [Others](#others)              |
 | [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1) |
-| [💻 Environment](#-environment)           | [`environment()`](#-environment)                                                                                                                                                                 |
+| [💻 Environment](#-environment)           | [System and Browser Environment](#-environment)                                                                                                                                                  |
 | [💄 Customization](#-customization)       | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                        |
-| [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()`                                                                                                                                                           |
-| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [All Data](#all-data) [Others](#others-2)                                                                                                  |
+| [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                           |
+| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                                    |
 
 Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
@@ -81,8 +79,17 @@ Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.id`) to callback.
    * A random one will be generated if no value is passed into the function
    */
   id: /* Randomized value */,
-  // Enter fullscreen if set to true
-  // Will be ignored if already in fullscreen mode
+  /**
+   * Set the language, e.g., 'en-US', 'zh-CN'
+   * If set to 'AUTO' (default), the calibrator will try to follow the browser settings
+   * A full list of supported languages can be found at
+   * https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0
+   */
+  language: 'AUTO',
+  /**
+   * Enter full screen if set to true
+   * Will be ignored if already in full screen mode
+   */
   fullscreen: false,
 }
 ```
@@ -109,17 +116,13 @@ The `data` passed into the callback function is an [object](https://www.w3school
 
 ### 🍱 Panel
 
-![Panel](./media/panel.png)
-
 ```js
-.panel(tasks, parentQuery, [options, [callback, [resolveOnFinish]]])
+/* async */ .panel(tasks, parentQuery, [options, [callback, [resolveOnFinish]]])
 ```
-
-**Since 0.2.0:** `.panel()` is now an async function.
 
 `.panel()` is a powerful tool to help you set up a graphical user interface for participants to go through step-by-step and calibrate or set up tracking. It is highly customizable: tasks, task order, title, description, and "Done" button can all be customized. It is appended to the parent HTML node as set by `parentQuery`, e.g., if the parent node has id `main-area`, put `#main-area` as the `parentQuery`. Can only run once. Return a JavaScript [`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Using_promises) that will resolve the `resolveOnFinish` once the "Done" button is pressed.
 
-`tasks` is an array of tasks which can be a string or an object. Valid names are `screenSize`, `displaySize`, `measureDistance`, `trackDistance`, `trackGaze`, `environment` (system information).
+`tasks` is an array of tasks which can be a string or an object. Valid names are `screenSize`, `measureDistance`, `trackDistance`, `trackGaze`.
 
 <!-- prettier-ignore -->
 ```js
@@ -167,17 +170,9 @@ You can also use `.removePanel()` to remove the panel element after the calibrat
 
 #### Measure Display Pixels
 
-```js
-.displaySize([callback])
-```
-
-Get the display width and height in pixels. This is just a wrapper of vanilla JavaScript's `window.innerWidth`, `window.screenWidth`, etc.
-
-Pass `{ value: { displayWidthPx, displayHeightPx, windowWidthPx, windowHeightPx }, timestamp }` to callback.
+Get the display width and height in pixels. You can use `.displayWidthPx` `.displayHeightPx` `.windowWidthPx` `.windowHeightPx` getters. For example, `RemoteCalibrator.windowWidthPx.value` will give you the inner width of the current browser window.
 
 #### Measure Screen Size
-
-![Screen Size](./media/screenSize.png)
 
 ```js
 .screenSize([options, [callback]])
@@ -193,8 +188,6 @@ Pass `{ value: { screenWidthCm, screenHeightCm, screenDiagonalCm, screenDiagonal
   // Enter fullscreen if set to true
   // Will be ignored if already in fullscreen mode
   fullscreen: false,
-  // Quit fullscreen when calibration finished
-  quitFullscreenOnFinished: false, 🚧
   // How many times the participant needs to calibrate
   repeatTesting: 1,
   // The length of decimal place of the returned value
@@ -212,8 +205,6 @@ Pass `{ value: { screenWidthCm, screenHeightCm, screenDiagonalCm, screenDiagonal
 
 #### Measure
 
-![Measure Viewing Distance](./media/measureDistance.png)
-
 ```js
 .measureDistance([options, [callback]])
 ```
@@ -226,7 +217,6 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
 /* [options] Default value */
 {
   fullscreen: false,
-  quitFullscreenOnFinished: false, 🚧
   // How many times each of the eye will be used to test
   // By default, right eye 2 times, then left eye 2 times
   repeatTesting: 2,
@@ -246,7 +236,7 @@ Measure the viewing distance and then predict the real-time distance based on th
 
 Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y } }, timestamp, method }` to callback.
 
-`method` can be either `"Blind Spot"` (for measures from blind spot tests) or `"Facemesh Predict"` (for later dynamic estimates).
+`method` can be either `"BlindSpot"` (for measures from blind spot tests) or `"FaceMesh"` (for later dynamic estimates).
 
 ```js
 /* [options] Default value */
@@ -296,8 +286,6 @@ The value returned are the horizontal and vertical offsets, in centimeters, comp
 ### 👀 Gaze
 
 #### Start Tracking
-
-![Start Gaze Tracking](./media/trackGaze.png)
 
 ```js
 .trackGaze([options, [callbackOnCalibrationEnd, [callbackTrack]]])
@@ -385,13 +373,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
 
 ### 💻 Environment
 
-```js
-.environment([callback])
-```
-
-Get the setup information of the experiment, including browser type, device model, operating system family and version, etc. This function does not create its own timestamp, but use the one associated with `id`, i.e. the one created when `init()` is called.
-
-Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, systemFamily, description, fullDescription }, timestamp }` to callback.
+Get the setup information of the experiment, including browser type, device model, operating system family and version, etc. See the Getters section for more details.
 
 ### 💄 Customization
 
@@ -403,6 +385,7 @@ Pass `{ value: { browser, browserVersion, model, manufacturer, engine, system, s
 
 - `.checkInitialized()` Check if the model is initialized. Return a boolean.
 - `.getFullscreen()` Get fullscreen mode.
+- `.newLanguage(lang = 'en-US')` Set a new language for the calibrator.
 
 ### 🎣 Getters
 
@@ -424,10 +407,11 @@ Getters will get `null` if no data can be found, i.e. the corresponding function
 
 The associated timestamp of the following items is the one created at initiation, i.e. when `init()` is called.
 
-- `.bot` If the user agent is a bot or not, an empty string will be returned if no bot detected, e.g., `Googlebot (Search bot) by Google Inc.`.
+- `.bot` If the user agent is a bot or not, `null` will be returned if no bot detected, e.g., `Googlebot (Search bot) by Google Inc.`.
 - `.browser` The browser type, e.g., `Safari`, `Chrome`.
 - `.browserVersion` The browser version.
 - `.deviceType` The type of device, e.g., `desktop`.
+- `.isMobile` The type of device is mobile or not.
 - `.model` The model type of the device, e.g., `iPad`.
 - `.manufacturer` The device manufacturer.
 - `.engine` The browser engine, e.g., `Webkit`.
@@ -435,6 +419,16 @@ The associated timestamp of the following items is the one created at initiation
 - `.systemFamily` The family name of the device OS, e.g., `OS X`.
 - `.description` A tidy description of the current environment, e.g., `Chrome 89.0.4389.90 on OS X 11.2.1 64-bit`.
 - `.fullDescription` The full description of the current environment.
+- `.userLanguage` The language used in the browser, e.g., `en`.
+
+#### i18n
+
+- `.language` (e.g., `en-US`, `zh-CN`)
+- `.languageNameEnglish` (e.g., `English`, `Chinese (Simplified)`)
+- `.languageNameNative` (e.g., `简体中文`)
+- `.languageDirection` (`LTR` or `RTL`)
+- `.languagePhraseSource` (e.g., `Denis Pelli & Peiling Jiang 2021.10.10`)
+- `.supportedLanguages` An array of all supported languages. Can be called before initialization.
 
 #### All Data
 
@@ -446,8 +440,9 @@ Use the following keywords to retrieve the whole dataset.
 - `.nearPointData`
 - `.PDData` (Interpupillary distance data)
 - `.gazeData`
-- `.fullScreenData`
+- `.fullscreenData`
 - `.environmentData`
+- `.languageData`
 
 #### Others
 
