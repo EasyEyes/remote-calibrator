@@ -1,3 +1,5 @@
+import isEqual from 'react-fast-compare'
+
 import RemoteCalibrator from './core'
 import {
   toFixedNumber,
@@ -13,6 +15,31 @@ import USBC from './media/usbc.svg'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
 import { phrases } from './i18n'
+
+RemoteCalibrator.prototype._displaySize = function () {
+  ////
+  if (!this.checkInitialized()) return
+  ////
+
+  const thisData = {
+    value: {
+      displayWidthPx: screen.width,
+      displayHeightPx: screen.height,
+      windowWidthPx: window.innerWidth,
+      windowHeightPx: window.innerHeight,
+    },
+    timestamp: new Date(),
+  }
+
+  if (
+    !this.displayData.length ||
+    !isEqual(
+      thisData.value,
+      this.displayData[this.displayData.length - 1].value
+    )
+  )
+    this.newDisplayData = thisData
+}
 
 // TODO Make it customizable
 const defaultObj = 'usba'
@@ -283,7 +310,7 @@ const switchMatchingObj = (name, elements, setSizes) => {
   // if (name === 'card') elements.arrow.style.visibility = 'visible'
   // else elements.arrow.style.visibility = 'hidden'
   elements.arrow.style.visibility = 'hidden'
-  if (setSizes) setSizes()
+  safeExecuteFunc(setSizes)
 }
 
 /**
