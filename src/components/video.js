@@ -86,6 +86,7 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
 
       // Give callback after 0.5 sec
       setTimeout(() => {
+        RC.videoOpacity()
         if (RC.isMobile.value)
           v.style.transition = `right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
         else

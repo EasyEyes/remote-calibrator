@@ -236,7 +236,7 @@ Measure the viewing distance and then predict the real-time distance based on th
 
 Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y } }, timestamp, method }` to callback.
 
-`method` can be either `"Blind Spot"` (for measures from blind spot tests) or `"Facemesh Predict"` (for later dynamic estimates).
+`method` can be either `"BlindSpot"` (for measures from blind spot tests) or `"FaceMesh"` (for later dynamic estimates).
 
 ```js
 /* [options] Default value */

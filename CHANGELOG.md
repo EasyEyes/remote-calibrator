@@ -35,11 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved UI and performance for small screens and mobile devices.
 - Take Return instead of Space for confirming screen size measurement.
 - (Breaking) `.fullScreenData` getter is changed to `.fullscreenData`.
+- Viewing distance methods become `BlindSpot` or `FaceMesh`.
 
 ### Fixed
 
 - Participants can now continue (restart) calibration tasks after quitting at the middle of the last one.
 - Various fix and update for the panel.
+- Gaze and head trackers stop working on Safari when video preview is turned off. (#49)
 - Fatal error due to cannot detect device for VR headsets.
 - Remove wrongly labelled camera icon for measuring viewing distance task in the panel.
 

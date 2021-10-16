@@ -27,4 +27,8 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
   },
   LTR: 'LTR',
   RTL: 'RTL',
+  VIEW_METHOD: {
+    B: 'BlindSpot',
+    F: 'FaceMesh',
+  },
 })

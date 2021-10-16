@@ -247,7 +247,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
                 trackingOptions.decimalPlace
               ),
               timestamp: timestamp,
-              method: 'Facemesh Predict',
+              method: RC._CONST.VIEW_METHOD.F,
             })
 
             /* -------------------------------------------------------------------------- */
@@ -276,7 +276,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
                   nearPointCm: nPData ? nPData.value : [null, null],
                 },
                 timestamp: timestamp,
-                method: 'Facemesh Predict',
+                method: RC._CONST.VIEW_METHOD.F,
               })
             }
           }
@@ -295,7 +295,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
     iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
   }
 
-  sleep(500).then(_)
+  sleep(1000).then(_)
 }
 
 const _getNearPoint = (
@@ -422,7 +422,7 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
     const data = (this.newViewingDistanceData = {
       value: toFixedNumber(stdFactor / dist, trackingOptions.decimalPlace),
       timestamp: timestamp,
-      method: 'Facemesh Predict',
+      method: this._CONST.VIEW_METHOD.F,
     })
 
     let nPData
@@ -438,15 +438,14 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
       )
     }
 
-    if (c)
-      c({
-        value: {
-          viewingDistanceCm: data.value,
-          nearPointCm: nPData ? nPData.value : null,
-        },
-        timestamp: timestamp,
-        method: 'Facemesh Predict',
-      })
+    safeExecuteFunc(c, {
+      value: {
+        viewingDistanceCm: data.value,
+        nearPointCm: nPData ? nPData.value : null,
+      },
+      timestamp: timestamp,
+      method: this._CONST.VIEW_METHOD.F,
+    })
     return data
   }
 

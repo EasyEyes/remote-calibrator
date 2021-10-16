@@ -105,7 +105,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       const data = (RC.newViewingDistanceData = {
         value: toFixedNumber(median(dist), options.decimalPlace),
         timestamp: new Date(),
-        method: 'Blind Spot',
+        method: RC._CONST.VIEW_METHOD.B,
       })
       safeExecuteFunc(callback, data)
 

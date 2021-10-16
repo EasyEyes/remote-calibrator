@@ -95,8 +95,9 @@ GazeTracker.prototype._init = function (
 ) {
   if (!this.checkInitialized(task)) {
     if (task === 'gaze') {
-      this.webgazer.clearData()
-      this.webgazer.saveDataAcrossSessions(false)
+      // TODO Manually clear data
+      // this.webgazer.clearData()
+      // this.webgazer.saveDataAcrossSessions(false)
       this.webgazer.params.greedyLearner = greedyLearner
       this.webgazer.params.framerate = framerate
       this.showGazer(showGazer)
@@ -218,7 +219,7 @@ GazeTracker.prototype.showGazer = function (show) {
 }
 
 GazeTracker.prototype.showVideo = function (show) {
-  this.webgazer.showVideo(show)
+  this.webgazer.showVideo(show, this.calibrator._params.videoOpacity)
 }
 
 GazeTracker.prototype.showFaceOverlay = function (show) {
