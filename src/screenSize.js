@@ -1,5 +1,10 @@
 import RemoteCalibrator from './core'
-import { toFixedNumber, blurAll, remap } from './components/utils'
+import {
+  toFixedNumber,
+  blurAll,
+  remap,
+  safeExecuteFunc,
+} from './components/utils'
 
 import Card from './media/card.svg'
 import Arrow from './media/arrow.svg'
@@ -196,7 +201,7 @@ function getSize(RC, parent, options, callback) {
     breakFunction()
 
     // ! Call the callback function
-    if (callback) callback(screenData)
+    safeExecuteFunc(callback, screenData)
     return
   }
 

@@ -3,7 +3,12 @@ import Swal from 'sweetalert2/dist/sweetalert2.js'
 import RemoteCalibrator from '../core'
 
 import { _cross } from '../components/onCanvas'
-import { blurAll, sleep, toFixedNumber } from '../components/utils'
+import {
+  blurAll,
+  safeExecuteFunc,
+  sleep,
+  toFixedNumber,
+} from '../components/utils'
 import { swalInfoOptions } from '../components/swalOptions'
 
 let inGetAccuracy = false
@@ -88,8 +93,8 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
 
       if (averageDegree < options.thresholdDeg)
         // Success
-        callbackSuccess()
-      else callbackFail()
+        safeExecuteFunc(callbackSuccess)
+      else safeExecuteFunc(callbackFail)
 
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       resizeObserver.unobserve(this.background)

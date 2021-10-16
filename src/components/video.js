@@ -1,4 +1,6 @@
-// Only one video for all functions
+/* Only one video for all functions */
+
+import { safeExecuteFunc } from './utils'
 
 export function addVideoElementsToBody() {
   let v = document.querySelector('video')
@@ -33,7 +35,7 @@ export function startVideo(videoElement, callback) {
       videoElement.play()
 
       // ! CALLBACK
-      if (callback) callback(stream)
+      safeExecuteFunc(callback, stream)
     },
     err => console.error(err)
   )
@@ -82,17 +84,17 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
       // Set position
       setDefaultVideoPosition(RC, v)
 
-      // Give callback after 2 sec
+      // Give callback after 0.5 sec
       setTimeout(() => {
         if (RC.isMobile.value)
           v.style.transition = `right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
         else
           v.style.transition = `left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
-        callback()
-      }, 1000)
+        safeExecuteFunc(callback)
+      }, 500)
       clearInterval(c)
     }
-  }, 200)
+  }, 50)
 }
 
 export function setDefaultVideoPosition(RC, v) {

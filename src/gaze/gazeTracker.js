@@ -1,6 +1,6 @@
 import webgazer from '../WebGazer4RC/src/index.mjs'
 
-import { toFixedNumber } from '../components/utils'
+import { safeExecuteFunc, toFixedNumber } from '../components/utils'
 import { checkWebgazerReady } from '../components/video'
 
 /**
@@ -70,7 +70,7 @@ export default class GazeTracker {
       this.webgazer.setGazeListener(d => {
         if (d) {
           const data = (this.calibrator.newGazePositionData = this.getData(d))
-          if (callback) callback(data)
+          safeExecuteFunc(callback, data)
         }
       })
     }
@@ -80,7 +80,7 @@ export default class GazeTracker {
     let data = (this.calibrator.newGazePositionData = this.getData(
       await this.webgazer.getCurrentPrediction()
     ))
-    if (callback) callback(data)
+    safeExecuteFunc(callback, data)
     return data
   }
 

@@ -10,8 +10,6 @@
 
 Welcome to Remote Calibrator! This package contains several useful tools to calibrate and track for the remote psychophysics experiments, e.g., crowd-sourced through Amazon Mechanical Turk.
 
-The features/functions marked with 🚧 are still work-in-progress and not available yet.
-
 ## Demo
 
 Please visit https://calibrator.app for the demo. More information can be found at https://easyeyes.app/remote-calibrator/.
@@ -51,11 +49,11 @@ RemoteCalibrator.measureDistance({}, data => {
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                       |
 | [🍱 Panel](#-panel)                       | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                        |
-| [🖥️ Screen](#️-screen)                    | [`Display Pixel Dimensions`](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                     |
+| [🖥️ Screen](#️-screen)                    | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                       |
 | [📏 Viewing Distance](#-viewing-distance) | [`measureDistance()`](#-viewing-distance)                                                                                                                                                        |
 | [🙂 Head Tracking](#-head-tracking)       | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-head-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#lifecycle) [Others](#others)              |
 | [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1) |
-| [💻 Environment](#-environment)           | [`System and Browser Environment`](#-environment)                                                                                                                                                |
+| [💻 Environment](#-environment)           | [System and Browser Environment](#-environment)                                                                                                                                                  |
 | [💄 Customization](#-customization)       | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                        |
 | [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                           |
 | [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                                    |

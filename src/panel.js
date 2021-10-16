@@ -1,5 +1,6 @@
 import tinycolor from 'tinycolor2'
 
+import { safeExecuteFunc } from './components/utils'
 import RemoteCalibrator from './core'
 import { phrases } from './i18n'
 
@@ -319,13 +320,22 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
         e.classList.replace('rc-panel-step-inactive', 'rc-panel-step-active')
         if (eIndex !== tasks.length) {
           if (eIndex === tasks.length - 1 && !options.showNextButton) {
+            // Last task without next button
             e.onclick = () => {
               RC[_getTaskName(tasks[current.index])](
-                ..._getTaskOptionsCallbacks(tasks[current.index], finalCallback)
+                ..._getTaskOptionsCallbacks(
+                  tasks[current.index],
+                  finalCallback,
+                  // Fixed final callback
+                  () => {
+                    RC._panelFinished = true
+                  }
+                )
               )
               _finishStepAt(current.index)
             }
           } else {
+            // Interim tasks
             e.onclick = () => {
               RC[_getTaskName(tasks[current.index])](
                 ..._getTaskOptionsCallbacks(tasks[current.index])
@@ -347,8 +357,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
 
           e.onclick = () => {
             RC._panelFinished = true
-            if (finalCallback && typeof finalCallback === 'function')
-              finalCallback()
+            safeExecuteFunc(finalCallback, { timestamp: new Date() })
           }
         }
       }
@@ -370,8 +379,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
         )
         finalButton.onclick = () => {
           RC._panelFinished = true
-          if (finalCallback && typeof finalCallback === 'function')
-            finalCallback()
+          safeExecuteFunc(finalCallback, { timestamp: new Date() })
         }
       }
     }
@@ -392,40 +400,44 @@ const _getTaskName = task => {
   return task.name
 }
 
-const _getTaskOptionsCallbacks = (task, finalCallback = null) => {
-  if (typeof task === 'string') return []
+const _getTaskOptionsCallbacks = (
+  task,
+  finalCallback = null,
+  fixedFinalCallback = null
+) => {
+  if (typeof task === 'string')
+    task = {
+      name: task,
+    }
 
-  const _ = () => {
-    if (task.callback && typeof task.callback === 'function') task.callback()
-    if (finalCallback && typeof finalCallback === 'function') finalCallback()
+  const getFinalCallbacks = () => {
+    safeExecuteFunc(finalCallback, { timestamp: new Date() })
+    safeExecuteFunc(fixedFinalCallback)
   }
 
-  // TODO Refine this process
-  // Replace hardcoded strings with RC CONST
   if (['screenSize', 'measureDistance'].includes(task.name)) {
-    return [task.options || {}, _]
-  } else if (['trackGaze'].includes(task.name)) {
     return [
       task.options || {},
-      () => {
-        if (
-          task.callbackOnCalibrationEnd &&
-          typeof task.callbackOnCalibrationEnd === 'function'
-        )
-          task.callbackOnCalibrationEnd()
-        if (finalCallback && typeof finalCallback === 'function')
-          finalCallback()
+      data => {
+        safeExecuteFunc(task.callback, data)
+        getFinalCallbacks()
+      },
+    ]
+  } else if ('trackGaze' === task.name) {
+    return [
+      task.options || {},
+      data => {
+        safeExecuteFunc(task.callbackOnCalibrationEnd, data)
+        getFinalCallbacks()
       },
       task.callbackTrack || null,
     ]
-  } else if (['trackDistance'].includes(task.name)) {
+  } else if ('trackDistance' === task.name) {
     return [
       task.options || {},
-      () => {
-        if (task.callbackStatic && typeof task.callbackStatic === 'function')
-          task.callbackStatic()
-        if (finalCallback && typeof finalCallback === 'function')
-          finalCallback()
+      data => {
+        safeExecuteFunc(task.callbackStatic, data)
+        getFinalCallbacks()
       },
       task.callbackTrack || null,
     ]

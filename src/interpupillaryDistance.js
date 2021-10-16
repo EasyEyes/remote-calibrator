@@ -5,6 +5,7 @@ import RemoteCalibrator from './core'
 import {
   blurAll,
   constructInstructions,
+  safeExecuteFunc,
   toFixedNumber,
 } from './components/utils'
 import { swalInfoOptions } from './components/swalOptions'
@@ -29,7 +30,7 @@ const originalStyles = {
 const videoWidthFactor = 0.9
 const videoHeightFactor = 0.3
 
-RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
+RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
   ////
   if (!this.checkInitialized()) return
   blurAll()
@@ -111,11 +112,10 @@ RemoteCalibrator.prototype.measurePD = function (options = {}, callback) {
       this.newPDData = newPDData
 
       breakFunction()
-      callback()
+      safeExecuteFunc(callback, newPDData)
     }
   }
 
-  // if (callback && typeof callback === 'function') callback()
   const bindKeysFunction = bindKeys({
     Escape: breakFunction,
     ' ': finishFunction,

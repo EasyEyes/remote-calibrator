@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Call `._environment()` and `._displaySize()` automatically when initializing the calibrator.
 - Instructions in the viewing distance measurement (and head tracking setup) is scrollable to avoid overlapping with the canvas on small screen sizes.
 - Automatically minimize the mobile address bar when a calibration task starts.
+- Safer type check for callback functions to avoid fatal errors.
 - Version console log.
 
 ### Changed
@@ -37,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Various fix and update for the panel.
 - Fatal error due to cannot detect device for VR headsets.
 
 ### Removed

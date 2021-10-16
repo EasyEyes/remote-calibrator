@@ -14,6 +14,7 @@ import {
   blurAll,
   constructInstructions,
   isFullscreen,
+  safeExecuteFunc,
 } from './components/utils'
 import { looseSetLanguage } from './components/language'
 import { phrases } from './i18n'
@@ -444,7 +445,7 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
     else this.newLanguageData = looseSetLanguage(options.language)
     this._lang = this.language.value
 
-    if (callback && typeof callback === 'function') callback(this._id)
+    safeExecuteFunc(callback, this._id)
   }
 }
 

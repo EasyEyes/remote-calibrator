@@ -1,6 +1,11 @@
 import RemoteCalibrator from '../core'
 
-import { constructInstructions, shuffle, blurAll } from '../components/utils'
+import {
+  constructInstructions,
+  shuffle,
+  blurAll,
+  safeExecuteFunc,
+} from '../components/utils'
 import { debug } from '../debug'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { phrases } from '../i18n'
@@ -60,8 +65,7 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
     this._removeBackground() // Remove calibration background when the calibration finished
     unbindKeys(bindKeysFunction)
 
-    // TODO Pass timestamp into callback
-    if (callback && typeof callback === 'function') callback()
+    safeExecuteFunc(callback, { timestamp: new Date() })
   })
 
   const breakFunction = () => {
@@ -206,7 +210,7 @@ class GazeCalibrationDot {
       originalStyles.video = false
       originalStyles.gazer = false
 
-      this.endCalibrationCallback()
+      safeExecuteFunc(this.endCalibrationCallback)
     }
   }
 

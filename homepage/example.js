@@ -99,21 +99,33 @@ function makePanel(e) {
     [
       {
         name: 'screenSize',
+        callback: data => {
+          printMessage(
+            `[CALLBACK] Screen size calibration finished! This message is printed in the callback function. Only this task's callback is set up with a print function.`
+          )
+        },
       },
       {
         name: 'trackGaze',
+        callbackOnCalibrationEnd: data => {
+          console.log(data)
+        },
       },
+      'measureDistance',
       {
         name: 'trackDistance',
         options: {
           nearPoint: false,
         },
+        callbackStatic: data => {
+          console.log(data)
+        },
       },
     ],
     '#experiment',
     {},
-    () => {
-      printMessage(`Panel finished at ${parseTimestamp(d.timestamp)}!`)
+    data => {
+      printMessage(`Panel finished at ${parseTimestamp(data.timestamp)}!`)
     }
   )
   changeClass(e.target, 'complete')

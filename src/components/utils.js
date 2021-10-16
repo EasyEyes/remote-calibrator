@@ -68,6 +68,12 @@
   }
 })()
 
+export function safeExecuteFunc(f, ...a) {
+  if (f && typeof f === 'function')
+    if (a.length) f(...a)
+    else f()
+}
+
 // http://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
 export function sleep(time) {
   return new Promise(resolve => setTimeout(resolve, time))

@@ -1,6 +1,6 @@
 import RemoteCalibrator from '../core'
 
-import { blurAll } from '../components/utils'
+import { blurAll, safeExecuteFunc } from '../components/utils'
 import { gazeCalibrationPrepare } from './gazeCalibration'
 import { phrases } from '../i18n'
 
@@ -102,12 +102,8 @@ RemoteCalibrator.prototype.trackGaze = function (
 
   // Calibration
 
-  const onCalibrationEnded = () => {
-    if (
-      callbackOnCalibrationEnd &&
-      typeof callbackOnCalibrationEnd === 'function'
-    )
-      callbackOnCalibrationEnd()
+  const onCalibrationEnded = data => {
+    safeExecuteFunc(callbackOnCalibrationEnd, data)
 
     // ! greedyLearner
     if (!this.gazeTracker.webgazer.params.greedyLearner) {

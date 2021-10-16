@@ -6,6 +6,7 @@ import {
   constructInstructions,
   blurAll,
   sleep,
+  safeExecuteFunc,
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n'
@@ -85,9 +86,7 @@ RemoteCalibrator.prototype.trackDistance = function (
     if (this.gazeTracker.checkInitialized('gaze', false))
       this.showGazer(originalGazer)
 
-    if (callbackStatic && typeof callbackStatic === 'function')
-      callbackStatic(distData)
-
+    safeExecuteFunc(callbackStatic, distData)
     stdDist.current = distData
   }
 
@@ -127,7 +126,7 @@ RemoteCalibrator.prototype.trackDistance = function (
     startTrackingPupils(
       this,
       () => {
-        this.measurePD({}, _)
+        this._measurePD({}, _)
       },
       callbackTrack
     )
@@ -141,7 +140,7 @@ RemoteCalibrator.prototype.trackDistance = function (
 const startTrackingPupils = async (RC, beforeCallbackTrack, callbackTrack) => {
   RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
     RC._removeFloatInstructionElement()
-    beforeCallbackTrack()
+    safeExecuteFunc(beforeCallbackTrack)
     _tracking(RC, trackingOptions, callbackTrack)
   })
 }

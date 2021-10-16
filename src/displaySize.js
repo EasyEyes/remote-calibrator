@@ -1,7 +1,6 @@
 import isEqual from 'react-fast-compare'
 
 import RemoteCalibrator from './core'
-import { blurAll } from './components/utils'
 
 /**
  *
@@ -11,7 +10,6 @@ import { blurAll } from './components/utils'
 RemoteCalibrator.prototype._displaySize = function () {
   ////
   if (!this.checkInitialized()) return
-  blurAll()
   ////
 
   const thisData = {

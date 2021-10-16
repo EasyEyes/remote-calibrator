@@ -5,6 +5,7 @@ import {
   toFixedNumber,
   median,
   blurAll,
+  safeExecuteFunc,
 } from '../components/utils'
 import {
   _getCrossX,
@@ -101,7 +102,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         timestamp: new Date(),
         method: 'Blind Spot',
       })
-      if (callback) callback(data)
+      safeExecuteFunc(callback, data)
 
       // Break
       if (!toTrackDistance) {
