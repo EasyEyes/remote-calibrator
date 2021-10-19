@@ -14,7 +14,7 @@ async function processLanguageSheet() {
   const rows = await googleSheets.spreadsheets.values.get({
     auth,
     spreadsheetId,
-    range: 'Sheet1',
+    range: 'Translations',
   })
 
   const rowsJSON = XLSX.utils.sheet_to_json(
