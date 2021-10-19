@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `debug` and `i18n` options of `.panel()`. When set to `true`, The first one adds some useful options, e.g., to skip calibration, for you to use when debugging. The second one adds a language picker for participants to choose their own languages (the default choice is always the one set on initiation).
+
+### Changed
+
+- Rename "Head Tracking" to "Distance Tracking" globally.
+
 ## [0.3.0] - 2021-10-16
 
 ### Added

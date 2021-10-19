@@ -97,6 +97,8 @@ RemoteCalibrator.prototype.panel = async function (
       nextDescription: phrases.RC_panelIntroNext[this.L],
       nextButton: phrases.RC_panelButton[this.L],
       color: '#3490de',
+      debug: false,
+      i18n: true,
       _demoActivateAll: false, // ! Private
     },
     options
@@ -128,6 +130,8 @@ RemoteCalibrator.prototype.panel = async function (
 
   panel.innerHTML = `<h1 class="rc-panel-title" id="rc-panel-title">${options.headline}</h1>`
   panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${options.description}</p>`
+  if (options.i18n)
+    panel.innerHTML += `<p class="rc-panel-description rc-panel-language-parent" id="rc-panel-language-parent"></p>`
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
 
   if (!_reset) parentElement.appendChild(panel)
@@ -184,6 +188,13 @@ RemoteCalibrator.prototype.panel = async function (
   this._panelStatus.hasPanel = true
   this._panelStatus.panelFinished = false
 
+  if (options.i18n)
+    _setLanguagePicker(
+      this,
+      document.querySelector('#rc-panel-language-parent'),
+      darkerColor
+    )
+
   if (resolveOnFinish === null) resolveOnFinish = true
 
   return new Promise(resolve => {
@@ -217,8 +228,8 @@ const _validTaskList = {
   },
   trackDistance: {
     use: 2,
-    name: phrases.RC_headTracking['en-US'],
-    phraseHandle: 'RC_headTracking',
+    name: phrases.RC_distanceTracking['en-US'],
+    phraseHandle: 'RC_distanceTracking',
   },
   trackGaze: {
     use: 2,
@@ -464,4 +475,21 @@ const _getTaskOptionsCallbacks = (
 const _clearPanelIntervals = RC => {
   RC._panelStatus.panelResolveIntervals.forEach(i => clearInterval(i))
   RC._panelStatus.panelResolveIntervals = []
+}
+
+const _setLanguagePicker = (RC, parent, darkerColor) => {
+  let langInner = `<select name="rc-lang" id="rc-panel-lang-picker" style="color: ${darkerColor} !important">`
+  for (let lang of RC.supportedLanguages)
+    if (RC.L === lang.language)
+      langInner += `<option value="${lang.language}" selected>${lang.languageNameNative}</option>`
+  for (let lang of RC.supportedLanguages)
+    if (RC.L !== lang.language)
+      langInner += `<option value="${lang.language}">${lang.languageNameNative}</option>`
+  langInner += '</select>'
+  parent.innerHTML = langInner
+
+  document.querySelector('#rc-panel-lang-picker').onchange = () => {
+    RC.newLanguage(document.querySelector('#rc-panel-lang-picker').value)
+    RC.resetPanel()
+  }
 }

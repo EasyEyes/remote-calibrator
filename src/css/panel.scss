@@ -45,6 +45,18 @@
     font-weight: 500 !important;
   }
 
+  #rc-panel-lang-picker {
+    display: block;
+    background-color: #ffffffcc !important;
+    border: none !important;
+    outline: none !important;
+    margin: 0 !important;
+    padding: 0.25rem !important;
+    font-size: inherit !important;
+    // color: #333 !important;
+    border-radius: 5px !important;
+  }
+
   .rc-panel-steps {
     margin: 1.5rem 0 0 0 !important;
 

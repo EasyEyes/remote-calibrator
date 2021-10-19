@@ -41,7 +41,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   RC.background.appendChild(blindSpotDiv)
   RC._constructFloatInstructionElement(
     'blind-spot-instruction',
-    phrases.RC_headTrackingCloseL[RC.L]
+    phrases.RC_distanceTrackingCloseL[RC.L]
   )
   RC._addCreditOnBackground(phrases.RC_viewingBlindSpotCredit[RC.L])
 
@@ -125,10 +125,10 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       if (eyeSide === 'left') {
         // Change to RIGHT
         eyeSide = 'right'
-        eyeSideEle.innerHTML = phrases.RC_headTrackingCloseR[RC.L]
+        eyeSideEle.innerHTML = phrases.RC_distanceTrackingCloseR[RC.L]
       } else {
         eyeSide = 'left'
-        eyeSideEle.innerHTML = phrases.RC_headTrackingCloseL[RC.L]
+        eyeSideEle.innerHTML = phrases.RC_distanceTrackingCloseL[RC.L]
       }
       RC._setFloatInstructionElementPos(eyeSide, 16)
 

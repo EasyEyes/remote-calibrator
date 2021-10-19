@@ -51,8 +51,8 @@ RemoteCalibrator.prototype.trackDistance = function (
       framerate: 3, // track rate
       nearPoint: true, // New 0.0.6
       showNearPoint: false, // New 0.0.6
-      headline: '🙂 ' + phrases.RC_headTrackingTitle[this.L],
-      description: phrases.RC_headTrackingIntro[this.L],
+      headline: '🙂 ' + phrases.RC_distanceTrackingTitle[this.L],
+      description: phrases.RC_distanceTrackingIntro[this.L],
     },
     options
   )
