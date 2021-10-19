@@ -45,20 +45,27 @@
     font-weight: 500 !important;
   }
 
-  #rc-panel-lang-picker {
-    display: block;
-    background-color: #ffffffcc !important;
-    border: none !important;
-    outline: none !important;
-    margin: 0 !important;
-    padding: 0.25rem !important;
-    font-size: inherit !important;
-    // color: #333 !important;
-    border-radius: 5px !important;
+  #rc-panel-language-parent {
+    display: flex;
+    flex-direction: row-reverse;
+    margin: 0;
+    padding: 0;
+
+    #rc-panel-lang-picker {
+      display: block;
+      background-color: #ffffffcc !important;
+      border: none !important;
+      outline: none !important;
+      margin: 0.25rem 0.25rem 0 0.25rem !important;
+      padding: 0.25rem !important;
+      font-size: 1rem !important;
+      font-weight: 500 !important;
+      border-radius: 5px !important;
+    }
   }
 
   .rc-panel-steps {
-    margin: 1.5rem 0 0 0 !important;
+    margin: 1rem 0 0 0 !important;
 
     &.rc-panel-steps-l,
     &.rc-panel-steps-s {
@@ -102,6 +109,8 @@
 
     &.rc-panel-steps-l {
       flex-flow: row nowrap;
+      max-width: 100%;
+      overflow-x: scroll;
 
       .rc-panel-step-name {
         margin: 1.5rem 0.5rem !important;
@@ -110,6 +119,10 @@
 
     &.rc-panel-steps-s {
       flex-flow: column nowrap;
+
+      .rc-panel-step {
+        overflow-x: hidden;
+      }
 
       .rc-panel-step-name {
         margin: 1.2rem 1.5rem !important;

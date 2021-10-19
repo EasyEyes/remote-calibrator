@@ -139,10 +139,10 @@ module.exports = env => {
       new webpack.BannerPlugin(licenseText)
     )
 
-    const libConfigExample = Object.assign({}, libConfig, {
-      output: exampleConfig.output,
-    })
+    // const libConfigExample = Object.assign({}, libConfig, {
+    //   output: exampleConfig.output,
+    // })
 
-    return [libConfig, libConfigExample]
+    return libConfig
   }
 }

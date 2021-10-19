@@ -128,10 +128,11 @@ RemoteCalibrator.prototype.panel = async function (
   if (this.LD === this._CONST.RTL) panel.className += ' rc-lang-rtl'
   else panel.className += ' rc-lang-ltr'
 
-  panel.innerHTML = `<h1 class="rc-panel-title" id="rc-panel-title">${options.headline}</h1>`
+  if (options.i18n) {
+    panel.innerHTML += `<div class="rc-panel-language-parent" id="rc-panel-language-parent"></div>`
+  }
+  panel.innerHTML += `<h1 class="rc-panel-title" id="rc-panel-title">${options.headline}</h1>`
   panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${options.description}</p>`
-  if (options.i18n)
-    panel.innerHTML += `<p class="rc-panel-description rc-panel-language-parent" id="rc-panel-language-parent"></p>`
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
 
   if (!_reset) parentElement.appendChild(panel)
