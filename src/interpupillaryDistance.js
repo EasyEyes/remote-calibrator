@@ -40,7 +40,7 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
     {
       fullscreen: false,
       headline: '👁️ ' + phrases.RC_nearPointTitle[this.L],
-      description: phrases.RC_nearPointIntroCaption[this.L],
+      description: phrases.RC_nearPointIntro[this.L],
       shortDescription: phrases.RC_nearPointIntro[this.L],
     },
     options
@@ -51,7 +51,7 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
   this._replaceBackground()
 
   this._replaceBackground(
-    constructInstructions(options.headline, options.shortDescription)
+    constructInstructions(options.headline, options.shortDescription, true)
   )
   const screenPpi = this.screenPpi ? this.screenPpi.value : 108
 
