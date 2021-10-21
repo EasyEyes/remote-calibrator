@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Viewing distance monitoring. Three new options for `.trackDistance()` are added: `desiredDistanceCm` (default undefined), `desiredDistanceTolerance` (default 0.1), and `desiredDistanceMonitor` (default false). If a number is given for `desiredDistanceCm`, the program will check the viewing distance and call for "Move CLOSER." or "Move FURTHER." to the participants, until the participant moved to the desired distance and the experiment will resume. Setting `desiredDistanceMonitor` to true will repeat this process through the rest of the experiment.
 - `debug` and `i18n` options of `.panel()`. When set to `true`, The first one adds some useful options, e.g., to skip calibration, for you to use when debugging. The second one adds a language picker for participants to choose their own languages (the default choice is always the one set on initiation).
 
 ### Changed
 
 - Rename "Head Tracking" to "Distance Tracking" globally.
+- Polish translations.
 
 ## [0.3.0] - 2021-10-16
 

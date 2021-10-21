@@ -6,7 +6,8 @@ import './screenSize'
 
 import './distance/distance'
 import './distance/distanceTrack'
-import './interpupillaryDistance'
+import './distance/distanceCheck'
+import './distance/interPupillaryDistance'
 
 import './gaze/gaze'
 import './gaze/gazeCalibration'

@@ -48,6 +48,9 @@ class RemoteCalibrator {
       gaze: true,
       distance: true,
     }
+    this._trackingStatus = {
+      distanceCorrecting: null, // setInterval
+    }
 
     this._environmentData = []
 
