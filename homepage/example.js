@@ -319,7 +319,9 @@ function trackGaze(e) {
       gazeP.innerHTML = gotData(
         `The gaze position is [${data.value.x} px, ${
           data.value.y
-        } px] at ${parseTimestamp(data.timestamp)}.`
+        } px] at ${parseTimestamp(data.timestamp)}. Latency is ${
+          data.value.latencyMs
+        } ms.`
       )
     }
   )
