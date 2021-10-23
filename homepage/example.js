@@ -205,7 +205,7 @@ function trackViewingDistance(e) {
       showVideo: false,
       nearPoint: true,
       showNearPoint: true,
-      desiredDistanceCm: 40,
+      desiredDistanceCm: 60,
       desiredDistanceMonitor: true,
     },
     distanceData => {
@@ -221,7 +221,9 @@ function trackViewingDistance(e) {
           data.method
         } method. The near point is at [${data.value.nearPointCm.x} cm, ${
           data.value.nearPointCm.y
-        } cm] compared to the center of the screen.`
+        } cm] compared to the center of the screen. Latency is ${
+          data.value.latencyMs
+        } ms.`
       )
     }
   )

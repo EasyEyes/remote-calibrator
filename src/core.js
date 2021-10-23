@@ -52,10 +52,9 @@ class RemoteCalibrator {
     this._trackingStatus = {
       distanceCorrecting: null, // setInterval
     }
-    this._tackingGazeTimestamps = {
-      video: -1,
-      data: -1,
-      latency: 0,
+    this._tackingVideoFrameTimestamps = {
+      gaze: 0,
+      distance: 0,
     }
 
     this._environmentData = []
