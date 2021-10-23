@@ -44,12 +44,17 @@ class RemoteCalibrator {
       panelResolve: null,
     }
 
+    // Are we calibrating for setting up gaze or distance tracking?
     this._trackingSetupFinishedStatus = {
       gaze: true,
       distance: true,
     }
     this._trackingStatus = {
       distanceCorrecting: null, // setInterval
+    }
+    this._tackingVideoFrameTimestamps = {
+      gaze: 0,
+      distance: 0,
     }
 
     this._environmentData = []

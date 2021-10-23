@@ -100,6 +100,8 @@ GazeTracker.prototype._init = function (
       // this.webgazer.saveDataAcrossSessions(false)
       this.webgazer.params.greedyLearner = greedyLearner
       this.webgazer.params.framerate = framerate
+      this.webgazer.params.getLatestVideoFrameTimestamp =
+        this._getLatestVideoTimestamp.bind(this)
       this.showGazer(showGazer)
     }
 
@@ -127,12 +129,15 @@ GazeTracker.prototype.checkInitialized = function (task, warning = false) {
 }
 
 GazeTracker.prototype.getData = function (d) {
+  let t = new Date()
   return {
     value: {
       x: toFixedNumber(d.x, this._toFixedN),
       y: toFixedNumber(d.y, this._toFixedN),
+      latencyMs:
+        t.getTime() - this.calibrator._tackingVideoFrameTimestamps.gaze, // latency
     },
-    timestamp: new Date(),
+    timestamp: t,
   }
 }
 
@@ -156,6 +161,8 @@ GazeTracker.prototype.end = function (type, endAll = false) {
     this._endGaze()
     if (endEverything && this.checkInitialized('distance'))
       this.calibrator.endDistance(false, false)
+
+    this.calibrator._tackingVideoFrameTimestamps.gaze = 0
   } else {
     // Distance
     this.defaultDistanceTrackCallback = null
@@ -188,7 +195,15 @@ GazeTracker.prototype._endGaze = function () {
 
   this.webgazer.params.greedyLearner = false
   this.webgazer.params.framerate = 60
+
+  this.webgazer.params.getLatestVideoFrameTimestamp = () => {}
 }
+
+GazeTracker.prototype._getLatestVideoTimestamp = function (t) {
+  this.calibrator._tackingVideoFrameTimestamps.gaze = t.getTime()
+}
+
+/* -------------------------------------------------------------------------- */
 
 GazeTracker.prototype.startStoringPoints = function () {
   this.webgazer.params.storingPoints = true
