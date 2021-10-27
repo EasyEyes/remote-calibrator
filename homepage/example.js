@@ -202,7 +202,7 @@ function trackViewingDistance(e) {
   let trackP
   RemoteCalibrator.trackDistance(
     {
-      showVideo: false,
+      showVideo: true,
       nearPoint: true,
       showNearPoint: true,
       desiredDistanceCm: 60,

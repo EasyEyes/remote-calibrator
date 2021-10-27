@@ -12,6 +12,8 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
       MARGIN: 10,
       BORDER: 8,
     },
+    PPI_DONT_USE: 127.7,
+    PD_DONT_USE: 6.4,
   },
   S: {
     AUTO: 'AUTO',
@@ -31,4 +33,5 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
     B: 'BlindSpot',
     F: 'FaceMesh',
   },
+  IN_TO_CM: 2.54,
 })

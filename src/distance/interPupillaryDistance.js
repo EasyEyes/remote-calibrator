@@ -53,7 +53,9 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
   this._replaceBackground(
     constructInstructions(options.headline, options.shortDescription, true)
   )
-  const screenPpi = this.screenPpi ? this.screenPpi.value : 108
+  const screenPpi = this.screenPpi
+    ? this.screenPpi.value
+    : this._CONST.N.PPI_DONT_USE
 
   let [videoWidth, videoHeight] = setupVideo(this)
   let [ruler, rulerListener] = setupRuler(

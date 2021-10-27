@@ -155,17 +155,14 @@ const startTrackingPupils = async (RC, beforeCallbackTrack, callbackTrack) => {
 }
 
 const eyeDist = (a, b) => {
-  return Math.sqrt(
-    Math.pow(a[0] - b[0], 2) +
-      Math.pow(a[1] - b[1], 2) +
-      Math.pow(a[2] - b[2], 2)
-  )
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
 }
 
 const cyclopean = (video, a, b) => {
-  let [aX, aY] = [video.videoWidth - a[0], a[1]]
-  let [bX, bY] = [video.videoWidth - b[0], b[1]]
-  return [(aX + bX) / 2, (aY + bY) / 2]
+  return [
+    (-a[0] - b[0] + video.videoWidth) / 2,
+    (-a[1] - b[1] + video.videoHeight) / 2,
+  ]
 }
 
 /* -------------------------------------------------------------------------- */
@@ -207,7 +204,7 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
     model = await RC.gazeTracker.webgazer.getTracker().model
 
     // Near point
-    let ppi = RC.screenPpi ? RC.screenPpi.value : 108
+    let ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
     if (!RC.screenPpi && trackingOptions.nearPoint)
       console.error(
         'Screen size measurement is required to get accurate near point tracking.'
@@ -352,25 +349,19 @@ const _getNearPoint = (
   ppi,
   latency
 ) => {
-  let m = cyclopean(video, mesh[133], mesh[362])
-  let offsetToVideoMid = [
-    m[0] - video.videoWidth / 2,
-    video.videoHeight / 2 - m[1],
-  ]
-
-  const videoFactor = video.videoHeight / video.clientHeight
-  offsetToVideoMid.forEach((e, i) => {
-    // Average interpupillary distance - 6.4cm
-    offsetToVideoMid[i] =
-      ((RC.PDCm ? RC.PDCm.value : 6.4) * e) /
-      (averageDist * (videoFactor / 2)) /* Should this be videoFactor? */
+  let offsetToVideoCenter = cyclopean(video, mesh[133], mesh[362])
+  offsetToVideoCenter.forEach((offset, i) => {
+    // Average inter-pupillary distance - 6.4cm
+    offsetToVideoCenter[i] =
+      ((RC.PDCm ? RC.PDCm.value : RC._CONST.N.PD_DONT_USE) * offset) /
+      averageDist
   })
 
   let nPData = (RC.newNearPointData = {
     value: {
-      x: toFixedNumber(offsetToVideoMid[0], trackingOptions.decimalPlace),
+      x: toFixedNumber(offsetToVideoCenter[0], trackingOptions.decimalPlace),
       y: toFixedNumber(
-        offsetToVideoMid[1] + 0.5, // Commonly the webcam is 0.5cm above the screen
+        offsetToVideoCenter[1] + ((screen.height / 2) * 2.54) / ppi, // Commonly the webcam is 0.5cm above the screen
         trackingOptions.decimalPlace
       ),
       latencyMs: latency,
@@ -379,17 +370,18 @@ const _getNearPoint = (
   })
 
   // SHOW
+  const dotR = 5
   if (trackingOptions.showNearPoint) {
     let offsetX = (nPData.value.x * ppi) / 2.54
     let offsetY = (nPData.value.y * ppi) / 2.54
     Object.assign(nearPointDot.style, {
-      left: `${screen.width / 2 - window.screenLeft - 5 + offsetX}px`,
+      left: `${screen.width / 2 - window.screenLeft + offsetX - dotR}px`,
       top: `${
         screen.height / 2 -
         window.screenTop -
-        5 -
-        (RC.isFullscreen.value ? 0 : 50) -
-        offsetY
+        (window.outerHeight - window.innerHeight) -
+        offsetY -
+        dotR
       }px`,
     })
   }
@@ -498,7 +490,7 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
         mesh,
         dist,
         timestamp,
-        this.screenPpi ? this.screenPpi.value : 108,
+        this.screenPpi ? this.screenPpi.value : this._CONST.N.PPI_DONT_USE,
         latency
       )
     }

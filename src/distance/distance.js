@@ -24,7 +24,7 @@ const blindSpotHTML = `<canvas id="blind-spot-canvas"></canvas>`
 /* -------------------------------------------------------------------------- */
 
 export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
-  let ppi = 108 // Dangerous! Arbitrary value
+  let ppi = RC._CONST.N.PPI_DONT_USE // Dangerous! Arbitrary value
   if (RC.screenPpi) ppi = RC.screenPpi.value
   else
     console.error(
