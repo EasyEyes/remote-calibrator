@@ -30,7 +30,7 @@
   "homepage": "https://github.com/EasyEyes/remote-calibrator#readme",
   "devDependencies": {
     "@babel/core": "^7.15.8",
-    "autoprefixer": "^10.3.7",
+    "autoprefixer": "^10.4.0",
     "babel-loader": "^8.2.3",
     "clean-webpack-plugin": "^4.0.0",
     "css-loader": "^6.5.0",
@@ -46,7 +46,7 @@
     "postcss-loader": "^6.2.0",
     "prettier": "^2.4.1",
     "sass": "^1.43.4",
-    "sass-loader": "^12.2.0",
+    "sass-loader": "^12.3.0",
     "style-loader": "^3.3.1",
     "svg-inline-loader": "^0.8.2",
     "terser-webpack-plugin": "^5.2.4",
