@@ -7,8 +7,6 @@ export const addButtons = (
   { go, cancel, custom },
   showCancelButton
 ) => {
-  const { callback, content } = custom
-
   const buttons = document.createElement('div')
   buttons.className = 'rc-buttons'
   buttons.id = 'rc-buttons'
@@ -32,6 +30,8 @@ export const addButtons = (
   }
 
   if (custom) {
+    const { callback, content } = custom
+
     customButton = document.createElement('button')
     customButton.className = 'rc-button rc-custom-button'
     customButton.onclick = callback
