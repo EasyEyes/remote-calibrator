@@ -1,12 +1,19 @@
 import { phrases } from '../i18n'
 import '../css/buttons.scss'
 
-export const addButtons = (RCL, parent, { go, cancel }, showCancelButton) => {
+export const addButtons = (
+  RCL,
+  parent,
+  { go, cancel, custom },
+  showCancelButton
+) => {
+  const { callback, content } = custom
+
   const buttons = document.createElement('div')
   buttons.className = 'rc-buttons'
   buttons.id = 'rc-buttons'
 
-  let goButton, cancelButton
+  let goButton, cancelButton, customButton
 
   if (go) {
     goButton = document.createElement('button')
@@ -24,9 +31,17 @@ export const addButtons = (RCL, parent, { go, cancel }, showCancelButton) => {
     buttons.appendChild(cancelButton)
   }
 
+  if (custom) {
+    customButton = document.createElement('button')
+    customButton.className = 'rc-button rc-custom-button'
+    customButton.onclick = callback
+    customButton.innerHTML = content
+    buttons.appendChild(customButton)
+  }
+
   parent.appendChild(buttons)
 
-  return [buttons, goButton, cancelButton]
+  return [buttons, goButton, cancelButton, customButton]
 }
 
 export const removeButtons = parent => {

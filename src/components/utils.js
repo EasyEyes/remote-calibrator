@@ -150,7 +150,7 @@ export function dist2d(aX, aY, bX, bY) {
   return Math.sqrt(Math.pow(aX - bX, 2) + Math.pow(aY - bY, 2))
 }
 
-// https://stackoverflow.com/a/12646864/11069914
+// https://stackoverflow.com/a/12646864
 export function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
@@ -170,6 +170,9 @@ export const median = arr => {
     num = [...arr].sort((a, b) => a - b)
   return arr.length % 2 !== 0 ? num[mid] : (num[mid - 1] + num[mid]) / 2
 }
+
+// https://stackoverflow.com/a/41452260
+export const average = array => array.reduce((a, b) => a + b) / array.length
 
 /**
  *

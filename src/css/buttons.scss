@@ -30,7 +30,8 @@
   }
 }
 
-.rc-cancel-button {
+.rc-cancel-button,
+.rc-custom-button {
   background: #ffffffee;
   color: #333;
 
@@ -42,4 +43,10 @@
     background: #aaa;
     color: #000;
   }
+}
+
+.rc-button:disabled {
+  background: #ddd !important;
+  color: #999 !important;
+  cursor: default !important;
 }

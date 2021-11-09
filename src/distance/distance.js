@@ -6,6 +6,7 @@ import {
   median,
   blurAll,
   safeExecuteFunc,
+  average,
 } from '../components/utils'
 import {
   _getCrossX,
@@ -91,34 +92,59 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   // SPACE
   const finishFunction = () => {
+    customButton.disabled = false
     soundFeedback()
 
     tested += 1
     // Average
-    dist.push(
-      toFixedNumber(_getDist(circleX, crossX, ppi), options.decimalPlace)
-    )
+    dist.push({
+      dist: toFixedNumber(_getDist(circleX, crossX, ppi), options.decimalPlace),
+      v: v,
+      closedEyeSide: eyeSide,
+      crossX: crossX,
+      circleX: circleX,
+      ppi: ppi,
+      timestamp: new Date(),
+    })
 
     // Enough tests?
     if (Math.floor(tested / options.repeatTesting) === 2) {
-      // ! Put dist into data and callback function
-      const data = (RC.newViewingDistanceData = {
-        value: toFixedNumber(median(dist), options.decimalPlace),
-        timestamp: new Date(),
-        method: RC._CONST.VIEW_METHOD.B,
-      })
-      safeExecuteFunc(callback, data)
+      // Check if these data are acceptable
+      if (checkDataRepeatability(dist)) {
+        // ! Put dist into data and callback function
+        const data = (RC.newViewingDistanceData = {
+          value: toFixedNumber(
+            median(_getDistValues(dist)),
+            options.decimalPlace
+          ),
+          timestamp: new Date(),
+          method: RC._CONST.VIEW_METHOD.B,
+          raw: { ...dist },
+        })
+        safeExecuteFunc(callback, data)
 
-      // Break
-      if (!toTrackDistance) {
-        breakFunction(false)
+        // Break
+        if (!toTrackDistance) {
+          breakFunction(false)
+        } else {
+          // ! For tracking
+          // Stop test
+          inTest = false
+          // Clear observer and keys
+          resizeObserver.unobserve(RC.background)
+          unbindKeys(bindKeysFunction)
+        }
       } else {
-        // ! For tracking
-        // Stop test
-        inTest = false
-        // Clear observer and keys
-        resizeObserver.unobserve(RC.background)
-        unbindKeys(bindKeysFunction)
+        // ! Reset
+        tested = 0
+        customButton.disabled = true
+        // Get first response
+        const firstResponse = dist[0]
+        _resetCanvasLayout(
+          firstResponse.v,
+          firstResponse.closedEyeSide,
+          firstResponse.crossX
+        )
       }
     } else if (tested % options.repeatTesting === 0) {
       // Switch eye side
@@ -132,11 +158,63 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       }
       RC._setFloatInstructionElementPos(eyeSide, 16)
 
-      circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
-      circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
-      v = eyeSide === 'left' ? 1 : -1
-      crossX = _getCrossX(eyeSide, c.width)
-      circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
+      _resetCanvasLayout(
+        // eyeSide === 'left' ? 1 : -1, // v
+        1, // v
+        eyeSide, // eyeSide
+        _getCrossX(eyeSide, c.width), // crossX
+        false,
+        true
+      )
+    } else {
+      // Shift circle
+      v = -v
+      if (v > 0)
+        // Going to the right
+        circleX = circleBounds[0]
+      else if (v < 0) circleX = circleBounds[1]
+    }
+  }
+
+  const redoFunction = () => {
+    if (!tested) return
+    tested--
+    customButton.disabled = true
+
+    soundFeedback(3)
+
+    const lastResponse = dist.pop()
+    _resetCanvasLayout(
+      lastResponse.v,
+      lastResponse.closedEyeSide,
+      lastResponse.crossX,
+      true,
+      true
+    )
+  }
+
+  const _resetCanvasLayout = (
+    nextV,
+    nextEyeSide,
+    nextCrossX,
+    shiftFloatingElement = true,
+    shiftCircle = true
+  ) => {
+    v = nextV
+    eyeSide = nextEyeSide
+    crossX = nextCrossX
+    circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
+
+    if (shiftFloatingElement) {
+      if (eyeSide === 'left')
+        eyeSideEle.innerHTML = phrases.RC_distanceTrackingCloseL[RC.L]
+      else eyeSideEle.innerHTML = phrases.RC_distanceTrackingCloseR[RC.L]
+      RC._setFloatInstructionElementPos(eyeSide, 16)
+    }
+
+    if (shiftCircle) {
+      if (v > 0) circleX = circleBounds[0]
+      else circleX = circleBounds[1]
     }
   }
 
@@ -145,15 +223,22 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     Escape: breakFunction,
     ' ': finishFunction,
   })
-  addButtons(
+  const addedButtons = addButtons(
     RC.L,
     RC.background,
     {
       go: finishFunction,
       cancel: breakFunction,
+      custom: {
+        callback: redoFunction,
+        content: phrases.RC_viewingDistanceRedo[RC.L],
+      },
     },
     RC.params.showCancelButton
   )
+
+  const customButton = addedButtons[3]
+  customButton.disabled = true
 
   // ! ACTUAL TEST
   let frameCount = 0
@@ -170,7 +255,11 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     tempX = constrain(circleX, ...circleBounds)
     if (circleX !== tempX) {
       circleX = tempX
-      v = -v
+      for (let b of circleBounds)
+        if (circleX !== b) {
+          circleX = b
+          break
+        }
     }
 
     if (inTest) {
@@ -233,4 +322,23 @@ function _getDist(x, crossX, ppi) {
 
 function _getTanDeg(deg) {
   return Math.tan((deg * Math.PI) / 180)
+}
+
+function checkDataRepeatability(dist) {
+  let lefts = []
+  let rights = []
+  for (let d of dist) {
+    if (d.closedEyeSide === 'left') lefts.push(d.dist)
+    else rights.push(d.dist)
+  }
+  const leftMean = average(lefts)
+  const rightMean = average(rights)
+
+  return Math.abs(leftMean - rightMean) < 0.2 * Math.min(leftMean, rightMean)
+}
+
+function _getDistValues(dist) {
+  const v = []
+  for (let d of dist) v.push(d.dist)
+  return v
 }
