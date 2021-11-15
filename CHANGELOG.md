@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Rename "Head Tracking" to "Distance Tracking" globally.
 - Polish translations.
+- Elements, like `.calibration-background`, have a higher `z-index` to avoid being covered by external elements.
 
 ## [0.3.0] - 2021-10-16
 

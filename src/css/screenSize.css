@@ -10,7 +10,7 @@
   /* top: max(45%, 200px); */
   left: 2rem;
   border-radius: 5px;
-  z-index: 1;
+  z-index: 10;
   cursor: grab;
   -webkit-transition: opacity 0.3s;
   transition: opacity 0.3s;
@@ -60,7 +60,7 @@
   /* display: none; */
   width: 70px;
   height: auto;
-  z-index: 3;
+  z-index: 1;
 }
 
 #size-arrow-fill {

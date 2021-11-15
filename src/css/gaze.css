@@ -8,7 +8,7 @@
   position: fixed !important;
   display: block;
   cursor: initial;
-  z-index: 9998;
+  z-index: 999999999;
   transition-timing-function: ease-in-out;
   transition: left 0.5s, right 0.5s, top 0.5s, bottom 0.5s;
 }
@@ -41,7 +41,7 @@
 
 #webgazerGazeDot {
   position: fixed;
-  z-index: 999999;
+  z-index: 9999999999;
   opacity: 0.5;
   background-color: #111d5e;
   border-radius: 5px;
@@ -50,7 +50,7 @@
 }
 
 #webgazerVideoContainer {
-  z-index: 9997;
+  z-index: 999999997;
   display: block;
   position: fixed !important;
   transform-origin: bottom left;
