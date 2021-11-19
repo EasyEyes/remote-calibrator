@@ -92,7 +92,7 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
         else
           v.style.transition = `left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
         safeExecuteFunc(callback)
-      }, 500)
+      }, 700)
       clearInterval(c)
     }
   }, 50)
