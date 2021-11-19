@@ -5,10 +5,12 @@ export const addButtons = (
   RCL,
   parent,
   { go, cancel, custom },
-  showCancelButton
+  showCancelButton,
+  absolutePositioning = true
 ) => {
   const buttons = document.createElement('div')
-  buttons.className = 'rc-buttons'
+  buttons.className =
+    'rc-buttons' + (absolutePositioning ? ' rc-absolute-buttons' : '')
   buttons.id = 'rc-buttons'
 
   let goButton, cancelButton, customButton

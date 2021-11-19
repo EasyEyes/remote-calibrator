@@ -44,6 +44,13 @@ class RemoteCalibrator {
       panelResolve: null,
     }
 
+    // Calibration check
+    this._participantCheckEquipment = {
+      has: null,
+      equipment: null,
+      unit: null,
+    }
+
     // Are we calibrating for setting up gaze or distance tracking?
     this._trackingSetupFinishedStatus = {
       gaze: true,
@@ -56,6 +63,8 @@ class RemoteCalibrator {
       gaze: 0,
       distance: 0,
     }
+
+    // ! DATA
 
     this._environmentData = []
 
@@ -70,6 +79,11 @@ class RemoteCalibrator {
 
     // Status
     this._fullscreenData = []
+
+    // Check
+    this._equipmentData = []
+
+    ////
 
     this._background = {
       element: null,
@@ -245,6 +259,10 @@ class RemoteCalibrator {
 
   get userLanguage() {
     return this._helper_get(this._environmentData, 'userLanguage')
+  }
+
+  get equipment() {
+    return this._helper_get(this._equipmentData)
   }
 
   // Screen
@@ -426,6 +444,13 @@ class RemoteCalibrator {
   set newLanguageData(data) {
     this._langData.push(data)
   }
+
+  /**
+   * @param {{ value: { has: boolean; unit: string; equipment: string; }; timestamp: Date; }} data
+   */
+  set newEquipmentData(data) {
+    this._equipmentData.push(data)
+  }
 }
 
 /**
@@ -574,8 +599,9 @@ RemoteCalibrator.prototype._addBackground = function (inner) {
   }
 
   if (inner) b.innerHTML = inner
-
   this._background.element = b
+
+  return this.background
 }
 
 /**

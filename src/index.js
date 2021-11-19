@@ -14,6 +14,8 @@ import './gaze/gazeCalibration'
 import './gaze/gazeAccuracy'
 import GazeTracker from './gaze/gazeTracker'
 
+import './check/checkScreenSize'
+
 import './panel'
 import './customization'
 
@@ -25,6 +27,7 @@ import './css/gaze.css'
 import 'animate.css'
 import 'sweetalert2/src/sweetalert2.scss'
 import './css/swal.css'
+import './css/components.scss'
 
 const r = new RemoteCalibrator()
 r.gazeTracker = new GazeTracker(r)

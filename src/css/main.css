@@ -15,6 +15,12 @@
   user-select: none;
   box-sizing: border-box;
   text-align: center;
+  scrollbar-width: none;
+}
+
+#calibration-background::-webkit-scrollbar {
+  width: 0;
+  display: none;
 }
 
 #calibration-background * {

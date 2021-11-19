@@ -34,4 +34,9 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
     F: 'FaceMesh',
   },
   IN_TO_CM: 2.54,
+  UNITS: {
+    CM: 'cm',
+    IN_D: 'inDecimal',
+    IN_F: 'inFractional',
+  },
 })

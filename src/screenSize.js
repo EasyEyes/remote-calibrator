@@ -81,6 +81,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       decimalPlace: 1,
       headline: '🖥️ ' + phrases.RC_screenSizeTitle[this.L],
       description: phrases.RC_screenSizeIntro[this.L],
+      check: true,
     },
     options
   )
@@ -226,7 +227,9 @@ function getSize(RC, parent, options, callback) {
     breakFunction()
 
     // ! Call the callback function
-    safeExecuteFunc(callback, screenData)
+    if (options.check) RC._checkScreenSize(callback, screenData)
+    else safeExecuteFunc(callback, screenData)
+
     return
   }
 

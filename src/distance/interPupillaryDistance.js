@@ -141,7 +141,7 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
   // TODO To be removed
   setTimeout(() => {
     Swal.fire({
-      ...swalInfoOptions(this),
+      ...swalInfoOptions(this, { showIcon: false }),
       icon: undefined,
       imageUrl: PD,
       imageWidth: 480,
