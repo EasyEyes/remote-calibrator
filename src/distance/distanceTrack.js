@@ -50,8 +50,9 @@ RemoteCalibrator.prototype.trackDistance = function (
       decimalPlace: 1,
       framerate: 3, // tracking rate
       desiredDistanceCm: undefined,
-      desiredDistanceTolerance: 0.1,
+      desiredDistanceTolerance: 0.9,
       desiredDistanceMonitor: false,
+      desiredDistanceMonitorCancelable: false,
       nearPoint: true,
       showNearPoint: false,
       headline: '🙂 ' + phrases.RC_distanceTrackingTitle[this.L],
@@ -117,6 +118,8 @@ RemoteCalibrator.prototype.trackDistance = function (
   trackingOptions.desiredDistanceCm = options.desiredDistanceCm
   trackingOptions.desiredDistanceTolerance = options.desiredDistanceTolerance
   trackingOptions.desiredDistanceMonitor = options.desiredDistanceMonitor
+  trackingOptions.desiredDistanceMonitorCancelable =
+    options.desiredDistanceMonitorCancelable
 
   originalStyles.video = options.showVideo
 
@@ -173,8 +176,9 @@ const trackingOptions = {
   nearPoint: true,
   showNearPoint: false,
   desiredDistanceCm: undefined,
-  desiredDistanceTolerance: 0.1,
+  desiredDistanceTolerance: 0.9,
   desiredDistanceMonitor: false,
+  desiredDistanceMonitorCancelable: false,
 }
 
 const stdDist = { current: null }
@@ -232,7 +236,13 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
       desiredDistanceCm,
       desiredDistanceTolerance,
       desiredDistanceMonitor,
+      desiredDistanceMonitorCancelable,
     } = trackingOptions
+
+    // Always enable correct on a fresh start
+    RC._distanceTrackNudging.distanceCorrectEnabled = true
+    RC._distanceTrackNudging.distanceDesired = desiredDistanceCm
+    RC._distanceTrackNudging.distanceAllowedRatio = desiredDistanceTolerance
 
     viewingDistanceTrackingFunction = async () => {
       //
@@ -281,9 +291,9 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
             })
 
             if (readyToGetFirstData || desiredDistanceMonitor) {
-              // Check distance
+              // ! Check distance
               if (desiredDistanceCm)
-                RC.checkDistance(desiredDistanceCm, desiredDistanceTolerance)
+                RC.checkDistance(desiredDistanceMonitorCancelable)
               readyToGetFirstData = false
             }
 
@@ -426,8 +436,9 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     trackingOptions.showNearPoint = false
 
     trackingOptions.desiredDistanceCm = undefined
-    trackingOptions.desiredDistanceTolerance = 0.1
+    trackingOptions.desiredDistanceTolerance = 0.9
     trackingOptions.desiredDistanceMonitor = false
+    trackingOptions.desiredDistanceMonitorCancelable = false
 
     stdDist.current = null
     stdFactor = null

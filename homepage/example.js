@@ -203,10 +203,11 @@ function trackViewingDistance(e) {
   RemoteCalibrator.trackDistance(
     {
       showVideo: true,
-      nearPoint: true,
+      nearPoint: false,
       showNearPoint: true,
       desiredDistanceCm: 60,
       desiredDistanceMonitor: true,
+      desiredDistanceMonitorCancelable: true,
     },
     distanceData => {
       measureDistanceCallback(distanceData)

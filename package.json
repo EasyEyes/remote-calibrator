@@ -44,7 +44,7 @@
     "lint-staged": "^12.1.2",
     "postcss-loader": "^6.2.1",
     "prettier": "^2.5.0",
-    "sass": "^1.43.5",
+    "sass": "^1.44.0",
     "sass-loader": "^12.3.0",
     "style-loader": "^3.3.1",
     "svg-inline-loader": "^0.8.2",

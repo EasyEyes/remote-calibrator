@@ -56,8 +56,11 @@ class RemoteCalibrator {
       gaze: true,
       distance: true,
     }
-    this._trackingStatus = {
+    this._distanceTrackNudging = {
       distanceCorrecting: null, // setInterval
+      distanceCorrectEnabled: true, // Whether to correct or not, used for pause and end
+      distanceDesired: null,
+      distanceAllowedRatio: null,
     }
     this._tackingVideoFrameTimestamps = {
       gaze: 0,
@@ -90,6 +93,10 @@ class RemoteCalibrator {
       instructionElement: null,
     }
 
+    this._nudger = {
+      element: null,
+    }
+
     this._params = {
       backgroundColor: '#eee',
       videoOpacity: 0.8,
@@ -112,6 +119,10 @@ class RemoteCalibrator {
 
   get instructionElement() {
     return this._background.instructionElement
+  }
+
+  get nudger() {
+    return this._nudger.element
   }
 
   // PARAMS

@@ -8,7 +8,7 @@
   position: fixed !important;
   display: block;
   cursor: initial;
-  z-index: 999999999;
+  z-index: 999999998;
   transition-timing-function: ease-in-out;
   transition: left 0.5s, right 0.5s, top 0.5s, bottom 0.5s;
 }
