@@ -81,7 +81,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       decimalPlace: 1,
       headline: '🖥️ ' + phrases.RC_screenSizeTitle[this.L],
       description: phrases.RC_screenSizeIntro[this.L],
-      check: true,
+      check: false,
     },
     options
   )
