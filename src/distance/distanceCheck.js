@@ -32,9 +32,13 @@ RemoteCalibrator.prototype.checkDistance = function (cancelable = false) {
       }
 
       // Bind keys
-      const bindKeysFunction = bindKeys({
-        Escape: breakFunction,
-      })
+      const bindKeysFunction = bindKeys(
+        cancelable
+          ? {
+              Escape: breakFunction,
+            }
+          : {}
+      )
 
       if (
         this._distanceTrackNudging.distanceCorrecting === null &&

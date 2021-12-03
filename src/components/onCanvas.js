@@ -28,9 +28,9 @@ export function _circle(RC, ctx, x, y, frameCount, sparkle = true) {
   ctx.arc(x, y, circleR >> 1, 0, Math.PI * 2)
   ctx.closePath()
 
-  if (!sparkle) ctx.fillStyle = RC._CONST.COLOR.DARK_RED
+  if (!sparkle) ctx.fillStyle = RC._CONST.COLOR.RED
   else {
-    if (frameCount % 4 < 2) ctx.fillStyle = RC._CONST.COLOR.DARK_RED
+    if (frameCount % 4 < 2) ctx.fillStyle = RC._CONST.COLOR.RED
     else ctx.fillStyle = '#fff'
   }
 

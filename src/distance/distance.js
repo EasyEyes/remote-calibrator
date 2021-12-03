@@ -11,7 +11,7 @@ import {
 import {
   _getCrossX,
   _cross,
-  circleDeltaX,
+  // circleDeltaX,
   _getCircleBounds,
   _circle,
 } from '../components/onCanvas'
@@ -88,6 +88,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     }
 
     unbindKeys(bindKeysFunction)
+    unbindKeys(bindKeyUpsFunction, 'keyup')
   }
 
   // SPACE
@@ -133,6 +134,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
           // Clear observer and keys
           resizeObserver.unobserve(RC.background)
           unbindKeys(bindKeysFunction)
+          unbindKeys(bindKeyUpsFunction, 'keyup')
         }
       } else {
         // ! Reset
@@ -193,6 +195,45 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     )
   }
 
+  let arrowKeyDown = false
+  let arrowIntervalFunction = null
+  const arrowDownFunction = e => {
+    if (arrowKeyDown) return
+
+    arrowUpFunction()
+    arrowKeyDown = true
+
+    arrowIntervalFunction = setInterval(() => {
+      if (e.key === 'ArrowLeft') {
+        circleX -= 10
+        helpMoveCircleX()
+      } else if (e.key === 'ArrowRight') {
+        circleX += 10
+        helpMoveCircleX()
+      }
+    }, 30)
+  }
+
+  const arrowUpFunction = () => {
+    arrowKeyDown = false
+    if (arrowIntervalFunction) {
+      clearInterval(arrowIntervalFunction)
+      arrowIntervalFunction = null
+    }
+  }
+
+  const helpMoveCircleX = () => {
+    tempX = constrain(circleX, ...circleBounds)
+    if (circleX !== tempX) {
+      circleX = tempX
+      for (let b of circleBounds)
+        if (circleX !== b) {
+          circleX = b
+          break
+        }
+    }
+  }
+
   const _resetCanvasLayout = (
     nextV,
     nextEyeSide,
@@ -222,7 +263,16 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   const bindKeysFunction = bindKeys({
     Escape: breakFunction,
     ' ': finishFunction,
+    ArrowLeft: arrowDownFunction,
+    ArrowRight: arrowDownFunction,
   })
+  const bindKeyUpsFunction = bindKeys(
+    {
+      ArrowLeft: arrowUpFunction,
+      ArrowRight: arrowUpFunction,
+    },
+    'keyup'
+  )
   const addedButtons = addButtons(
     RC.L,
     RC.background,
@@ -251,16 +301,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     _cross(ctx, crossX, c.height / 2)
 
     _circle(RC, ctx, circleX, c.height / 2, frameCount, options.sparkle)
-    circleX += v * circleDeltaX
-    tempX = constrain(circleX, ...circleBounds)
-    if (circleX !== tempX) {
-      circleX = tempX
-      for (let b of circleBounds)
-        if (circleX !== b) {
-          circleX = b
-          break
-        }
-    }
+    // circleX += v * circleDeltaX
 
     if (inTest) {
       frameCount++
@@ -295,7 +336,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
     {
       fullscreen: false,
       repeatTesting: 2,
-      sparkle: true,
+      sparkle: false,
       decimalPlace: 1,
       headline: '📏 ' + phrases.RC_viewingDistanceTitle[this.L],
       description: phrases.RC_viewingDistanceIntro[this.L],
