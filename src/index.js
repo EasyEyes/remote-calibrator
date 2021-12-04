@@ -23,6 +23,7 @@ import './css/main.css'
 import './css/screenSize.css'
 import './css/distance.scss'
 import './css/gaze.css'
+import './css/video.scss'
 
 import 'animate.css'
 import 'sweetalert2/src/sweetalert2.scss'
