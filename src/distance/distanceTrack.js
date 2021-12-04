@@ -50,7 +50,7 @@ RemoteCalibrator.prototype.trackDistance = function (
       decimalPlace: 1,
       framerate: 3, // tracking rate
       desiredDistanceCm: undefined,
-      desiredDistanceTolerance: 0.9,
+      desiredDistanceTolerance: 1.2,
       desiredDistanceMonitor: false,
       desiredDistanceMonitorCancelable: false,
       nearPoint: true,
@@ -134,26 +134,38 @@ RemoteCalibrator.prototype.trackDistance = function (
 
   this._trackingSetupFinishedStatus.distance = false
 
+  const trackingConfig = {
+    options: options,
+    callbackStatic: callbackStatic,
+    callbackTrack: callbackTrack,
+  }
+
   if (options.nearPoint) {
     startTrackingPupils(
       this,
       () => {
         this._measurePD({}, _)
       },
-      callbackTrack
+      callbackTrack,
+      trackingConfig
     )
   } else {
-    startTrackingPupils(this, _, callbackTrack)
+    startTrackingPupils(this, _, callbackTrack, trackingConfig)
   }
 }
 
 /* -------------------------------------------------------------------------- */
 
-const startTrackingPupils = async (RC, beforeCallbackTrack, callbackTrack) => {
+const startTrackingPupils = async (
+  RC,
+  beforeCallbackTrack,
+  callbackTrack,
+  trackingConfig
+) => {
   RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
     RC._removeFloatInstructionElement()
     safeExecuteFunc(beforeCallbackTrack)
-    _tracking(RC, trackingOptions, callbackTrack)
+    _tracking(RC, trackingOptions, callbackTrack, trackingConfig)
   })
 }
 
@@ -176,7 +188,7 @@ const trackingOptions = {
   nearPoint: true,
   showNearPoint: false,
   desiredDistanceCm: undefined,
-  desiredDistanceTolerance: 0.9,
+  desiredDistanceTolerance: 1.2,
   desiredDistanceMonitor: false,
   desiredDistanceMonitorCancelable: false,
 }
@@ -193,7 +205,12 @@ let readyToGetFirstData = false
 let averageDist = 0
 let distCount = 1
 
-const _tracking = async (RC, trackingOptions, callbackTrack) => {
+const _tracking = async (
+  RC,
+  trackingOptions,
+  callbackTrack,
+  trackingConfig
+) => {
   const video = document.querySelector('#webgazerVideoFeed')
 
   const _ = async () => {
@@ -293,7 +310,10 @@ const _tracking = async (RC, trackingOptions, callbackTrack) => {
             if (readyToGetFirstData || desiredDistanceMonitor) {
               // ! Check distance
               if (desiredDistanceCm)
-                RC.checkDistance(desiredDistanceMonitorCancelable)
+                RC.checkDistance(
+                  desiredDistanceMonitorCancelable,
+                  trackingConfig
+                )
               readyToGetFirstData = false
             }
 
@@ -436,7 +456,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     trackingOptions.showNearPoint = false
 
     trackingOptions.desiredDistanceCm = undefined
-    trackingOptions.desiredDistanceTolerance = 0.9
+    trackingOptions.desiredDistanceTolerance = 1.2
     trackingOptions.desiredDistanceMonitor = false
     trackingOptions.desiredDistanceMonitorCancelable = false
 
@@ -453,11 +473,12 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
       nearPointDot = null
     }
 
-    if (_r) this.gazeTracker.end('distance', endAll)
+    // Nudger
+    this.endNudger()
 
+    if (_r) this.gazeTracker.end('distance', endAll)
     return this
   }
-
   return null
 }
 

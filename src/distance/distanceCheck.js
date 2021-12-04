@@ -2,8 +2,12 @@ import RemoteCalibrator from '../core'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { phrases } from '../i18n'
 import { addButtons } from '../components/buttons'
+import { sleep } from '../components/utils'
 
-RemoteCalibrator.prototype.checkDistance = function (cancelable = false) {
+RemoteCalibrator.prototype.checkDistance = function (
+  cancelable = false,
+  trackingConfig
+) {
   ////
   if (!this.checkInitialized()) return
   ////
@@ -24,6 +28,7 @@ RemoteCalibrator.prototype.checkDistance = function (cancelable = false) {
     ) {
       // ! Out of range
       const breakFunction = () => {
+        // In range, remove the nudger, not break/end the whole system
         this._removeNudger()
         clearInterval(this._distanceTrackNudging.distanceCorrecting)
         this._distanceTrackNudging.distanceCorrecting = null
@@ -31,11 +36,22 @@ RemoteCalibrator.prototype.checkDistance = function (cancelable = false) {
         unbindKeys(bindKeysFunction)
       }
 
+      const restartViewingDistanceTracking = async () => {
+        this.endDistance()
+        this._addBackground()
+        await sleep(2000)
+        this.trackDistance(
+          trackingConfig.options,
+          trackingConfig.callbackStatic,
+          trackingConfig.callbackTrack
+        )
+      }
+
       // Bind keys
       const bindKeysFunction = bindKeys(
         cancelable
           ? {
-              Escape: breakFunction,
+              Escape: this.endNudger,
             }
           : {}
       )
@@ -48,13 +64,20 @@ RemoteCalibrator.prototype.checkDistance = function (cancelable = false) {
         const [moveElement, guideNumNow, guideNumDesired] =
           startCorrecting(this)
 
-        const buttonConfig = cancelable
+        let buttonConfig = cancelable
           ? {
               cancel: () => {
-                this._distanceTrackNudging.distanceCorrectEnabled = false
+                this.endNudger()
               },
             }
           : {}
+        buttonConfig = {
+          ...buttonConfig,
+          custom: {
+            callback: restartViewingDistanceTracking,
+            content: phrases.RC_distanceTrackingRedo[this.L],
+          },
+        }
 
         addButtons(
           this.L,
@@ -203,5 +226,16 @@ RemoteCalibrator.prototype.resumeNudger = function () {
 }
 
 RemoteCalibrator.prototype.endNudger = function () {
+  if (!this._distanceTrackNudging.distanceCorrectEnabled) return false
+  this._removeNudger()
+  // NOT back to init state
   this._distanceTrackNudging.distanceCorrectEnabled = false
+  // Back to init state
+  if (this._distanceTrackNudging.distanceCorrecting)
+    clearInterval(this._distanceTrackNudging.distanceCorrecting)
+  this._distanceTrackNudging.distanceCorrecting = null
+  this._distanceTrackNudging.distanceDesired = null
+  this._distanceAllowedRatio = null
+
+  return true
 }

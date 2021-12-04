@@ -58,7 +58,7 @@ class RemoteCalibrator {
     }
     this._distanceTrackNudging = {
       distanceCorrecting: null, // setInterval
-      distanceCorrectEnabled: true, // Whether to correct or not, used for pause and end
+      distanceCorrectEnabled: false, // Whether to correct or not, used for endNudger
       distanceDesired: null,
       distanceAllowedRatio: null,
     }

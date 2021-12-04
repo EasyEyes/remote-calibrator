@@ -207,7 +207,7 @@ function trackViewingDistance(e) {
       showNearPoint: true,
       desiredDistanceCm: 60,
       desiredDistanceMonitor: true,
-      desiredDistanceMonitorCancelable: true,
+      desiredDistanceMonitorCancelable: false,
     },
     distanceData => {
       measureDistanceCallback(distanceData)
