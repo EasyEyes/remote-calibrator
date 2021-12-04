@@ -2,6 +2,9 @@ import webgazer from '../WebGazer4RC/src/index.mjs'
 
 import { safeExecuteFunc, toFixedNumber } from '../components/utils'
 import { checkWebgazerReady } from '../components/video'
+import Swal from 'sweetalert2'
+import { swalInfoOptions } from '../components/swalOptions'
+import { phrases } from '../i18n'
 
 /**
  * The gaze tracker object to wrap all gaze-related functions
@@ -32,7 +35,7 @@ export default class GazeTracker {
   begin({ pipWidthPx }, callback) {
     if (this.checkInitialized('gaze', true)) {
       if (!this._running.gaze) {
-        this.webgazer.begin()
+        this.webgazer.begin(this.videoFailed.bind(this))
         this._running.gaze = true
         this._runningVideo = true
       }
@@ -51,7 +54,7 @@ export default class GazeTracker {
     // Begin video only
     if (this.checkInitialized('distance', true)) {
       if (!this._runningVideo) {
-        this.webgazer.beginVideo()
+        this.webgazer.beginVideo(this.videoFailed.bind(this))
         this._runningVideo = true
       }
 
@@ -63,6 +66,18 @@ export default class GazeTracker {
         callback
       )
     }
+  }
+
+  videoFailed(videoInputs) {
+    Swal.fire({
+      ...swalInfoOptions(this.calibrator),
+      icon: 'error',
+      iconColor: this.calibrator._CONST.COLOR.DARK_RED,
+      showConfirmButton: false,
+      html: videoInputs.length
+        ? phrases.RC_errorCameraUseDenied[this.calibrator.L]
+        : phrases.RC_errorNoCamera[this.calibrator.L],
+    })
   }
 
   attachNewCallback(callback) {

@@ -10,6 +10,7 @@ export const swalInfoOptions = RC => {
     confirmButtonText: phrases.RC_ok[RC.L],
     showClass: {
       popup: 'animate__animated animate__fadeInUp',
+      icon: '',
       // backdrop: 'animate__animated animate__fadeIn',
     },
     hideClass: {
