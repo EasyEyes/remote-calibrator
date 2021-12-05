@@ -1,5 +1,4 @@
 import { phrases } from '../i18n'
-import '../css/buttons.scss'
 
 export const addButtons = (
   RCL,

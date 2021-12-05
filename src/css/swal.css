@@ -33,3 +33,9 @@
   --animate-duration: 400ms !important;
   --animate-delay: 0 !important;
 }
+
+.fadeInUp,
+.fadeOutDown {
+  animation-duration: 400ms !important;
+  animation-delay: 0 !important;
+}

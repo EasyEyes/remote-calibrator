@@ -9,12 +9,12 @@ export const swalInfoOptions = (RC, { showIcon }) => {
     showConfirmButton: true,
     confirmButtonText: phrases.RC_ok[RC.L],
     showClass: {
-      popup: 'animate__animated animate__fadeInUp',
+      popup: 'fadeInUp',
       icon: '',
       // backdrop: 'animate__animated animate__fadeIn',
     },
     hideClass: {
-      popup: 'animate__animated animate__fadeOutDown',
+      popup: 'fadeOutDown',
       // backdrop: 'animate__animated animate__fadeOut',
     },
     iconColor: RC._CONST.COLOR.ORANGE,
