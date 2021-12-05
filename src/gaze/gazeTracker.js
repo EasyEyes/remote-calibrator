@@ -70,7 +70,7 @@ export default class GazeTracker {
 
   videoFailed(videoInputs) {
     Swal.fire({
-      ...swalInfoOptions(this.calibrator),
+      ...swalInfoOptions(this.calibrator, { showIcon: true }),
       icon: 'error',
       iconColor: this.calibrator._CONST.COLOR.DARK_RED,
       showConfirmButton: false,
