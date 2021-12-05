@@ -262,6 +262,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   // Bind keys
   const bindKeysFunction = bindKeys({
     Escape: breakFunction,
+    Enter: finishFunction,
     ' ': finishFunction,
     ArrowLeft: arrowDownFunction,
     ArrowRight: arrowDownFunction,

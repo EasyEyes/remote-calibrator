@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Polish translations.
 - Elements, like `.calibration-background`, have a higher `z-index` to avoid being covered by external elements.
 - Repeat testing time of the blind spot test for viewing distance and distance tracking is changed to 1.
+- Submission key of blind spot test changed from `Space` to `Enter`.
 
 ## [0.3.0] - 2021-10-16
 
