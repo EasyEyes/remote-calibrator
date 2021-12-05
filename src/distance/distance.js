@@ -319,7 +319,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
    * options -
    *
    * fullscreen: [Boolean]
-   * repeatTesting: 2
+   * repeatTesting: 1
    * sparkle: true
    * decimalPlace: 1
    * headline: [String]
@@ -335,7 +335,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   options = Object.assign(
     {
       fullscreen: false,
-      repeatTesting: 2,
+      repeatTesting: 1,
       sparkle: false,
       decimalPlace: 1,
       headline: '📏 ' + phrases.RC_viewingDistanceTitle[this.L],

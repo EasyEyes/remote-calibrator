@@ -25,7 +25,7 @@ RemoteCalibrator.prototype.trackDistance = function (
    * options -
    *
    * fullscreen: [Boolean]
-   * repeatTesting: 2
+   * repeatTesting: 1
    * pipWidthPx: [208]
    *
    * (Interface)
@@ -42,7 +42,7 @@ RemoteCalibrator.prototype.trackDistance = function (
   options = Object.assign(
     {
       fullscreen: false,
-      repeatTesting: 2,
+      repeatTesting: 1,
       sparkle: false,
       pipWidthPx:
         this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP'],
