@@ -10,6 +10,7 @@ import {
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n'
+import { spaceForLanguage } from '../components/language'
 
 const originalStyles = {
   video: false,
@@ -56,7 +57,12 @@ RemoteCalibrator.prototype.trackDistance = function (
       nearPoint: true,
       showNearPoint: false,
       headline: '🙂 ' + phrases.RC_distanceTrackingTitle[this.L],
-      description: phrases.RC_distanceTrackingIntro[this.L],
+      description:
+        phrases.RC_distanceTrackingIntroStart[this.L] +
+        spaceForLanguage(this.L) +
+        phrases.RC_viewingDistanceIntro[this.L] +
+        spaceForLanguage(this.L) +
+        phrases.RC_distanceTrackingIntroEnd[this.L],
     },
     options
   )

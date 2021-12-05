@@ -29,3 +29,8 @@ function constructLangData(lang) {
     timestamp: new Date(),
   }
 }
+
+export function spaceForLanguage(L) {
+  console.log(phrases.EE_languageUseSpace[L])
+  return phrases.EE_languageUseSpace[L] === '1'
+}
