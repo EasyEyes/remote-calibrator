@@ -31,6 +31,5 @@ function constructLangData(lang) {
 }
 
 export function spaceForLanguage(L) {
-  console.log(phrases.EE_languageUseSpace[L])
-  return phrases.EE_languageUseSpace[L] === '1'
+  return phrases.EE_languageUseSpace[L] === '1' ? ' ' : ''
 }
