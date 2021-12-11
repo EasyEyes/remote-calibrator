@@ -1,21 +1,28 @@
-export const checkPermissions = tasks => {
-  // if (navigator.permissions)
-  // navigator.permissions
-  //   .query({ name: 'camera' })
-  //   .then(permissionObj => {
-  //     console.log(permissionObj.state)
-  //   })
-  //   .catch(error => {
-  //     console.error(error)
-  //   })
-  let now = Date.now()
-  navigator.mediaDevices
-    .getUserMedia({ video: true })
-    .then(function (stream) {
-      // Permitted
-      console.log('[GOT]', Date.now() - now)
-    })
-    .catch(function (err) {
-      console.error('[ERROR] ', Date.now() - now)
-    })
+import Swal from 'sweetalert2'
+
+import { phrases } from '../i18n'
+import { swalInfoOptions } from './swalOptions'
+
+import AllowCam from '../media/allow_cam.png?width=480&height=240'
+
+export const checkPermissions = async RC => {
+  if (navigator.permissions && navigator.permissions.query) {
+    return navigator.permissions
+      .query({ name: 'camera' })
+      .then(async permissionObj => {
+        if (permissionObj.state === 'prompt') {
+          return await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            imageUrl: AllowCam,
+            imageWidth: 480,
+            imageAlt: 'Allow Camera Access',
+            html: phrases.RC_requestCamera[RC.L],
+          })
+        }
+      })
+      .catch(error => {
+        console.error(error)
+      })
+  }
 }

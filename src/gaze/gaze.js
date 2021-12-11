@@ -2,9 +2,10 @@ import RemoteCalibrator from '../core'
 
 import { blurAll, safeExecuteFunc } from '../components/utils'
 import { gazeCalibrationPrepare } from './gazeCalibration'
+import { checkPermissions } from '../components/mediaPermission'
 import { phrases } from '../i18n'
 
-RemoteCalibrator.prototype.trackGaze = function (
+RemoteCalibrator.prototype.trackGaze = async function (
   options = {},
   callbackOnCalibrationEnd = null,
   callbackTrack = null
@@ -70,6 +71,10 @@ RemoteCalibrator.prototype.trackGaze = function (
   // ! Not initialized
   // Init - Begin -  Calibrate - Start running
   this._addBackground()
+
+  // Permissions
+  await checkPermissions(this)
+  ////
 
   // Init
   this.gazeTracker._init(

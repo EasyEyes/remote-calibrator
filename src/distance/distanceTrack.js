@@ -11,12 +11,13 @@ import {
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n'
 import { spaceForLanguage } from '../components/language'
+import { checkPermissions } from '../components/mediaPermission'
 
 const originalStyles = {
   video: false,
 }
 
-RemoteCalibrator.prototype.trackDistance = function (
+RemoteCalibrator.prototype.trackDistance = async function (
   options = {},
   callbackStatic,
   callbackTrack
@@ -87,6 +88,10 @@ RemoteCalibrator.prototype.trackDistance = function (
     'gaze-system-instruction',
     phrases.RC_starting[this.L]
   )
+
+  // Permissions
+  await checkPermissions(this)
+  ////
 
   // STEP 2 - Live estimate
   const getStdDist = distData => {
