@@ -269,11 +269,11 @@ const _newStepBlock = (RC, index, task, options) => {
       break
     case 2:
       use = Camera
-      useTip = 'Uses webcam.'
+      useTip = phrases.RC_panelUsesWebcam[RC.L]
       break
     case 3:
       use = Camera + Phone
-      useTip = 'Uses webcam and smartphone.'
+      useTip = phrases.RC_panelUsesWebcamPhone[RC.L]
       break
     default:
       use = ''

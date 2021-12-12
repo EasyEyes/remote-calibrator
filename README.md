@@ -460,7 +460,7 @@ Use the following keywords to retrieve the whole dataset.
 
 ## Development
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/d54b8740-aa4d-446b-8738-49161769a9a8/deploy-status)](https://app.netlify.com/sites/remote-calibrator/deploys)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/d54b8740-aa4d-446b-8738-49161769a9a8/deploy-status)](https://app.netlify.com/sites/calibrator/deploys)
 
 For building the library locally or development, please follow the steps below.
 
