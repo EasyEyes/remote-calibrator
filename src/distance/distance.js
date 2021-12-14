@@ -14,6 +14,9 @@ import {
   // circleDeltaX,
   _getCircleBounds,
   _circle,
+  bindMousedown,
+  unbindMousedown,
+  clickOnCircle,
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
@@ -73,12 +76,15 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   let circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
   let tempX = circleX // Used to check touching bound
+  let circleFill = RC._CONST.COLOR.DARK_RED
+
   let v = eyeSide === 'left' ? 1 : -1
 
   // ! KEY
   const breakFunction = (toBreakTracking = true) => {
     // ! BREAK
     inTest = false
+    unbindMousedown('blind-spot-canvas', dragStart)
     resizeObserver.unobserve(RC.background)
     RC._removeBackground()
 
@@ -202,6 +208,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
     arrowUpFunction()
     arrowKeyDown = true
+    circleFill = RC._CONST.COLOR.RED
 
     arrowIntervalFunction = setInterval(() => {
       if (e.key === 'ArrowLeft') {
@@ -216,6 +223,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   const arrowUpFunction = () => {
     arrowKeyDown = false
+    circleFill = RC._CONST.COLOR.DARK_RED
     if (arrowIntervalFunction) {
       clearInterval(arrowIntervalFunction)
       arrowIntervalFunction = null
@@ -291,6 +299,65 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   const customButton = addedButtons[3]
   customButton.disabled = true
 
+  /* -------------------------------------------------------------------------- */
+  // Drag
+  const _dragStartPosition = { x: null, circleX: null }
+  const dragStart = e => {
+    const isTouch = e.touches && e.touches[0] ? true : false
+    if (!isTouch) e.preventDefault()
+
+    let startX, startY
+    if (isTouch) {
+      startX = e.touches[0].clientX
+      startY = e.touches[0].clientY
+    } else {
+      startX = e.clientX
+      startY = e.clientY
+    }
+
+    if (clickOnCircle(circleX, c.height / 2, startX, startY)) {
+      _dragStartPosition.x = startX
+      _dragStartPosition.circleX = circleX
+      circleFill = RC._CONST.COLOR.RED
+
+      const thisCanvas = document.getElementById('blind-spot-canvas')
+
+      const dragMove = eMove => {
+        e.preventDefault()
+        eMove.preventDefault()
+
+        let currentX
+        if (isTouch) currentX = eMove.touches[0].clientX
+        else currentX = eMove.clientX
+
+        circleX = _dragStartPosition.circleX + currentX - _dragStartPosition.x
+        circleX = constrain(
+          circleX,
+          ..._getCircleBounds(eyeSide, crossX, c.width)
+        )
+      }
+      if (isTouch) thisCanvas.addEventListener('touchmove', dragMove)
+      else thisCanvas.addEventListener('mousemove', dragMove)
+
+      const dragEnd = () => {
+        if (isTouch) {
+          thisCanvas.removeEventListener('touchend', dragEnd)
+          thisCanvas.removeEventListener('touchmove', dragMove)
+        } else {
+          thisCanvas.removeEventListener('mouseup', dragEnd)
+          thisCanvas.removeEventListener('mousemove', dragMove)
+        }
+        _dragStartPosition.x = null
+        _dragStartPosition.circleX = null
+        circleFill = RC._CONST.COLOR.DARK_RED
+      }
+      if (isTouch) thisCanvas.addEventListener('touchend', dragEnd)
+      else thisCanvas.addEventListener('mouseup', dragEnd)
+    }
+  }
+  bindMousedown('blind-spot-canvas', dragStart)
+  /* -------------------------------------------------------------------------- */
+
   // ! ACTUAL TEST
   let frameCount = 0
   const runTest = () => {
@@ -301,7 +368,15 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
     _cross(ctx, crossX, c.height / 2)
 
-    _circle(RC, ctx, circleX, c.height / 2, frameCount, options.sparkle)
+    _circle(
+      RC,
+      ctx,
+      circleX,
+      c.height / 2,
+      frameCount,
+      circleFill,
+      options.sparkle
+    )
     // circleX += v * circleDeltaX
 
     if (inTest) {

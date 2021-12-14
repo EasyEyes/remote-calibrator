@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Measurement repeatability check for the blind spot test. The data will be accepted only if the right eye measurement and the left eye measurement are close enough, i.e. their averages disagree by less than 20%. If not, the measurement will repeat until the averages agree with each other. After that, the median of all measures will be chosen as the final result.
 - The raw data of the blind spot test is also saved now, the new data structure is `{ value, timestamp, method, raw }`. The raw data is an array of all kept measures (a measure is deleted after the participant chose to redo the last response).
 - Display the actual code used to trigger functions in the demo page.
+- For viewing distance, one can now drag or use arrow keys to control the position of the red dot.
 
 ### Changed
 

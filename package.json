@@ -29,7 +29,7 @@
   },
   "homepage": "https://github.com/EasyEyes/remote-calibrator#readme",
   "devDependencies": {
-    "@babel/core": "^7.16.0",
+    "@babel/core": "^7.16.5",
     "autoprefixer": "^10.4.0",
     "babel-loader": "^8.2.3",
     "clean-webpack-plugin": "^4.0.0",

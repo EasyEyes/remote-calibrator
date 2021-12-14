@@ -35,6 +35,7 @@
 .calibration-instruction {
   position: absolute;
   user-select: none;
+  pointer-events: none;
 }
 
 .calibration-instruction-scrollable {
