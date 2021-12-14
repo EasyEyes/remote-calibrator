@@ -87,6 +87,19 @@
         if (id) b.id = id
         if (info.length === 4) b.className = info[3]
 
+        b.classList.add('demo-button')
+
+        let showCode = document.createElement('div')
+        showCode.className = 'show-code-button'
+        showCode.innerHTML = 'code'
+        showCode.onclick = e => {
+          e.stopImmediatePropagation()
+          e.stopPropagation()
+          eval(info[2] + 'Code()')
+          return false
+        }
+        b.appendChild(showCode)
+
         return b
       }
 
@@ -241,5 +254,6 @@
       }
     </style>
     <!-- GitHub corner END -->
+    <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js?skin=desert&autorun=false"></script>
   </body>
 </html>

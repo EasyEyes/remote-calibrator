@@ -5,7 +5,7 @@ import RemoteCalibrator from './core'
 import { phrases } from './i18n'
 
 // Icons from Google Material UI
-import Camera from './media/photo_camera.svg'
+import Camera from './media/photo-camera.svg'
 import Phone from './media/smartphone.svg'
 
 import './css/panel.scss'

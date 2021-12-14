@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Redo last response" button for the blind spot test.
 - Measurement repeatability check for the blind spot test. The data will be accepted only if the right eye measurement and the left eye measurement are close enough, i.e. their averages disagree by less than 20%. If not, the measurement will repeat until the averages agree with each other. After that, the median of all measures will be chosen as the final result.
 - The raw data of the blind spot test is also saved now, the new data structure is `{ value, timestamp, method, raw }`. The raw data is an array of all kept measures (a measure is deleted after the participant chose to redo the last response).
+- Display the actual code used to trigger functions in the demo page.
 
 ### Changed
 
@@ -26,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Submission key of blind spot test changed from `Space` to `Enter`.
 - Customized import of animate.css to reduce the package size.
 - Customized `files` field in `package.json` to boost installation performance.
+
+### Fixed
+
+- Correct warning log when calling distance tracking lifecycle functions, while distance tracking is not initialized.
 
 ## [0.3.0] - 2021-10-16
 
