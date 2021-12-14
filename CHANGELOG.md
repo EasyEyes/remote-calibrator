@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Submission key of blind spot test changed from `Space` to `Enter`.
 - Customized import of animate.css to reduce the package size.
 - Customized `files` field in `package.json` to boost installation performance.
+- Rename "Cancel" button to "Restart this calibration".
 
 ### Fixed
 
