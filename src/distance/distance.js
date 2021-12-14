@@ -7,11 +7,12 @@ import {
   blurAll,
   safeExecuteFunc,
   average,
+  emptyFunc,
 } from '../components/utils'
 import {
   _getCrossX,
   _cross,
-  // circleDeltaX,
+  circleDeltaX,
   _getCircleBounds,
   _circle,
   bindMousedown,
@@ -23,11 +24,13 @@ import { addButtons } from '../components/buttons'
 import { soundFeedback } from '../components/sound'
 import { phrases } from '../i18n'
 
-const blindSpotHTML = `<canvas id="blind-spot-canvas"></canvas>`
+const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canvas>`
 
 /* -------------------------------------------------------------------------- */
 
 export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
+  const control = options.control // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
+
   let ppi = RC._CONST.N.PPI_DONT_USE // Dangerous! Arbitrary value
   if (RC.screenPpi) ppi = RC.screenPpi.value
   else
@@ -84,7 +87,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   const breakFunction = (toBreakTracking = true) => {
     // ! BREAK
     inTest = false
-    unbindMousedown('blind-spot-canvas', dragStart)
+    if (control) unbindMousedown('blind-spot-canvas', dragStart)
     resizeObserver.unobserve(RC.background)
     RC._removeBackground()
 
@@ -272,13 +275,13 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     Escape: breakFunction,
     Enter: finishFunction,
     ' ': finishFunction,
-    ArrowLeft: arrowDownFunction,
-    ArrowRight: arrowDownFunction,
+    ArrowLeft: control ? arrowDownFunction : emptyFunc,
+    ArrowRight: control ? arrowDownFunction : emptyFunc,
   })
   const bindKeyUpsFunction = bindKeys(
     {
-      ArrowLeft: arrowUpFunction,
-      ArrowRight: arrowUpFunction,
+      ArrowLeft: control ? arrowUpFunction : emptyFunc,
+      ArrowRight: control ? arrowUpFunction : emptyFunc,
     },
     'keyup'
   )
@@ -318,9 +321,11 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     if (clickOnCircle(circleX, c.height / 2, startX, startY)) {
       _dragStartPosition.x = startX
       _dragStartPosition.circleX = circleX
-      circleFill = RC._CONST.COLOR.RED
 
       const thisCanvas = document.getElementById('blind-spot-canvas')
+
+      circleFill = RC._CONST.COLOR.RED
+      thisCanvas.classList.replace('cursor-grab', 'cursor-grabbing')
 
       const dragMove = eMove => {
         e.preventDefault()
@@ -336,26 +341,28 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
           ..._getCircleBounds(eyeSide, crossX, c.width)
         )
       }
-      if (isTouch) thisCanvas.addEventListener('touchmove', dragMove)
-      else thisCanvas.addEventListener('mousemove', dragMove)
+      if (isTouch) document.addEventListener('touchmove', dragMove)
+      else document.addEventListener('mousemove', dragMove)
 
       const dragEnd = () => {
         if (isTouch) {
-          thisCanvas.removeEventListener('touchend', dragEnd)
-          thisCanvas.removeEventListener('touchmove', dragMove)
+          document.removeEventListener('touchend', dragEnd)
+          document.removeEventListener('touchmove', dragMove)
         } else {
-          thisCanvas.removeEventListener('mouseup', dragEnd)
-          thisCanvas.removeEventListener('mousemove', dragMove)
+          document.removeEventListener('mouseup', dragEnd)
+          document.removeEventListener('mousemove', dragMove)
         }
         _dragStartPosition.x = null
         _dragStartPosition.circleX = null
+
         circleFill = RC._CONST.COLOR.DARK_RED
+        thisCanvas.classList.replace('cursor-grabbing', 'cursor-grab')
       }
-      if (isTouch) thisCanvas.addEventListener('touchend', dragEnd)
-      else thisCanvas.addEventListener('mouseup', dragEnd)
+      if (isTouch) document.addEventListener('touchend', dragEnd)
+      else document.addEventListener('mouseup', dragEnd)
     }
   }
-  bindMousedown('blind-spot-canvas', dragStart)
+  if (control) bindMousedown('blind-spot-canvas', dragStart)
   /* -------------------------------------------------------------------------- */
 
   // ! ACTUAL TEST
@@ -377,7 +384,10 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       circleFill,
       options.sparkle
     )
-    // circleX += v * circleDeltaX
+    if (!control) {
+      circleX += v * circleDeltaX
+      helpMoveCircleX()
+    }
 
     if (inTest) {
       frameCount++
@@ -408,14 +418,20 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   blurAll()
   ////
 
+  let description
+  if (options.control !== undefined && options.control === false)
+    description = phrases.RC_viewingDistanceIntroNoControl[this.L]
+  else description = phrases.RC_viewingDistanceIntro[this.L]
+
   options = Object.assign(
     {
       fullscreen: false,
       repeatTesting: 1,
       sparkle: false,
       decimalPlace: 1,
+      control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
       headline: '📏 ' + phrases.RC_viewingDistanceTitle[this.L],
-      description: phrases.RC_viewingDistanceIntro[this.L],
+      description: description,
     },
     options
   )

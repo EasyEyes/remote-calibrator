@@ -74,6 +74,8 @@ export function safeExecuteFunc(f, ...a) {
     else f()
 }
 
+export const emptyFunc = () => {}
+
 // http://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
 export function sleep(time) {
   return new Promise(resolve => setTimeout(resolve, time))
