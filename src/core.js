@@ -85,6 +85,7 @@ class RemoteCalibrator {
 
     // Check
     this._equipmentData = []
+    this._checkData = []
 
     ////
 
@@ -384,6 +385,14 @@ class RemoteCalibrator {
     return this._langData
   }
 
+  get equipmentData() {
+    return this._equipmentData
+  }
+
+  get checkData() {
+    return this._checkData
+  }
+
   /* --------------------------------- SETTERS -------------------------------- */
 
   /**
@@ -461,6 +470,13 @@ class RemoteCalibrator {
    */
   set newEquipmentData(data) {
     this._equipmentData.push(data)
+  }
+
+  /**
+   * @param {any} data
+   */
+  set newCheckData(data) {
+    this._checkData.push(data)
   }
 }
 

@@ -189,7 +189,9 @@ function makePanelCode() {
  * Measure the screen size
  *
  */
-const _measureScreenSizeCode = `RemoteCalibrator.screenSize({}, screenData => {
+const _measureScreenSizeCode = `RemoteCalibrator.screenSize({
+  check: true
+}, screenData => {
   printMessage(
     \`Screen size is \${screenData.value.screenDiagonalIn} in [Width: \${
       screenData.value.screenWidthCm

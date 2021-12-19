@@ -20,18 +20,18 @@ RemoteCalibrator.prototype._checkScreenSize = async function (
     const { CM, IN_D, IN_F } = RC._CONST.UNITS
     const haveEquipmentOptions = {}
     haveEquipmentOptions[CM] = 'cm'
-    haveEquipmentOptions[IN_D] = 'in (Decimal, e.g. 11.5 in)'
-    haveEquipmentOptions[IN_F] = 'in (Fractional, e.g. 12 3/16 in)'
+    haveEquipmentOptions[IN_D] = 'inch (Decimal, e.g. 11.5 in)'
+    haveEquipmentOptions[IN_F] = 'inch (Fractional, e.g. 12 3/16 in)'
 
     const { value: result } = await Swal.fire({
       ...swalInfoOptions(RC, {
         showIcon: false,
       }),
-      title: 'Check the calibration',
+      title: 'Do you have a measure tool?',
       input: 'select',
       inputOptions: {
-        'I have an appropriate measuring device in units': haveEquipmentOptions,
-        "I don't have an appropriate measuring device": {
+        'I have an appropriate measuring tool in units': haveEquipmentOptions,
+        "I don't have an appropriate measuring tool": {
           none: 'No device',
         },
       },
@@ -69,15 +69,28 @@ const checkScreenSize = async (RC, screenSizeCallback, screenSizeData) => {
     // ! Has equipment
     RC._replaceBackground(
       constructInstructions(
-        '📏 ' + 'Check Screen Size Measure',
-        'Measure the length of the arrow, and put your answer in the text box. You only need to put the numbers. When finished, press OK.'
+        '📏 ' + 'Measure Size',
+        'Measure the length of the arrow, and type your numerical answer into the box, just the number. Then press OK.'
       )
     )
 
-    const input = await takeInput(RC)
+    const measureData = await takeInput(RC)
 
-    if (input) {
-      window.console.log(input)
+    if (measureData) {
+      const measureValue = measureData.value
+      const arrowWidthPx = RC.windowWidthPx.value
+      const calibratorIn = arrowWidthPx / RC.screenPpi.value
+
+      const value = {
+        ...measureValue,
+        calibratorIn: calibratorIn,
+      }
+
+      RC.newCheckData = {
+        value: value,
+        timestamp: measureData.timestamp,
+        measure: 'screenSize',
+      }
     }
   }
   quit()

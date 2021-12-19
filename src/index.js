@@ -39,7 +39,7 @@ import 'sweetalert2/src/sweetalert2.scss'
 import './css/swal.css'
 import './css/buttons.scss'
 import './css/slider.scss'
-import './css/components.scss'
+import './css/check.scss'
 
 const r = new RemoteCalibrator()
 r.gazeTracker = new GazeTracker(r)

@@ -1,4 +1,6 @@
 .my__swal2__container .swal2-select {
+  font-size: 1.2rem !important;
+  padding-top: 0.5rem !important;
   font-family: inherit !important;
   border-radius: 5px !important;
   border: 2px solid #aaa !important;
@@ -12,6 +14,7 @@
 .rc-form {
   font-size: 2rem;
   font-family: inherit;
+  pointer-events: auto !important;
 
   .rc-form-inputs {
     display: flex;
@@ -41,6 +44,10 @@
       border-color: #ac0d0d !important;
       color: #ac0d0d !important;
     }
+  }
+
+  .rc-form-input + .rc-form-input {
+    margin-left: 0.5rem;
   }
 }
 
