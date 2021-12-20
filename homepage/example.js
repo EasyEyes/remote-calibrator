@@ -124,6 +124,7 @@ function initializeCode() {
  */
 const _panelCode = `RemoteCalibrator.panel(
   [
+    // Configure tasks
     {
       name: 'screenSize',
       callback: data => {
@@ -149,8 +150,14 @@ const _panelCode = `RemoteCalibrator.panel(
       },
     },
   ],
+  // Parent element
   '#experiment',
-  {},
+  // Configure the panel itself
+  {
+    i18n: true,
+    debug: false,
+  },
+  // Panel callback after all the tasks are finished
   data => {
     printMessage(\`Panel finished at \${parseTimestamp(data.timestamp)}!\`)
   }

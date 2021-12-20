@@ -16,7 +16,7 @@ import GazeTracker from './gaze/gazeTracker'
 
 import './check/checkScreenSize'
 
-import './panel'
+import './panel/panel'
 import './customization'
 
 /* ----------------------------------- CSS ---------------------------------- */

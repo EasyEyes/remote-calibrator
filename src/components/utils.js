@@ -176,6 +176,10 @@ export const median = arr => {
 // https://stackoverflow.com/a/41452260
 export const average = array => array.reduce((a, b) => a + b) / array.length
 
+export const _copy = obj => {
+  return JSON.parse(JSON.stringify(obj))
+}
+
 /**
  *
  * BLUR ALL
