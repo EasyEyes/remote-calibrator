@@ -258,22 +258,29 @@
       margin: 0 !important;
     }
 
+    h2 {
+      font-size: 1.2rem !important;
+    }
+
     h3 {
       font-variant: small-caps;
       font-size: 0.9rem;
+      font-weight: 500;
       padding-top: 0.5rem;
       padding-bottom: 0.3rem;
     }
 
     .rc-panel-debug-bold-text {
+      font-size: 1rem !important;
       font-weight: bold;
     }
 
     .rc-panel-debug-control-next {
+      font-size: 0.9rem !important;
       margin: 1rem 0 0 0;
       color: #fff;
       background-color: #ee0000;
-      padding: 0.5rem 1rem;
+      padding: 0.5rem 1.2rem !important;
       border-radius: 5px;
       border: none;
       cursor: pointer;
@@ -314,6 +321,7 @@
 
         input {
           margin: 0 !important;
+          padding: 0.3rem !important;
           font-size: 0.8rem;
           width: 100%;
           border: 1px solid #ee9999 !important;

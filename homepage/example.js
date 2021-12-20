@@ -155,7 +155,7 @@ const _panelCode = `RemoteCalibrator.panel(
   // Configure the panel itself
   {
     i18n: true,
-    debug: false,
+    debug: true,
   },
   // Panel callback after all the tasks are finished
   data => {
