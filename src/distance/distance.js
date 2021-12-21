@@ -101,7 +101,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   }
 
   // SPACE
-  const finishFunction = () => {
+  const finishFunction = async () => {
     customButton.disabled = false
     soundFeedback()
 
@@ -131,13 +131,15 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
           method: RC._CONST.VIEW_METHOD.B,
           raw: { ...dist },
         })
-        safeExecuteFunc(callback, data)
 
-        // Break
+        // ! Break
+        let measureType // For the check function
         if (!toTrackDistance) {
+          measureType = 'measureDistance'
           breakFunction(false)
         } else {
           // ! For tracking
+          measureType = 'trackDistance'
           // Stop test
           inTest = false
           // Clear observer and keys
@@ -145,6 +147,10 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
           unbindKeys(bindKeysFunction)
           unbindKeys(bindKeyUpsFunction, 'keyup')
         }
+
+        // ! check
+        if (options.check) await RC._checkDistance(callback, data, measureType)
+        else safeExecuteFunc(callback, data)
       } else {
         // ! Reset
         tested = 0
@@ -432,6 +438,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
       headline: '📏 ' + phrases.RC_viewingDistanceTitle[this.L],
       description: description,
+      check: false,
     },
     options
   )

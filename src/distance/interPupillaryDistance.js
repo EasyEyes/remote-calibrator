@@ -119,7 +119,7 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
       this.newPDData = newPDData
 
       breakFunction(false)
-      safeExecuteFunc(callback, newPDData)
+      return safeExecuteFunc(callback, newPDData)
     }
   }
 

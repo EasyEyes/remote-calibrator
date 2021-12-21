@@ -51,7 +51,7 @@ RemoteCalibrator.measureDistance({}, data => {
 | [🍱 Panel](#-panel)                         | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                                                    |
 | [🖥️ Screen](#️-screen)                      | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                                   |
 | [📏 Viewing Distance](#-viewing-distance)   | [`measureDistance()`](#-viewing-distance)                                                                                                                                                                                    |
-| [🙂 Distance Tracking](#-distance-tracking) | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-distance-tracking) [`async getDistanceNow()`](#async-get-distance-now) [`checkDistance()`](#check-distance) [Lifecycle](#lifecycle) [Others](#others) |
+| [🙂 Distance Tracking](#-distance-tracking) | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-distance-tracking) [`async getDistanceNow()`](#async-get-distance-now) [`nudgeDistance()`](#check-distance) [Lifecycle](#lifecycle) [Others](#others) |
 | [👀 Gaze](#-gaze)                           | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1)                             |
 | [💻 Environment](#-environment)             | [System and Browser Environment](#-environment)                                                                                                                                                                              |
 | [💄 Customization](#-customization)         | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                                                    |
@@ -270,7 +270,7 @@ You can pause active distance tracking, and use this function to get the latest 
 #### Check Distance
 
 ```js
-.checkDistance(desiredCm, errorTolerance)
+.nudgeDistance(desiredCm, errorTolerance)
 ```
 
 Check the current viewing distance and compare it to the desired distance. Guide the participant to the target distance if needed.

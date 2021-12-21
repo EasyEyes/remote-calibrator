@@ -1,7 +1,7 @@
 import { addButtons } from './buttons'
 
-import Arrow from '../media/two-sided-horizontal.svg'
 import { bindKeys, unbindKeys } from './keyBinder'
+import { safeExecuteFunc } from './utils'
 
 // const _exampleMeasure = {
 //   cm: '22.5',
@@ -9,7 +9,7 @@ import { bindKeys, unbindKeys } from './keyBinder'
 //   inFractional: ['12', '3/16'],
 // }
 
-export const takeInput = async RC => {
+export const takeInput = async (RC, extraFunction = null) => {
   const unit = RC.equipment.value.unit
   const unitDisplay = unit === RC._CONST.UNITS.CM ? 'cm' : 'in'
   const unitIsFraction = unit === RC._CONST.UNITS.IN_F
@@ -76,10 +76,8 @@ export const takeInput = async RC => {
     setupEleOninput(formInputElementFFraction, validInputFraction)
   }
 
-  // ! Arrow
-  const arrow = document.createElement('div')
-  RC.background.appendChild(arrow)
-  arrow.outerHTML = Arrow
+  // ! Arrow, etc.
+  safeExecuteFunc(extraFunction)
 
   // ! Finish
   return new Promise(resolve => {

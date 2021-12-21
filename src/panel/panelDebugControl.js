@@ -137,7 +137,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
 
   const debuggerNext = document.createElement('button')
   debuggerNext.className = 'rc-panel-debug-control-next'
-  debuggerNext.innerHTML = 'Continue with above values'
+  debuggerNext.innerHTML = 'Simulate calibration and continue'
   debuggerNext.onclick = () => {
     _wrapValues(RC, debugControlRows)
     // Final callback

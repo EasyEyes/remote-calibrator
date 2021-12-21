@@ -70,8 +70,8 @@
 
 export function safeExecuteFunc(f, ...a) {
   if (f && typeof f === 'function')
-    if (a.length) f(...a)
-    else f()
+    if (a.length) return f(...a)
+    else return f()
 }
 
 export const emptyFunc = () => {}

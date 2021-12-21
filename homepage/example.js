@@ -197,7 +197,7 @@ function makePanelCode() {
  *
  */
 const _measureScreenSizeCode = `RemoteCalibrator.screenSize({
-  check: true
+  check: true,
 }, screenData => {
   printMessage(
     \`Screen size is \${screenData.value.screenDiagonalIn} in [Width: \${
@@ -231,7 +231,9 @@ const _measureDistanceCallback = `const measureDistanceCallback = distanceData =
     } method.\`
   )
 }`
-const _measureViewingDistanceCode = `RemoteCalibrator.measureDistance({}, distanceData => {
+const _measureViewingDistanceCode = `RemoteCalibrator.measureDistance({
+  check: true,
+}, distanceData => {
   measureDistanceCallback(distanceData)\n@
 })`
 function measureViewingDistance(e) {
@@ -265,6 +267,7 @@ RemoteCalibrator.trackDistance(
     desiredDistanceCm: 60,
     desiredDistanceMonitor: true,
     desiredDistanceMonitorCancelable: false,
+    check: true,
   },
   staticDistanceData => {
     measureDistanceCallback(staticDistanceData)

@@ -6,7 +6,7 @@ import './screenSize'
 
 import './distance/distance'
 import './distance/distanceTrack'
-import './distance/distanceCheck'
+import './distance/distanceNudge'
 import './distance/interPupillaryDistance'
 
 import './gaze/gaze'
@@ -14,7 +14,9 @@ import './gaze/gazeCalibration'
 import './gaze/gazeAccuracy'
 import GazeTracker from './gaze/gazeTracker'
 
+import './check/equipment'
 import './check/checkScreenSize'
+import './check/checkDistance'
 
 import './panel/panel'
 import './customization'

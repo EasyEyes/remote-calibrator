@@ -70,6 +70,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
         description +
         spaceForLanguage(this.L) +
         phrases.RC_distanceTrackingIntroEnd[this.L],
+      check: false,
     },
     options
   )
@@ -115,7 +116,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
 
   // STEP 1 - Calibrate for live estimate
   const originalGazer = this.gazeTracker.webgazer.params.showGazeDot
-  const _ = () => {
+  const _ = async () => {
     this._addBackground()
 
     this._replaceBackground(
@@ -161,7 +162,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
     startTrackingPupils(
       this,
       () => {
-        this._measurePD({}, _)
+        return this._measurePD({}, _)
       },
       callbackTrack,
       trackingConfig
@@ -302,7 +303,7 @@ const _tracking = async (
               // Get the factor to be used for future predictions
               stdFactor = averageDist * stdDist.current.value
               // ! FINISH
-              RC._removeBackground()
+              if (!trackingConfig.options.check) RC._removeBackground() // Remove BG if no check
               RC._trackingSetupFinishedStatus.distance = true
               readyToGetFirstData = true
             }
@@ -327,7 +328,7 @@ const _tracking = async (
             if (readyToGetFirstData || desiredDistanceMonitor) {
               // ! Check distance
               if (desiredDistanceCm)
-                RC.checkDistance(
+                RC.nudgeDistance(
                   desiredDistanceMonitorCancelable,
                   trackingConfig
                 )
