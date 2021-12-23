@@ -1,7 +1,7 @@
 import { addButtons } from './buttons'
 
 import { bindKeys, unbindKeys } from './keyBinder'
-import { safeExecuteFunc } from './utils'
+import { powerOf2, safeExecuteFunc } from './utils'
 
 // const _exampleMeasure = {
 //   cm: '22.5',
@@ -19,7 +19,7 @@ export const takeInput = async (RC, extraFunction = null) => {
   <div class="rc-form-inputs">
   ${
     unitIsFraction
-      ? `<input type="text" class="rc-form-input rc-form-input-f-integer" placeholder="integer" /><input type="text" class="rc-form-input rc-form-input-f-fraction" placeholder="fraction" /><span>${unitDisplay}</span>`
+      ? `<input type="text" class="rc-form-input rc-form-input-f-integer" placeholder="integer" /><input type="text" class="rc-form-input rc-form-input-f-fraction" placeholder="fraction (or 0)" /><span>${unitDisplay}</span>`
       : `<input type="text" class="rc-form-input" /><span>${unitDisplay}</span>`
     // : `<input type="text" class="rc-form-input" placeholder="Your measure, e.g. ${_exampleMeasure[unit]}" /><span>${unitDisplay}</span>`
   }
@@ -70,11 +70,25 @@ export const takeInput = async (RC, extraFunction = null) => {
       else eleError(ele)
     }
   }
+  const _validationForFraction = () => {
+    let allOkay = true
+    if (!validInputInteger(formInputElementFInteger.value)) {
+      eleError(formInputElementFInteger)
+      allOkay = false
+    } else eleOkay(formInputElementFInteger)
+    if (!validInputFraction(formInputElementFFraction.value)) {
+      eleError(formInputElementFFraction)
+      allOkay = false
+    } else eleOkay(formInputElementFFraction)
+    return allOkay
+  }
+
   if (!unitIsFraction) setupEleOninput(formInputElement, validInput)
   else {
-    setupEleOninput(formInputElementFInteger, validInputInteger)
-    setupEleOninput(formInputElementFFraction, validInputFraction)
+    formInputElementFInteger.oninput = _validationForFraction
+    formInputElementFFraction.oninput = _validationForFraction
   }
+  ////
 
   // ! Arrow, etc.
   safeExecuteFunc(extraFunction)
@@ -138,7 +152,7 @@ const validInput = text => {
 
 const validInputInteger = text => {
   if (!validInput(text)) return false
-  return parseInt(text) === Number(text)
+  return parseInt(text) === Number(text) && Number(text) > 0
 }
 
 const validInputFraction = text => {
@@ -148,6 +162,7 @@ const validInputFraction = text => {
   return (
     validInputInteger(numbers[0]) &&
     validInputInteger(numbers[1]) &&
+    powerOf2(numbers[1]) &&
     eval(text) < 1
   )
 }

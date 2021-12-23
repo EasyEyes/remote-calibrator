@@ -198,6 +198,11 @@ function makePanelCode() {
  */
 const _measureScreenSizeCode = `RemoteCalibrator.screenSize({
   check: true,
+  checkCallback: (result) => {
+    printMessage(
+      \`The participant measured the arrow size with their own tools, and the reported value is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm.\`
+    )
+  }
 }, screenData => {
   printMessage(
     \`Screen size is \${screenData.value.screenDiagonalIn} in [Width: \${
@@ -233,6 +238,11 @@ const _measureDistanceCallback = `const measureDistanceCallback = distanceData =
 }`
 const _measureViewingDistanceCode = `RemoteCalibrator.measureDistance({
   check: true,
+  checkCallback: (result) => {
+    printMessage(
+      \`The viewing distance measured by the participant is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm (using \${result.value.calibratorMethod}).\`
+    )
+  }
 }, distanceData => {
   measureDistanceCallback(distanceData)\n@
 })`
@@ -268,6 +278,11 @@ RemoteCalibrator.trackDistance(
     desiredDistanceMonitor: true,
     desiredDistanceMonitorCancelable: false,
     check: true,
+    checkCallback: (result) => {
+      printMessage(
+        \`The viewing distance measured by the participant is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm (using \${result.value.calibratorMethod}).\`
+      )
+    }
   },
   staticDistanceData => {
     measureDistanceCallback(staticDistanceData)

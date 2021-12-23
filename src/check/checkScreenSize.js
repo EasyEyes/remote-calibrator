@@ -1,19 +1,29 @@
 import RemoteCalibrator from '../core'
-import { constructInstructions, safeExecuteFunc } from '../components/utils'
-import { takeInput } from '../components/input'
+import {
+  constructInstructions,
+  safeExecuteFunc,
+  toFixedNumber,
+} from '../components/utils'
+import { takeInput } from '../components/checkInput'
 
 import Arrow from '../media/two-sided-horizontal.svg'
 
 RemoteCalibrator.prototype._checkScreenSize = async function (
   screenSizeCallback,
-  screenSizeData
+  screenSizeData,
+  checkCallback
 ) {
   await this.getEquipment(() => {
-    checkScreenSize(this, screenSizeCallback, screenSizeData)
+    checkScreenSize(this, screenSizeCallback, screenSizeData, checkCallback)
   })
 }
 
-const checkScreenSize = async (RC, screenSizeCallback, screenSizeData) => {
+const checkScreenSize = async (
+  RC,
+  screenSizeCallback,
+  screenSizeData,
+  checkCallback
+) => {
   const quit = () => {
     RC._removeBackground()
     safeExecuteFunc(screenSizeCallback, screenSizeData)
@@ -23,7 +33,7 @@ const checkScreenSize = async (RC, screenSizeCallback, screenSizeData) => {
     // ! Has equipment
     RC._replaceBackground(
       constructInstructions(
-        '📏 ' + 'Measure Size',
+        '📏 ' + 'Measure Size with Your Own Tool',
         'Measure the length of the arrow, and type your numerical answer into the box, just the number. Then press OK.'
       )
     )
@@ -37,12 +47,17 @@ const checkScreenSize = async (RC, screenSizeCallback, screenSizeData) => {
 
     if (measureData) {
       const measureValue = measureData.value
+
       const arrowWidthPx = RC.windowWidthPx.value
-      const calibratorIn = arrowWidthPx / RC.screenPpi.value
+      const calibratorCm = toFixedNumber(
+        (2.54 * arrowWidthPx) / RC.screenPpi.value,
+        1
+      )
 
       const value = {
         ...measureValue,
-        calibratorIn: calibratorIn,
+        calibratorCm: calibratorCm,
+        arrowLengthPx: window.innerWidth,
       }
 
       const newCheckData = {
@@ -51,7 +66,11 @@ const checkScreenSize = async (RC, screenSizeCallback, screenSizeData) => {
         measure: 'screenSize',
       }
       RC.newCheckData = newCheckData
-      console.log(newCheckData)
+
+      quit()
+      safeExecuteFunc(checkCallback, newCheckData)
+
+      return
     }
   }
   quit()

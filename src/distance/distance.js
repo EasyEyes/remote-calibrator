@@ -149,7 +149,13 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         }
 
         // ! check
-        if (options.check) await RC._checkDistance(callback, data, measureType)
+        if (options.check)
+          await RC._checkDistance(
+            callback,
+            data,
+            measureType,
+            options.checkCallback
+          )
         else safeExecuteFunc(callback, data)
       } else {
         // ! Reset
@@ -406,6 +412,10 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   requestAnimationFrame(runTest)
 }
 
+/* -------------------------------------------------------------------------- */
+/*                               measureDistance                              */
+/* -------------------------------------------------------------------------- */
+
 RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   /**
    * options -
@@ -439,6 +449,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       headline: '📏 ' + phrases.RC_viewingDistanceTitle[this.L],
       description: description,
       check: false,
+      checkCallback: false,
     },
     options
   )

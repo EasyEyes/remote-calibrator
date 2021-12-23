@@ -152,6 +152,11 @@ export function dist2d(aX, aY, bX, bY) {
   return Math.sqrt(Math.pow(aX - bX, 2) + Math.pow(aY - bY, 2))
 }
 
+// https://stackoverflow.com/a/30924333
+export function powerOf2(v) {
+  return v && !(v & (v - 1))
+}
+
 // https://stackoverflow.com/a/12646864
 export function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {

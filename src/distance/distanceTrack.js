@@ -71,6 +71,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
         spaceForLanguage(this.L) +
         phrases.RC_distanceTrackingIntroEnd[this.L],
       check: false,
+      checkCallback: null,
     },
     options
   )
