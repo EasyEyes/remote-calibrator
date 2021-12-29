@@ -338,6 +338,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
       if (eIndex === current.index) {
         e.classList.replace('rc-panel-step-inactive', 'rc-panel-step-active')
         e.focus()
+
         if (eIndex !== tasks.length) {
           if (eIndex === tasks.length - 1 && !options.showNextButton) {
             // Last task without next button

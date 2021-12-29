@@ -1,11 +1,11 @@
 import { safeExecuteFunc, _copy } from '../components/utils'
 
 export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
-  const debugControl = `<div class="rc-panel-debug-control">
-  <h2>DEBUG CONTROL</h2><p class="rc-panel-debug-bold-text">REMEMBER TO SET debug TO false FOR PRODUCTION MODE!</p>
-</div>`
-  panel.innerHTML += debugControl
-  const debugControlElement = panel.querySelector('.rc-panel-debug-control')
+  const debugControlElement = document.createElement('div')
+  debugControlElement.className = 'rc-panel-debug-control'
+  debugControlElement.innerHTML = `<h2>DEBUG CONTROL</h2><p class="rc-panel-debug-bold-text">REMEMBER TO SET debug TO false FOR PRODUCTION MODE!</p>`
+
+  panel.appendChild(debugControlElement)
   const debugControlRows = [] // Array of task names
 
   for (let task of panelTasks) {
