@@ -9,7 +9,11 @@ import { powerOf2, safeExecuteFunc } from './utils'
 //   inFractional: ['12', '3/16'],
 // }
 
-export const takeInput = async (RC, extraFunction = null) => {
+export const takeInput = async (
+  RC,
+  extraFunction = null,
+  customButtonConfig = null
+) => {
   const unit = RC.equipment.value.unit
   const unitDisplay = unit === RC._CONST.UNITS.CM ? 'cm' : 'in'
   const unitIsFraction = unit === RC._CONST.UNITS.IN_F
@@ -47,12 +51,15 @@ export const takeInput = async (RC, extraFunction = null) => {
     {
       go: () => {},
       // cancel: () => {},
+      custom: customButtonConfig ? customButtonConfig : undefined,
     },
     true,
     false
   )
   const goButton = addedButtons[1]
+  const customButton = addedButtons[3]
   // const cancelButton = addedButtons[2]
+
   goButton.disabled = true
 
   // ! oninput
@@ -61,8 +68,13 @@ export const takeInput = async (RC, extraFunction = null) => {
     goButton.disabled = false
   }
   const eleError = ele => {
-    ele.classList.add('rc-input-error')
-    goButton.disabled = true
+    if (!isAcceptedSingleInput(ele.value.slice(-1))) {
+      // Remove unaccepted chars
+      ele.value = ele.value.substring(0, ele.value.length - 1)
+    } else {
+      ele.classList.add('rc-input-error')
+      goButton.disabled = true
+    }
   }
   const setupEleOninput = (ele, validationFunction) => {
     ele.oninput = () => {
@@ -95,10 +107,10 @@ export const takeInput = async (RC, extraFunction = null) => {
 
   // ! Finish
   return new Promise(resolve => {
-    // const bFunction = () => {
-    //   unbindKeys(bindKeysFunction)
-    //   resolve(null)
-    // }
+    const bFunction = () => {
+      unbindKeys(bindKeysFunction)
+      resolve(null)
+    }
     const fFunction = () => {
       let valid = false
       let numericalValue, inputValue
@@ -107,6 +119,7 @@ export const takeInput = async (RC, extraFunction = null) => {
         validInputInteger(formInputElementFInteger.value) &&
         validInputFraction(formInputElementFFraction.value)
       ) {
+        // FRACTION
         valid = true
         numericalValue =
           parseInt(formInputElementFInteger.value) +
@@ -114,8 +127,11 @@ export const takeInput = async (RC, extraFunction = null) => {
         inputValue =
           formInputElementFInteger.value + ' ' + formInputElementFFraction.value
       } else if (!unitIsFraction && validInput(formInputElement.value)) {
+        // OTHERS
         valid = true
-        numericalValue = Number(formInputElement.value)
+        numericalValue =
+          Number(formInputElement.value) ||
+          Number(formInputElement.value.replace(',', '.'))
         inputValue = formInputElement.value
       }
 
@@ -135,11 +151,12 @@ export const takeInput = async (RC, extraFunction = null) => {
     // Bind buttons
     goButton.onclick = fFunction
     // cancelButton.onclick = bFunction
+    customButton.onclick = bFunction
 
     // Bind keys
     const bindKeysFunction = bindKeys({
-      // Escape: bFunction,
       Enter: fFunction,
+      Escape: bFunction,
     })
   })
 }
@@ -147,7 +164,11 @@ export const takeInput = async (RC, extraFunction = null) => {
 /* -------------------------------------------------------------------------- */
 
 const validInput = text => {
-  return text.length > 0 && !isNaN(text) && !text.includes(' ')
+  return (
+    text.length > 0 &&
+    !text.includes(' ') &&
+    (!isNaN(text) || !isNaN(text.replace(',', '.')))
+  )
 }
 
 const validInputInteger = text => {
@@ -165,4 +186,8 @@ const validInputFraction = text => {
     powerOf2(numbers[1]) &&
     eval(text) < 1
   )
+}
+
+const isAcceptedSingleInput = char => {
+  return /[0-9]/.test(char) || ['.', '/', ','].includes(char)
 }

@@ -40,12 +40,15 @@ const checkDistance = async (
     // ! Has equipment
     RC._replaceBackground(
       constructInstructions(
-        '📏 ' + 'Measure Viewing Distance with Your Own Tool',
-        'Measure the distance from the midpoint of your eyes to the screen center, and type your numerical answer into the box, just the number. Then press OK.'
+        '📏 ' + 'Hold Still and Measure Viewing Distance with Ruler',
+        'Hold still so that your viewing distance from the screen stays unchanged from the last measurement. Please measure the distance from the middle of your screen to one of your eyes using your ruler (or measuring tape). If your ruler is not long enough, then select "Ruler is too short" below. Type your numerical answer into the box, then click OK or hit RETURN.'
       )
     )
 
-    const measureData = await takeInput(RC)
+    const measureData = await takeInput(RC, null, {
+      callback: () => {},
+      content: 'Ruler is too short',
+    })
 
     if (measureData) {
       const measureValue = measureData.value

@@ -33,17 +33,24 @@ const checkScreenSize = async (
     // ! Has equipment
     RC._replaceBackground(
       constructInstructions(
-        '📏 ' + 'Measure Size with Your Own Tool',
-        'Measure the length of the arrow, and type your numerical answer into the box, just the number. Then press OK.'
+        '📏 ' + 'Measure the Length of the Arrow',
+        'Use your ruler (or tape measure) to measure the length of the arrow. Type your numerical answer into the box. Just digits, period, decimal comma, and <span style="font-family: Courier, monospace;">/</span> (forward slash) for fractional inches. Then click OK or hit RETURN.'
       )
     )
 
-    const measureData = await takeInput(RC, () => {
-      // extraFunction for Arrow
-      const arrow = document.createElement('div')
-      RC.background.appendChild(arrow)
-      arrow.outerHTML = Arrow
-    })
+    const measureData = await takeInput(
+      RC,
+      () => {
+        // extraFunction for Arrow
+        const arrow = document.createElement('div')
+        RC.background.appendChild(arrow)
+        arrow.outerHTML = Arrow
+      },
+      {
+        callback: () => {},
+        content: 'Ruler is too short',
+      }
+    )
 
     if (measureData) {
       const measureValue = measureData.value
@@ -67,11 +74,9 @@ const checkScreenSize = async (
       }
       RC.newCheckData = newCheckData
 
-      quit()
       safeExecuteFunc(checkCallback, newCheckData)
-
-      return
     }
   }
   quit()
+  return
 }

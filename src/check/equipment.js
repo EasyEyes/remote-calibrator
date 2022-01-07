@@ -15,21 +15,20 @@ RemoteCalibrator.prototype.getEquipment = async function (
 
   const { CM, IN_D, IN_F } = RC._CONST.UNITS
   const haveEquipmentOptions = {}
-  haveEquipmentOptions[CM] = 'cm'
-  haveEquipmentOptions[IN_D] = 'inch (Decimal, e.g. 11.5 in)'
-  haveEquipmentOptions[IN_F] = 'inch (Fractional, e.g. 12 3/16 in)'
+  haveEquipmentOptions[CM] = 'centimeter'
+  haveEquipmentOptions[IN_D] = 'inch (decimal, e.g. 11.5 in)'
+  haveEquipmentOptions[IN_F] = 'inch (fractional, e.g. 12 3/8 in)'
 
   const { value: result } = await Swal.fire({
     ...swalInfoOptions(RC, {
       showIcon: false,
     }),
-    title: 'Do you have a measure tool?',
+    title: 'Do you have a ruler or tape measure?',
+    html: `Ideally, it should be long enough to measure your viewing distance, but even a 6 inch (15 cm) ruler can be useful. Please select the units you'll use, or indicate that no ruler or tape measure is available.`,
     input: 'select',
     inputOptions: {
-      'I have an appropriate measuring tool in units': haveEquipmentOptions,
-      "I don't have an appropriate measuring tool": {
-        none: 'No device',
-      },
+      ...haveEquipmentOptions,
+      none: 'No ruler or tape measure is available',
     },
     inputPlaceholder: 'Select an option',
     // showCancelButton: true,
