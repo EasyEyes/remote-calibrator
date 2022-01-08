@@ -6,7 +6,8 @@ import {
 } from '../components/utils'
 import { takeInput } from '../components/checkInput'
 
-import Arrow from '../media/two-sided-horizontal.svg'
+import ArrowHorizontal from '../media/two-sided-horizontal.svg'
+import ArrowVertical from '../media/two-sided-vertical.svg'
 
 RemoteCalibrator.prototype._checkScreenSize = async function (
   screenSizeCallback,
@@ -38,22 +39,43 @@ const checkScreenSize = async (
       )
     )
 
-    const measureData = await takeInput(
+    const getInputFunctions = arrowSvg => {
+      return [
+        () => {
+          // extraFunction for Arrow
+          const arrow = document.createElement('div')
+          RC.background.appendChild(arrow)
+          arrow.outerHTML = arrowSvg
+        },
+        () => {
+          // extraFunctionOut
+          for (let ele of RC.background.getElementsByClassName(
+            'arrow-two-sided-svg'
+          )) {
+            ele.remove()
+          }
+        },
+        {
+          callback: () => {},
+          content: 'Ruler is too short',
+        },
+      ]
+    }
+
+    const measureWidthData = await takeInput(
       RC,
-      () => {
-        // extraFunction for Arrow
-        const arrow = document.createElement('div')
-        RC.background.appendChild(arrow)
-        arrow.outerHTML = Arrow
-      },
-      {
-        callback: () => {},
-        content: 'Ruler is too short',
-      }
+      ...getInputFunctions(ArrowHorizontal)
     )
 
-    if (measureData) {
-      const measureValue = measureData.value
+    const measureHeightData = await takeInput(
+      RC,
+      ...getInputFunctions(ArrowVertical)
+    )
+
+    const value = {}
+
+    if (measureWidthData) {
+      const measureValue = measureWidthData.value
 
       const arrowWidthPx = RC.windowWidthPx.value
       const calibratorCm = toFixedNumber(
@@ -61,17 +83,36 @@ const checkScreenSize = async (
         1
       )
 
-      const value = {
+      value.horizontal = {
         ...measureValue,
-        calibratorCm: calibratorCm,
-        arrowLengthPx: window.innerWidth,
+        calibratorArrowWidthCm: calibratorCm,
+        arrowWidthPx: arrowWidthPx,
       }
+    }
 
+    if (measureHeightData) {
+      const measureValue = measureHeightData.value
+
+      const arrowHeightPx = RC.windowHeightPx.value
+      const calibratorCm = toFixedNumber(
+        (2.54 * arrowHeightPx) / RC.screenPpi.value,
+        1
+      )
+
+      value.vertical = {
+        ...measureValue,
+        calibratorArrowHeightCm: calibratorCm,
+        arrowHeightPx: arrowHeightPx,
+      }
+    }
+
+    if (value.vertical || value.horizontal) {
       const newCheckData = {
         value: value,
-        timestamp: measureData.timestamp,
+        timestamp: measureWidthData.timestamp,
         measure: 'screenSize',
       }
+
       RC.newCheckData = newCheckData
 
       safeExecuteFunc(checkCallback, newCheckData)

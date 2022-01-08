@@ -54,12 +54,22 @@
 
 .arrow-two-sided-svg {
   position: fixed;
-  width: 100%;
-  bottom: 10%;
-  left: 0;
-  right: 0;
 
   .arrow-two-sided {
     fill: #ff9a00;
   }
+}
+
+.arrow-two-sided-horizontal {
+  width: 100%;
+  bottom: 10%;
+  left: 0;
+  right: 0;
+}
+
+.arrow-two-sided-vertical {
+  height: 100%;
+  right: 5%;
+  top: 0;
+  bottom: 0;
 }

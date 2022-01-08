@@ -1,4 +1,4 @@
-import { addButtons } from './buttons'
+import { addButtons, removeButtons } from './buttons'
 
 import { bindKeys, unbindKeys } from './keyBinder'
 import { powerOf2, safeExecuteFunc } from './utils'
@@ -12,6 +12,7 @@ import { powerOf2, safeExecuteFunc } from './utils'
 export const takeInput = async (
   RC,
   extraFunction = null,
+  extraFunctionOut = null,
   customButtonConfig = null
 ) => {
   const unit = RC.equipment.value.unit
@@ -23,7 +24,7 @@ export const takeInput = async (
   <div class="rc-form-inputs">
   ${
     unitIsFraction
-      ? `<input type="text" class="rc-form-input rc-form-input-f-integer" placeholder="integer" /><input type="text" class="rc-form-input rc-form-input-f-fraction" placeholder="fraction (or 0)" /><span>${unitDisplay}</span>`
+      ? `<input type="text" class="rc-form-input rc-form-input-f-integer" placeholder="integer" /><input type="text" class="rc-form-input rc-form-input-f-fraction" placeholder="fraction (like 3/8) or 0" /><span>${unitDisplay}</span>`
       : `<input type="text" class="rc-form-input" /><span>${unitDisplay}</span>`
     // : `<input type="text" class="rc-form-input" placeholder="Your measure, e.g. ${_exampleMeasure[unit]}" /><span>${unitDisplay}</span>`
   }
@@ -108,6 +109,7 @@ export const takeInput = async (
   // ! Finish
   return new Promise(resolve => {
     const bFunction = () => {
+      removeInputElements(formElement, extraFunctionOut)
       unbindKeys(bindKeysFunction)
       resolve(null)
     }
@@ -136,6 +138,7 @@ export const takeInput = async (
       }
 
       if (valid) {
+        removeInputElements(formElement, extraFunctionOut)
         unbindKeys(bindKeysFunction)
         resolve({
           value: {
@@ -159,6 +162,15 @@ export const takeInput = async (
       Escape: bFunction,
     })
   })
+}
+
+const removeInputElements = (formElement, extraFunctionOut) => {
+  // Remove
+  removeButtons(formElement)
+  for (let child of formElement.children) child.remove()
+  formElement.remove()
+  //
+  safeExecuteFunc(extraFunctionOut)
 }
 
 /* -------------------------------------------------------------------------- */

@@ -34,6 +34,8 @@ RemoteCalibrator.prototype.getEquipment = async function (
     // showCancelButton: true,
     inputValidator: value => {
       return new Promise(resolve => {
+        if (!value.length) resolve('Please select an option.')
+
         const hasEquipment = value !== 'none'
 
         RC.newEquipmentData = {

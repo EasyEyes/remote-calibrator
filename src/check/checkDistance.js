@@ -45,7 +45,7 @@ const checkDistance = async (
       )
     )
 
-    const measureData = await takeInput(RC, null, {
+    const measureData = await takeInput(RC, null, null, {
       callback: () => {},
       content: 'Ruler is too short',
     })
