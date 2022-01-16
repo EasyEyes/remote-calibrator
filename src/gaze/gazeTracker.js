@@ -2,6 +2,9 @@ import webgazer from '../WebGazer4RC/src/index.mjs'
 
 import { safeExecuteFunc, toFixedNumber } from '../components/utils'
 import { checkWebgazerReady } from '../components/video'
+import Swal from 'sweetalert2'
+import { swalInfoOptions } from '../components/swalOptions'
+import { phrases } from '../i18n'
 
 /**
  * The gaze tracker object to wrap all gaze-related functions
@@ -32,7 +35,7 @@ export default class GazeTracker {
   begin({ pipWidthPx }, callback) {
     if (this.checkInitialized('gaze', true)) {
       if (!this._running.gaze) {
-        this.webgazer.begin()
+        this.webgazer.begin(this.videoFailed.bind(this))
         this._running.gaze = true
         this._runningVideo = true
       }
@@ -51,7 +54,7 @@ export default class GazeTracker {
     // Begin video only
     if (this.checkInitialized('distance', true)) {
       if (!this._runningVideo) {
-        this.webgazer.beginVideo()
+        this.webgazer.beginVideo(this.videoFailed.bind(this))
         this._runningVideo = true
       }
 
@@ -63,6 +66,18 @@ export default class GazeTracker {
         callback
       )
     }
+  }
+
+  videoFailed(videoInputs) {
+    Swal.fire({
+      ...swalInfoOptions(this.calibrator, { showIcon: true }),
+      icon: 'error',
+      iconColor: this.calibrator._CONST.COLOR.DARK_RED,
+      showConfirmButton: false,
+      html: videoInputs.length
+        ? phrases.RC_errorCameraUseDenied[this.calibrator.L]
+        : phrases.RC_errorNoCamera[this.calibrator.L],
+    })
   }
 
   attachNewCallback(callback) {
@@ -100,6 +115,8 @@ GazeTracker.prototype._init = function (
       // this.webgazer.saveDataAcrossSessions(false)
       this.webgazer.params.greedyLearner = greedyLearner
       this.webgazer.params.framerate = framerate
+      this.webgazer.params.getLatestVideoFrameTimestamp =
+        this._getLatestVideoTimestamp.bind(this)
       this.showGazer(showGazer)
     }
 
@@ -119,20 +136,31 @@ GazeTracker.prototype.checkInitialized = function (task, warning = false) {
       : this._initialized[task]
   )
     return true
-  if (warning)
-    console.error(
-      'RemoteCalibrator.gazeTracker is not initialized. Use .trackGaze() to initialize.'
-    )
+
+  if (warning) {
+    if (task === 'gaze')
+      console.error(
+        'RemoteCalibrator.gazeTracker is not initialized. Use .trackGaze() to initialize.'
+      )
+    else if (task === 'distance')
+      console.error(
+        'RemoteCalibrator.gazeTracker (for distance tracking) is not initialized. Use .trackDistance() to initialize.'
+      )
+  }
+
   return false
 }
 
 GazeTracker.prototype.getData = function (d) {
+  let t = new Date()
   return {
     value: {
       x: toFixedNumber(d.x, this._toFixedN),
       y: toFixedNumber(d.y, this._toFixedN),
+      latencyMs:
+        t.getTime() - this.calibrator._tackingVideoFrameTimestamps.gaze, // latency
     },
-    timestamp: new Date(),
+    timestamp: t,
   }
 }
 
@@ -156,6 +184,8 @@ GazeTracker.prototype.end = function (type, endAll = false) {
     this._endGaze()
     if (endEverything && this.checkInitialized('distance'))
       this.calibrator.endDistance(false, false)
+
+    this.calibrator._tackingVideoFrameTimestamps.gaze = 0
   } else {
     // Distance
     this.defaultDistanceTrackCallback = null
@@ -188,7 +218,15 @@ GazeTracker.prototype._endGaze = function () {
 
   this.webgazer.params.greedyLearner = false
   this.webgazer.params.framerate = 60
+
+  this.webgazer.params.getLatestVideoFrameTimestamp = () => {}
 }
+
+GazeTracker.prototype._getLatestVideoTimestamp = function (t) {
+  this.calibrator._tackingVideoFrameTimestamps.gaze = t.getTime()
+}
+
+/* -------------------------------------------------------------------------- */
 
 GazeTracker.prototype.startStoringPoints = function () {
   this.webgazer.params.storingPoints = true

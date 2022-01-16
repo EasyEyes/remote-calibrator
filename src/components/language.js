@@ -29,3 +29,7 @@ function constructLangData(lang) {
     timestamp: new Date(),
   }
 }
+
+export function spaceForLanguage(L) {
+  return phrases.EE_languageUseSpace[L] === '1' ? ' ' : ''
+}

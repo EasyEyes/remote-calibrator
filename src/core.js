@@ -44,10 +44,30 @@ class RemoteCalibrator {
       panelResolve: null,
     }
 
+    // Calibration check
+    this._participantCheckEquipment = {
+      has: null,
+      equipment: null,
+      unit: null,
+    }
+
+    // Are we calibrating for setting up gaze or distance tracking?
     this._trackingSetupFinishedStatus = {
       gaze: true,
       distance: true,
     }
+    this._distanceTrackNudging = {
+      distanceCorrecting: null, // setInterval
+      distanceCorrectEnabled: false, // Whether to correct or not, used for endNudger
+      distanceDesired: null,
+      distanceAllowedRatio: null,
+    }
+    this._tackingVideoFrameTimestamps = {
+      gaze: 0,
+      distance: 0,
+    }
+
+    // ! DATA
 
     this._environmentData = []
 
@@ -63,9 +83,19 @@ class RemoteCalibrator {
     // Status
     this._fullscreenData = []
 
+    // Check
+    this._equipmentData = []
+    this._checkData = []
+
+    ////
+
     this._background = {
       element: null,
       instructionElement: null,
+    }
+
+    this._nudger = {
+      element: null,
     }
 
     this._params = {
@@ -90,6 +120,10 @@ class RemoteCalibrator {
 
   get instructionElement() {
     return this._background.instructionElement
+  }
+
+  get nudger() {
+    return this._nudger.element
   }
 
   // PARAMS
@@ -239,6 +273,10 @@ class RemoteCalibrator {
     return this._helper_get(this._environmentData, 'userLanguage')
   }
 
+  get equipment() {
+    return this._helper_get(this._equipmentData)
+  }
+
   // Screen
 
   get displayWidthPx() {
@@ -347,6 +385,14 @@ class RemoteCalibrator {
     return this._langData
   }
 
+  get equipmentData() {
+    return this._equipmentData
+  }
+
+  get checkData() {
+    return this._checkData
+  }
+
   /* --------------------------------- SETTERS -------------------------------- */
 
   /**
@@ -417,6 +463,20 @@ class RemoteCalibrator {
    */
   set newLanguageData(data) {
     this._langData.push(data)
+  }
+
+  /**
+   * @param {{ value: { has: boolean; unit: string; equipment: string; }; timestamp: Date; }} data
+   */
+  set newEquipmentData(data) {
+    this._equipmentData.push(data)
+  }
+
+  /**
+   * @param {any} data
+   */
+  set newCheckData(data) {
+    this._checkData.push(data)
   }
 }
 
@@ -566,8 +626,9 @@ RemoteCalibrator.prototype._addBackground = function (inner) {
   }
 
   if (inner) b.innerHTML = inner
-
   this._background.element = b
+
+  return this.background
 }
 
 /**

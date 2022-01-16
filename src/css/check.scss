@@ -1,0 +1,75 @@
+.my__swal2__container .swal2-select {
+  font-size: 1.2rem !important;
+  margin: auto 1.6rem !important;
+  padding-top: 0.5rem !important;
+  font-family: inherit !important;
+  border-radius: 5px !important;
+  border: 2px solid #aaa !important;
+  outline: none !important;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                Measure Input                               */
+/* -------------------------------------------------------------------------- */
+
+.rc-form {
+  font-size: 2rem;
+  font-family: inherit;
+  pointer-events: auto !important;
+
+  .rc-form-inputs {
+    display: flex;
+    justify-content: space-between !important;
+    margin: 1rem 0;
+
+    .rc-form-input,
+    span {
+      flex-grow: 1;
+      padding: 0.5rem;
+      font-family: inherit;
+      font-size: inherit;
+    }
+
+    span {
+      font-weight: 700;
+    }
+  }
+
+  .rc-form-input {
+    border: 2px solid #aaa;
+    outline: none;
+    border-radius: 5px;
+    width: min(100%, 10rem);
+
+    &.rc-input-error {
+      border-color: #ac0d0d !important;
+      color: #ac0d0d !important;
+    }
+  }
+
+  .rc-form-input + .rc-form-input {
+    margin-left: 0.5rem;
+  }
+}
+
+.arrow-two-sided-svg {
+  position: fixed;
+
+  .arrow-two-sided {
+    fill: #ff9a00;
+  }
+}
+
+.arrow-two-sided-horizontal {
+  width: 100%;
+  bottom: 10%;
+  left: 0;
+  right: 0;
+}
+
+.arrow-two-sided-vertical {
+  height: 100%;
+  right: 5%;
+  top: 0;
+  bottom: 0;
+}

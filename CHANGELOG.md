@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Latency for gaze and viewing distance tracking.** The latency is calculated by comparing the timestamps of the moment when the video stream is fed into the model for estimation and when the result is produced and recorded. You can access it by `data.value.latencyMs` where `data` is the argument passed into the callback function of `.trackGaze()` and `.trackDistance`.
+- **Viewing distance monitoring.** 4 new options for `.trackDistance()` are added: `desiredDistanceCm` (default undefined), `desiredDistanceTolerance` (default 1.2), `desiredDistanceMonitor` (default false), and `desiredDistanceMonitorCancelable` (default false). If a number is given for `desiredDistanceCm`, the program will check the viewing distance and call for "Move CLOSER" or "Move FURTHER" to the participants, until the participant moves to the desired distance, and the experiment will resume. Setting `desiredDistanceMonitor` to true will repeat this process through the rest of the experiment.
+- **`debug` and `i18n` options of `.panel()`.** When set to `true`, The first one adds some useful options, e.g., to skip calibration, for you to use when debugging. The second one adds a language picker for participants to choose their own languages (the default choice is always the one set on initiation).
+- "Redo last response" button for the blind spot test.
+- Measurement repeatability check for the blind spot test. The data will be accepted only if the right eye measurement and the left eye measurement are close enough, i.e. their averages disagree by less than 20%. If not, the measurement will repeat until the averages agree with each other. After that, the median of all measures will be chosen as the final result.
+- The raw data of the blind spot test is also saved now. The new data structure is `{ value, timestamp, method, raw }`. The raw data is an array of all kept measures (a measure is deleted after the participant chose to redo the last response).
+- Display the actual code used to trigger functions on the demo page.
+- For viewing distance, one can now drag or use arrow keys to control the position of the red dot. To switch between _control_ mode (proposed by EasyEyes) and _automatic_ mode (Li et al., 2018), one can set `control` to `true` or `false` for `.trackDistance()` and `.measureDistance()` options.
+- **Have the participant help check the accuracy of the calibration.** In screen size, viewing distance, and distance tracking options, adding `check: true` will insert an extra routine after the participant finishes the respective calibration. They will be asked if they have a ruler or tape measure, and to measure corresponding lengths (if possible) to be compared to the Remote Calibrator results. (This feature is currently only available in English.)
+- **Camera permission request and detection.** If the camera permission is not yet granted, a popup window will tell participants why we need it and enable it when asked in the browser. If the camera access is denied, the current code can catch it and display a message, instead of running into fatal errors.
+
+### Changed
+
+- Update near point tracking to be more accurate. The webcam is assumed to be at the top middle of the screen.
+- Rename "Head Tracking" to "Distance Tracking" globally.
+- Polish translations.
+- Elements, like `.calibration-background`, have a higher `z-index` to avoid being covered by external elements.
+- Repeat testing time of the blind spot test for viewing distance and distance tracking is changed to 1.
+- Submission key of blind spot test changed from `Space` to `Enter`.
+- Customized import of animate.css to reduce the package size.
+- Customized `files` field in `package.json` to boost installation performance.
+- Rename "Cancel" button to "Restart this calibration".
+
+### Fixed
+
+- Correct warning log when calling distance tracking lifecycle functions, while distance tracking is not initialized.
+
 ## [0.3.0] - 2021-10-16
 
 ### Added

@@ -17,6 +17,7 @@
   border-radius: 10px !important;
   box-shadow: var(--rc-panel-darken-color-semi) 0px 50px 100px -20px,
     var(--rc-panel-theme-color-semi) 0px 30px 60px -30px !important;
+  overflow: hidden;
 
   * {
     outline: none;
@@ -29,6 +30,7 @@
     user-select: none;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
       Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    scrollbar-width: none;
   }
 
   .rc-panel-title {
@@ -45,8 +47,28 @@
     font-weight: 500 !important;
   }
 
+  #rc-panel-language-parent {
+    display: flex;
+    flex-direction: row-reverse;
+    margin: 0;
+    padding: 0;
+
+    #rc-panel-lang-picker {
+      display: block;
+      background-color: #ffffffcc !important;
+      border: none !important;
+      outline: none !important;
+      margin: 0.25rem 0.25rem 0 0.25rem !important;
+      padding: 0.25rem !important;
+      font-size: 1rem !important;
+      font-weight: 500 !important;
+      border-radius: 5px !important;
+    }
+  }
+
   .rc-panel-steps {
-    margin: 1.5rem 0 0 0 !important;
+    margin: -3rem 0 0 0 !important;
+    padding-top: 4rem !important;
 
     &.rc-panel-steps-l,
     &.rc-panel-steps-s {
@@ -59,8 +81,12 @@
         margin: 0.25rem !important;
         text-align: center;
         padding: 0 !important;
-        // overflow: hidden !important;
         background: #ffffffcc;
+        transition: background-color 0.2s;
+
+        // &:focus {
+        //   outline: 3px solid black !important;
+        // }
 
         .rc-panel-step-use {
           position: absolute;
@@ -90,17 +116,39 @@
 
     &.rc-panel-steps-l {
       flex-flow: row nowrap;
+      max-width: 100%;
+      overflow-x: scroll;
 
       .rc-panel-step-name {
         margin: 1.5rem 0.5rem !important;
+      }
+
+      .rc-panel-step-use-tip {
+        position: absolute !important;
+        display: flex !important;
+        bottom: 110% !important;
+        left: 50% !important;
+        transform: translate(-50%, 0) !important;
       }
     }
 
     &.rc-panel-steps-s {
       flex-flow: column nowrap;
+      overflow-x: hidden;
+
+      .rc-panel-step {
+        text-align: left;
+        overflow-x: hidden;
+        white-space: nowrap;
+      }
 
       .rc-panel-step-name {
-        margin: 1.2rem 1.5rem !important;
+        margin: 1.2rem 0.75rem 1.2rem 1.5rem !important;
+      }
+
+      .rc-panel-step-use-tip {
+        position: relative !important;
+        display: inline-flex !important;
       }
     }
 
@@ -121,34 +169,30 @@
     // }
 
     .rc-panel-step-use-tip {
-      visibility: hidden;
+      // visibility: hidden;
+      // backdrop-filter: blur(2px);
+      // box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 8px !important;
       opacity: 0;
-      position: absolute !important;
-      display: flex !important;
       width: max-content !important;
       background-color: #ff9a00ee !important;
-      // backdrop-filter: blur(2px);
       color: #fff !important;
       text-align: center !important;
       justify-content: center !important;
       align-items: center !important;
-      font-size: 1rem !important;
+      font-size: 0.75rem !important;
       font-weight: 500 !important;
       border-radius: 7px !important;
-      border: none;
-      // box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 8px !important;
-      padding: 0.75rem 1rem !important;
+      border: none !important;
+      padding: 0.7rem 0.5rem !important;
       margin: 0 !important;
       z-index: 10 !important;
-      bottom: 115% !important;
-      left: 50% !important;
-      transform: translate(-50%, 0) !important;
       line-height: 100% !important;
       transition: opacity 0.2s;
+      pointer-events: none;
 
       svg {
-        width: 1rem;
-        height: 1rem;
+        width: 0.75rem;
+        height: 0.75rem;
         fill: #fff;
       }
 
@@ -158,12 +202,13 @@
     }
 
     .rc-panel-step-todo {
-      &:hover {
+      &:hover,
+      &:focus {
         background-color: #fff;
 
         .rc-panel-step-use-tip {
-          visibility: visible;
-          opacity: 1;
+          // visibility: visible !important;
+          opacity: 1 !important;
         }
       }
 
@@ -184,6 +229,108 @@
     .rc-panel-step-active {
       opacity: 1;
       cursor: pointer;
+    }
+  }
+
+  ::-webkit-scrollbar {
+    width: 0;
+    display: none;
+  }
+
+  /* ---------------------------------- DEBUG --------------------------------- */
+
+  .rc-panel-debug-control {
+    margin: 0;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    border: 3px solid #ee0000;
+    border-radius: 7px;
+    background-color: #ffffffcc;
+    overflow: hidden;
+
+    * {
+      color: #ac0d0d;
+    }
+
+    h2,
+    h3,
+    p {
+      margin: 0 !important;
+    }
+
+    h2 {
+      font-size: 1.2rem !important;
+    }
+
+    h3 {
+      font-variant: small-caps;
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding-top: 0.5rem;
+      padding-bottom: 0.3rem;
+    }
+
+    .rc-panel-debug-bold-text {
+      font-size: 1rem !important;
+      font-weight: bold;
+    }
+
+    .rc-panel-debug-control-next {
+      font-size: 0.9rem !important;
+      margin: 1rem 0 0 0;
+      color: #fff;
+      background-color: #ee0000;
+      padding: 0.5rem 1.2rem !important;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+
+      &:hover {
+        background-color: #ac0d0d;
+      }
+    }
+
+    .rc-panel-debug-control-task-row {
+      display: inline-flex;
+      justify-content: flex-start !important;
+      width: 100%;
+
+      .value-element {
+        flex-grow: 1;
+        padding: 0 0.1rem;
+        overflow-x: hidden;
+        white-space: nowrap;
+        // max-width: 10rem;
+        user-select: none;
+        pointer-events: none;
+
+        &:first-of-type {
+          padding-left: 0;
+        }
+
+        &:last-of-type {
+          padding-right: 0;
+        }
+
+        p {
+          padding-left: 1px !important;
+          line-height: 150% !important;
+          font-size: 0.65rem !important;
+          color: #ac0d0d;
+        }
+
+        input {
+          margin: 0 !important;
+          padding: 0.3rem !important;
+          font-size: 0.8rem;
+          width: 100%;
+          border: 1px solid #ee9999 !important;
+          border-radius: 3px !important;
+          background-color: #ffffffcc;
+          user-select: auto;
+          pointer-events: auto;
+        }
+      }
     }
   }
 }

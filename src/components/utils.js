@@ -70,9 +70,11 @@
 
 export function safeExecuteFunc(f, ...a) {
   if (f && typeof f === 'function')
-    if (a.length) f(...a)
-    else f()
+    if (a.length) return f(...a)
+    else return f()
 }
+
+export const emptyFunc = () => {}
 
 // http://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
 export function sleep(time) {
@@ -150,7 +152,12 @@ export function dist2d(aX, aY, bX, bY) {
   return Math.sqrt(Math.pow(aX - bX, 2) + Math.pow(aY - bY, 2))
 }
 
-// https://stackoverflow.com/a/12646864/11069914
+// https://stackoverflow.com/a/30924333
+export function powerOf2(v) {
+  return v && !(v & (v - 1))
+}
+
+// https://stackoverflow.com/a/12646864
 export function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
@@ -169,6 +176,13 @@ export const median = arr => {
   const mid = Math.floor(arr.length / 2),
     num = [...arr].sort((a, b) => a - b)
   return arr.length % 2 !== 0 ? num[mid] : (num[mid - 1] + num[mid]) / 2
+}
+
+// https://stackoverflow.com/a/41452260
+export const average = array => array.reduce((a, b) => a + b) / array.length
+
+export const _copy = obj => {
+  return JSON.parse(JSON.stringify(obj))
 }
 
 /**

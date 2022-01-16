@@ -1,12 +1,16 @@
 .rc-buttons {
+  z-index: 10;
+}
+
+.rc-absolute-buttons {
   position: fixed;
+  text-align: right;
   bottom: 1.25rem;
   right: 1.25rem;
-  z-index: 900000;
 }
 
 .rc-button {
-  text-align: center;
+  text-align: center !important;
   border: none !important;
   line-height: 150% !important;
   font-size: 1rem !important;
@@ -18,28 +22,35 @@
 }
 
 .rc-go-button {
-  background: #ff9a00aa;
-  color: #fff;
+  background: #ff9a00aa !important;
+  color: #fff !important;
 
   &:hover {
-    background: #ff9a00;
+    background: #ff9a00 !important;
   }
 
   &:active {
-    background: #d68200;
+    background: #d68200 !important;
   }
 }
 
-.rc-cancel-button {
-  background: #ffffffee;
-  color: #333;
+.rc-cancel-button,
+.rc-custom-button {
+  background: #ffffffee !important;
+  color: #333 !important;
 
   &:hover {
-    background: #ddd;
+    background: #ddd !important;
   }
 
   &:active {
-    background: #aaa;
-    color: #000;
+    background: #aaa !important;
+    color: #000 !important;
   }
+}
+
+.rc-button:disabled {
+  background: #ddd !important;
+  color: #999 !important;
+  cursor: default !important;
 }

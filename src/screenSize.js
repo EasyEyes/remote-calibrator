@@ -12,6 +12,12 @@ import Card from './media/card.svg'
 import Arrow from './media/arrow.svg'
 import USBA from './media/usba.svg'
 import USBC from './media/usbc.svg'
+
+import {
+  createSlider,
+  setSliderPosition,
+  setSliderStyle,
+} from './components/slider'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
 import { phrases } from './i18n'
@@ -81,6 +87,8 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       decimalPlace: 1,
       headline: '🖥️ ' + phrases.RC_screenSizeTitle[this.L],
       description: phrases.RC_screenSizeIntro[this.L],
+      check: false,
+      checkCallback: null,
     },
     options
   )
@@ -111,21 +119,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
 
 function getSize(RC, parent, options, callback) {
   // Slider
-  const sliderElement = document.createElement('input')
-  sliderElement.id = 'rc-size-slider'
-  sliderElement.className = 'rc-slider'
-  sliderElement.type = 'range'
-  sliderElement.min = 0
-  sliderElement.max = 100
-  sliderElement.value = Math.max(
-    Math.min(Math.round(Math.random() * 100), 80),
-    20
-  )
-  sliderElement.step = 0.1
-
-  setSliderPosition(sliderElement, parent)
-  setSliderStyle(sliderElement)
-  parent.appendChild(sliderElement)
+  const sliderElement = createSlider(parent, 0, 100)
 
   const _onDown = (e, type) => {
     if (
@@ -226,7 +220,10 @@ function getSize(RC, parent, options, callback) {
     breakFunction()
 
     // ! Call the callback function
-    safeExecuteFunc(callback, screenData)
+    if (options.check)
+      RC._checkScreenSize(callback, screenData, options.checkCallback)
+    else safeExecuteFunc(callback, screenData)
+
     return
   }
 
@@ -344,26 +341,7 @@ const _getScreenData = (ppi, toFixedN) => {
   return screenData
 }
 
-const setSliderPosition = (slider, parent) => {
-  slider.style.top =
-    Math.round(
-      parent.querySelector('.calibration-instruction').getBoundingClientRect()
-        .bottom
-    ) +
-    25 +
-    'px'
-}
-
 const setObjectsPosition = (objects, slider) => {
   for (let i in objects)
     objects[i].style.top = slider.getBoundingClientRect().top + 50 + 'px'
-}
-
-/* -------------------------------------------------------------------------- */
-
-const setSliderStyle = ele => {
-  const ratio = ele.value / ele.max
-  ele.style.background = `linear-gradient(90deg, #ffc772, #ffc772 ${
-    ratio * 100
-  }%, #fff ${ratio * 100}%)`
 }

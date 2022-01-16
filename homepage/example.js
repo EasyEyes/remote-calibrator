@@ -29,11 +29,15 @@ function parseTimestamp(timestamp) {
  * Help print the data
  *
  */
-function printMessage(message) {
+function printMessage(message, msgClass = null, onlyMsg = false) {
   const p = document.createElement('p')
   if (message === 'nodata')
     p.innerHTML = 'No data can be found. Need measurement or calibration first.'
-  else p.innerHTML = gotData(message)
+  else if (!onlyMsg) p.innerHTML = gotData(message)
+  else {
+    p.classList.add(msgClass)
+    p.innerHTML = message
+  }
   experimentElement.appendChild(p)
   experimentElement.scrollTop = experimentElement.scrollHeight
   return p
@@ -56,6 +60,22 @@ function changeClass(target, className) {
   else target.className = ''
 
   target.classList.add(className)
+  target.classList.add('demo-button')
+}
+
+function printCode(code, name) {
+  printMessage(
+    `📙 Code for <span style="color:#000">${name}</span>`,
+    'code-title',
+    true
+  )
+  const pre = document.createElement('pre')
+  pre.className = 'prettyprint'
+  pre.innerHTML = code.replace('\n@', '')
+  experimentElement.appendChild(pre)
+  experimentElement.scrollTop = experimentElement.scrollHeight
+  PR.prettyPrint()
+  return pre
 }
 
 /* -------------------------------------------------------------------------- */
@@ -65,71 +85,93 @@ function changeClass(target, className) {
  * Init RemoteCalibrator
  *
  */
+const _initializeCode = `RemoteCalibrator.init({}, id => {
+  printMessage(
+    \`Remote Calibrator initialized at \${parseTimestamp(
+      id.timestamp
+    )}. Session id is \${
+      id.value
+    }. <span style="color: #ff9a00; font-weight: bold">This page is only to demo (almost) all possible functionalities of EasyEyes Remote Calibrator. Please visit our website <a href="https://easyeyes.app/remote-calibrator" target="_blank" style="color: #ff9a00">https://easyeyes.app/remote-calibrator</a> to learn more about this library and other modules EasyEyes offers.</span>\`
+  )\n@
+})`
 function initialize(e) {
-  RemoteCalibrator.init({}, id => {
-    printMessage(
-      `Remote Calibrator initialized at ${parseTimestamp(
-        id.timestamp
-      )}. Session id is ${
-        id.value
-      }. <span style="color: #ff9a00; font-weight: bold">This page is only to demo (almost) all possible functionalities of EasyEyes Remote Calibrator. Please visit our website <a href="https://easyeyes.app/remote-calibrator" target="_blank" style="color: #ff9a00">https://easyeyes.app/remote-calibrator</a> to learn more about this library and other modules EasyEyes offers.</span>`
-    )
-
-    changeClass(e.target, 'complete')
-
-    Array.from(document.getElementsByClassName('disabled')).forEach(element => {
-      element.className = ''
-    })
-    document.getElementById('init-button').classList.add('disabled')
-
-    // toolboxElement.className += ' initialized'
-    experimentElement.style.visibility = 'visible'
-    experimentElement.style.display = 'block'
-    experimentElement.style.opacity = 1
+  eval(
+    _initializeCode.replace(
+      '@',
+      `
+  // Enable other buttons
+  Array.from(document.getElementsByClassName('disabled')).forEach(element => {
+    element.classList.remove('disabled')
   })
+  // Disable init button
+  changeClass(e.target, 'complete')
+  document.getElementById('init-button').classList.add('disabled')
+  document.getElementById('init-button').onclick = () => {}
+  // Show result panel
+  experimentElement.style.visibility = 'visible'
+  experimentElement.style.display = 'block'
+  experimentElement.style.opacity = 1`
+    )
+  )
+}
+
+function initializeCode() {
+  printCode(_initializeCode, '.init()')
 }
 
 /**
  * Panel
  */
+const _panelCode = `RemoteCalibrator.panel(
+  [
+    // Configure tasks
+    {
+      name: 'screenSize',
+      callback: data => {
+        printMessage(
+          \`[CALLBACK] Screen size calibration finished! This message is printed in the callback function. Only this task's callback is set up with a print function.\`
+        )
+      },
+    },
+    {
+      name: 'trackGaze',
+      callbackOnCalibrationEnd: data => {
+        console.log(data)
+      },
+    },
+    'measureDistance',
+    {
+      name: 'trackDistance',
+      options: {
+        nearPoint: false,
+      },
+      callbackStatic: data => {
+        console.log(data)
+      },
+    },
+  ],
+  // Parent element
+  '#experiment',
+  // Configure the panel itself
+  {
+    i18n: true,
+    debug: true,
+  },
+  // Panel callback after all the tasks are finished
+  data => {
+    printMessage(\`Panel finished at \${parseTimestamp(data.timestamp)}!\`)
+  }
+)`
 function makePanel(e) {
   printMessage(
     'A highly-customizable step-by-step calibration panel will be added to the designated HTML node.'
   )
-  RemoteCalibrator.panel(
-    [
-      {
-        name: 'screenSize',
-        callback: data => {
-          printMessage(
-            `[CALLBACK] Screen size calibration finished! This message is printed in the callback function. Only this task's callback is set up with a print function.`
-          )
-        },
-      },
-      {
-        name: 'trackGaze',
-        callbackOnCalibrationEnd: data => {
-          console.log(data)
-        },
-      },
-      'measureDistance',
-      {
-        name: 'trackDistance',
-        options: {
-          nearPoint: false,
-        },
-        callbackStatic: data => {
-          console.log(data)
-        },
-      },
-    ],
-    '#experiment',
-    {},
-    data => {
-      printMessage(`Panel finished at ${parseTimestamp(data.timestamp)}!`)
-    }
-  )
+  eval(_panelCode)
   changeClass(e.target, 'complete')
+}
+
+function makePanelCode() {
+  printCode(_panelCode, '.panel()')
 }
 
 /**
@@ -154,30 +196,29 @@ function makePanel(e) {
  * Measure the screen size
  *
  */
-function measureScreenSize(e) {
-  RemoteCalibrator.screenSize({}, screenData => {
+const _measureScreenSizeCode = `RemoteCalibrator.screenSize({
+  check: true,
+  checkCallback: (result) => {
     printMessage(
-      `Screen size is ${screenData.value.screenDiagonalIn} in [Width: ${
-        screenData.value.screenWidthCm
-      } cm, Height: ${screenData.value.screenHeightCm} cm, PPI: ${
-        screenData.value.screenPpi
-      }, PPI (Physical): ${
-        screenData.value.screenPhysicalPpi
-      }], measured at ${parseTimestamp(screenData.timestamp)}.`
+      \`The participant measured the arrow size with their own tools, and the reported value is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm.\`
     )
-
-    changeClass(e.target, 'complete')
-  })
-}
-
-const measureDistanceCallback = distanceData => {
+  }
+}, screenData => {
   printMessage(
-    `The viewing distance is ${
-      distanceData.value
-    } cm, measured at ${parseTimestamp(distanceData.timestamp)}, by ${
-      distanceData.method
-    } method.`
-  )
+    \`Screen size is \${screenData.value.screenDiagonalIn} in [Width: \${
+      screenData.value.screenWidthCm
+    } cm, Height: \${screenData.value.screenHeightCm} cm, PPI: \${
+      screenData.value.screenPpi
+    }, PPI (Physical): \${
+      screenData.value.screenPhysicalPpi
+    }], measured at \${parseTimestamp(screenData.timestamp)}.\`
+  )\n@
+})`
+function measureScreenSize(e) {
+  eval(_measureScreenSizeCode.replace('@', `changeClass(e.target, 'complete')`))
+}
+function measureScreenSizeCode() {
+  printCode(_measureScreenSizeCode, '.screenSize()')
 }
 
 /**
@@ -186,11 +227,40 @@ const measureDistanceCallback = distanceData => {
  * ! You should always calibrate the screen size first
  *
  */
+const _measureDistanceCallback = `const measureDistanceCallback = distanceData => {
+  printMessage(
+    \`The viewing distance is \${
+      distanceData.value
+    } cm, measured at \${parseTimestamp(distanceData.timestamp)}, by \${
+      distanceData.method
+    } method.\`
+  )
+}`
+const _measureViewingDistanceCode = `RemoteCalibrator.measureDistance({
+  check: true,
+  checkCallback: (result) => {
+    printMessage(
+      \`The viewing distance measured by the participant is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm (using \${result.value.calibratorMethod}).\`
+    )
+  }
+}, distanceData => {
+  measureDistanceCallback(distanceData)\n@
+})`
 function measureViewingDistance(e) {
-  RemoteCalibrator.measureDistance({}, distanceData => {
-    measureDistanceCallback(distanceData)
-    changeClass(e.target, 'complete')
-  })
+  eval(
+    _measureDistanceCallback +
+      '\n' +
+      _measureViewingDistanceCode.replace(
+        '@',
+        `changeClass(e.target, 'complete')`
+      )
+  )
+}
+function measureViewingDistanceCode() {
+  printCode(
+    _measureDistanceCallback + '\n\n' + _measureViewingDistanceCode,
+    '.measureDistance()'
+  )
 }
 
 /**
@@ -198,30 +268,48 @@ function measureViewingDistance(e) {
  * Calibrate and start predicting the viewing distance of the subject
  *
  */
-function trackViewingDistance(e) {
-  let trackP
-  RemoteCalibrator.trackDistance(
-    {
-      showVideo: false,
-      nearPoint: true,
-      showNearPoint: true,
-    },
-    distanceData => {
-      measureDistanceCallback(distanceData)
-      changeClass(e.target, 'complete')
-      trackP = printMessage(`The dynamic viewing distance is cm at .`)
-    },
-    data => {
-      trackP.innerHTML = gotData(
-        `The dynamic viewing distance is ${
-          data.value.viewingDistanceCm
-        } cm at ${parseTimestamp(data.timestamp)}, measured by ${
-          data.method
-        } method. The near point is at [${data.value.nearPointCm.x} cm, ${
-          data.value.nearPointCm.y
-        } cm] compared to the center of the screen.`
+const _trackViewingDistanceCode = `let trackP // Not important, just a DOM element to store the log message\n
+RemoteCalibrator.trackDistance(
+  {
+    showVideo: true,
+    nearPoint: true,
+    showNearPoint: true,
+    desiredDistanceCm: 60,
+    desiredDistanceMonitor: true,
+    desiredDistanceMonitorCancelable: false,
+    check: true,
+    checkCallback: (result) => {
+      printMessage(
+        \`The viewing distance measured by the participant is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm (using \${result.value.calibratorMethod}).\`
       )
     }
+  },
+  staticDistanceData => {
+    measureDistanceCallback(staticDistanceData)
+    trackP = printMessage(\`The dynamic viewing distance is cm at .\`)\n@
+  },
+  trackingDistanceData => {
+    trackP.innerHTML = gotData(
+      \`The dynamic viewing distance is \${
+        trackingDistanceData.value.viewingDistanceCm
+      } cm at \${parseTimestamp(trackingDistanceData.timestamp)}, measured by \${
+        trackingDistanceData.method
+      } method. The near point is at [\${trackingDistanceData.value.nearPointCm.x} cm, \${
+        trackingDistanceData.value.nearPointCm.y
+      } cm] compared to the center of the screen. Latency is \${
+        trackingDistanceData.value.latencyMs
+      } ms.\`
+    )
+  }
+)`
+function trackViewingDistance(e) {
+  eval(
+    _measureDistanceCallback +
+      '\n' +
+      _trackViewingDistanceCode.replace(
+        '@',
+        `changeClass(e.target, 'complete')`
+      )
   )
 
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
@@ -240,9 +328,16 @@ function trackViewingDistance(e) {
     target
   )
 }
+function trackViewingDistanceCode() {
+  printCode(
+    _measureDistanceCallback + '\n\n' + _trackViewingDistanceCode,
+    '.trackDistance()'
+  )
+}
 
+const _pauseDistanceCode = `RemoteCalibrator.pauseDistance()`
 function pauseDistance(e) {
-  RemoteCalibrator.pauseDistance()
+  eval(_pauseDistanceCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
 
   target.parentNode.insertBefore(
@@ -262,9 +357,13 @@ function pauseDistance(e) {
     target
   )
 }
+function pauseDistanceCode() {
+  printCode(_pauseDistanceCode, '.pauseDistance()')
+}
 
+const _resumeDistanceCode = `RemoteCalibrator.resumeDistance()`
 function resumeDistance(e) {
-  RemoteCalibrator.resumeDistance()
+  eval(_resumeDistanceCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.removeChild(document.querySelector('#temp-distance-now'))
   target.parentNode.replaceChild(
@@ -275,9 +374,13 @@ function resumeDistance(e) {
     target
   )
 }
+function resumeDistanceCode() {
+  printCode(_resumeDistanceCode, '.resumeDistance()')
+}
 
+const _endDistanceCode = `RemoteCalibrator.endDistance()`
 function endDistance(e) {
-  RemoteCalibrator.endDistance()
+  eval(_endDistanceCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.insertBefore(
     constructFunctionButton(
@@ -294,9 +397,16 @@ function endDistance(e) {
     e.parentNode.removeChild(e)
   })
 }
+function endDistanceCode() {
+  printCode(_endDistanceCode, '.endDistance()')
+}
 
+const _getDistanceNowCode = `RemoteCalibrator.getDistanceNow()`
 function getDistanceNow() {
-  RemoteCalibrator.getDistanceNow()
+  eval(_getDistanceNowCode)
+}
+function getDistanceNowCode() {
+  printCode(_getDistanceNowCode, '.getDistanceNow()')
 }
 
 /* -------------------------------------------------------------------------- */
@@ -306,30 +416,33 @@ function getDistanceNow() {
  * Calibrate and start predicting the gaze position of the subject
  *
  */
+const _trackGazeCode = `const gazeP = printMessage(\`The gaze position is [ px, px] at .\`) // Not important, just a DOM element to store the log message\n
+RemoteCalibrator.trackGaze(
+  {
+    showVideo: false,
+  },
+  null, // callbackOnCalibrationEnd
+  data => {
+    gazeP.innerHTML = gotData(
+      \`The gaze position is [\${data.value.x} px, \${
+        data.value.y
+      } px] at \${parseTimestamp(data.timestamp)}. Latency is \${
+        data.value.latencyMs
+      } ms.\`
+    )
+  }
+)`
 function trackGaze(e) {
-  const gazeP = printMessage(`The gaze position is [ px, px] at .`)
-  RemoteCalibrator.trackGaze(
-    {
-      showVideo: false,
-    },
-    null,
-    data => {
-      gazeP.innerHTML = gotData(
-        `The gaze position is [${data.value.x} px, ${
-          data.value.y
-        } px] at ${parseTimestamp(data.timestamp)}.`
-      )
-    }
-  )
+  eval(_trackGazeCode)
 
-  const _getAccuracy = setInterval(() => {
-    if (RemoteCalibrator.gazeAccuracyDeg) {
-      clearInterval(_getAccuracy)
-      printMessage(
-        `The calibrated gaze accuracy is within ${RemoteCalibrator.gazeAccuracyDeg.value} degrees averaging over 50 predictions.`
-      )
-    }
-  }, 2000)
+  // const _getAccuracy = setInterval(() => {
+  //   if (RemoteCalibrator.gazeAccuracyDeg) {
+  //     clearInterval(_getAccuracy)
+  //     printMessage(
+  //       `The calibrated gaze accuracy is within ${RemoteCalibrator.gazeAccuracyDeg.value} degrees averaging over 50 predictions.`
+  //     )
+  //   }
+  // }, 2000)
 
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.insertBefore(
@@ -344,14 +457,19 @@ function trackGaze(e) {
     target
   )
 }
+function trackGazeCode() {
+  printCode(_trackGazeCode, '.trackGaze()')
+}
 
 /**
  *
  * Pause gaze
  *
  */
+const _pauseGazeCode = `RemoteCalibrator.pauseGaze()`
 function pauseGaze(e) {
-  RemoteCalibrator.pauseGaze()
+  eval(_pauseGazeCode)
+
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
 
   target.parentNode.insertBefore(
@@ -371,12 +489,16 @@ function pauseGaze(e) {
     target
   )
 }
+function pauseGazeCode() {
+  printCode(_pauseGazeCode, '.pauseGaze()')
+}
 
 /**
  * Resume gaze
  */
+const _resumeGazeCode = `RemoteCalibrator.resumeGaze()`
 function resumeGaze(e) {
-  RemoteCalibrator.resumeGaze()
+  eval(_resumeGazeCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.removeChild(document.querySelector('#temp-gaze-now'))
   target.parentNode.replaceChild(
@@ -387,9 +509,13 @@ function resumeGaze(e) {
     target
   )
 }
+function resumeGazeCode() {
+  printCode(_resumeGazeCode, '.resumeGaze()')
+}
 
+const _endGazeCode = `RemoteCalibrator.endGaze()`
 function endGaze(e) {
-  RemoteCalibrator.endGaze()
+  eval(_endGazeCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.insertBefore(
     constructFunctionButton(['Track Gaze', 'trackGaze', 'trackGaze'], false),
@@ -399,9 +525,16 @@ function endGaze(e) {
     e.parentNode.removeChild(e)
   })
 }
+function endGazeCode() {
+  printCode(_endGazeCode, '.endGaze()')
+}
 
+const _getGazeNodeCode = `RemoteCalibrator.getGazeNow()`
 function getGazeNow() {
-  RemoteCalibrator.getGazeNow()
+  eval(_getGazeNodeCode)
+}
+function getGazeNowCode() {
+  printCode(_getGazeNodeCode, '.getGazeNow()')
 }
 
 /* -------------------------------------------------------------------------- */

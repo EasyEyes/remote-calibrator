@@ -12,6 +12,8 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
       MARGIN: 10,
       BORDER: 8,
     },
+    PPI_DONT_USE: 127.7,
+    PD_DONT_USE: 6.4,
   },
   S: {
     AUTO: 'AUTO',
@@ -24,11 +26,55 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
     LIGHT_GREY: '#cccccc',
     ORANGE: '#ff9a00',
     DARK_RED: '#ac0d0d',
+    RED: '#ee0000',
   },
   LTR: 'LTR',
   RTL: 'RTL',
   VIEW_METHOD: {
     B: 'BlindSpot',
     F: 'FaceMesh',
+  },
+  IN_TO_CM: 2.54,
+  UNITS: {
+    CM: 'cm',
+    IN_D: 'inDecimal',
+    IN_F: 'inFractional',
+  },
+})
+
+RemoteCalibrator.prototype._debuggerDefault = Object.freeze({
+  timestamp: new Date('July 20, 69 20:17:40 GMT+00:00'),
+  screenSize: {
+    value: {
+      screenWidthCm: 28.6,
+      screenHeightCm: 17.9,
+      screenPhysicalPpi: 250,
+      screenPpi: 125,
+      screenDiagonalCm: 33.8,
+      screenDiagonalIn: 13.3,
+    },
+  },
+  measureDistance: {
+    value: 40,
+    method: 'BlindSpot',
+  },
+  trackDistance: {
+    value: {
+      viewingDistanceCm: 40,
+      PDCm: 6.4,
+      nearPointCm: {
+        x: 0,
+        y: 0,
+      },
+      latencyMs: 50,
+    },
+    method: 'FaceMesh',
+  },
+  trackGaze: {
+    value: {
+      x: screen.width / 2,
+      y: screen.height / 2,
+      latencyMs: 50,
+    },
   },
 })

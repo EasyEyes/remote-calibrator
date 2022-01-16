@@ -14,7 +14,7 @@ async function processLanguageSheet() {
   const rows = await googleSheets.spreadsheets.values.get({
     auth,
     spreadsheetId,
-    range: 'Sheet1',
+    range: 'Translations',
   })
 
   const rowsJSON = XLSX.utils.sheet_to_json(
@@ -34,9 +34,10 @@ async function processLanguageSheet() {
   for (let phrase in data) {
     for (let lang in data[phrase]) {
       if (data[phrase][lang].includes('XX'))
-        data[phrase][lang] = data[phrase][lang]
-          .replace('XXX', 'xxx')
-          .replace('XX', 'xx')
+        while (data[phrase][lang].includes('XX'))
+          data[phrase][lang] = data[phrase][lang]
+            .replace('XXX', 'xxx')
+            .replace('XX', 'xx')
     }
   }
 

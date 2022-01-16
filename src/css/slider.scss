@@ -1,0 +1,43 @@
+.rc-slider {
+  position: absolute;
+  display: block;
+  appearance: none;
+  width: calc(100% - 4rem);
+  height: 10px;
+  background: linear-gradient(90deg, #ffc772, #ffc772 60%, #fff 60%);
+  opacity: 1;
+  /* top: max(45%, 200px); */
+  left: 2rem;
+  border-radius: 5px;
+  z-index: 10;
+  cursor: grab;
+  transition: opacity 0.3s;
+  direction: ltr !important;
+}
+
+// .rc-slider:hover {
+//   opacity: 1;
+// }
+
+@mixin thumb-style {
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  border: 1px solid #cc7a00;
+  background: #ff9a00;
+  box-shadow: 0 0 12px 0 #88520033;
+  cursor: inherit;
+}
+
+.rc-slider::-webkit-slider-thumb {
+  @include thumb-style;
+}
+
+.rc-slider::-moz-range-thumb {
+  @include thumb-style;
+}
+
+.rc-slider::-ms-thumb {
+  @include thumb-style;
+}

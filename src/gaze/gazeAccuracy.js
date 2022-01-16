@@ -62,7 +62,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
   _resizeCanvas()
 
   Swal.fire({
-    ...swalInfoOptions(this),
+    ...swalInfoOptions(this, { showIcon: true }),
     // title: text.getGazeAccuracy.headline,
     html: `We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen for the next 5 seconds.`,
   }).then(() => {

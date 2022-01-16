@@ -45,18 +45,18 @@ RemoteCalibrator.measureDistance({}, data => {
 
 ## Functions
 
-| Task                                      | Functions                                                                                                                                                                                        |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [🎬 Initialize](#-initialize)             | [`init()`](#-initialize) (always required)                                                                                                                                                       |
-| [🍱 Panel](#-panel)                       | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                        |
-| [🖥️ Screen](#️-screen)                    | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                       |
-| [📏 Viewing Distance](#-viewing-distance) | [`measureDistance()`](#-viewing-distance)                                                                                                                                                        |
-| [🙂 Head Tracking](#-head-tracking)       | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-head-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Lifecycle](#lifecycle) [Others](#others)              |
-| [👀 Gaze](#-gaze)                         | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1) |
-| [💻 Environment](#-environment)           | [System and Browser Environment](#-environment)                                                                                                                                                  |
-| [💄 Customization](#-customization)       | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                        |
-| [📔 Other Functions](#-other-functions)   | `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                           |
-| [🎣 Getters](#-getters)                   | [Experiment](#experiment) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                                    |
+| Task                                        | Functions                                                                                                                                                                                                                    |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [🎬 Initialize](#-initialize)               | [`init()`](#-initialize) (always required)                                                                                                                                                                                   |
+| [🍱 Panel](#-panel)                         | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                                                    |
+| [🖥️ Screen](#️-screen)                      | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                                   |
+| [📏 Viewing Distance](#-viewing-distance)   | [`measureDistance()`](#-viewing-distance)                                                                                                                                                                                    |
+| [🙂 Distance Tracking](#-distance-tracking) | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-distance-tracking) [`async getDistanceNow()`](#async-get-distance-now) [`nudgeDistance()`](#check-distance) [Lifecycle](#lifecycle) [Others](#others) |
+| [👀 Gaze](#-gaze)                           | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1)                             |
+| [💻 Environment](#-environment)             | [System and Browser Environment](#-environment)                                                                                                                                                                              |
+| [💄 Customization](#-customization)         | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                                                    |
+| [📔 Other Functions](#-other-functions)     | `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                                                       |
+| [🎣 Getters](#-getters)                     | [Experiment](#experiment) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                                                                |
 
 Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
@@ -219,22 +219,22 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
   fullscreen: false,
   // How many times each of the eye will be used to test
   // By default, right eye 2 times, then left eye 2 times
-  repeatTesting: 2,
+  repeatTesting: 1,
   decimalPlace: 1,
   headline: "📏 Measure Viewing Distance",
   description: "...",
 }
 ```
 
-### 🙂 Head Tracking
+### 🙂 Distance Tracking
 
 ```js
 .trackDistance([options, [callbackStatic, [callbackTrack]]])
 ```
 
-Measure the viewing distance and then predict the real-time distance based on the change of the interpupillary distance, measured by [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection). `callbackStatic` is called after getting the blind spot result and `callbackTrack` is called every time a new result from estimation is derived.
+Measure the viewing distance and then predict the real-time distance based on the change of the inter-pupillary distance, measured by [face landmarks](https://github.com/tensorflow/tfjs-models/tree/master/face-landmarks-detection). `callbackStatic` is called after getting the blind spot result and `callbackTrack` is called every time a new result from estimation is derived.
 
-Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y } }, timestamp, method }` to callback.
+Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestamp, method }` to callback.
 
 `method` can be either `"BlindSpot"` (for measures from blind spot tests) or `"FaceMesh"` (for later dynamic estimates).
 
@@ -242,17 +242,19 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y } }, timestamp, method }
 /* [options] Default value */
 {
   fullscreen: false,
-  repeatTesting: 2,
+  repeatTesting: 1,
   pipWidthPx: 208,
   showVideo: true,
   showFaceOverlay: false,
   decimalPlace: 1,
-  // Measurement per second
-  framerate: 3,
+  framerate: 3, // Measurement per second
+  desiredDistanceCm: undefined,
+  desiredDistanceTolerance: 0.1, // Range [0.1, 1]
+  desiredDistanceMonitor: false,
   // Near point
   nearPoint: true,
   showNearPoint: false,
-  headline: "🙂 Set up for Head Tracking",
+  headline: "🙂 Set up for Distance Tracking",
   description: "...",
 }
 ```
@@ -264,6 +266,14 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y } }, timestamp, method }
 ```
 
 You can pause active distance tracking, and use this function to get the latest distance at the moment when the user makes reactions. If no callback function is passed in, it will use the one from `.trackDistance()` as the default.
+
+#### Check Distance
+
+```js
+.nudgeDistance(desiredCm, errorTolerance)
+```
+
+Check the current viewing distance and compare it to the desired distance. Guide the participant to the target distance if needed.
 
 #### Near Point
 
@@ -438,7 +448,7 @@ Use the following keywords to retrieve the whole dataset.
 - `.screenData`
 - `.viewingDistanceData`
 - `.nearPointData`
-- `.PDData` (Interpupillary distance data)
+- `.PDData` (Inter-pupillary distance data)
 - `.gazeData`
 - `.fullscreenData`
 - `.environmentData`
@@ -450,7 +460,7 @@ Use the following keywords to retrieve the whole dataset.
 
 ## Development
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/d54b8740-aa4d-446b-8738-49161769a9a8/deploy-status)](https://app.netlify.com/sites/remote-calibrator/deploys)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/d54b8740-aa4d-446b-8738-49161769a9a8/deploy-status)](https://app.netlify.com/sites/calibrator/deploys)
 
 For building the library locally or development, please follow the steps below.
 

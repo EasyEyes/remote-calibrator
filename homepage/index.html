@@ -87,6 +87,19 @@
         if (id) b.id = id
         if (info.length === 4) b.className = info[3]
 
+        b.classList.add('demo-button')
+
+        let showCode = document.createElement('div')
+        showCode.className = 'show-code-button'
+        showCode.innerHTML = 'code'
+        showCode.onclick = e => {
+          e.stopImmediatePropagation()
+          e.stopPropagation()
+          eval(info[2] + 'Code()')
+          return false
+        }
+        b.appendChild(showCode)
+
         return b
       }
 
@@ -95,7 +108,7 @@
         ['Initialize', 'init', 'initialize'],
         ['Make a Panel', 'panel', 'makePanel'],
         // ['Measure Display Pixels Px', 'displaySize', 'measureDisplaySize'],
-        ['Measure Screen Size Cm', 'screenSize', 'measureScreenSize'],
+        ['Measure Screen Size', 'screenSize', 'measureScreenSize'],
         [
           'Measure Viewing Distance',
           'measureDistance',
@@ -129,6 +142,7 @@
         'screenPpi',
         'screenPhysicalPpi',
         'viewingDistanceCm',
+        'PDCm',
         'nearPointCm',
         'gazePositionPx',
         'isFullscreen',
@@ -137,6 +151,7 @@
         'languageNameNative',
         'languageDirection',
         'languagePhraseSource',
+        'equipment',
       ]
 
       const gettersEnv = [
@@ -165,6 +180,8 @@
         'fullscreenData',
         'environmentData',
         'languageData',
+        'equipmentData',
+        'checkData',
       ]
 
       function setGetters(gE, gS) {
@@ -241,5 +258,6 @@
       }
     </style>
     <!-- GitHub corner END -->
+    <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js?skin=desert&autorun=false"></script>
   </body>
 </html>

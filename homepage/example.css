@@ -115,8 +115,11 @@ code {
 }
 
 .disabled {
-  opacity: 0.5;
-  pointer-events: none;
+  /* opacity: 0.5; */
+  /* pointer-events: none; */
+  cursor: default !important;
+  background-color: #eee !important;
+  color: #999 !important;
 }
 
 button:hover {
@@ -216,4 +219,54 @@ button:active {
   .flex-wrapper button {
     flex: 100% !important;
   }
+}
+
+/* ---------------------------------- Code ---------------------------------- */
+
+.demo-button {
+  position: relative;
+}
+
+.show-code-button {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 500;
+  position: absolute;
+  display: block;
+  background-color: #ccc;
+  color: #fff;
+  padding: 0.25rem 0.5rem;
+  text-align: center !important;
+  line-height: 100%;
+  border-radius: 1rem;
+  top: 50%;
+  right: 0.4rem;
+  transform: translate(0, -50%);
+  cursor: pointer;
+}
+
+.show-code-button:hover {
+  background-color: #aaa;
+}
+
+.code-title {
+  /* font-size: 0.9rem; */
+  font-weight: 900 !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.prettyprint {
+  font-family: 'Roboto Mono', 'Courier New', Courier, monospace !important;
+  text-align: left;
+  overflow-x: scroll;
+  border: none !important;
+  padding: 0.5rem !important;
+  margin: 0 0.5rem 0.5rem 0.5rem !important;
+  border-radius: 0.5rem;
+  /* background-color: #555 !important; */
+}
+
+.prettyprint * {
+  font-size: 0.72rem !important;
 }

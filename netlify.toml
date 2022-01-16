@@ -1,7 +1,7 @@
 # Settings in the [build] context are global and are applied to all contexts
 # unless otherwise overridden by more specific contexts.
 [build]
-environment = { NODE_VERSION = "14", NPM_VERSION = "7.20.5" }
+environment = { NODE_VERSION = "16", NPM_VERSION = "8.1.3" }
 # Directory to change to before starting a build.
 # This is where we will look for package.json/.nvmrc/etc.
 # If not set, defaults to the root directory.
