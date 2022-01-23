@@ -1,6 +1,6 @@
 {
   "name": "remote-calibrator",
-  "version": "0.5.0-beta.26",
+  "version": "0.5.0-beta.27",
   "description": "Useful calibration tools for remote psychophysics experiments.",
   "main": "lib/RemoteCalibrator.min.js",
   "directories": {
