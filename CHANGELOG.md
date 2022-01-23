@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Discard old blind spot measures when rejected. A popup shows reasons and hints for participants.
 - Update near point tracking to be more accurate. The webcam is assumed to be at the top middle of the screen.
 - Rename "Head Tracking" to "Distance Tracking" globally.
 - Polish translations.

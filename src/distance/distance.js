@@ -23,6 +23,8 @@ import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
 import { soundFeedback } from '../components/sound'
 import { phrases } from '../i18n'
+import Swal from 'sweetalert2'
+import { swalInfoOptions } from '../components/swalOptions'
 
 const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canvas>`
 
@@ -168,6 +170,15 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
           firstResponse.closedEyeSide,
           firstResponse.crossX
         )
+
+        dist = [] // Discard old data
+
+        Swal.fire({
+          ...swalInfoOptions(RC, { showIcon: false }),
+          icon: undefined,
+          html: phrases.RC_viewingBlindSpotRejected[RC.L],
+          allowEnterKey: true,
+        })
       }
     } else if (tested % options.repeatTesting === 0) {
       // Switch eye side
