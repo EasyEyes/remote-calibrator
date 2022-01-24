@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - For viewing distance, one can now drag or use arrow keys to control the position of the red dot. To switch between _control_ mode (proposed by EasyEyes) and _automatic_ mode (Li et al., 2018), one can set `control` to `true` or `false` for `.trackDistance()` and `.measureDistance()` options.
 - **Have the participant help check the accuracy of the calibration.** In screen size, viewing distance, and distance tracking options, adding `check: true` will insert an extra routine after the participant finishes the respective calibration. They will be asked if they have a ruler or tape measure, and to measure corresponding lengths (if possible) to be compared to the Remote Calibrator results. (This feature is currently only available in English.)
 - **Camera permission request and detection.** If the camera permission is not yet granted, a popup window will tell participants why we need it and enable it when asked in the browser. If the camera access is denied, the current code can catch it and display a message, instead of running into fatal errors.
+- `showCancelButton` option for `.measureDistance()` and `.trackDistance()` functions.
 
 ### Changed
 
@@ -36,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Correct warning log when calling distance tracking lifecycle functions, while distance tracking is not initialized.
+
+### Removed
+
+- `Redo last response` button for blind spot measure.
 
 ## [0.3.0] - 2021-10-16
 

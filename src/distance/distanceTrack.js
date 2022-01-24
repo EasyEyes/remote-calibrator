@@ -42,7 +42,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
 
   let description
   if (options.control !== undefined && options.control === false)
-    description = phrases.RC_viewingDistanceIntroNoControl[this.L]
+    description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
   else description = phrases.RC_viewingDistanceIntro[this.L]
 
   options = Object.assign(
@@ -63,7 +63,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       nearPoint: true,
       showNearPoint: false,
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
-      headline: '🙂 ' + phrases.RC_distanceTrackingTitle[this.L],
+      headline: '📏 ' + phrases.RC_distanceTrackingTitle[this.L],
       description:
         phrases.RC_distanceTrackingIntroStart[this.L] +
         spaceForLanguage(this.L) +
@@ -72,6 +72,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
         phrases.RC_distanceTrackingIntroEnd[this.L],
       check: false,
       checkCallback: null,
+      showCancelButton: true,
     },
     options
   )

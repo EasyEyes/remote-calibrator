@@ -1,3 +1,5 @@
+import { safeExecuteFunc } from './utils'
+
 /**
  * Bind keys, e.g., SPACE (' '), ESC ('Escape')
  * keys is an object of keys of the keys, pointing to its binding functions
@@ -6,7 +8,7 @@ export function bindKeys(keys, eventType = 'keydown') {
   const bindingFunctions = e => {
     if (e.key in keys) {
       e.preventDefault()
-      keys[e.key](e)
+      safeExecuteFunc(keys[e.key], e)
     }
   }
 
