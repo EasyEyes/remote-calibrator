@@ -39,7 +39,7 @@
     "eslint": "^8.7.0",
     "eslint-webpack-plugin": "^3.1.1",
     "express": "^4.17.2",
-    "googleapis": "^92.0.0",
+    "googleapis": "^94.0.0",
     "husky": "^7.0.4",
     "lint-staged": "^12.3.1",
     "postcss-loader": "^6.2.1",
