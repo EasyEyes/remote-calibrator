@@ -8,6 +8,7 @@ import {
   safeExecuteFunc,
   average,
   emptyFunc,
+  randn_bm,
 } from '../components/utils'
 import {
   _getCrossX,
@@ -203,10 +204,11 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     } else {
       // Shift circle
       v = -v
-      if (v > 0)
-        // Going to the right
-        circleX = circleBounds[0]
-      else if (v < 0) circleX = circleBounds[1]
+      // if (v > 0)
+      //   // Going to the right
+      //   circleX = circleBounds[0]
+      // else if (v < 0) circleX = circleBounds[1]
+      _resetRandnCircleX(eyeSide, circleBounds)
     }
   }
 
@@ -268,6 +270,16 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     }
   }
 
+  const _resetRandnCircleX = (eye, bounds) => {
+    let relativeBound = bounds[eye === 'left' ? 0 : 1]
+
+    let randRange = Math.abs(bounds[1] - bounds[0]) / 4 // ! Range: 1/4
+    let x = randn_bm(relativeBound - randRange, relativeBound + randRange)
+
+    if ((x - bounds[0]) * (x - bounds[1]) > 0) x = relativeBound * 2 - x
+    circleX = x
+  }
+
   const _resetCanvasLayout = (
     nextV,
     nextEyeSide,
@@ -288,8 +300,10 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     }
 
     if (shiftCircle) {
-      if (v > 0) circleX = circleBounds[0]
-      else circleX = circleBounds[1]
+      // if (v > 0) circleX = circleBounds[0]
+      // else circleX = circleBounds[1]
+      circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
+      _resetRandnCircleX(nextEyeSide, circleBounds)
     }
   }
 

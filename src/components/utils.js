@@ -181,6 +181,24 @@ export const median = arr => {
 // https://stackoverflow.com/a/41452260
 export const average = array => array.reduce((a, b) => a + b) / array.length
 
+// https://stackoverflow.com/a/49434653
+export function randn_bm(min, max, skew = 1) {
+  let u = 0,
+    v = 0
+  while (u === 0) u = Math.random()
+  while (v === 0) v = Math.random()
+  let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+
+  num = num / 10.0 + 0.5
+  if (num > 1 || num < 0) num = randn_bm(min, max, skew)
+  else {
+    num = Math.pow(num, skew)
+    num *= max - min
+    num += min
+  }
+  return num
+}
+
 export const _copy = obj => {
   return JSON.parse(JSON.stringify(obj))
 }
