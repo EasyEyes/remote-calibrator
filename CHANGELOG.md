@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - `Redo last response` button for blind spot measure.
+- Blind spot moving the dot will not wrap the position.
 
 ## [0.3.0] - 2021-10-16
 

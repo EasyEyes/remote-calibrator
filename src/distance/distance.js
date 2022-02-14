@@ -260,14 +260,16 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   const helpMoveCircleX = () => {
     tempX = constrain(circleX, ...circleBounds)
-    if (circleX !== tempX) {
-      circleX = tempX
-      for (let b of circleBounds)
-        if (circleX !== b) {
-          circleX = b
-          break
-        }
-    }
+    circleX = tempX
+    // WRAP
+    // if (circleX !== tempX) {
+    //   circleX = tempX
+    //   for (let b of circleBounds)
+    //     if (circleX !== b) {
+    //       circleX = b
+    //       break
+    //     }
+    // }
   }
 
   const _resetRandnCircleX = (eye, bounds) => {
