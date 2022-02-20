@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0]
+
 ### Added
 
 - **Latency for gaze and viewing distance tracking.** The latency is calculated by comparing the timestamps of the moment when the video stream is fed into the model for estimation and when the result is produced and recorded. You can access it by `data.value.latencyMs` where `data` is the argument passed into the callback function of `.trackGaze()` and `.trackDistance()`.
@@ -296,7 +298,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.3.0...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.0...develop
+[0.5.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.3.0...v0.5.0
 [0.3.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.1...v0.2.2
