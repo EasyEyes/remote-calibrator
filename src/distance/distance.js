@@ -8,6 +8,7 @@ import {
   safeExecuteFunc,
   average,
   emptyFunc,
+  randn_bm,
 } from '../components/utils'
 import {
   _getCrossX,
@@ -104,7 +105,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   // SPACE
   const finishFunction = async () => {
-    customButton.disabled = false
+    // customButton.disabled = false
     soundFeedback()
 
     tested += 1
@@ -162,7 +163,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       } else {
         // ! Reset
         tested = 0
-        customButton.disabled = true
+        // customButton.disabled = true
         // Get first response
         const firstResponse = dist[0]
         _resetCanvasLayout(
@@ -203,29 +204,30 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     } else {
       // Shift circle
       v = -v
-      if (v > 0)
-        // Going to the right
-        circleX = circleBounds[0]
-      else if (v < 0) circleX = circleBounds[1]
+      // if (v > 0)
+      //   // Going to the right
+      //   circleX = circleBounds[0]
+      // else if (v < 0) circleX = circleBounds[1]
+      _resetRandnCircleX(eyeSide, circleBounds)
     }
   }
 
-  const redoFunction = () => {
-    if (!tested) return
-    tested--
-    customButton.disabled = true
+  // const redoFunction = () => {
+  //   if (!tested) return
+  //   tested--
+  //   // customButton.disabled = true
 
-    soundFeedback(3)
+  //   soundFeedback(3)
 
-    const lastResponse = dist.pop()
-    _resetCanvasLayout(
-      lastResponse.v,
-      lastResponse.closedEyeSide,
-      lastResponse.crossX,
-      true,
-      true
-    )
-  }
+  //   const lastResponse = dist.pop()
+  //   _resetCanvasLayout(
+  //     lastResponse.v,
+  //     lastResponse.closedEyeSide,
+  //     lastResponse.crossX,
+  //     true,
+  //     true
+  //   )
+  // }
 
   let arrowKeyDown = false
   let arrowIntervalFunction = null
@@ -258,14 +260,26 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   const helpMoveCircleX = () => {
     tempX = constrain(circleX, ...circleBounds)
-    if (circleX !== tempX) {
-      circleX = tempX
-      for (let b of circleBounds)
-        if (circleX !== b) {
-          circleX = b
-          break
-        }
-    }
+    circleX = tempX
+    // WRAP
+    // if (circleX !== tempX) {
+    //   circleX = tempX
+    //   for (let b of circleBounds)
+    //     if (circleX !== b) {
+    //       circleX = b
+    //       break
+    //     }
+    // }
+  }
+
+  const _resetRandnCircleX = (eye, bounds) => {
+    let relativeBound = bounds[eye === 'left' ? 0 : 1]
+
+    let randRange = Math.abs(bounds[1] - bounds[0]) / 4 // ! Range: 1/4
+    let x = randn_bm(relativeBound - randRange, relativeBound + randRange)
+
+    if ((x - bounds[0]) * (x - bounds[1]) > 0) x = relativeBound * 2 - x
+    circleX = x
   }
 
   const _resetCanvasLayout = (
@@ -288,14 +302,16 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     }
 
     if (shiftCircle) {
-      if (v > 0) circleX = circleBounds[0]
-      else circleX = circleBounds[1]
+      // if (v > 0) circleX = circleBounds[0]
+      // else circleX = circleBounds[1]
+      circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
+      _resetRandnCircleX(nextEyeSide, circleBounds)
     }
   }
 
   // Bind keys
   const bindKeysFunction = bindKeys({
-    Escape: breakFunction,
+    Escape: options.showCancelButton ? breakFunction : undefined,
     Enter: finishFunction,
     ' ': finishFunction,
     ArrowLeft: control ? arrowDownFunction : emptyFunc,
@@ -308,22 +324,23 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     },
     'keyup'
   )
-  const addedButtons = addButtons(
+
+  addButtons(
     RC.L,
     RC.background,
     {
       go: finishFunction,
-      cancel: breakFunction,
-      custom: {
-        callback: redoFunction,
-        content: phrases.RC_viewingDistanceRedo[RC.L],
-      },
+      cancel: options.showCancelButton ? breakFunction : undefined,
+      // custom: {
+      //   callback: redoFunction,
+      //   content: phrases.RC_viewingDistanceRedo[RC.L],
+      // },
     },
     RC.params.showCancelButton
   )
 
-  const customButton = addedButtons[3]
-  customButton.disabled = true
+  // const customButton = addedButtons[3]
+  // customButton.disabled = true
 
   /* -------------------------------------------------------------------------- */
   // Drag
@@ -447,7 +464,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
 
   let description
   if (options.control !== undefined && options.control === false)
-    description = phrases.RC_viewingDistanceIntroNoControl[this.L]
+    description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
   else description = phrases.RC_viewingDistanceIntro[this.L]
 
   options = Object.assign(
@@ -461,6 +478,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       description: description,
       check: false,
       checkCallback: false,
+      showCancelButton: true,
     },
     options
   )

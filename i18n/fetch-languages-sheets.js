@@ -33,11 +33,14 @@ async function processLanguageSheet() {
 
   for (let phrase in data) {
     for (let lang in data[phrase]) {
-      if (data[phrase][lang].includes('XX'))
-        while (data[phrase][lang].includes('XX'))
-          data[phrase][lang] = data[phrase][lang]
-            .replace('XXX', 'xxx')
-            .replace('XX', 'xx')
+      // Placeholders
+      while (data[phrase][lang].includes('XX'))
+        data[phrase][lang] = data[phrase][lang]
+          .replace('XXX', 'xxx')
+          .replace('XX', 'xx')
+      // Spaces
+      while (data[phrase][lang].includes('%'))
+        data[phrase][lang] = data[phrase][lang].replace('%', '&nbsp')
     }
   }
 
