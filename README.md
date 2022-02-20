@@ -51,7 +51,7 @@ RemoteCalibrator.measureDistance({}, data => {
 | [🍱 Panel](#-panel)                         | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                                                    |
 | [🖥️ Screen](#️-screen)                      | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                                   |
 | [📏 Viewing Distance](#-viewing-distance)   | [`measureDistance()`](#-viewing-distance)                                                                                                                                                                                    |
-| [🙂 Distance Tracking](#-distance-tracking) | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-distance-tracking) [`async getDistanceNow()`](#async-get-distance-now) [`nudgeDistance()`](#check-distance) [Lifecycle](#lifecycle) [Others](#others) |
+| [📏 Distance Tracking](#-distance-tracking) | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-distance-tracking) [`async getDistanceNow()`](#async-get-distance-now) [`nudgeDistance()`](#nudge-distance) [Lifecycle](#lifecycle) [Others](#others) |
 | [👀 Gaze](#-gaze)                           | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1)                             |
 | [💻 Environment](#-environment)             | [System and Browser Environment](#-environment)                                                                                                                                                                              |
 | [💄 Customization](#-customization)         | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                                                    |
@@ -155,6 +155,8 @@ You can customize the panel element with the following options.
   nextHeadline: `Thanks for calibrating. Hit the button to continue.`,
   nextDescription: ``,
   nextButton: `Done`,
+  debug: false,
+  i18n: true,
 }
 ```
 
@@ -171,6 +173,10 @@ You can also use `.removePanel()` to remove the panel element after the calibrat
 #### Measure Display Pixels
 
 Get the display width and height in pixels. You can use `.displayWidthPx` `.displayHeightPx` `.windowWidthPx` `.windowHeightPx` getters. For example, `RemoteCalibrator.windowWidthPx.value` will give you the inner width of the current browser window.
+
+<!-- ----------------------------------------------------------------------- -->
+<!--                           Measure Screen Size                           -->
+<!-- ----------------------------------------------------------------------- -->
 
 #### Measure Screen Size
 
@@ -192,12 +198,19 @@ Pass `{ value: { screenWidthCm, screenHeightCm, screenDiagonalCm, screenDiagonal
   repeatTesting: 1,
   // The length of decimal place of the returned value
   decimalPlace: 1,
+  // Default virtual object used to measure screen size, can be `card`, `usba`, or `usbc`
+  defaultObject: "card",
   // Headline on the calibration page (Support HTML)
   headline: "🖥️ Screen Size Calibration",
   // Description and instruction (Support HTML)
   description: "...",
+  check: false, // Ask participants to use a ruler to measure against RC results
 }
 ```
+
+<!-- ----------------------------------------------------------------------- -->
+<!--                            Viewing Distance                             -->
+<!-- ----------------------------------------------------------------------- -->
 
 ### 📏 Viewing Distance
 
@@ -211,7 +224,7 @@ Pass `{ value: { screenWidthCm, screenHeightCm, screenDiagonalCm, screenDiagonal
 
 Pop an interface for participants to calibrate the viewing distance at the moment using Blind Spot Test.
 
-Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDistanceCm`) to callback.
+Pass `{ value, timestamp, method, raw }` (equivalent to `RemoteCalibrator.viewingDistanceCm`) to callback.
 
 ```js
 /* [options] Default value */
@@ -221,12 +234,19 @@ Pass `{ value, timestamp, method }` (equivalent to `RemoteCalibrator.viewingDist
   // By default, right eye 2 times, then left eye 2 times
   repeatTesting: 1,
   decimalPlace: 1,
+  control: true, // Set to true to use arrow keys to control the position of the red dot
+  showCancelButton: true,
   headline: "📏 Measure Viewing Distance",
   description: "...",
+  check: false,
 }
 ```
 
-### 🙂 Distance Tracking
+<!-- ----------------------------------------------------------------------- -->
+<!--                            Distance Tracking                            -->
+<!-- ----------------------------------------------------------------------- -->
+
+### 📏 Distance Tracking
 
 ```js
 .trackDistance([options, [callbackStatic, [callbackTrack]]])
@@ -247,15 +267,20 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestam
   showVideo: true,
   showFaceOverlay: false,
   decimalPlace: 1,
+  control: true,
+  showCancelButton: true,
   framerate: 3, // Measurement per second
-  desiredDistanceCm: undefined,
-  desiredDistanceTolerance: 0.1, // Range [0.1, 1]
+  // Desired distance monitoring
+  desiredDistanceCm: undefined, // e.g., 60 (which means the target distance is 60 cm)
+  desiredDistanceTolerance: 1.2, // Tolerable distance would be within [target / 1.2, target * 1.2]
   desiredDistanceMonitor: false,
+  desiredDistanceMonitorCancelable: false,
   // Near point
   nearPoint: true,
   showNearPoint: false,
   headline: "🙂 Set up for Distance Tracking",
   description: "...",
+  check: false,
 }
 ```
 
@@ -267,7 +292,7 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestam
 
 You can pause active distance tracking, and use this function to get the latest distance at the moment when the user makes reactions. If no callback function is passed in, it will use the one from `.trackDistance()` as the default.
 
-#### Check Distance
+#### Nudge Distance
 
 ```js
 .nudgeDistance(desiredCm, errorTolerance)
@@ -293,6 +318,10 @@ The value returned are the horizontal and vertical offsets, in centimeters, comp
 
 - `.showNearPoint([Boolean])`
 
+<!-- ----------------------------------------------------------------------- -->
+<!--                                  Gaze                                   -->
+<!-- ----------------------------------------------------------------------- -->
+
 ### 👀 Gaze
 
 #### Start Tracking
@@ -305,7 +334,7 @@ Use [WebGazer](https://github.com/peilingjiang-DEV/WebGazer). Pop an interface f
 
 This function should only be called once, unless you want to change the callback functions for every prediction.
 
-Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPx`) to `callbackTrack` function.
+Pass `{ value: { x, y, latencyMs }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPx`) to `callbackTrack` function.
 
 ```js
 /* [options] Default value */
@@ -374,6 +403,10 @@ Pop an interface for participants to calibrate their gaze position on the screen
 - `.resumeGaze()`
 - `.endGaze([endAll = false])`
 
+<!-- ----------------------------------------------------------------------- -->
+<!--                                 Others                                  -->
+<!-- ----------------------------------------------------------------------- -->
+
 #### Others
 
 - `.gazeLearning([Boolean])` WebGazer uses a regression model to always learn and update the model based on the assumption that one would always look at the point where curser makes interaction. However, in a psychophysics experiment, participants may not always look at the place where they click or move the cursor. Thus, `greedyLearner` option is set to `false` by default so that the tracker stops learning after calibration period. But you may also turn it on (or off if needed) again with this function.
@@ -396,6 +429,10 @@ Get the setup information of the experiment, including browser type, device mode
 - `.checkInitialized()` Check if the model is initialized. Return a boolean.
 - `.getFullscreen()` Get fullscreen mode.
 - `.newLanguage(lang = 'en-US')` Set a new language for the calibrator.
+
+<!-- ----------------------------------------------------------------------- -->
+<!--                                 Getters                                 -->
+<!-- ----------------------------------------------------------------------- -->
 
 ### 🎣 Getters
 
@@ -457,6 +494,10 @@ Use the following keywords to retrieve the whole dataset.
 #### Others
 
 - `.version` The RemoteCalibrator version. No associated timestamp.
+
+<!-- ----------------------------------------------------------------------- -->
+<!-- ----------------------------------------------------------------------- -->
+<!-- ----------------------------------------------------------------------- -->
 
 ## Development
 

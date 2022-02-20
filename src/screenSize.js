@@ -47,9 +47,6 @@ RemoteCalibrator.prototype._displaySize = function () {
     this.newDisplayData = thisData
 }
 
-// TODO Make it customizable
-const defaultObj = 'usba'
-
 const resources = {
   card: Card,
   arrow: Arrow,
@@ -85,6 +82,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       fullscreen: false,
       repeatTesting: 1,
       decimalPlace: 1,
+      defaultObject: 'card', // Can be card, usba, usbc
       headline: '🖥️ ' + phrases.RC_screenSizeTitle[this.L],
       description: phrases.RC_screenSizeIntro[this.L],
       check: false,
@@ -95,17 +93,20 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
 
   this.getFullscreen(options.fullscreen)
 
+  if (!['usba', 'usbc', 'card'].includes(options.defaultObject))
+    options.defaultObject = 'card'
+
   options.description += `<br /><br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
     this.L
   ].replace(
     'xxx',
-    `<select id="matching-obj"><option value="usba" selected>${
-      phrases.RC_screenSizeUSBA[this.L]
-    }</option><option value="usbc">${
-      phrases.RC_screenSizeUSBC[this.L]
-    }</option><option value="card">${
-      phrases.RC_screenSizeCreditCard[this.L]
-    }</option></select>`
+    `<select id="matching-obj"><option value="usba"${
+      options.defaultObject === 'usba' ? ' selected' : ''
+    }>${phrases.RC_screenSizeUSBA[this.L]}</option><option value="usbc"${
+      options.defaultObject === 'usbc' ? ' selected' : ''
+    }>${phrases.RC_screenSizeUSBC[this.L]}</option><option value="card"${
+      options.defaultObject === 'card' ? ' selected' : ''
+    }>${phrases.RC_screenSizeCreditCard[this.L]}</option></select>`
   )}</b>`
 
   this._addBackground()
@@ -155,7 +156,7 @@ function getSize(RC, parent, options, callback) {
   const elements = addMatchingObj(['card', 'arrow', 'usba', 'usbc'], parent)
 
   // Switch OBJ
-  let currentMatchingObj = defaultObj // DEFAULT
+  let currentMatchingObj = options.defaultObject // DEFAULT
   document.getElementById('matching-obj').addEventListener('change', e => {
     switchMatchingObj(e.target.value, elements, setSizes)
     currentMatchingObj = e.target.value
