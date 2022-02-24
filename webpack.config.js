@@ -126,10 +126,11 @@ module.exports = env => {
     }
     https://github.com/EasyEyes/remote-calibrator
     
-    Copyright ${new Date().getFullYear()} Denis Pelli Lab
+    Copyright ${new Date().getFullYear()} New York University. All Rights Reserved.
+    Created in New York City by Denis Pelli & Peiling Jiang
 
-    The source code is available under an MIT-style
-    license that can be found in the LICENSE file.
+    The source code is available with an MIT-style
+    license which can be found in the LICENSE file.
     `
     libConfig.plugins.push(
       new webpack.EnvironmentPlugin({
