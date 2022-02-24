@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0]
+## [0.5.1] - 2022-02-23
+
+Update license text, dependencies, and translations.
+
+## [0.5.0] - 2022-02-19
 
 ### Added
 
@@ -298,7 +302,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.0...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.1...develop
+[0.5.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.3.0...v0.5.0
 [0.3.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.2...v0.2.3
