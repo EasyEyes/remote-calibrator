@@ -155,7 +155,7 @@ const _panelCode = `RemoteCalibrator.panel(
   // Configure the panel itself
   {
     i18n: true,
-    debug: true,
+    debug: false,
   },
   // Panel callback after all the tasks are finished
   data => {
@@ -197,7 +197,7 @@ function makePanelCode() {
  *
  */
 const _measureScreenSizeCode = `RemoteCalibrator.screenSize({
-  check: true,
+  check: false,
   checkCallback: (result) => {
     printMessage(
       \`The participant measured the arrow size with their own tools, and the reported value is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm.\`
@@ -237,7 +237,7 @@ const _measureDistanceCallback = `const measureDistanceCallback = distanceData =
   )
 }`
 const _measureViewingDistanceCode = `RemoteCalibrator.measureDistance({
-  check: true,
+  check: false,
   checkCallback: (result) => {
     printMessage(
       \`The viewing distance measured by the participant is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm (using \${result.value.calibratorMethod}).\`
@@ -277,7 +277,7 @@ RemoteCalibrator.trackDistance(
     desiredDistanceCm: 60,
     desiredDistanceMonitor: true,
     desiredDistanceMonitorCancelable: false,
-    check: true,
+    check: false,
     checkCallback: (result) => {
       printMessage(
         \`The viewing distance measured by the participant is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm (using \${result.value.calibratorMethod}).\`
