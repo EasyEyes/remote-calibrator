@@ -93,8 +93,10 @@ export default class GazeTracker {
 
   async getGazeNow(callback) {
     let data = (this.calibrator.newGazePositionData = this.getData(
-      await this.webgazer.getCurrentPrediction()
+      await this.webgazer.getCurrentPrediction(0)
     ))
+    this.webgazer.popPredictionPoints()
+
     safeExecuteFunc(callback, data)
     return data
   }
@@ -158,7 +160,7 @@ GazeTracker.prototype.getData = function (d) {
       x: toFixedNumber(d.x, this._toFixedN),
       y: toFixedNumber(d.y, this._toFixedN),
       latencyMs:
-        t.getTime() - this.calibrator._tackingVideoFrameTimestamps.gaze, // latency
+        t.getTime() - this.calibrator._trackingVideoFrameTimestamps.gaze, // latency
     },
     timestamp: t,
   }
@@ -185,7 +187,7 @@ GazeTracker.prototype.end = function (type, endAll = false) {
     if (endEverything && this.checkInitialized('distance'))
       this.calibrator.endDistance(false, false)
 
-    this.calibrator._tackingVideoFrameTimestamps.gaze = 0
+    this.calibrator._trackingVideoFrameTimestamps.gaze = 0
   } else {
     // Distance
     this.defaultDistanceTrackCallback = null
@@ -223,7 +225,7 @@ GazeTracker.prototype._endGaze = function () {
 }
 
 GazeTracker.prototype._getLatestVideoTimestamp = function (t) {
-  this.calibrator._tackingVideoFrameTimestamps.gaze = t.getTime()
+  this.calibrator._trackingVideoFrameTimestamps.gaze = t.getTime()
 }
 
 /* -------------------------------------------------------------------------- */

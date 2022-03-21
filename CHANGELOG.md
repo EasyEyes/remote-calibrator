@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Added
+
+- When `showGazer` is true, calling `.getGazeNow()` renders a fading-out red gaze dot on the screen.
+
+## Changed
+
+- When calibrating gaze, the positions of the dot to click follow a certain clockwise sequence instead of randomized. Four more positions - 2 degrees to the top, right, bottom, and left of the screen center - are added. The center dot now appears three times, and each requires doubled click amount. The new positions (2 degrees relative to the center) depend on the viewing distance. Thus, measuring it first is highly recommended. Otherwise, 40 cm is assumed.
+
+## Fixed
+
+- Typos of internal parameter naming.
+- The video element (for gaze and distance tracking) may occlude the click to other content even when hidden.
+
 ## [0.5.1] - 2022-02-23
 
 Update license text, dependencies, and translations.

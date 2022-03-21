@@ -62,7 +62,7 @@ class RemoteCalibrator {
       distanceDesired: null,
       distanceAllowedRatio: null,
     }
-    this._tackingVideoFrameTimestamps = {
+    this._trackingVideoFrameTimestamps = {
       gaze: 0,
       distance: 0,
     }

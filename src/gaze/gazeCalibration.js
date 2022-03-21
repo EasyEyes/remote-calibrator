@@ -9,6 +9,8 @@ import {
 import { debug } from '../debug'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { phrases } from '../i18n'
+import { degToPix } from '../components/converters'
+import isEqual from 'react-fast-compare'
 
 // [Wait!], etc.
 // const instPOutsideWarning = 'Keep your face centered in the video feed.'
@@ -98,11 +100,13 @@ const startCalibration = (RC, options, onCalibrationEnded) => {
 class GazeCalibrationDot {
   constructor(RC, parent, options, endCalibrationCallback) {
     // Order
-    this._randomOrder()
+    this._sequentialOrder()
 
     this.RC = RC
 
-    this.clickThreshold = debug ? 1 : options.calibrationCount // How many times required to click for each position
+    this.clickThresholdBase = debug ? 1 : options.calibrationCount
+    // How many times required to click for each position
+    this.clickThreshold = this.clickThresholdBase * 2 // as now by default we start with the center
     this.clicks = 0
 
     this.position = this.order.shift()
@@ -147,6 +151,7 @@ class GazeCalibrationDot {
     // Width
     Object.assign(
       this.div.style,
+      // x
       [
         {
           left: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px',
@@ -165,7 +170,24 @@ class GazeCalibrationDot {
             'px',
           right: 'unset',
         }, // 2
+        {
+          left: `calc(50% - ${
+            this.RC._CONST.N.GAZE_CALIBRATION.R / 2
+          }px - ${this.getOffsetPx(
+            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET
+          )}px)`,
+          right: 'unset',
+        }, // 3
+        {
+          left: `calc(50% - ${
+            this.RC._CONST.N.GAZE_CALIBRATION.R / 2
+          }px + ${this.getOffsetPx(
+            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET
+          )}px)`,
+          right: 'unset',
+        }, // 4
       ][this.position[0]],
+      // y
       [
         {
           top: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px',
@@ -184,6 +206,22 @@ class GazeCalibrationDot {
             'px',
           bottom: 'unset',
         }, // 2
+        {
+          top: `calc(50% - ${
+            this.RC._CONST.N.GAZE_CALIBRATION.R / 2
+          }px - ${this.getOffsetPx(
+            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET
+          )}px)`,
+          bottom: 'unset',
+        }, // 3
+        {
+          top: `calc(50% - ${
+            this.RC._CONST.N.GAZE_CALIBRATION.R / 2
+          }px + ${this.getOffsetPx(
+            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET
+          )}px)`,
+          bottom: 'unset',
+        }, // 4
       ][this.position[1]]
     )
   }
@@ -194,7 +232,12 @@ class GazeCalibrationDot {
     if (this.clicks >= this.clickThreshold) {
       if (this.order.length) {
         this.position = this.order.shift()
+
+        this.clickThreshold = isEqual(this.position, [1, 1])
+          ? this.clickThresholdBase * 2
+          : this.clickThresholdBase
         this.clickText.innerHTML = this.clickThreshold
+
         this.placeDot()
         this.clicks = 0
       } else {
@@ -224,5 +267,50 @@ class GazeCalibrationDot {
     this.order = []
     for (let i of [0, 1, 2]) for (let j of [0, 1, 2]) this.order.push([i, j])
     shuffle(this.order)
+  }
+
+  _sequentialOrder() {
+    /**
+     * [0, 0]             [1, 0]            [2, 0]
+     *
+     *
+     *
+     *                    [1, 3]
+     * [0, 1]       [3, 1][1, 1][4, 1]      [2, 1]
+     *                    [1, 4]
+     *
+     *
+     *
+     * [0, 2]             [1, 2]            [2, 2]
+     */
+    this.order = [
+      [1, 1],
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [2, 1],
+      [2, 2],
+      [1, 2],
+      [0, 2],
+      [0, 1],
+      [1, 1],
+      [1, 3],
+      [4, 1],
+      [1, 4],
+      [3, 1],
+      [1, 1],
+    ]
+  }
+
+  getOffsetPx(degFromCenter) {
+    return degToPix(
+      degFromCenter,
+      this.RC.screenPpi
+        ? this.RC.screenPpi.value
+        : this.RC._CONST.N.PPI_DONT_USE,
+      this.RC.viewingDistanceCm
+        ? this.RC.viewingDistanceCm.value
+        : this.RC._CONST.N.VIEW_DIST_DONT_USE
+    )
   }
 }

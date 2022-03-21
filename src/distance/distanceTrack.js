@@ -288,14 +288,14 @@ const _tracking = async (
       faces = await model.estimateFaces(video)
       if (faces.length) {
         // There's at least one face in video
-        RC._tackingVideoFrameTimestamps.distance += videoTimestamp
+        RC._trackingVideoFrameTimestamps.distance += videoTimestamp
         // https://github.com/tensorflow/tfjs-models/blob/master/facemesh/mesh_map.jpg
         const mesh = faces[0].scaledMesh
 
         if (targetCount === distCount) {
           averageDist += eyeDist(mesh[133], mesh[362])
           averageDist /= targetCount
-          RC._tackingVideoFrameTimestamps.distance /= targetCount
+          RC._trackingVideoFrameTimestamps.distance /= targetCount
 
           // TODO Add more samples for the first estimate
           if (stdDist.current !== null) {
@@ -314,7 +314,7 @@ const _tracking = async (
 
             const timestamp = new Date()
             const latency = Math.round(
-              timestamp.getTime() - RC._tackingVideoFrameTimestamps.distance
+              timestamp.getTime() - RC._trackingVideoFrameTimestamps.distance
             )
 
             const data = (RC.newViewingDistanceData = {
@@ -373,7 +373,7 @@ const _tracking = async (
           averageDist = 0
           distCount = 1
 
-          RC._tackingVideoFrameTimestamps.distance = 0
+          RC._trackingVideoFrameTimestamps.distance = 0
         } else {
           averageDist += eyeDist(mesh[133], mesh[362])
           ++distCount
@@ -443,7 +443,7 @@ RemoteCalibrator.prototype.pauseDistance = function () {
   if (this.gazeTracker.checkInitialized('distance', true)) {
     iRepeatOptions.break = true
     if (nearPointDot) nearPointDot.style.display = 'none'
-    this._tackingVideoFrameTimestamps.distance = 0
+    this._trackingVideoFrameTimestamps.distance = 0
     return this
   }
   return null
@@ -456,7 +456,7 @@ RemoteCalibrator.prototype.resumeDistance = function () {
 
     averageDist = 0
     distCount = 1
-    this._tackingVideoFrameTimestamps.distance = 0
+    this._trackingVideoFrameTimestamps.distance = 0
 
     iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
     return this
@@ -485,7 +485,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     viewingDistanceTrackingFunction = null
 
     readyToGetFirstData = false
-    this._tackingVideoFrameTimestamps.distance = 0
+    this._trackingVideoFrameTimestamps.distance = 0
 
     // Near point
     if (nearPointDot) {
