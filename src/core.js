@@ -210,7 +210,7 @@ class RemoteCalibrator {
     )
       this.newFullscreenData = {
         value: isFullscreen(),
-        timestamp: new Date(),
+        timestamp: performance.now(),
       }
     return this._helper_get(this._fullscreenData)
   }
@@ -501,7 +501,8 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
 
     this._id = {
       value: options.id,
-      timestamp: new Date(),
+      timestamp: performance.now(),
+      date: new Date(), // only Date to save
     }
 
     this._environment()
@@ -583,7 +584,7 @@ RemoteCalibrator.prototype.getFullscreen = function (f = true) {
 
   this.newFullscreenData = {
     value: f && !debug ? getFullscreen() : false,
-    timestamp: new Date(),
+    timestamp: performance.now(),
   }
 
   // Minimize address bar on mobile devices

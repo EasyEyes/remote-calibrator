@@ -135,10 +135,11 @@ function capFirst(s) {
  *
  */
 export default function randomPhrases() {
+  const tailNumber = '000' + new Date().getMilliseconds().toString()
   return (
     capFirst(randomChoice(adjectives)) +
     capFirst(randomChoice(colors)) +
     capFirst(randomChoice(nouns)) +
-    ('000' + new Date().getMilliseconds().toString()).substr(-3)
+    tailNumber.substring(tailNumber.length - 3)
   )
 }

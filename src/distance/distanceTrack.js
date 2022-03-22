@@ -283,7 +283,7 @@ const _tracking = async (
 
     viewingDistanceTrackingFunction = async () => {
       //
-      const videoTimestamp = new Date().getTime()
+      const videoTimestamp = performance.now()
       //
       faces = await model.estimateFaces(video)
       if (faces.length) {
@@ -312,9 +312,9 @@ const _tracking = async (
 
             /* -------------------------------------------------------------------------- */
 
-            const timestamp = new Date()
+            const timestamp = performance.now()
             const latency = Math.round(
-              timestamp.getTime() - RC._trackingVideoFrameTimestamps.distance
+              timestamp - RC._trackingVideoFrameTimestamps.distance
             )
 
             const data = (RC.newViewingDistanceData = {
@@ -514,16 +514,16 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
 
   let v = document.querySelector('#webgazerVideoFeed')
   let m = await this.gazeTracker.webgazer.getTracker().model
-  const videoTimestamp = new Date().getTime()
+  const videoTimestamp = performance.now()
   let f = await m.estimateFaces(v)
 
   if (f.length) {
     const mesh = f[0].scaledMesh
     const dist = eyeDist(mesh[133], mesh[362])
 
-    let timestamp = new Date()
+    let timestamp = performance.now()
     //
-    const latency = timestamp.getTime() - videoTimestamp
+    const latency = timestamp - videoTimestamp
     //
 
     const data = (this.newViewingDistanceData = {

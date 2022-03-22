@@ -45,7 +45,8 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
 })
 
 RemoteCalibrator.prototype._debuggerDefault = Object.freeze({
-  timestamp: new Date('July 20, 69 20:17:40 GMT+00:00'),
+  date: new Date('July 20, 69 20:17:40 GMT+00:00'),
+  timestamp: performance.now(),
   screenSize: {
     value: {
       screenWidthCm: 28.6,

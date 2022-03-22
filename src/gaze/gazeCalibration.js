@@ -67,7 +67,7 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
     this._removeBackground() // Remove calibration background when the calibration finished
     unbindKeys(bindKeysFunction)
 
-    safeExecuteFunc(callback, { timestamp: new Date() })
+    safeExecuteFunc(callback, { timestamp: performance.now() })
   })
 
   const breakFunction = () => {

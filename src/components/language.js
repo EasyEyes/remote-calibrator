@@ -26,7 +26,7 @@ function constructLangData(lang) {
       languageDirection: phrases.EE_languageDirection[lang],
       languagePhraseSource: phrases.EE_phraseSource[lang],
     },
-    timestamp: new Date(),
+    timestamp: performance.now(),
   }
 }
 

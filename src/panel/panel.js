@@ -387,7 +387,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
 
           e.onclick = () => {
             RC._panelStatus.panelFinished = true
-            safeExecuteFunc(finalCallback, { timestamp: new Date() })
+            safeExecuteFunc(finalCallback, { timestamp: performance.now() })
           }
         }
       }
@@ -409,7 +409,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
         )
         finalButton.onclick = () => {
           RC._panelStatus.panelFinished = true
-          safeExecuteFunc(finalCallback, { timestamp: new Date() })
+          safeExecuteFunc(finalCallback, { timestamp: performance.now() })
         }
       }
     }
@@ -445,7 +445,7 @@ const _getTaskOptionsCallbacks = (
     // Task
     safeExecuteFunc(fixedTaskCallback)
     // Panel
-    safeExecuteFunc(finalCallback, { timestamp: new Date() })
+    safeExecuteFunc(finalCallback, { timestamp: performance.now() })
     safeExecuteFunc(fixedFinalCallback)
   }
 

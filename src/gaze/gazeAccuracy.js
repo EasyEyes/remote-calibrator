@@ -88,7 +88,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
       // ! Store data
       this.newGazeAccuracyData = {
         value: toFixedNumber(averageDegree, options.decimalPlace),
-        timestamp: new Date(),
+        timestamp: performance.now(),
       }
 
       if (averageDegree < options.thresholdDeg)

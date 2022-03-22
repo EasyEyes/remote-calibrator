@@ -34,7 +34,7 @@ RemoteCalibrator.prototype._displaySize = function () {
       windowWidthPx: window.innerWidth,
       windowHeightPx: window.innerHeight,
     },
-    timestamp: new Date(),
+    timestamp: performance.now(),
   }
 
   if (
@@ -328,7 +328,7 @@ const _getScreenData = (ppi, toFixedN) => {
       screenPhysicalPpi: toFixedNumber(ppi * window.devicePixelRatio, toFixedN),
       screenPpi: toFixedNumber(ppi, toFixedN),
     },
-    timestamp: new Date(),
+    timestamp: performance.now(),
   }
   screenData.value.screenDiagonalCm = toFixedNumber(
     Math.hypot(screenData.value.screenWidthCm, screenData.value.screenHeightCm),

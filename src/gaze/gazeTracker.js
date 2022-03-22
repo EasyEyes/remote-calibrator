@@ -154,13 +154,12 @@ GazeTracker.prototype.checkInitialized = function (task, warning = false) {
 }
 
 GazeTracker.prototype.getData = function (d) {
-  let t = new Date()
+  let t = performance.now()
   return {
     value: {
       x: toFixedNumber(d.x, this._toFixedN),
       y: toFixedNumber(d.y, this._toFixedN),
-      latencyMs:
-        t.getTime() - this.calibrator._trackingVideoFrameTimestamps.gaze, // latency
+      latencyMs: t - this.calibrator._trackingVideoFrameTimestamps.gaze, // latency
     },
     timestamp: t,
   }
@@ -225,7 +224,7 @@ GazeTracker.prototype._endGaze = function () {
 }
 
 GazeTracker.prototype._getLatestVideoTimestamp = function (t) {
-  this.calibrator._trackingVideoFrameTimestamps.gaze = t.getTime()
+  this.calibrator._trackingVideoFrameTimestamps.gaze = t
 }
 
 /* -------------------------------------------------------------------------- */

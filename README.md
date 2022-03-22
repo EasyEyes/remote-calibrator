@@ -112,7 +112,9 @@ If you do not want to change anything in default options, simply use an empty ob
 RemoteCalibrator.init({}, initializationFinished)
 ```
 
-The `data` passed into the callback function is an [object](https://www.w3schools.com/js/js_objects.asp) with two fields: `timestamp` and `value` (the id). The `timestamp` is an JavaScript `Date()` object with all the information from the year to the millisecond. You can find how to get these information [here](https://www.w3schools.com/jsref/jsref_obj_date.asp).
+The `data` passed into the callback function is an [object](https://www.w3schools.com/js/js_objects.asp) with three fields: `date`, `timestamp` and `value` (the id). The `date` is a JavaScript `Date` object with all the information from the year to the millisecond, at the time when Remote Calibrator is initialized. You can find how to get these information [here](https://www.w3schools.com/jsref/jsref_obj_date.asp). The `timestamp` (as all the `timestamp` fields mentioned below) is the result of `performance.now()` called at the same time of the respective execution. Learn more about its difference compared to `Date` [here](https://developers.google.com/web/updates/2012/08/When-milliseconds-are-not-enough-performance-now).
+
+While `date` is only provided here, the absolute time of the following calibration actions can be calculated based on the initialization date, initialization timestamp, and the calibration timestamp.
 
 ### 🍱 Panel
 

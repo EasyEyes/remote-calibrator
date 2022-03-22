@@ -44,7 +44,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
             unit: hasEquipment ? value : null,
             equipment: hasEquipment ? '' : null,
           },
-          timestamp: new Date(),
+          timestamp: performance.now(),
         }
 
         resolve()

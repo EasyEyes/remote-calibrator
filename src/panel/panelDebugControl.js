@@ -141,7 +141,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
   debuggerNext.onclick = () => {
     _wrapValues(RC, debugControlRows)
     // Final callback
-    safeExecuteFunc(panelCallback, { timestamp: new Date() })
+    safeExecuteFunc(panelCallback, { timestamp: performance.now() })
     // Fixed final callback
     RC._panelStatus.panelFinished = true
   }

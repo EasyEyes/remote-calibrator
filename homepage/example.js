@@ -21,6 +21,15 @@ function gotData(text) {
  *
  */
 function parseTimestamp(timestamp) {
+  return Math.round(timestamp)
+}
+
+/**
+ *
+ * Help parse the date (Date) from the Toolbox
+ *
+ */
+function parseDate(timestamp) {
   return `${timestamp.getHours()}:${timestamp.getMinutes()}:${timestamp.getSeconds()}:${timestamp.getMilliseconds()}`
 }
 
@@ -89,7 +98,7 @@ const _initializeCode = `RemoteCalibrator.init({}, id => {
   printMessage(
     \`Remote Calibrator initialized at \${parseTimestamp(
       id.timestamp
-    )}. Session id is \${
+    )} (\${parseDate(id.date)}). Session id is \${
       id.value
     }. <span style="color: #ff9a00; font-weight: bold">This page is only to demo (almost) all possible functionalities of EasyEyes Remote Calibrator. Please visit our website <a href="https://easyeyes.app/remote-calibrator" target="_blank" style="color: #ff9a00">https://easyeyes.app/remote-calibrator</a> to learn more about this library and other modules EasyEyes offers.</span>\`
   )\n@

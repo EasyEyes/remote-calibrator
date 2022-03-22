@@ -114,7 +114,7 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
     if (offsetPixel !== -100) {
       const newPDData = {
         value: (offsetPixel * 2.54) / screenPpi,
-        timestamp: new Date(),
+        timestamp: performance.now(),
       }
       this.newPDData = newPDData
 
