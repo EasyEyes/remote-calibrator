@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 
 - When `showGazer` is true, calling `.getGazeNow()` renders a fading-out red gaze dot on the screen.
+- `.gazeLearning()` takes one extra optional argument (e.g., `{ click: true, move: false }`) to turn on/off learning from only click or move events.
 
 ## Changed
 

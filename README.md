@@ -411,7 +411,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
 
 #### Others
 
-- `.gazeLearning([Boolean])` WebGazer uses a regression model to always learn and update the model based on the assumption that one would always look at the point where curser makes interaction. However, in a psychophysics experiment, participants may not always look at the place where they click or move the cursor. Thus, `greedyLearner` option is set to `false` by default so that the tracker stops learning after calibration period. But you may also turn it on (or off if needed) again with this function.
+- `.gazeLearning([Boolean, [options]])` WebGazer uses a regression model to always learn and update the model based on the assumption that one would always look at the point where curser makes interaction. However, in a psychophysics experiment, participants may not always look at the place where they click or move the cursor. Thus, `greedyLearner` option is set to `false` by default so that the tracker stops learning after calibration period. But you may also turn it on (or off if needed) again with this function. You can also pass in options, to enable/disable only the click or move event listeners, e.g., `.gazeLearning(true, { click: true, move: false })` will turn on only the listener for the click event. However, it won't turn off for the move events if it's on.
 - `.showGazer([Boolean])`
 - `.showVideo([Boolean])`
 - `.showFaceOverlay([Boolean])`

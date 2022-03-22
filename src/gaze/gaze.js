@@ -113,7 +113,8 @@ RemoteCalibrator.prototype.trackGaze = async function (
 
     // ! greedyLearner
     if (!this.gazeTracker.webgazer.params.greedyLearner) {
-      this.gazeTracker.stopLearning()
+      // stop all by default
+      this.gazeTracker.stopLearning({ click: true, move: true })
     }
 
     // TODO Test accuracy
@@ -180,8 +181,17 @@ RemoteCalibrator.prototype.endGaze = function (endAll = false) {
 
 /* -------------------------------------------------------------------------- */
 
-RemoteCalibrator.prototype.gazeLearning = function (learn = true) {
-  learn ? this.gazeTracker.startLearning() : this.gazeTracker.stopLearning()
+RemoteCalibrator.prototype.gazeLearning = function (learn = true, options) {
+  options = Object.assign(
+    {
+      click: true,
+      move: true,
+    },
+    options
+  )
+  learn
+    ? this.gazeTracker.startLearning(options)
+    : this.gazeTracker.stopLearning(options)
 }
 
 /* -------------------------------------------------------------------------- */

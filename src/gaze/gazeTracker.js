@@ -237,16 +237,16 @@ GazeTracker.prototype.stopStoringPoints = function () {
   this.webgazer.params.storingPoints = false
 }
 
-GazeTracker.prototype.startLearning = function () {
+GazeTracker.prototype.startLearning = function (options) {
   if (!this._learning) {
-    this.webgazer.startLearning()
+    this.webgazer.startLearning(options)
     this._learning = true
   }
 }
 
-GazeTracker.prototype.stopLearning = function () {
+GazeTracker.prototype.stopLearning = function (options) {
   if (this._learning) {
-    this.webgazer.stopLearning()
+    this.webgazer.stopLearning(options)
     this._learning = false
   }
 }
