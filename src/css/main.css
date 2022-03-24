@@ -123,9 +123,10 @@
   padding: 10px 17px;
   margin: 0;
   left: 50%;
+  max-width: 25rem;
   transform: translate(-50%, 0);
   border-radius: 10px;
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 500;
   z-index: 999999991;
 }

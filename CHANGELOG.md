@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Typos of internal parameter naming.
 - The video element (for gaze and distance tracking) may occlude the click to other content even when hidden.
+- `undefined` displayed as the results of some homepage example functions.
 
 ## [0.5.1] - 2022-02-23
 
