@@ -37,11 +37,11 @@
     "cssnano": "^5.1.5",
     "eslint": "^8.11.0",
     "eslint-webpack-plugin": "^3.1.1",
-    "googleapis": "^98.0.0",
+    "googleapis": "^99.0.0",
     "husky": "^7.0.4",
     "lint-staged": "^12.3.7",
     "postcss-loader": "^6.2.1",
-    "prettier": "^2.6.0",
+    "prettier": "^2.6.1",
     "sass": "^1.49.9",
     "sass-loader": "^12.6.0",
     "style-loader": "^3.3.1",
@@ -51,7 +51,7 @@
     "webpack": "^5.70.0",
     "webpack-cli": "^4.9.2",
     "webpack-modules": "^1.0.0",
-    "xlsx": "^0.18.4"
+    "xlsx": "^0.18.5"
   },
   "lint-staged": {
     "*.js": "eslint --cache --fix",
@@ -62,7 +62,7 @@
     "device-detector-js": "^3.0.2",
     "platform": "^1.3.6",
     "react-fast-compare": "^3.2.0",
-    "sweetalert2": "^11.4.6",
+    "sweetalert2": "^11.4.7",
     "tinycolor2": "^1.4.2",
     "tone": "^14.7.77"
   },
