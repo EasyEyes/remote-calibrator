@@ -56,15 +56,20 @@ class RemoteCalibrator {
       gaze: true,
       distance: true,
     }
+    this._trackingPaused = {
+      gaze: false,
+      distance: false,
+    }
+    this._trackingVideoFrameTimestamps = {
+      gaze: 0,
+      distance: 0,
+    }
+
     this._distanceTrackNudging = {
       distanceCorrecting: null, // setInterval
       distanceCorrectEnabled: false, // Whether to correct or not, used for endNudger
       distanceDesired: null,
       distanceAllowedRatio: null,
-    }
-    this._trackingVideoFrameTimestamps = {
-      gaze: 0,
-      distance: 0,
     }
 
     // ! DATA

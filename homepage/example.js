@@ -347,7 +347,7 @@ function trackViewingDistance(e) {
   )
   target.parentNode.replaceChild(
     constructFunctionButton(
-      ['Pause Distance', 'pauseGDistance', 'pauseDistance', 'distance'],
+      ['Pause Distance', 'pauseDistance', 'pauseDistance', 'distance'],
       false
     ),
     target

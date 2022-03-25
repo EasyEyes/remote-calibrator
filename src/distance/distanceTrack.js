@@ -440,17 +440,26 @@ const _getNearPoint = (
 }
 
 RemoteCalibrator.prototype.pauseDistance = function () {
-  if (this.gazeTracker.checkInitialized('distance', true)) {
+  if (
+    this.gazeTracker.checkInitialized('distance', true) &&
+    !this._trackingPaused.distance
+  ) {
     iRepeatOptions.break = true
     if (nearPointDot) nearPointDot.style.display = 'none'
     this._trackingVideoFrameTimestamps.distance = 0
+
+    this._trackingPaused.distance = true
+
     return this
   }
   return null
 }
 
 RemoteCalibrator.prototype.resumeDistance = function () {
-  if (this.gazeTracker.checkInitialized('distance', true)) {
+  if (
+    this.gazeTracker.checkInitialized('distance', true) &&
+    this._trackingPaused.distance
+  ) {
     iRepeatOptions.break = false
     if (nearPointDot) nearPointDot.style.display = 'block'
 
@@ -459,6 +468,9 @@ RemoteCalibrator.prototype.resumeDistance = function () {
     this._trackingVideoFrameTimestamps.distance = 0
 
     iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
+
+    this._trackingPaused.distance = false
+
     return this
   }
   return null
@@ -486,6 +498,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
 
     readyToGetFirstData = false
     this._trackingVideoFrameTimestamps.distance = 0
+    this._trackingPaused.distance = false
 
     // Near point
     if (nearPointDot) {

@@ -155,7 +155,8 @@ RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {
   if (
     !this.checkInitialized() ||
     !this.gazeTracker.checkInitialized('gaze', true) ||
-    !this.gazeTracker.webgazer.params.paused
+    !this.gazeTracker.webgazer.params.paused ||
+    !this._trackingPaused.gaze
   )
     return
 
@@ -165,17 +166,28 @@ RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {
 }
 
 RemoteCalibrator.prototype.pauseGaze = function () {
-  if (!this.gazeTracker.checkInitialized('gaze', true)) return
+  if (
+    !this.gazeTracker.checkInitialized('gaze', true) &&
+    this._trackingPaused.gaze
+  )
+    return
+  this._trackingPaused.gaze = true
   this.gazeTracker.pause()
 }
 
 RemoteCalibrator.prototype.resumeGaze = function () {
-  if (!this.gazeTracker.checkInitialized('gaze', true)) return
+  if (
+    !this.gazeTracker.checkInitialized('gaze', true) &&
+    !this._trackingPaused.gaze
+  )
+    return
+  this._trackingPaused.gaze = false
   this.gazeTracker.resume()
 }
 
 RemoteCalibrator.prototype.endGaze = function (endAll = false) {
   if (!this.gazeTracker.checkInitialized('gaze', true)) return
+  this._trackingPaused.gaze = false
   this.gazeTracker.end('gaze', endAll)
 }
 
