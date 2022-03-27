@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Changed
 
-- (Breaking) The `timestamp` field of all results uses `performance.now()` instead of `Date`.
+- **(Breaking)** The `timestamp` field of all results uses `performance.now()` instead of `Date`.
 - When calibrating gaze, the positions of the dot to click follow a certain clockwise sequence instead of randomized. Four more positions - 2 degrees to the top, right, bottom, and left of the screen center - are added. The center dot now appears three times, and each requires doubled click amount. The new positions (2 degrees relative to the center) depend on the viewing distance. Thus, measuring it first is highly recommended. Otherwise, 40 cm is assumed.
 
 ## Fixed
@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Typos of internal parameter naming.
 - The video element (for gaze and distance tracking) may occlude the click to other content even when hidden.
 - `undefined` displayed as the results of some homepage example functions.
+- Freezed nudger when pausing distance tracking while nudger is on.
 
 ## [0.5.1] - 2022-02-23
 

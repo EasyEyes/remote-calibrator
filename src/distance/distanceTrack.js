@@ -449,6 +449,7 @@ RemoteCalibrator.prototype.pauseDistance = function () {
     this._trackingVideoFrameTimestamps.distance = 0
 
     this._trackingPaused.distance = true
+    this.pauseNudger() // 0.6.0
 
     return this
   }
@@ -470,6 +471,7 @@ RemoteCalibrator.prototype.resumeDistance = function () {
     iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
 
     this._trackingPaused.distance = false
+    this.resumeNudger() // 0.6.0
 
     return this
   }
