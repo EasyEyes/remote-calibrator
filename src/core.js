@@ -144,6 +144,7 @@ class RemoteCalibrator {
     return {
       value: this._id.value,
       timestamp: this._id.timestamp,
+      date: this._id.date,
     }
   }
 

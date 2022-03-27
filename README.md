@@ -68,7 +68,7 @@ Arguments in square brackets are optional, e.g. `init([options, [callback]])` me
 
 Initialize RemoteCalibrator. Must be called before any other functions and can only run once. Return `this`.
 
-Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.id`) to callback.
+Pass `{ value, timestamp, date }` (equivalent to `RemoteCalibrator.id`) to callback.
 
 ```js
 /* [options] Default value */
@@ -98,7 +98,7 @@ The callback function will be called after the initialization. Like many other f
 
 ```js
 function initializationFinished(data) {
-  // data: { timestamp, value }
+  // data: { value, timestamp, date }
   console.log(`RemoteCalibrator was initialized at ${data.timestamp}.`)
 }
 
