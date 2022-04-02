@@ -126,6 +126,23 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
           )
           break
 
+        case 'performance':
+          rowElement.innerHTML += _createValueElement(
+            taskName,
+            'idealFps',
+            taskDefault.value.idealFps,
+            '.value.idealFps',
+            inputTypes.n
+          )
+          rowElement.innerHTML += _createValueElement(
+            taskName,
+            'stressFps',
+            taskDefault.value.stressFps,
+            '.value.stressFps',
+            inputTypes.n
+          )
+          break
+
         default:
           break
       }
@@ -210,6 +227,13 @@ const _wrapValues = (RC, rowTaskNames) => {
         _putData(RC, newData, taskRow)
         RC.newGazePositionData = _copy(newData)
         break
+
+      case 'performance':
+        newData.value = {}
+        _putData(RC, newData, taskRow)
+        RC.newPerformanceData = _copy(newData)
+        break
+
       default:
         break
     }

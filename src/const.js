@@ -80,4 +80,10 @@ RemoteCalibrator.prototype._debuggerDefault = Object.freeze({
       latencyMs: 50,
     },
   },
+  performance: {
+    value: {
+      idealFps: 60,
+      stressFps: 60,
+    },
+  },
 })
