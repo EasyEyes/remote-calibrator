@@ -240,6 +240,11 @@ const _validTaskList = {
     name: phrases.RC_gazeTracking['en-US'],
     phraseHandle: 'RC_gazeTracking',
   },
+  performance: {
+    use: 1,
+    name: phrases.RC_performance['en-US'],
+    phraseHandle: 'RC_performance',
+  },
 }
 const _validTaskListNames = Object.keys(_validTaskList)
 
@@ -449,7 +454,7 @@ const _getTaskOptionsCallbacks = (
     safeExecuteFunc(fixedFinalCallback)
   }
 
-  if (['screenSize', 'measureDistance'].includes(task.name)) {
+  if (['screenSize', 'measureDistance', 'performance'].includes(task.name)) {
     return [
       task.options || {},
       data => {

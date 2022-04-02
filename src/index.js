@@ -14,6 +14,8 @@ import './gaze/gazeCalibration'
 import './gaze/gazeAccuracy'
 import GazeTracker from './gaze/gazeTracker'
 
+import './performance'
+
 import './check/equipment'
 import './check/checkScreenSize'
 import './check/checkDistance'

@@ -86,6 +86,7 @@ class RemoteCalibrator {
     this._gazeAccuracyData = []
 
     // Status
+    this._performanceData = []
     this._fullscreenData = []
 
     // Check
@@ -208,6 +209,14 @@ class RemoteCalibrator {
   }
 
   // Status
+
+  get idealFps() {
+    return this._helper_get(this._performanceData, 'idealFps')
+  }
+
+  get stressFps() {
+    return this._helper_get(this._performanceData, 'stressFps')
+  }
 
   get isFullscreen() {
     if (
@@ -379,6 +388,10 @@ class RemoteCalibrator {
     return this._gazePositionData
   }
 
+  get performanceData() {
+    return this._performanceData
+  }
+
   get fullscreenData() {
     return this._fullscreenData
   }
@@ -455,6 +468,13 @@ class RemoteCalibrator {
    */
   set newEnvironmentData(data) {
     this._environmentData.push(data)
+  }
+
+  /**
+   * @param {{ value: { idealFps: number; stressFps: number; }; timestamp: number; }} data
+   */
+  set newPerformanceData(data) {
+    this._performanceData.push(data)
   }
 
   /**

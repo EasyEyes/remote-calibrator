@@ -138,6 +138,7 @@ function initializeCode() {
 const _panelCode = `RemoteCalibrator.panel(
   [
     // Configure tasks
+    'performance',
     {
       name: 'screenSize',
       callback: data => {
@@ -560,6 +561,22 @@ function getGazeNow() {
 }
 function getGazeNowCode() {
   printCode(_getGazeNodeCode, '.getGazeNow()')
+}
+
+/**
+ * Performance
+ */
+const _testPerformanceCode = `RemoteCalibrator.performance({}, data => {
+  printMessage(
+    \`The ideal FPS (given the refresh rate of the display) is: \${data.value.idealFps}, 
+    while under stressful computing, the actual FPS is: \${data.value.stressFps}.\`
+  )
+})`
+function testPerformance() {
+  eval(_testPerformanceCode)
+}
+function testPerformanceCode() {
+  printCode(_testPerformanceCode, '.performance()')
 }
 
 /* -------------------------------------------------------------------------- */
