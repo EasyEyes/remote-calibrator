@@ -1,4 +1,4 @@
-import { randn_bm, safeExecuteFunc } from './components/utils'
+import { randn_bm, safeExecuteFunc, sleep } from './components/utils'
 import RemoteCalibrator from './core'
 import { phrases } from './i18n'
 
@@ -12,8 +12,8 @@ RemoteCalibrator.prototype.performance = async function (
 
   options = Object.assign(
     {
-      testFrameCount: 600,
-      testObjectCount: 5000,
+      testFrameCount: 180,
+      testObjectCount: 10000,
       headline: '🚀 ' + phrases.RC_performanceTitle[this.L],
       description: phrases.RC_performanceIntro[this.L],
     },
@@ -22,7 +22,25 @@ RemoteCalibrator.prototype.performance = async function (
 
   this._addBackground()
   this._addBackgroundText(options.headline, options.description)
-  // await sleep(100)
+  await sleep(200)
+
+  const countStartTime = performance.now()
+  let numberCounter = {
+    _useless: undefined,
+    time: 0,
+    randomTime: 0,
+  }
+  while (performance.now() - countStartTime < 1000) {
+    numberCounter._useless = Array(5000).fill(Math.floor(Math.random() * 10))
+    numberCounter.time++
+  }
+
+  const countStartTimeRandom = performance.now()
+  numberCounter._useless = 0
+  while (performance.now() - countStartTimeRandom < 1000) {
+    numberCounter._useless += Math.random()
+    numberCounter.randomTime++
+  }
 
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
@@ -41,6 +59,8 @@ RemoteCalibrator.prototype.performance = async function (
 
   const data = (this.newPerformanceData = {
     value: {
+      arrayFillPerSec: numberCounter.time,
+      randomPerSec: numberCounter.randomTime,
       idealFps: Math.round(60000 / (configData.end - configData.start)),
       stressFps: Math.round(
         (1000 * options.testFrameCount) / (timingData.end - timingData.start)

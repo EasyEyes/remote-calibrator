@@ -210,6 +210,14 @@ class RemoteCalibrator {
 
   // Status
 
+  get arrayFillPerSec() {
+    return this._helper_get(this._performanceData, 'arrayFillPerSec')
+  }
+
+  get randomPerSec() {
+    return this._helper_get(this._performanceData, 'randomPerSec')
+  }
+
   get idealFps() {
     return this._helper_get(this._performanceData, 'idealFps')
   }
