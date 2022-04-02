@@ -1,4 +1,5 @@
 import RemoteCalibrator from './core'
+import { toFixedNumber } from './components/utils'
 
 RemoteCalibrator.prototype._CONST = Object.freeze({
   N: {
@@ -82,8 +83,8 @@ RemoteCalibrator.prototype._debuggerDefault = Object.freeze({
   },
   performance: {
     value: {
-      computeArrayFillMHz: 500000,
-      computeRandomMHz: 5000000,
+      computeArrayFillMHz: toFixedNumber(500000 / 1e6, 3),
+      computeRandomMHz: toFixedNumber(5000000 / 1e6, 3),
       idealFps: 60,
       stressFps: 60,
     },
