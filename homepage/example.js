@@ -570,10 +570,10 @@ const _testPerformanceCode = `RemoteCalibrator.performance({}, data => {
   printMessage(
     \`The ideal FPS (given the refresh rate of the display) is: \${data.value.idealFps}, 
     while under stressful computing, the actual FPS is: \${data.value.stressFps}. 
-    It computes \${data.value.randomPerSec} times of <code>Math.random</code> per second, 
+    It computes \${data.value.computeRandomMHz} million times of <code>Math.random</code> per second, 
     and does the Array filling task 
     (<code>Array(5000).fill(Math.floor(Math.random() * 10))</code>) 
-    \${data.value.arrayFillPerSec} times per second.\`
+    \${data.value.computeArrayFillMHz} million times per second.\`
   )
 })`
 function testPerformance() {

@@ -1,4 +1,9 @@
-import { randn_bm, safeExecuteFunc, sleep } from './components/utils'
+import {
+  randn_bm,
+  safeExecuteFunc,
+  sleep,
+  toFixedNumber,
+} from './components/utils'
 import RemoteCalibrator from './core'
 import { phrases } from './i18n'
 
@@ -59,8 +64,8 @@ RemoteCalibrator.prototype.performance = async function (
 
   const data = (this.newPerformanceData = {
     value: {
-      arrayFillPerSec: numberCounter.time,
-      randomPerSec: numberCounter.randomTime,
+      computeArrayFillMHz: toFixedNumber(numberCounter.time / 1e6, 3),
+      computeRandomMHz: toFixedNumber(numberCounter.randomTime / 1e6, 3),
       idealFps: Math.round(60000 / (configData.end - configData.start)),
       stressFps: Math.round(
         (1000 * options.testFrameCount) / (timingData.end - timingData.start)

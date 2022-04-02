@@ -129,16 +129,16 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
         case 'performance':
           rowElement.innerHTML += _createValueElement(
             taskName,
-            'arrayFillPerSec',
-            taskDefault.value.arrayFillPerSec,
-            '.value.arrayFillPerSec',
+            'computeArrayFillMHz',
+            taskDefault.value.computeArrayFillMHz,
+            '.value.computeArrayFillMHz',
             inputTypes.n
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
-            'randomPerSec',
-            taskDefault.value.randomPerSec,
-            '.value.randomPerSec',
+            'computeRandomMHz',
+            taskDefault.value.computeRandomMHz,
+            '.value.computeRandomMHz',
             inputTypes.n
           )
           rowElement.innerHTML += _createValueElement(

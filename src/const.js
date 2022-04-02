@@ -82,8 +82,8 @@ RemoteCalibrator.prototype._debuggerDefault = Object.freeze({
   },
   performance: {
     value: {
-      arrayFillPerSec: 500000,
-      randomPerSec: 5000000,
+      computeArrayFillMHz: 500000,
+      computeRandomMHz: 5000000,
       idealFps: 60,
       stressFps: 60,
     },
