@@ -240,6 +240,10 @@ class RemoteCalibrator {
 
   // Environment
 
+  get concurrency() {
+    return this._helper_get(this._environmentData, 'concurrency')
+  }
+
   get bot() {
     return this._helper_get(this._environmentData, 'bot')
   }
@@ -573,6 +577,7 @@ RemoteCalibrator.prototype._environment = function () {
 
     const data = {
       value: {
+        concurrency: window.navigator.hardwareConcurrency || -1,
         bot: bot
           ? `${bot.name} (${bot.category}) by ${bot.producer.name}`
           : null,
