@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2022-04-13
+
 ## Added
 
 - Performance testing. Using `.performance()` to execute a series of computation demanding tasks for the CPU and GPU, including filling randoms numbers into an array of length of 5000 (repeatedly for a second), generating random numbers (repeatedly for a second), computing for and rendering stressful 2D canvas graphics. Results are reported as `computeArrayFillMHz`, `computeRandomMHz`, `idealFps` (canvas FPS without any heavy tasks), and `stressFps` in the returned value.
@@ -321,7 +323,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.1...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.0...develop
+[0.6.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.3.0...v0.5.0
 [0.3.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.2.3...v0.3.0
