@@ -21,6 +21,15 @@ function gotData(text) {
  *
  */
 function parseTimestamp(timestamp) {
+  return Math.round(timestamp)
+}
+
+/**
+ *
+ * Help parse the date (Date) from the Toolbox
+ *
+ */
+function parseDate(timestamp) {
   return `${timestamp.getHours()}:${timestamp.getMinutes()}:${timestamp.getSeconds()}:${timestamp.getMilliseconds()}`
 }
 
@@ -89,9 +98,13 @@ const _initializeCode = `RemoteCalibrator.init({}, id => {
   printMessage(
     \`Remote Calibrator initialized at \${parseTimestamp(
       id.timestamp
-    )}. Session id is \${
+    )} (\${parseDate(id.date)}). Session id is \${
       id.value
-    }. <span style="color: #ff9a00; font-weight: bold">This page is only to demo (almost) all possible functionalities of EasyEyes Remote Calibrator. Please visit our website <a href="https://easyeyes.app/remote-calibrator" target="_blank" style="color: #ff9a00">https://easyeyes.app/remote-calibrator</a> to learn more about this library and other modules EasyEyes offers.</span>\`
+    }. <span style="color: #ff9a00; font-weight: bold">This page is only to 
+    demo (almost) all possible functionalities of EasyEyes Remote Calibrator. 
+    Please visit our website <a href="https://easyeyes.app/remote-calibrator" 
+    target="_blank" style="color: #ff9a00">https://easyeyes.app/remote-calibrator</a> 
+    to learn more about this library and other modules EasyEyes offers.</span>\`
   )\n@
 })`
 function initialize(e) {
@@ -125,11 +138,13 @@ function initializeCode() {
 const _panelCode = `RemoteCalibrator.panel(
   [
     // Configure tasks
+    'performance',
     {
       name: 'screenSize',
       callback: data => {
         printMessage(
-          \`[CALLBACK] Screen size calibration finished! This message is printed in the callback function. Only this task's callback is set up with a print function.\`
+          \`[CALLBACK] Screen size calibration finished! This message is printed in the 
+          callback function. Only this task's callback is set up with a print function.\`
         )
       },
     },
@@ -200,7 +215,12 @@ const _measureScreenSizeCode = `RemoteCalibrator.screenSize({
   check: true,
   checkCallback: (result) => {
     printMessage(
-      \`The participant measured the arrow size with their own tools, and the reported value is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm.\`
+      \`The participant measured the arrow sizes with their own tools, and the reported value is 
+      Horizontal: \${result.value.horizontal.numerical} \${result.value.horizontal.unit}, 
+      Vertical: \${result.value.vertical.numerical} \${result.value.vertical.unit}, 
+      while the calibrator got 
+      Horizontal: \${result.value.horizontal.calibratorArrowWidthCm} cm, 
+      Vertical: \${result.value.vertical.calibratorArrowHeightCm} cm.\`
     )
   }
 }, screenData => {
@@ -237,10 +257,13 @@ const _measureDistanceCallback = `const measureDistanceCallback = distanceData =
   )
 }`
 const _measureViewingDistanceCode = `RemoteCalibrator.measureDistance({
-  check: true,
+  check: false,
   checkCallback: (result) => {
     printMessage(
-      \`The viewing distance measured by the participant is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm (using \${result.value.calibratorMethod}).\`
+      \`The viewing distance measured by the participant is 
+      \${result.value.numerical} \${result.value.unit}, 
+      while the calibrator got \${result.value.calibratorCm} cm 
+      (using \${result.value.calibratorMethod}).\`
     )
   }
 }, distanceData => {
@@ -277,10 +300,13 @@ RemoteCalibrator.trackDistance(
     desiredDistanceCm: 60,
     desiredDistanceMonitor: true,
     desiredDistanceMonitorCancelable: false,
-    check: true,
+    check: false,
     checkCallback: (result) => {
       printMessage(
-        \`The viewing distance measured by the participant is \${result.value.numerical} \${result.value.unit}, while the calibrator got \${result.value.calibratorCm} cm (using \${result.value.calibratorMethod}).\`
+        \`The viewing distance measured by the participant is 
+        \${result.value.numerical} \${result.value.unit}, 
+        while the calibrator got \${result.value.calibratorCm} cm 
+        (using \${result.value.calibratorMethod}).\`
       )
     }
   },
@@ -322,7 +348,7 @@ function trackViewingDistance(e) {
   )
   target.parentNode.replaceChild(
     constructFunctionButton(
-      ['Pause Distance', 'pauseGDistance', 'pauseDistance', 'distance'],
+      ['Pause Distance', 'pauseDistance', 'pauseDistance', 'distance'],
       false
     ),
     target
@@ -535,6 +561,26 @@ function getGazeNow() {
 }
 function getGazeNowCode() {
   printCode(_getGazeNodeCode, '.getGazeNow()')
+}
+
+/**
+ * Performance
+ */
+const _testPerformanceCode = `RemoteCalibrator.performance({}, data => {
+  printMessage(
+    \`The ideal FPS (given the refresh rate of the display) is: \${data.value.idealFps}, 
+    while under stressful computing, the actual FPS is: \${data.value.stressFps}. 
+    It computes \${data.value.computeRandomMHz} million times of <code>Math.random</code> per second, 
+    and does the Array filling task 
+    (<code>Array(5000).fill(Math.floor(Math.random() * 10))</code>) 
+    \${data.value.computeArrayFillMHz} million times per second.\`
+  )
+})`
+function testPerformance() {
+  eval(_testPerformanceCode)
+}
+function testPerformanceCode() {
+  printCode(_testPerformanceCode, '.performance()')
 }
 
 /* -------------------------------------------------------------------------- */

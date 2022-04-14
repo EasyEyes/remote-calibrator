@@ -126,6 +126,37 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
           )
           break
 
+        case 'performance':
+          rowElement.innerHTML += _createValueElement(
+            taskName,
+            'computeArrayFillMHz',
+            taskDefault.value.computeArrayFillMHz,
+            '.value.computeArrayFillMHz',
+            inputTypes.n
+          )
+          rowElement.innerHTML += _createValueElement(
+            taskName,
+            'computeRandomMHz',
+            taskDefault.value.computeRandomMHz,
+            '.value.computeRandomMHz',
+            inputTypes.n
+          )
+          rowElement.innerHTML += _createValueElement(
+            taskName,
+            'idealFps',
+            taskDefault.value.idealFps,
+            '.value.idealFps',
+            inputTypes.n
+          )
+          rowElement.innerHTML += _createValueElement(
+            taskName,
+            'stressFps',
+            taskDefault.value.stressFps,
+            '.value.stressFps',
+            inputTypes.n
+          )
+          break
+
         default:
           break
       }
@@ -141,7 +172,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
   debuggerNext.onclick = () => {
     _wrapValues(RC, debugControlRows)
     // Final callback
-    safeExecuteFunc(panelCallback, { timestamp: new Date() })
+    safeExecuteFunc(panelCallback, { timestamp: performance.now() })
     // Fixed final callback
     RC._panelStatus.panelFinished = true
   }
@@ -210,6 +241,13 @@ const _wrapValues = (RC, rowTaskNames) => {
         _putData(RC, newData, taskRow)
         RC.newGazePositionData = _copy(newData)
         break
+
+      case 'performance':
+        newData.value = {}
+        _putData(RC, newData, taskRow)
+        RC.newPerformanceData = _copy(newData)
+        break
+
       default:
         break
     }

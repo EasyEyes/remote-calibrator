@@ -45,18 +45,18 @@ RemoteCalibrator.measureDistance({}, data => {
 
 ## Functions
 
-| Task                                        | Functions                                                                                                                                                                                                                    |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [🎬 Initialize](#-initialize)               | [`init()`](#-initialize) (always required)                                                                                                                                                                                   |
-| [🍱 Panel](#-panel)                         | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                                                    |
-| [🖥️ Screen](#️-screen)                      | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                                   |
-| [📏 Viewing Distance](#-viewing-distance)   | [`measureDistance()`](#-viewing-distance)                                                                                                                                                                                    |
-| [📏 Distance Tracking](#-distance-tracking) | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-distance-tracking) [`async getDistanceNow()`](#async-get-distance-now) [`nudgeDistance()`](#nudge-distance) [Lifecycle](#lifecycle) [Others](#others) |
-| [👀 Gaze](#-gaze)                           | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1)                             |
-| [💻 Environment](#-environment)             | [System and Browser Environment](#-environment)                                                                                                                                                                              |
-| [💄 Customization](#-customization)         | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                                                    |
-| [📔 Other Functions](#-other-functions)     | `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                                                       |
-| [🎣 Getters](#-getters)                     | [Experiment](#experiment) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                                                                |
+| Task                                        | Functions                                                                                                                                                                                                 |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [🎬 Initialize](#-initialize)               | [`init()`](#-initialize) (always required)                                                                                                                                                                |
+| [🍱 Panel](#-panel)                         | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                                 |
+| [🖥️ Screen](#️-screen)                      | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                |
+| [📏 Viewing Distance](#-viewing-distance)   | [`measureDistance()`](#-viewing-distance)                                                                                                                                                                 |
+| [📏 Distance Tracking](#-distance-tracking) | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-distance-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Nudger](#nudger) [Lifecycle](#lifecycle) [Others](#others) |
+| [👀 Gaze](#-gaze)                           | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1)          |
+| [💻 Environment](#-environment)             | [System and Browser Environment](#-environment)                                                                                                                                                           |
+| [💄 Customization](#-customization)         | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                                 |
+| [📔 Other Functions](#-other-functions)     | `performance()` `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                    |
+| [🎣 Getters](#-getters)                     | [Experiment](#experiment) [Performance](#performance) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                 |
 
 Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
@@ -68,7 +68,7 @@ Arguments in square brackets are optional, e.g. `init([options, [callback]])` me
 
 Initialize RemoteCalibrator. Must be called before any other functions and can only run once. Return `this`.
 
-Pass `{ value, timestamp }` (equivalent to `RemoteCalibrator.id`) to callback.
+Pass `{ value, timestamp, date }` (equivalent to `RemoteCalibrator.id`) to callback.
 
 ```js
 /* [options] Default value */
@@ -98,7 +98,7 @@ The callback function will be called after the initialization. Like many other f
 
 ```js
 function initializationFinished(data) {
-  // data: { timestamp, value }
+  // data: { value, timestamp, date }
   console.log(`RemoteCalibrator was initialized at ${data.timestamp}.`)
 }
 
@@ -112,7 +112,9 @@ If you do not want to change anything in default options, simply use an empty ob
 RemoteCalibrator.init({}, initializationFinished)
 ```
 
-The `data` passed into the callback function is an [object](https://www.w3schools.com/js/js_objects.asp) with two fields: `timestamp` and `value` (the id). The `timestamp` is an JavaScript `Date()` object with all the information from the year to the millisecond. You can find how to get these information [here](https://www.w3schools.com/jsref/jsref_obj_date.asp).
+The `data` passed into the callback function is an [object](https://www.w3schools.com/js/js_objects.asp) with three fields: `date`, `timestamp` and `value` (the id). The `date` is a JavaScript `Date` object with all the information from the year to the millisecond, at the time when Remote Calibrator is initialized. You can find how to get these information [here](https://www.w3schools.com/jsref/jsref_obj_date.asp). The `timestamp` (as all the `timestamp` fields mentioned below) is the result of `performance.now()` called at the same time of the respective execution. Learn more about its difference compared to `Date` [here](https://developers.google.com/web/updates/2012/08/When-milliseconds-are-not-enough-performance-now).
+
+While `date` is only provided here, the absolute time of the following calibration actions can be calculated based on the initialization date, initialization timestamp, and the calibration timestamp.
 
 ### 🍱 Panel
 
@@ -292,14 +294,6 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestam
 
 You can pause active distance tracking, and use this function to get the latest distance at the moment when the user makes reactions. If no callback function is passed in, it will use the one from `.trackDistance()` as the default.
 
-#### Nudge Distance
-
-```js
-.nudgeDistance(desiredCm, errorTolerance)
-```
-
-Check the current viewing distance and compare it to the desired distance. Guide the participant to the target distance if needed.
-
 #### Near Point
 
 The observer's near point is the orthogonal nearest viewing point in the screen, or the plane containing the screen. To track the near point, we assume that the webcam view is orthogonal to the display, and it is placed around 0.5cm above the top center of the screen (e.g., the built-in webcam of a MacBook). Our method is based on the Facemesh model and can give you an approximate estimation of the near point.
@@ -307,6 +301,14 @@ The observer's near point is the orthogonal nearest viewing point in the screen,
 Setting `nearPoint` option to `true` (default) allows the system to track near point and pass the data into the `callbackTrack` function along with the distance data. The participant will also be instructed to measure and submit their interpupillary distance before the system can start predict the near point.
 
 The value returned are the horizontal and vertical offsets, in centimeters, compared to **the center of the screen**. **Positive** values indicate that the near point is **above** and to the **right** of the center point.
+
+#### Nudger
+
+- (Beta) `.nudgeDistance(cancelable = false, { options, callbackStatic, callbackTrack } = distanceTrackingConfig)` If `cancelable` is `true`, then participants can use ESC or click to cancel the nudger. `distanceTrackingConfig` is used to configure a new distance tracking that can be restarted within the nudger. We recommend to start nudger when starting distance tracking using its `desiredDistanceCm` and `desiredDistanceMonitor` options.
+- `.setDistanceDesired(distanceDesired, [allowedRatio])`
+- `.pauseNudger()`
+- `.resumeNudger()`
+- `.endNudger()`
 
 #### Lifecycle
 
@@ -409,7 +411,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
 
 #### Others
 
-- `.gazeLearning([Boolean])` WebGazer uses a regression model to always learn and update the model based on the assumption that one would always look at the point where curser makes interaction. However, in a psychophysics experiment, participants may not always look at the place where they click or move the cursor. Thus, `greedyLearner` option is set to `false` by default so that the tracker stops learning after calibration period. But you may also turn it on (or off if needed) again with this function.
+- `.gazeLearning([Boolean, [options]])` WebGazer uses a regression model to always learn and update the model based on the assumption that one would always look at the point where curser makes interaction. However, in a psychophysics experiment, participants may not always look at the place where they click or move the cursor. Thus, `greedyLearner` option is set to `false` by default so that the tracker stops learning after calibration period. But you may also turn it on (or off if needed) again with this function. You can also pass in options, to enable/disable only the click or move event listeners, e.g., `.gazeLearning(true, { click: true, move: false })` will turn on only the listener for the click event. However, it won't turn off for the move events if it's on.
 - `.showGazer([Boolean])`
 - `.showVideo([Boolean])`
 - `.showFaceOverlay([Boolean])`
@@ -426,6 +428,7 @@ Get the setup information of the experiment, including browser type, device mode
 
 ### 📔 Other Functions
 
+- `.performance()` Execute a series of computation demanding tasks for the CPU and GPU, including filling randoms numbers into an array of length of 5000 (repeatedly for a second), generating random numbers (repeatedly for a second), computing for and rendering stressful 2D canvas graphics. Results are reported as `computeArrayFillMHz`, `computeRandomMHz`, `idealFps` (canvas FPS without any heavy tasks), and `stressFps` in the returned value.
 - `.checkInitialized()` Check if the model is initialized. Return a boolean.
 - `.getFullscreen()` Get fullscreen mode.
 - `.newLanguage(lang = 'en-US')` Set a new language for the calibrator.
@@ -450,10 +453,18 @@ Getters will get `null` if no data can be found, i.e. the corresponding function
 - `.gazePositionPx` The last measured gaze position on the screen.
 - `.isFullscreen` Whether the window is in fullscreen mode.
 
+#### Performance
+
+- `.computeArrayFillMHz` Number of array filling tasks (i.e. `Array(5000).fill(Math.floor(Math.random() * 10))`) the computer can finish in a second, in MHz.
+- `.computeRandomMHz` Number of times the CPU can generate random numbers (i.e. `Math.random()`) in a second, in MHz.
+- `.idealFps` The 2D canvas FPS when there's no tasks at all.
+- `.stressFps` The 2D canvas FPS when computing for and rendering stressful 2D canvas graphics.
+
 #### Environment
 
 The associated timestamp of the following items is the one created at initiation, i.e. when `init()` is called.
 
+- `.concurrency` The number of cores of CPU. If the browser doesn't support, the value will be `-1`.
 - `.bot` If the user agent is a bot or not, `null` will be returned if no bot detected, e.g., `Googlebot (Search bot) by Google Inc.`.
 - `.browser` The browser type, e.g., `Safari`, `Chrome`.
 - `.browserVersion` The browser version.

@@ -240,6 +240,11 @@ const _validTaskList = {
     name: phrases.RC_gazeTracking['en-US'],
     phraseHandle: 'RC_gazeTracking',
   },
+  performance: {
+    use: 1,
+    name: phrases.RC_performance['en-US'],
+    phraseHandle: 'RC_performance',
+  },
 }
 const _validTaskListNames = Object.keys(_validTaskList)
 
@@ -387,7 +392,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
 
           e.onclick = () => {
             RC._panelStatus.panelFinished = true
-            safeExecuteFunc(finalCallback, { timestamp: new Date() })
+            safeExecuteFunc(finalCallback, { timestamp: performance.now() })
           }
         }
       }
@@ -409,7 +414,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
         )
         finalButton.onclick = () => {
           RC._panelStatus.panelFinished = true
-          safeExecuteFunc(finalCallback, { timestamp: new Date() })
+          safeExecuteFunc(finalCallback, { timestamp: performance.now() })
         }
       }
     }
@@ -445,11 +450,11 @@ const _getTaskOptionsCallbacks = (
     // Task
     safeExecuteFunc(fixedTaskCallback)
     // Panel
-    safeExecuteFunc(finalCallback, { timestamp: new Date() })
+    safeExecuteFunc(finalCallback, { timestamp: performance.now() })
     safeExecuteFunc(fixedFinalCallback)
   }
 
-  if (['screenSize', 'measureDistance'].includes(task.name)) {
+  if (['screenSize', 'measureDistance', 'performance'].includes(task.name)) {
     return [
       task.options || {},
       data => {

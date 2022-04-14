@@ -56,15 +56,20 @@ class RemoteCalibrator {
       gaze: true,
       distance: true,
     }
+    this._trackingPaused = {
+      gaze: false,
+      distance: false,
+    }
+    this._trackingVideoFrameTimestamps = {
+      gaze: 0,
+      distance: 0,
+    }
+
     this._distanceTrackNudging = {
       distanceCorrecting: null, // setInterval
       distanceCorrectEnabled: false, // Whether to correct or not, used for endNudger
       distanceDesired: null,
       distanceAllowedRatio: null,
-    }
-    this._tackingVideoFrameTimestamps = {
-      gaze: 0,
-      distance: 0,
     }
 
     // ! DATA
@@ -81,6 +86,7 @@ class RemoteCalibrator {
     this._gazeAccuracyData = []
 
     // Status
+    this._performanceData = []
     this._fullscreenData = []
 
     // Check
@@ -139,6 +145,7 @@ class RemoteCalibrator {
     return {
       value: this._id.value,
       timestamp: this._id.timestamp,
+      date: this._id.date,
     }
   }
 
@@ -203,6 +210,22 @@ class RemoteCalibrator {
 
   // Status
 
+  get computeArrayFillMHz() {
+    return this._helper_get(this._performanceData, 'computeArrayFillMHz')
+  }
+
+  get computeRandomMHz() {
+    return this._helper_get(this._performanceData, 'computeRandomMHz')
+  }
+
+  get idealFps() {
+    return this._helper_get(this._performanceData, 'idealFps')
+  }
+
+  get stressFps() {
+    return this._helper_get(this._performanceData, 'stressFps')
+  }
+
   get isFullscreen() {
     if (
       !this.fullscreenData.length ||
@@ -210,12 +233,16 @@ class RemoteCalibrator {
     )
       this.newFullscreenData = {
         value: isFullscreen(),
-        timestamp: new Date(),
+        timestamp: performance.now(),
       }
     return this._helper_get(this._fullscreenData)
   }
 
   // Environment
+
+  get concurrency() {
+    return this._helper_get(this._environmentData, 'concurrency')
+  }
 
   get bot() {
     return this._helper_get(this._environmentData, 'bot')
@@ -373,6 +400,10 @@ class RemoteCalibrator {
     return this._gazePositionData
   }
 
+  get performanceData() {
+    return this._performanceData
+  }
+
   get fullscreenData() {
     return this._fullscreenData
   }
@@ -452,6 +483,13 @@ class RemoteCalibrator {
   }
 
   /**
+   * @param {{ value: { idealFps: number; stressFps: number; }; timestamp: number; }} data
+   */
+  set newPerformanceData(data) {
+    this._performanceData.push(data)
+  }
+
+  /**
    * @param {{ value: boolean; timestamp: Date; }} data
    */
   set newFullscreenData(data) {
@@ -501,7 +539,8 @@ RemoteCalibrator.prototype.init = function (options = {}, callback) {
 
     this._id = {
       value: options.id,
-      timestamp: new Date(),
+      timestamp: performance.now(),
+      date: new Date(), // only Date to save
     }
 
     this._environment()
@@ -538,6 +577,7 @@ RemoteCalibrator.prototype._environment = function () {
 
     const data = {
       value: {
+        concurrency: window.navigator.hardwareConcurrency || -1,
         bot: bot
           ? `${bot.name} (${bot.category}) by ${bot.producer.name}`
           : null,
@@ -583,7 +623,7 @@ RemoteCalibrator.prototype.getFullscreen = function (f = true) {
 
   this.newFullscreenData = {
     value: f && !debug ? getFullscreen() : false,
-    timestamp: new Date(),
+    timestamp: performance.now(),
   }
 
   // Minimize address bar on mobile devices
@@ -719,16 +759,19 @@ RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
     this.instructionElement.style.left = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.right = 'unset'
     this.instructionElement.style.transform = `translate(${-r.width / 2}px, 0)`
+    this.instructionElement.style.textAlign = 'left'
   } else if (side === 'right') {
     this.instructionElement.style.right = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.left = 'unset'
     this.instructionElement.style.transform = `translate(${r.width / 2}px, 0)`
+    this.instructionElement.style.textAlign = 'right'
   } else {
     // Reset to center
     this.instructionElement.style.left = '50%'
     this.instructionElement.style.right = 'unset'
     this.instructionElement.style.top = 'unset'
     this.instructionElement.style.transform = 'translate(-50%, 0)'
+    this.instructionElement.style.textAlign = 'center'
   }
 }
 

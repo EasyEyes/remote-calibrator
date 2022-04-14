@@ -146,7 +146,7 @@ export const takeInput = async (
             input: inputValue, // Original input
             unit: unit,
           },
-          timestamp: new Date(),
+          timestamp: performance.now(),
         })
       }
     }

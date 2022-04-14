@@ -283,19 +283,19 @@ const _tracking = async (
 
     viewingDistanceTrackingFunction = async () => {
       //
-      const videoTimestamp = new Date().getTime()
+      const videoTimestamp = performance.now()
       //
       faces = await model.estimateFaces(video)
       if (faces.length) {
         // There's at least one face in video
-        RC._tackingVideoFrameTimestamps.distance += videoTimestamp
+        RC._trackingVideoFrameTimestamps.distance += videoTimestamp
         // https://github.com/tensorflow/tfjs-models/blob/master/facemesh/mesh_map.jpg
         const mesh = faces[0].scaledMesh
 
         if (targetCount === distCount) {
           averageDist += eyeDist(mesh[133], mesh[362])
           averageDist /= targetCount
-          RC._tackingVideoFrameTimestamps.distance /= targetCount
+          RC._trackingVideoFrameTimestamps.distance /= targetCount
 
           // TODO Add more samples for the first estimate
           if (stdDist.current !== null) {
@@ -312,9 +312,9 @@ const _tracking = async (
 
             /* -------------------------------------------------------------------------- */
 
-            const timestamp = new Date()
+            const timestamp = performance.now()
             const latency = Math.round(
-              timestamp.getTime() - RC._tackingVideoFrameTimestamps.distance
+              timestamp - RC._trackingVideoFrameTimestamps.distance
             )
 
             const data = (RC.newViewingDistanceData = {
@@ -373,7 +373,7 @@ const _tracking = async (
           averageDist = 0
           distCount = 1
 
-          RC._tackingVideoFrameTimestamps.distance = 0
+          RC._trackingVideoFrameTimestamps.distance = 0
         } else {
           averageDist += eyeDist(mesh[133], mesh[362])
           ++distCount
@@ -440,25 +440,39 @@ const _getNearPoint = (
 }
 
 RemoteCalibrator.prototype.pauseDistance = function () {
-  if (this.gazeTracker.checkInitialized('distance', true)) {
+  if (
+    this.gazeTracker.checkInitialized('distance', true) &&
+    !this._trackingPaused.distance
+  ) {
     iRepeatOptions.break = true
     if (nearPointDot) nearPointDot.style.display = 'none'
-    this._tackingVideoFrameTimestamps.distance = 0
+    this._trackingVideoFrameTimestamps.distance = 0
+
+    this._trackingPaused.distance = true
+    this.pauseNudger() // 0.6.0
+
     return this
   }
   return null
 }
 
 RemoteCalibrator.prototype.resumeDistance = function () {
-  if (this.gazeTracker.checkInitialized('distance', true)) {
+  if (
+    this.gazeTracker.checkInitialized('distance', true) &&
+    this._trackingPaused.distance
+  ) {
     iRepeatOptions.break = false
     if (nearPointDot) nearPointDot.style.display = 'block'
 
     averageDist = 0
     distCount = 1
-    this._tackingVideoFrameTimestamps.distance = 0
+    this._trackingVideoFrameTimestamps.distance = 0
 
     iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
+
+    this._trackingPaused.distance = false
+    this.resumeNudger() // 0.6.0
+
     return this
   }
   return null
@@ -485,7 +499,8 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     viewingDistanceTrackingFunction = null
 
     readyToGetFirstData = false
-    this._tackingVideoFrameTimestamps.distance = 0
+    this._trackingVideoFrameTimestamps.distance = 0
+    this._trackingPaused.distance = false
 
     // Near point
     if (nearPointDot) {
@@ -514,16 +529,16 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
 
   let v = document.querySelector('#webgazerVideoFeed')
   let m = await this.gazeTracker.webgazer.getTracker().model
-  const videoTimestamp = new Date().getTime()
+  const videoTimestamp = performance.now()
   let f = await m.estimateFaces(v)
 
   if (f.length) {
     const mesh = f[0].scaledMesh
     const dist = eyeDist(mesh[133], mesh[362])
 
-    let timestamp = new Date()
+    let timestamp = performance.now()
     //
-    const latency = timestamp.getTime() - videoTimestamp
+    const latency = timestamp - videoTimestamp
     //
 
     const data = (this.newViewingDistanceData = {

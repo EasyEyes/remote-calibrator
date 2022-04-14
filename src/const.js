@@ -1,4 +1,5 @@
 import RemoteCalibrator from './core'
+import { toFixedNumber } from './components/utils'
 
 RemoteCalibrator.prototype._CONST = Object.freeze({
   N: {
@@ -11,9 +12,11 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
       R: 28,
       MARGIN: 10,
       BORDER: 8,
+      CENTER_EXTRA_CHECK_OFFSET: 2, // deg
     },
     PPI_DONT_USE: 127.7,
     PD_DONT_USE: 6.4,
+    VIEW_DIST_DONT_USE: 40,
   },
   S: {
     AUTO: 'AUTO',
@@ -43,7 +46,8 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
 })
 
 RemoteCalibrator.prototype._debuggerDefault = Object.freeze({
-  timestamp: new Date('July 20, 69 20:17:40 GMT+00:00'),
+  date: new Date('July 20, 69 20:17:40 GMT+00:00'),
+  timestamp: performance.now(),
   screenSize: {
     value: {
       screenWidthCm: 28.6,
@@ -75,6 +79,14 @@ RemoteCalibrator.prototype._debuggerDefault = Object.freeze({
       x: screen.width / 2,
       y: screen.height / 2,
       latencyMs: 50,
+    },
+  },
+  performance: {
+    value: {
+      computeArrayFillMHz: toFixedNumber(500000 / 1e6, 3),
+      computeRandomMHz: toFixedNumber(5000000 / 1e6, 3),
+      idealFps: 60,
+      stressFps: 60,
     },
   },
 })

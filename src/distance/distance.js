@@ -117,7 +117,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       crossX: crossX,
       circleX: circleX,
       ppi: ppi,
-      timestamp: new Date(),
+      timestamp: performance.now(),
     })
 
     // Enough tests?
@@ -130,7 +130,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
             median(_getDistValues(dist)),
             options.decimalPlace
           ),
-          timestamp: new Date(),
+          timestamp: performance.now(),
           method: RC._CONST.VIEW_METHOD.B,
           raw: { ...dist },
         })

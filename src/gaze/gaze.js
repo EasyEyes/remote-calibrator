@@ -113,7 +113,8 @@ RemoteCalibrator.prototype.trackGaze = async function (
 
     // ! greedyLearner
     if (!this.gazeTracker.webgazer.params.greedyLearner) {
-      this.gazeTracker.stopLearning()
+      // stop all by default
+      this.gazeTracker.stopLearning({ click: true, move: true })
     }
 
     // TODO Test accuracy
@@ -154,7 +155,8 @@ RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {
   if (
     !this.checkInitialized() ||
     !this.gazeTracker.checkInitialized('gaze', true) ||
-    !this.gazeTracker.webgazer.params.paused
+    !this.gazeTracker.webgazer.params.paused ||
+    !this._trackingPaused.gaze
   )
     return
 
@@ -164,24 +166,44 @@ RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {
 }
 
 RemoteCalibrator.prototype.pauseGaze = function () {
-  if (!this.gazeTracker.checkInitialized('gaze', true)) return
+  if (
+    !this.gazeTracker.checkInitialized('gaze', true) &&
+    this._trackingPaused.gaze
+  )
+    return
+  this._trackingPaused.gaze = true
   this.gazeTracker.pause()
 }
 
 RemoteCalibrator.prototype.resumeGaze = function () {
-  if (!this.gazeTracker.checkInitialized('gaze', true)) return
+  if (
+    !this.gazeTracker.checkInitialized('gaze', true) &&
+    !this._trackingPaused.gaze
+  )
+    return
+  this._trackingPaused.gaze = false
   this.gazeTracker.resume()
 }
 
 RemoteCalibrator.prototype.endGaze = function (endAll = false) {
   if (!this.gazeTracker.checkInitialized('gaze', true)) return
+  this._trackingPaused.gaze = false
   this.gazeTracker.end('gaze', endAll)
 }
 
 /* -------------------------------------------------------------------------- */
 
-RemoteCalibrator.prototype.gazeLearning = function (learn = true) {
-  learn ? this.gazeTracker.startLearning() : this.gazeTracker.stopLearning()
+RemoteCalibrator.prototype.gazeLearning = function (learn = true, options) {
+  options = Object.assign(
+    {
+      click: true,
+      move: true,
+    },
+    options
+  )
+  learn
+    ? this.gazeTracker.startLearning(options)
+    : this.gazeTracker.stopLearning(options)
 }
 
 /* -------------------------------------------------------------------------- */

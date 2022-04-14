@@ -14,7 +14,7 @@
   if (!window.requestAnimationFrame)
     // eslint-disable-next-line no-unused-vars
     window.requestAnimationFrame = function (callback, element) {
-      var currTime = new Date().getTime()
+      var currTime = performance.now()
       var timeToCall = Math.max(0, 16 - (currTime - lastTime))
       var id = window.setTimeout(function () {
         callback(currTime + timeToCall)
