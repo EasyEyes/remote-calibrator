@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 
+- Performance testing. Using `.performance()` to execute a series of computation demanding tasks for the CPU and GPU, including filling randoms numbers into an array of length of 5000 (repeatedly for a second), generating random numbers (repeatedly for a second), computing for and rendering stressful 2D canvas graphics. Results are reported as `computeArrayFillMHz`, `computeRandomMHz`, `idealFps` (canvas FPS without any heavy tasks), and `stressFps` in the returned value.
+- Check CPU cores with `.concurrency`. If the browser doesn't support, the value will be `-1`.
 - When `showGazer` is true, calling `.getGazeNow()` renders a fading-out red gaze dot on the screen.
 - `.gazeLearning()` takes one extra optional argument (e.g., `{ click: true, move: false }`) to turn on/off learning from only click or move events.
 

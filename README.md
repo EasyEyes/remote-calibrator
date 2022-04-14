@@ -55,8 +55,8 @@ RemoteCalibrator.measureDistance({}, data => {
 | [👀 Gaze](#-gaze)                           | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1)          |
 | [💻 Environment](#-environment)             | [System and Browser Environment](#-environment)                                                                                                                                                           |
 | [💄 Customization](#-customization)         | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                                 |
-| [📔 Other Functions](#-other-functions)     | `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                                    |
-| [🎣 Getters](#-getters)                     | [Experiment](#experiment) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                                             |
+| [📔 Other Functions](#-other-functions)     | `performance()` `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                    |
+| [🎣 Getters](#-getters)                     | [Experiment](#experiment) [Performance](#performance) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                 |
 
 Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
@@ -428,6 +428,7 @@ Get the setup information of the experiment, including browser type, device mode
 
 ### 📔 Other Functions
 
+- `.performance()` Execute a series of computation demanding tasks for the CPU and GPU, including filling randoms numbers into an array of length of 5000 (repeatedly for a second), generating random numbers (repeatedly for a second), computing for and rendering stressful 2D canvas graphics. Results are reported as `computeArrayFillMHz`, `computeRandomMHz`, `idealFps` (canvas FPS without any heavy tasks), and `stressFps` in the returned value.
 - `.checkInitialized()` Check if the model is initialized. Return a boolean.
 - `.getFullscreen()` Get fullscreen mode.
 - `.newLanguage(lang = 'en-US')` Set a new language for the calibrator.
@@ -452,10 +453,18 @@ Getters will get `null` if no data can be found, i.e. the corresponding function
 - `.gazePositionPx` The last measured gaze position on the screen.
 - `.isFullscreen` Whether the window is in fullscreen mode.
 
+#### Performance
+
+- `.computeArrayFillMHz` Number of array filling tasks (i.e. `Array(5000).fill(Math.floor(Math.random() * 10))`) the computer can finish in a second, in MHz.
+- `.computeRandomMHz` Number of times the CPU can generate random numbers (i.e. `Math.random()`) in a second, in MHz.
+- `.idealFps` The 2D canvas FPS when there's no tasks at all.
+- `.stressFps` The 2D canvas FPS when computing for and rendering stressful 2D canvas graphics.
+
 #### Environment
 
 The associated timestamp of the following items is the one created at initiation, i.e. when `init()` is called.
 
+- `.concurrency` The number of cores of CPU. If the browser doesn't support, the value will be `-1`.
 - `.bot` If the user agent is a bot or not, `null` will be returned if no bot detected, e.g., `Googlebot (Search bot) by Google Inc.`.
 - `.browser` The browser type, e.g., `Safari`, `Chrome`.
 - `.browserVersion` The browser version.
