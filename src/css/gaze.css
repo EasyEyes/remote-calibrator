@@ -3,6 +3,10 @@
   white-space: pre;
 }
 
+.gaze-nudge-instruction {
+  top: 65%;
+}
+
 .gaze-calibration-dot {
   background: #ff005c80;
   position: fixed !important;
@@ -72,4 +76,33 @@
   opacity: 0.6;
   pointer-events: none;
   user-select: none;
+}
+
+/* ------------------------------- Gaze Nudger ------------------------------ */
+
+.rc-crosshair,
+.rc-gaze-nudger-arrows {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  user-select: none;
+}
+
+.rc-crosshair {
+  width: 32px;
+  height: 32px;
+  z-index: 99;
+  cursor: pointer;
+}
+
+.rc-crosshair-component {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: auto;
+  pointer-events: none;
+  user-select: none;
+  background-color: #000;
 }

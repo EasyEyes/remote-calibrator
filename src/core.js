@@ -72,6 +72,10 @@ class RemoteCalibrator {
       distanceAllowedRatio: null,
     }
 
+    this._gazeTrackNudging = {
+      isCorrectingGaze: false,
+    }
+
     // ! DATA
 
     this._environmentData = []
@@ -102,6 +106,7 @@ class RemoteCalibrator {
 
     this._nudger = {
       element: null,
+      gazeElement: null,
     }
 
     this._params = {

@@ -1,4 +1,5 @@
 const webpack = require('webpack')
+const path = require('path')
 
 const ESLintPlugin = require('eslint-webpack-plugin')
 const WebpackModules = require('webpack-modules')
@@ -77,12 +78,27 @@ const output = {
 const exampleConfig = Object.assign({}, config, {
   mode: 'development',
   output: Object.assign({}, output, {
+    sourceMapFilename: 'RemoteCalibrator.[contenthash].min.js.map',
     path: __dirname + '/homepage/lib',
+    publicPath: '/lib/',
   }),
   optimization: {
     minimize: false,
   },
-  watch: true,
+  // watch: true,
+  devServer: {
+    static: {
+      directory: path.join(__dirname, 'homepage'),
+    },
+    client: {
+      overlay: {
+        errors: true,
+        warnings: false,
+      },
+    },
+    port: 9000,
+    hot: true,
+  },
 })
 
 const libConfig = Object.assign({}, config, {

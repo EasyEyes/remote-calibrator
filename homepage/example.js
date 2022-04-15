@@ -170,7 +170,7 @@ const _panelCode = `RemoteCalibrator.panel(
   // Configure the panel itself
   {
     i18n: true,
-    debug: true,
+    debug: false,
   },
   // Panel callback after all the tasks are finished
   data => {
@@ -475,6 +475,13 @@ function trackGaze(e) {
     constructFunctionButton(['End Gaze', 'endGaze', 'endGaze', 'gaze'], false),
     target.nextSibling
   )
+  target.parentNode.insertBefore(
+    constructFunctionButton(
+      ['Nudge Gaze', 'nudgeGaze', 'nudgeGaze', 'gaze'],
+      false
+    ),
+    target.nextSibling
+  )
   target.parentNode.replaceChild(
     constructFunctionButton(
       ['Pause Gaze', 'pauseGaze', 'pauseGaze', 'gaze'],
@@ -485,6 +492,11 @@ function trackGaze(e) {
 }
 function trackGazeCode() {
   printCode(_trackGazeCode, '.trackGaze()')
+}
+
+const _nudgeGazeCode = `RemoteCalibrator.nudgeGaze()`
+function nudgeGaze(e) {
+  eval(_nudgeGazeCode)
 }
 
 /**

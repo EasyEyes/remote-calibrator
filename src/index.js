@@ -11,6 +11,7 @@ import './distance/interPupillaryDistance'
 
 import './gaze/gaze'
 import './gaze/gazeCalibration'
+import './gaze/gazeNudge'
 import './gaze/gazeAccuracy'
 import GazeTracker from './gaze/gazeTracker'
 

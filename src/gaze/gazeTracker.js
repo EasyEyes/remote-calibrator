@@ -91,9 +91,16 @@ export default class GazeTracker {
     }
   }
 
-  async getGazeNow(callback) {
+  async getGazeNow(options = {}, callback) {
+    options = Object.assign(
+      {
+        wait: 0,
+      },
+      options
+    )
+
     let data = (this.calibrator.newGazePositionData = this.getData(
-      await this.webgazer.getCurrentPrediction(0)
+      await this.webgazer.getCurrentPrediction(0, options.wait)
     ))
     this.webgazer.popPredictionPoints()
 

@@ -151,7 +151,10 @@ RemoteCalibrator.prototype.trackGaze = async function (
   }
 }
 
-RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {
+RemoteCalibrator.prototype.getGazeNow = async function (
+  options = {},
+  callback = null
+) {
   if (
     !this.checkInitialized() ||
     !this.gazeTracker.checkInitialized('gaze', true) ||
@@ -160,9 +163,16 @@ RemoteCalibrator.prototype.getGazeNow = async function (callback = null) {
   )
     return
 
+  options = Object.assign(
+    {
+      wait: 0,
+    },
+    options
+  )
+
   let c = callback || this.gazeTracker.defaultGazeCallback
 
-  return await this.gazeTracker.getGazeNow(c)
+  return await this.gazeTracker.getGazeNow(options, c)
 }
 
 RemoteCalibrator.prototype.pauseGaze = function () {

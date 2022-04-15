@@ -105,11 +105,14 @@ class GazeCalibrationDot {
     this.RC = RC
 
     this.clickThresholdBase = debug ? 1 : options.calibrationCount
-    // How many times required to click for each position
-    this.clickThreshold = this.clickThresholdBase * 2 // as now by default we start with the center
     this.clicks = 0
 
     this.position = this.order.shift()
+    // How many times required to click for each position
+    this.clickThreshold = this.clickThreshold = isEqual(this.position, [1, 1])
+      ? this.clickThresholdBase * 2
+      : this.clickThresholdBase
+
     this.r = this.RC._CONST.N.GAZE_CALIBRATION.R
 
     // HTML div
@@ -283,23 +286,31 @@ class GazeCalibrationDot {
      *
      * [0, 2]             [1, 2]            [2, 2]
      */
-    this.order = [
-      [1, 1],
-      [0, 0],
-      [1, 0],
-      [2, 0],
-      [2, 1],
-      [2, 2],
-      [1, 2],
-      [0, 2],
-      [0, 1],
-      [1, 1],
-      [1, 3],
-      [4, 1],
-      [1, 4],
-      [3, 1],
-      [1, 1],
-    ]
+    this.order = debug
+      ? [
+          [0, 0],
+          [2, 0],
+          [2, 2],
+          [0, 2],
+          [1, 1],
+        ]
+      : [
+          [1, 1],
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [2, 1],
+          [2, 2],
+          [1, 2],
+          [0, 2],
+          [0, 1],
+          [1, 1],
+          [1, 3],
+          [4, 1],
+          [1, 4],
+          [3, 1],
+          [1, 1],
+        ]
   }
 
   getOffsetPx(degFromCenter) {
