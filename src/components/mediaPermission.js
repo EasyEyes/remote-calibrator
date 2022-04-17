@@ -17,7 +17,10 @@ export const checkPermissions = async RC => {
             imageUrl: AllowCam,
             imageWidth: 480,
             imageAlt: 'Please allow camera access',
-            html: phrases.RC_requestCamera[RC.L],
+            html:
+              phrases.RC_requestCamera[RC.L] +
+              '<br />' +
+              phrases.RC_privacyCamera[RC.L],
           })
         }
       })

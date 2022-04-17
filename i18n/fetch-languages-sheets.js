@@ -42,8 +42,9 @@ async function processLanguageSheet() {
           .replace(/XXX/g, 'xxx')
           .replace(/XX/g, 'xx')
       // Spaces
-      while (data[phrase][lang].includes('%'))
-        data[phrase][lang] = data[phrase][lang].replace('%', '&nbsp')
+      data[phrase][lang] = data[phrase][lang].replace(/%/g, '&nbsp')
+      // line breaks
+      data[phrase][lang] = data[phrase][lang].replace(/~/g, '<br />')
     }
   }
 
