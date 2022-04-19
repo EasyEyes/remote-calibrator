@@ -355,7 +355,7 @@ Pass `{ value: { x, y, latencyMs }, timestamp }` (equivalent to `RemoteCalibrato
   // Show the face mesh
   showFaceOverlay: false,
   // How many times participant needs to click on each of the calibration dot
-  calibrationCount: 5,
+  calibrationCount: 1,
   // Min accuracy required in degree, set to 'none' to pass the accuracy check
   thresholdDeg: 10, 🚧
   decimalPlace: 1, // As the system itself has a high prediction error, it's not necessary to be too precise here
@@ -387,7 +387,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
 {
   greedyLearner: false,
   // How many times participant needs to click on each of the calibration dot
-  calibrationCount: 5,
+  calibrationCount: 1,
   headline: "👀 Calibrate Gaze",
   description: "...",
 }

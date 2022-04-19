@@ -83,17 +83,21 @@
 .rc-crosshair,
 .rc-gaze-nudger-arrows {
   position: absolute;
-  top: 50%;
+  /* top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%); */
   user-select: none;
 }
 
 .rc-crosshair {
+  position: fixed !important;
+  display: block;
   width: 32px;
   height: 32px;
-  z-index: 99;
+  z-index: 999999999;
   cursor: pointer;
+  transition-timing-function: ease-in-out;
+  transition: left 0.5s, right 0.5s, top 0.5s, bottom 0.5s;
 }
 
 .rc-crosshair-component {

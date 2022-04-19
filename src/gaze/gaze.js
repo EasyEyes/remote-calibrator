@@ -19,7 +19,7 @@ RemoteCalibrator.prototype.trackGaze = async function (
    * showVideo: [Boolean]
    * pipWidthPx: [208]
    * showFaceOverlay: [Boolean]
-   * calibrationCount: [Number] Default 5
+   * calibrationCount: [Number] Default 1
    * decimalPlace: [Number] Default 0
    * thresholdDeg: [Number] or 'none'
    * headline: [String]
@@ -42,7 +42,7 @@ RemoteCalibrator.prototype.trackGaze = async function (
       pipWidthPx:
         this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP'],
       showFaceOverlay: false,
-      calibrationCount: 5,
+      calibrationCount: 1,
       thresholdDeg: 10, // minAccuracy
       decimalPlace: 0, // As the system itself has a high prediction error, it's not necessary to be too precise here
       headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
