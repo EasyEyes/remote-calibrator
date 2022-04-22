@@ -7,6 +7,8 @@ const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 
 const TerserPlugin = require('terser-webpack-plugin')
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
+const BundleAnalyzerPlugin =
+  require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 
 const packageJSON = require('./package.json')
 
@@ -155,6 +157,7 @@ module.exports = env => {
       }),
       new webpack.BannerPlugin(licenseText)
     )
+    // libConfig.plugins.push(new BundleAnalyzerPlugin())
 
     // const libConfigExample = Object.assign({}, libConfig, {
     //   output: exampleConfig.output,
