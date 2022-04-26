@@ -43,7 +43,8 @@
 
 /* ----------------------------- WebGazer Native ---------------------------- */
 
-#webgazerGazeDot {
+#webgazerGazeDot,
+#webgazerGazeDot-tempClone {
   position: fixed;
   z-index: 9999999999;
   opacity: 0.5;
@@ -98,6 +99,7 @@
   cursor: pointer;
   transition-timing-function: ease-in-out;
   transition: left 0.5s, right 0.5s, top 0.5s, bottom 0.5s;
+  filter: drop-shadow(0 0 3px #fff);
 }
 
 .rc-crosshair-component {

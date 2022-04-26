@@ -1,4 +1,5 @@
 import RemoteCalibrator from '../core'
+import LeaderLine from 'leader-line-new'
 
 // import { crossLH, crossLW } from '../components/onCanvas'
 import { safeExecuteFunc } from '../components/utils'
@@ -14,7 +15,9 @@ const originalStyles = {
   gazePaused: false,
 }
 
-RemoteCalibrator.prototype.nudgeGaze = function (callback) {
+const nudgeArrowLeaderLine = { current: null }
+
+RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
   ////
   if (
     !this.checkInitialized() ||
@@ -22,6 +25,13 @@ RemoteCalibrator.prototype.nudgeGaze = function (callback) {
   )
     return
   ////
+
+  options = Object.assign(
+    {
+      showOffset: true,
+    },
+    options
+  )
 
   if (this._gazeTrackNudging.isCorrectingGaze) return
   this._gazeTrackNudging.isCorrectingGaze = true
@@ -46,9 +56,48 @@ RemoteCalibrator.prototype.nudgeGaze = function (callback) {
   b.innerHTML += instP
 
   // gaze fixation
-  popNudgeElements(this, b, callback)
+  const calibrationDotEle = popNudgeElements(this, b, callback)
 
   this._nudger.gazeElement = b
+
+  if (options.showOffset) {
+    // const tempGazeDot = document
+    //   .querySelector('#webgazerGazeDot')
+    //   .cloneNode(true)
+    // tempGazeDot.id = 'webgazerGazeDot-tempClone'
+
+    // tempGazeDot.style.display = 'block'
+    // tempGazeDot.style.background = this._CONST.COLOR.RED
+    // tempGazeDot.style.width = '20px'
+    // tempGazeDot.style.height = '20px'
+    // tempGazeDot.style.left = '-10px'
+    // tempGazeDot.style.top = '-10px'
+    // tempGazeDot.style.borderRadius = '50%'
+    // tempGazeDot.style.opacity = '1'
+
+    // this._nudger.gazeElement.appendChild(tempGazeDot)
+
+    nudgeArrowLeaderLine.current = new LeaderLine(
+      LeaderLine.pointAnchor(document.querySelector('#webgazerGazeDot'), {
+        x: '50%',
+        y: '50%',
+      }),
+      LeaderLine.pointAnchor(calibrationDotEle, {
+        x: '50%',
+        y: '50%',
+      }),
+      {
+        path: 'straight',
+        color: this._CONST.COLOR.DARK_RED,
+        startPlug: 'disc',
+      }
+    )
+
+    const theLeaderLine = document.querySelector('.leader-line')
+    theLeaderLine.style.zIndex = 9999999999
+    theLeaderLine.style.opacity = 0.7
+    theLeaderLine.style.transitionDuration = '0.2s'
+  }
   /* -------------------------------------------------------------------------- */
 
   originalStyles.gazePaused = this._trackingPaused.gaze
@@ -91,7 +140,7 @@ const popNudgeElements = (RC, parentBackground, callback) => {
   // const nE = document.createElement('div')
   // nE.className = 'gaze-nudger-elements'
 
-  new GazeCalibrationDot(
+  return new GazeCalibrationDot(
     RC,
     parentBackground,
     {
@@ -108,6 +157,11 @@ const popNudgeElements = (RC, parentBackground, callback) => {
 
       if (originalStyles.gazePaused) RC.pauseGaze()
       originalStyles.gazePaused = false
+
+      if (nudgeArrowLeaderLine.current) {
+        nudgeArrowLeaderLine.current.remove()
+        nudgeArrowLeaderLine.current = null
+      }
 
       RC._gazeTrackNudging.isCorrectingGaze = false
       safeExecuteFunc(callback)
@@ -139,6 +193,4 @@ const popNudgeElements = (RC, parentBackground, callback) => {
   // }
 
   // parentBackground.appendChild(nE)
-
-  return true
 }

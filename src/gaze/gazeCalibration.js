@@ -173,6 +173,8 @@ export class GazeCalibrationDot {
 
     this.originalStyles = originalStyles
     this.endCalibrationCallback = endCalibrationCallback
+
+    return this.div
   }
 
   placeDot() {
@@ -214,6 +216,24 @@ export class GazeCalibrationDot {
           )}px)`,
           right: 'unset',
         }, // 4
+        {
+          left: `calc(50% - ${
+            this.RC._CONST.N.GAZE_CALIBRATION.R / 2
+          }px - ${this.getOffsetPx(
+            this.RC._CONST.N.GAZE_CALIBRATION.MID_EXTRA_CHECK_OFFSET,
+            window.innerWidth * 0.3
+          )}px)`,
+          right: 'unset',
+        }, // 5
+        {
+          left: `calc(50% - ${
+            this.RC._CONST.N.GAZE_CALIBRATION.R / 2
+          }px + ${this.getOffsetPx(
+            this.RC._CONST.N.GAZE_CALIBRATION.MID_EXTRA_CHECK_OFFSET,
+            window.innerWidth * 0.3
+          )}px)`,
+          right: 'unset',
+        }, // 6
       ][this.position[0]],
       // y
       [
@@ -250,6 +270,24 @@ export class GazeCalibrationDot {
           )}px)`,
           bottom: 'unset',
         }, // 4
+        {
+          top: `calc(50% - ${
+            this.RC._CONST.N.GAZE_CALIBRATION.R / 2
+          }px - ${this.getOffsetPx(
+            this.RC._CONST.N.GAZE_CALIBRATION.MID_EXTRA_CHECK_OFFSET,
+            window.innerHeight * 0.3
+          )}px)`,
+          bottom: 'unset',
+        }, // 5
+        {
+          top: `calc(50% - ${
+            this.RC._CONST.N.GAZE_CALIBRATION.R / 2
+          }px + ${this.getOffsetPx(
+            this.RC._CONST.N.GAZE_CALIBRATION.MID_EXTRA_CHECK_OFFSET,
+            window.innerHeight * 0.3
+          )}px)`,
+          bottom: 'unset',
+        }, // 6
       ][this.position[1]]
     )
   }
@@ -274,6 +312,10 @@ export class GazeCalibrationDot {
         this.deleteSelf(true)
       }
     }
+
+    // try leader line
+    let leaderLines = document.querySelectorAll('.leader-line')
+    if (leaderLines) leaderLines.forEach(l => (l.style.opacity = 0))
   }
 
   deleteSelf(finished = true) {
@@ -300,17 +342,17 @@ export class GazeCalibrationDot {
 
   _sequentialOrder(nudge = false) {
     /**
-     * [0, 0]             [1, 0]            [2, 0]
+     * [0, 0]                    [1, 0]                    [2, 0]
      *
+     * [0, 1]    [5, 5]          [1, 5]          [6, 5]
      *
+     *                           [1, 3]
+     * [0, 1]    [5, 1]    [3, 1][1, 1][4, 1]    [6, 1]    [2, 1]
+     *                           [1, 4]
      *
-     *                    [1, 3]
-     * [0, 1]       [3, 1][1, 1][4, 1]      [2, 1]
-     *                    [1, 4]
+     * [0, 1]    [5, 6]          [1, 6]          [6, 6]
      *
-     *
-     *
-     * [0, 2]             [1, 2]            [2, 2]
+     * [0, 2]                    [1, 2]                    [2, 2]
      */
 
     if (nudge) {
@@ -320,10 +362,10 @@ export class GazeCalibrationDot {
         [4, 1],
         [1, 4],
         [3, 1],
-        [1, 1],
-        [1, 3],
-        [4, 1],
+        [1, 1], // new round
         [1, 4],
+        [4, 1],
+        [1, 3],
         [3, 1],
         [1, 1],
       ]
@@ -340,7 +382,6 @@ export class GazeCalibrationDot {
         ]
       : [
           [1, 1], // new round
-          [0, 0],
           [1, 0],
           [2, 0],
           [2, 1],
@@ -348,26 +389,50 @@ export class GazeCalibrationDot {
           [1, 2],
           [0, 2],
           [0, 1],
+          [0, 0],
           [1, 1], // new round
-          [0, 0],
-          [1, 0],
-          [2, 0],
-          [2, 1],
-          [2, 2],
           [1, 2],
-          [0, 2],
+          [2, 2],
+          [2, 1],
+          [2, 0],
+          [1, 0],
+          [0, 0],
           [0, 1],
+          [0, 2],
+          [1, 1], // new round
+          [1, 5],
+          [6, 5],
+          [6, 1],
+          [6, 6],
+          [1, 6],
+          [5, 6],
+          [5, 1],
+          [5, 5],
+          [1, 1], // new round
+          [1, 6],
+          [6, 6],
+          [6, 1],
+          [6, 5],
+          [1, 5],
+          [5, 5],
+          [5, 1],
+          [5, 6],
+          [1, 1], // new round
+          [1, 4],
+          [4, 1],
+          [1, 3],
+          [3, 1],
           [1, 1], // new round
           [1, 3],
-          [4, 1],
-          [1, 4],
           [3, 1],
+          [1, 4],
+          [4, 1],
           [1, 1],
         ]
   }
 
-  getOffsetPx(degFromCenter) {
-    return degToPix(
+  getOffsetPx(degFromCenter, cap = null) {
+    const pix = degToPix(
       degFromCenter,
       this.RC.screenPpi
         ? this.RC.screenPpi.value
@@ -376,5 +441,8 @@ export class GazeCalibrationDot {
         ? this.RC.viewingDistanceCm.value
         : this.RC._CONST.N.VIEW_DIST_DONT_USE
     )
+
+    if (cap) return Math.min(pix, cap)
+    else return pix
   }
 }

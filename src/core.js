@@ -22,6 +22,11 @@ import isEqual from 'react-fast-compare'
 
 class RemoteCalibrator {
   constructor() {
+    window.console.log(
+      `%c\nEasyEyes Remote Calibrator ${this.version.value}\n`,
+      `color: ${this._CONST.COLOR.ORANGE}`
+    )
+
     this._initialized = false
 
     this._id = null
@@ -116,11 +121,6 @@ class RemoteCalibrator {
     }
 
     this.deviceDetector = new DeviceDetector()
-
-    window.console.log(
-      `%c\nEasyEyes Remote Calibrator ${this.version.value}\n`,
-      `color: ${this._CONST.COLOR.ORANGE}`
-    )
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -592,8 +592,10 @@ RemoteCalibrator.prototype._environment = function () {
         model: platform.product || device.device.model,
         manufacturer: platform.manufacturer || device.device.brand,
         engine: platform.layout,
-        system: platform.os.toString(),
-        systemFamily: platform.os.family,
+        // system: platform.os.toString(),
+        system: `${device.os.name} ${device.os.version}`,
+        // systemFamily: platform.os.family,
+        systemFamily: device.os.name,
         description: platform.description,
         fullDescription: platform.ua,
         userLanguage:
@@ -761,7 +763,7 @@ RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
   const r = this.instructionElement.getBoundingClientRect()
   this.instructionElement.style.bottom = `calc(50% + ${yOffset + 10}px)`
   this.instructionElement.style.textAlign = 'left'
-  this.instructionElement.style.fontSize = '1.2em'
+  this.instructionElement.style.fontSize = '1.1em'
   if (side === 'left') {
     this.instructionElement.style.left = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.right = 'unset'

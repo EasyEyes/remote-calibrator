@@ -13,6 +13,7 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
       MARGIN: 10,
       BORDER: 8,
       CENTER_EXTRA_CHECK_OFFSET: 2, // deg
+      MID_EXTRA_CHECK_OFFSET: 6, // deg
     },
     PPI_DONT_USE: 127.7,
     PD_DONT_USE: 6.4,
