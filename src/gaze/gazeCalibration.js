@@ -424,9 +424,9 @@ export class GazeCalibrationDot {
           [3, 1],
           [1, 1], // new round
           [1, 3],
-          [3, 1],
-          [1, 4],
           [4, 1],
+          [1, 4],
+          [3, 1],
           [1, 1],
         ]
   }

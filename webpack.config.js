@@ -100,6 +100,7 @@ const exampleConfig = Object.assign({}, config, {
     },
     port: 9000,
     hot: true,
+    open: true,
   },
 })
 
