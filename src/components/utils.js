@@ -214,3 +214,12 @@ export const _copy = obj => {
 export function blurAll() {
   if ('activeElement' in document) document.activeElement.blur()
 }
+
+/* -------------------------------------------------------------------------- */
+
+export const getClickOrTouchLocation = e => {
+  if (e.type === 'touchstart' || e.type === 'touchmove') {
+    const touch = e.touches[0]
+    return { x: touch.clientX, y: touch.clientY }
+  } else return { x: e.clientX, y: e.clientY }
+}

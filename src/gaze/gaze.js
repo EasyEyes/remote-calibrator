@@ -166,6 +166,7 @@ RemoteCalibrator.prototype.getGazeNow = async function (
   options = Object.assign(
     {
       wait: 0,
+      frames: 5,
     },
     options
   )

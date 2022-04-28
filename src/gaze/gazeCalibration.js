@@ -1,3 +1,5 @@
+import tinycolor from 'tinycolor2'
+
 import RemoteCalibrator from '../core'
 
 // import isEqual from 'react-fast-compare'
@@ -7,6 +9,7 @@ import {
   shuffle,
   blurAll,
   safeExecuteFunc,
+  getClickOrTouchLocation,
 } from '../components/utils'
 import { debug } from '../debug'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
@@ -146,6 +149,11 @@ export class GazeCalibrationDot {
     crosshairH.className = 'rc-crosshair-component rc-crosshair-horizontal'
     crosshairH.style.height = crosshairV.style.width = `${crossLH}px`
     crosshairH.style.width = crosshairV.style.height = `${crossLW}px`
+
+    this.div.style.background = RC.params.backgroundColor
+    const bgColor = tinycolor(RC.params.backgroundColor).toRgb()
+    this.div.style.background = `rgba(${bgColor.r}, ${bgColor.g}, ${bgColor.b}, 0.75)`
+
     this.div.appendChild(crosshairV)
     this.div.appendChild(crosshairH)
 
@@ -292,30 +300,32 @@ export class GazeCalibrationDot {
     )
   }
 
-  takeClick() {
-    this.clicks++
-    // this.clickText.innerHTML = Number(this.clickText.innerHTML) - 1
-    if (this.clicks >= this.clickThreshold) {
-      if (this.order.length) {
-        this.position = this.order.shift()
+  takeClick(e) {
+    if (this.clickAtCenter(e)) {
+      this.clicks++
+      // this.clickText.innerHTML = Number(this.clickText.innerHTML) - 1
+      if (this.clicks >= this.clickThreshold) {
+        if (this.order.length) {
+          this.position = this.order.shift()
 
-        // this.clickThreshold = isEqual(this.position, [1, 1])
-        //   ? this.clickThresholdBase * 2
-        //   : this.clickThresholdBase
-        this.clickThreshold = this.clickThresholdBase
-        // this.clickText.innerHTML = this.clickThreshold
+          // this.clickThreshold = isEqual(this.position, [1, 1])
+          //   ? this.clickThresholdBase * 2
+          //   : this.clickThresholdBase
+          this.clickThreshold = this.clickThresholdBase
+          // this.clickText.innerHTML = this.clickThreshold
 
-        this.placeDot()
-        this.clicks = 0
-      } else {
-        // Finish calibration
-        this.deleteSelf(true)
+          this.placeDot()
+          this.clicks = 0
+        } else {
+          // Finish calibration
+          this.deleteSelf(true)
+        }
       }
-    }
 
-    // try leader line
-    let leaderLines = document.querySelectorAll('.leader-line')
-    if (leaderLines) leaderLines.forEach(l => (l.style.opacity = 0))
+      // try leader line
+      let leaderLines = document.querySelectorAll('.leader-line')
+      if (leaderLines) leaderLines.forEach(l => (l.style.opacity = 0))
+    }
   }
 
   deleteSelf(finished = true) {
@@ -332,6 +342,22 @@ export class GazeCalibrationDot {
       safeExecuteFunc(this.endCalibrationCallback)
       if (!this.nudge) this.RC._trackingSetupFinishedStatus.gaze = true
     }
+  }
+
+  clickAtCenter(e) {
+    const { x, y } = getClickOrTouchLocation(e)
+    const { left, top, right, bottom } = this.div.getBoundingClientRect()
+    const center = {
+      x: (left + right) / 2,
+      y: (top + bottom) / 2,
+    }
+    const offsetAllowed = 5
+    return (
+      x >= center.x - offsetAllowed &&
+      x <= center.x + offsetAllowed &&
+      y >= center.y - offsetAllowed &&
+      y <= center.y + offsetAllowed
+    )
   }
 
   _randomOrder() {
