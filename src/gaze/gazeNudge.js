@@ -69,6 +69,12 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
 
     this._nudger.gazeElement.appendChild(tempGazeDot)
 
+    window.console.log(tempGazeDot)
+    window.console.log(tempGazeDot.style.left)
+    window.console.log(tempGazeDot.style.top)
+    window.console.log(tempGazeDot.style.transform)
+    window.console.log(this.gazePositionPx)
+
     nudgeArrowLeaderLine.current = new LeaderLine(
       LeaderLine.pointAnchor(tempGazeDot, {
         x: '50%',
