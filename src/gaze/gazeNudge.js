@@ -75,8 +75,20 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
     window.console.log(tempGazeDot.style.transform)
     window.console.log(this.gazePositionPx)
 
+    const fakeDotEle = document.createElement('div')
+    fakeDotEle.id = 'fake-gaze-dot'
+    fakeDotEle.style.position = 'absolute'
+    fakeDotEle.style.left = `${this.gazePositionPx.x - 5}px`
+    fakeDotEle.style.top = `${this.gazePositionPx.y - 5}px`
+    fakeDotEle.style.width = '10px'
+    fakeDotEle.style.height = '10px'
+    fakeDotEle.style.borderRadius = '50%'
+    fakeDotEle.style.background = 'transparent'
+    fakeDotEle.style.zIndex = '9999999999'
+    document.body.appendChild(fakeDotEle)
+
     nudgeArrowLeaderLine.current = new LeaderLine(
-      LeaderLine.pointAnchor(tempGazeDot, {
+      LeaderLine.pointAnchor(fakeDotEle, {
         x: '50%',
         y: '50%',
       }),
