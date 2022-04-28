@@ -170,6 +170,7 @@ GazeTracker.prototype.getData = function (d) {
       latencyMs: t - this.calibrator._trackingVideoFrameTimestamps.gaze, // latency
     },
     timestamp: t,
+    raw: d.raw ? d.raw : undefined,
   }
 }
 
