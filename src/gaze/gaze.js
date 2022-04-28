@@ -36,7 +36,7 @@ RemoteCalibrator.prototype.trackGaze = async function (
     {
       fullscreen: false,
       greedyLearner: false, // ! New 0.0.5
-      framerate: 30, // ! New 0.0.5
+      framerate: 60, // ! New 0.0.5
       showGazer: true,
       showVideo: true,
       pipWidthPx:

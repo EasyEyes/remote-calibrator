@@ -345,7 +345,7 @@ Pass `{ value: { x, y, latencyMs }, timestamp }` (equivalent to `RemoteCalibrato
   // Stop learning and improve the regression model after the calibration process
   greedyLearner: false,
   // Tracking (predicting) rate per second
-  framerate: 30,
+  framerate: 60,
   // Draw the current gaze position on the screen (as a dot)
   showGazer: true,
   // Show the picture-in-picture video of the participant at the left bottom corner
