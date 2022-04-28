@@ -61,20 +61,6 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
   this._nudger.gazeElement = b
 
   if (options.showOffset) {
-    const tempGazeDot = document
-      .querySelector('#webgazerGazeDot')
-      .cloneNode(true)
-    tempGazeDot.id = 'webgazerGazeDot-tempClone'
-    tempGazeDot.style.opacity = '0'
-
-    this._nudger.gazeElement.appendChild(tempGazeDot)
-
-    window.console.log(tempGazeDot)
-    window.console.log(tempGazeDot.style.left)
-    window.console.log(tempGazeDot.style.top)
-    window.console.log(tempGazeDot.style.transform)
-    window.console.log(this.gazePositionPx)
-
     const fakeDotEle = document.createElement('div')
     fakeDotEle.id = 'fake-gaze-dot'
     fakeDotEle.style.position = 'absolute'
@@ -102,7 +88,6 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
         startPlug: 'disc',
       }
     )
-    window.console.log(nudgeArrowLeaderLine.current)
 
     const theLeaderLine = document.querySelector('.leader-line')
     theLeaderLine.style.zIndex = 9999999999
