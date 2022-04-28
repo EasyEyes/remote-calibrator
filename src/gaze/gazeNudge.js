@@ -78,8 +78,8 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
     const fakeDotEle = document.createElement('div')
     fakeDotEle.id = 'fake-gaze-dot'
     fakeDotEle.style.position = 'absolute'
-    fakeDotEle.style.left = `${this.gazePositionPx.x - 5}px`
-    fakeDotEle.style.top = `${this.gazePositionPx.y - 5}px`
+    fakeDotEle.style.left = `${this.gazePositionPx.value.x - 5}px`
+    fakeDotEle.style.top = `${this.gazePositionPx.value.y - 5}px`
     fakeDotEle.style.width = '10px'
     fakeDotEle.style.height = '10px'
     fakeDotEle.style.borderRadius = '50%'
