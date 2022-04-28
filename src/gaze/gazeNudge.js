@@ -90,6 +90,7 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
         startPlug: 'disc',
       }
     )
+    window.console.log(nudgeArrowLeaderLine.current)
 
     const theLeaderLine = document.querySelector('.leader-line')
     theLeaderLine.style.zIndex = 9999999999
