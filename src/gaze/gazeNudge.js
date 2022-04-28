@@ -61,24 +61,16 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
   this._nudger.gazeElement = b
 
   if (options.showOffset) {
-    // const tempGazeDot = document
-    //   .querySelector('#webgazerGazeDot')
-    //   .cloneNode(true)
-    // tempGazeDot.id = 'webgazerGazeDot-tempClone'
+    const tempGazeDot = document
+      .querySelector('#webgazerGazeDot')
+      .cloneNode(true)
+    tempGazeDot.id = 'webgazerGazeDot-tempClone'
+    tempGazeDot.style.opacity = '0'
 
-    // tempGazeDot.style.display = 'block'
-    // tempGazeDot.style.background = this._CONST.COLOR.RED
-    // tempGazeDot.style.width = '20px'
-    // tempGazeDot.style.height = '20px'
-    // tempGazeDot.style.left = '-10px'
-    // tempGazeDot.style.top = '-10px'
-    // tempGazeDot.style.borderRadius = '50%'
-    // tempGazeDot.style.opacity = '1'
-
-    // this._nudger.gazeElement.appendChild(tempGazeDot)
+    this._nudger.gazeElement.appendChild(tempGazeDot)
 
     nudgeArrowLeaderLine.current = new LeaderLine(
-      LeaderLine.pointAnchor(document.querySelector('#webgazerGazeDot'), {
+      LeaderLine.pointAnchor(tempGazeDot, {
         x: '50%',
         y: '50%',
       }),
