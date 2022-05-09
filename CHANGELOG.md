@@ -7,10 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Added
+### Added
 
 - Gaze nudger.
 - `wait` (in millisecond) as an option for `.getGazeNow(options, callback)`.
+
+### Fixed
+
+- Cannot get timestamp when checking screen size measure.
 
 ## [0.6.0] - 2022-04-13
 
