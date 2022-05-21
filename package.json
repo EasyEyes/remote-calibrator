@@ -26,7 +26,7 @@
   "bugs": {
     "url": "https://github.com/EasyEyes/remote-calibrator/issues"
   },
-  "homepage": "https://github.com/EasyEyes/remote-calibrator#readme",
+  "homepage": "https://calibrator.app",
   "devDependencies": {
     "@babel/core": "^7.18.0",
     "autoprefixer": "^10.4.7",
