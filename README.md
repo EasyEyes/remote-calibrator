@@ -367,12 +367,20 @@ Pass `{ value: { x, y, latencyMs }, timestamp }` (equivalent to `RemoteCalibrato
 #### `async` Get Gaze Now
 
 ```js
-.getGazeNow([callback])
+.getGazeNow([options, [callback]])
 ```
 
 You can pause active gaze tracking after calibration, and use this function to get the latest gaze position at the moment when the user makes reactions, i.e. calling this function in a [event listener](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener). This can help reduce computing and get the gaze at the critical moment. If no callback function is passed in, it will use the one from `.trackGaze()` as the default.
 
 Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePositionPx`) to callback. Return the same thing.
+
+```js
+/* [options] Default value */
+{
+  wait: 0, // Instead of getting the gaze now, wait for certain milliseconds
+  frames: 5, // Number of frame samplings used to estimate the current gaze
+}
+```
 
 #### Calibrate
 
@@ -465,7 +473,7 @@ Getters will get `null` if no data can be found, i.e. the corresponding function
 The associated timestamp of the following items is the one created at initiation, i.e. when `init()` is called.
 
 - `.concurrency` The number of cores of CPU. If the browser doesn't support, the value will be `-1`.
-- `.bot` If the user agent is a bot or not, `null` will be returned if no bot detected, e.g., `Googlebot (Search bot) by Google Inc.`.
+- ~~`.bot` If the user agent is a bot or not, `null` will be returned if no bot detected, e.g., `Googlebot (Search bot) by Google Inc.`.~~ (Removed since 0.6.1.)
 - `.browser` The browser type, e.g., `Safari`, `Chrome`.
 - `.browserVersion` The browser version.
 - `.deviceType` The type of device, e.g., `desktop`.

@@ -9,12 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Gaze nudger.
+- Gaze nudger to nudge user's focus to the center of the screen.
 - `wait` (in millisecond) as an option for `.getGazeNow(options, callback)`.
 
 ### Fixed
 
 - Cannot get timestamp when checking screen size measure.
+- Cannot get the device type of mobile devices.
+
+### Removed
+
+- Bot detection is removed as long as the removal of `device-detect-js`.
 
 ## [0.6.0] - 2022-04-13
 

@@ -5,7 +5,6 @@
  */
 
 import platform from 'platform'
-import DeviceDetector from 'device-detector-js'
 
 import randomPhrases from './components/randomPhrases'
 import { debug } from './debug'
@@ -119,8 +118,6 @@ class RemoteCalibrator {
       videoOpacity: 0.8,
       showCancelButton: true,
     }
-
-    this.deviceDetector = new DeviceDetector()
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -249,9 +246,9 @@ class RemoteCalibrator {
     return this._helper_get(this._environmentData, 'concurrency')
   }
 
-  get bot() {
-    return this._helper_get(this._environmentData, 'bot')
-  }
+  // get bot() {
+  //   return this._helper_get(this._environmentData, 'bot')
+  // }
 
   get browser() {
     return this._helper_get(this._environmentData, 'browser')
@@ -570,32 +567,28 @@ RemoteCalibrator.prototype._environment = function () {
   if (this.checkInitialized()) {
     blurAll()
 
-    const device = this.deviceDetector.parse(platform.ua)
-    const bot = device.bot
-
-    if (!device.device)
-      device.device = {
-        type: null,
-        model: null,
-        brand: null,
-      }
+    const isMobile = userAgent => {
+      const mobile = userAgent.match(/Mobi/i)
+      return mobile ? 'Mobile' : 'Desktop'
+    }
 
     const data = {
       value: {
         concurrency: window.navigator.hardwareConcurrency || -1,
-        bot: bot
-          ? `${bot.name} (${bot.category}) by ${bot.producer.name}`
-          : null,
+        // bot: bot
+        //   ? `${bot.name} (${bot.category}) by ${bot.producer.name}`
+        //   : null,
         browser: platform.name,
         browserVersion: platform.version,
-        deviceType: device.device.type,
-        model: platform.product || device.device.model,
-        manufacturer: platform.manufacturer || device.device.brand,
+        deviceType: isMobile(navigator.userAgent),
+        // model: platform.product || device.device.model,
+        model: platform.product || 'Unknown',
+        // manufacturer: platform.manufacturer || device.device.brand,
+        manufacturer: platform.manufacturer || 'Unknown',
         engine: platform.layout,
         // system: platform.os.toString(),
-        system: `${device.os.name} ${device.os.version}`,
-        // systemFamily: platform.os.family,
-        systemFamily: device.os.name,
+        system: `${platform.os.family} ${platform.os.version}`,
+        systemFamily: platform.os.family,
         description: platform.description,
         fullDescription: platform.ua,
         userLanguage:
