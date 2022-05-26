@@ -569,7 +569,7 @@ RemoteCalibrator.prototype._environment = function () {
 
     const isMobile = userAgent => {
       const mobile = userAgent.match(/Mobi/i)
-      return mobile ? 'Mobile' : 'Desktop'
+      return mobile ? 'mobile' : 'desktop'
     }
 
     const data = {
@@ -582,9 +582,9 @@ RemoteCalibrator.prototype._environment = function () {
         browserVersion: platform.version,
         deviceType: isMobile(navigator.userAgent),
         // model: platform.product || device.device.model,
-        model: platform.product || 'Unknown',
+        model: platform.product || 'unknown',
         // manufacturer: platform.manufacturer || device.device.brand,
-        manufacturer: platform.manufacturer || 'Unknown',
+        manufacturer: platform.manufacturer || 'unknown',
         engine: platform.layout,
         // system: platform.os.toString(),
         system: `${platform.os.family} ${platform.os.version}`,
