@@ -27,7 +27,10 @@ async function processLanguageSheet() {
   const data = {}
   for (let phrase of rowsJSON) {
     const { language, ...translations } = phrase
-    if (language.includes('RC_') || language.includes('EE_'))
+    if (
+      (language.includes('RC_') || language.includes('EE_')) &&
+      !language.includes('_soundCalibration')
+    )
       data[language] = translations
   }
 
@@ -39,8 +42,9 @@ async function processLanguageSheet() {
           .replace(/XXX/g, 'xxx')
           .replace(/XX/g, 'xx')
       // Spaces
-      while (data[phrase][lang].includes('%'))
-        data[phrase][lang] = data[phrase][lang].replace('%', '&nbsp')
+      data[phrase][lang] = data[phrase][lang].replace(/%/g, '&nbsp')
+      // line breaks
+      data[phrase][lang] = data[phrase][lang].replace(/~/g, '<br />')
     }
   }
 

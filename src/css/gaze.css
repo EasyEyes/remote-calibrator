@@ -3,6 +3,10 @@
   white-space: pre;
 }
 
+.gaze-nudge-instruction {
+  top: 65%;
+}
+
 .gaze-calibration-dot {
   background: #ff005c80;
   position: fixed !important;
@@ -39,7 +43,8 @@
 
 /* ----------------------------- WebGazer Native ---------------------------- */
 
-#webgazerGazeDot {
+#webgazerGazeDot,
+#webgazerGazeDot-tempClone {
   position: fixed;
   z-index: 9999999999;
   opacity: 0.5;
@@ -72,4 +77,39 @@
   opacity: 0.6;
   pointer-events: none;
   user-select: none;
+}
+
+/* ------------------------------- Gaze Nudger ------------------------------ */
+
+.rc-crosshair,
+.rc-gaze-nudger-arrows {
+  position: absolute;
+  /* top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%); */
+  user-select: none;
+}
+
+.rc-crosshair {
+  position: fixed !important;
+  display: block;
+  width: 40px;
+  height: 40px;
+  z-index: 999999999;
+  cursor: pointer;
+  transition-timing-function: ease-in-out;
+  transition: left 0.5s, right 0.5s, top 0.5s, bottom 0.5s;
+  /* filter: drop-shadow(0 0 3px #fff); */
+  border-radius: 50%;
+}
+
+.rc-crosshair-component {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: auto;
+  pointer-events: none;
+  user-select: none;
+  background-color: #000;
 }

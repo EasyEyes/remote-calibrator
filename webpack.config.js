@@ -1,4 +1,5 @@
 const webpack = require('webpack')
+const path = require('path')
 
 const ESLintPlugin = require('eslint-webpack-plugin')
 const WebpackModules = require('webpack-modules')
@@ -6,6 +7,8 @@ const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 
 const TerserPlugin = require('terser-webpack-plugin')
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
+const BundleAnalyzerPlugin =
+  require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 
 const packageJSON = require('./package.json')
 
@@ -77,12 +80,28 @@ const output = {
 const exampleConfig = Object.assign({}, config, {
   mode: 'development',
   output: Object.assign({}, output, {
+    sourceMapFilename: 'RemoteCalibrator.[contenthash].min.js.map',
     path: __dirname + '/homepage/lib',
+    publicPath: '/lib/',
   }),
   optimization: {
     minimize: false,
   },
-  watch: true,
+  // watch: true,
+  devServer: {
+    static: {
+      directory: path.join(__dirname, 'homepage'),
+    },
+    client: {
+      overlay: {
+        errors: true,
+        warnings: false,
+      },
+    },
+    port: 9000,
+    hot: true,
+    open: true,
+  },
 })
 
 const libConfig = Object.assign({}, config, {
@@ -139,6 +158,7 @@ module.exports = env => {
       }),
       new webpack.BannerPlugin(licenseText)
     )
+    // libConfig.plugins.push(new BundleAnalyzerPlugin())
 
     // const libConfigExample = Object.assign({}, libConfig, {
     //   output: exampleConfig.output,

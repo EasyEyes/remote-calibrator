@@ -91,9 +91,17 @@ export default class GazeTracker {
     }
   }
 
-  async getGazeNow(callback) {
+  async getGazeNow(options = {}, callback) {
+    options = Object.assign(
+      {
+        wait: 0,
+        frames: 5,
+      },
+      options
+    )
+
     let data = (this.calibrator.newGazePositionData = this.getData(
-      await this.webgazer.getCurrentPrediction(0)
+      await this.webgazer.getCurrentPrediction(0, options.wait, options.frames)
     ))
     this.webgazer.popPredictionPoints()
 
@@ -162,6 +170,7 @@ GazeTracker.prototype.getData = function (d) {
       latencyMs: t - this.calibrator._trackingVideoFrameTimestamps.gaze, // latency
     },
     timestamp: t,
+    raw: d.raw ? d.raw : undefined,
   }
 }
 

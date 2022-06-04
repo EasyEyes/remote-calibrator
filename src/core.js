@@ -5,7 +5,6 @@
  */
 
 import platform from 'platform'
-import DeviceDetector from 'device-detector-js'
 
 import randomPhrases from './components/randomPhrases'
 import { debug } from './debug'
@@ -22,6 +21,11 @@ import isEqual from 'react-fast-compare'
 
 class RemoteCalibrator {
   constructor() {
+    window.console.log(
+      `%c\nEasyEyes Remote Calibrator ${this.version.value}\n`,
+      `color: ${this._CONST.COLOR.ORANGE}`
+    )
+
     this._initialized = false
 
     this._id = null
@@ -72,6 +76,10 @@ class RemoteCalibrator {
       distanceAllowedRatio: null,
     }
 
+    this._gazeTrackNudging = {
+      isCorrectingGaze: false,
+    }
+
     // ! DATA
 
     this._environmentData = []
@@ -102,6 +110,7 @@ class RemoteCalibrator {
 
     this._nudger = {
       element: null,
+      gazeElement: null,
     }
 
     this._params = {
@@ -109,13 +118,6 @@ class RemoteCalibrator {
       videoOpacity: 0.8,
       showCancelButton: true,
     }
-
-    this.deviceDetector = new DeviceDetector()
-
-    window.console.log(
-      `%c\nEasyEyes Remote Calibrator ${this.version.value}\n`,
-      `color: ${this._CONST.COLOR.ORANGE}`
-    )
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -244,9 +246,9 @@ class RemoteCalibrator {
     return this._helper_get(this._environmentData, 'concurrency')
   }
 
-  get bot() {
-    return this._helper_get(this._environmentData, 'bot')
-  }
+  // get bot() {
+  //   return this._helper_get(this._environmentData, 'bot')
+  // }
 
   get browser() {
     return this._helper_get(this._environmentData, 'browser')
@@ -565,29 +567,27 @@ RemoteCalibrator.prototype._environment = function () {
   if (this.checkInitialized()) {
     blurAll()
 
-    const device = this.deviceDetector.parse(platform.ua)
-    const bot = device.bot
-
-    if (!device.device)
-      device.device = {
-        type: null,
-        model: null,
-        brand: null,
-      }
+    const isMobile = userAgent => {
+      const mobile = userAgent.match(/Mobi/i)
+      return mobile ? 'mobile' : 'desktop'
+    }
 
     const data = {
       value: {
         concurrency: window.navigator.hardwareConcurrency || -1,
-        bot: bot
-          ? `${bot.name} (${bot.category}) by ${bot.producer.name}`
-          : null,
+        // bot: bot
+        //   ? `${bot.name} (${bot.category}) by ${bot.producer.name}`
+        //   : null,
         browser: platform.name,
         browserVersion: platform.version,
-        deviceType: device.device.type,
-        model: platform.product || device.device.model,
-        manufacturer: platform.manufacturer || device.device.brand,
+        deviceType: isMobile(navigator.userAgent),
+        // model: platform.product || device.device.model,
+        model: platform.product || 'unknown',
+        // manufacturer: platform.manufacturer || device.device.brand,
+        manufacturer: platform.manufacturer || 'unknown',
         engine: platform.layout,
-        system: platform.os.toString(),
+        // system: platform.os.toString(),
+        system: `${platform.os.family} ${platform.os.version}`,
         systemFamily: platform.os.family,
         description: platform.description,
         fullDescription: platform.ua,
@@ -754,17 +754,17 @@ RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
 ) {
   // For blind spot test instructions
   const r = this.instructionElement.getBoundingClientRect()
-  this.instructionElement.style.top = `calc(50% + ${yOffset + 10}px)`
+  this.instructionElement.style.bottom = `calc(50% + ${yOffset + 10}px)`
+  this.instructionElement.style.textAlign = 'left'
+  this.instructionElement.style.fontSize = '1.1em'
   if (side === 'left') {
     this.instructionElement.style.left = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.right = 'unset'
     this.instructionElement.style.transform = `translate(${-r.width / 2}px, 0)`
-    this.instructionElement.style.textAlign = 'left'
   } else if (side === 'right') {
     this.instructionElement.style.right = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.left = 'unset'
     this.instructionElement.style.transform = `translate(${r.width / 2}px, 0)`
-    this.instructionElement.style.textAlign = 'right'
   } else {
     // Reset to center
     this.instructionElement.style.left = '50%'

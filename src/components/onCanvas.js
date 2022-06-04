@@ -4,8 +4,8 @@
 import { dist2d } from './utils'
 
 // CROSS
-const crossLW = 32 // Width of a line of the middle cross
-const crossLH = 3
+export const crossLW = 32 // Width of a line of the middle cross
+export const crossLH = 3
 export const _getCrossX = (eyeSide, tX) => {
   return eyeSide === 'left' ? tX * 0.1 : tX * 0.9
 }

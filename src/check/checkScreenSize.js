@@ -109,7 +109,9 @@ const checkScreenSize = async (
     if (value.vertical || value.horizontal) {
       const newCheckData = {
         value: value,
-        timestamp: measureWidthData.timestamp,
+        timestamp: measureWidthData
+          ? measureWidthData.timestamp
+          : measureHeightData.timestamp,
         measure: 'screenSize',
       }
 

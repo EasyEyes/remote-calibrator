@@ -10,7 +10,7 @@ import {
 } from '../components/utils'
 import { swalInfoOptions } from '../components/swalOptions'
 import Arrow from '../media/arrow.svg'
-import PD from '../media/pd.png?width=480&height=240'
+import PD from '../media/pd.png?width=240&height=120'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
 import { setDefaultVideoPosition } from '../components/video'

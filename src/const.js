@@ -9,10 +9,11 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
     },
     VIDEO_MARGIN: '10px',
     GAZE_CALIBRATION: {
-      R: 28,
-      MARGIN: 10,
+      R: 40,
+      MARGIN: 32,
       BORDER: 8,
       CENTER_EXTRA_CHECK_OFFSET: 2, // deg
+      MID_EXTRA_CHECK_OFFSET: 6, // deg
     },
     PPI_DONT_USE: 127.7,
     PD_DONT_USE: 6.4,

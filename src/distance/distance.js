@@ -488,7 +488,12 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   this._addBackground()
 
   this._replaceBackground(
-    constructInstructions(options.headline, options.description, true)
+    constructInstructions(
+      options.headline,
+      options.description,
+      true,
+      'rc-hang-description'
+    )
   )
   blindSpotTest(this, options, false, callback)
 }

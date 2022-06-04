@@ -7,21 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2022-06-04
+
+### Added
+
+- Gaze nudger to nudge user's focus to the center of the screen - `.nudgeGaze([options = { showOffset: true }, [callback]])`.
+- `wait` (in millisecond) as an option for `.getGazeNow(options, callback)`.
+
+### Fixed
+
+- Cannot get timestamp when checking screen size measure.
+- Cannot get the device type of mobile devices.
+
+### Removed
+
+- Bot detection is removed as long as the removal of `device-detect-js`.
+
 ## [0.6.0] - 2022-04-13
 
-## Added
+### Added
 
 - Performance testing. Using `.performance()` to execute a series of computation demanding tasks for the CPU and GPU, including filling randoms numbers into an array of length of 5000 (repeatedly for a second), generating random numbers (repeatedly for a second), computing for and rendering stressful 2D canvas graphics. Results are reported as `computeArrayFillMHz`, `computeRandomMHz`, `idealFps` (canvas FPS without any heavy tasks), and `stressFps` in the returned value.
 - Check CPU cores with `.concurrency`. If the browser doesn't support, the value will be `-1`.
 - When `showGazer` is true, calling `.getGazeNow()` renders a fading-out red gaze dot on the screen.
 - `.gazeLearning()` takes one extra optional argument (e.g., `{ click: true, move: false }`) to turn on/off learning from only click or move events.
 
-## Changed
+### Changed
 
 - **(Breaking)** The `timestamp` field of all results uses `performance.now()` instead of `Date`.
 - When calibrating gaze, the positions of the dot to click follow a certain clockwise sequence instead of randomized. Four more positions - 2 degrees to the top, right, bottom, and left of the screen center - are added. The center dot now appears three times, and each requires doubled click amount. The new positions (2 degrees relative to the center) depend on the viewing distance. Thus, measuring it first is highly recommended. Otherwise, 40 cm is assumed.
 
-## Fixed
+### Fixed
 
 - Typos of internal parameter naming.
 - The video element (for gaze and distance tracking) may occlude the click to other content even when hidden.
@@ -323,7 +339,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.0...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.1...develop
+[0.6.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.3.0...v0.5.0

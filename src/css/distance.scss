@@ -97,7 +97,8 @@
   }
 }
 
-.calibration-nudger {
+.calibration-nudger,
+.gaze-nudger {
   z-index: 999999999;
   position: fixed;
   width: 100%;

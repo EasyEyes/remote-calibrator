@@ -63,6 +63,11 @@
   line-height: 170%;
 }
 
+.rc-hang-description {
+  margin-top: 50vh !important;
+  font-size: 1rem !important;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Screen size specific */
 
