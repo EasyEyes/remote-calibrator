@@ -45,18 +45,18 @@ RemoteCalibrator.measureDistance({}, data => {
 
 ## Functions
 
-| Task                                        | Functions                                                                                                                                                                                                 |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [🎬 Initialize](#-initialize)               | [`init()`](#-initialize) (always required)                                                                                                                                                                |
-| [🍱 Panel](#-panel)                         | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                                 |
-| [🖥️ Screen](#️-screen)                      | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                |
-| [📏 Viewing Distance](#-viewing-distance)   | [`measureDistance()`](#-viewing-distance)                                                                                                                                                                 |
-| [📏 Distance Tracking](#-distance-tracking) | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-distance-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Nudger](#nudger) [Lifecycle](#lifecycle) [Others](#others) |
-| [👀 Gaze](#-gaze)                           | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) [`getGazeAccuracy()`](#get-accuracy-) [Lifecycle](#lifecycle-1) [Others](#others-1)          |
-| [💻 Environment](#-environment)             | [System and Browser Environment](#-environment)                                                                                                                                                           |
-| [💄 Customization](#-customization)         | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                                 |
-| [📔 Other Functions](#-other-functions)     | `performance()` `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                    |
-| [🎣 Getters](#-getters)                     | [Experiment](#experiment) [Performance](#performance) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                 |
+| Task                                        | Functions                                                                                                                                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [🎬 Initialize](#-initialize)               | [`init()`](#-initialize) (always required)                                                                                                                                                                                           |
+| [🍱 Panel](#-panel)                         | [`async panel()`](#-panel) `removePanel()` `resetPanel()`                                                                                                                                                                            |
+| [🖥️ Screen](#️-screen)                      | [Display Pixel Dimensions](#measure-display-pixels) [`screenSize()`](#measure-screen-size)                                                                                                                                           |
+| [📏 Viewing Distance](#-viewing-distance)   | [`measureDistance()`](#-viewing-distance)                                                                                                                                                                                            |
+| [📏 Distance Tracking](#-distance-tracking) | (viewing distance and [near point](#near-point)) [`trackDistance()`](#-distance-tracking) [`async getDistanceNow()`](#async-get-distance-now) [Nudger](#nudger) [Lifecycle](#lifecycle) [Others](#others)                            |
+| [👀 Gaze](#-gaze)                           | [`trackGaze()`](#start-tracking) [`async getGazeNow()`](#async-get-gaze-now) [`calibrateGaze()`](#calibrate) <!--[`getGazeAccuracy()`](#get-accuracy-)--> [`nudgeGaze()`](#nudge-gaze) [Lifecycle](#lifecycle-1) [Others](#others-1) |
+| [💻 Environment](#-environment)             | [System and Browser Environment](#-environment)                                                                                                                                                                                      |
+| [💄 Customization](#-customization)         | `backgroundColor()` `videoOpacity()` `showCancelButton()`                                                                                                                                                                            |
+| [📔 Other Functions](#-other-functions)     | `performance()` `checkInitialized()` `getFullscreen()` `newLanguage()`                                                                                                                                                               |
+| [🎣 Getters](#-getters)                     | [Experiment](#experiment) [Performance](#performance) [Environment](#environment) [i18n](#i18n) [All Data](#all-data) [Others](#others-2)                                                                                            |
 
 Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
@@ -388,7 +388,7 @@ Pass `{ value: { x, y }, timestamp }` (equivalent to `RemoteCalibrator.gazePosit
 .calibrateGaze([options, [callback]])
 ```
 
-Pop an interface for participants to calibrate their gaze position on the screen. Participants need to click on the dots around the screen for several times each. This function is automatically called in the `.trackGaze()` function when it's called for the first time, but you can always call this function directly as needed, e.g., when the gaze accuracy is low.
+Pop an interface for participants to calibrate their gaze position on the screen. Participants need to click on the crosses moving around the screen. This function is automatically called in the `.trackGaze()` function when it's called for the first time, but you can always call this function directly as needed, e.g., when the gaze accuracy is low.
 
 ```js
 /* [options] Default value */
@@ -401,10 +401,25 @@ Pop an interface for participants to calibrate their gaze position on the screen
 }
 ```
 
-#### Get Accuracy 🚧
+<!-- #### Get Accuracy 🚧
 
 ```js
 .getGazeAccuracy([callback])
+``` -->
+
+#### Nudge Gaze
+
+```js
+.nudgeGaze([options, [callback]])
+```
+
+Pop a interface for participant to nudge their gaze to the center of the screen. Participants need to click on the crosses at the screen center. Optionally, you can visualize the difference between the lastly estimated gaze and the screen center.
+
+```js
+/* [options] Default value */
+{
+  showOffset: true,
+}
 ```
 
 #### Lifecycle
