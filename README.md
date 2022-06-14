@@ -14,6 +14,25 @@ Welcome to Remote Calibrator! This package contains several useful tools to cali
 
 Please visit https://calibrator.app for the demo. More information can be found at https://easyeyes.app/remote-calibrator/.
 
+## Cite Us
+
+If you use it, please cite us.
+
+> Jiang, P., Burchell, A., & Pelli, D. G. (2021, December). EasyEyes aids online testing by emulating a wireless keyboard and tracking viewing distance. In _PERCEPTION_ (Vol. 50, No. 1\_ SUPPL, pp. 7-7). 1 OLIVERS YARD, 55 CITY ROAD, LONDON EC1Y 1SP, ENGLAND: SAGE PUBLICATIONS LTD.
+
+```bibtex
+@inproceedings{jiang2021easyeyes,
+  title={EasyEyes aids online testing by emulating a wireless keyboard and tracking viewing distance},
+  author={Jiang, Peiling and Burchell, Augustin and Pelli, Denis G},
+  booktitle={PERCEPTION},
+  volume={50},
+  number={1\_ SUPPL},
+  pages={7--7},
+  year={2021},
+  organization={SAGE PUBLICATIONS LTD 1 OLIVERS YARD, 55 CITY ROAD, LONDON EC1Y 1SP, ENGLAND}
+}
+```
+
 ## Getting Started
 
 To use Remote Calibrator, you can add the following line into the `<head>` of your HTML file.
