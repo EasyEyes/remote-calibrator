@@ -432,7 +432,7 @@ Pop an interface for participants to calibrate their gaze position on the screen
 .nudgeGaze([options, [callback]])
 ```
 
-Pop a interface for participant to nudge their gaze to the center of the screen. Participants need to click on the crosses at the screen center. Optionally, you can visualize the difference between the lastly estimated gaze and the screen center.
+Pop an interface for participant to nudge their gaze to the center of the screen. Participants need to click on the crosses at the screen center. Optionally, you can visualize the difference between the lastly estimated gaze and the screen center.
 
 ```js
 /* [options] Default value */
@@ -558,10 +558,16 @@ Use the following keywords to retrieve the whole dataset.
 
 For building the library locally or development, please follow the steps below.
 
-### Setup
+### Download
 
 ```shell
 git clone --recurse-submodules https://github.com/EasyEyes/remote-calibrator.git
+```
+
+It is very important to download the submodules with the main repository. If you have cloned the repo without submodules, run the following at the ROOT -
+
+```shell
+git submodule update --init --recursive
 ```
 
 ### Install
@@ -570,21 +576,13 @@ git clone --recurse-submodules https://github.com/EasyEyes/remote-calibrator.git
 npm run setup
 ```
 
-### Development Build
+### Develop
 
 ```shell
-npm run dev
+npm start
 ```
 
-This command will give you a quick and continuous build of the package output into the `example/lib` folder. Then you may setup the local server (in another Terminal window) and develop based on it.
-
-### Example
-
-```shell
-npm run serve
-```
-
-This will start a local server hosting the example page. You may then access the example at `localhost:8000`.
+This will start a local server hosting the example page with hot reload for you to develop. You may access it at `localhost:9000`.
 
 ### Build
 
@@ -592,7 +590,7 @@ This will start a local server hosting the example page. You may then access the
 npm run build
 ```
 
-This command will give you a minimized build of the package output into both of the `example/lib` and `lib` folders. You may use the file for production purposes.
+This command will give you a minimized build of the package output into the `lib` folder. You may use the file for production purposes.
 
 ## References
 

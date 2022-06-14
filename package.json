@@ -11,7 +11,6 @@
     "setup": "cd src/WebGazer4RC && npm i && cd ../.. && npm i",
     "format": "prettier --write \"**/*.{js,json,md,html,css,scss}\"",
     "start": "webpack serve --env=development",
-    "dev": "webpack --env=development",
     "build": "webpack --env=production",
     "prepare": "husky install",
     "netlify": "cp -r ./lib ./homepage",
