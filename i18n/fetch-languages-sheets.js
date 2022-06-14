@@ -36,11 +36,19 @@ async function processLanguageSheet() {
 
   for (let phrase in data) {
     for (let lang in data[phrase]) {
+      if (data[phrase][lang].includes('Loading') && lang !== 'en-US') {
+        console.error(
+          new Error(
+            `Phrases are not ready for ${lang} yet. Please try again later.`
+          )
+        )
+        return false
+      }
+
       // Placeholders
-      while (data[phrase][lang].includes('XX'))
-        data[phrase][lang] = data[phrase][lang]
-          .replace(/XXX/g, 'xxx')
-          .replace(/XX/g, 'xx')
+      data[phrase][lang] = data[phrase][lang]
+        .replace(/XXX/g, 'xxx')
+        .replace(/XX/g, 'xx')
       // Spaces
       data[phrase][lang] = data[phrase][lang].replace(/%/g, '&nbsp')
       // line breaks
