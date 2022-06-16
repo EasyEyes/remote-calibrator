@@ -7,6 +7,49 @@ import {
 import RemoteCalibrator from './core'
 import { phrases } from './i18n'
 
+RemoteCalibrator.prototype.performanceCompute = async function (
+  callback,
+  __internalCall__ = false
+) {
+  ////
+  if (!this.checkInitialized()) return
+  ////
+
+  const countStartTime = performance.now()
+  let numberCounter = {
+    _useless: undefined,
+    time: 0,
+    randomTime: 0,
+  }
+  while (performance.now() - countStartTime < 500) {
+    numberCounter._useless = Array(5000).fill(Math.floor(Math.random() * 10))
+    numberCounter.time++
+  }
+
+  const countStartTimeRandom = performance.now()
+  numberCounter._useless = 0
+  while (performance.now() - countStartTimeRandom < 500) {
+    numberCounter._useless += Math.random()
+    numberCounter.randomTime++
+  }
+
+  const data = {
+    value: {
+      computeArrayFillMHz: toFixedNumber((2 * numberCounter.time) / 1e6, 3),
+      computeRandomMHz: toFixedNumber((2 * numberCounter.randomTime) / 1e6, 3),
+      idealFps: undefined,
+      stressFps: undefined,
+    },
+    timestamp: performance.now(),
+  }
+
+  if (!__internalCall__) this.newPerformanceData = data
+
+  safeExecuteFunc(callback, data)
+
+  return data
+}
+
 RemoteCalibrator.prototype.performance = async function (
   options = {},
   callback
@@ -17,6 +60,7 @@ RemoteCalibrator.prototype.performance = async function (
 
   options = Object.assign(
     {
+      testComputation: true,
       testFrameCount: 180,
       testObjectCount: 10000,
       headline: '🚀 ' + phrases.RC_performanceTitle[this.L],
@@ -29,23 +73,15 @@ RemoteCalibrator.prototype.performance = async function (
   this._addBackgroundText(options.headline, options.description)
   await sleep(200)
 
-  const countStartTime = performance.now()
-  let numberCounter = {
-    _useless: undefined,
-    time: 0,
-    randomTime: 0,
-  }
-  while (performance.now() - countStartTime < 1000) {
-    numberCounter._useless = Array(5000).fill(Math.floor(Math.random() * 10))
-    numberCounter.time++
-  }
-
-  const countStartTimeRandom = performance.now()
-  numberCounter._useless = 0
-  while (performance.now() - countStartTimeRandom < 1000) {
-    numberCounter._useless += Math.random()
-    numberCounter.randomTime++
-  }
+  // one could skip testing computation performance
+  const computingPerformanceData = options.testComputation
+    ? await this.performanceCompute(null, true)
+    : {
+        value: {
+          computeArrayFillMHz: undefined,
+          computeRandomMHz: undefined,
+        },
+      }
 
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
@@ -64,8 +100,8 @@ RemoteCalibrator.prototype.performance = async function (
 
   const data = (this.newPerformanceData = {
     value: {
-      computeArrayFillMHz: toFixedNumber(numberCounter.time / 1e6, 3),
-      computeRandomMHz: toFixedNumber(numberCounter.randomTime / 1e6, 3),
+      computeArrayFillMHz: computingPerformanceData.value.computeArrayFillMHz,
+      computeRandomMHz: computingPerformanceData.value.computeRandomMHz,
       idealFps: Math.round(60000 / (configData.end - configData.start)),
       stressFps: Math.round(
         (1000 * options.testFrameCount) / (timingData.end - timingData.start)
