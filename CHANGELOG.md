@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2022-06-15
+
+Add `.performanceCompute([callback])` that can run quietly in the background to get `computeArrayFillMHz` and `computeRandomMHz` without showing any Remote Calibrator visual elements.
+
 ## [0.6.1] - 2022-06-04
 
 ### Added
@@ -339,7 +343,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.1...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.2...develop
+[0.6.2]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.5.0...v0.5.1

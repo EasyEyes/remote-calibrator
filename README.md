@@ -470,7 +470,8 @@ Get the setup information of the experiment, including browser type, device mode
 
 ### 📔 Other Functions
 
-- `.performance()` Execute a series of computation demanding tasks for the CPU and GPU, including filling randoms numbers into an array of length of 5000 (repeatedly for a second), generating random numbers (repeatedly for a second), computing for and rendering stressful 2D canvas graphics. Results are reported as `computeArrayFillMHz`, `computeRandomMHz`, `idealFps` (canvas FPS without any heavy tasks), and `stressFps` in the returned value.
+- `/* async */ .performance([options, [callback]])` Execute a series of computation demanding tasks for the CPU and GPU, including filling randoms numbers into an array of length of 5000 (repeatedly for a second), generating random numbers (repeatedly for a second), computing for and rendering stressful 2D canvas graphics. Results are reported as `computeArrayFillMHz`, `computeRandomMHz`, `idealFps` (canvas FPS without any heavy tasks), and `stressFps` in the returned value. `options` includes `{ testComputation: true, testFrameCount: 180, testObjectCount: 10000, headline, description }`.
+- `/* async */ .performanceCompute([callback])` Get `computeArrayFillMHz`, `computeRandomMHz` without pulling out any visual elements. Can be called quietly in the background.
 - `.checkInitialized()` Check if the model is initialized. Return a boolean.
 - `.getFullscreen()` Get fullscreen mode.
 - `.newLanguage(lang = 'en-US')` Set a new language for the calibrator.
@@ -591,6 +592,13 @@ npm run build
 ```
 
 This command will give you a minimized build of the package output into the `lib` folder. You may use the file for production purposes.
+
+### Bump to a New Version
+
+- Document changes in CHANGELOG.md.
+- Git commit changes.
+- Run `npm version v[new.version.number]` (ideally at `development` branch).
+- Merge into `main` branch, push, and make a release in GitHub.
 
 ## References
 

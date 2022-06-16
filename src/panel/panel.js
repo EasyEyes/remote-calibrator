@@ -65,9 +65,9 @@ RemoteCalibrator.prototype.panel = async function (
   options = {},
   callback = null,
   resolveOnFinish = null,
-  _reset = false // ! Not available to users
+  __reset__ = false // ! Not available to users
 ) {
-  if (this._panelStatus.hasPanel ^ _reset) return false
+  if (this._panelStatus.hasPanel ^ __reset__) return false
   /**
    * has rest
    * t   f no
@@ -136,7 +136,7 @@ RemoteCalibrator.prototype.panel = async function (
   panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${options.description}</p>`
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
 
-  if (!_reset) parentElement.appendChild(panel)
+  if (!__reset__) parentElement.appendChild(panel)
   else parentElement.replaceChild(panel, this._panel.panel) // ! reset
 
   const steps = panel.querySelector('#rc-panel-steps')
