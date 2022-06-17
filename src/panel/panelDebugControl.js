@@ -1,9 +1,10 @@
 import { safeExecuteFunc, _copy } from '../components/utils'
+import { _isValidCustomizedName } from './panelUtils'
 
 export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
   const debugControlElement = document.createElement('div')
   debugControlElement.className = 'rc-panel-debug-control'
-  debugControlElement.innerHTML = `<h2>DEBUG CONTROL</h2><p class="rc-panel-debug-bold-text">REMEMBER TO SET debug TO false FOR PRODUCTION MODE!</p>`
+  debugControlElement.innerHTML = `<h2>🐛 DEBUG CONTROL</h2><p class="rc-panel-debug-bold-text">Set&nbsp;&nbsp;<code>{ debug: false }</code>&nbsp;&nbsp;for production mode!</p>`
 
   panel.appendChild(debugControlElement)
   const debugControlRows = [] // Array of task names
@@ -160,6 +161,16 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
         default:
           break
       }
+
+      debugControlElement.appendChild(rowElement)
+      debugControlRows.push(taskName)
+    } else if (_isValidCustomizedName(taskName)) {
+      const filteredName = taskName.replace(/[[ \]]/g, '')
+      debugControlElement.innerHTML += `<h3>${
+        filteredName.charAt(0).toLowerCase() + filteredName.slice(1)
+      }</h3>`
+      rowElement.innerHTML +=
+        ': ( Customized task result values cannot be pre-filled.'
 
       debugControlElement.appendChild(rowElement)
       debugControlRows.push(taskName)

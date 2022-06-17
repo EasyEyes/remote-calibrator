@@ -264,16 +264,28 @@
     }
 
     h3 {
-      font-variant: small-caps;
-      font-size: 0.9rem;
-      font-weight: 500;
-      padding-top: 0.5rem;
-      padding-bottom: 0.3rem;
+      font-variant: small-caps !important;
+      font-size: 0.9rem !important;
+      font-weight: 500 !important;
+      padding-top: 0.5rem !important;
+      padding-bottom: 0.3rem !important;
     }
 
     .rc-panel-debug-bold-text {
+      // display: inline-flex;
+      // align-items: center;
+
       font-size: 1rem !important;
-      font-weight: bold;
+      font-weight: bold !important;
+      line-height: 150% !important;
+      margin: 0.3rem 0 !important;
+
+      code {
+        font-size: 0.875rem;
+        // color: #cb2d2d !important;
+        color: #ee0000 !important;
+        vertical-align: bottom !important;
+      }
     }
 
     .rc-panel-debug-control-next {
