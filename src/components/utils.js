@@ -74,6 +74,12 @@ export function safeExecuteFunc(f, ...a) {
     else return f()
 }
 
+export async function safeExecuteAsyncFunc(f, ...a) {
+  if (f && typeof f === 'function')
+    if (a.length) return await f(...a)
+    else return await f()
+}
+
 export const emptyFunc = () => {}
 
 // http://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep

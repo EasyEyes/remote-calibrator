@@ -1,6 +1,6 @@
 import tinycolor from 'tinycolor2'
 
-import { safeExecuteFunc } from '../components/utils'
+import { safeExecuteAsyncFunc, safeExecuteFunc } from '../components/utils'
 import RemoteCalibrator from '../core'
 import { _setDebugControl } from './panelDebugControl'
 import { phrases } from '../i18n'
@@ -251,10 +251,13 @@ const _validTaskListNames = Object.keys(_validTaskList)
 const _validateTask = task => {
   if (!Array.isArray(task)) return false
   for (let t of task) {
-    if (
-      typeof t === 'object' &&
-      (t === null || !_validTaskListNames.includes(t.name))
-    )
+    if (!t) return false
+
+    if (typeof t === 'object' && t.name.includes('[') && t.name.includes(']'))
+      if (!t.function || typeof t.function !== 'function') return false
+      else continue
+
+    if (typeof t === 'object' && !_validTaskListNames.includes(t.name))
       return false
     else if (typeof t === 'string' && !_validTaskListNames.includes(t))
       return false
@@ -263,8 +266,14 @@ const _validateTask = task => {
 }
 
 const _newStepBlock = (RC, index, task, options) => {
-  let useCode = _validTaskList[_getTaskName(task)].use
-  let use, useTip
+  let useCode, use, useTip
+
+  if (
+    !_validTaskList[_getTaskName(task)] &&
+    _isValidCustomizedName(_getTaskName(task))
+  )
+    useCode = -1
+  else useCode = _validTaskList[_getTaskName(task)].use
 
   switch (useCode) {
     case 0:
@@ -299,7 +308,9 @@ const _newStepBlock = (RC, index, task, options) => {
   b.innerHTML =
     (use.length ? `<p class="rc-panel-step-use">${use}</p>` : '') +
     `<p class="rc-panel-step-name">${Number(index) + 1}&nbsp;&nbsp;${
-      phrases[_validTaskList[_getTaskName(task)].phraseHandle][RC.L]
+      _isValidCustomizedName(_getTaskName(task))
+        ? _parseCustomizedName(_getTaskName(task))
+        : phrases[_validTaskList[_getTaskName(task)].phraseHandle][RC.L]
     }</p>` +
     (use.length ? `<p class="rc-panel-step-use-tip">${use} ${useTip}</p>` : '')
   // b.disabled = true
@@ -347,36 +358,57 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
         if (eIndex !== tasks.length) {
           if (eIndex === tasks.length - 1 && !options.showNextButton) {
             // Last task without next button
-            e.onclick = () => {
-              RC[_getTaskName(tasks[current.index])](
-                ..._getTaskOptionsCallbacks(
-                  tasks[current.index],
-                  // Fixed task callback
-                  () => {
-                    _finishStepAt(current.index)
-                  },
-                  finalCallback,
-                  // Fixed final callback
-                  () => {
-                    RC._panelStatus.panelFinished = true
-                  }
+            e.onclick = async () => {
+              const currentTask = tasks[current.index]
+              const currentTaskName = _getTaskName(currentTask)
+
+              if (_isValidCustomizedName(currentTaskName)) {
+                await safeExecuteAsyncFunc(currentTask.function)
+
+                _finishStepAt(current.index) // fixedTaskCallback
+                safeExecuteFunc(finalCallback, { timestamp: performance.now() }) // finalCallback
+                RC._panelStatus.panelFinished = true // fixedFinalCallback
+              } else {
+                RC[_getTaskName(tasks[current.index])](
+                  ..._getTaskOptionsCallbacks(
+                    tasks[current.index],
+                    // Fixed task callback
+                    () => {
+                      _finishStepAt(current.index)
+                    },
+                    finalCallback,
+                    // Fixed final callback
+                    () => {
+                      RC._panelStatus.panelFinished = true
+                    }
+                  )
                 )
-              )
+              }
             }
           } else {
             // Interim tasks
-            e.onclick = () => {
-              RC[_getTaskName(tasks[current.index])](
-                ..._getTaskOptionsCallbacks(
-                  tasks[current.index],
-                  // Fixed task callback
-                  () => {
-                    _finishStepAt(current.index)
-                    current.index++
-                    _activateStepAt(RC, current, tasks, options, finalCallback)
-                  }
+            e.onclick = async () => {
+              const currentTask = tasks[current.index]
+              const currentTaskName = _getTaskName(currentTask)
+
+              const fixedTaskCallback = () => {
+                _finishStepAt(current.index)
+                current.index++
+                _activateStepAt(RC, current, tasks, options, finalCallback)
+              }
+
+              if (_isValidCustomizedName(currentTaskName)) {
+                await safeExecuteAsyncFunc(currentTask.function)
+                fixedTaskCallback()
+              } else {
+                RC[currentTaskName](
+                  ..._getTaskOptionsCallbacks(
+                    tasks[current.index],
+                    // Fixed task callback
+                    fixedTaskCallback
+                  )
                 )
-              )
+              }
             }
           }
         } else if (eIndex === tasks.length && options.showNextButton) {
@@ -398,14 +430,24 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
       }
     } else {
       // Demo active all
-      e.onclick = () => {
-        RC[_getTaskName(tasks[ind])](..._getTaskOptionsCallbacks(tasks[ind]))
+      e.onclick = async () => {
+        const currentTask = tasks[ind]
+        const currentTaskName = _getTaskName(currentTask)
+
+        if (_isValidCustomizedName(currentTaskName)) {
+          await safeExecuteAsyncFunc(currentTask.function)
+        } else {
+          RC[_getTaskName(tasks[ind])](..._getTaskOptionsCallbacks(tasks[ind]))
+        }
+
         _finishStepAt(ind)
         current.finished.push(_getTaskName(tasks[ind]))
+
         // Check if all finished
         for (let t of tasks) {
           if (!current.finished.includes(_getTaskName(t))) return
         }
+
         // If so, activate the next step button
         let finalButton = document.querySelector('.rc-panel-next-button')
         finalButton.classList.replace(
@@ -435,9 +477,22 @@ const _getTaskName = task => {
   return task.name
 }
 
+const _isValidCustomizedName = taskName => {
+  return (
+    taskName &&
+    taskName.length > 2 &&
+    taskName[0] === '[' &&
+    taskName[taskName.length - 1] === ']'
+  )
+}
+
+const _parseCustomizedName = taskName => {
+  return taskName.slice(1, -1)
+}
+
 const _getTaskOptionsCallbacks = (
   task,
-  fixedTaskCallback,
+  fixedTaskCallback = null,
   finalCallback = null,
   fixedFinalCallback = null
 ) => {

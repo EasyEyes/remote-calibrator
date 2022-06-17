@@ -138,6 +138,12 @@ function initializeCode() {
 const _panelCode = `RemoteCalibrator.panel(
   [
     // Configure tasks
+    {
+      name: '[Customized Task]',
+      function: async () => {
+        printMessage('You can also define your own tasks and customize its behavior.')
+      }
+    },
     'performance',
     {
       name: 'screenSize',

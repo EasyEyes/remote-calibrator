@@ -8,7 +8,7 @@
     "homepage": "homepage"
   },
   "scripts": {
-    "setup": "cd src/WebGazer4RC && npm i && cd ../.. && npm i",
+    "setup": "cd src/WebGazer4RC && git checkout rc-prod && npm i && cd ../.. && npm i",
     "format": "prettier --write \"**/*.{js,json,md,html,css,scss}\"",
     "start": "webpack serve --env=development",
     "build": "webpack --env=production",
