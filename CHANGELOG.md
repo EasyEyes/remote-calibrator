@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Near point data in distance tracking function callbacks are in incorrect format - was an array instead of an object of `{ x, y }`.
+
 ## [0.6.2] - 2022-06-15
 
 Add `.performanceCompute([callback])` that can run quietly in the background to get `computeArrayFillMHz` and `computeRandomMHz` without showing any Remote Calibrator visual elements.

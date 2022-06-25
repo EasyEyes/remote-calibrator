@@ -6,6 +6,7 @@ import './screenSize'
 
 import './distance/distance'
 import './distance/distanceTrack'
+import './distance/distanceAngle'
 import './distance/distanceNudge'
 import './distance/interPupillaryDistance'
 
@@ -44,6 +45,7 @@ import 'sweetalert2/src/sweetalert2.scss'
 import './css/swal.css'
 import './css/buttons.scss'
 import './css/slider.scss'
+import './css/lookAtGuide.scss'
 import './css/check.scss'
 
 const r = new RemoteCalibrator()

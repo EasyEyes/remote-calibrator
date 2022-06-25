@@ -77,15 +77,17 @@ RemoteCalibrator.prototype.panel = async function (
    */
 
   // Tasks
-  if (!_validateTask(tasks)) {
-    console.error('Invalid task name(s).')
+  if (typeof _validateTask(tasks) === 'string') {
+    console.error(`Invalid task name(s). ${_validateTask(tasks)}`)
     return false
   }
 
   // Parent
   const parentElement = document.querySelector(parent)
   if (!parentElement) {
-    console.error('Cannot find the parent element.')
+    console.error(
+      'Failed to construct the panel element. Cannot find the parent element.'
+    )
     return false
   }
 
@@ -249,15 +251,15 @@ const _validTaskList = {
 const _validTaskListNames = Object.keys(_validTaskList)
 
 const _validateTask = task => {
-  if (!Array.isArray(task)) return false
+  if (!Array.isArray(task)) return 'The task list is not an array.'
   for (let t of task) {
     if (
       typeof t === 'object' &&
       (t === null || !_validTaskListNames.includes(t.name))
     )
-      return false
+      return "A task configured by an object doesn't have a valid name."
     else if (typeof t === 'string' && !_validTaskListNames.includes(t))
-      return false
+      return `The task [${t}] is not a valid name.`
   }
   return true
 }

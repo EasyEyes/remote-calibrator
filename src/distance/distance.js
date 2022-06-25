@@ -157,6 +157,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
             callback,
             data,
             measureType,
+            measureType === 'trackDistance', // isTrackMethod
             options.checkCallback
           )
         else safeExecuteFunc(callback, data)

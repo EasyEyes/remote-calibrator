@@ -49,7 +49,6 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
   this.getFullscreen(options.fullscreen)
 
   this._replaceBackground()
-
   this._replaceBackground(
     constructInstructions(options.headline, options.shortDescription, true)
   )
