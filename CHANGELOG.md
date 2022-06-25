@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+(draft)
+
+### Added
+
+- Turn around to measure distance.
+- Add customized functions to the panel.
+
 ### Fixed
 
-- Near point data in distance tracking function callbacks are in incorrect format - was an array instead of an object of `{ x, y }`.
+- (Breaking) Near point data in distance tracking function callbacks are in incorrect format - was an array instead of an object of `{ x, y }`.
 
 ## [0.6.2] - 2022-06-15
 
