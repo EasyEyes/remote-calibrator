@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Turn around to measure distance.
 - Add customized functions to the panel.
 
+### Changed
+
+- The latency value for tracking is rounded to integers.
+
 ### Fixed
 
 - (Breaking) Near point data in distance tracking function callbacks are in incorrect format - was an array instead of an object of `{ x, y }`.

@@ -268,7 +268,7 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
 
     let timestamp = performance.now()
     //
-    const latency = timestamp - videoTimestamp
+    const latency = toFixedNumber(timestamp - videoTimestamp, 0)
     //
 
     const data = (this.newViewingDistanceData = {

@@ -167,7 +167,10 @@ GazeTracker.prototype.getData = function (d) {
     value: {
       x: toFixedNumber(d.x, this._toFixedN),
       y: toFixedNumber(d.y, this._toFixedN),
-      latencyMs: t - this.calibrator._trackingVideoFrameTimestamps.gaze, // latency
+      latencyMs: toFixedNumber(
+        t - this.calibrator._trackingVideoFrameTimestamps.gaze,
+        0
+      ), // latency
     },
     timestamp: t,
     raw: d.raw ? d.raw : undefined,
