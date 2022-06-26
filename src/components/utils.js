@@ -70,6 +70,21 @@ import { debug } from '../debug'
   }
 })()
 
+export const objectRemoveEverythingAllAtOnce = obj => {
+  for (let key in obj) {
+    if (hasOwnProperty(obj, key)) {
+      delete obj[key]
+      obj[key] = undefined
+    }
+  }
+}
+
+// https://stackoverflow.com/a/136411/
+function hasOwnProperty(obj, prop) {
+  var proto = obj.__proto__ || obj.constructor.prototype
+  return prop in obj && (!(prop in proto) || proto[prop] !== obj[prop])
+}
+
 export function safeGetVar(variable) {
   if (variable === undefined) {
     if (debug) throw 'Variable is undefined.'

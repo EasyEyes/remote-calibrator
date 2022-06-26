@@ -2,13 +2,18 @@ import { checkPermissions } from '../components/mediaPermission'
 import {
   average,
   blurAll,
+  constrain,
   constructInstructions,
+  objectRemoveEverythingAllAtOnce,
   safeExecuteFunc,
   safeGetVar,
+  sleep,
 } from '../components/utils'
 import RemoteCalibrator from '../core'
 import { phrases } from '../i18n'
 import {
+  cyclopean,
+  eyeDist,
   getStdDist,
   originalStyles,
   setTrackingOptions,
@@ -18,9 +23,9 @@ import {
 } from './trackingUtils'
 import { debug } from '../debug'
 import { LookAtGuide } from '../components/lookAtGuide'
-import { iRepeat } from '../components/iRepeat'
+import { iRepeatAsync } from '../components/iRepeat'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
-import { addButtons } from '../components/buttons'
+import { addButtons, removeButtons } from '../components/buttons'
 import { soundFeedback } from '../components/sound'
 
 RemoteCalibrator.prototype.angleDistance = async function (
@@ -47,7 +52,9 @@ RemoteCalibrator.prototype.angleDistance = async function (
       showVideo: true,
       showFaceOverlay: false,
       decimalPlace: 1,
-      angleAsymmetryThresholdDeg: 5,
+      ////
+      forceAlignHead: true,
+      angleAsymmetryThresholdDeg: 6,
       ////
       nearPoint: false,
       showNearPoint: false,
@@ -211,11 +218,14 @@ const turningAroundTest = async (RC, options, callback) => {
     startCollectingThisStage = true
   }
 
+  let brokenProcess = false
   // ! breakFunction
   const breakFunction = () => {
     // break the measuring loop
     iRepeatOptionsForAngleSetup.break = true
     iRepeatOptionsForAngleSetup.framerate = 20
+
+    brokenProcess = true
 
     lookAtGuide.remove()
     RC._removeBackground()
@@ -267,6 +277,244 @@ const turningAroundTest = async (RC, options, callback) => {
     ' ': readyInPosition,
   })
 
+  /* -------------------------------------------------------------------------- */
+
+  let alignStage = 'rotation' // OR 'rotation'
+
+  const alignPositionThresholdPx = 30
+  const alignRotationThresholdDeg = 1
+  const aligningTimeoutMs = 2000
+
+  const alignSmoothDeg = []
+  const alignSmoothPx = []
+
+  const alignTargetSnapLine = document.createElement('div')
+  alignTargetSnapLine.className = 'rc-align-target-snap-line'
+  const alignTargetSnapLineCenter = document.createElement('div')
+  alignTargetSnapLineCenter.className = 'rc-align-target-snap-line-center'
+  const alignTargetElement = document.createElement('div')
+  alignTargetElement.className = 'rc-align-target'
+
+  RC.background.appendChild(alignTargetSnapLine)
+  alignTargetSnapLine.appendChild(alignTargetSnapLineCenter)
+  alignTargetSnapLine.appendChild(alignTargetElement)
+
+  let holdTimeout = undefined
+
+  const _alignSmooth = (newValue, history) => {
+    if (history.length < 5) return history.push(newValue)
+    else {
+      history.shift()
+      history.push(newValue)
+    }
+  }
+
+  // ! aligning
+  const aligning = async () => {
+    const faces = await model.estimateFaces(video)
+
+    if (faces.length) {
+      const mesh = faces[0].scaledMesh
+
+      if (alignStage === 'position') {
+        // ! SECOND STEP
+        RC._updateFloatInstructionElement(
+          'gaze-system-instruction',
+          `Now, MOVE your head so that it's aligned with the center of the screen.`
+        )
+        alignTargetElement.style.width = '1rem'
+
+        _alignSmooth(
+          (cyclopean(video, mesh[133], mesh[362])[0] *
+            (RC.PDCm ? RC.PDCm.value : RC._CONST.N.PD_DONT_USE)) /
+            eyeDist(mesh[133], mesh[362]),
+          alignSmoothPx
+        )
+        const currentPositionToVideoCenterX = average(alignSmoothPx)
+        const displayOffsetX = (currentPositionToVideoCenterX * ppi) / 2.54
+
+        alignTargetElement.style.left = `${constrain(
+          screen.width / 2 - window.screenLeft + displayOffsetX,
+          0,
+          window.innerWidth
+        )}px`
+
+        // check
+        if (Math.abs(displayOffsetX) < alignPositionThresholdPx) {
+          RC._updateFloatInstructionElement(
+            'gaze-system-instruction',
+            `Hold still!`
+          )
+
+          if (!holdTimeout) {
+            holdTimeout = setTimeout(() => {
+              /* -------------------------------------------------------------------------- */
+              // ! done
+
+              iRepeatOptionsForAngleSetup.break = true
+              iRepeatOptionsForAngleSetup.framerate = 20
+
+              alignTargetSnapLine.remove()
+              RC._removeFloatInstructionElement()
+
+              holdTimeout = undefined
+
+              /* -------------------------------------------------------------------------- */
+            }, aligningTimeoutMs)
+          }
+        } else {
+          RC._updateFloatInstructionElement(
+            'gaze-system-instruction',
+            `Now, MOVE your head so that it's aligned with the center of the screen.`
+          )
+
+          if (holdTimeout) {
+            clearTimeout(holdTimeout)
+            holdTimeout = undefined
+          }
+        }
+      } else {
+        // ! FIRST STEP
+        // alignState === 'rotation'
+        RC._updateFloatInstructionElement(
+          'gaze-system-instruction',
+          `Now, ROTATE your head so that you are looking at the center of the screen.`
+        )
+        alignTargetElement.style.width = '2rem'
+
+        _alignSmooth(
+          _getAngleFullRangeDeg(mesh[133], mesh[362]),
+          alignSmoothDeg
+        )
+        const viewAngleDeg = average(alignSmoothDeg)
+        const viewAngleRand = (viewAngleDeg * Math.PI) / 180
+
+        alignTargetElement.style.left = `${constrain(
+          screen.width / 2 -
+            window.screenLeft +
+            (Math.tan(viewAngleRand) * RC._CONST.N.VIEW_DIST_DONT_USE * ppi) /
+              2.54,
+          0,
+          window.innerWidth
+        )}px`
+
+        // check
+        if (Math.abs(viewAngleDeg) < alignRotationThresholdDeg) {
+          RC._updateFloatInstructionElement(
+            'gaze-system-instruction',
+            `Hold still!`
+          )
+
+          if (!holdTimeout) {
+            holdTimeout = setTimeout(() => {
+              alignStage = 'position'
+              holdTimeout = undefined
+            }, aligningTimeoutMs)
+          }
+        } else {
+          RC._updateFloatInstructionElement(
+            'gaze-system-instruction',
+            `Now, ROTATE your head so that it's aligned with the center of the screen.`
+          )
+
+          if (holdTimeout) {
+            clearTimeout(holdTimeout)
+            holdTimeout = undefined
+          }
+        }
+      }
+    }
+  }
+
+  /* -------------------------------------------------------------------------- */
+  // ! measuring
+  const measuring = async () => {
+    if (startCollectingThisStage) {
+      const faces = await model.estimateFaces(video)
+
+      if (faces.length) {
+        const mesh = faces[0].mesh
+        if (targetCount === distCount) {
+          averageAngleDeg += Math.abs(
+            _getAngleFullRangeDeg(mesh[133], mesh[362])
+          )
+          averageAngleDeg /= targetCount
+
+          if (resultsByStage[currentStage.name] === undefined)
+            resultsByStage[currentStage.name] = []
+          resultsByStage[currentStage.name].push(averageAngleDeg)
+
+          // record raw measures
+          rawMeasures.push({
+            averageAngleDeg: averageAngleDeg,
+            targetDirection: currentStage.name,
+            frameCount: targetCount,
+            ppi: ppi,
+            timestamp: performance.now(),
+          })
+
+          // go to next stage if unfinished
+          currentStageIndex++
+          if (currentStageIndex < stages.length) {
+            useNextStage()
+          } else {
+            // check for asymmetric results
+            if (
+              !_validateAsymmetry(
+                resultsByStage,
+                options.angleAsymmetryThresholdDeg
+              )
+            ) {
+              // results from left turn and right turn are too different
+              // keep collecting
+
+              // ? give up all the results
+              objectRemoveEverythingAllAtOnce(resultsByStage)
+
+              currentStageIndex = 0
+              useNextStage()
+            } else {
+              // ! got dist data
+              finishFunction(_getDistByAngle(RC, ppi, resultsByStage))
+            }
+          }
+        } else {
+          averageAngleDeg += Math.abs(
+            _getAngleFullRangeDeg(mesh[133], mesh[362])
+          )
+          ++distCount
+        }
+      }
+    }
+  }
+
+  /* -------------------------------------------------------------------------- */
+
+  if (options.forceAlignHead) {
+    addButtons(
+      RC.L,
+      RC.background,
+      {
+        cancel: options.showCancelButton ? breakFunction : undefined,
+      },
+      RC.params.showCancelButton
+    )
+
+    // Align head to center
+    iRepeatOptionsForAngleSetup.break = false
+    iRepeatOptionsForAngleSetup.framerate =
+      targetCount * trackingOptions.framerate // Default 5 * 3
+
+    lookAtGuide.hide()
+    await iRepeatAsync(aligning, iRepeatOptionsForAngleSetup)
+    if (brokenProcess) return // stop right here if breakFunction called from aligning process
+
+    await sleep(100)
+    removeButtons(RC.background)
+  }
+
+  /* -------------------------------------------------------------------------- */
+
   addButtons(
     RC.L,
     RC.background,
@@ -291,65 +539,27 @@ const turningAroundTest = async (RC, options, callback) => {
     averageAngleDeg = 0
   }
 
-  const measuring = async () => {
-    if (startCollectingThisStage) {
-      const faces = await model.estimateFaces(video)
-
-      if (faces.length) {
-        const mesh = faces[0].mesh
-        if (targetCount === distCount) {
-          averageAngleDeg += _getAngleDeg(mesh[133], mesh[362])
-          averageAngleDeg /= targetCount
-
-          if (resultsByStage[currentStage.name] === undefined)
-            resultsByStage[currentStage.name] = []
-          resultsByStage[currentStage.name].push(averageAngleDeg)
-
-          // record raw measures
-          rawMeasures.push({
-            averageAngleDeg: averageAngleDeg,
-            targetDirection: currentStage.name,
-            frameCount: targetCount,
-            ppi: ppi,
-            timestamp: performance.now(),
-          })
-
-          // go to next stage if unfinished
-          currentStageIndex++
-          if (currentStageIndex < stages.length) {
-            useNextStage()
-          } else {
-            // check for asymmetric results
-            if (!_validateAsymmetry(resultsByStage)) {
-              // results from left turn and right turn are too different
-              // keep collecting
-              currentStageIndex = 0
-              useNextStage()
-            } else {
-              // ! got dist data
-              finishFunction(_getDistByAngle(RC, ppi, resultsByStage))
-            }
-          }
-        } else {
-          averageAngleDeg += _getAngleDeg(mesh[133], mesh[362])
-          ++distCount
-        }
-      }
-    }
-  }
-
+  // actual measuring
   iRepeatOptionsForAngleSetup.break = false
   iRepeatOptionsForAngleSetup.framerate =
     targetCount * trackingOptions.framerate // Default 5 * 3
-  iRepeat(measuring, iRepeatOptionsForAngleSetup)
+
+  lookAtGuide.show()
+  await iRepeatAsync(measuring, iRepeatOptionsForAngleSetup)
+
+  return
 }
 
 /* -------------------------------------------------------------------------- */
 
-const _getAngleDeg = (a, b) => {
-  return (
-    (Math.atan(Math.abs(b[2] - a[2]) / Math.abs(b[0] - a[0])) * 180) / Math.PI
-  )
+// const _getAngleDeg = (a, b) => {
+//   return (
+//     (Math.atan(Math.abs(b[2] - a[2]) / Math.abs(b[0] - a[0])) * 180) / Math.PI
+//   )
+// }
+
+const _getAngleFullRangeDeg = (a, b) => {
+  return (Math.atan((a[2] - b[2]) / (b[0] - a[0])) * 180) / Math.PI
 }
 
 const _getDistByAngle = (RC, ppi, resultsByStage) => {
@@ -363,9 +573,9 @@ const _getDistByAngle = (RC, ppi, resultsByStage) => {
 }
 
 const _validateAsymmetry = (resultsByStage, angleAsymmetryThresholdDeg) => {
-  if (debug) return true
+  // if (debug) return true
   return (
     Math.abs(average(resultsByStage.left) - average(resultsByStage.right)) <
-      angleAsymmetryThresholdDeg && Math.abs(average(resultsByStage.center)) < 1
+      angleAsymmetryThresholdDeg && Math.abs(average(resultsByStage.center)) < 3
   )
 }

@@ -1,0 +1,33 @@
+@import 'root.scss';
+
+.rc-align-target-snap-line {
+  position: absolute;
+  width: 100%;
+  height: 0;
+
+  border-top: 1px solid #bbb;
+  border-bottom: 1px solid #bbb;
+  margin: 50vh 0;
+
+  .rc-align-target-snap-line-center {
+    position: fixed;
+    width: 2px;
+    height: 4rem;
+
+    background: #666;
+
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .rc-align-target {
+    position: absolute;
+    width: 2rem; // !
+    height: 3rem;
+
+    background: $orange;
+    transform: translate(-50%, -50%);
+
+    transition: width 0.5s;
+  }
+}

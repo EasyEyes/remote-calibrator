@@ -46,5 +46,5 @@ export const addButtons = (
 }
 
 export const removeButtons = parent => {
-  parent.querySelector('#rc-buttons').remove()
+  parent.querySelector('#rc-buttons')?.remove()
 }

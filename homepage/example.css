@@ -29,7 +29,6 @@ body {
   border-radius: 7px;
   padding: 1.5rem;
   z-index: 1;
-  /* transition: left 600ms ease-in-out, transform 600ms ease-in-out; */
 }
 
 #experiment {
@@ -41,7 +40,7 @@ body {
   color: #555;
   border: 1px solid #ccc;
   border-radius: 7px;
-  transition: opacity 0.6s;
+  transition: opacity 0.5s;
   overflow-wrap: break-word;
 }
 

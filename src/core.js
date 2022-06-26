@@ -748,6 +748,27 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
   return (this._background.instructionElement = instP)
 }
 
+RemoteCalibrator.prototype._updateFloatInstructionElement = function (
+  id = null,
+  text
+) {
+  if (this.background === null) this._addBackground()
+  if (this.instructionElement === null)
+    return this._constructFloatInstructionElement(id, text)
+
+  if (id && id !== this.instructionElement.id) return
+  else if (
+    id &&
+    id === this.instructionElement.id &&
+    text === this.instructionElement.innerHTML
+  )
+    return this.instructionElement
+
+  this.instructionElement.innerHTML = text
+
+  return this.instructionElement
+}
+
 RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
   side,
   yOffset = 16

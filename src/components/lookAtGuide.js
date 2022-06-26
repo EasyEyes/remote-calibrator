@@ -37,7 +37,7 @@ export class LookAtGuide {
   }
 
   hide() {
-    this.element.style.display = 'hide'
+    this.element.style.display = 'none'
   }
 
   remove() {

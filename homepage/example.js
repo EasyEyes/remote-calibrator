@@ -425,6 +425,17 @@ function endDistance(e) {
     ),
     target
   )
+  target.parentNode.insertBefore(
+    constructFunctionButton(
+      [
+        '<em>Turn Around</em> for Distance<br />(Beta)',
+        'angleDistance',
+        'turnAroundForDistance',
+      ],
+      false
+    ),
+    target
+  )
   document.querySelectorAll('.distance').forEach(e => {
     e.parentNode.removeChild(e)
   })

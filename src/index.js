@@ -31,6 +31,7 @@ import './customization'
 import './css/main.css'
 import './css/screenSize.scss'
 import './css/distance.scss'
+import './css/distanceAngle.scss'
 import './css/gaze.css'
 import './css/video.scss'
 
