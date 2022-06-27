@@ -84,6 +84,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
         description +
         spaceForLanguage(this.L) +
         phrases.RC_distanceTrackingIntroEnd[this.L],
+      showDescription: false,
       check: false,
       checkCallback: null,
       showCancelButton: true,
@@ -128,7 +129,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
     this._replaceBackground(
       constructInstructions(
         options.headline,
-        options.description,
+        options.showDescription ? options.description : null,
         true,
         'rc-hang-description'
       )
