@@ -597,7 +597,7 @@ This command will give you a minimized build of the package output into the `lib
 
 - Document changes in CHANGELOG.md.
 - Git commit changes.
-- Run `npm version v[new.version.number]` (ideally at `development` branch).
+- Run `npm version [new.version.number]` (ideally at `development` branch).
 - Merge into `main` branch, push, and make a release in GitHub.
 
 ## References
