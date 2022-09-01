@@ -53,6 +53,7 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
     {
       greedyLearner: false,
       calibrationCount: 1,
+      DEBUG_skipCalibration: false,
       headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
       description: phrases.RC_gazeTrackingIntro[this.L],
     },
@@ -112,11 +113,12 @@ const startCalibration = (RC, options, onCalibrationEnded) => {
 
 export class GazeCalibrationDot {
   constructor(RC, parent, options, originalStyles, endCalibrationCallback) {
+    this.RC = RC
+    this.options = options
+
     // Order
     this._sequentialOrder(options.nudge)
     this.nudge = options.nudge
-
-    this.RC = RC
 
     this.clickThresholdBase = debug ? 1 : options.calibrationCount
     this.clicks = 0
@@ -398,63 +400,64 @@ export class GazeCalibrationDot {
       return
     }
 
-    this.order = debug
-      ? [
-          [0, 0],
-          [2, 0],
-          [2, 2],
-          [0, 2],
-          [1, 1],
-        ]
-      : [
-          [1, 1], // new round
-          [1, 0],
-          [2, 0],
-          [2, 1],
-          [2, 2],
-          [1, 2],
-          [0, 2],
-          [0, 1],
-          [0, 0],
-          [1, 1], // new round
-          [1, 2],
-          [2, 2],
-          [2, 1],
-          [2, 0],
-          [1, 0],
-          [0, 0],
-          [0, 1],
-          [0, 2],
-          [1, 1], // new round
-          [1, 5],
-          [6, 5],
-          [6, 1],
-          [6, 6],
-          [1, 6],
-          [5, 6],
-          [5, 1],
-          [5, 5],
-          [1, 1], // new round
-          [1, 6],
-          [6, 6],
-          [6, 1],
-          [6, 5],
-          [1, 5],
-          [5, 5],
-          [5, 1],
-          [5, 6],
-          [1, 1], // new round
-          [1, 4],
-          [4, 1],
-          [1, 3],
-          [3, 1],
-          [1, 1], // new round
-          [1, 3],
-          [4, 1],
-          [1, 4],
-          [3, 1],
-          [1, 1],
-        ]
+    this.order =
+      debug || this.options.DEBUG_skipCalibration
+        ? [
+            [0, 0],
+            [2, 0],
+            [2, 2],
+            [0, 2],
+            [1, 1],
+          ]
+        : [
+            [1, 1], // new round
+            [1, 0],
+            [2, 0],
+            [2, 1],
+            [2, 2],
+            [1, 2],
+            [0, 2],
+            [0, 1],
+            [0, 0],
+            [1, 1], // new round
+            [1, 2],
+            [2, 2],
+            [2, 1],
+            [2, 0],
+            [1, 0],
+            [0, 0],
+            [0, 1],
+            [0, 2],
+            [1, 1], // new round
+            [1, 5],
+            [6, 5],
+            [6, 1],
+            [6, 6],
+            [1, 6],
+            [5, 6],
+            [5, 1],
+            [5, 5],
+            [1, 1], // new round
+            [1, 6],
+            [6, 6],
+            [6, 1],
+            [6, 5],
+            [1, 5],
+            [5, 5],
+            [5, 1],
+            [5, 6],
+            [1, 1], // new round
+            [1, 4],
+            [4, 1],
+            [1, 3],
+            [3, 1],
+            [1, 1], // new round
+            [1, 3],
+            [4, 1],
+            [1, 4],
+            [3, 1],
+            [1, 1],
+          ]
   }
 
   getOffsetPx(degFromCenter, cap = null) {

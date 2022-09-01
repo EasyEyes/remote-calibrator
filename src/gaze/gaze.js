@@ -45,6 +45,7 @@ RemoteCalibrator.prototype.trackGaze = async function (
       calibrationCount: 1,
       thresholdDeg: 10, // minAccuracy
       decimalPlace: 0, // As the system itself has a high prediction error, it's not necessary to be too precise here
+      DEBUG_skipCalibration: false,
       headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
       description: phrases.RC_gazeTrackingIntro[this.L],
     },
@@ -98,11 +99,13 @@ RemoteCalibrator.prototype.trackGaze = async function (
   const calibrateGazeOptions = {
     greedyLearner: options.greedyLearner,
     calibrationCount: options.calibrationCount,
+    DEBUG_skipCalibration: options.DEBUG_skipCalibration,
     headline: options.headline,
     description: options.description,
   }
   this.gazeTracker.begin(gazeTrackerBeginOptions, () => {
     this._trackingSetupFinishedStatus.gaze = false
+
     this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
   })
 
