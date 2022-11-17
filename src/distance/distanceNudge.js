@@ -6,6 +6,7 @@ import { sleep } from '../components/utils'
 
 RemoteCalibrator.prototype.nudgeDistance = function (
   cancelable = false,
+  allowRecalibrate = true,
   trackingConfig
 ) {
   ////
@@ -71,20 +72,25 @@ RemoteCalibrator.prototype.nudgeDistance = function (
               },
             }
           : {}
-        buttonConfig = {
-          ...buttonConfig,
-          custom: {
-            callback: restartViewingDistanceTracking,
-            content: phrases.RC_distanceTrackingRedo[this.L],
-          },
+
+        if (allowRecalibrate) {
+          buttonConfig = {
+            ...buttonConfig,
+            // TODO double check the callback function here
+            custom: {
+              callback: restartViewingDistanceTracking,
+              content: phrases.RC_distanceTrackingRedo[this.L],
+            },
+          }
         }
 
-        addButtons(
-          this.L,
-          this.nudger,
-          buttonConfig,
-          this.params.showCancelButton
-        )
+        if (cancelable || allowRecalibrate)
+          addButtons(
+            this.L,
+            this.nudger,
+            buttonConfig,
+            this.params.showCancelButton
+          )
 
         const _update = () => {
           moveElement.innerHTML = getMoveInner(

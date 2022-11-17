@@ -60,6 +60,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       desiredDistanceTolerance: 1.2,
       desiredDistanceMonitor: false,
       desiredDistanceMonitorCancelable: false,
+      desiredDistanceMonitorAllowRecalibrate: true,
       nearPoint: true,
       showNearPoint: false,
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
@@ -145,6 +146,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.desiredDistanceMonitor = options.desiredDistanceMonitor
   trackingOptions.desiredDistanceMonitorCancelable =
     options.desiredDistanceMonitorCancelable
+  trackingOptions.desiredDistanceMonitorAllowRecalibrate =
+    options.desiredDistanceMonitorAllowRecalibrate
 
   originalStyles.video = options.showVideo
 
@@ -216,6 +219,7 @@ const trackingOptions = {
   desiredDistanceTolerance: 1.2,
   desiredDistanceMonitor: false,
   desiredDistanceMonitorCancelable: false,
+  desiredDistanceMonitorAllowRecalibrate: true,
 }
 
 const stdDist = { current: null }
@@ -279,6 +283,7 @@ const _tracking = async (
       desiredDistanceTolerance,
       desiredDistanceMonitor,
       desiredDistanceMonitorCancelable,
+      desiredDistanceMonitorAllowRecalibrate,
     } = trackingOptions
 
     // Always enable correct on a fresh start
@@ -334,11 +339,13 @@ const _tracking = async (
 
             if (readyToGetFirstData || desiredDistanceMonitor) {
               // ! Check distance
-              if (desiredDistanceCm)
+              if (desiredDistanceCm) {
                 RC.nudgeDistance(
                   desiredDistanceMonitorCancelable,
+                  desiredDistanceMonitorAllowRecalibrate,
                   trackingConfig
                 )
+              }
               readyToGetFirstData = false
             }
 
@@ -498,6 +505,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     trackingOptions.desiredDistanceTolerance = 1.2
     trackingOptions.desiredDistanceMonitor = false
     trackingOptions.desiredDistanceMonitorCancelable = false
+    trackingOptions.desiredDistanceMonitorAllowRecalibrate = true
 
     stdDist.current = null
     stdFactor = null
