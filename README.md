@@ -296,6 +296,7 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestam
   desiredDistanceTolerance: 1.2, // Tolerable distance would be within [target / 1.2, target * 1.2]
   desiredDistanceMonitor: false,
   desiredDistanceMonitorCancelable: false,
+  desiredDistanceMonitorAllowRecalibrate: true,
   // Near point
   nearPoint: true,
   showNearPoint: false,
@@ -323,7 +324,7 @@ The value returned are the horizontal and vertical offsets, in centimeters, comp
 
 #### Nudger
 
-- (Beta) `.nudgeDistance(cancelable = false, { options, callbackStatic, callbackTrack } = distanceTrackingConfig)` If `cancelable` is `true`, then participants can use ESC or click to cancel the nudger. `distanceTrackingConfig` is used to configure a new distance tracking that can be restarted within the nudger. We recommend to start nudger when starting distance tracking using its `desiredDistanceCm` and `desiredDistanceMonitor` options.
+- (Beta) `.nudgeDistance(cancelable = false, allowRecalibrate = true, { options, callbackStatic, callbackTrack } = distanceTrackingConfig)` If `cancelable` is `true`, then participants can use ESC or click to cancel the nudger. `distanceTrackingConfig` is used to configure a new distance tracking that can be restarted within the nudger. We recommend to start nudger when starting distance tracking using its `desiredDistanceCm` and `desiredDistanceMonitor` options.
 - `.setDistanceDesired(distanceDesired, [allowedRatio])`
 - `.pauseNudger()`
 - `.resumeNudger()`
