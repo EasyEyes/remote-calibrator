@@ -13,6 +13,7 @@ export const trackingOptions = {
   desiredDistanceTolerance: 1.2,
   desiredDistanceMonitor: false,
   desiredDistanceMonitorCancelable: false,
+  desiredDistanceMonitorAllowRecalibrate: true,
 }
 
 // dist data measured by blind spot or turn around
@@ -35,6 +36,7 @@ export const resetTrackingOptions = () => {
   trackingOptions.desiredDistanceTolerance = 1.2
   trackingOptions.desiredDistanceMonitor = false
   trackingOptions.desiredDistanceMonitorCancelable = false
+  trackingOptions.desiredDistanceMonitorAllowRecalibrate = true
 }
 
 export const setTrackingOptions = options => {
@@ -49,6 +51,8 @@ export const setTrackingOptions = options => {
   trackingOptions.desiredDistanceMonitor = options.desiredDistanceMonitor
   trackingOptions.desiredDistanceMonitorCancelable =
     options.desiredDistanceMonitorCancelable
+  trackingOptions.desiredDistanceMonitorAllowRecalibrate =
+    options.desiredDistanceMonitorAllowRecalibrate
 }
 
 /* -------------------------------------------------------------------------- */
@@ -209,6 +213,7 @@ export const _tracking = async (
       desiredDistanceTolerance,
       desiredDistanceMonitor,
       desiredDistanceMonitorCancelable,
+      desiredDistanceMonitorAllowRecalibrate,
     } = trackingOptions
 
     // Always enable correct on a fresh start
@@ -267,6 +272,7 @@ export const _tracking = async (
               if (desiredDistanceCm)
                 RC.nudgeDistance(
                   desiredDistanceMonitorCancelable,
+                  desiredDistanceMonitorAllowRecalibrate,
                   trackingConfig
                 )
               readyToGetFirstData.current = false

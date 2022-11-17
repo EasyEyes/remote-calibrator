@@ -74,6 +74,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       desiredDistanceTolerance: 1.2,
       desiredDistanceMonitor: false,
       desiredDistanceMonitorCancelable: false,
+      desiredDistanceMonitorAllowRecalibrate: true,
       nearPoint: false,
       showNearPoint: false,
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
