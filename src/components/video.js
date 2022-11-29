@@ -84,7 +84,7 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
       // Set position
       setDefaultVideoPosition(RC, v)
 
-      // Give callback after 0.5 sec
+      // Give callback after 0.7 sec
       setTimeout(() => {
         RC.videoOpacity()
         if (RC.isMobile.value)

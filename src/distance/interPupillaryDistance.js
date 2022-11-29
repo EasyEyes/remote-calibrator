@@ -6,6 +6,7 @@ import {
   blurAll,
   constructInstructions,
   safeExecuteFunc,
+  sleep,
   toFixedNumber,
 } from '../components/utils'
 import { swalInfoOptions } from '../components/swalOptions'
@@ -30,7 +31,10 @@ const originalStyles = {
 const videoWidthFactor = 0.9
 const videoHeightFactor = 0.3
 
-RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
+RemoteCalibrator.prototype._measurePD = async function (
+  options = {},
+  callback
+) {
   ////
   if (!this.checkInitialized()) return
   blurAll()
@@ -47,6 +51,8 @@ RemoteCalibrator.prototype._measurePD = function (options = {}, callback) {
   )
 
   this.getFullscreen(options.fullscreen)
+
+  await sleep(1500)
 
   this._replaceBackground()
   this._replaceBackground(
@@ -201,23 +207,26 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
   originalStyles.videoWidth = container.style.width
   originalStyles.videoHeight = container.style.height
   originalStyles.opacity = container.style.opacity
+
   // Container
-  Object.assign(container.style, {
-    height: h + 'px',
-    width: window.innerWidth * videoWidthFactor + 'px',
+  const newContainerStyle = {
+    height: Math.round(h) + 'px',
+    width: Math.round(window.innerWidth * videoWidthFactor) + 'px',
     opacity: 1,
     borderRadius: '15px',
-  })
+  }
+  Object.assign(container.style, newContainerStyle)
 
   if (RC.isMobile.value) {
     Object.assign(container.style, {
-      right: 0.5 * window.innerWidth * (1 - videoWidthFactor) + 'px',
-      top: 0.5 * (window.innerHeight - h) + 'px',
+      right:
+        Math.round(0.5 * window.innerWidth * (1 - videoWidthFactor)) + 'px',
+      top: Math.round(0.5 * (window.innerHeight - h)) + 'px',
     })
   } else {
     Object.assign(container.style, {
-      left: 0.5 * window.innerWidth * (1 - videoWidthFactor) + 'px',
-      bottom: 0.5 * (window.innerHeight - h) + 'px',
+      left: Math.round(0.5 * window.innerWidth * (1 - videoWidthFactor)) + 'px',
+      bottom: Math.round(0.5 * (window.innerHeight - h)) + 'px',
     })
   }
 
@@ -228,13 +237,14 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
   // })
 
   // Video feed
-  Object.assign(video.style, {
-    height: (h * videoWidthFactor) / videoHeightFactor + 'px',
-    width: window.innerWidth * videoWidthFactor + 'px',
-    top: -h * (videoWidthFactor - videoHeightFactor) + 'px',
+  const newVideoStyle = {
+    height: Math.round((h * videoWidthFactor) / videoHeightFactor) + 'px',
+    width: Math.round(window.innerWidth * videoWidthFactor) + 'px',
+    top: Math.round(-h * (videoWidthFactor - videoHeightFactor)) + 'px',
     transform: 'scale(-2, 2)',
     transformOrigin: 'center',
-  })
+  }
+  Object.assign(video.style, newVideoStyle)
 
   originalStyles.video = RC.gazeTracker.webgazer.params.showVideo
   originalStyles.gaze = RC.gazeTracker.webgazer.params.showGazeDot
@@ -265,9 +275,9 @@ const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
     left: 0.25 * (window.innerWidth - vWidth) + 'px',
     bottom: 0,
     backgroundColor: '#FFD523dd',
-    borderRadius: '15px 0 0 0',
+    borderRadius: '7px 0 0 0',
     boxSizing: 'border-box',
-    borderBottom: '7px solid #bb6600',
+    borderBottom: '5px solid #bb6600',
   })
 
   RC.background.appendChild(rulerElement)
