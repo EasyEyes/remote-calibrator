@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.4] - 2022-11-28
 
-A few fixes and stability enhancement for using the webcam for tracking, including - Preventing the browser from choosing Continuity Camera (a new feature introduced in MacOS 13 and iOS 16) by default that would break the code, preferring the front camera, instead of the rare one, on mobile devices by default, and fixing that the webcam image was cut off and not centered when measuring interpupillary distance.
+A few fixes and stability enhancement for using the webcam for tracking, including - Preventing the browser from choosing Continuity Camera (a new feature introduced in macOS 13 and iOS 16) by default that would break the code, preferring the front camera, instead of the rare one, on mobile devices by default, and fixing that the webcam image was cut off and not centered when measuring interpupillary distance.
 
 ## [0.6.3] - 2022-11-17
 
