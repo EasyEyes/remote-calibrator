@@ -245,7 +245,6 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
     transformOrigin: 'center',
   }
   Object.assign(video.style, newVideoStyle)
-  console.log(video.style.width)
 
   originalStyles.video = RC.gazeTracker.webgazer.params.showVideo
   originalStyles.gaze = RC.gazeTracker.webgazer.params.showGazeDot
