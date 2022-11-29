@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2022-11-28
+
+A few fixes and stability enhancement for using the webcam for tracking, including - Preventing the browser from choosing Continuity Camera (a new feature introduced in MacOS 13 and iOS 16) by default that would break the code, preferring the front camera, instead of the rare one, on mobile devices by default, and fixing that the webcam image was cut off and not centered when measuring interpupillary distance.
+
 ## [0.6.3] - 2022-11-17
 
 Add `desiredDistanceMonitorAllowRecalibrate` option for `.trackDistance()` to allow hiding the recalibration button for the nudger. `.nudgeDistance()` also takes a new second argument, `allowRecalibrate` (default to `true`).
@@ -347,7 +351,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.3...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.4...develop
+[0.6.4]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.0...v0.6.1

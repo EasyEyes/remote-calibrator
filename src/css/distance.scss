@@ -39,6 +39,9 @@
   position: fixed;
   max-height: 120px;
   overflow: hidden;
+
+  cursor: pointer;
+  user-select: none;
 }
 
 #rc-ruler-scales {
