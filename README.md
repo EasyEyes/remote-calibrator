@@ -286,13 +286,13 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestam
 {
   fullscreen: false,
   repeatTesting: 1,
+  sparkle: true,
   pipWidthPx: 208,
   showVideo: true,
   showFaceOverlay: false,
   decimalPlace: 1,
-  control: true,
-  showCancelButton: true,
   framerate: 3, // Measurement per second
+  showCancelButton: true,
   // Desired distance monitoring
   desiredDistanceCm: undefined, // e.g., 60 (which means the target distance is 60 cm)
   desiredDistanceTolerance: 1.2, // Tolerable distance would be within [target / 1.2, target * 1.2]
@@ -302,9 +302,13 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestam
   // Near point
   nearPoint: true,
   showNearPoint: false,
-  headline: "🙂 Set up for Distance Tracking",
+  // Initial measuring
+  control: true,
+  headline: "📏 Set up for Distance Tracking",
   description: "...",
   check: false,
+  checkCallback: null,
+  showCancelButton: true,
 }
 ```
 

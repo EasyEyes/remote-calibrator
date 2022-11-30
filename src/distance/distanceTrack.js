@@ -49,7 +49,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
     {
       fullscreen: false,
       repeatTesting: 1,
-      sparkle: false,
+      sparkle: true,
       pipWidthPx:
         this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP'],
       showVideo: true,
