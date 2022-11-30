@@ -75,6 +75,8 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
   let c = setInterval(() => {
     let v = document.getElementById('webgazerVideoContainer')
     if (v) {
+      clearInterval(c)
+
       v.style.height =
         (pipWidthPx / parseInt(v.style.width)) * parseInt(v.style.height) + 'px'
       v.style.width = pipWidthPx + 'px'
@@ -93,9 +95,8 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
           v.style.transition = `left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
         safeExecuteFunc(callback)
       }, 700)
-      clearInterval(c)
     }
-  }, 50)
+  }, 100)
 }
 
 export function setDefaultVideoPosition(RC, v) {

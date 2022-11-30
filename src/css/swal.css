@@ -28,6 +28,10 @@
   user-select: none !important;
 }
 
+.my__swal2__html__center {
+  text-align: center !important;
+}
+
 .animate__animated.animate__fadeInUp,
 .animate__animated.animate__fadeOutDown {
   --animate-duration: 400ms !important;
