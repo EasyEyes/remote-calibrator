@@ -19,6 +19,9 @@ const config = {
         type: 'javascript/auto',
         use: 'babel-loader',
         exclude: /node_modules/,
+        resolve: {
+          fullySpecified: false,
+        },
       },
       {
         test: /\.css$/i,
