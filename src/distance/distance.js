@@ -471,7 +471,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
     {
       fullscreen: false,
       repeatTesting: 1,
-      sparkle: false,
+      sparkle: true,
       decimalPlace: 1,
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
       headline: '📏 ' + phrases.RC_viewingDistanceTitle[this.L],

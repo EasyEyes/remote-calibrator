@@ -254,12 +254,14 @@ Pass `{ value, timestamp, method, raw }` (equivalent to `RemoteCalibrator.viewin
   // How many times each of the eye will be used to test
   // By default, right eye 2 times, then left eye 2 times
   repeatTesting: 1,
+  sparkle: true, // Whether the moving dot flickers or not
   decimalPlace: 1,
   control: true, // Set to true to use arrow keys to control the position of the red dot
-  showCancelButton: true,
   headline: "📏 Measure Viewing Distance",
   description: "...",
   check: false,
+  checkCallback: false,
+  showCancelButton: true,
 }
 ```
 
