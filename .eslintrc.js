@@ -2,6 +2,10 @@ module.exports = {
   env: {
     browser: true,
     es2021: true,
+    commonjs: {
+      require: true,
+    },
+    mocha: true,
   },
   extends: 'eslint:recommended',
   parserOptions: {
@@ -23,5 +27,7 @@ module.exports = {
     'WebGazer/',
     'lib/',
     'server.js',
+    '.json',
+    'test-exec/',
   ],
 }

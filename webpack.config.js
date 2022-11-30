@@ -1,73 +1,19 @@
-const webpack = require('webpack')
 const path = require('path')
 
-const ESLintPlugin = require('eslint-webpack-plugin')
-const WebpackModules = require('webpack-modules')
-const { CleanWebpackPlugin } = require('clean-webpack-plugin')
+const webpack = require('webpack')
 
+const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 const TerserPlugin = require('terser-webpack-plugin')
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin')
 const BundleAnalyzerPlugin =
   require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 
 const packageJSON = require('./package.json')
-
-const config = {
-  entry: './src',
-  module: {
-    rules: [
-      {
-        test: /\.js/,
-        use: 'babel-loader',
-        include: __dirname + 'src/*',
-        exclude: /node_modules/,
-      },
-      {
-        test: /\.mjs/,
-        type: 'javascript/auto',
-        use: 'babel-loader',
-        exclude: /node_modules/,
-      },
-      {
-        test: /\.css$/i,
-        use: ['style-loader', 'css-loader', 'postcss-loader'],
-      },
-      {
-        test: /\.s[ac]ss$/i,
-        use: [
-          'style-loader',
-          'css-loader',
-          'postcss-loader',
-          {
-            loader: 'sass-loader',
-            options: {
-              implementation: require('sass'),
-            },
-          },
-        ],
-      },
-      {
-        test: /\.svg$/,
-        loader: 'svg-inline-loader',
-      },
-      {
-        test: /\.(png|jpe?g|gif)$/i,
-        loader: 'url-loader',
-        options: {
-          name: '[name].[ext]',
-          outputPath: 'images',
-        },
-      },
-    ],
-  },
-  plugins: [
-    new WebpackModules(),
-    new ESLintPlugin(),
-    new webpack.ProgressPlugin(),
-    new CleanWebpackPlugin(),
-  ],
-  devtool: 'source-map',
-}
+const config = require('./webpack.utils.js').config
+const plugins = [
+  ...require('./webpack.utils.js').plugins,
+  new CleanWebpackPlugin(),
+]
 
 const output = {
   filename: 'RemoteCalibrator.min.js',
@@ -102,6 +48,7 @@ const exampleConfig = Object.assign({}, config, {
     hot: true,
     open: true,
   },
+  plugins: plugins,
 })
 
 const libConfig = Object.assign({}, config, {
@@ -122,6 +69,7 @@ const libConfig = Object.assign({}, config, {
       new CssMinimizerPlugin(),
     ],
   },
+  plugins: plugins,
 })
 
 module.exports = env => {
@@ -130,6 +78,7 @@ module.exports = env => {
       new webpack.EnvironmentPlugin({
         VERSION: packageJSON.version,
         DEBUG: true,
+        BUILD_TARGET: 'development',
       }),
       new webpack.BannerPlugin(
         `${packageJSON.name} - ${packageJSON.version} - DEV`
@@ -155,6 +104,7 @@ module.exports = env => {
       new webpack.EnvironmentPlugin({
         VERSION: packageJSON.version,
         DEBUG: false,
+        BUILD_TARGET: 'production',
       }),
       new webpack.BannerPlugin(licenseText)
     )

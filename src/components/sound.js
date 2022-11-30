@@ -1,17 +1,34 @@
-import { Synth, Volume } from 'tone'
+import { env } from '../core'
 
-const feedbackSynth = new Synth({
-  oscillator: {
-    type: 'sine',
-  },
-  envelope: { attack: 0.001, decay: 0.001, sustain: 1, release: 0.001 },
-}).connect(new Volume(-17).toDestination())
+const usingMocha = env === 'mocha'
 
-const softFeedbackSynth = new Synth({
-  oscillator: {
-    type: 'sine',
-  },
-}).connect(new Volume(-5).toDestination())
+let MySynth, MyVolume
+if (!usingMocha) {
+  const Tone = require('tone')
+  MySynth = Tone.Synth
+  MyVolume = Tone.Volume
+}
+
+class FakeFeedbackSynth {
+  triggerAttackRelease() {}
+}
+
+const feedbackSynth = usingMocha
+  ? new FakeFeedbackSynth()
+  : new MySynth({
+      oscillator: {
+        type: 'sine',
+      },
+      envelope: { attack: 0.001, decay: 0.001, sustain: 1, release: 0.001 },
+    }).connect(new MyVolume(-17).toDestination())
+
+const softFeedbackSynth = usingMocha
+  ? new FakeFeedbackSynth()
+  : new MySynth({
+      oscillator: {
+        type: 'sine',
+      },
+    }).connect(new MyVolume(-5).toDestination())
 
 export const soundFeedback = (style = 0) => {
   switch (style) {

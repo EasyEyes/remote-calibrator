@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.5] - 2022-11-29
 
-More robust webcam query.
+### Added
+
+- The test framework with Mocha and jsdom.
+
+### Fixed
+
+- More robust webcam query.
 
 ## [0.6.4] - 2022-11-28
 

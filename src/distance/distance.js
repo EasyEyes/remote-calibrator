@@ -1,4 +1,6 @@
-import RemoteCalibrator from '../core'
+import Swal from 'sweetalert2'
+
+import RemoteCalibrator, { env } from '../core'
 import {
   constrain,
   constructInstructions,
@@ -22,10 +24,13 @@ import {
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
-import { soundFeedback } from '../components/sound'
 import { phrases } from '../i18n'
-import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
+
+// import { soundFeedback } from '../components/sound'
+let soundFeedback
+if (env !== 'mocha')
+  soundFeedback = require('../components/sound').soundFeedback
 
 const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canvas>`
 
@@ -106,7 +111,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   // SPACE
   const finishFunction = async () => {
     // customButton.disabled = false
-    soundFeedback()
+    if (env !== 'mocha') soundFeedback()
 
     tested += 1
     // Average
