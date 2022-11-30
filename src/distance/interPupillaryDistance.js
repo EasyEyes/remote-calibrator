@@ -52,7 +52,7 @@ RemoteCalibrator.prototype._measurePD = async function (
 
   this.getFullscreen(options.fullscreen)
 
-  await sleep(1500)
+  await sleep(1000)
 
   this._replaceBackground()
   this._replaceBackground(
