@@ -69,8 +69,16 @@ export default class GazeTracker {
   }
 
   videoFailed(videoInputs) {
+    const defaultSwalOptions = swalInfoOptions(this.calibrator, {
+      showIcon: true,
+    })
+    // if (videoInputs.length === 0)
+    //   defaultSwalOptions.customClass.htmlContainer =
+    //     defaultSwalOptions.customClass.htmlContainer +
+    //     ' my__swal2__html__center'
+
     Swal.fire({
-      ...swalInfoOptions(this.calibrator, { showIcon: true }),
+      ...defaultSwalOptions,
       icon: 'error',
       iconColor: this.calibrator._CONST.COLOR.DARK_RED,
       showConfirmButton: false,

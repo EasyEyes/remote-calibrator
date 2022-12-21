@@ -108,5 +108,6 @@ dist
 # Dev
 *homepage/lib
 *example/lib
+test-exec
 .DS_Store
 .vscode

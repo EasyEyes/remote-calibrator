@@ -254,12 +254,14 @@ Pass `{ value, timestamp, method, raw }` (equivalent to `RemoteCalibrator.viewin
   // How many times each of the eye will be used to test
   // By default, right eye 2 times, then left eye 2 times
   repeatTesting: 1,
+  sparkle: true, // Whether the moving dot flickers or not
   decimalPlace: 1,
   control: true, // Set to true to use arrow keys to control the position of the red dot
-  showCancelButton: true,
   headline: "📏 Measure Viewing Distance",
   description: "...",
   check: false,
+  checkCallback: false,
+  showCancelButton: true,
 }
 ```
 
@@ -284,13 +286,13 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestam
 {
   fullscreen: false,
   repeatTesting: 1,
+  sparkle: true,
   pipWidthPx: 208,
   showVideo: true,
   showFaceOverlay: false,
   decimalPlace: 1,
-  control: true,
-  showCancelButton: true,
   framerate: 3, // Measurement per second
+  showCancelButton: true,
   // Desired distance monitoring
   desiredDistanceCm: undefined, // e.g., 60 (which means the target distance is 60 cm)
   desiredDistanceTolerance: 1.2, // Tolerable distance would be within [target / 1.2, target * 1.2]
@@ -300,9 +302,13 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestam
   // Near point
   nearPoint: true,
   showNearPoint: false,
-  headline: "🙂 Set up for Distance Tracking",
+  // Initial measuring
+  control: true,
+  headline: "📏 Set up for Distance Tracking",
   description: "...",
   check: false,
+  checkCallback: null,
+  showCancelButton: true,
 }
 ```
 

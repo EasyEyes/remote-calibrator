@@ -19,6 +19,9 @@ import { looseSetLanguage } from './components/language'
 import { phrases } from './i18n'
 import isEqual from 'react-fast-compare'
 
+// eslint-disable-next-line no-undef
+export const env = process.env.BUILD_TARGET
+
 class RemoteCalibrator {
   constructor() {
     window.console.log(
