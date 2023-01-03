@@ -19,6 +19,7 @@ module.exports = {
       { vars: 'all', args: 'after-used', ignoreRestSiblings: false },
     ],
     eqeqeq: ['warn', 'always'],
+    'no-debugger': 'warn',
   },
   ignorePatterns: [
     'webpack.config.js',

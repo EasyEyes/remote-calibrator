@@ -1,3 +1,5 @@
+import { debug } from '../debug'
+
 // requestAnimationFrame() polyfill by Erik Möller, Paul Irish, and Tino Zijdel.
 // https://gist.github.com/paulirish/1579671
 // eslint-disable-next-line no-extra-semi
@@ -68,10 +70,24 @@
   }
 })()
 
+export function safeGetVar(variable) {
+  if (variable === undefined) {
+    if (debug) throw 'Variable is undefined.'
+    return false
+  }
+  return variable
+}
+
 export function safeExecuteFunc(f, ...a) {
   if (f && typeof f === 'function')
     if (a.length) return f(...a)
     else return f()
+}
+
+export async function safeExecuteAsyncFunc(f, ...a) {
+  if (f && typeof f === 'function')
+    if (a.length) return await f(...a)
+    else return await f()
 }
 
 export const emptyFunc = () => {}

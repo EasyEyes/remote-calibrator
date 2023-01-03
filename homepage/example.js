@@ -138,6 +138,12 @@ function initializeCode() {
 const _panelCode = `RemoteCalibrator.panel(
   [
     // Configure tasks
+    {
+      name: '[Customized Task]',
+      function: async () => {
+        printMessage('You can also define your own tasks and customize its behavior.')
+      },
+    },
     'performance',
     {
       name: 'screenSize',
@@ -433,6 +439,71 @@ function getDistanceNow() {
 }
 function getDistanceNowCode() {
   printCode(_getDistanceNowCode, '.getDistanceNow()')
+}
+
+/* -------------------------------------------------------------------------- */
+
+// angle distance
+
+const _angleDistanceCode = `let angleTrackP // Not important, just a DOM element to store the log message\n
+RemoteCalibrator.angleDistance(
+  {
+    showVideo: true,
+    nearPoint: false,
+    showNearPoint: false,
+    track: true,
+    // desiredDistanceCm: 60,
+    // desiredDistanceMonitor: true,
+    // desiredDistanceMonitorCancelable: false,
+    check: false,
+  },
+  staticDistanceData => {
+    measureDistanceCallback(staticDistanceData)
+    angleTrackP = printMessage(\`The dynamic viewing distance is cm at .\`)\n@
+  },
+  trackingDistanceData => {
+    angleTrackP.innerHTML = gotData(
+      \`The dynamic viewing distance is \${
+        trackingDistanceData.value.viewingDistanceCm
+      } cm at \${parseTimestamp(trackingDistanceData.timestamp)}, measured by \${
+        trackingDistanceData.method
+      } method. The near point is at [\${trackingDistanceData.value.nearPointCm.x} cm, \${
+        trackingDistanceData.value.nearPointCm.y
+      } cm] compared to the center of the screen. Latency is \${
+        trackingDistanceData.value.latencyMs
+      } ms.\`
+    )
+  }
+)`
+
+function turnAroundForDistance(e) {
+  eval(
+    _measureDistanceCallback +
+      '\n' +
+      _angleDistanceCode.replace('@', `changeClass(e.target, 'complete')`)
+  )
+
+  const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
+  target.parentNode.insertBefore(
+    constructFunctionButton(
+      ['End Distance', 'endDistance', 'endDistance', 'distance'],
+      false
+    ),
+    target.nextSibling
+  )
+  target.parentNode.replaceChild(
+    constructFunctionButton(
+      ['Pause Distance', 'pauseDistance', 'pauseDistance', 'distance'],
+      false
+    ),
+    target
+  )
+}
+function turnAroundForDistanceCode() {
+  printCode(
+    _measureDistanceCallback + '\n\n' + _angleDistanceCode,
+    '.turnAroundForDistance()'
+  )
 }
 
 /* -------------------------------------------------------------------------- */

@@ -1,0 +1,15 @@
+@import 'root.scss';
+
+.rc-look-at-guide {
+  position: fixed;
+  transition: all 0.3s ease;
+  z-index: 99;
+
+  max-width: 10rem;
+
+  color: $white;
+  background: $orange;
+
+  border-radius: $radius;
+  padding: $padding-large;
+}

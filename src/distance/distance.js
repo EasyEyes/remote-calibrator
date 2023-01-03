@@ -162,6 +162,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
             callback,
             data,
             measureType,
+            measureType === 'trackDistance', // isTrackMethod
             options.checkCallback
           )
         else safeExecuteFunc(callback, data)
@@ -481,6 +482,8 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
       headline: '📏 ' + phrases.RC_viewingDistanceTitle[this.L],
       description: description,
+      showDescription: false,
+      ////
       check: false,
       checkCallback: false,
       showCancelButton: true,
@@ -495,7 +498,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   this._replaceBackground(
     constructInstructions(
       options.headline,
-      options.description,
+      options.showDescription ? options.description : null,
       true,
       'rc-hang-description'
     )

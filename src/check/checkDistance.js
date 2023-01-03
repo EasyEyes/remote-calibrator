@@ -5,7 +5,8 @@ import { constructInstructions, safeExecuteFunc } from '../components/utils'
 RemoteCalibrator.prototype._checkDistance = async function (
   distanceCallback,
   distanceData,
-  measureName, // 'measureDistance' OR 'trackDistance'
+  measureName, // 'measureDistance' OR 'trackDistance' OR 'angleDistance'
+  isTrackMethod,
   checkCallback
 ) {
   await this.getEquipment(() => {
@@ -14,6 +15,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
       distanceCallback,
       distanceData,
       measureName,
+      isTrackMethod,
       checkCallback
     )
   })
@@ -24,17 +26,16 @@ const checkDistance = async (
   distanceCallback,
   distanceData,
   measureName,
+  isTrackMethod,
   checkCallback
 ) => {
-  const isTrack = measureName === 'trackDistance'
-
   const quit = () => {
     RC._removeBackground()
-    if (!isTrack) safeExecuteFunc(distanceCallback, distanceData)
+    if (!isTrackMethod) safeExecuteFunc(distanceCallback, distanceData)
   }
 
   // Start tracking right away
-  if (isTrack) safeExecuteFunc(distanceCallback, distanceData)
+  if (isTrackMethod) safeExecuteFunc(distanceCallback, distanceData)
 
   if (RC.equipment && RC.equipment.value.has) {
     // ! Has equipment

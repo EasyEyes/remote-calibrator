@@ -1,6 +1,6 @@
 import tinycolor from 'tinycolor2'
 
-import { safeExecuteFunc } from '../components/utils'
+import { safeExecuteAsyncFunc, safeExecuteFunc } from '../components/utils'
 import RemoteCalibrator from '../core'
 import { _setDebugControl } from './panelDebugControl'
 import { phrases } from '../i18n'
@@ -10,6 +10,17 @@ import Camera from '../media/photo-camera.svg'
 import Phone from '../media/smartphone.svg'
 
 import '../css/panel.scss'
+import {
+  _clearPanelIntervals,
+  _finishStepAt,
+  _getTaskName,
+  _getTaskOptionsCallbacks,
+  _isValidCustomizedName,
+  _parseCustomizedName,
+  _setLanguagePicker,
+  _validateTask,
+  _validTaskList,
+} from './panelUtils'
 
 RemoteCalibrator.prototype.removePanel = function () {
   if (!this._panelStatus.hasPanel) return false
@@ -77,15 +88,17 @@ RemoteCalibrator.prototype.panel = async function (
    */
 
   // Tasks
-  if (!_validateTask(tasks)) {
-    console.error('Invalid task name(s).')
+  if (typeof _validateTask(tasks) === 'string') {
+    console.error(`Invalid task name(s). ${_validateTask(tasks)}`)
     return false
   }
 
   // Parent
   const parentElement = document.querySelector(parent)
   if (!parentElement) {
-    console.error('Cannot find the parent element.')
+    console.error(
+      'Failed to construct the panel element. Cannot find the parent element.'
+    )
     return false
   }
 
@@ -212,59 +225,15 @@ RemoteCalibrator.prototype.panel = async function (
   })
 }
 
-/**
- * USE
- * 0 - Nothing
- * 1 - Screen
- * 2 - Screen and webcam
- * 3 - Screen, webcam, and smartphone
- */
-const _validTaskList = {
-  screenSize: {
-    use: 1,
-    name: phrases.RC_screenSize['en-US'],
-    phraseHandle: 'RC_screenSize',
-  },
-  measureDistance: {
-    use: 1,
-    name: phrases.RC_viewingDistance['en-US'],
-    phraseHandle: 'RC_viewingDistance',
-  },
-  trackDistance: {
-    use: 2,
-    name: phrases.RC_distanceTracking['en-US'],
-    phraseHandle: 'RC_distanceTracking',
-  },
-  trackGaze: {
-    use: 2,
-    name: phrases.RC_gazeTracking['en-US'],
-    phraseHandle: 'RC_gazeTracking',
-  },
-  performance: {
-    use: 1,
-    name: phrases.RC_performance['en-US'],
-    phraseHandle: 'RC_performance',
-  },
-}
-const _validTaskListNames = Object.keys(_validTaskList)
-
-const _validateTask = task => {
-  if (!Array.isArray(task)) return false
-  for (let t of task) {
-    if (
-      typeof t === 'object' &&
-      (t === null || !_validTaskListNames.includes(t.name))
-    )
-      return false
-    else if (typeof t === 'string' && !_validTaskListNames.includes(t))
-      return false
-  }
-  return true
-}
-
 const _newStepBlock = (RC, index, task, options) => {
-  let useCode = _validTaskList[_getTaskName(task)].use
-  let use, useTip
+  let useCode, use, useTip
+
+  if (
+    !_validTaskList[_getTaskName(task)] &&
+    _isValidCustomizedName(_getTaskName(task))
+  )
+    useCode = -1
+  else useCode = _validTaskList[_getTaskName(task)].use
 
   switch (useCode) {
     case 0:
@@ -299,7 +268,9 @@ const _newStepBlock = (RC, index, task, options) => {
   b.innerHTML =
     (use.length ? `<p class="rc-panel-step-use">${use}</p>` : '') +
     `<p class="rc-panel-step-name">${Number(index) + 1}&nbsp;&nbsp;${
-      phrases[_validTaskList[_getTaskName(task)].phraseHandle][RC.L]
+      _isValidCustomizedName(_getTaskName(task))
+        ? _parseCustomizedName(_getTaskName(task))
+        : phrases[_validTaskList[_getTaskName(task)].phraseHandle][RC.L]
     }</p>` +
     (use.length ? `<p class="rc-panel-step-use-tip">${use} ${useTip}</p>` : '')
   // b.disabled = true
@@ -347,36 +318,57 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
         if (eIndex !== tasks.length) {
           if (eIndex === tasks.length - 1 && !options.showNextButton) {
             // Last task without next button
-            e.onclick = () => {
-              RC[_getTaskName(tasks[current.index])](
-                ..._getTaskOptionsCallbacks(
-                  tasks[current.index],
-                  // Fixed task callback
-                  () => {
-                    _finishStepAt(current.index)
-                  },
-                  finalCallback,
-                  // Fixed final callback
-                  () => {
-                    RC._panelStatus.panelFinished = true
-                  }
+            e.onclick = async () => {
+              const currentTask = tasks[current.index]
+              const currentTaskName = _getTaskName(currentTask)
+
+              if (_isValidCustomizedName(currentTaskName)) {
+                await safeExecuteAsyncFunc(currentTask.function)
+
+                _finishStepAt(current.index) // fixedTaskCallback
+                safeExecuteFunc(finalCallback, { timestamp: performance.now() }) // finalCallback
+                RC._panelStatus.panelFinished = true // fixedFinalCallback
+              } else {
+                RC[_getTaskName(tasks[current.index])](
+                  ..._getTaskOptionsCallbacks(
+                    tasks[current.index],
+                    // Fixed task callback
+                    () => {
+                      _finishStepAt(current.index)
+                    },
+                    finalCallback,
+                    // Fixed final callback
+                    () => {
+                      RC._panelStatus.panelFinished = true
+                    }
+                  )
                 )
-              )
+              }
             }
           } else {
             // Interim tasks
-            e.onclick = () => {
-              RC[_getTaskName(tasks[current.index])](
-                ..._getTaskOptionsCallbacks(
-                  tasks[current.index],
-                  // Fixed task callback
-                  () => {
-                    _finishStepAt(current.index)
-                    current.index++
-                    _activateStepAt(RC, current, tasks, options, finalCallback)
-                  }
+            e.onclick = async () => {
+              const currentTask = tasks[current.index]
+              const currentTaskName = _getTaskName(currentTask)
+
+              const fixedTaskCallback = () => {
+                _finishStepAt(current.index)
+                current.index++
+                _activateStepAt(RC, current, tasks, options, finalCallback)
+              }
+
+              if (_isValidCustomizedName(currentTaskName)) {
+                await safeExecuteAsyncFunc(currentTask.function)
+                fixedTaskCallback()
+              } else {
+                RC[currentTaskName](
+                  ..._getTaskOptionsCallbacks(
+                    tasks[current.index],
+                    // Fixed task callback
+                    fixedTaskCallback
+                  )
                 )
-              )
+              }
             }
           }
         } else if (eIndex === tasks.length && options.showNextButton) {
@@ -398,14 +390,24 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
       }
     } else {
       // Demo active all
-      e.onclick = () => {
-        RC[_getTaskName(tasks[ind])](..._getTaskOptionsCallbacks(tasks[ind]))
+      e.onclick = async () => {
+        const currentTask = tasks[ind]
+        const currentTaskName = _getTaskName(currentTask)
+
+        if (_isValidCustomizedName(currentTaskName)) {
+          await safeExecuteAsyncFunc(currentTask.function)
+        } else {
+          RC[_getTaskName(tasks[ind])](..._getTaskOptionsCallbacks(tasks[ind]))
+        }
+
         _finishStepAt(ind)
         current.finished.push(_getTaskName(tasks[ind]))
+
         // Check if all finished
         for (let t of tasks) {
           if (!current.finished.includes(_getTaskName(t))) return
         }
+
         // If so, activate the next step button
         let finalButton = document.querySelector('.rc-panel-next-button')
         finalButton.classList.replace(
@@ -419,88 +421,4 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
       }
     }
   })
-}
-
-const _finishStepAt = index => {
-  document.querySelectorAll('.rc-panel-step').forEach(e => {
-    if (Number(e.dataset.index) === index) {
-      e.classList.replace('rc-panel-step-todo', 'rc-panel-step-finished')
-      e.classList.replace('rc-panel-step-active', 'rc-panel-step-inactive')
-    }
-  })
-}
-
-const _getTaskName = task => {
-  if (typeof task === 'string') return task
-  return task.name
-}
-
-const _getTaskOptionsCallbacks = (
-  task,
-  fixedTaskCallback,
-  finalCallback = null,
-  fixedFinalCallback = null
-) => {
-  if (typeof task === 'string')
-    task = {
-      name: task,
-    }
-
-  const getFinalCallbacks = () => {
-    // Task
-    safeExecuteFunc(fixedTaskCallback)
-    // Panel
-    safeExecuteFunc(finalCallback, { timestamp: performance.now() })
-    safeExecuteFunc(fixedFinalCallback)
-  }
-
-  if (['screenSize', 'measureDistance', 'performance'].includes(task.name)) {
-    return [
-      task.options || {},
-      data => {
-        safeExecuteFunc(task.callback, data)
-        getFinalCallbacks()
-      },
-    ]
-  } else if ('trackGaze' === task.name) {
-    return [
-      task.options || {},
-      data => {
-        safeExecuteFunc(task.callbackOnCalibrationEnd, data)
-        getFinalCallbacks()
-      },
-      task.callbackTrack || null,
-    ]
-  } else if ('trackDistance' === task.name) {
-    return [
-      task.options || {},
-      data => {
-        safeExecuteFunc(task.callbackStatic, data)
-        getFinalCallbacks()
-      },
-      task.callbackTrack || null,
-    ]
-  }
-}
-
-const _clearPanelIntervals = RC => {
-  RC._panelStatus.panelResolveIntervals.forEach(i => clearInterval(i))
-  RC._panelStatus.panelResolveIntervals = []
-}
-
-const _setLanguagePicker = (RC, parent, darkerColor) => {
-  let langInner = `<select name="rc-lang" id="rc-panel-lang-picker" style="color: ${darkerColor} !important">`
-  for (let lang of RC.supportedLanguages)
-    if (RC.L === lang.language)
-      langInner += `<option value="${lang.language}" selected>${lang.languageNameNative}</option>`
-  for (let lang of RC.supportedLanguages)
-    if (RC.L !== lang.language)
-      langInner += `<option value="${lang.language}">${lang.languageNameNative}</option>`
-  langInner += '</select>'
-  parent.innerHTML = langInner
-
-  document.querySelector('#rc-panel-lang-picker').onchange = () => {
-    RC.newLanguage(document.querySelector('#rc-panel-lang-picker').value)
-    RC.resetPanel()
-  }
 }
