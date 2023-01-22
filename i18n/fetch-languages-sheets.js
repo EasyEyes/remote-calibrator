@@ -45,14 +45,15 @@ async function processLanguageSheet() {
         return false
       }
 
-      // Placeholders
-      data[phrase][lang] = data[phrase][lang]
-        .replace(/XXX/g, 'xxx')
-        .replace(/XX/g, 'xx')
-      // Spaces
-      data[phrase][lang] = data[phrase][lang].replace(/%/g, '&nbsp')
-      // line breaks
-      data[phrase][lang] = data[phrase][lang].replace(/~/g, '<br />')
+      data[phrase][lang] = ''
+      // // Placeholders
+      // data[phrase][lang] = data[phrase][lang]
+      //   .replace(/XXX/g, 'xxx')
+      //   .replace(/XX/g, 'xx')
+      // // Spaces
+      // data[phrase][lang] = data[phrase][lang].replace(/%/g, '&nbsp')
+      // // line breaks
+      // data[phrase][lang] = data[phrase][lang].replace(/~/g, '<br />')
     }
   }
 

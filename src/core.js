@@ -5,6 +5,7 @@
  */
 
 import platform from 'platform'
+import isEqual from 'react-fast-compare'
 
 import randomPhrases from './components/randomPhrases'
 import { debug } from './debug'
@@ -17,7 +18,7 @@ import {
 } from './components/utils'
 import { looseSetLanguage } from './components/language'
 import { phrases } from './i18n'
-import isEqual from 'react-fast-compare'
+import { loadPhrases } from './loadPhrases'
 
 // eslint-disable-next-line no-undef
 export const env = process.env.BUILD_TARGET
@@ -528,9 +529,13 @@ class RemoteCalibrator {
  * Must be called before any other functions
  *
  */
-RemoteCalibrator.prototype.init = function (options = {}, callback) {
+RemoteCalibrator.prototype.init = async function (options = {}, callback) {
   if (!this._initialized) {
     this._initialized = true
+
+    // load internationalization phrases
+    await loadPhrases()
+
     options = Object.assign(
       {
         id: randomPhrases(),
