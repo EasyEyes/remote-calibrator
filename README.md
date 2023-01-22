@@ -79,6 +79,8 @@ RemoteCalibrator.measureDistance({}, data => {
 
 Arguments in square brackets are optional, e.g. `init([options, [callback]])` means both `options` configuration and the `callback` function are optional, but you have to put `options`, e.g., `{}`, if you want to call the callback function. The default values of `options` are listed in each section with explanation.
 
+Please be advised that some of the package documentation here may be outdated, although this is not a frequent occurrence. We are currently in the process of developing a typed interface for the package, which will provide you with up-to-date information on the APIs as you use them.
+
 ### 🎬 Initialize
 
 ```js
