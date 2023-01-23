@@ -216,20 +216,20 @@
       setGetters(document.getElementById('getters-data'), gettersData)
 
       // i18n
-      const langPickerParent = document.getElementById('rc-language')
-      let langInner = '<select name="lang" id="lang-picker">'
-      for (let lang of RemoteCalibrator.supportedLanguages) {
-        langInner += `<option value="${lang.language}">${lang.languageNameNative}</option>`
-      }
-      langInner += '</select>'
-      langPickerParent.innerHTML = langInner
+      // const langPickerParent = document.getElementById('rc-language')
+      // let langInner = '<select name="lang" id="lang-picker">'
+      // for (let lang of RemoteCalibrator.supportedLanguages) {
+      //   langInner += `<option value="${lang.language}">${lang.languageNameNative}</option>`
+      // }
+      // langInner += '</select>'
+      // langPickerParent.innerHTML = langInner
 
-      document.querySelector('#lang-picker').onchange = e => {
-        RemoteCalibrator.newLanguage(
-          document.querySelector('#lang-picker').value
-        )
-        RemoteCalibrator.resetPanel()
-      }
+      // document.querySelector('#lang-picker').onchange = e => {
+      //   RemoteCalibrator.newLanguage(
+      //     document.querySelector('#lang-picker').value
+      //   )
+      //   RemoteCalibrator.resetPanel()
+      // }
       //
 
       initialize({ target: document.getElementById('init-button') })

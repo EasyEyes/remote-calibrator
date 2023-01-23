@@ -14,11 +14,12 @@
   margin: 0;
 }
 
-// #blind-spot-instruction {
-//   display: block !important;
-//   top: 65%;
-//   position: fixed;
-// }
+#blind-spot-instruction {
+  max-width: min(32rem, 100%) !important;
+  // display: block !important;
+  // top: 65%;
+  // position: fixed;
+}
 
 #pip-video {
   display: none;
