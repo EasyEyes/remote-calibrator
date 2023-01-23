@@ -533,17 +533,18 @@ RemoteCalibrator.prototype.init = async function (options = {}, callback) {
   if (!this._initialized) {
     this._initialized = true
 
-    // load internationalization phrases
-    await loadPhrases()
-
     options = Object.assign(
       {
         id: randomPhrases(),
         language: 'AUTO',
+        languagePhrasesJSON: null,
         fullscreen: false,
       },
       options
     )
+
+    // load internationalization phrases
+    await loadPhrases(options.languagePhrasesJSON)
 
     if (options.fullscreen && !debug) getFullscreen()
 

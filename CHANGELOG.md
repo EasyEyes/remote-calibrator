@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2023-01-23
+
+Allow Remote Calibrator to load an existing customized international phrases object (in JSON format) - use the `languagePhrasesJSON` field for options for initialization.
+
 ## [0.7.0] - 2023-01-22
 
 (Breaking) The international phrases are not included as a part of the main `remote-calibrator` package anymore. Instead, we move the content to a new GitHub repository - [EasyEyes/remote-calibrator-phrases](https://github.com/EasyEyes/remote-calibrator-phrases) - to allow dynamic and independent update of the text apart from the rest of the software. Please refer to the new repository to learn how to contribute to the translations or update the text.
@@ -377,7 +381,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.0...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.1...develop
+[0.7.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.8...v0.7.0
 [0.6.8]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.6...v0.6.7

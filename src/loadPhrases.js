@@ -3,11 +3,15 @@ import { phrases } from './i18n'
 const PHRASES_URL =
   'https://cdn.jsdelivr.net/gh/EasyEyes/remote-calibrator-phrases@main/phrases/main.js'
 
-const loadPhrases = async () => {
+const loadPhrases = async (customizedLanguagePhrasesJSON = null) => {
+  // load from CDN
   const { remoteCalibratorPhrases } = await import(
     /* webpackIgnore: true */ PHRASES_URL
   )
   Object.assign(phrases, remoteCalibratorPhrases)
+  // load from customized language phrases
+  if (customizedLanguagePhrasesJSON)
+    Object.assign(phrases, customizedLanguagePhrasesJSON)
 }
 
 export { loadPhrases }
