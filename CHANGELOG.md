@@ -9,8 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.0] - 2023-01-22
 
-## Changed
-
 (Breaking) The international phrases are not included as a part of the main `remote-calibrator` package anymore, instead, we move the content to a new GitHub repository - [EasyEyes/remote-calibrator-phrases](https://github.com/EasyEyes/remote-calibrator-phrases) - to allow dynamic and independent update of the text apart from the rest of the software. Please refer to the new repository to learn how to contribute to the translations or update the text.
 
 ## [0.6.8] - 2023-01-17
