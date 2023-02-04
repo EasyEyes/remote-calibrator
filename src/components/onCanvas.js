@@ -25,14 +25,23 @@ export function _getCircleBounds(side, crossX, cW) {
     : [circleR >> 1, crossX - (crossLW + circleR) / 2]
 }
 
-export function _circle(RC, ctx, x, y, frameCount, fill, sparkle = true) {
+export function _circle(
+  RC,
+  ctx,
+  x,
+  y,
+  frameTimestampDelta,
+  fill,
+  sparkle = true
+) {
   ctx.beginPath()
   ctx.arc(x, y, circleR >> 1, 0, Math.PI * 2)
   ctx.closePath()
 
   if (!sparkle) ctx.fillStyle = fill
   else {
-    if (frameCount % 4 < 2) ctx.fillStyle = fill
+    // 8Hz
+    if (frameTimestampDelta % 125 < 63) ctx.fillStyle = fill
     else ctx.fillStyle = '#fff'
   }
 

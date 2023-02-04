@@ -411,7 +411,8 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   /* -------------------------------------------------------------------------- */
 
   // ! ACTUAL TEST
-  let frameCount = 0
+  const frameTimestampInitial = performance.now()
+  let frameTimestamp = frameTimestampInitial
   const runTest = () => {
     // ctx.fillStyle = '#eee'
     // ctx.fillRect(0, 0, c.width, c.height)
@@ -420,12 +421,13 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
     _cross(ctx, crossX, c.height / 2)
 
+    frameTimestamp = performance.now()
     _circle(
       RC,
       ctx,
       circleX,
       c.height / 2,
-      frameCount,
+      Math.round(frameTimestamp - frameTimestampInitial),
       circleFill,
       options.sparkle
     )
@@ -435,7 +437,6 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     }
 
     if (inTest) {
-      frameCount++
       requestAnimationFrame(runTest)
     } else {
       ctx.clearRect(0, 0, c.width, c.height)
