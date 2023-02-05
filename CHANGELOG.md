@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3] - 2023-02-05
+
+This minor update polishes the layout of the viewing distance measuring pages.
+
 ## [0.7.2] - 2023-02-03
 
 For distance measuring, this update makes the sparkling dot framerate robustly 8 Hz regardless of the screen refresh rate.
@@ -385,7 +389,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.2...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.3...develop
+[0.7.3]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/EasyEyes/remote-calibrator/compare/v0.6.8...v0.7.0
