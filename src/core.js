@@ -765,7 +765,7 @@ RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
   const r = this.instructionElement.getBoundingClientRect()
   this.instructionElement.style.bottom = `calc(50% + ${yOffset + 10}px)`
   this.instructionElement.style.textAlign = 'left'
-  this.instructionElement.style.fontSize = '1.1em'
+  // this.instructionElement.style.fontSize = '1.1em'
   if (side === 'left') {
     this.instructionElement.style.left = `max(10%, ${r.width / 2}px)`
     this.instructionElement.style.right = 'unset'

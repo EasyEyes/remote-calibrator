@@ -15,10 +15,22 @@
 }
 
 #blind-spot-instruction {
-  max-width: min(32rem, 100%) !important;
-  // display: block !important;
-  // top: 65%;
-  // position: fixed;
+  // max-width: min(32rem, 100%) !important;
+  max-width: unset !important;
+}
+
+@media (min-width: 641px) {
+  #blind-spot-instruction {
+    width: 65% !important;
+    font-size: 1.1rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  #blind-spot-instruction {
+    width: 90% !important;
+    font-size: 0.9rem !important;
+  }
 }
 
 #pip-video {

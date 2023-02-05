@@ -336,10 +336,17 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     {
       go: finishFunction,
       cancel: options.showCancelButton ? breakFunction : undefined,
-      // custom: {
-      //   callback: redoFunction,
-      //   content: phrases.RC_viewingDistanceRedo[RC.L],
-      // },
+      custom: {
+        callback: () => {
+          Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            html: phrases.RC_viewingDistanceIntro[RC.L],
+            allowEnterKey: true,
+          })
+        },
+        content: phrases.RC_viewingDistanceIntroTitle[RC.L],
+      },
     },
     RC.params.showCancelButton
   )
@@ -494,12 +501,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   this._addBackground()
 
   this._replaceBackground(
-    constructInstructions(
-      options.headline,
-      options.description,
-      true,
-      'rc-hang-description'
-    )
+    constructInstructions(options.headline, null, true, '')
   )
   blindSpotTest(this, options, false, callback)
 }
