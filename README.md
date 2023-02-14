@@ -568,6 +568,18 @@ Use the following keywords to retrieve the whole dataset.
 
 For building the library locally or development, please follow the steps below.
 
+### Runtime Dependencies
+
+As we compile Remote Calibrator as a standalone package for distribution, these dependencies are also listed as development dependency in the `package.json` configuration.
+
+- animate.css
+- leader-line-new
+- platform
+- react-fast-compare
+- sweetalert2
+- tinycolor2
+- tone
+
 ### Download
 
 ```shell
