@@ -13,7 +13,7 @@ export const takeInput = async (
   RC,
   extraFunction = null,
   extraFunctionOut = null,
-  customButtonConfig = null
+  customButtonConfig = null,
 ) => {
   const unit = RC.equipment.value.unit
   const unitDisplay = unit === RC._CONST.UNITS.CM ? 'cm' : 'in'
@@ -36,10 +36,10 @@ export const takeInput = async (
   const formElement = instruction.querySelector('.rc-form')
   const formInputElement = instruction.querySelector('.rc-form-input')
   const formInputElementFInteger = instruction.querySelector(
-    '.rc-form-input-f-integer'
+    '.rc-form-input-f-integer',
   )
   const formInputElementFFraction = instruction.querySelector(
-    '.rc-form-input-f-fraction'
+    '.rc-form-input-f-fraction',
   )
   // const formSubmitElement = instruction.querySelector('.rc-form-submit')
 
@@ -55,7 +55,7 @@ export const takeInput = async (
       custom: customButtonConfig ? customButtonConfig : undefined,
     },
     true,
-    false
+    false,
   )
   const goButton = addedButtons[1]
   const customButton = addedButtons[3]

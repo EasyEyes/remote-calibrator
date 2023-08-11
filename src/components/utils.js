@@ -127,7 +127,7 @@ export function constructInstructions(
   headline,
   description = null,
   scrollable = false,
-  descriptionClass = ''
+  descriptionClass = '',
 ) {
   return (
     `<div class="calibration-instruction${

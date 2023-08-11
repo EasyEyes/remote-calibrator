@@ -36,7 +36,7 @@ RemoteCalibrator.prototype.resetPanel = function (
   parent = null,
   options = null,
   callback = null,
-  resolveOnFinish = null
+  resolveOnFinish = null,
 ) {
   if (!this._panelStatus.hasPanel) return false
 
@@ -65,7 +65,7 @@ RemoteCalibrator.prototype.panel = async function (
   options = {},
   callback = null,
   resolveOnFinish = null,
-  __reset__ = false // ! Not available to users
+  __reset__ = false, // ! Not available to users
 ) {
   if (this._panelStatus.hasPanel ^ __reset__) return false
   /**
@@ -102,26 +102,26 @@ RemoteCalibrator.prototype.panel = async function (
       i18n: true,
       _demoActivateAll: false, // ! Private
     },
-    options
+    options,
   )
 
   // Set theme color
   const darkerColor = tinycolor(options.color).darken(20).toString()
   document.documentElement.style.setProperty(
     '--rc-panel-theme-color',
-    options.color
+    options.color,
   )
   document.documentElement.style.setProperty(
     '--rc-panel-darken-color',
-    darkerColor
+    darkerColor,
   )
   document.documentElement.style.setProperty(
     '--rc-panel-theme-color-semi',
-    options.color + '66'
+    options.color + '66',
   )
   document.documentElement.style.setProperty(
     '--rc-panel-darken-color-semi',
-    darkerColor + '88'
+    darkerColor + '88',
   )
 
   const panel = document.createElement('div')
@@ -194,7 +194,7 @@ RemoteCalibrator.prototype.panel = async function (
     _setLanguagePicker(
       this,
       document.querySelector('#rc-panel-language-parent'),
-      darkerColor
+      darkerColor,
     )
 
   if (options.debug) _setDebugControl(this, panel, tasks, callback)
@@ -359,8 +359,8 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
                   // Fixed final callback
                   () => {
                     RC._panelStatus.panelFinished = true
-                  }
-                )
+                  },
+                ),
               )
             }
           } else {
@@ -374,8 +374,8 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
                     _finishStepAt(current.index)
                     current.index++
                     _activateStepAt(RC, current, tasks, options, finalCallback)
-                  }
-                )
+                  },
+                ),
               )
             }
           }
@@ -410,7 +410,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
         let finalButton = document.querySelector('.rc-panel-next-button')
         finalButton.classList.replace(
           'rc-panel-step-inactive',
-          'rc-panel-step-active'
+          'rc-panel-step-active',
         )
         finalButton.onclick = () => {
           RC._panelStatus.panelFinished = true
@@ -439,7 +439,7 @@ const _getTaskOptionsCallbacks = (
   task,
   fixedTaskCallback,
   finalCallback = null,
-  fixedFinalCallback = null
+  fixedFinalCallback = null,
 ) => {
   if (typeof task === 'string')
     task = {

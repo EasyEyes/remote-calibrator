@@ -21,7 +21,7 @@ async function processLanguageSheet() {
     XLSX.utils.aoa_to_sheet(rows.data.values),
     {
       defval: '',
-    }
+    },
   )
 
   const data = {}
@@ -39,8 +39,8 @@ async function processLanguageSheet() {
       if (data[phrase][lang].includes('Loading') && lang !== 'en-US') {
         console.error(
           new Error(
-            `Phrases are not ready for ${lang} yet. Please try again later.`
-          )
+            `Phrases are not ready for ${lang} yet. Please try again later.`,
+          ),
         )
         return false
       }
@@ -71,10 +71,10 @@ async function processLanguageSheet() {
         console.log("Error! Couldn't write to the file.", error)
       } else {
         console.log(
-          'EasyEyes International Phrases fetched and written into files successfully.'
+          'EasyEyes International Phrases fetched and written into files successfully.',
         )
       }
-    }
+    },
   )
 }
 

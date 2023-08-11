@@ -30,7 +30,7 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
     {
       showOffset: true,
     },
-    options
+    options,
   )
 
   if (this._gazeTrackNudging.isCorrectingGaze) return
@@ -86,7 +86,7 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
         path: 'straight',
         color: this._CONST.COLOR.DARK_RED,
         startPlug: 'disc',
-      }
+      },
     )
 
     const theLeaderLine = document.querySelector('.leader-line')
@@ -161,7 +161,7 @@ const popNudgeElements = (RC, parentBackground, callback) => {
 
       RC._gazeTrackNudging.isCorrectingGaze = false
       safeExecuteFunc(callback)
-    }
+    },
   )
 
   // arrows

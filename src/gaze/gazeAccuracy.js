@@ -16,7 +16,7 @@ let inGetAccuracy = false
 RemoteCalibrator.prototype.getGazeAccuracy = function (
   options = {},
   callbackSuccess,
-  callbackFail
+  callbackFail,
 ) {
   ////
   if (!this.checkInitialized()) return false
@@ -28,7 +28,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
 
   if (!screenPpi || !viewingDistanceCm) {
     console.error(
-      'Screen size and viewing distance measurements are both required to measure gaze accuracy.'
+      'Screen size and viewing distance measurements are both required to measure gaze accuracy.',
     )
     return false
   }
@@ -39,7 +39,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
       thresholdDeg: 10, // minAccuracy
       decimalPlace: 3,
     },
-    options
+    options,
   )
 
   // Background
@@ -82,7 +82,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
         { x: canvas.width / 2, y: canvas.height / 2 },
         points,
         screenPpi.value,
-        viewingDistanceCm.value
+        viewingDistanceCm.value,
       )
 
       // ! Store data
@@ -127,7 +127,7 @@ const getAverageDegree = (fixation, points, screenPpi, viewingDistanceCm) => {
     // Px
     let diffInPx = Math.sqrt(
       Math.pow(points[0][i], 2),
-      Math.pow(points[1][i], 2)
+      Math.pow(points[1][i], 2),
     )
     // Cm
     let diffInCm = (2.54 * diffInPx) / screenPpi

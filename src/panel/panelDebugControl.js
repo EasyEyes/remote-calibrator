@@ -33,7 +33,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
               valueName,
               taskDefault.value[valueName],
               '.value.' + valueName,
-              inputTypes.n
+              inputTypes.n,
             )
           }
           break
@@ -44,7 +44,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
             'value',
             taskDefault.value,
             '.value',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
@@ -52,7 +52,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
             taskDefault.method,
             '.method',
             inputTypes.s,
-            true
+            true,
           )
           break
 
@@ -62,35 +62,35 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
             'viewingDistanceCm',
             taskDefault.value.viewingDistanceCm,
             '.value',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
             'PDCm',
             taskDefault.value.PDCm,
             '.value',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
             'nearPointCm.x',
             taskDefault.value.nearPointCm.x,
             '.value.x',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
             'nearPointCm.y',
             taskDefault.value.nearPointCm.y,
             '.value.y',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
             'latencyMs',
             taskDefault.value.latencyMs,
             '.latencyMs',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
@@ -98,7 +98,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
             taskDefault.method,
             '.method',
             inputTypes.s,
-            true
+            true,
           )
           break
 
@@ -108,21 +108,21 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
             'x',
             taskDefault.value.x,
             '.value.x',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
             'y',
             taskDefault.value.y,
             '.value.y',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
             'latencyMs',
             taskDefault.value.latencyMs,
             '.value.latencyMs',
-            inputTypes.n
+            inputTypes.n,
           )
           break
 
@@ -132,28 +132,28 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
             'computeArrayFillMHz',
             taskDefault.value.computeArrayFillMHz,
             '.value.computeArrayFillMHz',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
             'computeRandomMHz',
             taskDefault.value.computeRandomMHz,
             '.value.computeRandomMHz',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
             'idealFps',
             taskDefault.value.idealFps,
             '.value.idealFps',
-            inputTypes.n
+            inputTypes.n,
           )
           rowElement.innerHTML += _createValueElement(
             taskName,
             'stressFps',
             taskDefault.value.stressFps,
             '.value.stressFps',
-            inputTypes.n
+            inputTypes.n,
           )
           break
 
@@ -185,12 +185,12 @@ const _createValueElement = (
   defaultValue,
   source,
   type,
-  readonly = false
+  readonly = false,
 ) => {
   return `<div class="value-element">
   <input type="text" id="${taskName}-${name.replace(
     '.',
-    '-'
+    '-',
   )}" value="${defaultValue}" data-source="${source}" data-type="${type}"${
     readonly ? 'readonly' : ''
   } />
@@ -264,7 +264,7 @@ const _putData = (RC, newData, taskRow) => {
     const eleInput = ele.querySelector('input')
     try {
       eval(
-        `newData${eleInput.dataset.source} = eleInput.dataset.type === 'number' ? Number(eleInput.value) : eleInput.value`
+        `newData${eleInput.dataset.source} = eleInput.dataset.type === 'number' ? Number(eleInput.value) : eleInput.value`,
       )
     } catch (err) {
       err

@@ -6,7 +6,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   distanceCallback,
   distanceData,
   measureName, // 'measureDistance' OR 'trackDistance'
-  checkCallback
+  checkCallback,
 ) {
   await this.getEquipment(() => {
     return checkDistance(
@@ -14,7 +14,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
       distanceCallback,
       distanceData,
       measureName,
-      checkCallback
+      checkCallback,
     )
   })
 }
@@ -24,7 +24,7 @@ const checkDistance = async (
   distanceCallback,
   distanceData,
   measureName,
-  checkCallback
+  checkCallback,
 ) => {
   const isTrack = measureName === 'trackDistance'
 
@@ -41,8 +41,8 @@ const checkDistance = async (
     RC._replaceBackground(
       constructInstructions(
         '📏 ' + 'Hold Still and Measure Viewing Distance with Ruler',
-        'Hold still so that your viewing distance from the screen stays unchanged from the last measurement. Please measure the distance from the middle of your screen to one of your eyes using your ruler (or measuring tape). If your ruler is not long enough, then select "Ruler is too short" below. Type your numerical answer into the box, then click OK or hit RETURN.'
-      )
+        'Hold still so that your viewing distance from the screen stays unchanged from the last measurement. Please measure the distance from the middle of your screen to one of your eyes using your ruler (or measuring tape). If your ruler is not long enough, then select "Ruler is too short" below. Type your numerical answer into the box, then click OK or hit RETURN.',
+      ),
     )
 
     const measureData = await takeInput(RC, null, null, {

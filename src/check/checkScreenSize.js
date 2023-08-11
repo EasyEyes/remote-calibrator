@@ -12,7 +12,7 @@ import ArrowVertical from '../media/two-sided-vertical.svg'
 RemoteCalibrator.prototype._checkScreenSize = async function (
   screenSizeCallback,
   screenSizeData,
-  checkCallback
+  checkCallback,
 ) {
   await this.getEquipment(() => {
     checkScreenSize(this, screenSizeCallback, screenSizeData, checkCallback)
@@ -23,7 +23,7 @@ const checkScreenSize = async (
   RC,
   screenSizeCallback,
   screenSizeData,
-  checkCallback
+  checkCallback,
 ) => {
   const quit = () => {
     RC._removeBackground()
@@ -35,8 +35,8 @@ const checkScreenSize = async (
     RC._replaceBackground(
       constructInstructions(
         '📏 ' + 'Measure the Length of the Arrow',
-        'Use your ruler (or tape measure) to measure the length of the arrow. Type your numerical answer into the box. Just digits, period, decimal comma, and <span style="font-family: Courier, monospace;">/</span> (forward slash) for fractional inches. Then click OK or hit RETURN.'
-      )
+        'Use your ruler (or tape measure) to measure the length of the arrow. Type your numerical answer into the box. Just digits, period, decimal comma, and <span style="font-family: Courier, monospace;">/</span> (forward slash) for fractional inches. Then click OK or hit RETURN.',
+      ),
     )
 
     const getInputFunctions = arrowSvg => {
@@ -50,7 +50,7 @@ const checkScreenSize = async (
         () => {
           // extraFunctionOut
           for (let ele of RC.background.getElementsByClassName(
-            'arrow-two-sided-svg'
+            'arrow-two-sided-svg',
           )) {
             ele.remove()
           }
@@ -64,12 +64,12 @@ const checkScreenSize = async (
 
     const measureWidthData = await takeInput(
       RC,
-      ...getInputFunctions(ArrowHorizontal)
+      ...getInputFunctions(ArrowHorizontal),
     )
 
     const measureHeightData = await takeInput(
       RC,
-      ...getInputFunctions(ArrowVertical)
+      ...getInputFunctions(ArrowVertical),
     )
 
     const value = {}
@@ -80,7 +80,7 @@ const checkScreenSize = async (
       const arrowWidthPx = RC.windowWidthPx.value
       const calibratorCm = toFixedNumber(
         (2.54 * arrowWidthPx) / RC.screenPpi.value,
-        1
+        1,
       )
 
       value.horizontal = {
@@ -96,7 +96,7 @@ const checkScreenSize = async (
       const arrowHeightPx = RC.windowHeightPx.value
       const calibratorCm = toFixedNumber(
         (2.54 * arrowHeightPx) / RC.screenPpi.value,
-        1
+        1,
       )
 
       value.vertical = {

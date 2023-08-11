@@ -37,7 +37,7 @@ export function startVideo(videoElement, callback) {
       // ! CALLBACK
       safeExecuteFunc(callback, stream)
     },
-    err => console.error(err)
+    err => console.error(err),
   )
 }
 

@@ -8,7 +8,7 @@ import { phrases } from '../i18n'
 RemoteCalibrator.prototype.trackGaze = async function (
   options = {},
   callbackOnCalibrationEnd = null,
-  callbackTrack = null
+  callbackTrack = null,
 ) {
   /**
    * options -
@@ -48,7 +48,7 @@ RemoteCalibrator.prototype.trackGaze = async function (
       headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
       description: phrases.RC_gazeTrackingIntro[this.L],
     },
-    options
+    options,
   )
 
   // Fullscreen
@@ -86,7 +86,7 @@ RemoteCalibrator.prototype.trackGaze = async function (
       showFaceOverlay: options.showFaceOverlay,
       showGazer: options.showGazer,
     },
-    'gaze'
+    'gaze',
   )
 
   gazeCalibrationPrepare(this, options)
@@ -138,11 +138,11 @@ RemoteCalibrator.prototype.trackGaze = async function (
           () => {
             // Fail to meet the min accuracy
             this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
-          }
+          },
         )
       ) {
         console.error(
-          'Failed to finish gaze accuracy measurement due to error.'
+          'Failed to finish gaze accuracy measurement due to error.',
         )
         this.gazeTracker.attachNewCallback(callbackTrack)
         this.gazeTracker.defaultGazeCallback = callbackTrack
@@ -153,7 +153,7 @@ RemoteCalibrator.prototype.trackGaze = async function (
 
 RemoteCalibrator.prototype.getGazeNow = async function (
   options = {},
-  callback = null
+  callback = null,
 ) {
   if (
     !this.checkInitialized() ||
@@ -168,7 +168,7 @@ RemoteCalibrator.prototype.getGazeNow = async function (
       wait: 0,
       frames: 5,
     },
-    options
+    options,
   )
 
   let c = callback || this.gazeTracker.defaultGazeCallback
@@ -210,7 +210,7 @@ RemoteCalibrator.prototype.gazeLearning = function (learn = true, options) {
       click: true,
       move: true,
     },
-    options
+    options,
   )
   learn
     ? this.gazeTracker.startLearning(options)

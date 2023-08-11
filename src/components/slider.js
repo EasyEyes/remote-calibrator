@@ -7,7 +7,7 @@ export const createSlider = (parent, min, max) => {
   sliderElement.max = max
   sliderElement.value = Math.max(
     Math.min(Math.round(Math.random() * 100), 80),
-    20
+    20,
   )
   sliderElement.step = 0.1
 
@@ -22,7 +22,7 @@ export const setSliderPosition = (slider, parent) => {
   slider.style.top =
     Math.round(
       parent.querySelector('.calibration-instruction').getBoundingClientRect()
-        .bottom
+        .bottom,
     ) +
     25 +
     'px'

@@ -32,7 +32,7 @@ export function _circle(
   y,
   frameTimestampDelta,
   fill,
-  sparkle = true
+  sparkle = true,
 ) {
   ctx.beginPath()
   ctx.arc(x, y, circleR >> 1, 0, Math.PI * 2)

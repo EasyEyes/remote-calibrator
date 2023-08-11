@@ -81,8 +81,8 @@ module.exports = env => {
         BUILD_TARGET: 'development',
       }),
       new webpack.BannerPlugin(
-        `${packageJSON.name} - ${packageJSON.version} - DEV`
-      )
+        `${packageJSON.name} - ${packageJSON.version} - DEV`,
+      ),
     )
 
     return exampleConfig
@@ -106,7 +106,7 @@ module.exports = env => {
         DEBUG: false,
         BUILD_TARGET: 'production',
       }),
-      new webpack.BannerPlugin(licenseText)
+      new webpack.BannerPlugin(licenseText),
     )
     // libConfig.plugins.push(new BundleAnalyzerPlugin())
 

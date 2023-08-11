@@ -20,7 +20,7 @@ const originalStyles = {
 RemoteCalibrator.prototype.trackDistance = async function (
   options = {},
   callbackStatic,
-  callbackTrack
+  callbackTrack,
 ) {
   /**
    * options -
@@ -75,7 +75,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       checkCallback: null,
       showCancelButton: true,
     },
-    options
+    options,
   )
 
   /* -------------------------------------------------------------------------- */
@@ -96,7 +96,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
   this._addBackground()
   this._constructFloatInstructionElement(
     'gaze-system-instruction',
-    phrases.RC_starting[this.L]
+    phrases.RC_starting[this.L],
   )
 
   // Permissions
@@ -123,7 +123,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
     this._addBackground()
 
     this._replaceBackground(
-      constructInstructions(options.headline, null, true, '')
+      constructInstructions(options.headline, null, true, ''),
     )
 
     if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
@@ -152,7 +152,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       showVideo: true,
       showFaceOverlay: options.showFaceOverlay,
     },
-    'distance'
+    'distance',
   )
 
   this._trackingSetupFinishedStatus.distance = false
@@ -170,7 +170,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
         return this._measurePD({}, _)
       },
       callbackTrack,
-      trackingConfig
+      trackingConfig,
     )
   } else {
     startTrackingPupils(this, _, callbackTrack, trackingConfig)
@@ -183,7 +183,7 @@ const startTrackingPupils = async (
   RC,
   beforeCallbackTrack,
   callbackTrack,
-  trackingConfig
+  trackingConfig,
 ) => {
   RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
     RC._removeFloatInstructionElement()
@@ -233,7 +233,7 @@ const _tracking = async (
   RC,
   trackingOptions,
   callbackTrack,
-  trackingConfig
+  trackingConfig,
 ) => {
   const video = document.querySelector('#webgazerVideoFeed')
 
@@ -252,7 +252,7 @@ const _tracking = async (
     let ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
     if (!RC.screenPpi && trackingOptions.nearPoint)
       console.error(
-        'Screen size measurement is required to get accurate near point tracking.'
+        'Screen size measurement is required to get accurate near point tracking.',
       )
 
     if (trackingOptions.nearPoint && trackingOptions.showNearPoint) {
@@ -319,13 +319,13 @@ const _tracking = async (
 
             const timestamp = performance.now()
             const latency = Math.round(
-              timestamp - RC._trackingVideoFrameTimestamps.distance
+              timestamp - RC._trackingVideoFrameTimestamps.distance,
             )
 
             const data = (RC.newViewingDistanceData = {
               value: toFixedNumber(
                 stdFactor / averageDist,
-                trackingOptions.decimalPlace
+                trackingOptions.decimalPlace,
               ),
               timestamp: timestamp,
               method: RC._CONST.VIEW_METHOD.F,
@@ -338,7 +338,7 @@ const _tracking = async (
                 RC.nudgeDistance(
                   desiredDistanceMonitorCancelable,
                   desiredDistanceMonitorAllowRecalibrate,
-                  trackingConfig
+                  trackingConfig,
                 )
               }
               readyToGetFirstData = false
@@ -357,7 +357,7 @@ const _tracking = async (
                 averageDist,
                 timestamp,
                 ppi,
-                latency
+                latency,
               )
             }
 
@@ -404,7 +404,7 @@ const _getNearPoint = (
   averageDist,
   timestamp,
   ppi,
-  latency
+  latency,
 ) => {
   let offsetToVideoCenter = cyclopean(video, mesh[133], mesh[362])
   offsetToVideoCenter.forEach((offset, i) => {
@@ -419,7 +419,7 @@ const _getNearPoint = (
       x: toFixedNumber(offsetToVideoCenter[0], trackingOptions.decimalPlace),
       y: toFixedNumber(
         offsetToVideoCenter[1] + ((screen.height / 2) * 2.54) / ppi, // Commonly the webcam is 0.5cm above the screen
-        trackingOptions.decimalPlace
+        trackingOptions.decimalPlace,
       ),
       latencyMs: latency,
     },
@@ -566,7 +566,7 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
         dist,
         timestamp,
         this.screenPpi ? this.screenPpi.value : this._CONST.N.PPI_DONT_USE,
-        latency
+        latency,
       )
     }
 

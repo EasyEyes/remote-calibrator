@@ -6,7 +6,7 @@ import { safeExecuteFunc } from '../components/utils'
 
 RemoteCalibrator.prototype.getEquipment = async function (
   afterResultCallback,
-  forcedGet = false
+  forcedGet = false,
 ) {
   if (this.equipment && !forcedGet) return safeExecuteFunc(afterResultCallback)
 

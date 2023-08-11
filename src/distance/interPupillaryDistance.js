@@ -33,7 +33,7 @@ const videoHeightFactor = 0.3
 
 RemoteCalibrator.prototype._measurePD = async function (
   options = {},
-  callback
+  callback,
 ) {
   ////
   if (!this.checkInitialized()) return
@@ -47,7 +47,7 @@ RemoteCalibrator.prototype._measurePD = async function (
       description: phrases.RC_nearPointIntro[this.L],
       shortDescription: phrases.RC_nearPointIntro[this.L],
     },
-    options
+    options,
   )
 
   this.getFullscreen(options.fullscreen)
@@ -56,7 +56,7 @@ RemoteCalibrator.prototype._measurePD = async function (
 
   this._replaceBackground()
   this._replaceBackground(
-    constructInstructions(options.headline, options.shortDescription, true)
+    constructInstructions(options.headline, options.shortDescription, true),
   )
   const screenPpi = this.screenPpi
     ? this.screenPpi.value
@@ -67,7 +67,7 @@ RemoteCalibrator.prototype._measurePD = async function (
     this,
     screenPpi,
     videoWidth,
-    videoHeight
+    videoHeight,
   )
 
   const RC = this
@@ -89,7 +89,7 @@ RemoteCalibrator.prototype._measurePD = async function (
     })
     setDefaultVideoPosition(
       RC,
-      document.querySelector('#webgazerVideoContainer')
+      document.querySelector('#webgazerVideoContainer'),
     )
 
     Object.assign(document.querySelector('#webgazerVideoFeed').style, {
@@ -140,7 +140,7 @@ RemoteCalibrator.prototype._measurePD = async function (
       go: finishFunction,
       cancel: breakFunction,
     },
-    this.params.showCancelButton
+    this.params.showCancelButton,
   )
 
   // TODO To be removed
@@ -185,7 +185,7 @@ const setupVideo = RC => {
       RC,
       video,
       document.querySelector('#webgazerVideoCanvas'),
-      document.querySelector('#webgazerVideoContainer')
+      document.querySelector('#webgazerVideoContainer'),
     )
   }
 }

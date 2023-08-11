@@ -43,7 +43,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   if (RC.screenPpi) ppi = RC.screenPpi.value
   else
     console.error(
-      'Screen size measurement is required to get accurate viewing distance measurement.'
+      'Screen size measurement is required to get accurate viewing distance measurement.',
     )
 
   let inTest = true // Used to break animation
@@ -56,7 +56,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   RC.background.appendChild(blindSpotDiv)
   RC._constructFloatInstructionElement(
     'blind-spot-instruction',
-    phrases.RC_distanceTrackingCloseL[RC.L]
+    phrases.RC_distanceTrackingCloseL[RC.L],
   )
   RC._addCreditOnBackground(phrases.RC_viewingBlindSpotCredit[RC.L])
 
@@ -133,7 +133,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         const data = (RC.newViewingDistanceData = {
           value: toFixedNumber(
             median(_getDistValues(dist)),
-            options.decimalPlace
+            options.decimalPlace,
           ),
           timestamp: performance.now(),
           method: RC._CONST.VIEW_METHOD.B,
@@ -162,7 +162,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
             callback,
             data,
             measureType,
-            options.checkCallback
+            options.checkCallback,
           )
         else safeExecuteFunc(callback, data)
       } else {
@@ -174,7 +174,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         _resetCanvasLayout(
           firstResponse.v,
           firstResponse.closedEyeSide,
-          firstResponse.crossX
+          firstResponse.crossX,
         )
 
         dist = [] // Discard old data
@@ -204,7 +204,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         eyeSide, // eyeSide
         _getCrossX(eyeSide, c.width), // crossX
         false,
-        true
+        true,
       )
     } else {
       // Shift circle
@@ -292,7 +292,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
     nextEyeSide,
     nextCrossX,
     shiftFloatingElement = true,
-    shiftCircle = true
+    shiftCircle = true,
   ) => {
     v = nextV
     eyeSide = nextEyeSide
@@ -327,7 +327,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       ArrowLeft: control ? arrowUpFunction : emptyFunc,
       ArrowRight: control ? arrowUpFunction : emptyFunc,
     },
-    'keyup'
+    'keyup',
   )
 
   addButtons(
@@ -348,7 +348,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         content: phrases.RC_viewingDistanceIntroTitle[RC.L],
       },
     },
-    RC.params.showCancelButton
+    RC.params.showCancelButton,
   )
 
   // const customButton = addedButtons[3]
@@ -390,7 +390,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
         circleX = _dragStartPosition.circleX + currentX - _dragStartPosition.x
         circleX = constrain(
           circleX,
-          ..._getCircleBounds(eyeSide, crossX, c.width)
+          ..._getCircleBounds(eyeSide, crossX, c.width),
         )
       }
       if (isTouch) document.addEventListener('touchmove', dragMove)
@@ -436,7 +436,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       c.height / 2,
       Math.round(frameTimestamp - frameTimestampInitial),
       circleFill,
-      options.sparkle
+      options.sparkle,
     )
     if (!control) {
       circleX += v * circleDeltaX
@@ -493,7 +493,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
       checkCallback: false,
       showCancelButton: true,
     },
-    options
+    options,
   )
   // Fullscreen
   this.getFullscreen(options.fullscreen)
@@ -501,7 +501,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   this._addBackground()
 
   this._replaceBackground(
-    constructInstructions(options.headline, null, true, '')
+    constructInstructions(options.headline, null, true, ''),
   )
   blindSpotTest(this, options, false, callback)
 }

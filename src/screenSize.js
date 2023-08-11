@@ -41,7 +41,7 @@ RemoteCalibrator.prototype._displaySize = function () {
     !this.displayData.length ||
     !isEqual(
       thisData.value,
-      this.displayData[this.displayData.length - 1].value
+      this.displayData[this.displayData.length - 1].value,
     )
   )
     this.newDisplayData = thisData
@@ -88,7 +88,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       check: false,
       checkCallback: null,
     },
-    options
+    options,
   )
 
   this.getFullscreen(options.fullscreen)
@@ -106,7 +106,7 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
       options.defaultObject === 'usbc' ? ' selected' : ''
     }>${phrases.RC_screenSizeUSBC[this.L]}</option><option value="card"${
       options.defaultObject === 'card' ? ' selected' : ''
-    }>${phrases.RC_screenSizeCreditCard[this.L]}</option></select>`
+    }>${phrases.RC_screenSizeCreditCard[this.L]}</option></select>`,
   )}</b>`
 
   this._addBackground()
@@ -242,7 +242,7 @@ function getSize(RC, parent, options, callback) {
       go: finishFunction,
       cancel: breakFunction,
     },
-    RC.params.showCancelButton
+    RC.params.showCancelButton,
   )
 
   // Set to actual default object
@@ -319,11 +319,11 @@ const _getScreenData = (ppi, toFixedN) => {
     value: {
       screenWidthCm: toFixedNumber(
         (2.54 * window.screen.width) / ppi,
-        toFixedN
+        toFixedN,
       ),
       screenHeightCm: toFixedNumber(
         (2.54 * window.screen.height) / ppi,
-        toFixedN
+        toFixedN,
       ),
       screenPhysicalPpi: toFixedNumber(ppi * window.devicePixelRatio, toFixedN),
       screenPpi: toFixedNumber(ppi, toFixedN),
@@ -332,11 +332,11 @@ const _getScreenData = (ppi, toFixedN) => {
   }
   screenData.value.screenDiagonalCm = toFixedNumber(
     Math.hypot(screenData.value.screenWidthCm, screenData.value.screenHeightCm),
-    toFixedN
+    toFixedN,
   )
   screenData.value.screenDiagonalIn = toFixedNumber(
     screenData.value.screenDiagonalCm / 2.54,
-    toFixedN
+    toFixedN,
   )
 
   return screenData

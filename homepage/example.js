@@ -76,7 +76,7 @@ function printCode(code, name) {
   printMessage(
     `📙 Code for <span style="color:#000">${name}</span>`,
     'code-title',
-    true
+    true,
   )
   const pre = document.createElement('pre')
   pre.className = 'prettyprint'
@@ -123,8 +123,8 @@ function initialize(e) {
   // Show result panel
   experimentElement.style.visibility = 'visible'
   experimentElement.style.display = 'block'
-  experimentElement.style.opacity = 1`
-    )
+  experimentElement.style.opacity = 1`,
+    ),
   )
 }
 
@@ -179,7 +179,7 @@ const _panelCode = `RemoteCalibrator.panel(
 )`
 function makePanel(e) {
   printMessage(
-    'A highly-customizable step-by-step calibration panel will be added to the designated HTML node.'
+    'A highly-customizable step-by-step calibration panel will be added to the designated HTML node.',
   )
   eval(_panelCode)
   changeClass(e.target, 'complete')
@@ -275,14 +275,14 @@ function measureViewingDistance(e) {
       '\n' +
       _measureViewingDistanceCode.replace(
         '@',
-        `changeClass(e.target, 'complete')`
-      )
+        `changeClass(e.target, 'complete')`,
+      ),
   )
 }
 function measureViewingDistanceCode() {
   printCode(
     _measureDistanceCallback + '\n\n' + _measureViewingDistanceCode,
-    '.measureDistance()'
+    '.measureDistance()',
   )
 }
 
@@ -334,30 +334,30 @@ function trackViewingDistance(e) {
       '\n' +
       _trackViewingDistanceCode.replace(
         '@',
-        `changeClass(e.target, 'complete')`
-      )
+        `changeClass(e.target, 'complete')`,
+      ),
   )
 
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.insertBefore(
     constructFunctionButton(
       ['End Distance', 'endDistance', 'endDistance', 'distance'],
-      false
+      false,
     ),
-    target.nextSibling
+    target.nextSibling,
   )
   target.parentNode.replaceChild(
     constructFunctionButton(
       ['Pause Distance', 'pauseDistance', 'pauseDistance', 'distance'],
-      false
+      false,
     ),
-    target
+    target,
   )
 }
 function trackViewingDistanceCode() {
   printCode(
     _measureDistanceCallback + '\n\n' + _trackViewingDistanceCode,
-    '.trackDistance()'
+    '.trackDistance()',
   )
 }
 
@@ -370,17 +370,17 @@ function pauseDistance(e) {
     constructFunctionButton(
       ['Get Distance Now', 'getDistanceNow', 'getDistanceNow', 'distance'],
       false,
-      'temp-distance-now'
+      'temp-distance-now',
     ),
-    target.nextSibling
+    target.nextSibling,
   )
 
   target.parentNode.replaceChild(
     constructFunctionButton(
       ['Resume Distance', 'resumeDistance', 'resumeDistance', 'distance'],
-      false
+      false,
     ),
-    target
+    target,
   )
 }
 function pauseDistanceCode() {
@@ -395,9 +395,9 @@ function resumeDistance(e) {
   target.parentNode.replaceChild(
     constructFunctionButton(
       ['Pause Distance', 'pauseDistance', 'pauseDistance', 'distance'],
-      false
+      false,
     ),
-    target
+    target,
   )
 }
 function resumeDistanceCode() {
@@ -415,9 +415,9 @@ function endDistance(e) {
         'trackDistance',
         'trackViewingDistance',
       ],
-      false
+      false,
     ),
-    target
+    target,
   )
   document.querySelectorAll('.distance').forEach(e => {
     e.parentNode.removeChild(e)
@@ -473,21 +473,21 @@ function trackGaze(e) {
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.insertBefore(
     constructFunctionButton(['End Gaze', 'endGaze', 'endGaze', 'gaze'], false),
-    target.nextSibling
+    target.nextSibling,
   )
   target.parentNode.insertBefore(
     constructFunctionButton(
       ['Nudge Gaze', 'nudgeGaze', 'nudgeGaze', 'gaze'],
-      false
+      false,
     ),
-    target.nextSibling
+    target.nextSibling,
   )
   target.parentNode.replaceChild(
     constructFunctionButton(
       ['Pause Gaze', 'pauseGaze', 'pauseGaze', 'gaze'],
-      false
+      false,
     ),
-    target
+    target,
   )
 }
 function trackGazeCode() {
@@ -514,17 +514,17 @@ function pauseGaze(e) {
     constructFunctionButton(
       ['Get Gaze Now', 'getGazeNow', 'getGazeNow', 'gaze'],
       false,
-      'temp-gaze-now'
+      'temp-gaze-now',
     ),
-    target.nextSibling
+    target.nextSibling,
   )
 
   target.parentNode.replaceChild(
     constructFunctionButton(
       ['Resume Gaze', 'resumeGaze', 'resumeGaze', 'gaze'],
-      false
+      false,
     ),
-    target
+    target,
   )
 }
 function pauseGazeCode() {
@@ -542,9 +542,9 @@ function resumeGaze(e) {
   target.parentNode.replaceChild(
     constructFunctionButton(
       ['Pause Gaze', 'pauseGaze', 'pauseGaze', 'gaze'],
-      false
+      false,
     ),
-    target
+    target,
   )
 }
 function resumeGazeCode() {
@@ -557,7 +557,7 @@ function endGaze(e) {
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
   target.parentNode.insertBefore(
     constructFunctionButton(['Track Gaze', 'trackGaze', 'trackGaze'], false),
-    target
+    target,
   )
   document.querySelectorAll('.gaze').forEach(e => {
     e.parentNode.removeChild(e)

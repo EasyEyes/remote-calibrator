@@ -7,7 +7,7 @@ import { sleep } from '../components/utils'
 RemoteCalibrator.prototype.nudgeDistance = function (
   cancelable = false,
   allowRecalibrate = true,
-  trackingConfig
+  trackingConfig,
 ) {
   ////
   if (!this.checkInitialized()) return
@@ -24,7 +24,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
       !withinRange(
         this.viewingDistanceCm.value,
         distanceDesired,
-        distanceAllowedRatio
+        distanceAllowedRatio,
       )
     ) {
       // ! Out of range
@@ -44,7 +44,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
         this.trackDistance(
           trackingConfig.options,
           trackingConfig.callbackStatic,
-          trackingConfig.callbackTrack
+          trackingConfig.callbackTrack,
         )
       }
 
@@ -54,7 +54,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           ? {
               Escape: this.endNudger,
             }
-          : {}
+          : {},
       )
 
       if (
@@ -89,14 +89,14 @@ RemoteCalibrator.prototype.nudgeDistance = function (
             this.L,
             this.nudger,
             buttonConfig,
-            this.params.showCancelButton
+            this.params.showCancelButton,
           )
 
         const _update = () => {
           moveElement.innerHTML = getMoveInner(
             this,
             this.viewingDistanceCm.value,
-            distanceDesired
+            distanceDesired,
           )
           guideNumNow.innerHTML = Math.round(this.viewingDistanceCm.value)
           guideNumDesired.innerHTML = Math.round(distanceDesired)
@@ -111,7 +111,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
             withinRange(
               this.viewingDistanceCm.value,
               distanceDesired,
-              distanceAllowedRatio
+              distanceAllowedRatio,
             )
           ) {
             breakFunction()
@@ -131,7 +131,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
     }
   } else {
     console.error(
-      'You need to start tracking viewing distance before checking it.'
+      'You need to start tracking viewing distance before checking it.',
     )
     return false
   }
@@ -150,11 +150,11 @@ const startCorrecting = RC => {
   <p id="rc-distance-correct-guide">${phrases.RC_distanceTrackingGuide[RC.L]
     .replace(
       'xx1',
-      `<span class="rc-distance-num rc-distance-now" id="rc-distance-now"></span>`
+      `<span class="rc-distance-num rc-distance-now" id="rc-distance-now"></span>`,
     )
     .replace(
       'xx2',
-      `<span class="rc-distance-num rc-distance-desired" id="rc-distance-desired"></span>`
+      `<span class="rc-distance-num rc-distance-desired" id="rc-distance-desired"></span>`,
     )}</p>
 </div>
   `)
@@ -178,7 +178,7 @@ const validateAllowedRatio = ratio => {
 
 RemoteCalibrator.prototype.setDistanceDesired = function (
   d,
-  allowedRatio = null
+  allowedRatio = null,
 ) {
   this._distanceTrackNudging.distanceDesired = d
   if (allowedRatio && validateAllowedRatio(allowedRatio))

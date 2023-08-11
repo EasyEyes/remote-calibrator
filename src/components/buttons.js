@@ -5,7 +5,7 @@ export const addButtons = (
   parent,
   { go, cancel, custom },
   showCancelButton,
-  absolutePositioning = true
+  absolutePositioning = true,
 ) => {
   const buttons = document.createElement('div')
   buttons.className =

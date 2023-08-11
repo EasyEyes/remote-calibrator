@@ -9,6 +9,7 @@ const loadPhrases = async (customizedLanguagePhrasesJSON = null) => {
     /* webpackIgnore: true */ PHRASES_URL
   )
   Object.assign(phrases, remoteCalibratorPhrases)
+
   // load from customized language phrases
   if (customizedLanguagePhrasesJSON)
     Object.assign(phrases, customizedLanguagePhrasesJSON)

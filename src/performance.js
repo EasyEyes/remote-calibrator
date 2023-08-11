@@ -9,7 +9,7 @@ import { phrases } from './i18n'
 
 RemoteCalibrator.prototype.performanceCompute = async function (
   callback,
-  __internalCall__ = false
+  __internalCall__ = false,
 ) {
   ////
   if (!this.checkInitialized()) return
@@ -52,7 +52,7 @@ RemoteCalibrator.prototype.performanceCompute = async function (
 
 RemoteCalibrator.prototype.performance = async function (
   options = {},
-  callback
+  callback,
 ) {
   ////
   if (!this.checkInitialized()) return
@@ -66,7 +66,7 @@ RemoteCalibrator.prototype.performance = async function (
       headline: '🚀 ' + phrases.RC_performanceTitle[this.L],
       description: phrases.RC_performanceIntro[this.L],
     },
-    options
+    options,
   )
 
   this._addBackground()
@@ -95,7 +95,7 @@ RemoteCalibrator.prototype.performance = async function (
   const timingData = await startGraphicsTest(
     ctx,
     options.testFrameCount,
-    options.testObjectCount
+    options.testObjectCount,
   )
 
   const data = (this.newPerformanceData = {
@@ -104,7 +104,7 @@ RemoteCalibrator.prototype.performance = async function (
       computeRandomMHz: computingPerformanceData.value.computeRandomMHz,
       idealFps: Math.round(60000 / (configData.end - configData.start)),
       stressFps: Math.round(
-        (1000 * options.testFrameCount) / (timingData.end - timingData.start)
+        (1000 * options.testFrameCount) / (timingData.end - timingData.start),
       ),
     },
     timestamp: performance.now(),

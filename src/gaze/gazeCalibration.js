@@ -28,15 +28,15 @@ const originalStyles = {
 export function gazeCalibrationPrepare(RC, options) {
   if (RC.background)
     RC._replaceBackground(
-      constructInstructions(options.headline, options.description)
+      constructInstructions(options.headline, options.description),
     )
   else
     RC._addBackground(
-      constructInstructions(options.headline, options.description)
+      constructInstructions(options.headline, options.description),
     )
   RC._constructFloatInstructionElement(
     'gaze-system-instruction',
-    phrases.RC_starting[RC.L]
+    phrases.RC_starting[RC.L],
   )
 }
 
@@ -56,7 +56,7 @@ RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
       headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
       description: phrases.RC_gazeTrackingIntro[this.L],
     },
-    options
+    options,
   )
 
   options.nudge = false
@@ -106,7 +106,7 @@ const startCalibration = (RC, options, onCalibrationEnded) => {
     document.body,
     options,
     originalStyles,
-    onCalibrationEnded
+    onCalibrationEnded,
   )
 }
 
@@ -212,7 +212,7 @@ export class GazeCalibrationDot {
           left: `calc(50% - ${
             this.RC._CONST.N.GAZE_CALIBRATION.R / 2
           }px - ${this.getOffsetPx(
-            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET
+            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET,
           )}px)`,
           right: 'unset',
         }, // 3
@@ -220,7 +220,7 @@ export class GazeCalibrationDot {
           left: `calc(50% - ${
             this.RC._CONST.N.GAZE_CALIBRATION.R / 2
           }px + ${this.getOffsetPx(
-            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET
+            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET,
           )}px)`,
           right: 'unset',
         }, // 4
@@ -229,7 +229,7 @@ export class GazeCalibrationDot {
             this.RC._CONST.N.GAZE_CALIBRATION.R / 2
           }px - ${this.getOffsetPx(
             this.RC._CONST.N.GAZE_CALIBRATION.MID_EXTRA_CHECK_OFFSET,
-            window.innerWidth * 0.3
+            window.innerWidth * 0.3,
           )}px)`,
           right: 'unset',
         }, // 5
@@ -238,7 +238,7 @@ export class GazeCalibrationDot {
             this.RC._CONST.N.GAZE_CALIBRATION.R / 2
           }px + ${this.getOffsetPx(
             this.RC._CONST.N.GAZE_CALIBRATION.MID_EXTRA_CHECK_OFFSET,
-            window.innerWidth * 0.3
+            window.innerWidth * 0.3,
           )}px)`,
           right: 'unset',
         }, // 6
@@ -266,7 +266,7 @@ export class GazeCalibrationDot {
           top: `calc(50% - ${
             this.RC._CONST.N.GAZE_CALIBRATION.R / 2
           }px - ${this.getOffsetPx(
-            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET
+            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET,
           )}px)`,
           bottom: 'unset',
         }, // 3
@@ -274,7 +274,7 @@ export class GazeCalibrationDot {
           top: `calc(50% - ${
             this.RC._CONST.N.GAZE_CALIBRATION.R / 2
           }px + ${this.getOffsetPx(
-            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET
+            this.RC._CONST.N.GAZE_CALIBRATION.CENTER_EXTRA_CHECK_OFFSET,
           )}px)`,
           bottom: 'unset',
         }, // 4
@@ -283,7 +283,7 @@ export class GazeCalibrationDot {
             this.RC._CONST.N.GAZE_CALIBRATION.R / 2
           }px - ${this.getOffsetPx(
             this.RC._CONST.N.GAZE_CALIBRATION.MID_EXTRA_CHECK_OFFSET,
-            window.innerHeight * 0.3
+            window.innerHeight * 0.3,
           )}px)`,
           bottom: 'unset',
         }, // 5
@@ -292,11 +292,11 @@ export class GazeCalibrationDot {
             this.RC._CONST.N.GAZE_CALIBRATION.R / 2
           }px + ${this.getOffsetPx(
             this.RC._CONST.N.GAZE_CALIBRATION.MID_EXTRA_CHECK_OFFSET,
-            window.innerHeight * 0.3
+            window.innerHeight * 0.3,
           )}px)`,
           bottom: 'unset',
         }, // 6
-      ][this.position[1]]
+      ][this.position[1]],
     )
   }
 
@@ -465,7 +465,7 @@ export class GazeCalibrationDot {
         : this.RC._CONST.N.PPI_DONT_USE,
       this.RC.viewingDistanceCm
         ? this.RC.viewingDistanceCm.value
-        : this.RC._CONST.N.VIEW_DIST_DONT_USE
+        : this.RC._CONST.N.VIEW_DIST_DONT_USE,
     )
 
     if (cap) return Math.min(pix, cap)

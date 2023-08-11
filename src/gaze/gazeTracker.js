@@ -45,7 +45,7 @@ export default class GazeTracker {
         pipWidthPx,
         this.calibrator.params.videoOpacity,
         this.webgazer,
-        callback
+        callback,
       )
     }
   }
@@ -63,7 +63,7 @@ export default class GazeTracker {
         pipWidthPx,
         this.calibrator.params.videoOpacity,
         this.webgazer,
-        callback
+        callback,
       )
     }
   }
@@ -105,11 +105,11 @@ export default class GazeTracker {
         wait: 0,
         frames: 5,
       },
-      options
+      options,
     )
 
     let data = (this.calibrator.newGazePositionData = this.getData(
-      await this.webgazer.getCurrentPrediction(0, options.wait, options.frames)
+      await this.webgazer.getCurrentPrediction(0, options.wait, options.frames),
     ))
     this.webgazer.popPredictionPoints()
 
@@ -124,7 +124,7 @@ export default class GazeTracker {
 
 GazeTracker.prototype._init = function (
   { greedyLearner, framerate, toFixedN, showVideo, showFaceOverlay, showGazer },
-  task
+  task,
 ) {
   if (!this.checkInitialized(task)) {
     if (task === 'gaze') {
@@ -158,11 +158,11 @@ GazeTracker.prototype.checkInitialized = function (task, warning = false) {
   if (warning) {
     if (task === 'gaze')
       console.error(
-        'RemoteCalibrator.gazeTracker is not initialized. Use .trackGaze() to initialize.'
+        'RemoteCalibrator.gazeTracker is not initialized. Use .trackGaze() to initialize.',
       )
     else if (task === 'distance')
       console.error(
-        'RemoteCalibrator.gazeTracker (for distance tracking) is not initialized. Use .trackDistance() to initialize.'
+        'RemoteCalibrator.gazeTracker (for distance tracking) is not initialized. Use .trackDistance() to initialize.',
       )
   }
 

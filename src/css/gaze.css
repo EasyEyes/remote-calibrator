@@ -14,7 +14,11 @@
   cursor: initial;
   z-index: 999999998;
   transition-timing-function: ease-in-out;
-  transition: left 0.5s, right 0.5s, top 0.5s, bottom 0.5s;
+  transition:
+    left 0.5s,
+    right 0.5s,
+    top 0.5s,
+    bottom 0.5s;
 }
 
 .gaze-calibration-dot-click {
@@ -98,7 +102,11 @@
   z-index: 999999999;
   cursor: pointer;
   transition-timing-function: ease-in-out;
-  transition: left 0.5s, right 0.5s, top 0.5s, bottom 0.5s;
+  transition:
+    left 0.5s,
+    right 0.5s,
+    top 0.5s,
+    bottom 0.5s;
   /* filter: drop-shadow(0 0 3px #fff); */
   border-radius: 50%;
 }

@@ -27,7 +27,7 @@ class RemoteCalibrator {
   constructor() {
     window.console.log(
       `%c\nEasyEyes Remote Calibrator ${this.version.value}\n`,
-      `color: ${this._CONST.COLOR.ORANGE}`
+      `color: ${this._CONST.COLOR.ORANGE}`,
     )
 
     this._initialized = false
@@ -540,7 +540,7 @@ RemoteCalibrator.prototype.init = async function (options = {}, callback) {
         languagePhrasesJSON: null,
         fullscreen: false,
       },
-      options
+      options,
     )
 
     // load internationalization phrases
@@ -716,7 +716,7 @@ RemoteCalibrator.prototype._removeBackground = function () {
  */
 RemoteCalibrator.prototype._addBackgroundText = function (
   headline,
-  shortDescription
+  shortDescription,
 ) {
   // Remove the old if there's any
   let ins = this.background.getElementsByClassName('calibration-instruction')
@@ -735,7 +735,7 @@ RemoteCalibrator.prototype._addBackgroundText = function (
  */
 RemoteCalibrator.prototype._constructFloatInstructionElement = function (
   id = null,
-  text
+  text,
 ) {
   if (this.background === null) this._addBackground()
 
@@ -759,7 +759,7 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
 
 RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
   side,
-  yOffset = 16
+  yOffset = 16,
 ) {
   // For blind spot test instructions
   const r = this.instructionElement.getBoundingClientRect()
