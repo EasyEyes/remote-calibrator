@@ -296,8 +296,8 @@ const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
       (i % 10 === 0
         ? 'rc-ruler-major'
         : i % 5 === 0
-        ? 'rc-ruler-secondary'
-        : 'rc-ruler-minor')
+          ? 'rc-ruler-secondary'
+          : 'rc-ruler-minor')
     thisScale.style.left = left
     scales.appendChild(thisScale)
 

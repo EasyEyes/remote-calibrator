@@ -1,4 +1,4 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-npm run phrases && npm run format && npx lint-staged && npm run build && git add lib
+npm run format && npx lint-staged && npm run build && git add lib
