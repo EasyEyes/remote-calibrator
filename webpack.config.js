@@ -17,10 +17,10 @@ const plugins = [
 
 const output = {
   filename: 'RemoteCalibrator.min.js',
+  sourceMapFilename: 'RemoteCalibrator.min.js.map',
   library: 'RemoteCalibrator',
   libraryTarget: 'umd',
   libraryExport: 'default',
-  sourceMapFilename: 'RemoteCalibrator.min.js.map',
 }
 
 const exampleConfig = Object.assign({}, config, {
