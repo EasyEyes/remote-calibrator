@@ -43,7 +43,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
   let description
   if (options.control !== undefined && options.control === false)
     description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
-  else description = phrases.RC_viewingDistanceIntro[this.L]
+  else description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
 
   options = Object.assign(
     {

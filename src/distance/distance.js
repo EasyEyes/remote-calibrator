@@ -341,7 +341,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
           Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
             icon: undefined,
-            html: phrases.RC_viewingDistanceIntro[RC.L],
+            html: phrases.RC_viewingDistanceIntroLiMethod[RC.L],
             allowEnterKey: true,
           })
         },
@@ -478,7 +478,7 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   let description
   if (options.control !== undefined && options.control === false)
     description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
-  else description = phrases.RC_viewingDistanceIntro[this.L]
+  else description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
 
   options = Object.assign(
     {
