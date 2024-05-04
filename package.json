@@ -1,6 +1,6 @@
 {
   "name": "remote-calibrator",
-  "version": "0.7.5",
+  "version": "0.7.4",
   "description": "Useful calibration tools for remote psychophysics experiments.",
   "main": "lib/RemoteCalibrator.min.js",
   "directories": {
@@ -8,7 +8,7 @@
     "homepage": "homepage"
   },
   "scripts": {
-    "setup": "git submodule update --init --recursive && cd src/WebGazer4RC && npm i && cd ../.. && npm i",
+    "setup": "git submodule update --init --recursive && cd src/WebGazer4RC && npm i --force && cd ../.. && npm i",
     "format": "prettier --write \"**/*.{js,json,md,html,css,scss}\"",
     "start": "webpack serve --env=development",
     "build": "webpack --env=production",
