@@ -193,13 +193,13 @@ const startTrackingPupils = async (
 }
 
 const eyeDist = (a, b) => {
-  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
 }
 
 const cyclopean = (video, a, b) => {
   return [
-    (-a[0] - b[0] + video.videoWidth) / 2,
-    (-a[1] - b[1] + video.videoHeight) / 2,
+    (-a.x - b.x + video.videoWidth) / 2,
+    (-a.y - b.y + video.videoHeight) / 2,
   ]
 }
 
@@ -239,14 +239,15 @@ const _tracking = async (
 
   const _ = async () => {
     // const canvas = RC.gazeTracker.webgazer.videoCanvas
-    let model, faces
+    // let model, faces
+    let keypoints = []
 
     // Get the average of 5 estimates for one measure
     averageDist = 0
     distCount = 1
     const targetCount = 5
 
-    model = await RC.gazeTracker.webgazer.getTracker().model
+    // model = await RC.gazeTracker.webgazer.getTracker().model
 
     // Near point
     let ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
@@ -290,12 +291,12 @@ const _tracking = async (
       //
       const videoTimestamp = performance.now()
       //
-      faces = await model.estimateFaces(video)
-      if (faces.length) {
+      keypoints = RC.gazeTracker.webgazer.getTracker().positionsArray
+      if (keypoints && keypoints.length) {
         // There's at least one face in video
         RC._trackingVideoFrameTimestamps.distance += videoTimestamp
         // https://github.com/tensorflow/tfjs-models/blob/master/facemesh/mesh_map.jpg
-        const mesh = faces[0].scaledMesh
+        const mesh = keypoints
 
         if (targetCount === distCount) {
           averageDist += eyeDist(mesh[133], mesh[362])
