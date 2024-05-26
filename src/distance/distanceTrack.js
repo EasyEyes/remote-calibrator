@@ -235,19 +235,18 @@ const _tracking = async (
   callbackTrack,
   trackingConfig,
 ) => {
-  const video = document.querySelector('#webgazerVideoFeed')
+  const video = document.querySelector('#webgazerVideoCanvas')
 
   const _ = async () => {
     // const canvas = RC.gazeTracker.webgazer.videoCanvas
-    // let model, faces
-    let keypoints = []
+    let model, faces
 
     // Get the average of 5 estimates for one measure
     averageDist = 0
     distCount = 1
     const targetCount = 5
 
-    // model = await RC.gazeTracker.webgazer.getTracker().model
+    model = await RC.gazeTracker.webgazer.getTracker().model
 
     // Near point
     let ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
@@ -291,13 +290,12 @@ const _tracking = async (
       //
       const videoTimestamp = performance.now()
       //
-      keypoints = RC.gazeTracker.webgazer.getTracker().positionsArray
-      if (keypoints && keypoints.length) {
+      faces = await model.estimateFaces(video)
+      if (faces.length) {
         // There's at least one face in video
         RC._trackingVideoFrameTimestamps.distance += videoTimestamp
         // https://github.com/tensorflow/tfjs-models/blob/master/facemesh/mesh_map.jpg
-        const mesh = keypoints
-
+        const mesh = faces[0].keypoints
         if (targetCount === distCount) {
           averageDist += eyeDist(mesh[133], mesh[362])
           averageDist /= targetCount
