@@ -1,6 +1,6 @@
 // requestAnimationFrame() polyfill by Erik Möller, Paul Irish, and Tino Zijdel.
 // https://gist.github.com/paulirish/1579671
-// eslint-disable-next-line no-extra-semi
+
 ;(function () {
   var lastTime = 0
   var vendors = ['ms', 'moz', 'webkit', 'o']

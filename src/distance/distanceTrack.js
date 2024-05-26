@@ -296,6 +296,7 @@ const _tracking = async (
         RC._trackingVideoFrameTimestamps.distance += videoTimestamp
         // https://github.com/tensorflow/tfjs-models/blob/master/facemesh/mesh_map.jpg
         const mesh = faces[0].keypoints
+
         if (targetCount === distCount) {
           averageDist += eyeDist(mesh[133], mesh[362])
           averageDist /= targetCount

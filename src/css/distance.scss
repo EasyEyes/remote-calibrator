@@ -139,23 +139,21 @@
 #rc-distance-correct {
   text-align: center;
   width: 100%;
-  margin: 3rem auto auto auto;
-  margin-top: 0;
+  margin: 0 auto auto auto;
   padding: 2rem;
   overflow-wrap: break-word;
 
   #rc-distance-correct-instruction {
     font-weight: 700;
     font-size: 7rem;
-    margin-bottom: 2rem;
-    margin-top: 0;
+    margin: 0 auto 2rem auto;
     line-height: 100%;
   }
 
   #rc-distance-correct-guide {
     font-weight: 500;
     font-size: 3rem;
-    line-height: 180%;
+    line-height: 200%;
 
     .rc-distance-num {
       padding: 0.5rem;
@@ -166,14 +164,14 @@
       font-size: 9rem;
     }
 
-    .rc-distance-now {
-      // border: 2px solid #ff9a00;
-      // background-color: #ff9a0066;
-    }
+    // .rc-distance-now {
+    //   border: 2px solid #ff9a00;
+    //   background-color: #ff9a0066;
+    // }
 
-    .rc-distance-desired {
-      // border: 2px solid #3490de;
-      // background-color: #3490de66;
-    }
+    // .rc-distance-desired {
+    //   border: 2px solid #3490de;
+    //   background-color: #3490de66;
+    // }
   }
 }

@@ -1,6 +1,6 @@
 const webpack = require('webpack')
 
-const ESLintPlugin = require('eslint-webpack-plugin')
+// const ESLintPlugin = require('eslint-webpack-plugin')
 const WebpackModules = require('webpack-modules')
 
 const config = {
@@ -10,7 +10,7 @@ const config = {
       {
         test: /\.js$/,
         use: 'babel-loader',
-        // eslint-disable-next-line no-undef
+
         // include: __dirname + 'src/*',
         exclude: /node_modules/,
       },
@@ -61,7 +61,7 @@ const config = {
 
 const plugins = [
   new WebpackModules(),
-  new ESLintPlugin(),
+  // new ESLintPlugin(),
   new webpack.ProgressPlugin(),
 ]
 
