@@ -308,7 +308,25 @@ const _tracking = async (
               // ! First time estimate
               // Face_Known_Px  *  Distance_Known_Cm  =  Face_Now_Px  *  Distance_x_Cm
               // Get the factor to be used for future predictions
+
+              //adjust stdDist to the distance from the center of the screen to the user's eyes
+              /*
+              stdDist.current.value is the hypotenuse of the triangle formed by 
+              the distance from the center of the screen to the top of the screen 
+              and the distance from the center of the screen to the user's eyes
+              */
+
+              const distanceFromCenterToTop =
+                calculateDistanceFromCenterToTop(ppi)
+
+              const distanceFromCenterToUser = Math.sqrt(
+                Math.pow(stdDist.current.value, 2) -
+                  Math.pow(distanceFromCenterToTop, 2),
+              )
+
+              stdDist.current.value = distanceFromCenterToUser
               stdFactor = averageDist * stdDist.current.value
+
               // ! FINISH
               if (!trackingConfig.options.check) RC._removeBackground() // Remove BG if no check
               RC._trackingSetupFinishedStatus.distance = true
@@ -590,4 +608,20 @@ RemoteCalibrator.prototype.showNearPoint = function (show = true) {
     const n = document.querySelector('#rc-near-point-dot')
     if (n) n.display = show ? 'block' : 'none'
   }
+}
+
+const calculateDistanceFromCenterToTop = ppi => {
+  // Get the screen height in pixels
+  const screenHeightPixels = window.screen.height
+
+  // Calculate half the screen height in pixels
+  const halfScreenHeightPixels = screenHeightPixels / 2
+
+  // Convert pixels to inches using the ppi
+  const halfScreenHeightInches = halfScreenHeightPixels / ppi
+
+  // Convert inches to centimeters (1 inch = 2.54 cm)
+  const halfScreenHeightCm = halfScreenHeightInches * 2.54
+
+  return halfScreenHeightCm
 }
