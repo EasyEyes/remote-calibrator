@@ -35,7 +35,7 @@
     "clean-webpack-plugin": "^4.0.0",
     "css-loader": "^6.7.3",
     "css-minimizer-webpack-plugin": "^4.2.2",
-    "cssnano": "^5.1.14",
+    "cssnano": "^7.0.1",
     "eslint": "^8.31.0",
     "eslint-webpack-plugin": "^3.2.0",
     "googleapis": "^110.0.0",
