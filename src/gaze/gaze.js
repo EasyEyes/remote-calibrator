@@ -32,6 +32,10 @@ RemoteCalibrator.prototype.trackGaze = async function (
   blurAll()
   ////
 
+  if (this.gazeTracker.webgazer.getTracker().modelLoaded === false) {
+    this.gazeTracker.webgazer.getTracker().loadModel()
+  }
+
   options = Object.assign(
     {
       fullscreen: false,
