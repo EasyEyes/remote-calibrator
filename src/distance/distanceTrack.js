@@ -12,6 +12,7 @@ import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n'
 import { spaceForLanguage } from '../components/language'
 import { checkPermissions } from '../components/mediaPermission'
+import Swal from 'sweetalert2'
 
 const originalStyles = {
   video: false,
@@ -39,6 +40,21 @@ RemoteCalibrator.prototype.trackDistance = async function (
   if (!this.checkInitialized()) return
   blurAll()
   ////
+
+  if (this.gazeTracker.webgazer.getTracker().modelLoaded === false) {
+    // create a sweetalet to inform the user that the model is still loading
+    Swal.fire({
+      title: phrases.EE_FaceMeshLoading[this.L],
+      showConfirmButton: false,
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading()
+      },
+    })
+
+    await this.gazeTracker.webgazer.getTracker().loadModel()
+    Swal.close()
+  }
 
   let description
   if (options.control !== undefined && options.control === false)
