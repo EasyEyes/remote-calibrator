@@ -17,7 +17,7 @@ export function _cross(ctx, cX, mY) {
 
 // CIRCLE
 const circleR = 30
-export let circleDeltaX = 5
+export const circleDeltaX = 5
 
 export function _getCircleBounds(side, crossX, cW) {
   return side === 'left'

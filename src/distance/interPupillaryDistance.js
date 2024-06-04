@@ -62,15 +62,13 @@ RemoteCalibrator.prototype._measurePD = async function (
     ? this.screenPpi.value
     : this._CONST.N.PPI_DONT_USE
 
-  let [videoWidth, videoHeight] = setupVideo(this)
-  let [ruler, rulerListener] = setupRuler(
+  const [videoWidth, videoHeight] = setupVideo(this)
+  const [ruler, rulerListener] = setupRuler(
     this,
     screenPpi,
     videoWidth,
     videoHeight,
   )
-
-  const RC = this
 
   const breakFunction = (toBreak = true) => {
     ruler.removeEventListener('mousedown', rulerListener)
@@ -88,7 +86,7 @@ RemoteCalibrator.prototype._measurePD = async function (
       borderRadius: '5px',
     })
     setDefaultVideoPosition(
-      RC,
+      this,
       document.querySelector('#webgazerVideoContainer'),
     )
 
@@ -107,9 +105,9 @@ RemoteCalibrator.prototype._measurePD = async function (
     originalStyles.gaze = false
     originalStyles.faceOverlay = false
 
-    if (!RC._trackingSetupFinishedStatus.distance && toBreak) {
-      RC._trackingSetupFinishedStatus.distance = true
-      RC.endDistance()
+    if (!this._trackingSetupFinishedStatus.distance && toBreak) {
+      this._trackingSetupFinishedStatus.distance = true
+      this.endDistance()
     }
 
     unbindKeys(bindKeysFunction)
@@ -161,7 +159,7 @@ RemoteCalibrator.prototype._measurePD = async function (
 /* -------------------------------------------------------------------------- */
 
 const setupVideo = RC => {
-  let video = document.querySelector('#webgazerVideoFeed')
+  const video = document.querySelector('#webgazerVideoFeed')
   if (!video) {
     // selfVideo = true
     // let [videoElement, videoCanvas, videoCanvasDrawingContext] =
@@ -200,9 +198,9 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
   // const { width, height } = stream
   //   ? stream.getTracks()[0].getSettings()
   //   : [video.videoWidth, video.videoHeight]
-  let h =
-    ((window.innerWidth * videoHeightFactor) / parseInt(video.style.width)) *
-    parseInt(video.style.height)
+  const h =
+    ((window.innerWidth * videoHeightFactor) / Number.parseInt(video.style.width)) *
+    Number.parseInt(video.style.height)
 
   originalStyles.videoWidth = container.style.width
   originalStyles.videoHeight = container.style.height
@@ -289,8 +287,8 @@ const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
   const totalCm =
     ((rulerElement.clientWidth - sidePadding * 2) * 2.54) / screenPpi
   for (let i = 0; i <= toFixedNumber(totalCm, 1) * 10; i++) {
-    let thisScale = document.createElement('div')
-    let left = (0.1 * i * screenPpi) / 2.54 + 'px' // Offset from zero
+    const thisScale = document.createElement('div')
+    const left = (0.1 * i * screenPpi) / 2.54 + 'px' // Offset from zero
     thisScale.className =
       'rc-ruler-scale ' +
       (i % 10 === 0
@@ -302,7 +300,7 @@ const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
     scales.appendChild(thisScale)
 
     if (i % 10 === 0) {
-      let thisText = document.createElement('p')
+      const thisText = document.createElement('p')
       thisText.className = 'rc-ruler-scale-text'
       thisText.style.left = left
       thisText.innerHTML = i / 10

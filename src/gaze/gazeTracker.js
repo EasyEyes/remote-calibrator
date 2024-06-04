@@ -108,7 +108,7 @@ export default class GazeTracker {
       options,
     )
 
-    let data = (this.calibrator.newGazePositionData = this.getData(
+    const data = (this.calibrator.newGazePositionData = this.getData(
       await this.webgazer.getCurrentPrediction(0, options.wait, options.frames),
     ))
     this.webgazer.popPredictionPoints()
@@ -170,7 +170,7 @@ GazeTracker.prototype.checkInitialized = function (task, warning = false) {
 }
 
 GazeTracker.prototype.getData = function (d) {
-  let t = performance.now()
+  const t = performance.now()
   return {
     value: {
       x: toFixedNumber(d.x, this._toFixedN),

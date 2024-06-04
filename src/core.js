@@ -160,7 +160,7 @@ class RemoteCalibrator {
    */
   _helper_get(cat, name) {
     if (!cat.length) return null
-    let thisData = cat[cat.length - 1]
+    const thisData = cat[cat.length - 1]
     return name
       ? { value: thisData.value[name], timestamp: thisData.timestamp }
       : thisData
@@ -175,7 +175,7 @@ class RemoteCalibrator {
 
   get supportedLanguages() {
     const a = []
-    for (let l in phrases.EE_languageNameEnglish) {
+    for (const l in phrases.EE_languageNameEnglish) {
       a.push({
         language: l,
         languageNameEnglish: phrases.EE_languageNameEnglish[l],
@@ -695,7 +695,7 @@ RemoteCalibrator.prototype._replaceBackground = function (inner) {
  *
  */
 RemoteCalibrator.prototype._removeBackground = function () {
-  let b = document.getElementById('calibration-background')
+  const b = document.getElementById('calibration-background')
   if (b) {
     document.body.classList.remove('lock-view')
     document.body.removeChild(b)
@@ -719,7 +719,7 @@ RemoteCalibrator.prototype._addBackgroundText = function (
   shortDescription,
 ) {
   // Remove the old if there's any
-  let ins = this.background.getElementsByClassName('calibration-instruction')
+  const ins = this.background.getElementsByClassName('calibration-instruction')
 
   for (let i = 0; i < ins.length; i++) {
     this.background.removeChild(ins[i])

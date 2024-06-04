@@ -11,16 +11,15 @@ RemoteCalibrator.prototype.getEquipment = async function (
   if (this.equipment && !forcedGet) return safeExecuteFunc(afterResultCallback)
 
   this._replaceBackground()
-  const RC = this
 
-  const { CM, IN_D, IN_F } = RC._CONST.UNITS
+  const { CM, IN_D, IN_F } = this._CONST.UNITS
   const haveEquipmentOptions = {}
   haveEquipmentOptions[CM] = 'centimeter'
   haveEquipmentOptions[IN_D] = 'inch (decimal, e.g. 11.5 in)'
   haveEquipmentOptions[IN_F] = 'inch (fractional, e.g. 12 3/8 in)'
 
   const { value: result } = await Swal.fire({
-    ...swalInfoOptions(RC, {
+    ...swalInfoOptions(this, {
       showIcon: false,
     }),
     title: 'Do you have a ruler or tape measure?',
@@ -38,7 +37,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
 
         const hasEquipment = value !== 'none'
 
-        RC.newEquipmentData = {
+        this.newEquipmentData = {
           value: {
             has: hasEquipment,
             unit: hasEquipment ? value : null,

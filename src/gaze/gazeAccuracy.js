@@ -125,12 +125,12 @@ const getAverageDegree = (fixation, points, screenPpi, viewingDistanceCm) => {
     points[0][i] -= fixation.x
     points[1][i] -= fixation.y
     // Px
-    let diffInPx = Math.sqrt(
+    const diffInPx = Math.sqrt(
       Math.pow(points[0][i], 2),
       Math.pow(points[1][i], 2),
     )
     // Cm
-    let diffInCm = (2.54 * diffInPx) / screenPpi
+    const diffInCm = (2.54 * diffInPx) / screenPpi
 
     // Degree
     degrees += (Math.atan(diffInCm / viewingDistanceCm) * 180) / Math.PI

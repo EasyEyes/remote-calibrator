@@ -49,7 +49,7 @@ const checkScreenSize = async (
         },
         () => {
           // extraFunctionOut
-          for (let ele of RC.background.getElementsByClassName(
+          for (const ele of RC.background.getElementsByClassName(
             'arrow-two-sided-svg',
           )) {
             ele.remove()

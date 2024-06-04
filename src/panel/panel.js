@@ -140,11 +140,8 @@ RemoteCalibrator.prototype.panel = async function (
   else parentElement.replaceChild(panel, this._panel.panel) // ! reset
 
   const steps = panel.querySelector('#rc-panel-steps')
-
-  // Observe panel size for adjusting steps
-  const RC = this
   const panelObserver = new ResizeObserver(() => {
-    _setStepsClassesSL(steps, panel.offsetWidth, RC.LD)
+    _setStepsClassesSL(steps, panel.offsetWidth, this.LD)
   })
   panelObserver.observe(panel)
   _setStepsClassesSL(steps, panel.offsetWidth, this.LD)
@@ -152,7 +149,7 @@ RemoteCalibrator.prototype.panel = async function (
   if (tasks.length === 0) {
     steps.className += ' rc-panel-no-steps'
   } else {
-    for (let t in tasks) {
+    for (const t in tasks) {
       const b = _newStepBlock(this, t, tasks[t], options)
       steps.appendChild(b)
     }
@@ -162,7 +159,7 @@ RemoteCalibrator.prototype.panel = async function (
     steps.appendChild(_nextStepBlock(tasks.length, options))
 
   // Activate the first one
-  let current = { index: 0, finished: [] }
+  const current = { index: 0, finished: [] }
   _activateStepAt(this, current, tasks, options, callback)
 
   this._panel.panel = panel
@@ -250,7 +247,7 @@ const _validTaskListNames = Object.keys(_validTaskList)
 
 const _validateTask = task => {
   if (!Array.isArray(task)) return false
-  for (let t of task) {
+  for (const t of task) {
     if (
       typeof t === 'object' &&
       (t === null || !_validTaskListNames.includes(t.name))
@@ -263,7 +260,7 @@ const _validateTask = task => {
 }
 
 const _newStepBlock = (RC, index, task, options) => {
-  let useCode = _validTaskList[_getTaskName(task)].use
+  const useCode = _validTaskList[_getTaskName(task)].use
   let use, useTip
 
   switch (useCode) {
@@ -403,11 +400,11 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
         _finishStepAt(ind)
         current.finished.push(_getTaskName(tasks[ind]))
         // Check if all finished
-        for (let t of tasks) {
+        for (const t of tasks) {
           if (!current.finished.includes(_getTaskName(t))) return
         }
         // If so, activate the next step button
-        let finalButton = document.querySelector('.rc-panel-next-button')
+        const finalButton = document.querySelector('.rc-panel-next-button')
         finalButton.classList.replace(
           'rc-panel-step-inactive',
           'rc-panel-step-active',
@@ -490,10 +487,10 @@ const _clearPanelIntervals = RC => {
 
 const _setLanguagePicker = (RC, parent, darkerColor) => {
   let langInner = `<select name="rc-lang" id="rc-panel-lang-picker" style="color: ${darkerColor} !important">`
-  for (let lang of RC.supportedLanguages)
+  for (const lang of RC.supportedLanguages)
     if (RC.L === lang.language)
       langInner += `<option value="${lang.language}" selected>${lang.languageNameNative}</option>`
-  for (let lang of RC.supportedLanguages)
+  for (const lang of RC.supportedLanguages)
     if (RC.L !== lang.language)
       langInner += `<option value="${lang.language}">${lang.languageNameNative}</option>`
   langInner += '</select>'

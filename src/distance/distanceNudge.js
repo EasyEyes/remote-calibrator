@@ -139,8 +139,8 @@ RemoteCalibrator.prototype.nudgeDistance = function (
 
 const withinRange = (value, target, toleranceRatio) => {
   if (!validateAllowedRatio(toleranceRatio)) return false
-  let b1 = target * toleranceRatio
-  let b2 = target / toleranceRatio
+  const b1 = target * toleranceRatio
+  const b2 = target / toleranceRatio
   return value <= Math.max(b1, b2) && value >= Math.min(b1, b2)
 }
 
@@ -208,7 +208,7 @@ RemoteCalibrator.prototype._addNudger = function (inner) {
 }
 
 RemoteCalibrator.prototype._removeNudger = function () {
-  let b = document.getElementById('calibration-nudger')
+  const b = document.getElementById('calibration-nudger')
   if (b) {
     document.body.classList.remove('lock-view')
     document.body.removeChild(b)

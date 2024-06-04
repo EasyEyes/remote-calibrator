@@ -1,4 +1,4 @@
-import Swal from 'sweetalert2'
+
 
 import RemoteCalibrator from '../core'
 
@@ -10,7 +10,6 @@ import {
   sleep,
   safeExecuteFunc,
 } from '../components/utils'
-import { swalInfoOptions } from '../components/swalOptions'
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n'
 import { spaceForLanguage } from '../components/language'
@@ -239,7 +238,7 @@ const trackingOptions = {
 const stdDist = { current: null }
 
 let stdFactor, viewingDistanceTrackingFunction
-let iRepeatOptions = { framerate: 20, break: true }
+const iRepeatOptions = { framerate: 20, break: true }
 
 let nearPointDot = null
 /* -------------------------------------------------------------------------- */
@@ -268,7 +267,7 @@ const _tracking = async (
     model = await RC.gazeTracker.webgazer.getTracker().model
 
     // Near point
-    let ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
+    const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
     if (!RC.screenPpi && trackingOptions.nearPoint)
       console.error(
         'Screen size measurement is required to get accurate near point tracking.',
@@ -443,7 +442,7 @@ const _getNearPoint = (
   ppi,
   latency,
 ) => {
-  let offsetToVideoCenter = cyclopean(video, mesh[133], mesh[362])
+  const offsetToVideoCenter = cyclopean(video, mesh[133], mesh[362])
   offsetToVideoCenter.forEach((offset, i) => {
     // Average inter-pupillary distance - 6.4cm
     offsetToVideoCenter[i] =
@@ -451,7 +450,7 @@ const _getNearPoint = (
       averageDist
   })
 
-  let nPData = (RC.newNearPointData = {
+  const nPData = (RC.newNearPointData = {
     value: {
       x: toFixedNumber(offsetToVideoCenter[0], trackingOptions.decimalPlace),
       y: toFixedNumber(
@@ -466,8 +465,8 @@ const _getNearPoint = (
   // SHOW
   const dotR = 5
   if (trackingOptions.showNearPoint) {
-    let offsetX = (nPData.value.x * ppi) / 2.54
-    let offsetY = (nPData.value.y * ppi) / 2.54
+    const offsetX = (nPData.value.x * ppi) / 2.54
+    const offsetY = (nPData.value.y * ppi) / 2.54
     Object.assign(nearPointDot.style, {
       left: `${screen.width / 2 - window.screenLeft + offsetX - dotR}px`,
       top: `${
@@ -570,18 +569,18 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
   )
     return
 
-  let c = callback || this.gazeTracker.defaultDistanceTrackCallback
+  const c = callback || this.gazeTracker.defaultDistanceTrackCallback
 
-  let v = document.querySelector('#webgazerVideoFeed')
-  let m = await this.gazeTracker.webgazer.getTracker().model
+  const v = document.querySelector('#webgazerVideoFeed')
+  const m = await this.gazeTracker.webgazer.getTracker().model
   const videoTimestamp = performance.now()
-  let f = await m.estimateFaces(v)
+  const f = await m.estimateFaces(v)
 
   if (f.length) {
     const mesh = f[0].scaledMesh
     const dist = eyeDist(mesh[133], mesh[362])
 
-    let timestamp = performance.now()
+    const timestamp = performance.now()
     //
     const latency = timestamp - videoTimestamp
     //

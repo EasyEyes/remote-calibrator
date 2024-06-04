@@ -1,4 +1,4 @@
-const assert = require('assert')
+const assert = require('node:assert')
 
 const { JSDOM } = require('jsdom')
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>')

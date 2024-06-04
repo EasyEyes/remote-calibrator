@@ -124,7 +124,7 @@ export const takeInput = async (
         // FRACTION
         valid = true
         numericalValue =
-          parseInt(formInputElementFInteger.value) +
+          Number.parseInt(formInputElementFInteger.value) +
           eval(formInputElementFFraction.value)
         inputValue =
           formInputElementFInteger.value + ' ' + formInputElementFFraction.value
@@ -167,7 +167,7 @@ export const takeInput = async (
 const removeInputElements = (formElement, extraFunctionOut) => {
   // Remove
   removeButtons(formElement)
-  for (let child of formElement.children) child.remove()
+  for (const child of formElement.children) child.remove()
   formElement.remove()
   //
   safeExecuteFunc(extraFunctionOut)
@@ -185,7 +185,7 @@ const validInput = text => {
 
 const validInputInteger = text => {
   if (!validInput(text)) return false
-  return parseInt(text) === Number(text) && Number(text) > 0
+  return Number.parseInt(text) === Number(text) && Number(text) > 0
 }
 
 const validInputFraction = text => {

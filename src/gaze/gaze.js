@@ -175,7 +175,7 @@ RemoteCalibrator.prototype.getGazeNow = async function (
     options,
   )
 
-  let c = callback || this.gazeTracker.defaultGazeCallback
+  const c = callback || this.gazeTracker.defaultGazeCallback
 
   return await this.gazeTracker.getGazeNow(options, c)
 }

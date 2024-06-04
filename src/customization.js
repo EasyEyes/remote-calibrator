@@ -10,7 +10,7 @@ RemoteCalibrator.prototype.backgroundColor = function (hex = null) {
     this._params.backgroundColor = hex
   }
 
-  let b = document.querySelector('#calibration-background')
+  const b = document.querySelector('#calibration-background')
 
   if (b) {
     b.style.background = this.params.backgroundColor
@@ -29,7 +29,7 @@ RemoteCalibrator.prototype.videoOpacity = function (op = null) {
     this._params.videoOpacity = op
   }
 
-  let v = document.querySelector('#webgazerVideoContainer')
+  const v = document.querySelector('#webgazerVideoContainer')
 
   if (v) {
     v.style.opacity = this.params.videoOpacity

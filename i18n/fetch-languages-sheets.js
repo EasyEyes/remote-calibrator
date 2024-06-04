@@ -25,7 +25,7 @@ async function processLanguageSheet() {
   )
 
   const data = {}
-  for (let phrase of rowsJSON) {
+  for (const phrase of rowsJSON) {
     const { language, ...translations } = phrase
     if (
       (language.includes('RC_') || language.includes('EE_')) &&
@@ -34,8 +34,8 @@ async function processLanguageSheet() {
       data[language] = translations
   }
 
-  for (let phrase in data) {
-    for (let lang in data[phrase]) {
+  for (const phrase in data) {
+    for (const lang in data[phrase]) {
       if (data[phrase][lang].includes('Loading') && lang !== 'en-US') {
         console.error(
           new Error(

@@ -16,7 +16,7 @@ RemoteCalibrator.prototype.performanceCompute = async function (
   ////
 
   const countStartTime = performance.now()
-  let numberCounter = {
+  const numberCounter = {
     _useless: undefined,
     time: 0,
     randomTime: 0,
@@ -153,7 +153,7 @@ const startGraphicsTest = async (ctx, testFrameCount, testObjectCount) => {
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
       ctx.beginPath()
 
-      for (let rect of rects) {
+      for (const rect of rects) {
         rect.move()
         rect.draw(ctx)
       }

@@ -278,9 +278,9 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   }
 
   const _resetRandnCircleX = (eye, bounds) => {
-    let relativeBound = bounds[eye === 'left' ? 0 : 1]
+    const relativeBound = bounds[eye === 'left' ? 0 : 1]
 
-    let randRange = Math.abs(bounds[1] - bounds[0]) / 4 // ! Range: 1/4
+    const randRange = Math.abs(bounds[1] - bounds[0]) / 4 // ! Range: 1/4
     let x = randn_bm(relativeBound - randRange, relativeBound + randRange)
 
     if ((x - bounds[0]) * (x - bounds[1]) > 0) x = relativeBound * 2 - x
@@ -518,9 +518,9 @@ function _getTanDeg(deg) {
 }
 
 function checkDataRepeatability(dist) {
-  let lefts = []
-  let rights = []
-  for (let d of dist) {
+  const lefts = []
+  const rights = []
+  for (const d of dist) {
     if (d.closedEyeSide === 'left') lefts.push(d.dist)
     else rights.push(d.dist)
   }
@@ -532,6 +532,6 @@ function checkDataRepeatability(dist) {
 
 function _getDistValues(dist) {
   const v = []
-  for (let d of dist) v.push(d.dist)
+  for (const d of dist) v.push(d.dist)
   return v
 }

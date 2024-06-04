@@ -534,7 +534,7 @@ function pauseGazeCode() {
 /**
  * Resume gaze
  */
-const _resumeGazeCode = `RemoteCalibrator.resumeGaze()`
+const _resumeGazeCode = 'RemoteCalibrator.resumeGaze()'
 function resumeGaze(e) {
   eval(_resumeGazeCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode

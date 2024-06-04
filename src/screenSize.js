@@ -164,9 +164,9 @@ function getSize(RC, parent, options, callback) {
 
   switchMatchingObj('card', elements)
   // Card & Arrow
-  let arrowFillElement = document.getElementById('size-arrow-fill')
+  const arrowFillElement = document.getElementById('size-arrow-fill')
   arrowFillElement.setAttribute('fill', RC._CONST.COLOR.LIGHT_GREY)
-  let arrowSizes = {
+  const arrowSizes = {
     width: elements.arrow.getBoundingClientRect().width,
     height: elements.arrow.getBoundingClientRect().height,
   }
@@ -204,11 +204,11 @@ function getSize(RC, parent, options, callback) {
   // Call when SPACE pressed
   // ! RETURN & BREAK
   const finishFunction = () => {
-    let eleWidth =
+    const eleWidth =
       elements[currentMatchingObj].getBoundingClientRect().width ||
-      parseInt(elements[currentMatchingObj].style.width) // Pixel
+      Number.parseInt(elements[currentMatchingObj].style.width) // Pixel
 
-    let ppi = eleWidth / widthDataIn[currentMatchingObj]
+    const ppi = eleWidth / widthDataIn[currentMatchingObj]
 
     const toFixedN = options.decimalPlace
 
@@ -258,7 +258,7 @@ const setCardSizes = (RC, slider, card, arrow, aS) => {
     15
   card.style.width = targetWidth + 'px'
   // Arrow
-  let cardSizes = card.getBoundingClientRect()
+  const cardSizes = card.getBoundingClientRect()
   if (cardSizes.width !== 0) {
     arrow.style.left = cardSizes.left + targetWidth + 'px'
     arrow.style.top =
@@ -276,14 +276,14 @@ const setConnectorSizes = (slider, connector) => {
 
 const addMatchingObj = (names, parent) => {
   // Remove all elements from the page first
-  let oldElements = document.getElementsByClassName('size-obj')
+  const oldElements = document.getElementsByClassName('size-obj')
   while (oldElements.length) {
     oldElements[0].parentNode.removeChild(oldElements[0])
   }
 
   const elements = {}
 
-  for (let name of names) {
+  for (const name of names) {
     let element = document.createElement('div')
     parent.appendChild(element)
     element.outerHTML = resources[name]
@@ -299,7 +299,7 @@ const addMatchingObj = (names, parent) => {
 }
 
 const switchMatchingObj = (name, elements, setSizes) => {
-  for (let obj in elements) {
+  for (const obj in elements) {
     if (obj === name) elements[obj].style.visibility = 'visible'
     else elements[obj].style.visibility = 'hidden'
   }
@@ -343,6 +343,6 @@ const _getScreenData = (ppi, toFixedN) => {
 }
 
 const setObjectsPosition = (objects, slider) => {
-  for (let i in objects)
+  for (const i in objects)
     objects[i].style.top = slider.getBoundingClientRect().top + 50 + 'px'
 }

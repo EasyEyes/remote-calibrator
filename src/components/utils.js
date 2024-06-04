@@ -36,7 +36,6 @@
       configurable: true,
       writable: true,
       value: function (target) {
-        'use strict'
         if (target === undefined || target === null) {
           throw new TypeError()
         }
@@ -170,7 +169,7 @@ export function shuffle(array) {
 }
 
 export function toFixedNumber(n, digits) {
-  let pow = Math.pow(10, digits)
+  const pow = Math.pow(10, digits)
   return Math.round(n * pow) / pow
 }
 

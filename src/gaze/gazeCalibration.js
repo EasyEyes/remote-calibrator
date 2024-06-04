@@ -323,7 +323,7 @@ export class GazeCalibrationDot {
       }
 
       // try leader line
-      let leaderLines = document.querySelectorAll('.leader-line')
+      const leaderLines = document.querySelectorAll('.leader-line')
       if (leaderLines) leaderLines.forEach(l => (l.style.opacity = 0))
     }
   }
@@ -362,7 +362,7 @@ export class GazeCalibrationDot {
 
   _randomOrder() {
     this.order = []
-    for (let i of [0, 1, 2]) for (let j of [0, 1, 2]) this.order.push([i, j])
+    for (const i of [0, 1, 2]) for (const j of [0, 1, 2]) this.order.push([i, j])
     shuffle(this.order)
   }
 

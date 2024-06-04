@@ -45,9 +45,11 @@ export function formatVideoCanvas(video, vC, stream, targetWidth) {
   const { width, height } = stream
     ? stream.getTracks()[0].getSettings()
     : [video.videoWidth, video.videoHeight]
-  vC.style.width = video.style.width = (vC.width = targetWidth) + 'px'
-  vC.style.height = video.style.height =
-    (vC.height = (targetWidth / width) * height) + 'px'
+  vC.style.width = video.style.width = vC.width = `${targetWidth}px`
+  vC.style.height =
+    video.style.height =
+    vC.height =
+      `${(targetWidth / width) * height}px`
 
   return [width, height]
 }
@@ -72,16 +74,21 @@ export function checkWebcamStatus() {
  *
  */
 export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
-  let c = setInterval(() => {
-    let v = document.getElementById('webgazerVideoContainer')
+  const c = setInterval(() => {
+    const v = document.getElementById('webgazerVideoContainer')
     if (v) {
       clearInterval(c)
 
-      v.style.height =
-        (pipWidthPx / parseInt(v.style.width)) * parseInt(v.style.height) + 'px'
-      v.style.width = pipWidthPx + 'px'
+      v.style.height = `${
+        (pipWidthPx / Number.parseInt(v.style.width)) *
+        Number.parseInt(v.style.height)
+      }px`
+      v.style.width = `${pipWidthPx}px`
       v.style.opacity = opacity
-      WG.setVideoViewerSize(parseInt(v.style.width), parseInt(v.style.height))
+      WG.setVideoViewerSize(
+        Number.parseInt(v.style.width),
+        Number.parseInt(v.style.height),
+      )
 
       // Set position
       setDefaultVideoPosition(RC, v)
@@ -90,9 +97,11 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
       setTimeout(() => {
         RC.videoOpacity()
         if (RC.isMobile.value)
-          v.style.transition = `right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
+          v.style.transition =
+            'right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
         else
-          v.style.transition = `left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s`
+          v.style.transition =
+            'left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
         safeExecuteFunc(callback)
       }, 700)
     }

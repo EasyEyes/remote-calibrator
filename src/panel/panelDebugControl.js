@@ -8,14 +8,14 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
   panel.appendChild(debugControlElement)
   const debugControlRows = [] // Array of task names
 
-  for (let task of panelTasks) {
-    let taskName = task.name ? task.name : task
+  for (const task of panelTasks) {
+    const taskName = task.name ? task.name : task
 
     const rowElement = document.createElement('div')
     rowElement.className = 'rc-panel-debug-control-task-row'
     rowElement.id = 'rc-debugger-row-' + taskName
 
-    let taskDefault = RC._debuggerDefault[taskName]
+    const taskDefault = RC._debuggerDefault[taskName]
 
     if (taskDefault) {
       debugControlElement.innerHTML += `<h3>${taskName}</h3>`
@@ -27,7 +27,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
 
       switch (taskName) {
         case 'screenSize':
-          for (let valueName in taskDefault.value) {
+          for (const valueName in taskDefault.value) {
             rowElement.innerHTML += _createValueElement(
               taskName,
               valueName,
@@ -201,7 +201,7 @@ const _createValueElement = (
 /* -------------------------------------------------------------------------- */
 
 const _wrapValues = (RC, rowTaskNames) => {
-  for (let task of rowTaskNames) {
+  for (const task of rowTaskNames) {
     const taskRow = document.querySelector('#rc-debugger-row-' + task)
     const newData = {}
     switch (task) {
@@ -260,7 +260,7 @@ const _get = (parent, id) => {
 }
 
 const _putData = (RC, newData, taskRow) => {
-  for (let ele of taskRow.childNodes) {
+  for (const ele of taskRow.childNodes) {
     const eleInput = ele.querySelector('input')
     try {
       eval(
