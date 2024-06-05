@@ -29,9 +29,13 @@ jobs:
         continue-on-error: true
         run: |
           npm run phrases
+          npx prettier --write src/i18n/schema.js
+          npx prettier --write src/i18n/phrases.js
+
           git status
           git add src/i18n/schema.js
           git add src/i18n/phrases.js
           git commit -m 'github action: update phrases'
+
           git remote set-url origin https://x-access-token:${{secrets.ci_token}}@github.com/EasyEyes/remote-calibrator
           git push
