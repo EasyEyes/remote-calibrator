@@ -30,8 +30,8 @@ jobs:
         run: |
           npm run phrases
           git status
-          git add src/i18n/schema.json
-          git add src/i18n/phrases.json
+          git add src/i18n/schema.js
+          git add src/i18n/phrases.js
           git commit -m 'github action: update phrases'
           git remote set-url origin https://x-access-token:${{secrets.ci_token}}@github.com/EasyEyes/remote-calibrator
           git push
