@@ -4,7 +4,7 @@ import { safeExecuteFunc, toFixedNumber } from '../components/utils'
 import { checkWebgazerReady } from '../components/video'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 
 /**
  * The gaze tracker object to wrap all gaze-related functions

@@ -1,6 +1,6 @@
 import RemoteCalibrator from '../core'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 import { addButtons } from '../components/buttons'
 import { sleep } from '../components/utils'
 

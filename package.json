@@ -18,7 +18,7 @@
     "test": "webpack --env mocha --config=test/webpack.config.test.js && mocha test-exec/test.min.js",
     "prepare": "husky install",
     "netlify": "cp -r ./lib ./homepage",
-    "phrases": "node i18n/fetch-languages-sheets.js && git add src/i18n.js"
+    "phrases": "node i18n/fetch-languages-sheets.js"
   },
   "repository": {
     "type": "git",

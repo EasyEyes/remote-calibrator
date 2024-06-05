@@ -1,6 +1,6 @@
 import Swal from 'sweetalert2'
 
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from './swalOptions'
 
 import AllowCam from '../media/allow-camera.png?width=240&height=120'

@@ -5,7 +5,7 @@ import {
   toFixedNumber,
 } from './components/utils'
 import RemoteCalibrator from './core'
-import { phrases } from './i18n'
+import { phrases } from './i18n/schema'
 
 RemoteCalibrator.prototype.performanceCompute = async function (
   callback,

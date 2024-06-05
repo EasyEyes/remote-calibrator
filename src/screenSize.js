@@ -20,7 +20,7 @@ import {
 } from './components/slider'
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
-import { phrases } from './i18n'
+import { phrases } from './i18n/schema'
 
 RemoteCalibrator.prototype._displaySize = function () {
   ////

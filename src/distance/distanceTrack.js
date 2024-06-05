@@ -9,7 +9,7 @@ import {
   safeExecuteFunc,
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 import { spaceForLanguage } from '../components/language'
 import { checkPermissions } from '../components/mediaPermission'
 

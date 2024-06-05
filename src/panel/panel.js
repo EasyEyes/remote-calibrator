@@ -3,7 +3,7 @@ import tinycolor from 'tinycolor2'
 import { safeExecuteFunc } from '../components/utils'
 import RemoteCalibrator from '../core'
 import { _setDebugControl } from './panelDebugControl'
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 
 // Icons from Google Material UI
 import Camera from '../media/photo-camera.svg'

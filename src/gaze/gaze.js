@@ -3,7 +3,7 @@ import RemoteCalibrator from '../core'
 import { blurAll, safeExecuteFunc } from '../components/utils'
 import { gazeCalibrationPrepare } from './gazeCalibration'
 import { checkPermissions } from '../components/mediaPermission'
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 
 RemoteCalibrator.prototype.trackGaze = async function (
   options = {},

@@ -15,7 +15,7 @@ import PD from '../media/pd.png?width=240&height=120'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
 import { setDefaultVideoPosition } from '../components/video'
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 
 // let selfVideo = false // No WebGazer video available and an extra video element needs to be created
 

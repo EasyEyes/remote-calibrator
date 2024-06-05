@@ -114,18 +114,20 @@ async function processLanguageSheet() {
         return false
       }
 
-      data[phrase][lang] = ''
-      // // Placeholders
-      // data[phrase][lang] = data[phrase][lang]
-      //   .replace(/XXX/g, 'xxx')
-      //   .replace(/XX/g, 'xx')
-      // // Spaces
-      // data[phrase][lang] = data[phrase][lang].replace(/%/g, '&nbsp')
-      // // line breaks
-      // data[phrase][lang] = data[phrase][lang].replace(/~/g, '<br />')
+      // data[phrase][lang] = ''
+
+      // Placeholders
+      data[phrase][lang] = data[phrase][lang]
+        .replace(/XXX/g, 'xxx')
+        .replace(/XX/g, 'xx')
+      // Spaces
+      data[phrase][lang] = data[phrase][lang].replace(/%/g, '&nbsp')
+      // line breaks
+      data[phrase][lang] = data[phrase][lang].replace(/~/g, '<br />')
     }
   }
 
+  // ! schema
   // create i18n assembler
   const dataPhrases = Object.keys(data)
   const dataLanguages = Object.keys(data[dataPhrases[0]])
@@ -150,8 +152,25 @@ phrasesData.map(phrase => {
 })`
 
   fs.writeFile(
-    `${process.cwd()}/src/i18n.js`,
+    `${process.cwd()}/src/i18n/schema.js`,
     `${exportWarning + exportData + i18nAssembler}\n`,
+    error => {
+      if (error) {
+        console.log("Error! Couldn't write to the file.", error)
+      } else {
+        console.log(
+          'EasyEyes International Phrases fetched and written into files successfully.',
+        )
+      }
+    },
+  )
+
+  // ! actual
+  const exportHandle = 'export const remoteCalibratorPhrases ='
+
+  fs.writeFile(
+    `${process.cwd()}/src/i18n/phrases.js`,
+    `${exportWarning + exportHandle + JSON.stringify(data)}\n`,
     error => {
       if (error) {
         console.log("Error! Couldn't write to the file.", error)

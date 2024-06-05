@@ -17,8 +17,8 @@ import {
   safeExecuteFunc,
 } from './components/utils'
 import { looseSetLanguage } from './components/language'
-import { phrases } from './i18n'
-import { loadPhrases } from './loadPhrases'
+import { phrases } from './i18n/schema'
+import { loadPhrases } from './i18n/loadPhrases'
 
 // eslint-disable-next-line no-undef
 export const env = process.env.BUILD_TARGET
@@ -666,7 +666,7 @@ RemoteCalibrator.prototype._addBackground = function (inner) {
   if (!b) {
     b = document.createElement('div')
     b.id = 'calibration-background'
-    b.className = 'calibration-background' + ` rc-lang-${this.LD.toLowerCase()}`
+    b.className = `calibration-background rc-lang-${this.LD.toLowerCase()}`
 
     document.body.classList.add('lock-view')
     document.body.appendChild(b)
@@ -741,10 +741,10 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
 
   if (this.instructionElement !== null) {
     if (this.instructionElement.id === id) return
-    else {
-      this.background.removeChild(this.instructionElement)
-      this._background.instructionElement = null
-    }
+
+    // else
+    this.background.removeChild(this.instructionElement)
+    this._background.instructionElement = null
   }
 
   const instP = document.createElement('p')
@@ -754,7 +754,8 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
   instP.innerHTML = text // Init
   this.background.appendChild(instP)
 
-  return (this._background.instructionElement = instP)
+  this._background.instructionElement = instP
+  return instP
 }
 
 RemoteCalibrator.prototype._setFloatInstructionElementPos = function (

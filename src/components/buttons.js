@@ -1,4 +1,4 @@
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 
 export const addButtons = (
   RCL,

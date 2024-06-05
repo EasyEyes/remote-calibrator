@@ -13,7 +13,7 @@ import {
 } from '../components/utils'
 import { debug } from '../debug'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 import { degToPix } from '../components/converters'
 import { crossLH, crossLW } from '../components/onCanvas'
 

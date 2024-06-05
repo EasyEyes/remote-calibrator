@@ -24,7 +24,7 @@ import {
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from '../components/swalOptions'
 
 // import { soundFeedback } from '../components/sound'

@@ -3,7 +3,7 @@ import LeaderLine from 'leader-line-new'
 
 // import { crossLH, crossLW } from '../components/onCanvas'
 import { safeExecuteFunc } from '../components/utils'
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 
 // import Arrow from '../media/arrow.svg'
 import { GazeCalibrationDot } from './gazeCalibration'

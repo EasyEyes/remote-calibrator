@@ -1,4 +1,4 @@
-import { phrases } from '../i18n'
+import { phrases } from '../i18n/schema'
 
 export function looseSetLanguage(lang) {
   const originalKeys = Object.keys(phrases.EE_languageNameNative)
