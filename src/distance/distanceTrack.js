@@ -1,5 +1,3 @@
-
-
 import RemoteCalibrator from '../core'
 
 import { blindSpotTest } from './distance'
@@ -203,6 +201,8 @@ const startTrackingPupils = async (
   callbackTrack,
   trackingConfig,
 ) => {
+  await RC.gazeTracker.webgazer.getTracker().loadModel()
+
   RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
     RC._removeFloatInstructionElement()
     safeExecuteFunc(beforeCallbackTrack)

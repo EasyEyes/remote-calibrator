@@ -199,7 +199,8 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
   //   ? stream.getTracks()[0].getSettings()
   //   : [video.videoWidth, video.videoHeight]
   const h =
-    ((window.innerWidth * videoHeightFactor) / Number.parseInt(video.style.width)) *
+    ((window.innerWidth * videoHeightFactor) /
+      Number.parseInt(video.style.width)) *
     Number.parseInt(video.style.height)
 
   originalStyles.videoWidth = container.style.width

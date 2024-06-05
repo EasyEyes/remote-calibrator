@@ -362,7 +362,8 @@ export class GazeCalibrationDot {
 
   _randomOrder() {
     this.order = []
-    for (const i of [0, 1, 2]) for (const j of [0, 1, 2]) this.order.push([i, j])
+    for (const i of [0, 1, 2])
+      for (const j of [0, 1, 2]) this.order.push([i, j])
     shuffle(this.order)
   }
 
