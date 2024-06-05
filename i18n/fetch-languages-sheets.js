@@ -1,5 +1,5 @@
-const process = require('process')
-const fs = require('fs')
+const process = require('node:process')
+const fs = require('node:fs')
 const XLSX = require('xlsx')
 const google = require('googleapis')
 
@@ -27,9 +27,78 @@ async function processLanguageSheet() {
   const data = {}
   for (const phrase of rowsJSON) {
     const { language, ...translations } = phrase
+
     if (
-      (language.includes('RC_') || language.includes('EE_')) &&
-      !language.includes('_soundCalibration')
+      [
+        'EE_languageNameEnglish',
+        'EE_languageNameNative',
+        'EE_languageDirection',
+        'EE_phraseSource',
+        'EE_languageUseSpace',
+        /* -------------------------------------------------------------------------- */
+        // General
+        'RC_ok',
+        'RC_cancel',
+        'RC_starting',
+        'RC_requestCamera',
+        'RC_privacyCamera',
+        'RC_errorCameraUseDenied',
+        'RC_errorNoCamera',
+
+        // Performance
+        'RC_performanceTitle',
+        'RC_performanceIntro',
+        'RC_performance',
+
+        // Screen Size
+        'RC_screenSizeTitle',
+        'RC_screenSizeIntro',
+        'RC_screenSizeHave',
+        'RC_screenSizeUSBA',
+        'RC_screenSizeUSBC',
+        'RC_screenSizeCreditCard',
+        'RC_screenSizeCredit',
+        'RC_screenSize',
+
+        // Distance Tracking
+        'RC_distanceTrackingCloseL',
+        'RC_distanceTrackingCloseR',
+        'RC_distanceTrackingTitle',
+        'RC_distanceTrackingIntroStart',
+        'RC_distanceTrackingIntroEnd',
+        'RC_distanceTrackingRedo',
+        'RC_distanceTrackingGuide',
+        'RC_distanceTrackingMoveCloser',
+        'RC_distanceTrackingMoveFurther',
+        'RC_distanceTracking',
+        'RC_viewingDistanceIntroLiMethod',
+        'RC_viewingDistanceIntroTitle',
+        'RC_viewingDistanceTitle',
+        'RC_viewingDistance',
+
+        // Viewing Blind Spot
+        'RC_viewingBlindSpotCredit',
+        'RC_viewingBlindSpotRejected',
+
+        // Near Point
+        'RC_nearPointTitle',
+        'RC_nearPointIntro',
+
+        // Gaze Tracking
+        'RC_gazeTrackingTitle',
+        'RC_gazeTrackingIntro',
+        'RC_gazeTrackingNudge',
+        'RC_gazeTracking',
+
+        // Panel
+        'RC_panelTitle',
+        'RC_panelIntro',
+        'RC_panelTitleNext',
+        'RC_panelIntroNext',
+        'RC_panelButton',
+        'RC_panelUsesWebcam',
+        'RC_panelUsesWebcamPhone',
+      ].includes(language)
     )
       data[language] = translations
   }
@@ -61,11 +130,11 @@ async function processLanguageSheet() {
   Do not modify this file! Run npm \`npm run phrases\` at ROOT of this project to fetch from the Google Sheets.
   https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0
 */\n\n`
-  const exportHandle = `export const phrases = `
+  const exportHandle = 'export const phrases = '
 
   fs.writeFile(
     `${process.cwd()}/src/i18n.js`,
-    exportWarning + exportHandle + JSON.stringify(data) + '\n',
+    `${exportWarning + exportHandle + JSON.stringify(data)}\n`,
     error => {
       if (error) {
         console.log("Error! Couldn't write to the file.", error)
@@ -78,7 +147,7 @@ async function processLanguageSheet() {
   )
 }
 
-require('dns').resolve('www.google.com', function (err) {
+require('node:dns').resolve('www.google.com', function (err) {
   if (err) {
     console.log('No internet connection. Skip fetching phrases.')
   } else {

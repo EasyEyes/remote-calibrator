@@ -80,7 +80,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       nearPoint: true,
       showNearPoint: false,
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
-      headline: '📏 ' + phrases.RC_distanceTrackingTitle[this.L],
+      headline: `📏 ${phrases.RC_distanceTrackingTitle[this.L]}`,
       description:
         phrases.RC_distanceTrackingIntroStart[this.L] +
         spaceForLanguage(this.L) +
@@ -237,7 +237,8 @@ const trackingOptions = {
 
 const stdDist = { current: null }
 
-let stdFactor, viewingDistanceTrackingFunction
+let stdFactor
+let viewingDistanceTrackingFunction
 const iRepeatOptions = { framerate: 20, break: true }
 
 let nearPointDot = null
@@ -257,14 +258,14 @@ const _tracking = async (
 
   const _ = async () => {
     // const canvas = RC.gazeTracker.webgazer.videoCanvas
-    let model, faces
+    let faces
 
     // Get the average of 5 estimates for one measure
     averageDist = 0
     distCount = 1
     const targetCount = 5
 
-    model = await RC.gazeTracker.webgazer.getTracker().model
+    const model = await RC.gazeTracker.webgazer.getTracker().model
 
     // Near point
     const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
@@ -338,8 +339,7 @@ const _tracking = async (
                 _calculateDistanceFromCenterToTop(ppi)
 
               const distanceFromCenterToUser = Math.sqrt(
-                Math.pow(stdDist.current.value, 2) -
-                  Math.pow(distanceFromCenterToTop, 2),
+                stdDist.current.value ** 2 - distanceFromCenterToTop ** 2,
               )
 
               stdDist.current.value = distanceFromCenterToUser
@@ -358,7 +358,7 @@ const _tracking = async (
               timestamp - RC._trackingVideoFrameTimestamps.distance,
             )
 
-            const data = (RC.newViewingDistanceData = {
+            RC.newViewingDistanceData = {
               value: toFixedNumber(
                 stdFactor / averageDist,
                 trackingOptions.decimalPlace,
@@ -366,7 +366,8 @@ const _tracking = async (
               timestamp: timestamp,
               method: RC._CONST.VIEW_METHOD.F,
               latencyMs: latency,
-            })
+            }
+            const data = RC.newViewingDistanceData
 
             if (readyToGetFirstData || desiredDistanceMonitor) {
               // ! Check distance
@@ -450,7 +451,7 @@ const _getNearPoint = (
       averageDist
   })
 
-  const nPData = (RC.newNearPointData = {
+  RC.newNearPointData = {
     value: {
       x: toFixedNumber(offsetToVideoCenter[0], trackingOptions.decimalPlace),
       y: toFixedNumber(
@@ -460,7 +461,8 @@ const _getNearPoint = (
       latencyMs: latency,
     },
     timestamp: timestamp,
-  })
+  }
+  const nPData = RC.newNearPointData
 
   // SHOW
   const dotR = 5
@@ -585,12 +587,13 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
     const latency = timestamp - videoTimestamp
     //
 
-    const data = (this.newViewingDistanceData = {
+    this.newViewingDistanceData = {
       value: toFixedNumber(stdFactor / dist, trackingOptions.decimalPlace),
       timestamp: timestamp,
       method: this._CONST.VIEW_METHOD.F,
       latencyMs: latency,
-    })
+    }
+    const data = this.newViewingDistanceData
 
     let nPData
     if (trackingOptions.nearPoint) {
