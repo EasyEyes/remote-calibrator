@@ -1,0 +1,37 @@
+# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
+# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
+
+name: Update Phrases
+
+on: workflow_dispatch
+
+jobs:
+  phrases:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - name: Set commit account information
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Installations
+        run: |
+          npm ci
+      - name: Decrypt credentials
+        run: |
+          gpg --quiet --batch --yes --passphrase="${{secrets.google_api_pw}}" \
+          --output credentials.json \
+          --decrypt credentials.json.gpg
+      - name: Fetch and update phrases
+        continue-on-error: true
+        run: |
+          npm run phrases
+          git status
+          git add src/i18n/schema.json
+          git add src/i18n/phrases.json
+          git commit -m 'github action: update phrases'
+          git remote set-url origin https://x-access-token:${{secrets.ci_token}}@github.com/EasyEyes/remote-calibrator
+          git push
