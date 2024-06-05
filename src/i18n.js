@@ -33,6 +33,7 @@ export const phrasesData = [
   'RC_panelIntro',
   'RC_panelTitle',
   'RC_panelTitleNext',
+  'RC_panelIntroNext',
   'RC_panelUsesWebcam',
   'RC_panelUsesWebcamPhone',
   'RC_performance',
