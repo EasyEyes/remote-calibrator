@@ -126,15 +126,32 @@ async function processLanguageSheet() {
     }
   }
 
+  // create i18n assembler
+  const dataPhrases = Object.keys(data)
+  const dataLanguages = Object.keys(data[dataPhrases[0]])
+
   const exportWarning = `/*
   Do not modify this file! Run npm \`npm run phrases\` at ROOT of this project to fetch from the Google Sheets.
   https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0
 */\n\n`
-  const exportHandle = 'export const phrases = '
+
+  const exportData = `export const phrasesData = ${JSON.stringify(dataPhrases)}\nexport const languages = ${JSON.stringify(
+    dataLanguages,
+  )}\n\n`
+
+  const i18nAssembler = `export const phrases = {}
+
+phrasesData.map(phrase => {
+  phrases[phrase] = {}
+
+  languages.map(language => {
+    phrases[phrase][language] = ''
+  })
+})`
 
   fs.writeFile(
     `${process.cwd()}/src/i18n.js`,
-    `${exportWarning + exportHandle + JSON.stringify(data)}\n`,
+    `${exportWarning + exportData + i18nAssembler}\n`,
     error => {
       if (error) {
         console.log("Error! Couldn't write to the file.", error)
