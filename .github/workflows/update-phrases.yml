@@ -23,7 +23,7 @@ jobs:
       - name: Decrypt credentials
         run: |
           gpg --quiet --batch --yes --passphrase="${{secrets.google_api_pw}}" \
-          --output credentials.json \
+          --output i18n/credentials.json \
           --decrypt i18n/credentials.json.gpg
       - name: Fetch and update phrases
         continue-on-error: true
