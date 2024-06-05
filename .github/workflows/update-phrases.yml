@@ -7,16 +7,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v1
         with:
-          node-version: 20
+          bun-version: latest
       - name: Set commit account information
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
       - name: Installations
         run: |
-          npm ci
+          bun install
       - name: Decrypt credentials
         run: |
           gpg --quiet --batch --yes --passphrase="${{secrets.google_api_pw}}" \
@@ -25,9 +25,9 @@ jobs:
       - name: Fetch and update phrases
         continue-on-error: true
         run: |
-          npm run phrases
-          npx prettier --write src/i18n/schema.js
-          npx prettier --write src/i18n/phrases.js
+          bun run phrases
+          bunx prettier --write src/i18n/schema.js
+          bunx prettier --write src/i18n/phrases.js
 
           git status
           git add src/i18n/schema.js

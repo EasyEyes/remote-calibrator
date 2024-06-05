@@ -130,7 +130,7 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
       // Check if these data are acceptable
       if (checkDataRepeatability(dist)) {
         // ! Put dist into data and callback function
-        const data = (RC.newViewingDistanceData = {
+        const data = {
           value: toFixedNumber(
             median(_getDistValues(dist)),
             options.decimalPlace,
@@ -138,7 +138,9 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
           timestamp: performance.now(),
           method: RC._CONST.VIEW_METHOD.B,
           raw: { ...dist },
-        })
+        }
+
+        RC.newViewingDistanceData = data
 
         // ! Break
         let measureType // For the check function

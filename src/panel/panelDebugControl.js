@@ -202,7 +202,7 @@ const _createValueElement = (
 
 const _wrapValues = (RC, rowTaskNames) => {
   for (const task of rowTaskNames) {
-    const taskRow = document.querySelector('#rc-debugger-row-' + task)
+    const taskRow = document.querySelector(`#rc-debugger-row-${task}`)
     const newData = {}
     switch (task) {
       case 'screenSize':

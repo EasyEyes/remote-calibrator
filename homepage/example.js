@@ -212,7 +212,7 @@ function makePanelCode() {
  *
  */
 const _measureScreenSizeCode = `RemoteCalibrator.screenSize({
-  check: true,
+  // check: true,
   checkCallback: (result) => {
     printMessage(
       \`The participant measured the arrow sizes with their own tools, and the reported value is 

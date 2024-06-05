@@ -358,7 +358,7 @@ const _tracking = async (
               timestamp - RC._trackingVideoFrameTimestamps.distance,
             )
 
-            RC.newViewingDistanceData = {
+            const data = {
               value: toFixedNumber(
                 stdFactor / averageDist,
                 trackingOptions.decimalPlace,
@@ -367,7 +367,8 @@ const _tracking = async (
               method: RC._CONST.VIEW_METHOD.F,
               latencyMs: latency,
             }
-            const data = RC.newViewingDistanceData
+
+            RC.newViewingDistanceData = data
 
             if (readyToGetFirstData || desiredDistanceMonitor) {
               // ! Check distance
@@ -451,7 +452,7 @@ const _getNearPoint = (
       averageDist
   })
 
-  RC.newNearPointData = {
+  const nPData = {
     value: {
       x: toFixedNumber(offsetToVideoCenter[0], trackingOptions.decimalPlace),
       y: toFixedNumber(
@@ -462,7 +463,8 @@ const _getNearPoint = (
     },
     timestamp: timestamp,
   }
-  const nPData = RC.newNearPointData
+
+  RC.newNearPointData = nPData
 
   // SHOW
   const dotR = 5
