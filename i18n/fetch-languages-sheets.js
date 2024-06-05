@@ -135,7 +135,7 @@ async function processLanguageSheet() {
   https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0
 */\n\n`
 
-  const exportData = `export const phrasesData = ${JSON.stringify(dataPhrases)}\nexport const languages = ${JSON.stringify(
+  const exportData = `const phrasesData = ${JSON.stringify(dataPhrases)}\nconst languages = ${JSON.stringify(
     dataLanguages,
   )}\n\n`
 

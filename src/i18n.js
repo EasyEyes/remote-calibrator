@@ -3,7 +3,7 @@
   https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0
 */
 
-export const phrasesData = [
+const phrasesData = [
   'EE_languageNameEnglish',
   'EE_languageNameNative',
   'EE_languageDirection',
@@ -57,7 +57,7 @@ export const phrasesData = [
   'RC_viewingDistanceIntroLiMethod',
   'RC_viewingDistanceTitle',
 ]
-export const languages = [
+const languages = [
   'en-US',
   'ar',
   'hy',
