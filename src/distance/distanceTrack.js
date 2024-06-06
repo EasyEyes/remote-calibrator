@@ -235,7 +235,7 @@ const trackingOptions = {
   desiredDistanceMonitorAllowRecalibrate: true,
 }
 
-const stdDist = { current: null }
+const stdDist = { current: null, adjusted: false }
 
 let stdFactor
 let viewingDistanceTrackingFunction
@@ -254,7 +254,7 @@ const _tracking = async (
   callbackTrack,
   trackingConfig,
 ) => {
-  const video = document.querySelector('#webgazerVideoCanvas')
+  // const video = document.getElementById('webgazerVideoCanvas')
 
   const _ = async () => {
     // const canvas = RC.gazeTracker.webgazer.videoCanvas
@@ -307,6 +307,7 @@ const _tracking = async (
 
     viewingDistanceTrackingFunction = async () => {
       //
+      const video = document.getElementById('webgazerVideoCanvas')
       const videoTimestamp = performance.now()
       //
       faces = await model.estimateFaces(video)
@@ -335,14 +336,18 @@ const _tracking = async (
               and the distance from the center of the screen to the user's eyes
               */
 
-              const distanceFromCenterToTop =
-                _calculateDistanceFromCenterToTop(ppi)
+              if (!stdDist.adjusted) {
+                const distanceFromCenterToTop =
+                  _calculateDistanceFromCenterToTop(ppi)
 
-              const distanceFromCenterToUser = Math.sqrt(
-                stdDist.current.value ** 2 - distanceFromCenterToTop ** 2,
-              )
+                const distanceFromCenterToUser = Math.sqrt(
+                  stdDist.current.value ** 2 - distanceFromCenterToTop ** 2,
+                )
 
-              stdDist.current.value = distanceFromCenterToUser
+                stdDist.current.value = distanceFromCenterToUser
+                stdDist.adjusted = true
+              }
+
               stdFactor = averageDist * stdDist.current.value
 
               // ! FINISH
@@ -543,6 +548,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     trackingOptions.desiredDistanceMonitorAllowRecalibrate = true
 
     stdDist.current = null
+    stdDist.adjusted = false
     stdFactor = null
     viewingDistanceTrackingFunction = null
 
