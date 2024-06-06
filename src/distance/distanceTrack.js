@@ -235,10 +235,11 @@ const trackingOptions = {
   desiredDistanceMonitorAllowRecalibrate: true,
 }
 
-const stdDist = { current: null, adjusted: false }
+const stdDist = { current: null }
 
-let stdFactor
-let viewingDistanceTrackingFunction
+let stdFactor = null
+let video = null
+let viewingDistanceTrackingFunction = null
 const iRepeatOptions = { framerate: 20, break: true }
 
 let nearPointDot = null
@@ -307,7 +308,7 @@ const _tracking = async (
 
     viewingDistanceTrackingFunction = async () => {
       //
-      const video = document.getElementById('webgazerVideoCanvas')
+      if (!video) video = document.getElementById('webgazerVideoCanvas')
       const videoTimestamp = performance.now()
       //
       faces = await model.estimateFaces(video)
@@ -336,18 +337,13 @@ const _tracking = async (
               and the distance from the center of the screen to the user's eyes
               */
 
-              if (!stdDist.adjusted) {
-                const distanceFromCenterToTop =
-                  _calculateDistanceFromCenterToTop(ppi)
+              const distanceFromCenterToTop =
+                _calculateDistanceFromCenterToTop(ppi)
+              const distanceFromCenterToUser = Math.sqrt(
+                stdDist.current.value ** 2 - distanceFromCenterToTop ** 2,
+              )
 
-                const distanceFromCenterToUser = Math.sqrt(
-                  stdDist.current.value ** 2 - distanceFromCenterToTop ** 2,
-                )
-
-                stdDist.current.value = distanceFromCenterToUser
-                stdDist.adjusted = true
-              }
-
+              stdDist.current.value = distanceFromCenterToUser
               stdFactor = averageDist * stdDist.current.value
 
               // ! FINISH
@@ -548,8 +544,9 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     trackingOptions.desiredDistanceMonitorAllowRecalibrate = true
 
     stdDist.current = null
-    stdDist.adjusted = false
     stdFactor = null
+
+    video = null
     viewingDistanceTrackingFunction = null
 
     readyToGetFirstData = false
