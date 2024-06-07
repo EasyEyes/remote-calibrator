@@ -19,13 +19,12 @@ export const createSlider = (parent, min, max) => {
 }
 
 export const setSliderPosition = (slider, parent) => {
-  slider.style.top =
+  slider.style.top = `${
     Math.round(
       parent.querySelector('.calibration-instruction').getBoundingClientRect()
         .bottom,
-    ) +
-    25 +
-    'px'
+    ) + 25
+  }px`
 }
 
 export const setSliderStyle = ele => {

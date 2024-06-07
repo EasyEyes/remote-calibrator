@@ -135,7 +135,7 @@ function capFirst(s) {
  *
  */
 export default function randomPhrases() {
-  const tailNumber = '000' + new Date().getMilliseconds().toString()
+  const tailNumber = `000${new Date().getMilliseconds().toString()}`
   return (
     capFirst(randomChoice(adjectives)) +
     capFirst(randomChoice(colors)) +

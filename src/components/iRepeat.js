@@ -1,9 +1,10 @@
 // Use performance.now() to control the "FPS" of a repeatedly called function
 
 export function iRepeat(fun, options = { framerate: 60, break: false }) {
-  let now = 0,
-    then = 0,
-    elapsed = 0
+  let now = 0
+  let then = 0
+  let elapsed = 0
+
   const interval = 1000 / options.framerate
 
   const r = () => {

@@ -13,7 +13,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
 
     const rowElement = document.createElement('div')
     rowElement.className = 'rc-panel-debug-control-task-row'
-    rowElement.id = 'rc-debugger-row-' + taskName
+    rowElement.id = `rc-debugger-row-${taskName}`
 
     const taskDefault = RC._debuggerDefault[taskName]
 
@@ -32,7 +32,7 @@ export const _setDebugControl = (RC, panel, panelTasks, panelCallback) => {
               taskName,
               valueName,
               taskDefault.value[valueName],
-              '.value.' + valueName,
+              `.value.${valueName}`,
               inputTypes.n,
             )
           }
@@ -263,6 +263,7 @@ const _putData = (RC, newData, taskRow) => {
   for (const ele of taskRow.childNodes) {
     const eleInput = ele.querySelector('input')
     try {
+      // biome-ignore lint/security/noGlobalEval: dev use only
       eval(
         `newData${eleInput.dataset.source} = eleInput.dataset.type === 'number' ? Number(eleInput.value) : eleInput.value`,
       )

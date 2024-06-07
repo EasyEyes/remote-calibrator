@@ -529,18 +529,21 @@ class RemoteCalibrator {
  * Must be called before any other functions
  *
  */
-RemoteCalibrator.prototype.init = async function (options = {}, callback) {
+RemoteCalibrator.prototype.init = async function (
+  initOptions = {},
+  callback = undefined,
+) {
   if (!this._initialized) {
     this._initialized = true
 
-    options = Object.assign(
+    const options = Object.assign(
       {
         id: randomPhrases(),
         language: 'AUTO',
         languagePhrasesJSON: null,
         fullscreen: false,
       },
-      options,
+      initOptions,
     )
 
     // load internationalization phrases
@@ -734,7 +737,7 @@ RemoteCalibrator.prototype._addBackgroundText = function (
  * @param {string} text init text
  */
 RemoteCalibrator.prototype._constructFloatInstructionElement = function (
-  id = null,
+  id, // = null
   text,
 ) {
   if (this.background === null) this._addBackground()

@@ -41,6 +41,6 @@ RemoteCalibrator.prototype.videoOpacity = function (op = null) {
 RemoteCalibrator.prototype.showCancelButton = function (show = true) {
   if (!this.checkInitialized()) return null
 
-  this._params.showCancelButton = show ? true : false
+  this._params.showCancelButton = !!show // = show ? true : false
   return this.params.showCancelButton
 }

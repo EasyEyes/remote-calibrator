@@ -23,7 +23,7 @@ export const swalInfoOptions = (RC, { showIcon }) => {
       popup: 'my__swal2__container',
       icon: 'my__swal2__icon',
       title: 'my__swal2__title',
-      htmlContainer: 'my__swal2__html' + ` rc-lang-${RC.LD.toLowerCase()}`,
+      htmlContainer: `my__swal2__html rc-lang-${RC.LD.toLowerCase()}`,
       confirmButton: 'rc-button rc-go-button',
     },
   }

@@ -36,7 +36,12 @@ const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canv
 
 /* -------------------------------------------------------------------------- */
 
-export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
+export function blindSpotTest(
+  RC,
+  options,
+  toTrackDistance = false,
+  callback = undefined,
+) {
   const control = options.control // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
 
   let ppi = RC._CONST.N.PPI_DONT_USE // Dangerous! Arbitrary value
@@ -74,8 +79,11 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 
   // Window resize
   const _resetCanvasSize = () => {
-    c.style.width = (c.width = window.innerWidth) + 'px'
-    c.style.height = (c.height = window.innerHeight) + 'px'
+    c.width = window.innerWidth
+    c.height = window.innerHeight
+    c.style.width = `${c.width}px`
+    c.style.height = `${c.height}px`
+
     crossX = _getCrossX(eyeSide, c.width)
     circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
   }
@@ -360,10 +368,11 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
   // Drag
   const _dragStartPosition = { x: null, circleX: null }
   const dragStart = e => {
-    const isTouch = e.touches && e.touches[0] ? true : false
+    const isTouch = !!e.touches?.[0]
     if (!isTouch) e.preventDefault()
 
-    let startX, startY
+    let startX
+    let startY
     if (isTouch) {
       startX = e.touches[0].clientX
       startY = e.touches[0].clientY
@@ -459,7 +468,10 @@ export function blindSpotTest(RC, options, toTrackDistance = false, callback) {
 /*                               measureDistance                              */
 /* -------------------------------------------------------------------------- */
 
-RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
+RemoteCalibrator.prototype.measureDistance = function (
+  measureDistanceOptions = {},
+  callback = undefined,
+) {
   /**
    * options -
    *
@@ -478,24 +490,24 @@ RemoteCalibrator.prototype.measureDistance = function (options = {}, callback) {
   ////
 
   let description
-  if (options.control !== undefined && options.control === false)
+  if (measureDistanceOptions.control === false)
     description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
   else description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       fullscreen: false,
       repeatTesting: 1,
       sparkle: true,
       decimalPlace: 1,
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
-      headline: '📏 ' + phrases.RC_viewingDistanceTitle[this.L],
+      headline: `📏 ${phrases.RC_viewingDistanceTitle[this.L]}`,
       description: description,
       check: false,
       checkCallback: false,
       showCancelButton: true,
     },
-    options,
+    measureDistanceOptions,
   )
   // Fullscreen
   this.getFullscreen(options.fullscreen)

@@ -2,7 +2,9 @@ import { env } from '../core'
 
 const usingMocha = env === 'mocha'
 
-let MySynth, MyVolume
+let MySynth
+let MyVolume
+
 if (!usingMocha) {
   const Tone = require('tone')
   MySynth = Tone.Synth

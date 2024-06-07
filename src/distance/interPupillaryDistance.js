@@ -32,22 +32,22 @@ const videoWidthFactor = 0.9
 const videoHeightFactor = 0.3
 
 RemoteCalibrator.prototype._measurePD = async function (
-  options = {},
-  callback,
+  measurePDOptions = {},
+  callback = undefined,
 ) {
   ////
   if (!this.checkInitialized()) return
   blurAll()
   ////
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       fullscreen: false,
-      headline: '👁️ ' + phrases.RC_nearPointTitle[this.L],
+      headline: `👁️ ${phrases.RC_nearPointTitle[this.L]}`,
       description: phrases.RC_nearPointIntro[this.L],
       shortDescription: phrases.RC_nearPointIntro[this.L],
     },
-    options,
+    measurePDOptions,
   )
 
   this.getFullscreen(options.fullscreen)
@@ -189,11 +189,11 @@ const setupVideo = RC => {
 }
 
 const formatVideo = (RC, video, canvas, container, stream = null) => {
-  if (!stream) {
-    if (video.captureStream) {
-      stream = video.captureStream()
-    }
-  }
+  // if (!stream) {
+  //   if (video.captureStream) {
+  //     stream = video.captureStream()
+  //   }
+  // }
 
   // const { width, height } = stream
   //   ? stream.getTracks()[0].getSettings()
@@ -209,8 +209,8 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
 
   // Container
   const newContainerStyle = {
-    height: Math.round(h) + 'px',
-    width: Math.round(window.innerWidth * videoWidthFactor) + 'px',
+    height: `${Math.round(h)}px`,
+    width: `${Math.round(window.innerWidth * videoWidthFactor)}px`,
     opacity: 1,
     borderRadius: '15px',
   }
@@ -218,14 +218,13 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
 
   if (RC.isMobile.value) {
     Object.assign(container.style, {
-      right:
-        Math.round(0.5 * window.innerWidth * (1 - videoWidthFactor)) + 'px',
-      top: Math.round(0.5 * (window.innerHeight - h)) + 'px',
+      right: `${Math.round(0.5 * window.innerWidth * (1 - videoWidthFactor))}px`,
+      top: `${Math.round(0.5 * (window.innerHeight - h))}px`,
     })
   } else {
     Object.assign(container.style, {
-      left: Math.round(0.5 * window.innerWidth * (1 - videoWidthFactor)) + 'px',
-      bottom: Math.round(0.5 * (window.innerHeight - h)) + 'px',
+      left: `${Math.round(0.5 * window.innerWidth * (1 - videoWidthFactor))}px`,
+      bottom: `${Math.round(0.5 * (window.innerHeight - h))}px`,
     })
   }
 
@@ -237,9 +236,9 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
 
   // Video feed
   const newVideoStyle = {
-    height: Math.round((h * videoWidthFactor) / videoHeightFactor) + 'px',
-    width: Math.round(window.innerWidth * videoWidthFactor) + 'px',
-    top: Math.round(-h * (videoWidthFactor - videoHeightFactor)) + 'px',
+    height: `${Math.round((h * videoWidthFactor) / videoHeightFactor)}px`,
+    width: `${Math.round(window.innerWidth * videoWidthFactor)}px`,
+    top: `${Math.round(-h * (videoWidthFactor - videoHeightFactor))}px`,
     transform: 'scale(-2, 2)',
     transformOrigin: 'center',
   }
@@ -269,9 +268,9 @@ const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
   const rulerElement = document.createElement('div')
   rulerElement.id = 'rc-ruler'
   Object.assign(rulerElement.style, {
-    height: (0.9 * (window.innerHeight - vHeight)) / 2 + 'px',
-    width: 2 * window.innerWidth + 'px',
-    left: 0.25 * (window.innerWidth - vWidth) + 'px',
+    height: `${(0.9 * (window.innerHeight - vHeight)) / 2}px`,
+    width: `${2 * window.innerWidth}px`,
+    left: `${0.25 * (window.innerWidth - vWidth)}px`,
     bottom: 0,
     backgroundColor: '#FFD523dd',
     borderRadius: '7px 0 0 0',
@@ -289,14 +288,14 @@ const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
     ((rulerElement.clientWidth - sidePadding * 2) * 2.54) / screenPpi
   for (let i = 0; i <= toFixedNumber(totalCm, 1) * 10; i++) {
     const thisScale = document.createElement('div')
-    const left = (0.1 * i * screenPpi) / 2.54 + 'px' // Offset from zero
-    thisScale.className =
-      'rc-ruler-scale ' +
-      (i % 10 === 0
+    const left = `${(0.1 * i * screenPpi) / 2.54}px` // Offset from zero
+    thisScale.className = `rc-ruler-scale ${
+      i % 10 === 0
         ? 'rc-ruler-major'
         : i % 5 === 0
           ? 'rc-ruler-secondary'
-          : 'rc-ruler-minor')
+          : 'rc-ruler-minor'
+    }`
     thisScale.style.left = left
     scales.appendChild(thisScale)
 
@@ -325,11 +324,14 @@ const setupRuler = (RC, screenPpi, vWidth, vHeight) => {
     .setAttribute('fill', RC._CONST.COLOR.DARK_RED)
 
   const _onDownRuler = e => {
-    selectionElement.style.left = (offsetPixel = e.offsetX - 30) + 'px'
+    offsetPixel = e.offsetX - 30
+    selectionElement.style.left = `${offsetPixel}px`
 
     const _onMoveRuler = e => {
-      selectionElement.style.left = (offsetPixel = e.offsetX - 30) + 'px'
+      offsetPixel = e.offsetX - 30
+      selectionElement.style.left = `${offsetPixel}px`
     }
+
     rulerElement.addEventListener('mousemove', _onMoveRuler)
     rulerElement.addEventListener('mouseup', function _() {
       rulerElement.removeEventListener('mousemove', _onMoveRuler)

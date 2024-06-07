@@ -30,7 +30,7 @@ const checkScreenSize = async (
     safeExecuteFunc(screenSizeCallback, screenSizeData)
   }
 
-  if (RC.equipment && RC.equipment.value.has) {
+  if (RC.equipment?.value?.has) {
     // ! Has equipment
     RC._replaceBackground(
       constructInstructions(

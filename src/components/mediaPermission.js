@@ -6,7 +6,7 @@ import { swalInfoOptions } from './swalOptions'
 import AllowCam from '../media/allow-camera.png?width=240&height=120'
 
 export const checkPermissions = async RC => {
-  if (navigator.permissions && navigator.permissions.query) {
+  if (navigator.permissions?.query) {
     return navigator.permissions
       .query({ name: 'camera' })
       .then(async permissionObj => {
@@ -17,10 +17,7 @@ export const checkPermissions = async RC => {
             imageUrl: AllowCam,
             imageWidth: 480,
             imageAlt: 'Please allow camera access',
-            html:
-              phrases.RC_requestCamera[RC.L] +
-              '<br />' +
-              phrases.RC_privacyCamera[RC.L],
+            html: `${phrases.RC_requestCamera[RC.L]}<br />${phrases.RC_privacyCamera[RC.L]}`,
           })
         }
       })

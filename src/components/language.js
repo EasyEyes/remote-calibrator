@@ -5,7 +5,7 @@ export function looseSetLanguage(lang) {
   if (originalKeys.includes(lang)) return constructLangData(lang)
 
   const shortKeys = []
-  originalKeys.forEach(l => {
+  originalKeys.map(l => {
     shortKeys.push(l.split('-')[0])
   })
 

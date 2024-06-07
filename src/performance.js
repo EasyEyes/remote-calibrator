@@ -51,22 +51,22 @@ RemoteCalibrator.prototype.performanceCompute = async function (
 }
 
 RemoteCalibrator.prototype.performance = async function (
-  options = {},
-  callback,
+  performanceOptions = {},
+  callback = undefined,
 ) {
   ////
   if (!this.checkInitialized()) return
   ////
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       testComputation: true,
       testFrameCount: 180,
       testObjectCount: 10000,
-      headline: '🚀 ' + phrases.RC_performanceTitle[this.L],
+      headline: `🚀 ${phrases.RC_performanceTitle[this.L]}`,
       description: phrases.RC_performanceIntro[this.L],
     },
-    options,
+    performanceOptions,
   )
 
   this._addBackground()
@@ -98,7 +98,7 @@ RemoteCalibrator.prototype.performance = async function (
     options.testObjectCount,
   )
 
-  const data = (this.newPerformanceData = {
+  const data = {
     value: {
       computeArrayFillMHz: computingPerformanceData.value.computeArrayFillMHz,
       computeRandomMHz: computingPerformanceData.value.computeRandomMHz,
@@ -108,7 +108,8 @@ RemoteCalibrator.prototype.performance = async function (
       ),
     },
     timestamp: performance.now(),
-  })
+  }
+  this.newPerformanceData = data
 
   this._removeBackground()
 

@@ -18,9 +18,9 @@ const originalStyles = {
 }
 
 RemoteCalibrator.prototype.trackDistance = async function (
-  options = {},
-  callbackStatic,
-  callbackTrack,
+  trackDistanceOptions = {},
+  callbackStatic = undefined,
+  callbackTrack = undefined,
 ) {
   /**
    * options -
@@ -57,11 +57,14 @@ RemoteCalibrator.prototype.trackDistance = async function (
   }
 
   let description
-  if (options.control !== undefined && options.control === false)
+  if (
+    trackDistanceOptions.control !== undefined &&
+    trackDistanceOptions.control === false
+  )
     description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
   else description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       fullscreen: false,
       repeatTesting: 1,
@@ -91,7 +94,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       checkCallback: null,
       showCancelButton: true,
     },
-    options,
+    trackDistanceOptions,
   )
 
   /* -------------------------------------------------------------------------- */

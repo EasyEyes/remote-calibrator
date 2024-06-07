@@ -14,9 +14,9 @@ import { swalInfoOptions } from '../components/swalOptions'
 let inGetAccuracy = false
 
 RemoteCalibrator.prototype.getGazeAccuracy = function (
-  options = {},
-  callbackSuccess,
-  callbackFail,
+  getGazeAccuracyOptions = {},
+  callbackSuccess = undefined,
+  callbackFail = undefined,
 ) {
   ////
   if (!this.checkInitialized()) return false
@@ -33,13 +33,13 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
     return false
   }
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       backgroundColor: '#eee',
       thresholdDeg: 10, // minAccuracy
       decimalPlace: 3,
     },
-    options,
+    getGazeAccuracyOptions,
   )
 
   // Background
@@ -52,9 +52,13 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
   const ctx = canvas.getContext('2d')
 
   const _resizeCanvas = () => {
-    canvas.style.width = (canvas.width = window.innerWidth) + 'px'
-    canvas.style.height = (canvas.height = window.innerHeight) + 'px'
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+
+    canvas.style.width = `${canvas.width}px`
+    canvas.style.height = `${canvas.height}px`
   }
+
   const resizeObserver = new ResizeObserver(() => {
     _resizeCanvas()
   })
@@ -64,7 +68,7 @@ RemoteCalibrator.prototype.getGazeAccuracy = function (
   Swal.fire({
     ...swalInfoOptions(this, { showIcon: true }),
     // title: text.getGazeAccuracy.headline,
-    html: `We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen for the next 5 seconds.`,
+    html: 'We will measure your gaze accuracy. Please do not move the mouse and look at the fixation at the middle of the screen for the next 5 seconds.',
   }).then(() => {
     // ! After confirming alert
     inGetAccuracy = true
@@ -125,10 +129,7 @@ const getAverageDegree = (fixation, points, screenPpi, viewingDistanceCm) => {
     points[0][i] -= fixation.x
     points[1][i] -= fixation.y
     // Px
-    const diffInPx = Math.sqrt(
-      Math.pow(points[0][i], 2),
-      Math.pow(points[1][i], 2),
-    )
+    const diffInPx = Math.sqrt(points[0][i] ** 2, points[1][i] ** 2)
     // Cm
     const diffInCm = (2.54 * diffInPx) / screenPpi
 

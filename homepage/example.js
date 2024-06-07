@@ -12,7 +12,7 @@ const experimentElement = document.getElementById('experiment')
  *
  */
 function gotData(text) {
-  return `<span class="toolbox-data">From RC</span>` + text
+  return `<span class="toolbox-data">From RC</span>${text}`
 }
 
 /**
@@ -271,17 +271,15 @@ const _measureViewingDistanceCode = `RemoteCalibrator.measureDistance({
 })`
 function measureViewingDistance(e) {
   eval(
-    _measureDistanceCallback +
-      '\n' +
-      _measureViewingDistanceCode.replace(
-        '@',
-        `changeClass(e.target, 'complete')`,
-      ),
+    `${_measureDistanceCallback}\n${_measureViewingDistanceCode.replace(
+      '@',
+      `changeClass(e.target, 'complete')`,
+    )}`,
   )
 }
 function measureViewingDistanceCode() {
   printCode(
-    _measureDistanceCallback + '\n\n' + _measureViewingDistanceCode,
+    `${_measureDistanceCallback}\n\n${_measureViewingDistanceCode}`,
     '.measureDistance()',
   )
 }
@@ -330,12 +328,10 @@ RemoteCalibrator.trackDistance(
 )`
 function trackViewingDistance(e) {
   eval(
-    _measureDistanceCallback +
-      '\n' +
-      _trackViewingDistanceCode.replace(
-        '@',
-        `changeClass(e.target, 'complete')`,
-      ),
+    `${_measureDistanceCallback}\n${_trackViewingDistanceCode.replace(
+      '@',
+      `changeClass(e.target, 'complete')`,
+    )}`,
   )
 
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
@@ -356,12 +352,12 @@ function trackViewingDistance(e) {
 }
 function trackViewingDistanceCode() {
   printCode(
-    _measureDistanceCallback + '\n\n' + _trackViewingDistanceCode,
+    `${_measureDistanceCallback}\n\n${_trackViewingDistanceCode}`,
     '.trackDistance()',
   )
 }
 
-const _pauseDistanceCode = `RemoteCalibrator.pauseDistance()`
+const _pauseDistanceCode = 'RemoteCalibrator.pauseDistance()'
 function pauseDistance(e) {
   eval(_pauseDistanceCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
@@ -387,7 +383,7 @@ function pauseDistanceCode() {
   printCode(_pauseDistanceCode, '.pauseDistance()')
 }
 
-const _resumeDistanceCode = `RemoteCalibrator.resumeDistance()`
+const _resumeDistanceCode = 'RemoteCalibrator.resumeDistance()'
 function resumeDistance(e) {
   eval(_resumeDistanceCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
@@ -404,7 +400,7 @@ function resumeDistanceCode() {
   printCode(_resumeDistanceCode, '.resumeDistance()')
 }
 
-const _endDistanceCode = `RemoteCalibrator.endDistance()`
+const _endDistanceCode = 'RemoteCalibrator.endDistance()'
 function endDistance(e) {
   eval(_endDistanceCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
@@ -427,7 +423,7 @@ function endDistanceCode() {
   printCode(_endDistanceCode, '.endDistance()')
 }
 
-const _getDistanceNowCode = `RemoteCalibrator.getDistanceNow()`
+const _getDistanceNowCode = 'RemoteCalibrator.getDistanceNow()'
 function getDistanceNow() {
   eval(_getDistanceNowCode)
 }
@@ -494,7 +490,7 @@ function trackGazeCode() {
   printCode(_trackGazeCode, '.trackGaze()')
 }
 
-const _nudgeGazeCode = `RemoteCalibrator.nudgeGaze()`
+const _nudgeGazeCode = 'RemoteCalibrator.nudgeGaze()'
 function nudgeGaze(e) {
   eval(_nudgeGazeCode)
 }
@@ -504,7 +500,7 @@ function nudgeGaze(e) {
  * Pause gaze
  *
  */
-const _pauseGazeCode = `RemoteCalibrator.pauseGaze()`
+const _pauseGazeCode = 'RemoteCalibrator.pauseGaze()'
 function pauseGaze(e) {
   eval(_pauseGazeCode)
 
@@ -551,7 +547,7 @@ function resumeGazeCode() {
   printCode(_resumeGazeCode, '.resumeGaze()')
 }
 
-const _endGazeCode = `RemoteCalibrator.endGaze()`
+const _endGazeCode = 'RemoteCalibrator.endGaze()'
 function endGaze(e) {
   eval(_endGazeCode)
   const target = e.target.tagName === 'BUTTON' ? e.target : e.target.parentNode
@@ -567,7 +563,7 @@ function endGazeCode() {
   printCode(_endGazeCode, '.endGaze()')
 }
 
-const _getGazeNodeCode = `RemoteCalibrator.getGazeNow()`
+const _getGazeNodeCode = 'RemoteCalibrator.getGazeNow()'
 function getGazeNow() {
   eval(_getGazeNodeCode)
 }

@@ -6,7 +6,7 @@ import { checkPermissions } from '../components/mediaPermission'
 import { phrases } from '../i18n/schema'
 
 RemoteCalibrator.prototype.trackGaze = async function (
-  options = {},
+  trackGazeOptions = {},
   callbackOnCalibrationEnd = null,
   callbackTrack = null,
 ) {
@@ -36,7 +36,7 @@ RemoteCalibrator.prototype.trackGaze = async function (
     this.gazeTracker.webgazer.getTracker().loadModel()
   }
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       fullscreen: false,
       greedyLearner: false, // ! New 0.0.5
@@ -49,10 +49,10 @@ RemoteCalibrator.prototype.trackGaze = async function (
       calibrationCount: 1,
       thresholdDeg: 10, // minAccuracy
       decimalPlace: 0, // As the system itself has a high prediction error, it's not necessary to be too precise here
-      headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
+      headline: `👀 ${phrases.RC_gazeTrackingTitle[this.L]}`,
       description: phrases.RC_gazeTrackingIntro[this.L],
     },
-    options,
+    trackGazeOptions,
   )
 
   // Fullscreen
@@ -126,37 +126,36 @@ RemoteCalibrator.prototype.trackGaze = async function (
     if (options.thresholdDeg === 'none' || !testAccuracy) {
       this.gazeTracker.attachNewCallback(callbackTrack)
       this.gazeTracker.defaultGazeCallback = callbackTrack
+
       return
-    } else {
-      if (
-        !this.getGazeAccuracy(
-          {
-            thresholdDeg: options.thresholdDeg,
-          },
-          () => {
-            // Success
-            // Start running
-            this.gazeTracker.attachNewCallback(callbackTrack)
-            this.gazeTracker.defaultGazeCallback = callbackTrack
-          },
-          () => {
-            // Fail to meet the min accuracy
-            this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
-          },
-        )
-      ) {
-        console.error(
-          'Failed to finish gaze accuracy measurement due to error.',
-        )
-        this.gazeTracker.attachNewCallback(callbackTrack)
-        this.gazeTracker.defaultGazeCallback = callbackTrack
-      }
+    }
+
+    if (
+      !this.getGazeAccuracy(
+        {
+          thresholdDeg: options.thresholdDeg,
+        },
+        () => {
+          // Success
+          // Start running
+          this.gazeTracker.attachNewCallback(callbackTrack)
+          this.gazeTracker.defaultGazeCallback = callbackTrack
+        },
+        () => {
+          // Fail to meet the min accuracy
+          this.calibrateGaze(calibrateGazeOptions, onCalibrationEnded)
+        },
+      )
+    ) {
+      console.error('Failed to finish gaze accuracy measurement due to error.')
+      this.gazeTracker.attachNewCallback(callbackTrack)
+      this.gazeTracker.defaultGazeCallback = callbackTrack
     }
   }
 }
 
 RemoteCalibrator.prototype.getGazeNow = async function (
-  options = {},
+  getGazeNowOptions = {},
   callback = null,
 ) {
   if (
@@ -167,12 +166,12 @@ RemoteCalibrator.prototype.getGazeNow = async function (
   )
     return
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       wait: 0,
       frames: 5,
     },
-    options,
+    getGazeNowOptions,
   )
 
   const c = callback || this.gazeTracker.defaultGazeCallback
@@ -208,14 +207,18 @@ RemoteCalibrator.prototype.endGaze = function (endAll = false) {
 
 /* -------------------------------------------------------------------------- */
 
-RemoteCalibrator.prototype.gazeLearning = function (learn = true, options) {
-  options = Object.assign(
+RemoteCalibrator.prototype.gazeLearning = function (
+  learn,
+  gazeLearningOptions,
+) {
+  const options = Object.assign(
     {
       click: true,
       move: true,
     },
-    options,
+    gazeLearningOptions,
   )
+
   learn
     ? this.gazeTracker.startLearning(options)
     : this.gazeTracker.stopLearning(options)

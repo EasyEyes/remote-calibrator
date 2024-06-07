@@ -92,25 +92,28 @@ export default class GazeTracker {
     if (this.checkInitialized('gaze', true)) {
       this.webgazer.setGazeListener(d => {
         if (d) {
-          const data = (this.calibrator.newGazePositionData = this.getData(d))
+          const data = this.getData(d)
+          this.calibrator.newGazePositionData = data
+
           safeExecuteFunc(callback, data)
         }
       })
     }
   }
 
-  async getGazeNow(options = {}, callback) {
-    options = Object.assign(
+  async getGazeNow(getGazeNowOptions = {}, callback = undefined) {
+    const options = Object.assign(
       {
         wait: 0,
         frames: 5,
       },
-      options,
+      getGazeNowOptions,
     )
 
-    const data = (this.calibrator.newGazePositionData = this.getData(
+    const data = this.getData(
       await this.webgazer.getCurrentPrediction(0, options.wait, options.frames),
-    ))
+    )
+    this.calibrator.newGazePositionData = data
     this.webgazer.popPredictionPoints()
 
     safeExecuteFunc(callback, data)

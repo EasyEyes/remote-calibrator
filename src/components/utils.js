@@ -2,21 +2,22 @@
 // https://gist.github.com/paulirish/1579671
 
 ;(function () {
-  var lastTime = 0
-  var vendors = ['ms', 'moz', 'webkit', 'o']
-  for (var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
-    window.requestAnimationFrame = window[vendors[x] + 'RequestAnimationFrame']
+  let lastTime = 0
+  const vendors = ['ms', 'moz', 'webkit', 'o']
+
+  for (let x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+    window.requestAnimationFrame = window[`${vendors[x]}RequestAnimationFrame`]
     window.cancelAnimationFrame =
-      window[vendors[x] + 'CancelAnimationFrame'] ||
-      window[vendors[x] + 'CancelRequestAnimationFrame']
+      window[`${vendors[x]}CancelAnimationFrame`] ||
+      window[`${vendors[x]}CancelRequestAnimationFrame`]
   }
 
   if (!window.requestAnimationFrame)
     // eslint-disable-next-line no-unused-vars
     window.requestAnimationFrame = function (callback, element) {
-      var currTime = performance.now()
-      var timeToCall = Math.max(0, 16 - (currTime - lastTime))
-      var id = window.setTimeout(function () {
+      const currTime = performance.now()
+      const timeToCall = Math.max(0, 16 - (currTime - lastTime))
+      const id = window.setTimeout(function () {
         callback(currTime + timeToCall)
       }, timeToCall)
       lastTime = currTime + timeToCall
@@ -40,23 +41,23 @@
           throw new TypeError()
         }
 
-        var to = Object(target)
-        for (var i = 1; i < arguments.length; i++) {
-          var nextSource = arguments[i]
+        const to = Object(target)
+        for (let i = 1; i < arguments.length; i++) {
+          let nextSource = arguments[i]
           if (nextSource === undefined || nextSource === null) {
             continue
           }
           nextSource = Object(nextSource)
 
-          var keysArray = Object.keys(Object(nextSource))
+          const keysArray = Object.keys(Object(nextSource))
           for (
-            var nextIndex = 0, len = keysArray.length;
+            let nextIndex = 0, len = keysArray.length;
             nextIndex < len;
             nextIndex++
           ) {
-            var nextKey = keysArray[nextIndex]
-            var desc = Object.getOwnPropertyDescriptor(nextSource, nextKey)
-            if (desc !== undefined && desc.enumerable) {
+            const nextKey = keysArray[nextIndex]
+            const desc = Object.getOwnPropertyDescriptor(nextSource, nextKey)
+            if (desc?.enumerable) {
               to[nextKey] = nextSource[nextKey]
             }
           }
@@ -68,9 +69,10 @@
 })()
 
 export function safeExecuteFunc(f, ...a) {
-  if (f && typeof f === 'function')
+  if (f && typeof f === 'function') {
     if (a.length) return f(...a)
-    else return f()
+    return f()
+  }
 }
 
 export const emptyFunc = () => {}
@@ -94,21 +96,26 @@ export function getFullscreen() {
     if (element.requestFullscreen) {
       element.requestFullscreen()
       return true
-    } else if (element.mozRequestFullScreen) {
+    }
+
+    if (element.mozRequestFullScreen) {
       element.mozRequestFullScreen()
       return true
-    } else if (element.webkitRequestFullscreen) {
+    }
+
+    if (element.webkitRequestFullscreen) {
       element.webkitRequestFullscreen()
       return true
-    } else if (element.msRequestFullscreen) {
+    }
+
+    if (element.msRequestFullscreen) {
       element.msRequestFullscreen()
       return true
-    } else {
-      return false
     }
-  } else {
     return false
   }
+
+  return false
 }
 
 export function isFullscreen() {
@@ -128,16 +135,15 @@ export function constructInstructions(
   scrollable = false,
   descriptionClass = '',
 ) {
-  return (
-    `<div class="calibration-instruction${
-      scrollable ? ' calibration-instruction-scrollable' : ''
-    }"><h1>${headline}</h1>` +
-    (description
+  return `<div class="calibration-instruction${
+    scrollable ? ' calibration-instruction-scrollable' : ''
+  }"><h1>${headline}</h1>${
+    description
       ? `<p class="calibration-description${
-          descriptionClass.length ? ' ' + descriptionClass : ''
+          descriptionClass.length ? ` ${descriptionClass}` : ''
         }">${description}</p></div>`
-      : '')
-  )
+      : ''
+  }`
 }
 
 /* ----------------------------- Tiny functions ----------------------------- */
@@ -151,7 +157,7 @@ export function remap(v, a1, b1, a2, b2) {
 }
 
 export function dist2d(aX, aY, bX, bY) {
-  return Math.sqrt(Math.pow(aX - bX, 2) + Math.pow(aY - bY, 2))
+  return Math.sqrt((aX - bX) ** 2 + (aY - bY) ** 2)
 }
 
 // https://stackoverflow.com/a/30924333
@@ -169,14 +175,14 @@ export function shuffle(array) {
 }
 
 export function toFixedNumber(n, digits) {
-  const pow = Math.pow(10, digits)
+  const pow = 10 ** digits
   return Math.round(n * pow) / pow
 }
 
 // https://github.com/30-seconds/30-seconds-of-code/blob/master/snippets/median.md
 export const median = arr => {
-  const mid = Math.floor(arr.length / 2),
-    num = [...arr].sort((a, b) => a - b)
+  const mid = Math.floor(arr.length / 2)
+  const num = [...arr].sort((a, b) => a - b)
   return arr.length % 2 !== 0 ? num[mid] : (num[mid - 1] + num[mid]) / 2
 }
 
@@ -185,8 +191,8 @@ export const average = array => array.reduce((a, b) => a + b) / array.length
 
 // https://stackoverflow.com/a/49434653
 export function randn_bm(min, max, skew = 1) {
-  let u = 0,
-    v = 0
+  let u = 0
+  let v = 0
   while (u === 0) u = Math.random()
   while (v === 0) v = Math.random()
   let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
@@ -194,7 +200,7 @@ export function randn_bm(min, max, skew = 1) {
   num = num / 10.0 + 0.5
   if (num > 1 || num < 0) num = randn_bm(min, max, skew)
   else {
-    num = Math.pow(num, skew)
+    num = num ** skew
     num *= max - min
     num += min
   }
@@ -220,5 +226,6 @@ export const getClickOrTouchLocation = e => {
   if (e.type === 'touchstart' || e.type === 'touchmove') {
     const touch = e.touches[0]
     return { x: touch.clientX, y: touch.clientY }
-  } else return { x: e.clientX, y: e.clientY }
+  }
+  return { x: e.clientX, y: e.clientY }
 }

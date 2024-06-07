@@ -17,7 +17,10 @@ const originalStyles = {
 
 const nudgeArrowLeaderLine = { current: null }
 
-RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
+RemoteCalibrator.prototype.nudgeGaze = function (
+  nudgeGazeOptions = {},
+  callback = undefined,
+) {
   ////
   if (
     !this.checkInitialized() ||
@@ -26,11 +29,11 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
     return
   ////
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       showOffset: true,
     },
-    options,
+    nudgeGazeOptions,
   )
 
   if (this._gazeTrackNudging.isCorrectingGaze) return
@@ -41,7 +44,7 @@ RemoteCalibrator.prototype.nudgeGaze = function (options = {}, callback) {
   if (!b) {
     b = document.createElement('div')
     b.id = 'gaze-nudger'
-    b.className = 'gaze-nudger' + ` rc-lang-${this.LD.toLowerCase()}`
+    b.className = `gaze-nudger rc-lang-${this.LD.toLowerCase()}`
 
     document.body.classList.add('lock-view')
     document.body.appendChild(b)

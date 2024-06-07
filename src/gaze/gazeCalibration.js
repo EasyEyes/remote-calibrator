@@ -43,20 +43,23 @@ export function gazeCalibrationPrepare(RC, options) {
 /**
  * Pop an interface for users to calibrate the gazeTracker
  */
-RemoteCalibrator.prototype.calibrateGaze = function (options = {}, callback) {
+RemoteCalibrator.prototype.calibrateGaze = function (
+  calibrateGazeOptions = {},
+  callback = undefined,
+) {
   ////
   if (!this.gazeTracker.checkInitialized('gaze', true)) return
   blurAll()
   ////
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       greedyLearner: false,
       calibrationCount: 1,
-      headline: '👀 ' + phrases.RC_gazeTrackingTitle[this.L],
+      headline: `👀 ${phrases.RC_gazeTrackingTitle[this.L]}`,
       description: phrases.RC_gazeTrackingIntro[this.L],
     },
-    options,
+    calibrateGazeOptions,
   )
 
   options.nudge = false
@@ -182,7 +185,7 @@ export class GazeCalibrationDot {
     this.originalStyles = originalStyles
     this.endCalibrationCallback = endCalibrationCallback
 
-    return this.div
+    // return this.div
   }
 
   placeDot() {
@@ -192,7 +195,7 @@ export class GazeCalibrationDot {
       // x
       [
         {
-          left: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px',
+          left: `${this.RC._CONST.N.GAZE_CALIBRATION.MARGIN}px`,
           right: 'unset',
         }, // 0
         {
@@ -201,11 +204,11 @@ export class GazeCalibrationDot {
         }, // 1
         // { right: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px', left: 'unset' }, // 2
         {
-          left:
+          left: `${
             window.innerWidth -
             this.RC._CONST.N.GAZE_CALIBRATION.R -
-            this.RC._CONST.N.GAZE_CALIBRATION.MARGIN +
-            'px',
+            this.RC._CONST.N.GAZE_CALIBRATION.MARGIN
+          }px`,
           right: 'unset',
         }, // 2
         {
@@ -246,7 +249,7 @@ export class GazeCalibrationDot {
       // y
       [
         {
-          top: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px',
+          top: `${this.RC._CONST.N.GAZE_CALIBRATION.MARGIN}px`,
           bottom: 'unset',
         }, // 0
         {
@@ -255,11 +258,11 @@ export class GazeCalibrationDot {
         }, // 1
         // { bottom: this.RC._CONST.N.GAZE_CALIBRATION.MARGIN + 'px', top: 'unset' }, // 2
         {
-          top:
+          top: `${
             window.innerHeight -
             this.RC._CONST.N.GAZE_CALIBRATION.R -
-            this.RC._CONST.N.GAZE_CALIBRATION.MARGIN +
-            'px',
+            this.RC._CONST.N.GAZE_CALIBRATION.MARGIN
+          }px`,
           bottom: 'unset',
         }, // 2
         {
@@ -324,7 +327,10 @@ export class GazeCalibrationDot {
 
       // try leader line
       const leaderLines = document.querySelectorAll('.leader-line')
-      if (leaderLines) leaderLines.forEach(l => (l.style.opacity = 0))
+      if (leaderLines)
+        leaderLines.map(l => {
+          l.style.opacity = 0
+        })
     }
   }
 
@@ -470,6 +476,6 @@ export class GazeCalibrationDot {
     )
 
     if (cap) return Math.min(pix, cap)
-    else return pix
+    return pix
   }
 }

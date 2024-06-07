@@ -62,7 +62,7 @@ RemoteCalibrator.prototype.resetPanel = function (
 RemoteCalibrator.prototype.panel = async function (
   tasks,
   parent,
-  options = {},
+  panelOptions = {},
   callback = null,
   resolveOnFinish = null,
   __reset__ = false, // ! Not available to users
@@ -89,7 +89,7 @@ RemoteCalibrator.prototype.panel = async function (
     return false
   }
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       headline: phrases.RC_panelTitle[this.L],
       description: phrases.RC_panelIntro[this.L],
@@ -102,7 +102,7 @@ RemoteCalibrator.prototype.panel = async function (
       i18n: true,
       _demoActivateAll: false, // ! Private
     },
-    options,
+    panelOptions,
   )
 
   // Set theme color
@@ -117,11 +117,11 @@ RemoteCalibrator.prototype.panel = async function (
   )
   document.documentElement.style.setProperty(
     '--rc-panel-theme-color-semi',
-    options.color + '66',
+    `${options.color}66`,
   )
   document.documentElement.style.setProperty(
     '--rc-panel-darken-color-semi',
-    darkerColor + '88',
+    `${darkerColor}88`,
   )
 
   const panel = document.createElement('div')
@@ -169,15 +169,15 @@ RemoteCalibrator.prototype.panel = async function (
 
   const tempOptions = { ...options }
   if (options.headline === phrases.RC_panelTitle[this.L])
-    delete tempOptions.headline
+    tempOptions.headline = undefined
   if (options.description === phrases.RC_panelIntro[this.L])
-    delete tempOptions.description
+    tempOptions.description = undefined
   if (options.nextHeadline === phrases.RC_panelTitleNext[this.L])
-    delete tempOptions.nextHeadline
+    tempOptions.nextHeadline = undefined
   if (options.nextDescription === phrases.RC_panelIntroNext[this.L])
-    delete tempOptions.nextDescription
+    tempOptions.nextDescription = undefined
   if (options.nextButton === phrases.RC_panelButton[this.L])
-    delete tempOptions.nextButton
+    tempOptions.nextButton = undefined
 
   this._panel.panelOptions = tempOptions
 
@@ -195,7 +195,6 @@ RemoteCalibrator.prototype.panel = async function (
     )
 
   if (options.debug) _setDebugControl(this, panel, tasks, callback)
-
   if (resolveOnFinish === null) resolveOnFinish = true
 
   return new Promise(resolve => {
@@ -253,15 +252,15 @@ const _validateTask = task => {
       (t === null || !_validTaskListNames.includes(t.name))
     )
       return false
-    else if (typeof t === 'string' && !_validTaskListNames.includes(t))
-      return false
+    if (typeof t === 'string' && !_validTaskListNames.includes(t)) return false
   }
   return true
 }
 
 const _newStepBlock = (RC, index, task, options) => {
   const useCode = _validTaskList[_getTaskName(task)].use
-  let use, useTip
+  let use
+  let useTip
 
   switch (useCode) {
     case 0:
@@ -287,18 +286,15 @@ const _newStepBlock = (RC, index, task, options) => {
   }
 
   const b = document.createElement('button')
-  b.className =
-    'rc-panel-step rc-panel-step-todo' +
-    (options._demoActivateAll
+  b.className = `rc-panel-step rc-panel-step-todo${
+    options._demoActivateAll
       ? ' rc-panel-step-active'
-      : ' rc-panel-step-inactive')
+      : ' rc-panel-step-inactive'
+  }`
   b.dataset.index = index
-  b.innerHTML =
-    (use.length ? `<p class="rc-panel-step-use">${use}</p>` : '') +
-    `<p class="rc-panel-step-name">${Number(index) + 1}&nbsp;&nbsp;${
-      phrases[_validTaskList[_getTaskName(task)].phraseHandle][RC.L]
-    }</p>` +
-    (use.length ? `<p class="rc-panel-step-use-tip">${use} ${useTip}</p>` : '')
+  b.innerHTML = `${use.length ? `<p class="rc-panel-step-use">${use}</p>` : ''}<p class="rc-panel-step-name">${Number(index) + 1}&nbsp;&nbsp;${
+    phrases[_validTaskList[_getTaskName(task)].phraseHandle][RC.L]
+  }</p>${use.length ? `<p class="rc-panel-step-use-tip">${use} ${useTip}</p>` : ''}`
   // b.disabled = true
   return b
 }
@@ -317,17 +313,17 @@ const _setStepsClassesSL = (steps, panelWidth, LD) => {
     steps.classList.add('rc-panel-steps-s')
     steps.classList.remove('rc-panel-steps-l')
 
-    steps.childNodes.forEach(e => {
+    for (const e of steps.childNodes) {
       e.classList.add(`rc-lang-${LD.toLowerCase()}`)
-    })
+    }
   } else {
     steps.classList.add('rc-panel-steps-l')
     steps.classList.remove('rc-panel-steps-s')
 
-    steps.childNodes.forEach(e => {
-      e.classList.remove(`rc-lang-ltr`)
-      e.classList.remove(`rc-lang-rtl`)
-    })
+    for (const e of steps.childNodes) {
+      e.classList.remove('rc-lang-ltr')
+      e.classList.remove('rc-lang-rtl')
+    }
   }
 }
 
@@ -419,12 +415,14 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
 }
 
 const _finishStepAt = index => {
-  document.querySelectorAll('.rc-panel-step').forEach(e => {
+  const steps = document.querySelectorAll('.rc-panel-step')
+
+  for (const e of steps) {
     if (Number(e.dataset.index) === index) {
       e.classList.replace('rc-panel-step-todo', 'rc-panel-step-finished')
       e.classList.replace('rc-panel-step-active', 'rc-panel-step-inactive')
     }
-  })
+  }
 }
 
 const _getTaskName = task => {
@@ -459,7 +457,9 @@ const _getTaskOptionsCallbacks = (
         getFinalCallbacks()
       },
     ]
-  } else if ('trackGaze' === task.name) {
+  }
+
+  if ('trackGaze' === task.name) {
     return [
       task.options || {},
       data => {
@@ -468,7 +468,9 @@ const _getTaskOptionsCallbacks = (
       },
       task.callbackTrack || null,
     ]
-  } else if ('trackDistance' === task.name) {
+  }
+
+  if ('trackDistance' === task.name) {
     return [
       task.options || {},
       data => {
@@ -481,7 +483,7 @@ const _getTaskOptionsCallbacks = (
 }
 
 const _clearPanelIntervals = RC => {
-  RC._panelStatus.panelResolveIntervals.forEach(i => clearInterval(i))
+  RC._panelStatus.panelResolveIntervals.map(i => clearInterval(i))
   RC._panelStatus.panelResolveIntervals = []
 }
 

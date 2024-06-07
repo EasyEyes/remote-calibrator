@@ -115,7 +115,9 @@ export const takeInput = async (
     }
     const fFunction = () => {
       let valid = false
-      let numericalValue, inputValue
+      let numericalValue
+      let inputValue
+
       if (
         unitIsFraction &&
         validInputInteger(formInputElementFInteger.value) &&
@@ -125,9 +127,9 @@ export const takeInput = async (
         valid = true
         numericalValue =
           Number.parseInt(formInputElementFInteger.value) +
+          // biome-ignore lint/security/noGlobalEval: the best way to parse fractions
           eval(formInputElementFFraction.value)
-        inputValue =
-          formInputElementFInteger.value + ' ' + formInputElementFFraction.value
+        inputValue = `${formInputElementFInteger.value} ${formInputElementFFraction.value}`
       } else if (!unitIsFraction && validInput(formInputElement.value)) {
         // OTHERS
         valid = true
@@ -179,7 +181,7 @@ const validInput = text => {
   return (
     text.length > 0 &&
     !text.includes(' ') &&
-    (!isNaN(text) || !isNaN(text.replace(',', '.')))
+    (!Number.isNaN(text) || !Number.isNaN(text.replace(',', '.')))
   )
 }
 
@@ -196,6 +198,7 @@ const validInputFraction = text => {
     validInputInteger(numbers[0]) &&
     validInputInteger(numbers[1]) &&
     powerOf2(numbers[1]) &&
+    // biome-ignore lint/security/noGlobalEval: the best way to parse fractions
     eval(text) < 1
   )
 }

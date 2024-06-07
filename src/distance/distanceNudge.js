@@ -5,8 +5,8 @@ import { addButtons } from '../components/buttons'
 import { sleep } from '../components/utils'
 
 RemoteCalibrator.prototype.nudgeDistance = function (
-  cancelable = false,
-  allowRecalibrate = true,
+  cancelable, // = false
+  allowRecalibrate, // = true
   trackingConfig,
 ) {
   ////
@@ -125,16 +125,16 @@ RemoteCalibrator.prototype.nudgeDistance = function (
         breakFunction()
       }
       return false
-    } else {
-      // ! In range
-      return true
     }
-  } else {
-    console.error(
-      'You need to start tracking viewing distance before checking it.',
-    )
-    return false
+
+    // ! In range
+    return true
   }
+  console.error(
+    'You need to start tracking viewing distance before checking it.',
+  )
+
+  return false
 }
 
 const withinRange = (value, target, toleranceRatio) => {
@@ -168,11 +168,11 @@ const startCorrecting = RC => {
 
 const getMoveInner = (RC, value, target) => {
   if (value >= target) return phrases.RC_distanceTrackingMoveCloser[RC.L]
-  else return phrases.RC_distanceTrackingMoveFurther[RC.L]
+  return phrases.RC_distanceTrackingMoveFurther[RC.L]
 }
 
 const validateAllowedRatio = ratio => {
-  if (isNaN(ratio)) return false
+  if (Number.isNaN(ratio)) return false
   return ratio > 0 && ratio !== 1
 }
 
@@ -193,7 +193,7 @@ RemoteCalibrator.prototype._addNudger = function (inner) {
   if (!b) {
     b = document.createElement('div')
     b.id = 'calibration-nudger'
-    b.className = 'calibration-nudger' + ` rc-lang-${this.LD.toLowerCase()}`
+    b.className = `calibration-nudger rc-lang-${this.LD.toLowerCase()}`
 
     document.body.classList.add('lock-view')
     document.body.appendChild(b)

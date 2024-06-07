@@ -60,7 +60,10 @@ const widthDataIn = {
   usbc: 0.787402, // 20mm (8.25mm head)
 }
 
-RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
+RemoteCalibrator.prototype.screenSize = function (
+  screenSizeOptions = {},
+  callback = undefined,
+) {
   /**
    *
    * options -
@@ -77,18 +80,18 @@ RemoteCalibrator.prototype.screenSize = function (options = {}, callback) {
   blurAll()
   ////
 
-  options = Object.assign(
+  const options = Object.assign(
     {
       fullscreen: false,
       repeatTesting: 1,
       decimalPlace: 1,
       defaultObject: 'card', // Can be card, usba, usbc
-      headline: '🖥️ ' + phrases.RC_screenSizeTitle[this.L],
+      headline: `🖥️ ${phrases.RC_screenSizeTitle[this.L]}`,
       description: phrases.RC_screenSizeIntro[this.L],
       check: false,
       checkCallback: null,
     },
-    options,
+    screenSizeOptions,
   )
 
   this.getFullscreen(options.fullscreen)
@@ -256,22 +259,21 @@ const setCardSizes = (RC, slider, card, arrow, aS) => {
       (slider.value / 100) *
       (window.innerWidth < 480 ? 2 : 1) +
     15
-  card.style.width = targetWidth + 'px'
+  card.style.width = `${targetWidth}px`
   // Arrow
   const cardSizes = card.getBoundingClientRect()
   if (cardSizes.width !== 0) {
-    arrow.style.left = cardSizes.left + targetWidth + 'px'
-    arrow.style.top =
+    arrow.style.left = `${cardSizes.left + targetWidth}px`
+    arrow.style.top = `${
       cardSizes.top +
       RC.background.scrollTop +
-      (targetWidth * 0.63 - aS.height) / 2 +
-      'px'
+      (targetWidth * 0.63 - aS.height) / 2
+    }px`
   }
 }
 
 const setConnectorSizes = (slider, connector) => {
-  connector.style.width =
-    remap(Math.pow(slider.value, 1.5), 0, 1000, 50, 400) + 'px'
+  connector.style.width = `${remap(slider.value ** 1.5, 0, 1000, 50, 400)}px`
 }
 
 const addMatchingObj = (names, parent) => {
@@ -287,7 +289,7 @@ const addMatchingObj = (names, parent) => {
     let element = document.createElement('div')
     parent.appendChild(element)
     element.outerHTML = resources[name]
-    element = document.getElementById('size-' + name)
+    element = document.getElementById(`size-${name}`)
     element.setAttribute('preserveAspectRatio', 'none')
     element.style.visibility = 'hidden'
     elements[name] = element
@@ -344,5 +346,5 @@ const _getScreenData = (ppi, toFixedN) => {
 
 const setObjectsPosition = (objects, slider) => {
   for (const i in objects)
-    objects[i].style.top = slider.getBoundingClientRect().top + 50 + 'px'
+    objects[i].style.top = `${slider.getBoundingClientRect().top + 50}px`
 }

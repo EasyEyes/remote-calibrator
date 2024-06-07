@@ -30,7 +30,7 @@
   "linter": {
     "enabled": true,
     "include": ["homepage", "i18n", "src", "test"],
-    "ignore": ["node_modules", "WebGazer4RC", "lib"],
+    "ignore": ["node_modules", "WebGazer4RC", "lib", "example.js"],
     "rules": {
       "a11y": {
         "useKeyWithClickEvents": "off",
