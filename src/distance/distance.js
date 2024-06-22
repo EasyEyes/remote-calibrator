@@ -152,19 +152,11 @@ export function blindSpotTest(
 
         // ! Break
         let measureType // For the check function
-        if (!toTrackDistance) {
-          measureType = 'measureDistance'
-          breakFunction(false)
-        } else {
-          // ! For tracking
-          measureType = 'trackDistance'
-          // Stop test
-          inTest = false
-          // Clear observer and keys
-          resizeObserver.unobserve(RC.background)
-          unbindKeys(bindKeysFunction)
-          unbindKeys(bindKeyUpsFunction, 'keyup')
-        }
+        if (!toTrackDistance) measureType = 'measureDistance'
+        else measureType = 'trackDistance' // ! For tracking
+
+        // Remove background, etc.
+        breakFunction(false)
 
         // ! check
         if (options.check)

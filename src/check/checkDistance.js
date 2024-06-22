@@ -37,6 +37,8 @@ const checkDistance = async (
   if (isTrack) safeExecuteFunc(distanceCallback, distanceData)
 
   if (RC.equipment?.value?.has) {
+    RC._addBackground()
+
     // ! Has equipment
     RC._replaceBackground(
       constructInstructions(

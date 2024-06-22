@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.13] - 2024-06-22
+
+Fixed a bug where the viewing distance tracking setup may never end.
+
 ## [0.7.12] - 2024-06-04
 
 Fixed a bug where the viewing distance tracking may not return values.
@@ -393,7 +397,8 @@ No new feature updates in this release. Updated dependency packages and the lice
 
 The framework and some basic functions, e.g., screen size calibration. Released for integration testing.
 
-[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.12...develop
+[unreleased]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.13...develop
+[0.7.13]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.12...v0.7.13
 [0.7.12]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.4...v0.7.12
 [0.7.4]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.2...v0.7.4
 [0.7.2]: https://github.com/EasyEyes/remote-calibrator/compare/v0.7.1...v0.7.2

@@ -146,6 +146,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
     )
 
     if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
+
     blindSpotTest(this, options, true, getStdDist)
   }
 
@@ -208,6 +209,7 @@ const startTrackingPupils = async (
 
   RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
     RC._removeFloatInstructionElement()
+
     safeExecuteFunc(beforeCallbackTrack)
     _tracking(RC, trackingOptions, callbackTrack, trackingConfig)
   })
@@ -350,7 +352,8 @@ const _tracking = async (
               stdFactor = averageDist * stdDist.current.value
 
               // ! FINISH
-              if (!trackingConfig.options.check) RC._removeBackground() // Remove BG if no check
+              if (trackingConfig.options.check !== true) RC._removeBackground() // Remove BG if no check
+
               RC._trackingSetupFinishedStatus.distance = true
               readyToGetFirstData = true
             }
