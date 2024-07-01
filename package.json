@@ -33,7 +33,7 @@
     "babel-loader": "^9.1.0",
     "bufferutil": "^4.0.7",
     "clean-webpack-plugin": "^4.0.0",
-    "css-loader": "^6.7.3",
+    "css-loader": "^7.1.2",
     "css-minimizer-webpack-plugin": "^4.2.2",
     "cssnano": "^5.1.14",
     "eslint": "^8.31.0",
