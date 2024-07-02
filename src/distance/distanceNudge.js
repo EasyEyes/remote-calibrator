@@ -98,7 +98,10 @@ RemoteCalibrator.prototype.nudgeDistance = function (
             this.viewingDistanceCm.value,
             distanceDesired,
           )
-          guideNumNow.innerHTML = Math.round(this.viewingDistanceCm.value)
+          guideNumNow.innerHTML =
+            this.viewingDistanceCm.value > 100
+              ? Math.round(this.viewingDistanceCm.value)
+              : this.viewingDistanceCm.value.toFixed(1)
           guideNumDesired.innerHTML = Math.round(distanceDesired)
         }
         _update()
