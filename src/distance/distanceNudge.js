@@ -12,9 +12,9 @@ RemoteCalibrator.prototype.nudgeDistance = function (
   ////
   if (!this.checkInitialized()) return
   ////
-  const { distanceDesired, distanceAllowedRatio } = this._distanceTrackNudging
+  // const { distanceDesired, distanceAllowedRatio } = this._distanceTrackNudging.
 
-  if (!distanceDesired) return
+  if (!this._distanceTrackNudging.distanceDesired) return
 
   if (
     this.viewingDistanceCm &&
@@ -23,8 +23,8 @@ RemoteCalibrator.prototype.nudgeDistance = function (
     if (
       !withinRange(
         this.viewingDistanceCm.value,
-        distanceDesired,
-        distanceAllowedRatio,
+        this._distanceTrackNudging.distanceDesired,
+        this._distanceTrackNudging.distanceAllowedRatio,
       )
     ) {
       // ! Out of range
@@ -96,13 +96,15 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           moveElement.innerHTML = getMoveInner(
             this,
             this.viewingDistanceCm.value,
-            distanceDesired,
+            this._distanceTrackNudging.distanceDesired,
           )
           guideNumNow.innerHTML =
             this.viewingDistanceCm.value > 100
               ? Math.round(this.viewingDistanceCm.value)
               : this.viewingDistanceCm.value.toFixed(1)
-          guideNumDesired.innerHTML = Math.round(distanceDesired)
+          guideNumDesired.innerHTML = Math.round(
+            this._distanceTrackNudging.distanceDesired,
+          )
         }
         _update()
 
@@ -113,8 +115,8 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           if (
             withinRange(
               this.viewingDistanceCm.value,
-              distanceDesired,
-              distanceAllowedRatio,
+              this._distanceTrackNudging.distanceDesired,
+              this._distanceTrackNudging.distanceAllowedRatio,
             )
           ) {
             breakFunction()
