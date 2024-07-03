@@ -78,6 +78,7 @@ class RemoteCalibrator {
       distanceCorrectEnabled: false, // Whether to correct or not, used for endNudger
       distanceDesired: null,
       distanceAllowedRatio: null,
+      needEasyEyesKeypadBeyondCm: null,
     }
 
     this._gazeTrackNudging = {

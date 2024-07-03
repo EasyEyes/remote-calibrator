@@ -62,7 +62,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
         this._distanceTrackNudging.distanceCorrectEnabled
       ) {
         // ! Start
-        const [moveElement, guideNumNow, guideNumDesired] =
+        const [moveElement, guideNumNow, guideNumDesired, canUseKeypad] =
           startCorrecting(this)
 
         let buttonConfig = cancelable
@@ -105,6 +105,15 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           guideNumDesired.innerHTML = Math.round(
             this._distanceTrackNudging.distanceDesired,
           )
+          if (
+            this._distanceTrackNudging.needEasyEyesKeypadBeyondCm &&
+            this._distanceTrackNudging.distanceDesired >
+              this._distanceTrackNudging.needEasyEyesKeypadBeyondCm
+          ) {
+            canUseKeypad.innerHTML = ' ' + phrases.RC_canUsePhoneKeypad[this.L]
+          } else {
+            canUseKeypad.innerHTML = ''
+          }
         }
         _update()
 
@@ -160,7 +169,7 @@ const startCorrecting = RC => {
     .replace(
       'xx2',
       `<span class="rc-distance-num rc-distance-desired" id="rc-distance-desired"></span>`,
-    )}</p>
+    )}<span class="rc-distance-desired" id="rc-can-use-keypad"></span></p>
 </div>
   `)
 
@@ -168,6 +177,7 @@ const startCorrecting = RC => {
     document.querySelector('#rc-distance-correct-instruction'),
     document.querySelector('#rc-distance-now'),
     document.querySelector('#rc-distance-desired'),
+    document.querySelector('#rc-can-use-keypad'),
   ]
 }
 
@@ -184,8 +194,12 @@ const validateAllowedRatio = ratio => {
 RemoteCalibrator.prototype.setDistanceDesired = function (
   d,
   allowedRatio = null,
+  needEasyEyesKeypadBeyondCm = null,
 ) {
   this._distanceTrackNudging.distanceDesired = d
+  if (needEasyEyesKeypadBeyondCm)
+    this._distanceTrackNudging.needEasyEyesKeypadBeyondCm =
+      needEasyEyesKeypadBeyondCm
   if (allowedRatio && validateAllowedRatio(allowedRatio))
     this._distanceTrackNudging.distanceAllowedRatio = allowedRatio
   return d

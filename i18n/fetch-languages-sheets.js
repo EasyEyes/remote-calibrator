@@ -44,6 +44,7 @@ async function processLanguageSheet() {
         'RC_privacyCamera',
         'RC_errorCameraUseDenied',
         'RC_errorNoCamera',
+        'RC_canUsePhoneKeypad',
 
         // Performance
         'RC_performanceTitle',
