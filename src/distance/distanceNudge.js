@@ -105,12 +105,13 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           guideNumDesired.innerHTML = Math.round(
             this._distanceTrackNudging.distanceDesired,
           )
+
           if (
             this._distanceTrackNudging.needEasyEyesKeypadBeyondCm &&
             this._distanceTrackNudging.distanceDesired >
               this._distanceTrackNudging.needEasyEyesKeypadBeyondCm
           ) {
-            canUseKeypad.innerHTML = ' ' + phrases.RC_canUsePhoneKeypad[this.L]
+            canUseKeypad.innerHTML = ` ${phrases.RC_canUsePhoneKeypad[this.L]}`
           } else {
             canUseKeypad.innerHTML = ''
           }
