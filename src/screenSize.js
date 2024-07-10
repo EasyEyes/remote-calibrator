@@ -21,6 +21,7 @@ import {
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
 import { phrases } from './i18n/schema'
+import { setupHandler } from './keypadHandler'
 
 RemoteCalibrator.prototype._displaySize = function () {
   ////
@@ -192,6 +193,16 @@ function getSize(RC, parent, options, callback) {
   })
   resizeObserver.observe(parent)
 
+  const removeKeypadHandler = setupHandler(
+    null,
+    RC.keypadHandler,
+    () => {
+      finishFunction() // ! Finish
+    },
+    false,
+    ['return', 'space'],
+  )
+
   // Call when ESC pressed
   const breakFunction = () => {
     document.removeEventListener('mousedown', onMouseDown, false)
@@ -199,6 +210,7 @@ function getSize(RC, parent, options, callback) {
     document.removeEventListener('input', onSliderInput, false)
     resizeObserver.unobserve(parent)
     RC._removeBackground()
+    removeKeypadHandler()
 
     // Unbind keys
     unbindKeys(bindKeysFunction)

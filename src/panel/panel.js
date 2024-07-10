@@ -10,6 +10,7 @@ import Camera from '../media/photo-camera.svg'
 import Phone from '../media/smartphone.svg'
 
 import '../css/panel.scss'
+import { setupHandler } from '../keypadHandler'
 
 RemoteCalibrator.prototype.removePanel = function () {
   if (!this._panelStatus.hasPanel) return false
@@ -66,6 +67,7 @@ RemoteCalibrator.prototype.panel = async function (
   callback = null,
   resolveOnFinish = null,
   __reset__ = false, // ! Not available to users
+  keypadHandler = null, // EasyEyes keypad // {event_handlers:[], all_keys:[]} || null
 ) {
   if (this._panelStatus.hasPanel ^ __reset__) return false
   /**
@@ -88,6 +90,8 @@ RemoteCalibrator.prototype.panel = async function (
     console.error('Cannot find the parent element.')
     return false
   }
+
+  this.keypadHandler = keypadHandler
 
   const options = Object.assign(
     {
@@ -356,6 +360,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
                 ),
               )
             }
+            setupHandler(e, RC.keypadHandler)
           } else {
             // Interim tasks
             e.onclick = () => {
@@ -371,6 +376,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
                 ),
               )
             }
+            setupHandler(e, RC.keypadHandler)
           }
         } else if (eIndex === tasks.length && options.showNextButton) {
           // All tasks finished with next button
@@ -387,6 +393,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
             RC._panelStatus.panelFinished = true
             safeExecuteFunc(finalCallback, { timestamp: performance.now() })
           }
+          setupHandler(e, RC.keypadHandler)
         }
       }
     } else {
@@ -410,6 +417,7 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
           safeExecuteFunc(finalCallback, { timestamp: performance.now() })
         }
       }
+      setupHandler(e, RC.keypadHandler)
     }
   })
 }

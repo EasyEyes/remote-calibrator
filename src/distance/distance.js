@@ -26,6 +26,7 @@ import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
 import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from '../components/swalOptions'
+import { setupHandler } from '../keypadHandler'
 
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
@@ -99,6 +100,15 @@ export function blindSpotTest(
 
   let v = eyeSide === 'left' ? 1 : -1
 
+  let removeKeypadHandler = setupHandler(
+    null,
+    RC.keypadHandler,
+    () => {
+      finishFunction() // ! Finish
+    },
+    false,
+  )
+
   // ! KEY
   const breakFunction = (toBreakTracking = true) => {
     // ! BREAK
@@ -158,6 +168,9 @@ export function blindSpotTest(
         // Remove background, etc.
         breakFunction(false)
 
+        //remove Handler
+        removeKeypadHandler()
+
         // ! check
         if (options.check)
           await RC._checkDistance(
@@ -189,6 +202,16 @@ export function blindSpotTest(
         })
       }
     } else if (tested % options.repeatTesting === 0) {
+      removeKeypadHandler()
+      removeKeypadHandler = setupHandler(
+        null,
+        RC.keypadHandler,
+        () => {
+          finishFunction() // ! Finish
+        },
+        false,
+      )
+
       // Switch eye side
       if (eyeSide === 'left') {
         // Change to RIGHT
