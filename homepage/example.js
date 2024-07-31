@@ -606,6 +606,103 @@ function testPerformanceComputeCode() {
   printCode(_testPerformanceComputeCode, '.performanceCompute()')
 }
 
+function testMultipleDisplay() {
+  const experimentElement = document.getElementById('experiment')
+  const p = document.createElement('p')
+  p.innerHTML = 'This is a test for multiple displays.'
+  experimentElement.appendChild(p)
+
+  const verticalLineButton = document.createElement('button')
+  verticalLineButton.innerHTML = 'Create Vertical Line'
+  const explanationVertical = document.createElement('p')
+  explanationVertical.innerHTML =
+    'The below "Create Vertical Line" button makes use of <a href = "https://chatgpt.com/share/258baeac-47ce-44b4-9441-197b8c3c4713" target ="_blank"> this ChatGPT conversation</a> provided by Prof. Denis. It doesn\'t seem to work as intended. It only opens a new window in the same display.'
+  verticalLineButton.onclick = () => {
+    const verticalLineWindow = window.open(
+      '',
+      'Vertical Line',
+      `width=${400},height=${400}`,
+    )
+    drawVerticalLine(verticalLineWindow)
+    moveToDisplay(verticalLineWindow, 1)
+  }
+
+  verticalLineButton.style.marginLeft = '10px'
+  experimentElement.appendChild(explanationVertical)
+  experimentElement.appendChild(verticalLineButton)
+
+  const verticalLineButton2 = document.createElement('button')
+  verticalLineButton2.innerHTML = 'Create Vertical Line using Presentation API'
+  const explanationVertical2 = document.createElement('p')
+  explanationVertical2.innerHTML =
+    'The below "Create Vertical Line using Presentation API" button makes use of <a href = "https://developer.mozilla.org/en-US/docs/Web/API/Presentation_API" target ="_blank"> Presentation API</a> This method opens up a browser dialogue box and asks the user to choose a display. Then it succesfully opens up a new full screen window in the selected display. It also has the ability to send data back and forth. It only works on Chrome 59+, Edge 79+ and Opera 46+.'
+
+  verticalLineButton2.onclick = () => {
+    const presentationRequest = new PresentationRequest('vertical_line.html')
+    presentationRequest
+      .start()
+      .then(connection => {
+        console.log('Presentation started:', connection)
+        // You can communicate with the presentation window here
+        connection.onconnect = () => {
+          console.log('Connected to presentation:', connection)
+          verticalLineButton2.innerHTML = 'Close Window'
+          verticalLineButton2.onclick = () => {
+            connection.terminate()
+          }
+        }
+        connection.onterminate = () => {
+          console.log('Presentation terminated:', connection)
+          verticalLineButton2.innerHTML =
+            'Create Vertical Line using Presentation API'
+        }
+      })
+      .catch(error => {
+        console.error('Error starting presentation:', error)
+      })
+  }
+
+  experimentElement.appendChild(explanationVertical2)
+  experimentElement.appendChild(verticalLineButton2)
+}
+function moveToDisplay(win, displayIndex) {
+  const screenWidth = window.screen.width
+  const screenHeight = window.screen.height
+
+  switch (displayIndex) {
+    case 0:
+      win.moveTo(0, 0)
+      break
+    case 1:
+      win.moveTo(screenWidth, 0)
+      break
+    case 2:
+      win.moveTo(screenWidth * 2, 0)
+      break
+    default:
+      win.moveTo(0, 0)
+  }
+  // win.resizeTo(screenWidth, screenHeight)
+}
+
+function drawVerticalLine(win) {
+  win.document.write(
+    '<html><head><title>Vertical Line</title></head><body></body></html>',
+  )
+  const canvas = win.document.createElement('canvas')
+  canvas.width = 400
+  canvas.height = 400
+  win.document.body.appendChild(canvas)
+  const context = canvas.getContext('2d')
+
+  context.beginPath()
+  context.moveTo(canvas.width / 2, 0)
+  context.lineTo(canvas.width / 2, canvas.height)
+  context.strokeStyle = 'black'
+  context.lineWidth = 2
+  context.stroke()
+}
+
 /* -------------------------------------------------------------------------- */
 
 /**
