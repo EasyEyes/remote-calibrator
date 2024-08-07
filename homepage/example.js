@@ -632,13 +632,14 @@ function testMultipleDisplay() {
   experimentElement.appendChild(verticalLineButton)
 
   const verticalLineButton2 = document.createElement('button')
-  verticalLineButton2.innerHTML = 'Create Vertical Line using Presentation API'
+  verticalLineButton2.innerHTML = 'Open on a new Display'
   const explanationVertical2 = document.createElement('p')
   explanationVertical2.innerHTML =
-    'The below "Create Vertical Line using Presentation API" button makes use of <a href = "https://developer.mozilla.org/en-US/docs/Web/API/Presentation_API" target ="_blank"> Presentation API</a> This method opens up a browser dialogue box and asks the user to choose a display. Then it succesfully opens up a new full screen window in the selected display. It also has the ability to send data back and forth. It only works on Chrome 59+, Edge 79+ and Opera 46+.'
+    'The below "Open on a new Display" button makes use of <a href = "https://developer.mozilla.org/en-US/docs/Web/API/Presentation_API" target ="_blank"> Presentation API</a> This method opens up a browser dialogue box and asks the user to choose a display. Then it succesfully opens up a new full screen window in the selected display. It also has the ability to send data back and forth. It only works on Chrome 59+, Edge 79+ and Opera 46+.<br><br>UPDATE: Unfortunately, this only works great with one external display. We can only initiate one presentation session at a time! '
 
   verticalLineButton2.onclick = () => {
     const presentationRequest = new PresentationRequest('vertical_line.html')
+
     presentationRequest
       .start()
       .then(connection => {
@@ -646,15 +647,17 @@ function testMultipleDisplay() {
         // You can communicate with the presentation window here
         connection.onconnect = () => {
           console.log('Connected to presentation:', connection)
-          verticalLineButton2.innerHTML = 'Close Window'
-          verticalLineButton2.onclick = () => {
+          //Create new button to terminate this session:
+          const terminateButton = document.createElement('button')
+          terminateButton.innerHTML = 'Terminate 1st Connection'
+          experimentElement.appendChild(terminateButton)
+          terminateButton.onclick = () => {
             connection.terminate()
+            terminateButton.remove()
           }
         }
         connection.onterminate = () => {
           console.log('Presentation terminated:', connection)
-          verticalLineButton2.innerHTML =
-            'Create Vertical Line using Presentation API'
         }
       })
       .catch(error => {
@@ -664,7 +667,70 @@ function testMultipleDisplay() {
 
   experimentElement.appendChild(explanationVertical2)
   experimentElement.appendChild(verticalLineButton2)
+
+  let openedWindows = {} // store all connections
+  let messageSentAt = null
+  let average = 0
+
+  const explanation3 = document.createElement('p')
+  explanation3.innerHTML =
+    'Third Option: This builds on the first option. It opens up a new window with instructions on which display to drag the sceen to. Then it provides an option to send data to the open windows. In this demo, you can open two windows (one to drag to the left display and one to drag to the right display). Then you can input text in the text box and click "Display Text". It chooses a random window to display the text.'
+  const openWindow1 = document.createElement('button')
+  openWindow1.id = 'openWindow1'
+  openWindow1.innerHTML = 'Open Left Window'
+  openWindow1.onclick = () => {
+    const win1 = openWindow('display1.html', 'Display 1')
+    openedWindows[win1.name] = win1
+    win1.onload = () => {
+      // win1.initPeerConnection('peer1', peer.id)
+      win1.document.getElementById('display-text').innerHTML =
+        'Drag me to the LEFT'
+    }
+  }
+  const openWindow2 = document.createElement('button')
+  openWindow2.id = 'openWindow2'
+  openWindow2.innerHTML = 'Open Right Window'
+  openWindow2.onclick = () => {
+    const win2 = openWindow('display1.html', 'Display 2')
+    openedWindows[win2.name] = win2
+    win2.onload = () => {
+      // win2.initPeerConnection('peer2', peer.id)
+      win2.document.getElementById('display-text').innerHTML =
+        'Drag me to the RIGHT'
+    }
+  }
+  experimentElement.appendChild(explanation3)
+  experimentElement.appendChild(openWindow1)
+  experimentElement.appendChild(openWindow2)
+  const displayText = document.createElement('input')
+  displayText.type = 'text'
+  displayText.id = 'text-to-display'
+  displayText.placeholder = 'Enter text to display'
+  const displayTextButton = document.createElement('button')
+  displayTextButton.innerHTML = 'Display Text'
+  displayTextButton.onclick = () => {
+    //choose a random window to display the text and display it for 500ms
+    const keys = Object.keys(openedWindows)
+    const randomKey = keys[Math.floor(Math.random() * keys.length)]
+    if (openedWindows[randomKey]) {
+      const element =
+        openedWindows[randomKey].document.getElementById('display-text')
+      if (element) {
+        element.style.fontSize = '20rem'
+        element.innerHTML = displayText.value
+        setTimeout(() => {
+          element.innerHTML = ''
+        }, 500)
+      }
+    }
+  }
+  //add a new line
+  experimentElement.appendChild(document.createElement('br'))
+  experimentElement.appendChild(document.createElement('br'))
+  experimentElement.appendChild(displayText)
+  experimentElement.appendChild(displayTextButton)
 }
+
 function moveToDisplay(win, displayIndex) {
   const screenWidth = window.screen.width
   const screenHeight = window.screen.height
@@ -701,6 +767,11 @@ function drawVerticalLine(win) {
   context.strokeStyle = 'black'
   context.lineWidth = 2
   context.stroke()
+}
+
+// Function to open a new window and pass data
+function openWindow(url, name) {
+  return window.open(url, name, 'width=800,height=600')
 }
 
 /* -------------------------------------------------------------------------- */

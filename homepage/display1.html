@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Display Page</title>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.3.1/dist/peerjs.min.js"></script>
+  </head>
+  <body>
+    <video id="video" autoplay playsinline></video>
+
+    <script>
+      //Display text on the screen for 500ms
+      function displayText(text) {
+        displayInstructions(text)
+        setTimeout(() => {
+          displayInstructions('')
+        }, 500)
+      }
+      function displayInstructions(text) {
+        document.getElementById('display-text').innerText = text
+      }
+
+      window.displayText = displayText
+      window.displayInstructions = displayInstructions
+    </script>
+    <h1
+      id="display-text"
+      style="display: flex; justify-content: center; align-items: center"
+    >
+      <!-- Drag me to the LEFT display -->
+    </h1>
+  </body>
+</html>
