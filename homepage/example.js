@@ -606,161 +606,209 @@ function testPerformanceComputeCode() {
   printCode(_testPerformanceComputeCode, '.performanceCompute()')
 }
 
-function testMultipleDisplay() {
-  const experimentElement = document.getElementById('experiment')
+function createExperimentParagraph(text) {
   const p = document.createElement('p')
-  p.innerHTML = 'This is a test for multiple displays.'
-  experimentElement.appendChild(p)
+  p.innerHTML = text
+  return p
+}
 
-  const verticalLineButton = document.createElement('button')
-  verticalLineButton.innerHTML = 'Create Vertical Line'
-  const explanationVertical = document.createElement('p')
-  explanationVertical.innerHTML =
-    'The below "Create Vertical Line" button makes use of <a href = "https://chatgpt.com/share/258baeac-47ce-44b4-9441-197b8c3c4713" target ="_blank"> this ChatGPT conversation</a> provided by Prof. Denis. It doesn\'t seem to work as intended. It only opens a new window in the same display.'
-  verticalLineButton.onclick = () => {
-    const verticalLineWindow = window.open(
-      '',
-      'Vertical Line',
-      `width=${400},height=${400}`,
-    )
-    drawVerticalLine(verticalLineWindow)
-    moveToDisplay(verticalLineWindow, 1)
+function createButton(text, onClickHandler, marginLeft = '0px') {
+  const button = document.createElement('button')
+  button.innerHTML = text
+  button.style.marginLeft = marginLeft
+  button.onclick = onClickHandler
+  return button
+}
+
+function createExplanation(text, links = []) {
+  const explanation = document.createElement('p')
+  explanation.innerHTML = `${text}${links
+    .map(link => `<a href="${link.url}" target="_blank">${link.label}</a>`)
+    .join(' ')}`
+  return explanation
+}
+
+function createDisplayOptionButtons() {
+  const openLeftWindowButton = createButton('Open Left Window', () => {
+    handleWindowOpen('display1.html', 'Display 1', 'Drag me to the LEFT')
+  })
+
+  const openRightWindowButton = createButton('Open Right Window', () => {
+    handleWindowOpen('display1.html', 'Display 2', 'Drag me to the RIGHT')
+  })
+
+  return [openLeftWindowButton, openRightWindowButton]
+}
+
+function handleWindowOpen(url, name, displayText) {
+  const win = openWindow(url, name)
+  openedWindows[win.name] = win
+  win.onload = () => {
+    win.document.getElementById('display-text').innerHTML = displayText
   }
+}
 
-  verticalLineButton.style.marginLeft = '10px'
-  experimentElement.appendChild(explanationVertical)
-  experimentElement.appendChild(verticalLineButton)
+function createTextInput(id, placeholder) {
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.id = id
+  input.placeholder = placeholder
+  return input
+}
 
-  const verticalLineButton2 = document.createElement('button')
-  verticalLineButton2.innerHTML = 'Open on a new Display'
-  const explanationVertical2 = document.createElement('p')
-  explanationVertical2.innerHTML =
-    'The below "Open on a new Display" button makes use of <a href = "https://developer.mozilla.org/en-US/docs/Web/API/Presentation_API" target ="_blank"> Presentation API</a> This method opens up a browser dialogue box and asks the user to choose a display. Then it succesfully opens up a new full screen window in the selected display. It also has the ability to send data back and forth. It only works on Chrome 59+, Edge 79+ and Opera 46+.<br><br>UPDATE: Unfortunately, this only works great with one external display. We can only initiate one presentation session at a time! '
-
-  verticalLineButton2.onclick = () => {
-    const presentationRequest = new PresentationRequest('vertical_line.html')
-
-    presentationRequest
-      .start()
-      .then(connection => {
-        console.log('Presentation started:', connection)
-        // You can communicate with the presentation window here
-        connection.onconnect = () => {
-          console.log('Connected to presentation:', connection)
-          //Create new button to terminate this session:
-          const terminateButton = document.createElement('button')
-          terminateButton.innerHTML = 'Terminate 1st Connection'
-          experimentElement.appendChild(terminateButton)
-          terminateButton.onclick = () => {
-            connection.terminate()
-            terminateButton.remove()
-          }
-        }
-        connection.onterminate = () => {
-          console.log('Presentation terminated:', connection)
-        }
-      })
-      .catch(error => {
-        console.error('Error starting presentation:', error)
-      })
-  }
-
-  experimentElement.appendChild(explanationVertical2)
-  experimentElement.appendChild(verticalLineButton2)
-
-  let openedWindows = {} // store all connections
-  let messageSentAt = null
-  let average = 0
-
-  const explanation3 = document.createElement('p')
-  explanation3.innerHTML =
-    'Third Option: This builds on the first option. It opens up a new window with instructions on which display to drag the sceen to. Then it provides an option to send data to the open windows. In this demo, you can open two windows (one to drag to the left display and one to drag to the right display). Then you can input text in the text box and click "Display Text". It chooses a random window to display the text.'
-  const openWindow1 = document.createElement('button')
-  openWindow1.id = 'openWindow1'
-  openWindow1.innerHTML = 'Open Left Window'
-  openWindow1.onclick = () => {
-    const win1 = openWindow('display1.html', 'Display 1')
-    openedWindows[win1.name] = win1
-    win1.onload = () => {
-      // win1.initPeerConnection('peer1', peer.id)
-      win1.document.getElementById('display-text').innerHTML =
-        'Drag me to the LEFT'
-    }
-  }
-  const openWindow2 = document.createElement('button')
-  openWindow2.id = 'openWindow2'
-  openWindow2.innerHTML = 'Open Right Window'
-  openWindow2.onclick = () => {
-    const win2 = openWindow('display1.html', 'Display 2')
-    openedWindows[win2.name] = win2
-    win2.onload = () => {
-      // win2.initPeerConnection('peer2', peer.id)
-      win2.document.getElementById('display-text').innerHTML =
-        'Drag me to the RIGHT'
-    }
-  }
-  experimentElement.appendChild(explanation3)
-  experimentElement.appendChild(openWindow1)
-  experimentElement.appendChild(openWindow2)
-  const displayText = document.createElement('input')
-  displayText.type = 'text'
-  displayText.id = 'text-to-display'
-  displayText.placeholder = 'Enter text to display'
-  const displayTextButton = document.createElement('button')
-  displayTextButton.innerHTML = 'Display Text'
-  displayTextButton.onclick = () => {
-    //choose a random window to display the text and display it for 500ms
+function createDisplayTextButton() {
+  return createButton('Display Text', () => {
     const keys = Object.keys(openedWindows)
     const randomKey = keys[Math.floor(Math.random() * keys.length)]
     if (openedWindows[randomKey]) {
-      const element =
-        openedWindows[randomKey].document.getElementById('display-text')
-      if (element) {
-        element.style.fontSize = '20rem'
-        element.innerHTML = displayText.value
-        setTimeout(() => {
-          element.innerHTML = ''
-        }, 500)
-      }
+      displayTextInWindow(openedWindows[randomKey])
     }
+  })
+}
+
+function createButtonToGetWindowLocation() {
+  return createButton('Get Window Location', () => {
+    const keys = Object.keys(openedWindows)
+    const randomKey = keys[Math.floor(Math.random() * keys.length)]
+    if (openedWindows[randomKey]) {
+      const win = openedWindows[randomKey]
+      console.log('Window location:', win.screenX, win.screenY)
+    }
+  })
+}
+
+function createShrinkWindowButton() {
+  return createButton('Shrink Window', () => {
+    //choose the first window to shrink
+    const keys = Object.keys(openedWindows)
+    const randomKey = keys[Math.floor(Math.random() * keys.length)]
+    if (openedWindows[randomKey]) shrinkWindow(openedWindows[randomKey])
+  })
+}
+
+function displayTextInWindow(win) {
+  const textElement = win.document.getElementById('display-text')
+  if (textElement) {
+    textElement.style.fontSize = '20rem'
+    textElement.innerHTML = document.getElementById('text-to-display').value
+    setTimeout(() => {
+      textElement.innerHTML = ''
+    }, 500)
   }
-  //add a new line
+}
+
+function handlePresentationStart(presentationRequest) {
+  presentationRequest
+    .start()
+    .then(connection => {
+      console.log('Presentation started:', connection)
+      setupPresentationConnection(connection)
+    })
+    .catch(error => console.error('Error starting presentation:', error))
+}
+
+function setupPresentationConnection(connection) {
+  connection.onconnect = () => {
+    console.log('Connected to presentation:', connection)
+    // const terminateButton = createButton('Terminate 1st Connection', () => {
+    //   connection.terminate()
+    //   terminateButton.remove()
+    // })
+    // document.getElementById('experiment').appendChild(terminateButton)
+  }
+  connection.onterminate = () =>
+    console.log('Presentation terminated:', connection)
+}
+
+function testMultipleDisplay() {
+  const experimentElement = document.getElementById('experiment')
+
+  experimentElement.appendChild(
+    createExperimentParagraph('This is a test for multiple displays.'),
+  )
+
+  const verticalLineButton = createButton(
+    'Create Vertical Line',
+    () => {
+      const verticalLineWindow = window.open(
+        '',
+        'Vertical Line',
+        'width=400,height=400',
+      )
+      drawVerticalLine(verticalLineWindow)
+      moveToDisplay(verticalLineWindow, 1)
+    },
+    '10px',
+  )
+
+  const verticalLineExplanation = createExplanation(
+    'The below "Create Vertical Line" button makes use of ',
+    [
+      {
+        url: 'https://chatgpt.com/share/258baeac-47ce-44b4-9441-197b8c3c4713',
+        label: 'this ChatGPT conversation',
+      },
+    ],
+  )
+  experimentElement.appendChild(verticalLineExplanation)
+  experimentElement.appendChild(verticalLineButton)
+
+  const presentationButton = createButton('Open on a new Display', () => {
+    const presentationRequest = new PresentationRequest('vertical_line.html')
+    handlePresentationStart(presentationRequest)
+  })
+
+  const presentationExplanation = createExplanation(
+    'The below "Open on a new Display" button makes use of ',
+    [
+      {
+        url: 'https://developer.mozilla.org/en-US/docs/Web/API/Presentation_API',
+        label: 'Presentation API',
+      },
+    ],
+  )
+  experimentElement.appendChild(presentationExplanation)
+  experimentElement.appendChild(presentationButton)
+
+  const displayOptionExplanation = createExplanation(
+    'Third Option: This builds on the first option. It opens up a new window with instructions on which display to drag the screen to. Then it provides an option to send data to the open windows. In this demo, you can open two windows (one to drag to the left display and one to drag to the right display). Then you can input text in the text box and click "Display Text". It chooses a random window to display the text.',
+  )
+  experimentElement.appendChild(displayOptionExplanation)
+
+  const [openLeftWindowButton, openRightWindowButton] =
+    createDisplayOptionButtons()
+  experimentElement.appendChild(openLeftWindowButton)
+  experimentElement.appendChild(openRightWindowButton)
+
+  const textInput = createTextInput('text-to-display', 'Enter text to display')
   experimentElement.appendChild(document.createElement('br'))
   experimentElement.appendChild(document.createElement('br'))
-  experimentElement.appendChild(displayText)
-  experimentElement.appendChild(displayTextButton)
+  experimentElement.appendChild(textInput)
+  experimentElement.appendChild(createDisplayTextButton())
+  experimentElement.appendChild(createButtonToGetWindowLocation())
+
+  experimentElement.appendChild(createShrinkWindowButton())
 }
 
 function moveToDisplay(win, displayIndex) {
   const screenWidth = window.screen.width
-  const screenHeight = window.screen.height
+  const positions = [
+    { left: 0, top: 0 },
+    { left: screenWidth, top: 0 },
+    { left: screenWidth * 2, top: 0 },
+  ]
 
-  switch (displayIndex) {
-    case 0:
-      win.moveTo(0, 0)
-      break
-    case 1:
-      win.moveTo(screenWidth, 0)
-      break
-    case 2:
-      win.moveTo(screenWidth * 2, 0)
-      break
-    default:
-      win.moveTo(0, 0)
-  }
-  // win.resizeTo(screenWidth, screenHeight)
+  const position = positions[displayIndex] || positions[0]
+  win.moveTo(position.left, position.top)
 }
 
 function drawVerticalLine(win) {
-  win.document.write(
-    '<html><head><title>Vertical Line</title></head><body></body></html>',
-  )
-  const canvas = win.document.createElement('canvas')
+  const canvas = document.createElement('canvas')
   canvas.width = 400
   canvas.height = 400
   win.document.body.appendChild(canvas)
-  const context = canvas.getContext('2d')
 
+  const context = canvas.getContext('2d')
   context.beginPath()
   context.moveTo(canvas.width / 2, 0)
   context.lineTo(canvas.width / 2, canvas.height)
@@ -769,10 +817,45 @@ function drawVerticalLine(win) {
   context.stroke()
 }
 
-// Function to open a new window and pass data
-function openWindow(url, name) {
-  return window.open(url, name, 'width=800,height=600')
+function openWindow(
+  url,
+  name,
+  width = 800,
+  height = 600,
+  left = -4098,
+  top = -72,
+) {
+  const options = `width=${width},height=${height},left=${left},top=${top}`
+  return window.open(url, name, options)
 }
+
+function shrinkWindow(myWindow) {
+  console.log('shrink', myWindow)
+  if (myWindow && !myWindow.closed) {
+    console.log('Shrinking window:', myWindow)
+
+    // Restore the window from maximized or fullscreen state
+    myWindow.resizeTo(800, 600) // Resize to a smaller, non-maximized size first
+    myWindow.moveTo(100, 100) // Optionally move it to ensure it's restored
+
+    // Delay to ensure the window is restored before shrinking
+    setTimeout(() => {
+      // Step 3: Shrink the window to the smallest size
+      myWindow.resizeTo(1, 1)
+      myWindow.moveTo(window.screen.width - 2, window.screen.height - 2) // Optional: move to bottom-right corner
+    }, 300) // Increase delay slightly if needed
+  }
+}
+
+function expandWindow(width = 800, height = 600, myWindow) {
+  if (myWindow && !myWindow.closed) {
+    // Expand the window back to the desired size
+    myWindow.resizeTo(width, height)
+    myWindow.focus() // Bring it to the front
+  }
+}
+
+let openedWindows = {}
 
 /* -------------------------------------------------------------------------- */
 
