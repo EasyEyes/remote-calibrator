@@ -22,9 +22,9 @@ import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
 import { phrases } from './i18n/schema'
 
-RemoteCalibrator.prototype._displaySize = function () {
+RemoteCalibrator.prototype._displaySize = function (forInit = false) {
   ////
-  if (!this.checkInitialized()) return
+  if (!forInit && !this.checkInitialized()) return
   ////
 
   const thisData = {
