@@ -31,6 +31,7 @@ class RemoteCalibrator {
     )
 
     this._initialized = false
+    this._initializing = false
 
     this._id = null
 
@@ -534,8 +535,8 @@ RemoteCalibrator.prototype.init = async function (
   initOptions = {},
   callback = undefined,
 ) {
-  if (!this._initialized) {
-    this._initialized = true
+  if (!this._initialized && !this._initializing) {
+    this._initializing = true
 
     const options = Object.assign(
       {
@@ -566,6 +567,9 @@ RemoteCalibrator.prototype.init = async function (
       this.newLanguageData = looseSetLanguage(this.userLanguage.value)
     else this.newLanguageData = looseSetLanguage(options.language)
     this._lang = this.language.value
+
+    this._initializing = false
+    this._initialized = true
 
     safeExecuteFunc(callback, this._id)
   }
