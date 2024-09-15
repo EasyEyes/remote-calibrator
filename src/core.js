@@ -559,8 +559,8 @@ RemoteCalibrator.prototype.init = async function (
       date: new Date(), // only Date to save
     }
 
-    this._environment()
-    this._displaySize()
+    this._environment(true)
+    this._displaySize(true)
 
     if (this._CONST.S.AUTO === options.language)
       // AUTO
@@ -580,8 +580,8 @@ RemoteCalibrator.prototype.init = async function (
  * Get the environment data, e.g. browser type
  *
  */
-RemoteCalibrator.prototype._environment = function () {
-  if (this.checkInitialized()) {
+RemoteCalibrator.prototype._environment = function (forInit = false) {
+  if (forInit || this.checkInitialized()) {
     blurAll()
 
     const isMobile = userAgent => {
