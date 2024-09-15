@@ -97,6 +97,13 @@ RemoteCalibrator.prototype.trackDistance = async function (
     trackDistanceOptions,
   )
 
+  try {
+    this.viewingDistanceAllowedPreciseBool =
+      trackDistanceOptions.viewingDistanceAllowedPreciseBool
+  } catch (e) {
+    this.viewingDistanceAllowedPreciseBool = false
+  }
+
   /* -------------------------------------------------------------------------- */
 
   this.getFullscreen(options.fullscreen)

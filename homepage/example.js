@@ -293,7 +293,8 @@ const _trackViewingDistanceCode = `let trackP // Not important, just a DOM eleme
 RemoteCalibrator.trackDistance(
   {
     showVideo: true,
-    nearPoint: true,
+    nearPoint: false,
+    viewingDistanceAllowedPreciseBool: true,
     showNearPoint: true,
     desiredDistanceCm: 60,
     desiredDistanceMonitor: true,
