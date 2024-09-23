@@ -21,7 +21,7 @@ import {
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
 import { phrases } from './i18n/schema'
-import { setupHandler } from './keypadHandler'
+import { setUpEasyEyesKeypadHandler } from './extensions/keypadHandler'
 
 RemoteCalibrator.prototype._displaySize = function (forInit = false) {
   ////
@@ -193,7 +193,7 @@ function getSize(RC, parent, options, callback) {
   })
   resizeObserver.observe(parent)
 
-  const removeKeypadHandler = setupHandler(
+  const removeKeypadHandler = setUpEasyEyesKeypadHandler(
     null,
     RC.keypadHandler,
     () => {

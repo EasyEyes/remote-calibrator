@@ -1,7 +1,8 @@
-// Function to add event handlers
+// Add event handlers
 export const onVariableChange_key_resp_allKeys = (keypadHandler, callback) => {
   if (!keypadHandler) return () => {}
   keypadHandler.event_handlers.current.push(callback)
+
   // Return a function to remove the specific handler
   return () => {
     keypadHandler.event_handlers.current =
@@ -11,14 +12,14 @@ export const onVariableChange_key_resp_allKeys = (keypadHandler, callback) => {
   }
 }
 
-// Function to clear all event handlers
+// Clear all event handlers
 export const clearAllHandlers_key_resp_allKeys = keypadHandler => {
   if (!keypadHandler) return
   keypadHandler.event_handlers.current = []
 }
 
-// Function to setup the handler
-export const setupHandler = (
+// Setup the handler
+export const setUpEasyEyesKeypadHandler = (
   e,
   keypadHandler,
   callback = null,
@@ -26,16 +27,19 @@ export const setupHandler = (
   keys = ['return'],
 ) => {
   if (!keypadHandler) return () => {}
+
   const removeHandler = onVariableChange_key_resp_allKeys(
     keypadHandler,
     newValue => {
       if (keys.includes(newValue.name)) {
         keypadHandler.all_keys.current = []
+
         if (e) e.click()
+
         if (callback) callback()
+
         if (removeBool) {
-          removeHandler() // Remove the handler
-          //   clearAllHandlers_key_resp_allKeys(keypadHandler)
+          removeHandler()
         }
       }
     },

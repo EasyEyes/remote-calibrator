@@ -124,6 +124,9 @@ class RemoteCalibrator {
       videoOpacity: 0.8,
       showCancelButton: true,
     }
+
+    // ! Extensions
+    this.keypadHandler = null
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -534,6 +537,9 @@ class RemoteCalibrator {
 RemoteCalibrator.prototype.init = async function (
   initOptions = {},
   callback = undefined,
+  extensions = {
+    easyEyesKeypadHandler: null, // EasyEyes Keypad handler // { event_handlers: [], all_keys: [] } || null
+  },
 ) {
   if (!this._initialized && !this._initializing) {
     this._initializing = true
@@ -570,6 +576,10 @@ RemoteCalibrator.prototype.init = async function (
 
     this._initializing = false
     this._initialized = true
+
+    if (extensions?.easyEyesKeypadHandler) {
+      this.keypadHandler = extensions.easyEyesKeypadHandler
+    }
 
     safeExecuteFunc(callback, this._id)
   }

@@ -26,7 +26,7 @@ import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
 import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from '../components/swalOptions'
-import { setupHandler } from '../keypadHandler'
+import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
@@ -100,7 +100,7 @@ export function blindSpotTest(
 
   let v = eyeSide === 'left' ? 1 : -1
 
-  let removeKeypadHandler = setupHandler(
+  let removeKeypadHandler = setUpEasyEyesKeypadHandler(
     null,
     RC.keypadHandler,
     () => {
@@ -203,7 +203,7 @@ export function blindSpotTest(
       }
     } else if (tested % options.repeatTesting === 0) {
       removeKeypadHandler()
-      removeKeypadHandler = setupHandler(
+      removeKeypadHandler = setUpEasyEyesKeypadHandler(
         null,
         RC.keypadHandler,
         () => {
