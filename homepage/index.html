@@ -67,6 +67,7 @@
     <div id="experiment"></div>
 
     <script src="example.js"></script>
+    <script src="multiDisplayDemo/index.js"></script>
     <script>
       // Get version number
       document.getElementById('version').innerHTML =
@@ -88,6 +89,8 @@
         if (info.length === 4) b.className = info[3]
 
         b.classList.add('demo-button')
+
+        if (info.length === 4 && info[3]) return b
 
         let showCode = document.createElement('div')
         showCode.className = 'show-code-button'
@@ -126,7 +129,12 @@
           'performanceCompute',
           'testPerformanceCompute',
         ],
-        ['Multiple Display', 'multipleDisplay', 'testMultipleDisplay'],
+        [
+          'Multiple Display (WIP)',
+          'multipleDisplay',
+          'testMultipleDisplay',
+          true,
+        ],
         // Environment
         // ['Get Environment', 'environment', 'getEnvironment'],
       ]

@@ -270,3 +270,40 @@ button:active {
 .prettyprint * {
   font-size: 0.72rem !important;
 }
+
+/* -------------------------------------------------------------------------- */
+
+.multi-display-panel {
+  margin: 1rem;
+  padding: 1rem;
+  border: 1px solid #dfdfdf;
+  border-radius: 0.5rem;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.multi-display-panel .buttons {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.multi-display-panel button {
+  flex-grow: 0;
+  width: fit-content;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  outline: 1px solid #ccc;
+  border-radius: 0.25rem;
+}
+
+.multi-display-panel input {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  outline: 1px solid #ccc;
+  border-radius: 0.25rem;
+}

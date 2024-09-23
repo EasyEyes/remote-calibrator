@@ -168,7 +168,7 @@ export function blindSpotTest(
         // Remove background, etc.
         breakFunction(false)
 
-        //remove Handler
+        // remove Handler
         removeKeypadHandler()
 
         // ! check
