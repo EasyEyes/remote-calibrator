@@ -204,6 +204,12 @@ RemoteCalibrator.prototype.trackDistance = async function (
   }
 }
 
+RemoteCalibrator.prototype.setViewingDistanceAllowedPreciseBool = function (
+  value = true,
+) {
+  this.viewingDistanceAllowedPreciseBool = value
+}
+
 /* -------------------------------------------------------------------------- */
 
 const startTrackingPupils = async (
