@@ -125,6 +125,9 @@ class RemoteCalibrator {
       showCancelButton: true,
     }
 
+    // Function parameters
+    this.viewingDistanceAllowedPreciseBool = true
+
     // ! Extensions
     this.keypadHandler = null
   }
