@@ -38,7 +38,7 @@
     "cssnano": "^5.1.14",
     "eslint": "^8.31.0",
     "eslint-webpack-plugin": "^3.2.0",
-    "googleapis": "^110.0.0",
+    "googleapis": "^144.0.0",
     "husky": "^8.0.3",
     "jsdom": "^20.0.3",
     "lint-staged": "^13.1.0",
