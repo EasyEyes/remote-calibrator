@@ -62,6 +62,10 @@ RemoteCalibrator.measureDistance({}, data => {
 })
 ```
 
+## Offline Usage
+
+To use Remote Calibrator offline, download and unzip [`models.zip`](./models.zip) containing Face Mesh models. Place the extracted `models/` folder in **the same directory as your `index.html` file**. The package automatically loads the models from the local folder if the client is offline.
+
 ## Functions
 
 | Task                                        | Functions                                                                                                                                                                                                                            |
@@ -594,14 +598,16 @@ git submodule update --init --recursive
 
 ### Install
 
+We use [bun](https://bun.sh/) to manage the dependencies for the project.
+
 ```shell
-npm run setup
+bun run setup
 ```
 
 ### Develop
 
 ```shell
-npm start
+bun start
 ```
 
 This will start a local server hosting the example page with hot reload for you to develop. You may access it at `localhost:9000`.
@@ -609,7 +615,7 @@ This will start a local server hosting the example page with hot reload for you 
 ### Build
 
 ```shell
-npm run build
+bun run build
 ```
 
 This command will give you a minimized build of the package output into the `lib` folder. You may use the file for production purposes.
