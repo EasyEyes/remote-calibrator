@@ -296,10 +296,12 @@ RemoteCalibrator.trackDistance(
     nearPoint: false,
     viewingDistanceAllowedPreciseBool: true,
     showNearPoint: true,
-    desiredDistanceCm: 60,
+    desiredDistanceCm: 40,
     desiredDistanceMonitor: true,
     desiredDistanceMonitorCancelable: false,
-    check: false,
+    check: true,
+    calibrateTrackDistanceCheckCm: [25, 35, 50, 70, 100, 140, 160, 180],
+    calibrateTrackDistanceCheckBool: true,
     checkCallback: (result) => {
       printMessage(
         \`The viewing distance measured by the participant is 

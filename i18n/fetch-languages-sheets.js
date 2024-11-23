@@ -77,6 +77,12 @@ async function processLanguageSheet() {
         'RC_viewingDistanceTitle',
         'RC_viewingDistance',
 
+        // Track Distance Check
+        'RC_TestDistances',
+        'RC_rulerUnit',
+        'RC_howLong',
+        'RC_produceDistance',
+
         // Viewing Blind Spot
         'RC_viewingBlindSpotCredit',
         'RC_viewingBlindSpotRejected',

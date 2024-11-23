@@ -1,22 +1,31 @@
 import RemoteCalibrator from '../core'
 import { takeInput } from '../components/checkInput'
-import { constructInstructions, safeExecuteFunc } from '../components/utils'
+import {
+  constructInstructions,
+  safeExecuteFunc,
+  sleep,
+} from '../components/utils'
+import { remoteCalibratorPhrases } from '../i18n/phrases'
+import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 
 RemoteCalibrator.prototype._checkDistance = async function (
   distanceCallback,
   distanceData,
   measureName, // 'measureDistance' OR 'trackDistance'
   checkCallback,
+  calibrateTrackDistanceCheckCm = [],
+  callbackStatic = () => {},
 ) {
-  await this.getEquipment(() => {
-    return checkDistance(
-      this,
-      distanceCallback,
-      distanceData,
-      measureName,
-      checkCallback,
-    )
-  })
+  await this.getEquipment(() => {}, false, 'new')
+  await trackDistanceCheck(
+    this,
+    distanceCallback,
+    distanceData,
+    measureName,
+    checkCallback,
+    calibrateTrackDistanceCheckCm,
+    callbackStatic,
+  )
 }
 
 const checkDistance = async (
@@ -74,4 +83,213 @@ const checkDistance = async (
     }
   }
   quit()
+}
+
+const trackDistanceCheck = async (
+  RC,
+  distanceCallback,
+  distanceData,
+  measureName,
+  checkCallback,
+  calibrateTrackDistanceCheckCm, // list of distances to check
+  callbackStatic,
+) => {
+  const isTrack = measureName === 'trackDistance'
+
+  const quit = () => {
+    RC._removeBackground()
+    if (!isTrack) safeExecuteFunc(distanceCallback, distanceData, false)
+    callbackStatic()
+  }
+
+  // Start tracking right away
+  if (isTrack) safeExecuteFunc(distanceCallback, distanceData, false)
+
+  //if participant has equipment
+  //if the unit is inches, convert calibrateTrackDistanceCheckCm to inches and round to integer
+  //discard negative, zero, and values exceeding equipment length
+  if (RC.equipment?.value?.has) {
+    if (RC.equipment?.value?.unit === 'inches') {
+      calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.map(cm =>
+        Math.round(cm / 2.54),
+      )
+    }
+    calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.filter(
+      cm => cm > 0 && cm <= RC.equipment?.value?.length,
+    )
+
+    //make sure the numbers are unique
+    calibrateTrackDistanceCheckCm = [...new Set(calibrateTrackDistanceCheckCm)]
+
+    if (calibrateTrackDistanceCheckCm.length === 0) {
+      console.warn('No valid distances to check.')
+      quit()
+      return
+    }
+
+    RC._removeBackground()
+    RC.pauseNudger()
+    createProgressBar()
+    createViewingDistanceDiv()
+    RC.calibrateTrackDistanceRequestedCm = calibrateTrackDistanceCheckCm
+    RC.calibrateTrackDistanceMeasuredCm = []
+
+    for (let cm of calibrateTrackDistanceCheckCm) {
+      const index = calibrateTrackDistanceCheckCm.indexOf(cm) + 1
+      updateProgressBar(
+        (index / calibrateTrackDistanceCheckCm.length) * 100,
+        index,
+        calibrateTrackDistanceCheckCm.length,
+      )
+      updateViewingDistanceDiv(cm)
+      const html = constructInstructions(
+        '',
+        remoteCalibratorPhrases.RC_produceDistance[RC.language.value]
+          .replace('111', cm)
+          .replace('AAA', RC.equipment?.value?.unit)
+          .replace('222', index)
+          .replace('333', calibrateTrackDistanceCheckCm.length)
+          .replace(/(?:\r\n|\r|\n)/g, '<br><br>'),
+        false,
+        '',
+        'left',
+      )
+      RC._replaceBackground(html)
+
+      //wait for return key press
+      await new Promise(resolve => {
+        document.addEventListener('keydown', function keydownListener(event) {
+          if (event.key === 'Enter') {
+            const distanceFromRC = !RC.viewingDistanceAllowedPreciseBool
+              ? Math.round(RC.viewingDistanceCm.value)
+              : RC.viewingDistanceCm.value.toFixed(1)
+            RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
+            document.removeEventListener('keydown', keydownListener)
+            resolve()
+          }
+        })
+
+        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+          null,
+          RC.keypadHandler,
+          () => {
+            const distanceFromRC = !RC.viewingDistanceAllowedPreciseBool
+              ? Math.round(RC.viewingDistanceCm.value)
+              : RC.viewingDistanceCm.value.toFixed(1)
+            RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
+            removeKeypadHandler()
+            resolve()
+          },
+          false,
+          ['return'],
+        )
+      })
+    }
+    RC.resumeNudger()
+    removeProgressBar()
+    removeViewingDistanceDiv()
+  }
+  quit()
+}
+
+// Function to create the div and start updating the value
+const createViewingDistanceDiv = () => {
+  // Check if the div already exists
+  if (document.getElementById('viewing-distance-div')) {
+    console.warn('Viewing distance div already exists.')
+    return
+  }
+
+  // Create the div element
+  const viewingDistanceDiv = document.createElement('div')
+  viewingDistanceDiv.id = 'viewing-distance-div'
+  viewingDistanceDiv.className =
+    'calibration-trackDistance-check-viewingDistance'
+
+  // Append to the body
+  document.body.appendChild(viewingDistanceDiv)
+}
+
+const removeViewingDistanceDiv = () => {
+  const viewingDistanceDiv = document.getElementById('viewing-distance-div')
+  if (viewingDistanceDiv) {
+    document.body.removeChild(viewingDistanceDiv)
+  } else {
+    console.warn('Viewing distance div does not exist.')
+  }
+}
+
+const updateViewingDistanceDiv = distance => {
+  const viewingDistanceDiv = document.getElementById('viewing-distance-div')
+
+  if (!viewingDistanceDiv) {
+    console.warn(
+      'Viewing distance div does not exist. Call createViewingDistanceDiv() first.',
+    )
+    return
+  }
+
+  viewingDistanceDiv.innerText = distance
+}
+
+// Function to create the progress bar div
+const createProgressBar = () => {
+  // Check if the progress bar already exists
+  if (document.getElementById('custom-progress-bar')) {
+    console.warn('Progress bar already exists.')
+    return
+  }
+
+  // Create the progress bar container
+  const progressBarContainer = document.createElement('div')
+  progressBarContainer.id = 'custom-progress-bar'
+  progressBarContainer.className =
+    'calibration-trackDistance-check-progessBar-container'
+
+  // Create the progress bar element
+  const progressBar = document.createElement('div')
+  progressBar.id = 'calibration-trackDistance-check-progessBar'
+  progressBar.className = 'calibration-trackDistance-check-progessBar'
+
+  const progressBarText = document.createElement('p')
+  progressBarText.id = 'calibration-trackDistance-check-progessBar-text'
+  progressBarText.className = 'calibration-trackDistance-check-progessBar-text'
+
+  // Append the progress bar to the container
+  progressBarContainer.appendChild(progressBar)
+  progressBarContainer.appendChild(progressBarText)
+  document.body.appendChild(progressBarContainer)
+}
+
+// Function to update the progress
+const updateProgressBar = (progress, current, total) => {
+  const progressBar = document.getElementById(
+    'calibration-trackDistance-check-progessBar',
+  )
+
+  //update the progress bar text
+  const progressBarText = document.getElementById(
+    'calibration-trackDistance-check-progessBar-text',
+  )
+
+  if (!progressBar || !progressBarText) {
+    console.warn('Progress bar does not exist. Call createProgressBar() first.')
+    return
+  }
+
+  // Ensure progress is within bounds [0, 100]
+  const sanitizedProgress = Math.min(100, Math.max(0, progress))
+  progressBar.style.width = `${sanitizedProgress}%`
+
+  progressBarText.innerText = `${current} of ${total}`
+}
+
+// Function to remove the progress bar
+const removeProgressBar = () => {
+  const progressBarContainer = document.getElementById('custom-progress-bar')
+  if (progressBarContainer) {
+    document.body.removeChild(progressBarContainer)
+  } else {
+    console.warn('Progress bar does not exist.')
+  }
 }

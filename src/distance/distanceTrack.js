@@ -93,6 +93,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       check: false,
       checkCallback: null,
       showCancelButton: true,
+      callbackStatic,
     },
     trackDistanceOptions,
   )
@@ -130,14 +131,14 @@ RemoteCalibrator.prototype.trackDistance = async function (
   ////
 
   // STEP 2 - Live estimate
-  const getStdDist = distData => {
+  const getStdDist = (distData, excecuteCallbackStaticHere = true) => {
     this.showVideo(originalStyles.video)
     originalStyles.video = false
 
     if (this.gazeTracker.checkInitialized('gaze', false))
       this.showGazer(originalGazer)
 
-    safeExecuteFunc(callbackStatic, distData)
+    if (excecuteCallbackStaticHere) safeExecuteFunc(callbackStatic, distData)
     stdDist.current = distData
   }
 
@@ -365,7 +366,10 @@ const _tracking = async (
               stdFactor = averageDist * stdDist.current.value
 
               // ! FINISH
-              if (trackingConfig.options.check !== true) RC._removeBackground() // Remove BG if no check
+              if (
+                trackingConfig.options.calibrateTrackDistanceCheckBool !== true
+              )
+                RC._removeBackground() // Remove BG if no check
 
               RC._trackingSetupFinishedStatus.distance = true
               readyToGetFirstData = true

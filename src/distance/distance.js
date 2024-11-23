@@ -172,12 +172,14 @@ export function blindSpotTest(
         removeKeypadHandler()
 
         // ! check
-        if (options.check)
+        if (options.calibrateTrackDistanceCheckBool)
           await RC._checkDistance(
             callback,
             data,
             measureType,
             options.checkCallback,
+            options.calibrateTrackDistanceCheckCm,
+            options.callbackStatic,
           )
         else safeExecuteFunc(callback, data)
       } else {
