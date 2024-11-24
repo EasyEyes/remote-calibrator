@@ -225,28 +225,23 @@ const createViewingDistanceDiv = () => {
 
 const removeViewingDistanceDiv = () => {
   const viewingDistanceDiv = document.getElementById('viewing-distance-p')
-  if (viewingDistanceDiv) {
-    document.body.removeChild(viewingDistanceDiv)
-  } else {
-    console.warn('Viewing distance div does not exist.')
-  }
-
   const unitsDiv = document.getElementById(
     'calibration-trackDistance-check-viewingDistance-units',
   )
-  if (unitsDiv) {
-    document.body.removeChild(unitsDiv)
-  } else {
-    console.warn('Units div does not exist.')
-  }
-
   const distanceContainer = document.getElementById(
     'calibration-trackDistance-check-viewingDistance-container',
   )
+
+  if (viewingDistanceDiv) {
+    viewingDistanceDiv.remove()
+  }
+
+  if (unitsDiv) {
+    unitsDiv.remove()
+  }
+
   if (distanceContainer) {
-    document.body.removeChild(distanceContainer)
-  } else {
-    console.warn('Distance container does not exist.')
+    distanceContainer.remove()
   }
 }
 
