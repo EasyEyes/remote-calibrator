@@ -79,7 +79,7 @@
   align-items: center;
   justify-content: center;
   z-index: 999999999999;
-  line-height: 1.2;
+  line-height: 1;
 }
 .calibration-trackDistance-check-viewingDistance {
   font-size: 60vh;

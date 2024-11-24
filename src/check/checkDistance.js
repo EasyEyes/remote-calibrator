@@ -224,7 +224,7 @@ const createViewingDistanceDiv = () => {
 }
 
 const removeViewingDistanceDiv = () => {
-  const viewingDistanceDiv = document.getElementById('viewing-distance-div')
+  const viewingDistanceDiv = document.getElementById('viewing-distance-p')
   if (viewingDistanceDiv) {
     document.body.removeChild(viewingDistanceDiv)
   } else {
@@ -238,6 +238,15 @@ const removeViewingDistanceDiv = () => {
     document.body.removeChild(unitsDiv)
   } else {
     console.warn('Units div does not exist.')
+  }
+
+  const distanceContainer = document.getElementById(
+    'calibration-trackDistance-check-viewingDistance-container',
+  )
+  if (distanceContainer) {
+    document.body.removeChild(distanceContainer)
+  } else {
+    console.warn('Distance container does not exist.')
   }
 }
 
