@@ -68,34 +68,26 @@
   font-size: 30px;
   margin: 0;
 }
-
-.calibration-trackDistance-check-viewingDistance {
+.calibration-trackDistance-check-viewingDistance-container {
   position: fixed;
-  top: 40%;
+  top: 0;
   right: 0;
-  transform: translateY(-50%);
   width: 50%;
-  height: auto;
+  height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 27vw;
   z-index: 999999999999;
-  text-align: center;
+  line-height: 1.2;
+}
+.calibration-trackDistance-check-viewingDistance {
+  font-size: 60vh;
+  margin: 0;
 }
 .calibration-trackDistance-check-viewingDistance-units {
-  position: fixed;
-  top: 55%;
-  right: 0;
-  transform: translateY(-50%);
-  width: 50%;
-  height: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13.5vw;
-  z-index: 999999999999;
-  text-align: center;
+  font-size: 30vh;
+  margin: 0;
 }
 
 .calibration-instruction-left {

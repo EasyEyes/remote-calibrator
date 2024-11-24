@@ -200,9 +200,15 @@ const createViewingDistanceDiv = () => {
     return
   }
 
+  const distanceContainer = document.createElement('viewing-distance-div')
+  distanceContainer.id =
+    'calibration-trackDistance-check-viewingDistance-container'
+  distanceContainer.className =
+    'calibration-trackDistance-check-viewingDistance-container'
+
   // Create the div element
-  const viewingDistanceDiv = document.createElement('div')
-  viewingDistanceDiv.id = 'viewing-distance-div'
+  const viewingDistanceDiv = document.createElement('p')
+  viewingDistanceDiv.id = 'viewing-distance-p'
   viewingDistanceDiv.className =
     'calibration-trackDistance-check-viewingDistance'
 
@@ -212,8 +218,9 @@ const createViewingDistanceDiv = () => {
   units.className = 'calibration-trackDistance-check-viewingDistance-units'
 
   // Append to the body
-  document.body.appendChild(viewingDistanceDiv)
-  document.body.appendChild(units)
+  distanceContainer.appendChild(viewingDistanceDiv)
+  distanceContainer.appendChild(units)
+  document.body.appendChild(distanceContainer)
 }
 
 const removeViewingDistanceDiv = () => {
@@ -235,7 +242,7 @@ const removeViewingDistanceDiv = () => {
 }
 
 const updateViewingDistanceDiv = (distance, units) => {
-  const viewingDistanceDiv = document.getElementById('viewing-distance-div')
+  const viewingDistanceDiv = document.getElementById('viewing-distance-p')
 
   if (!viewingDistanceDiv) {
     console.warn(
