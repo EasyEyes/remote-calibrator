@@ -127,7 +127,7 @@
   overflow: hidden;
   user-select: none;
   box-sizing: border-box;
-  text-align: center;
+  text-align: left;
   scrollbar-width: none;
 
   * {
@@ -137,7 +137,7 @@
 }
 
 #rc-distance-correct {
-  text-align: center;
+  text-align: left;
   width: 100%;
   margin: 0 auto auto auto;
   padding: 2rem;

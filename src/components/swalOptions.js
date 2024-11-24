@@ -1,5 +1,5 @@
 import { phrases } from '../i18n/schema'
-
+import { remoteCalibratorPhrases } from '../i18n/phrases'
 export const swalInfoOptions = (RC, { showIcon }) => {
   return {
     icon: showIcon ? 'info' : undefined,
@@ -7,7 +7,7 @@ export const swalInfoOptions = (RC, { showIcon }) => {
     allowEnterKey: false,
     allowOutsideClick: false,
     showConfirmButton: true,
-    confirmButtonText: phrases.RC_ok[RC.L],
+    confirmButtonText: remoteCalibratorPhrases.T_proceed[RC.L],
     showClass: {
       popup: 'fadeInUp',
       icon: '',

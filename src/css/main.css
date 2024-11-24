@@ -79,7 +79,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18vw;
+  font-size: 27vw;
+  z-index: 999999999999;
+  text-align: center;
+}
+.calibration-trackDistance-check-viewingDistance-units {
+  position: fixed;
+  top: 55%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 50%;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13.5vw;
   z-index: 999999999999;
   text-align: center;
 }

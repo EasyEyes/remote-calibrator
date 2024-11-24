@@ -43,9 +43,9 @@ RemoteCalibrator.prototype.getEquipment = async function (
     )
     inputType = 'radio'
     inputOptions = {
-      none: 'None',
-      cm: 'cm',
       inches: 'inches',
+      cm: 'cm',
+      none: 'None',
     }
     inputPlaceholder = undefined
     inputValue = 'none'

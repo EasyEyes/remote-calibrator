@@ -118,9 +118,6 @@ const trackDistanceCheck = async (
       cm => cm > 0 && cm <= RC.equipment?.value?.length,
     )
 
-    //make sure the numbers are unique
-    calibrateTrackDistanceCheckCm = [...new Set(calibrateTrackDistanceCheckCm)]
-
     if (calibrateTrackDistanceCheckCm.length === 0) {
       console.warn('No valid distances to check.')
       quit()
@@ -131,7 +128,10 @@ const trackDistanceCheck = async (
     RC.pauseNudger()
     createProgressBar()
     createViewingDistanceDiv()
-    RC.calibrateTrackDistanceRequestedCm = calibrateTrackDistanceCheckCm
+    //convert back to cm to report
+    RC.calibrateTrackDistanceRequestedCm = calibrateTrackDistanceCheckCm.map(
+      v => (RC.equipment?.value?.unit === 'inches' ? Math.round(v * 2.54) : v),
+    )
     RC.calibrateTrackDistanceMeasuredCm = []
 
     for (let cm of calibrateTrackDistanceCheckCm) {
@@ -141,14 +141,14 @@ const trackDistanceCheck = async (
         index,
         calibrateTrackDistanceCheckCm.length,
       )
-      updateViewingDistanceDiv(cm)
+      updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
       const html = constructInstructions(
-        '',
+        remoteCalibratorPhrases.RC_produceDistanceTitle[RC.language.value]
+          .replace('222', index)
+          .replace('333', calibrateTrackDistanceCheckCm.length),
         remoteCalibratorPhrases.RC_produceDistance[RC.language.value]
           .replace('111', cm)
           .replace('AAA', RC.equipment?.value?.unit)
-          .replace('222', index)
-          .replace('333', calibrateTrackDistanceCheckCm.length)
           .replace(/(?:\r\n|\r|\n)/g, '<br><br>'),
         false,
         '',
@@ -206,8 +206,14 @@ const createViewingDistanceDiv = () => {
   viewingDistanceDiv.className =
     'calibration-trackDistance-check-viewingDistance'
 
+  //create p for units
+  const units = document.createElement('p')
+  units.id = 'calibration-trackDistance-check-viewingDistance-units'
+  units.className = 'calibration-trackDistance-check-viewingDistance-units'
+
   // Append to the body
   document.body.appendChild(viewingDistanceDiv)
+  document.body.appendChild(units)
 }
 
 const removeViewingDistanceDiv = () => {
@@ -217,9 +223,18 @@ const removeViewingDistanceDiv = () => {
   } else {
     console.warn('Viewing distance div does not exist.')
   }
+
+  const unitsDiv = document.getElementById(
+    'calibration-trackDistance-check-viewingDistance-units',
+  )
+  if (unitsDiv) {
+    document.body.removeChild(unitsDiv)
+  } else {
+    console.warn('Units div does not exist.')
+  }
 }
 
-const updateViewingDistanceDiv = distance => {
+const updateViewingDistanceDiv = (distance, units) => {
   const viewingDistanceDiv = document.getElementById('viewing-distance-div')
 
   if (!viewingDistanceDiv) {
@@ -230,6 +245,17 @@ const updateViewingDistanceDiv = distance => {
   }
 
   viewingDistanceDiv.innerText = distance
+
+  const unitsDiv = document.getElementById(
+    'calibration-trackDistance-check-viewingDistance-units',
+  )
+
+  if (!unitsDiv) {
+    console.warn('Units div does not exist.')
+    return
+  }
+
+  unitsDiv.innerText = units
 }
 
 // Function to create the progress bar div
