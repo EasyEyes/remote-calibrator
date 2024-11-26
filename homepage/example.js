@@ -248,6 +248,7 @@ function measureScreenSizeCode() {
  *
  */
 const _measureDistanceCallback = `const measureDistanceCallback = distanceData => {
+  if (!distanceData || !distanceData.value) {return}
   printMessage(
     \`The viewing distance is \${
       distanceData.value
@@ -316,6 +317,7 @@ RemoteCalibrator.trackDistance(
     trackP = printMessage(\`The dynamic viewing distance is cm at .\`)\n@
   },
   trackingDistanceData => {
+    if(!trackP) return
     trackP.innerHTML = gotData(
       \`The dynamic viewing distance is \${
         trackingDistanceData.value.viewingDistanceCm

@@ -84,6 +84,8 @@ async function processLanguageSheet() {
         'RC_produceDistance',
         'T_proceed',
         'RC_produceDistanceTitle',
+        'RC_produceDistanceTitle1',
+        'RC_produceDistanceTitle2',
 
         // Viewing Blind Spot
         'RC_viewingBlindSpotCredit',

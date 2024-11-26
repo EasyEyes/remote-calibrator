@@ -135,10 +135,11 @@ export function constructInstructions(
   scrollable = false,
   descriptionClass = '',
   position = null,
+  headline2 = null,
 ) {
   return `<div class="calibration-instruction${
     scrollable ? ' calibration-instruction-scrollable' : ''
-  }${position === 'left' ? ' calibration-instruction-left' : ''}"><h1>${headline}</h1>${
+  }${position === 'left' ? ' calibration-instruction-left' : ''}"><h1>${headline}</h1>${headline2 ? '<br><h1>' + headline2 + '</h1>' : ''}${
     description
       ? `<p class="calibration-description${
           descriptionClass.length ? ` ${descriptionClass}` : ''

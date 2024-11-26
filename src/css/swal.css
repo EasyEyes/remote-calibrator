@@ -43,3 +43,21 @@
   animation-duration: 400ms !important;
   animation-delay: 0 !important;
 }
+
+#custom-radio-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+#custom-radio-group label {
+  margin-right: 25px;
+  display: flex;
+  flex-direction: row;
+}
+
+/* input inside the label */
+#custom-radio-group input {
+  width: auto;
+  margin-right: 5px;
+}

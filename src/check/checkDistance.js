@@ -134,8 +134,10 @@ const trackDistanceCheck = async (
     )
     RC.calibrateTrackDistanceMeasuredCm = []
 
-    for (let cm of calibrateTrackDistanceCheckCm) {
-      const index = calibrateTrackDistanceCheckCm.indexOf(cm) + 1
+    for (let i = 0; i < calibrateTrackDistanceCheckCm.length; i++) {
+      const cm = calibrateTrackDistanceCheckCm[i]
+      const index = i + 1
+
       updateProgressBar(
         (index / calibrateTrackDistanceCheckCm.length) * 100,
         index,
@@ -143,7 +145,7 @@ const trackDistanceCheck = async (
       )
       updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
       const html = constructInstructions(
-        remoteCalibratorPhrases.RC_produceDistanceTitle[RC.language.value]
+        remoteCalibratorPhrases.RC_produceDistanceTitle1[RC.language.value]
           .replace('222', index)
           .replace('333', calibrateTrackDistanceCheckCm.length),
         remoteCalibratorPhrases.RC_produceDistance[RC.language.value]
@@ -153,6 +155,9 @@ const trackDistanceCheck = async (
         false,
         '',
         'left',
+        remoteCalibratorPhrases.RC_produceDistanceTitle2[RC.language.value]
+          .replace('222', index)
+          .replace('333', calibrateTrackDistanceCheckCm.length),
       )
       RC._replaceBackground(html)
 
@@ -318,7 +323,7 @@ const updateProgressBar = (progress, current, total) => {
   const sanitizedProgress = Math.min(100, Math.max(0, progress))
   progressBar.style.width = `${sanitizedProgress}%`
 
-  progressBarText.innerText = `${current} of ${total}`
+  progressBarText.innerText = `${current}/${total}`
 }
 
 // Function to remove the progress bar

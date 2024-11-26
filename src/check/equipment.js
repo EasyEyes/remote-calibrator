@@ -5,6 +5,7 @@ import { swalInfoOptions } from '../components/swalOptions'
 import { safeExecuteFunc } from '../components/utils'
 import { phrases } from '../i18n/schema'
 import { remoteCalibratorPhrases } from '../i18n/phrases'
+import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 
 RemoteCalibrator.prototype.getEquipment = async function (
   afterResultCallback,
@@ -15,40 +16,51 @@ RemoteCalibrator.prototype.getEquipment = async function (
 
   this._replaceBackground()
 
-  let title, html, inputType, inputOptions, inputPlaceholder, inputValue
+  let title, html
 
   if (version === 'original') {
-    const { CM, IN_D, IN_F } = this._CONST.UNITS
-    const haveEquipmentOptions = {
-      [CM]: 'centimeter',
-      [IN_D]: 'inch (decimal, e.g. 11.5 in)',
-      [IN_F]: 'inch (fractional, e.g. 12 3/8 in)',
-      none: 'No ruler or tape measure is available',
-    }
-
     title = 'Do you have a ruler or tape measure?'
-    html = `Ideally, it should be long enough to measure your viewing distance, but even a 6 inch (15 cm) ruler can be useful. Please select the units you'll use, or indicate that no ruler or tape measure is available.`
-    inputType = 'select'
-    inputOptions = haveEquipmentOptions
-    inputPlaceholder = 'Select an option'
-    inputValue = undefined
+    html = `
+      <p>
+        Ideally, it should be long enough to measure your viewing distance, but even a 6 inch (15 cm) ruler can be useful. 
+        Please select the units you'll use, or indicate that no ruler or tape measure is available.
+      </p>
+      <div id="custom-radio-group">
+        <label>
+          <input type="radio" name="equipment" value="cm" />
+          Centimeter
+        </label>
+        <label>
+          <input type="radio" name="equipment" value="inches" />
+          Inch (decimal, e.g. 11.5 in)
+        </label>
+        <label>
+          <input type="radio" name="equipment" value="none" />
+          No ruler or tape measure is available
+        </label>
+      </div>
+    `
   } else {
-    // replace newlines with <br />
-    title = remoteCalibratorPhrases.RC_TestDistances[
+    title = `<h1 style=text-align:justify>${remoteCalibratorPhrases.RC_TestDistances[
       this.language.value
-    ].replace(/(?:\r\n|\r|\n)/g, '<br>')
-    html = remoteCalibratorPhrases.RC_rulerUnit[this.language.value].replace(
-      /(?:\r\n|\r|\n)/g,
-      '<br>',
-    )
-    inputType = 'radio'
-    inputOptions = {
-      inches: 'inches',
-      cm: 'cm',
-      none: 'None',
-    }
-    inputPlaceholder = undefined
-    inputValue = 'none'
+    ].replace(/(?:\r\n|\r|\n)/g, '<br>')}<h1/>`
+    html = `
+      <p>${remoteCalibratorPhrases.RC_rulerUnit[this.language.value].replace(/(?:\r\n|\r|\n)/g, '<br>')}</p>
+      <div id="custom-radio-group">
+        <label>
+          <input class="custom-input-class"  type="radio" name="equipment" value="inches" />
+          Inches
+        </label>
+        <label>
+          <input class="custom-input-class"  type="radio" name="equipment" value="cm" />
+          Centimeters
+        </label>
+        <label>
+          <input class="custom-input-class"  type="radio" name="equipment" value="none" />
+          None
+        </label>
+      </div>
+    `
   }
 
   const { value: result } = await Swal.fire({
@@ -57,18 +69,53 @@ RemoteCalibrator.prototype.getEquipment = async function (
     }),
     title,
     html,
-    input: inputType,
-    inputOptions,
-    inputPlaceholder,
-    inputValue,
-    inputValidator: value => {
-      return new Promise(resolve => {
-        if (!value?.length) {
-          resolve('Please select an option.')
+    preConfirm: () => {
+      const selected = document.querySelector('input[name="equipment"]:checked')
+      if (!selected) {
+        Swal.showValidationMessage('Please select an option.')
+        return null
+      }
+      return selected.value
+    },
+    didOpen: () => {
+      document.querySelector('input[name="equipment"][value="none"]').checked =
+        true
+
+      const customInputs = document.querySelectorAll('.custom-input-class')
+      const keydownListener = event => {
+        if (event.key === 'Enter') {
+          Swal.clickConfirm() // Simulate the "OK" button click
         }
-        this.rulerUnits = value
-        resolve() // Valid input
+      }
+
+      customInputs.forEach(input => {
+        input.addEventListener('keyup', keydownListener)
       })
+
+      if (this.keypadHandler) {
+        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+          null,
+          this.keypadHandler,
+          () => {
+            removeKeypadHandler()
+            Swal.clickConfirm()
+          },
+          false,
+          ['return'],
+        )
+      }
+
+      // Store listeners for cleanup
+      this.customKeydownListener = keydownListener
+      this.customInputs = customInputs
+    },
+    willClose: () => {
+      // Remove keydown event listeners when the modal closes
+      if (this.customInputs) {
+        this.customInputs.forEach(input => {
+          input.removeEventListener('keyup', this.customKeydownListener)
+        })
+      }
     },
   })
 
@@ -100,10 +147,13 @@ const getEquipmentDetails = async (RC, data) => {
     ...swalInfoOptions(RC, {
       showIcon: false,
     }),
-    title: remoteCalibratorPhrases.RC_howLong[RC.language.value].replace(
-      'AAA',
-      data.value.unit,
-    ),
+    title:
+      '<h1 style=text-align:justify>' +
+      remoteCalibratorPhrases.RC_howLong[RC.language.value].replace(
+        'AAA',
+        data.value.unit,
+      ) +
+      '</h1>',
     input: 'number',
     inputAttributes: {
       min: 0,
@@ -117,11 +167,47 @@ const getEquipmentDetails = async (RC, data) => {
             'Please provide a number for the length of your ruler or tape measure.',
           )
         }
+        console.log('value', value)
         RC.rulerLength = value
         data.value.length = value
         RC.newEquipmentData = data
         resolve() // Valid input
       })
+    },
+    didOpen: () => {
+      const swalInput = Swal.getInput()
+      const keydownListener = event => {
+        if (event.key === 'Enter') {
+          Swal.clickConfirm()
+        }
+      }
+
+      if (swalInput) {
+        swalInput.addEventListener('keyup', keydownListener)
+      }
+
+      if (RC.keypadHandler) {
+        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+          null,
+          RC.keypadHandler,
+          () => {
+            removeKeypadHandler()
+            Swal.clickConfirm()
+          },
+          false,
+          ['return'],
+        )
+      }
+
+      // Store listener for cleanup
+      RC.swalKeydownListener = keydownListener
+    },
+    willClose: () => {
+      // Remove keydown event listener
+      const swalInput = Swal.getInput()
+      if (swalInput && RC.swalKeydownListener) {
+        swalInput.removeEventListener('keydown', RC.swalKeydownListener)
+      }
     },
   })
 

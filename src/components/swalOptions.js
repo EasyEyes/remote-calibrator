@@ -4,7 +4,7 @@ export const swalInfoOptions = (RC, { showIcon }) => {
   return {
     icon: showIcon ? 'info' : undefined,
     allowEscapeKey: false,
-    allowEnterKey: false,
+    // allowEnterKey: false,
     allowOutsideClick: false,
     showConfirmButton: true,
     confirmButtonText: remoteCalibratorPhrases.T_proceed[RC.L],
