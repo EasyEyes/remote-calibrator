@@ -1,6 +1,8 @@
 // requestAnimationFrame() polyfill by Erik Möller, Paul Irish, and Tino Zijdel.
 // https://gist.github.com/paulirish/1579671
 
+import Swal from 'sweetalert2'
+import { remoteCalibratorPhrases } from '../i18n/phrases'
 ;(function () {
   let lastTime = 0
   const vendors = ['ms', 'moz', 'webkit', 'o']
@@ -85,36 +87,54 @@ export function sleep(time) {
 /* -------------------------------------------------------------------------- */
 
 // Enter fullscreen
-export function getFullscreen() {
+export async function getFullscreen(L = 'en-US') {
   if (
     document.fullscreenEnabled ||
     document.webkitFullscreenEnabled ||
     document.mozFullScreenEnabled ||
     document.msFullscreenEnabled
   ) {
-    const element = document.documentElement
-    if (element.requestFullscreen) {
-      element.requestFullscreen()
-      return true
+    try {
+      return await fullScreen()
+    } catch (e) {
+      console.log(e)
+      // ask for user interaction
+      let value = false
+      await Swal.fire({
+        html: remoteCalibratorPhrases.EE_FullScreenOk[L],
+        confirmButtonText: 'OK',
+        preConfirm: async () => {
+          value = await fullScreen()
+        },
+      })
+      return value
     }
-
-    if (element.mozRequestFullScreen) {
-      element.mozRequestFullScreen()
-      return true
-    }
-
-    if (element.webkitRequestFullscreen) {
-      element.webkitRequestFullscreen()
-      return true
-    }
-
-    if (element.msRequestFullscreen) {
-      element.msRequestFullscreen()
-      return true
-    }
-    return false
   }
 
+  return false
+}
+
+const fullScreen = async () => {
+  const element = document.documentElement
+  if (element.requestFullscreen) {
+    await element.requestFullscreen()
+    return true
+  }
+
+  if (element.mozRequestFullScreen) {
+    await element.mozRequestFullScreen()
+    return true
+  }
+
+  if (element.webkitRequestFullscreen) {
+    await element.webkitRequestFullscreen()
+    return true
+  }
+
+  if (element.msRequestFullscreen) {
+    await element.msRequestFullscreen()
+    return true
+  }
   return false
 }
 

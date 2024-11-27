@@ -167,7 +167,6 @@ const getEquipmentDetails = async (RC, data) => {
             'Please provide a number for the length of your ruler or tape measure.',
           )
         }
-        console.log('value', value)
         RC.rulerLength = value
         data.value.length = value
         RC.newEquipmentData = data

@@ -560,7 +560,7 @@ RemoteCalibrator.prototype.init = async function (
     // load internationalization phrases
     await loadPhrases(options.languagePhrasesJSON)
 
-    if (options.fullscreen && !debug) getFullscreen()
+    if (options.fullscreen && !debug) await getFullscreen(this.language.value)
 
     this._id = {
       value: options.id,
@@ -646,19 +646,23 @@ RemoteCalibrator.prototype.checkInitialized = function () {
  * Get fullscreen
  * @param {Boolean} f Get fullscreen or not from options
  */
-RemoteCalibrator.prototype.getFullscreen = function (f = true) {
-  if (isFullscreen()) {
-    return true
-  }
+RemoteCalibrator.prototype.getFullscreen = async function (f = true) {
+  try {
+    if (isFullscreen()) {
+      return true
+    }
 
-  this.newFullscreenData = {
-    value: f && !debug ? getFullscreen() : false,
-    timestamp: performance.now(),
-  }
+    this.newFullscreenData = {
+      value: f && !debug ? await getFullscreen(this.language.value) : false,
+      timestamp: performance.now(),
+    }
 
-  // Minimize address bar on mobile devices
-  // ! Experimental
-  if (this.isMobile.value) window.scrollBy(0, 1)
+    // Minimize address bar on mobile devices
+    // ! Experimental
+    if (this.isMobile.value) window.scrollBy(0, 1)
+  } catch (e) {
+    console.error(e)
+  }
 
   return this.isFullscreen
 }
