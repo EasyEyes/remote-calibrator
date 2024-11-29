@@ -301,7 +301,7 @@ RemoteCalibrator.trackDistance(
     desiredDistanceMonitor: true,
     desiredDistanceMonitorCancelable: false,
     check: true,
-    calibrateTrackDistanceCheckCm: [25, 35, 50, 70, 100, 140, 160, 180],
+    calibrateTrackDistanceCheckCm: [2000, 25, 35, 50, 70, 100, 140, 160, 180],
     calibrateTrackDistanceCheckBool: true,
     checkCallback: (result) => {
       printMessage(

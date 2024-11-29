@@ -107,7 +107,7 @@ export async function getFullscreen(L = 'en-US', RC = null) {
         RC.disableKeypadHandler = true
       }
       await Swal.fire({
-        html: remoteCalibratorPhrases.EE_FullScreenOk[L],
+        html: phrases.EE_FullScreenOk[L],
         confirmButtonText: 'OK',
         preConfirm: async () => {
           value = await fullScreen()

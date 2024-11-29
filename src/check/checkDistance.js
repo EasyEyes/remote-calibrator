@@ -7,6 +7,7 @@ import {
 } from '../components/utils'
 import { remoteCalibratorPhrases } from '../i18n/phrases'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
+import { phrases } from '../i18n/schema'
 
 RemoteCalibrator.prototype._checkDistance = async function (
   distanceCallback,
@@ -145,17 +146,17 @@ const trackDistanceCheck = async (
       )
       updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
       const html = constructInstructions(
-        remoteCalibratorPhrases.RC_produceDistanceTitle1[RC.language.value]
+        phrases.RC_produceDistanceTitle1[RC.language.value]
           .replace('222', index)
           .replace('333', calibrateTrackDistanceCheckCm.length),
-        remoteCalibratorPhrases.RC_produceDistance[RC.language.value]
+        phrases.RC_produceDistance[RC.language.value]
           .replace('111', cm)
           .replace('AAA', RC.equipment?.value?.unit)
           .replace(/(?:\r\n|\r|\n)/g, '<br><br>'),
         false,
         '',
         'left',
-        remoteCalibratorPhrases.RC_produceDistanceTitle2[RC.language.value]
+        phrases.RC_produceDistanceTitle2[RC.language.value]
           .replace('222', index)
           .replace('333', calibrateTrackDistanceCheckCm.length),
       )
@@ -251,6 +252,28 @@ const removeViewingDistanceDiv = () => {
   }
 }
 
+const adjustFontSize = (distanceDiv, unitsDiv) => {
+  const container = distanceDiv.parentElement
+  const containerWidth = container.offsetWidth
+  const containerHeight = container.offsetHeight
+
+  let fontSize = containerWidth // Start with the width as a base for font size
+  distanceDiv.style.fontSize = `${fontSize}px`
+  unitsDiv.style.fontSize = `${fontSize * 0.5}px`
+
+  // Adjust dynamically to prevent overflow in width or height
+  while (
+    (distanceDiv.scrollWidth > containerWidth ||
+      unitsDiv.scrollWidth > containerWidth ||
+      distanceDiv.offsetHeight + unitsDiv.offsetHeight > containerHeight) &&
+    fontSize > 10
+  ) {
+    fontSize -= 1
+    distanceDiv.style.fontSize = `${fontSize}px`
+    unitsDiv.style.fontSize = `${fontSize * 0.5}px`
+  }
+}
+
 const updateViewingDistanceDiv = (distance, units) => {
   const viewingDistanceDiv = document.getElementById('viewing-distance-p')
 
@@ -273,6 +296,8 @@ const updateViewingDistanceDiv = (distance, units) => {
   }
 
   unitsDiv.innerText = units
+
+  adjustFontSize(viewingDistanceDiv, unitsDiv)
 }
 
 // Function to create the progress bar div

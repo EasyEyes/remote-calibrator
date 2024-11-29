@@ -7,7 +7,7 @@ export const swalInfoOptions = (RC, { showIcon }) => {
     // allowEnterKey: false,
     allowOutsideClick: false,
     showConfirmButton: true,
-    confirmButtonText: remoteCalibratorPhrases.T_proceed[RC.L],
+    confirmButtonText: phrases.T_proceed[RC.L],
     showClass: {
       popup: 'fadeInUp',
       icon: '',

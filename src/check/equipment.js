@@ -41,11 +41,11 @@ RemoteCalibrator.prototype.getEquipment = async function (
       </div>
     `
   } else {
-    title = `<h1 style=text-align:justify>${remoteCalibratorPhrases.RC_TestDistances[
+    title = `<h1 style=text-align:justify>${phrases.RC_TestDistances[
       this.language.value
     ].replace(/(?:\r\n|\r|\n)/g, '<br>')}<h1/>`
     html = `
-      <p>${remoteCalibratorPhrases.RC_rulerUnit[this.language.value].replace(/(?:\r\n|\r|\n)/g, '<br>')}</p>
+      <p>${phrases.RC_rulerUnit[this.language.value].replace(/(?:\r\n|\r|\n)/g, '<br>')}</p>
       <div id="custom-radio-group">
         <label>
           <input class="custom-input-class"  type="radio" name="equipment" value="inches" />
@@ -78,8 +78,8 @@ RemoteCalibrator.prototype.getEquipment = async function (
       return selected.value
     },
     didOpen: () => {
-      document.querySelector('input[name="equipment"][value="none"]').checked =
-        true
+      // document.querySelector('input[name="equipment"][value="none"]').checked =
+      //   true
 
       const customInputs = document.querySelectorAll('.custom-input-class')
       const keydownListener = event => {
@@ -150,10 +150,7 @@ const getEquipmentDetails = async (RC, data) => {
     }),
     title:
       '<h1 style=text-align:justify>' +
-      remoteCalibratorPhrases.RC_howLong[RC.language.value].replace(
-        'AAA',
-        data.value.unit,
-      ) +
+      phrases.RC_howLong[RC.language.value].replace('AAA', data.value.unit) +
       '</h1>',
     input: 'number',
     inputAttributes: {
