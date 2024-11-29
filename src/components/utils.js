@@ -3,6 +3,7 @@
 
 import Swal from 'sweetalert2'
 import { remoteCalibratorPhrases } from '../i18n/phrases'
+import { phrases } from '../i18n/schema'
 ;(function () {
   let lastTime = 0
   const vendors = ['ms', 'moz', 'webkit', 'o']
