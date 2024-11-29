@@ -201,6 +201,7 @@ function getSize(RC, parent, options, callback) {
     },
     false,
     ['return', 'space'],
+    RC,
   )
 
   // Call when ESC pressed

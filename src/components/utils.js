@@ -87,7 +87,10 @@ export function sleep(time) {
 /* -------------------------------------------------------------------------- */
 
 // Enter fullscreen
-export async function getFullscreen(L = 'en-US') {
+export async function getFullscreen(L = 'en-US', RC = null) {
+  if (isFullscreen()) {
+    return true
+  }
   if (
     document.fullscreenEnabled ||
     document.webkitFullscreenEnabled ||
@@ -100,6 +103,9 @@ export async function getFullscreen(L = 'en-US') {
       console.log(e)
       // ask for user interaction
       let value = false
+      if (RC) {
+        RC.disableKeypadHandler = true
+      }
       await Swal.fire({
         html: remoteCalibratorPhrases.EE_FullScreenOk[L],
         confirmButtonText: 'OK',
@@ -107,6 +113,9 @@ export async function getFullscreen(L = 'en-US') {
           value = await fullScreen()
         },
       })
+      if (RC) {
+        RC.disableKeypadHandler = false
+      }
       return value
     }
   }
@@ -140,10 +149,10 @@ const fullScreen = async () => {
 
 export function isFullscreen() {
   return (
-    Math.abs(window.innerHeight - screen.height) < 5 &&
-    Math.abs(window.innerWidth - screen.width) < 5 &&
-    window.screenX < 5 &&
-    window.screenY < 5
+    document.fullscreenElement != null ||
+    document.webkitFullscreenElement != null ||
+    document.mozFullScreenElement != null ||
+    document.msFullscreenElement != null
   )
 }
 

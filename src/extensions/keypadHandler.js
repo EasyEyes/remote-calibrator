@@ -25,6 +25,7 @@ export const setUpEasyEyesKeypadHandler = (
   callback = null,
   removeBool = true,
   keys = ['return'],
+  RC = null,
 ) => {
   if (!keypadHandler) return () => {}
 
@@ -33,6 +34,8 @@ export const setUpEasyEyesKeypadHandler = (
     newValue => {
       if (keys.includes(newValue.name)) {
         keypadHandler.all_keys.current = []
+
+        if (RC && RC.disableKeypadHandler) return
 
         if (e) e.click()
 

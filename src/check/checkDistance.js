@@ -187,6 +187,7 @@ const trackDistanceCheck = async (
           },
           false,
           ['return'],
+          RC,
         )
       })
     }

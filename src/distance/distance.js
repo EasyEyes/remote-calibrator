@@ -107,6 +107,8 @@ export function blindSpotTest(
       finishFunction() // ! Finish
     },
     false,
+    ['return'],
+    RC,
   )
 
   // ! KEY
@@ -212,6 +214,8 @@ export function blindSpotTest(
           finishFunction() // ! Finish
         },
         false,
+        ['return'],
+        RC,
       )
 
       // Switch eye side

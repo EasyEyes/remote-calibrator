@@ -102,6 +102,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
           },
           false,
           ['return'],
+          this,
         )
       }
 
@@ -195,6 +196,7 @@ const getEquipmentDetails = async (RC, data) => {
           },
           false,
           ['return'],
+          this,
         )
       }
 

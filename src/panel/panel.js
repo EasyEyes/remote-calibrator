@@ -374,7 +374,14 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
             }
           }
 
-          setUpEasyEyesKeypadHandler(e, RC.keypadHandler)
+          setUpEasyEyesKeypadHandler(
+            e,
+            RC.keypadHandler,
+            null,
+            true,
+            ['return'],
+            RC,
+          )
         } else if (eIndex === tasks.length && options.showNextButton) {
           // All tasks finished with next button
           // Change headline and description
@@ -391,7 +398,14 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
             safeExecuteFunc(finalCallback, { timestamp: performance.now() })
           }
 
-          setUpEasyEyesKeypadHandler(e, RC.keypadHandler)
+          setUpEasyEyesKeypadHandler(
+            e,
+            RC.keypadHandler,
+            null,
+            true,
+            ['return'],
+            RC,
+          )
         }
       }
     } else {
@@ -416,7 +430,14 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
         }
       }
 
-      setUpEasyEyesKeypadHandler(e, RC.keypadHandler)
+      setUpEasyEyesKeypadHandler(
+        e,
+        RC.keypadHandler,
+        null,
+        true,
+        ['return'],
+        RC,
+      )
     }
   })
 }

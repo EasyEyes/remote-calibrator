@@ -560,7 +560,8 @@ RemoteCalibrator.prototype.init = async function (
     // load internationalization phrases
     await loadPhrases(options.languagePhrasesJSON)
 
-    if (options.fullscreen && !debug) await getFullscreen(this.language.value)
+    if (options.fullscreen && !debug)
+      await getFullscreen(this.language.value, this)
 
     this._id = {
       value: options.id,
@@ -582,6 +583,7 @@ RemoteCalibrator.prototype.init = async function (
 
     if (extensions?.easyEyesKeypadHandler) {
       this.keypadHandler = extensions.easyEyesKeypadHandler
+      this.disableKeypadHandler = false //used to temporarily disable the keypad handler (e.g. during certain popups)
     }
 
     safeExecuteFunc(callback, this._id)
@@ -653,7 +655,10 @@ RemoteCalibrator.prototype.getFullscreen = async function (f = true) {
     }
 
     this.newFullscreenData = {
-      value: f && !debug ? await getFullscreen(this.language.value) : false,
+      value:
+        f && !debug
+          ? await getFullscreen(this.language.value, this)
+          : await getFullscreen(this.language.value, this),
       timestamp: performance.now(),
     }
 
