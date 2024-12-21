@@ -41,6 +41,8 @@ RemoteCalibrator.prototype.getEquipment = async function (
       </div>
     `
   } else {
+    const video = document.querySelector('#webgazerVideoContainer')
+    if (video) video.style.zIndex = 9999999999
     title = `<h1 style=text-align:justify>${phrases.RC_TestDistances[
       this.language.value
     ].replace(/(?:\r\n|\r|\n)/g, '<br>')}<h1/>`
@@ -133,6 +135,8 @@ RemoteCalibrator.prototype.getEquipment = async function (
     },
     timestamp: performance.now(),
   }
+
+  this.rulerUnits = hasEquipment ? result : null
 
   if (version !== 'original' && hasEquipment) {
     await getEquipmentDetails(this, data)

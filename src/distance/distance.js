@@ -182,6 +182,7 @@ export function blindSpotTest(
             options.checkCallback,
             options.calibrateTrackDistanceCheckCm,
             options.callbackStatic,
+            options.calibrateTrackDistanceCheckSecs,
           )
         else safeExecuteFunc(callback, data)
       } else {

@@ -87,6 +87,7 @@ async function processLanguageSheet() {
         'RC_produceDistanceTitle1',
         'RC_produceDistanceTitle2',
         'EE_FullScreenOk',
+        'RC_AllDistancesRecorded',
 
         // Viewing Blind Spot
         'RC_viewingBlindSpotCredit',

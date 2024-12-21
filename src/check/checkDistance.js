@@ -8,6 +8,8 @@ import {
 import { remoteCalibratorPhrases } from '../i18n/phrases'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { phrases } from '../i18n/schema'
+import Swal from 'sweetalert2'
+import { swalInfoOptions } from '../components/swalOptions'
 
 RemoteCalibrator.prototype._checkDistance = async function (
   distanceCallback,
@@ -16,16 +18,23 @@ RemoteCalibrator.prototype._checkDistance = async function (
   checkCallback,
   calibrateTrackDistanceCheckCm = [],
   callbackStatic = () => {},
+  calibrateTrackDistanceCheckSecs = 0,
 ) {
-  await this.getEquipment(() => {}, false, 'new')
-  await trackDistanceCheck(
-    this,
-    distanceCallback,
-    distanceData,
-    measureName,
-    checkCallback,
-    calibrateTrackDistanceCheckCm,
-    callbackStatic,
+  await this.getEquipment(
+    async () => {
+      return await trackDistanceCheck(
+        this,
+        distanceCallback,
+        distanceData,
+        measureName,
+        checkCallback,
+        calibrateTrackDistanceCheckCm,
+        callbackStatic,
+        calibrateTrackDistanceCheckSecs,
+      )
+    },
+    false,
+    'new',
   )
 }
 
@@ -94,6 +103,7 @@ const trackDistanceCheck = async (
   checkCallback,
   calibrateTrackDistanceCheckCm, // list of distances to check
   callbackStatic,
+  calibrateTrackDistanceCheckSecs = 0,
 ) => {
   const isTrack = measureName === 'trackDistance'
 
@@ -110,11 +120,12 @@ const trackDistanceCheck = async (
   //if the unit is inches, convert calibrateTrackDistanceCheckCm to inches and round to integer
   //discard negative, zero, and values exceeding equipment length
   if (RC.equipment?.value?.has) {
-    if (RC.equipment?.value?.unit === 'inches') {
-      calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.map(cm =>
-        Math.round(cm / 2.54),
-      )
-    }
+    calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.map(cm =>
+      RC.equipment?.value?.unit === 'inches'
+        ? Math.round(cm / 2.54)
+        : Number(cm.toFixed(1)),
+    )
+
     calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.filter(
       cm => cm > 0 && cm <= RC.equipment?.value?.length,
     )
@@ -131,11 +142,15 @@ const trackDistanceCheck = async (
     createViewingDistanceDiv()
     //convert back to cm to report
     RC.calibrateTrackDistanceRequestedCm = calibrateTrackDistanceCheckCm.map(
-      v => (RC.equipment?.value?.unit === 'inches' ? Math.round(v * 2.54) : v),
+      v =>
+        RC.equipment?.value?.unit === 'inches'
+          ? (v * 2.54).toFixed(1)
+          : (v * 1.0).toFixed(1),
     )
     RC.calibrateTrackDistanceMeasuredCm = []
 
     for (let i = 0; i < calibrateTrackDistanceCheckCm.length; i++) {
+      let register = true
       const cm = calibrateTrackDistanceCheckCm[i]
       const index = i + 1
 
@@ -163,38 +178,68 @@ const trackDistanceCheck = async (
       RC._replaceBackground(html)
 
       //wait for return key press
-      await new Promise(resolve => {
-        document.addEventListener('keydown', function keydownListener(event) {
-          if (event.key === 'Enter') {
-            const distanceFromRC = !RC.viewingDistanceAllowedPreciseBool
-              ? Math.round(RC.viewingDistanceCm.value)
-              : RC.viewingDistanceCm.value.toFixed(1)
-            RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
-            document.removeEventListener('keydown', keydownListener)
-            resolve()
-          }
-        })
+      await new Promise(async resolve => {
+        if (!calibrateTrackDistanceCheckSecs)
+          calibrateTrackDistanceCheckSecs = 0
 
-        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
-          null,
-          RC.keypadHandler,
-          () => {
-            const distanceFromRC = !RC.viewingDistanceAllowedPreciseBool
-              ? Math.round(RC.viewingDistanceCm.value)
-              : RC.viewingDistanceCm.value.toFixed(1)
-            RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
-            removeKeypadHandler()
-            resolve()
-          },
-          false,
-          ['return'],
-          RC,
-        )
+        setTimeout(async () => {
+          document.addEventListener('keyup', function keyupListener(event) {
+            if (event.key === 'Enter' && register) {
+              register = false
+              const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
+              RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
+              document.removeEventListener('keydown', keyupListener)
+              resolve()
+            }
+          })
+
+          const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+            null,
+            RC.keypadHandler,
+            () => {
+              const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
+              RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
+              removeKeypadHandler()
+              resolve()
+            },
+            false,
+            ['return'],
+            RC,
+          )
+        }, calibrateTrackDistanceCheckSecs * 1000)
       })
     }
-    RC.resumeNudger()
+
     removeProgressBar()
     removeViewingDistanceDiv()
+
+    //show thank you message
+    await Swal.fire({
+      ...swalInfoOptions(RC, {
+        showIcon: false,
+      }),
+      title: phrases.RC_AllDistancesRecorded[RC.language.value].replace(
+        '111',
+        RC.calibrateTrackDistanceRequestedCm.length,
+      ),
+      didOpen: () => {
+        if (RC.keypadHandler) {
+          const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+            null,
+            RC.keypadHandler,
+            () => {
+              removeKeypadHandler()
+              Swal.clickConfirm()
+            },
+            false,
+            ['return'],
+            RC,
+          )
+        }
+      },
+    })
+
+    RC.resumeNudger()
   }
   quit()
 }
