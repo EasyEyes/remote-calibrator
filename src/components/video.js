@@ -116,7 +116,7 @@ export function setDefaultVideoPosition(RC, v) {
     v.style.top = RC._CONST.N.VIDEO_MARGIN
     v.style.bottom = 'unset'
   } else {
-    v.style.left = RC._CONST.N.VIDEO_MARGIN
+    v.style.left = 0 // RC._CONST.N.VIDEO_MARGIN
     v.style.right = 'unset'
     v.style.top = 'unset'
     v.style.bottom = RC._CONST.N.VIDEO_MARGIN_BOTTOM

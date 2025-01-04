@@ -122,7 +122,7 @@ const trackDistanceCheck = async (
   if (RC.equipment?.value?.has) {
     calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.map(cm =>
       RC.equipment?.value?.unit === 'inches'
-        ? Math.round(cm / 2.54)
+        ? Number(cm / 2.54)
         : Number(cm.toFixed(1)),
     )
 
@@ -140,14 +140,9 @@ const trackDistanceCheck = async (
     RC.pauseNudger()
     createProgressBar()
     createViewingDistanceDiv()
-    //convert back to cm to report
-    RC.calibrateTrackDistanceRequestedCm = calibrateTrackDistanceCheckCm.map(
-      v =>
-        RC.equipment?.value?.unit === 'inches'
-          ? (v * 2.54).toFixed(1)
-          : (v * 1.0).toFixed(1),
-    )
     RC.calibrateTrackDistanceMeasuredCm = []
+    RC.calibrateTrackDistanceRequestedCm = []
+    let skippedDistancesCount = 0
 
     for (let i = 0; i < calibrateTrackDistanceCheckCm.length; i++) {
       let register = true
@@ -169,7 +164,7 @@ const trackDistanceCheck = async (
           .replace('AAA', RC.equipment?.value?.unit)
           .replace(/(?:\r\n|\r|\n)/g, '<br><br>'),
         false,
-        '',
+        'bodyText',
         'left',
         phrases.RC_produceDistanceTitle2[RC.language.value]
           .replace('222', index)
@@ -188,6 +183,20 @@ const trackDistanceCheck = async (
               register = false
               const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
               RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
+              RC.calibrateTrackDistanceRequestedCm.push(
+                RC.equipment?.value?.unit === 'inches'
+                  ? (cm * 2.54).toFixed(1)
+                  : cm.toFixed(1),
+              )
+              document.removeEventListener('keydown', keyupListener)
+              resolve()
+            }
+            //check for the x key to skip
+            else if (event.key === 'x' && register) {
+              register = false
+              skippedDistancesCount++
+              //remove distance from requested list
+              calibrateTrackDistanceCheckCm.splice(i, 1)
               document.removeEventListener('keydown', keyupListener)
               resolve()
             }
@@ -196,15 +205,31 @@ const trackDistanceCheck = async (
           const removeKeypadHandler = setUpEasyEyesKeypadHandler(
             null,
             RC.keypadHandler,
-            () => {
-              const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
-              RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
-              removeKeypadHandler()
-              resolve()
+            value => {
+              if (value === 'return') {
+                const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
+                RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
+                RC.calibrateTrackDistanceRequestedCm.push(
+                  RC.equipment?.value?.unit === 'inches'
+                    ? (cm * 2.54).toFixed(1)
+                    : cm.toFixed(1),
+                )
+                removeKeypadHandler()
+                resolve()
+              }
+              //check for the x key to skip
+              else if (value === '❌') {
+                skippedDistancesCount++
+                //remove distance from requested list
+                calibrateTrackDistanceCheckCm.splice(i, 1)
+                removeKeypadHandler()
+                resolve()
+              }
             },
             false,
-            ['return'],
+            ['return', '❌'],
             RC,
+            true,
           )
         }, calibrateTrackDistanceCheckSecs * 1000)
       })
@@ -218,10 +243,13 @@ const trackDistanceCheck = async (
       ...swalInfoOptions(RC, {
         showIcon: false,
       }),
-      title: phrases.RC_AllDistancesRecorded[RC.language.value].replace(
-        '111',
-        RC.calibrateTrackDistanceRequestedCm.length,
-      ),
+      title:
+        '<p class="heading2">' +
+        phrases.RC_AllDistancesRecorded[RC.language.value].replace(
+          '111',
+          RC.calibrateTrackDistanceRequestedCm.length,
+        ) +
+        '</p>',
       didOpen: () => {
         if (RC.keypadHandler) {
           const removeKeypadHandler = setUpEasyEyesKeypadHandler(

@@ -43,21 +43,21 @@ RemoteCalibrator.prototype.getEquipment = async function (
   } else {
     const video = document.querySelector('#webgazerVideoContainer')
     if (video) video.style.zIndex = 9999999999
-    title = `<h1 style=text-align:justify>${phrases.RC_TestDistances[
+    title = `<p style="text-align:justify; margin:0" class="heading1">${phrases.RC_TestDistances[
       this.language.value
-    ].replace(/(?:\r\n|\r|\n)/g, '<br>')}<h1/>`
+    ].replace(/(?:\r\n|\r|\n)/g, '<br>')}<p/>`
     html = `
-      <p>${phrases.RC_rulerUnit[this.language.value].replace(/(?:\r\n|\r|\n)/g, '<br>')}</p>
+      <p class="bodyText">${phrases.RC_rulerUnit[this.language.value].replace(/(?:\r\n|\r|\n)/g, '<br>')}</p>
       <div id="custom-radio-group">
-        <label>
+        <label class="bodyText">
           <input class="custom-input-class"  type="radio" name="equipment" value="inches" />
           Inches
         </label>
-        <label>
+        <label class="bodyText">
           <input class="custom-input-class"  type="radio" name="equipment" value="cm" />
           Centimeters
         </label>
-        <label>
+        <label class="bodyText">
           <input class="custom-input-class"  type="radio" name="equipment" value="none" />
           None
         </label>
@@ -153,9 +153,9 @@ const getEquipmentDetails = async (RC, data) => {
       showIcon: false,
     }),
     title:
-      '<h1 style=text-align:justify>' +
+      '<p style=text-align:justify class="heading2">' +
       phrases.RC_howLong[RC.language.value].replace('AAA', data.value.unit) +
-      '</h1>',
+      '</p>',
     input: 'number',
     inputAttributes: {
       min: 0,

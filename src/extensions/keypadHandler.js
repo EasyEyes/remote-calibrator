@@ -26,9 +26,13 @@ export const setUpEasyEyesKeypadHandler = (
   removeBool = true,
   keys = ['return'],
   RC = null,
+  passKeyToCallback = false,
 ) => {
   if (!keypadHandler) return () => {}
 
+  if (keypadHandler.keypad) {
+    keypadHandler.keypad.update(keys)
+  }
   const removeHandler = onVariableChange_key_resp_allKeys(
     keypadHandler,
     newValue => {
@@ -39,7 +43,7 @@ export const setUpEasyEyesKeypadHandler = (
 
         if (e) e.click()
 
-        if (callback) callback()
+        if (callback) passKeyToCallback ? callback(newValue.name) : callback()
 
         if (removeBool) {
           removeHandler()

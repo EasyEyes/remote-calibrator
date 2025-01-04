@@ -17,6 +17,7 @@
   font-size: 2rem !important;
   font-weight: bold !important;
   user-select: none !important;
+  margin-bottom: 0 !important;
 }
 
 .my__swal2__html {
