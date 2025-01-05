@@ -18,10 +18,12 @@
   font-weight: bold !important;
   user-select: none !important;
   margin-bottom: 0 !important;
+  margin-left: 2.5rem !important;
 }
 
 .my__swal2__html {
   margin: 1.6rem;
+  margin-left: 2.5rem !important;
   color: #444 !important;
   font-size: 1.2rem !important;
   line-height: 150% !important;

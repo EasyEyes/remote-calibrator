@@ -122,8 +122,8 @@ const trackDistanceCheck = async (
   if (RC.equipment?.value?.has) {
     calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.map(cm =>
       RC.equipment?.value?.unit === 'inches'
-        ? Number(cm / 2.54)
-        : Number(cm.toFixed(1)),
+        ? Math.round(Number(cm) / 2.54)
+        : Math.round(Number(cm)),
     )
 
     calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.filter(
