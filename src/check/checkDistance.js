@@ -195,9 +195,9 @@ const trackDistanceCheck = async (
             else if (event.key === 'x' && register) {
               register = false
               skippedDistancesCount++
-              i--
               //remove distance from requested list
               calibrateTrackDistanceCheckCm.splice(i, 1)
+              i--
               document.removeEventListener('keydown', keyupListener)
               resolve()
             }
@@ -221,9 +221,10 @@ const trackDistanceCheck = async (
               //check for the x key to skip
               else if (value === '❌') {
                 skippedDistancesCount++
-                i--
                 //remove distance from requested list
                 calibrateTrackDistanceCheckCm.splice(i, 1)
+                i--
+
                 removeKeypadHandler()
                 resolve()
               }
