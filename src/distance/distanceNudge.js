@@ -163,13 +163,13 @@ const withinRange = (value, target, toleranceRatio) => {
 const startCorrecting = RC => {
   RC._addNudger(`<div id="rc-distance-correct">
   <p id="rc-distance-correct-instruction"></p>
-  <p id="rc-distance-correct-guide">${phrases.RC_distanceTrackingGuide[RC.L]
+  <p id="rc-distance-correct-guide">${phrases.RC_distanceTrackingGuide1[RC.L]
     .replace(
-      'xx1',
+      '111',
       `<span class="rc-distance-num rc-distance-now" id="rc-distance-now"></span>`,
     )
     .replace(
-      'xx2',
+      '222',
       `<span class="rc-distance-num rc-distance-desired" id="rc-distance-desired"></span>`,
     )}<span class="rc-distance-desired" id="rc-can-use-keypad"></span></p>
 </div>
@@ -185,7 +185,7 @@ const startCorrecting = RC => {
 
 const getMoveInner = (RC, value, target) => {
   if (value >= target) return phrases.RC_distanceTrackingMoveCloser[RC.L]
-  return phrases.RC_distanceTrackingMoveFurther[RC.L]
+  return phrases.RC_distanceTrackingMoveFarther[RC.L]
 }
 
 const validateAllowedRatio = ratio => {

@@ -31,5 +31,5 @@ function constructLangData(lang) {
 }
 
 export function spaceForLanguage(L) {
-  return phrases.EE_languageUseSpace[L] === '1' ? ' ' : ''
+  return phrases.EE_languageUsesSpacesBool[L] === 'TRUE' ? ' ' : ''
 }

@@ -34,7 +34,7 @@ async function processLanguageSheet() {
         'EE_languageNameNative',
         'EE_languageDirection',
         'EE_phraseSource',
-        'EE_languageUseSpace',
+        'EE_languageUsesSpacesBool',
         /* -------------------------------------------------------------------------- */
         // General
         'RC_ok',
@@ -68,9 +68,9 @@ async function processLanguageSheet() {
         'RC_distanceTrackingIntroStart',
         'RC_distanceTrackingIntroEnd',
         'RC_distanceTrackingRedo',
-        'RC_distanceTrackingGuide',
+        'RC_distanceTrackingGuide1',
         'RC_distanceTrackingMoveCloser',
-        'RC_distanceTrackingMoveFurther',
+        'RC_distanceTrackingMoveFarther',
         'RC_distanceTracking',
         'RC_viewingDistanceIntroLiMethod',
         'RC_viewingDistanceIntroTitle',
