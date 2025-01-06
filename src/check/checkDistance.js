@@ -195,6 +195,7 @@ const trackDistanceCheck = async (
             else if (event.key === 'x' && register) {
               register = false
               skippedDistancesCount++
+              i--
               //remove distance from requested list
               calibrateTrackDistanceCheckCm.splice(i, 1)
               document.removeEventListener('keydown', keyupListener)
@@ -220,6 +221,7 @@ const trackDistanceCheck = async (
               //check for the x key to skip
               else if (value === '❌') {
                 skippedDistancesCount++
+                i--
                 //remove distance from requested list
                 calibrateTrackDistanceCheckCm.splice(i, 1)
                 removeKeypadHandler()
@@ -237,7 +239,6 @@ const trackDistanceCheck = async (
 
     removeProgressBar()
     removeViewingDistanceDiv()
-
     //show thank you message
     await Swal.fire({
       ...swalInfoOptions(RC, {
