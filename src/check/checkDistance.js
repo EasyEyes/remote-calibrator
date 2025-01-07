@@ -178,17 +178,20 @@ const trackDistanceCheck = async (
           calibrateTrackDistanceCheckSecs = 0
 
         setTimeout(async () => {
-          document.addEventListener('keyup', function keyupListener(event) {
+          function keyupListener(event) {
             if (event.key === 'Enter' && register) {
               register = false
               const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
-              RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
+              RC.calibrateTrackDistanceMeasuredCm.push(Number(distanceFromRC))
               RC.calibrateTrackDistanceRequestedCm.push(
-                RC.equipment?.value?.unit === 'inches'
-                  ? (cm * 2.54).toFixed(1)
-                  : cm.toFixed(1),
+                Number(
+                  RC.equipment?.value?.unit === 'inches'
+                    ? (cm * 2.54).toFixed(1)
+                    : cm.toFixed(1),
+                ),
               )
               document.removeEventListener('keydown', keyupListener)
+              removeKeypadHandler()
               resolve()
             }
             //check for the x key to skip
@@ -199,10 +202,10 @@ const trackDistanceCheck = async (
               calibrateTrackDistanceCheckCm.splice(i, 1)
               i--
               document.removeEventListener('keydown', keyupListener)
+              removeKeypadHandler()
               resolve()
             }
-          })
-
+          }
           const removeKeypadHandler = setUpEasyEyesKeypadHandler(
             null,
             RC.keypadHandler,
@@ -216,6 +219,7 @@ const trackDistanceCheck = async (
                     : cm.toFixed(1),
                 )
                 removeKeypadHandler()
+                document.removeEventListener('keyup', keyupListener)
                 resolve()
               }
               //check for the x key to skip
@@ -224,8 +228,8 @@ const trackDistanceCheck = async (
                 //remove distance from requested list
                 calibrateTrackDistanceCheckCm.splice(i, 1)
                 i--
-
                 removeKeypadHandler()
+                document.removeEventListener('keyup', keyupListener)
                 resolve()
               }
             },
@@ -234,12 +238,15 @@ const trackDistanceCheck = async (
             RC,
             true,
           )
+
+          document.addEventListener('keyup', keyupListener)
         }, calibrateTrackDistanceCheckSecs * 1000)
       })
     }
 
     removeProgressBar()
     removeViewingDistanceDiv()
+    //join the arrays into a string
     //show thank you message
     await Swal.fire({
       ...swalInfoOptions(RC, {
