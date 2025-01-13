@@ -21,6 +21,8 @@ RemoteCalibrator.prototype.nudgeDistance = function (
     this.viewingDistanceCm.method === this._CONST.VIEW_METHOD.F
   ) {
     if (
+      this._nudger &&
+      !this._nudger.nudgerPaused &&
       !withinRange(
         this.viewingDistanceCm.value,
         this._distanceTrackNudging.distanceDesired,
@@ -236,6 +238,7 @@ RemoteCalibrator.prototype._removeNudger = function () {
 
     this._nudger = {
       element: null,
+      nudgerPaused: false,
     }
     // There is a nudger and remove successfully
     return true
@@ -245,10 +248,12 @@ RemoteCalibrator.prototype._removeNudger = function () {
 }
 
 RemoteCalibrator.prototype.pauseNudger = function () {
+  this._nudger.nudgerPaused = true
   document.body.classList.add('hide-nudger')
 }
 
 RemoteCalibrator.prototype.resumeNudger = function () {
+  this._nudger.nudgerPaused = false
   document.body.classList.remove('hide-nudger')
 }
 

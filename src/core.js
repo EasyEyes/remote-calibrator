@@ -117,6 +117,7 @@ class RemoteCalibrator {
     this._nudger = {
       element: null,
       gazeElement: null,
+      nudgerPaused: false,
     }
 
     this._params = {
