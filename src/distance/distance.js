@@ -223,10 +223,10 @@ export function blindSpotTest(
       if (eyeSide === 'left') {
         // Change to RIGHT
         eyeSide = 'right'
-        eyeSideEle.innerHTML = phrases.RC_distanceTrackingCloseR[RC.L]
+        eyeSideEle.textContent = phrases.RC_distanceTrackingCloseR[RC.L]
       } else {
         eyeSide = 'left'
-        eyeSideEle.innerHTML = phrases.RC_distanceTrackingCloseL[RC.L]
+        eyeSideEle.textContent = phrases.RC_distanceTrackingCloseL[RC.L]
       }
       RC._setFloatInstructionElementPos(eyeSide, 16)
 
@@ -333,8 +333,8 @@ export function blindSpotTest(
 
     if (shiftFloatingElement) {
       if (eyeSide === 'left')
-        eyeSideEle.innerHTML = phrases.RC_distanceTrackingCloseL[RC.L]
-      else eyeSideEle.innerHTML = phrases.RC_distanceTrackingCloseR[RC.L]
+        eyeSideEle.textContent = phrases.RC_distanceTrackingCloseL[RC.L]
+      else eyeSideEle.textContent = phrases.RC_distanceTrackingCloseR[RC.L]
       RC._setFloatInstructionElementPos(eyeSide, 16)
     }
 

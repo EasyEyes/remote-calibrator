@@ -782,7 +782,7 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
   instP.className = 'float-instruction'
   instP.id = id || 'float-instruction'
 
-  instP.innerHTML = text // Init
+  instP.textContent = text // Init
   this.background.appendChild(instP)
 
   this._background.instructionElement = instP
