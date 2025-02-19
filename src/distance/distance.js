@@ -11,6 +11,7 @@ import {
   average,
   emptyFunc,
   randn_bm,
+  replaceNewlinesWithBreaks,
 } from '../components/utils'
 import {
   _getCrossX,
@@ -223,10 +224,14 @@ export function blindSpotTest(
       if (eyeSide === 'left') {
         // Change to RIGHT
         eyeSide = 'right'
-        eyeSideEle.textContent = phrases.RC_distanceTrackingCloseR[RC.L]
+        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
+          phrases.RC_distanceTrackingCloseR[RC.L],
+        )
       } else {
         eyeSide = 'left'
-        eyeSideEle.textContent = phrases.RC_distanceTrackingCloseL[RC.L]
+        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
+          phrases.RC_distanceTrackingCloseL[RC.L],
+        )
       }
       RC._setFloatInstructionElementPos(eyeSide, 16)
 
@@ -333,8 +338,13 @@ export function blindSpotTest(
 
     if (shiftFloatingElement) {
       if (eyeSide === 'left')
-        eyeSideEle.textContent = phrases.RC_distanceTrackingCloseL[RC.L]
-      else eyeSideEle.textContent = phrases.RC_distanceTrackingCloseR[RC.L]
+        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
+          phrases.RC_distanceTrackingCloseL[RC.L],
+        )
+      else
+        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
+          phrases.RC_distanceTrackingCloseR[RC.L],
+        )
       RC._setFloatInstructionElementPos(eyeSide, 16)
     }
 

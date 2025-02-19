@@ -15,6 +15,7 @@ import {
   constructInstructions,
   isFullscreen,
   safeExecuteFunc,
+  replaceNewlinesWithBreaks,
 } from './components/utils'
 import { looseSetLanguage } from './components/language'
 import { phrases } from './i18n/schema'
@@ -782,7 +783,7 @@ RemoteCalibrator.prototype._constructFloatInstructionElement = function (
   instP.className = 'float-instruction'
   instP.id = id || 'float-instruction'
 
-  instP.textContent = text // Init
+  instP.innerHTML = replaceNewlinesWithBreaks(text) // Init
   this.background.appendChild(instP)
 
   this._background.instructionElement = instP

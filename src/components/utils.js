@@ -260,3 +260,7 @@ export const getClickOrTouchLocation = e => {
   }
   return { x: e.clientX, y: e.clientY }
 }
+
+export function replaceNewlinesWithBreaks(str) {
+  return str.replace(/\n/g, '<br/>')
+}
