@@ -20,6 +20,7 @@ import {
 import { looseSetLanguage } from './components/language'
 import { phrases } from './i18n/schema'
 import { loadPhrases } from './i18n/loadPhrases'
+import { clearAllHandlers_key_resp_allKeys } from './extensions/keypadHandler'
 
 // eslint-disable-next-line no-undef
 export const env = process.env.BUILD_TARGET
@@ -644,6 +645,16 @@ RemoteCalibrator.prototype.checkInitialized = function () {
   if (this._initialized) return true
   console.error('RemoteCalibrator is not initialized.')
   return false
+}
+
+/**
+ * Remove keypad handler
+ */
+RemoteCalibrator.prototype.removeKeypadHandler = function () {
+  if (this.keypadHandler) {
+    clearAllHandlers_key_resp_allKeys(this.keypadHandler)
+    this.keypadHandler = null
+  }
 }
 
 /**
