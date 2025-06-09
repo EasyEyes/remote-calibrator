@@ -552,6 +552,29 @@ RemoteCalibrator.prototype.measureDistance = function (
   blindSpotTest(this, options, false, callback)
 }
 
+RemoteCalibrator.prototype.measureDistanceObject = function (
+  options = {},
+  callback = undefined,
+) {
+  if (!this.checkInitialized()) return
+
+  const opts = Object.assign(
+    {
+      fullscreen: false,
+      repeatTesting: 1,
+      headline: `📏 ${phrases.RC_viewingDistanceTitle[this.L]}`,
+      description: phrases.RC_viewingDistanceIntroLiMethod[this.L],
+      showCancelButton: true,
+    },
+    options,
+  )
+
+  this.getFullscreen(opts.fullscreen)
+  blurAll()
+
+  objectTest(this, opts, callback)
+}
+
 // Helper functions
 
 function _getDist(x, crossX, ppi) {
@@ -581,3 +604,748 @@ function _getDistValues(dist) {
   for (const d of dist) v.push(d.dist)
   return v
 }
+
+// ===================== OBJECT TEST SCHEME =====================
+export function objectTest(
+  RC,
+  options,
+  callback = undefined,
+) {
+  RC._addBackground();
+
+  // ===================== DRAWING THE OBJECT TEST UI =====================
+
+  // --- Calculate screen and layout measurements ---
+  // Get the screen's pixels per millimeter (for accurate physical placement)
+  const ppi = RC.screenPpi ? RC.screenPpi.value : 96 / 25.4; // fallback: 96dpi/25.4mm
+  const pxPerMm = ppi / 25.4;
+
+  // The left vertical line is always 5mm from the left edge of the screen
+  const leftLinePx = Math.round(5 * pxPerMm); // 5mm from left
+  const screenWidth = window.innerWidth;
+
+  // The right vertical line starts at 2/3 of the screen width, but is adjustable
+  let rightLinePx = Math.round(screenWidth * 2 / 3);
+
+  // --- Create the main overlay container ---
+  // This container holds all UI elements for the object test
+  const container = document.createElement('div');
+  container.style.position = 'fixed'; // Change to fixed to cover entire viewport
+  container.style.top = '0';
+  container.style.left = '0';
+  container.style.width = '100vw';
+  container.style.height = '100vh';
+  container.style.userSelect = 'none';
+  container.style.overflow = 'hidden'; // Prevent scrolling
+
+  // --- TITLE  ---
+  const title = document.createElement('h1');
+  title.innerText = phrases.RC_SetViewingDistance[RC.L];
+  title.style.textAlign = 'left';
+  title.style.paddingLeft = '3rem';
+  title.style.margin = '2rem 0 5rem 0';
+  container.appendChild(title);
+
+  // --- INSTRUCTIONS ---
+  const instructionsText = phrases.RC_UseObjectToSetViewingDistance1[RC.L]
+  const instructions = document.createElement('div');
+  instructions.style.maxWidth = '600px';
+  instructions.style.paddingLeft = '3rem';
+  instructions.style.textAlign = 'left';
+  instructions.style.whiteSpace = 'pre-line';
+  instructions.style.alignSelf = 'flex-start';
+  instructions.style.position = 'relative';
+  instructions.style.zIndex = '3';
+  instructions.innerText = instructionsText;
+  container.appendChild(instructions);
+
+  // ===================== DRAWING THE VERTICAL LINES =====================
+
+  // --- Style for both vertical lines (left and right) ---
+  // Both lines are the same color, thickness, and height
+  const verticalLineStyle = `
+    position: absolute; 
+    top: 5rem; 
+    height: 75vh; 
+    width: 6px; 
+    background: rgb(34, 141, 16); 
+    border-radius: 2px; 
+    box-shadow: 0 0 8px rgba(34, 141, 16, 0.4);
+    z-index: 1;
+  `;
+
+  // --- Left vertical line ---
+  // Fixed at 5mm from the left edge
+  const leftLine = document.createElement('div');
+  leftLine.style = verticalLineStyle + `left: ${leftLinePx}px;`;
+  leftLine.style.marginLeft = '5mm'; // Ensures physical 5mm offset
+  container.appendChild(leftLine);
+
+  // --- Right vertical line ---
+  // Starts at 2/3 of the screen width, but is draggable and keyboard-movable
+  const rightLine = document.createElement('div');
+  rightLine.style = verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`;
+  rightLine.tabIndex = 0; // Allows keyboard focus for arrow key movement
+  rightLine.setAttribute('role', 'slider'); // Make it more accessible
+  rightLine.setAttribute('aria-label', 'Adjust right line position');
+  container.appendChild(rightLine);
+
+  // Add hover effects to both lines
+  [leftLine, rightLine].forEach(line => {
+    line.addEventListener('mouseenter', () => {
+      line.style.boxShadow = '0 0 12px rgba(34, 141, 16, 0.6)';
+      line.style.width = '8px';
+    });
+    line.addEventListener('mouseleave', () => {
+      line.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)';
+      line.style.width = '6px';
+    });
+  });
+
+  // ===================== LABELS FOR VERTICAL LINES =====================
+
+  // --- Label for the left vertical line ---
+  // Tells the user to align the left edge of their object here
+  const leftLabel = document.createElement('div');
+  leftLabel.innerText = phrases.RC_LeftEdge[RC.L]
+  leftLabel.style.position = 'absolute';
+  leftLabel.style.marginLeft = '5mm';
+  leftLabel.style.left = `${leftLinePx + 6}px`; // Slightly right of the line
+  leftLabel.style.top = '80vh'; // Just below the line
+  leftLabel.style.color = 'rgb(34, 141, 16)';
+  leftLabel.style.fontWeight = 'bold';
+  leftLabel.style.fontSize = '1rem';
+  container.appendChild(leftLabel);
+
+  // --- Label for the right vertical line ---
+  // Tells the user to move this line to the right edge of their object
+  const rightLabel = document.createElement('div');
+  rightLabel.innerText = phrases.RC_RightEdge[RC.L];
+  rightLabel.style.position = 'absolute';
+  rightLabel.style.left = `${rightLinePx + 6}px`; // Slightly right of the line
+  rightLabel.style.top = '80vh';
+  rightLabel.style.color = 'rgb(34, 141, 16)';
+  rightLabel.style.fontWeight = 'bold';
+  rightLabel.style.fontSize = '1rem';
+  rightLabel.id = 'right-line-label';
+  container.appendChild(rightLabel);
+
+  // --- Update right label position when rightLine moves (drag or keyboard) ---
+  function updateRightLabel() {
+    rightLabel.style.left = `${rightLinePx + 6}px`;
+  }
+
+  // --- Allow the user to move the right line with arrow keys when focused ---
+  rightLine.addEventListener('keydown', e => {
+    const stepSize = 5; // Pixels to move per keypress
+    if (e.key === 'ArrowLeft') {
+      rightLinePx = Math.max(leftLinePx + 20, rightLinePx - stepSize);
+      rightLine.style.left = `${rightLinePx}px`;
+      updateRightLabel();
+      e.preventDefault();
+    } else if (e.key === 'ArrowRight') {
+      rightLinePx = Math.min(screenWidth - 10, rightLinePx + stepSize);
+      rightLine.style.left = `${rightLinePx}px`;
+      updateRightLabel();
+      e.preventDefault();
+    }
+  });
+
+  // --- Visual feedback for keyboard focus on the right line ---
+  rightLine.addEventListener('focus', () => {
+    rightLine.style.boxShadow = '0 0 0 2px #ff9a00';
+    rightLine.style.outline = 'none';
+  });
+  rightLine.addEventListener('blur', () => {
+    rightLine.style.boxShadow = '';
+  });
+
+  // --- Allow the user to drag the right vertical line horizontally ---
+  let dragging = false;
+  rightLine.addEventListener('mousedown', e => {
+    dragging = true;
+    document.body.style.cursor = 'ew-resize';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    let x = e.clientX;
+    // Clamp so it can't cross the left line or go off screen
+    x = Math.max(leftLinePx + 20, Math.min(x, screenWidth - 10));
+    rightLinePx = x;
+    rightLine.style.left = `${rightLinePx}px`;
+    updateRightLabel();
+  });
+  window.addEventListener('mouseup', () => {
+    dragging = false;
+    document.body.style.cursor = '';
+  });
+
+  // Add keyboard event listener for arrow keys
+  const handleArrowKeys = (e) => {
+    if (document.activeElement === rightLine) {
+      const stepSize = 5; // Pixels to move per keypress
+      if (e.key === 'ArrowLeft') {
+        rightLinePx = Math.max(leftLinePx + 20, rightLinePx - stepSize);
+        rightLine.style.left = `${rightLinePx}px`;
+        updateRightLabel();
+        e.preventDefault();
+      } else if (e.key === 'ArrowRight') {
+        rightLinePx = Math.min(screenWidth - 10, rightLinePx + stepSize);
+        rightLine.style.left = `${rightLinePx}px`;
+        updateRightLabel();
+        e.preventDefault();
+      }
+    }
+  };
+  document.addEventListener('keydown', handleArrowKeys);
+
+  // Clean up keyboard event listener when done
+  const cleanup = () => {
+    document.removeEventListener('keydown', handleArrowKeys);
+  };
+  window.addEventListener('beforeunload', cleanup);
+
+  // ===================== DRAWING THE HORIZONTAL LINE AND ARROWHEADS =====================
+  // --- Calculate the vertical position for the horizontal line (5mm from bottom of viewport) ---
+  const bottomMargin = 5 * pxPerMm; // 5mm from bottom
+  const leftMargin = 5 * pxPerMm; // 5mm from left edge
+  const lineThickness = 6; // px, same as vertical lines
+  const arrowLength = 24; // px, length of arrowhead
+  const arrowWidth = 16;  // px, width of arrowhead base
+  const arrowColor = 'rgb(34, 141, 16)';
+
+  // --- Horizontal line ---
+  const horizontalLine = document.createElement('div');
+  horizontalLine.style.position = 'absolute';
+  horizontalLine.style.left = `${leftMargin + 2*arrowLength}px`; // Start at end of left arrow base
+  horizontalLine.style.right = `${arrowLength}px`; // End before right arrow
+  horizontalLine.style.bottom = `${bottomMargin}px`;
+  horizontalLine.style.height = `${lineThickness}px`;
+  horizontalLine.style.background = arrowColor;
+  horizontalLine.style.borderRadius = '2px';
+  horizontalLine.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)';
+  horizontalLine.style.zIndex = '1';
+  container.appendChild(horizontalLine);
+
+  // --- Left arrowhead for the horizontal line ---
+  const leftArrow = document.createElement('div');
+  leftArrow.style.position = 'absolute';
+  leftArrow.style.left = `${leftMargin + arrowLength}px`; // Position arrow tip at 5mm
+  leftArrow.style.bottom = `${bottomMargin + lineThickness/2 - arrowWidth/2}px`;
+  leftArrow.style.width = '0';
+  leftArrow.style.height = '0';
+  leftArrow.style.borderTop = `${arrowWidth / 2}px solid transparent`;
+  leftArrow.style.borderBottom = `${arrowWidth / 2}px solid transparent`;
+  leftArrow.style.borderRight = `${arrowLength}px solid ${arrowColor}`;
+  leftArrow.style.filter = 'drop-shadow(0 0 4px rgba(34, 141, 16, 0.4))';
+  leftArrow.style.zIndex = '2';
+  container.appendChild(leftArrow);
+
+  // --- Right arrowhead for the horizontal line ---
+  const rightArrow = document.createElement('div');
+  rightArrow.style.position = 'fixed';
+  rightArrow.style.right = '0'; // Position at screen edge
+  rightArrow.style.bottom = `${bottomMargin + lineThickness/2 - arrowWidth/2}px`;
+  rightArrow.style.width = '0';
+  rightArrow.style.height = '0';
+  rightArrow.style.borderTop = `${arrowWidth / 2}px solid transparent`;
+  rightArrow.style.borderBottom = `${arrowWidth / 2}px solid transparent`;
+  rightArrow.style.borderLeft = `${arrowLength}px solid ${arrowColor}`;
+  rightArrow.style.filter = 'drop-shadow(0 0 4px rgba(34, 141, 16, 0.4))';
+  rightArrow.style.zIndex = '2';
+  container.appendChild(rightArrow);
+
+  // --- Label for the horizontal line ---
+  const maxLengthLabel = document.createElement('div');
+  maxLengthLabel.innerText = phrases.RC_MaximumLength[RC.L]
+  maxLengthLabel.style.position = 'absolute'; // Change to absolute
+  maxLengthLabel.style.left = `${(leftMargin + window.innerWidth) / 2}px`; // Center between left margin and screen edge
+  maxLengthLabel.style.bottom = `${bottomMargin + lineThickness + 10}px`;
+  maxLengthLabel.style.color = arrowColor;
+  maxLengthLabel.style.fontWeight = 'bold';
+  maxLengthLabel.style.fontSize = '1rem';
+  maxLengthLabel.style.zIndex = '3';
+  container.appendChild(maxLengthLabel);
+
+  // Update positions when window is resized
+  window.addEventListener('resize', () => {
+    const newBottomMargin = 5 * pxPerMm;
+    const newLeftMargin = 5 * pxPerMm;
+    horizontalLine.style.bottom = `${newBottomMargin}px`;
+    horizontalLine.style.left = `${newLeftMargin + 2*arrowLength}px`; // Start at end of left arrow base
+    leftArrow.style.bottom = `${newBottomMargin + lineThickness/2 - arrowWidth/2}px`;
+    leftArrow.style.left = `${newLeftMargin + arrowLength}px`; // Position arrow tip at 5mm
+    rightArrow.style.bottom = `${newBottomMargin + lineThickness/2 - arrowWidth/2}px`;
+    maxLengthLabel.style.bottom = `${newBottomMargin + lineThickness + 10}px`;
+    maxLengthLabel.style.left = `${(newLeftMargin + window.innerWidth) / 2}px`;
+  });
+
+  // ===================== END DRAWING =====================
+
+  // Add to background
+  RC._replaceBackground(''); // Clear any previous content
+  RC.background.appendChild(container);
+
+  // ===================== OBJECT TEST FINISH FUNCTION =====================
+  const objectTestFinishFunction = () => {
+    // ===================== INITIALIZATION CHECK =====================
+    // Initialize Face Mesh tracking if not already done
+    if (!RC.gazeTracker.checkInitialized('distance')) {
+        RC.gazeTracker._init({
+            toFixedN: 1,
+            showVideo: true,
+            showFaceOverlay: false
+        }, 'distance');
+    }
+
+    // ===================== CALCULATE PHYSICAL DISTANCE =====================
+    // Calculate the length of the object in pixels by finding the difference
+    // between the right and left line positions
+    const objectLengthPx = rightLinePx - leftLinePx;
+    
+    // Convert the pixel length to millimeters using the screen's PPI
+    // pxPerMm was calculated earlier as ppi/25.4 (pixels per inch / mm per inch)
+    const objectLengthMm = objectLengthPx / pxPerMm;
+    
+    // ===================== CONSOLE LOGGING =====================
+    // Log the measured distance in different units for debugging
+    console.log('=== Object Test Measurement Results ===');
+    console.log(`Distance in pixels: ${objectLengthPx.toFixed(2)}px`);
+    console.log(`Distance in millimeters: ${objectLengthMm.toFixed(2)}mm`);
+    console.log(`Distance in centimeters: ${(objectLengthMm/10).toFixed(2)}cm`);
+    console.log('=====================================');
+    
+    // ===================== CREATE MEASUREMENT DATA OBJECT =====================
+    // Format the data object to match the blindspot mapping structure
+    const data = {
+      // Convert millimeters to centimeters and round to 1 decimal place
+      value: toFixedNumber(objectLengthMm / 10, 1),
+      
+      // Use performance.now() for high-precision timing
+      timestamp: performance.now(),
+      
+      // Use 'object' as the method to indicate this is from object test
+      method: 'object',
+      
+      // Store all raw measurement data for potential future use
+      raw: {
+        leftPx: leftLinePx,        // Position of left line in pixels
+        rightPx: rightLinePx,      // Position of right line in pixels
+        screenWidth,               // Total screen width in pixels
+        objectLengthPx,            // Object length in pixels
+        objectLengthMm,            // Object length in millimeters
+        ppi: ppi                   // Screen's pixels per inch
+      }
+    };
+
+    // ===================== VISUAL FEEDBACK =====================
+    // Create a feedback element to show measurements
+    const feedbackDiv = document.createElement('div');
+    feedbackDiv.style.position = 'fixed';
+    feedbackDiv.style.bottom = '20px';
+    feedbackDiv.style.left = '20px';
+    feedbackDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    feedbackDiv.style.color = 'white';
+    feedbackDiv.style.padding = '10px';
+    feedbackDiv.style.borderRadius = '5px';
+    feedbackDiv.style.fontFamily = 'monospace';
+    feedbackDiv.style.zIndex = '1000';
+    feedbackDiv.innerHTML = `
+      <div>Object Test Measurement:</div>
+      <div>Viewing Distance: ${data.value} cm</div>
+      <div>Method: ${data.method}</div>
+      <div>PPI: ${ppi}</div>
+    `;
+    document.body.appendChild(feedbackDiv);
+
+    // ===================== STORE MEASUREMENT DATA =====================
+    RC.newObjectTestDistanceData = data;
+    RC.newViewingDistanceData = data;
+
+    // ===================== CHECK FUNCTION =====================
+    // If we're in 'both' mode, clean up and start blindspot test
+    if (options.useObjectTestData === 'both') {
+        // Clean up UI elements and handlers
+        RC._removeBackground();
+        
+        // Add a small delay to ensure cleanup is complete and background is ready
+        setTimeout(() => {
+            // Add background back for blindspot test
+            RC._addBackground();
+            
+            // Start blindspot test immediately
+            blindSpotTest(RC, options, true, (blindspotData) => {
+                // Calculate median of both measurements
+                const medianData = {
+                    value: median([data.value, blindspotData.value]),
+                    timestamp: Date.now(),
+                    method: 'both',
+                    raw: {
+                        object: data,
+                        blindspot: blindspotData
+                    }
+                };
+
+                // Update feedback for combined measurement
+                feedbackDiv.innerHTML = `
+                    <div>Combined Measurement:</div>
+                    <div>Object Test: ${data.value} cm</div>
+                    <div>Blindspot Test: ${blindspotData.value} cm</div>
+                    <div>Median: ${medianData.value} cm</div>
+                    <div>Method: ${medianData.method}</div>
+                `;
+
+                // Update the data in RC and also the data in the callback
+                RC.newObjectTestDistanceData = medianData;
+                RC.newViewingDistanceData = medianData;
+                
+                // Handle completion based on check settings
+                if (options.calibrateTrackDistanceCheckBool) {
+                    RC._checkDistance(
+                        callback,
+                        data,
+                        'object',  // Use 'object' instead of 'measureDistance'
+                        options.checkCallback,
+                        options.calibrateTrackDistanceCheckCm,
+                        options.callbackStatic,
+                        options.calibrateTrackDistanceCheckSecs
+                    );
+                } else {
+                    // ===================== CALLBACK HANDLING =====================
+                    if (typeof callback === 'function') {
+                        callback(data);
+                    }
+                }
+                
+                // Clean up UI elements
+                RC._removeBackground();
+                // Remove feedback after a delay
+                setTimeout(() => {
+                    document.body.removeChild(feedbackDiv);
+                }, 8000);
+            });
+        }, 100); // Single delay to ensure cleanup and background are ready
+    } else {
+        // Use the same check function as blindspot
+        if (options.calibrateTrackDistanceCheckBool) {
+            RC._checkDistance(
+                callback,
+                data,
+                'object',  // Use 'object' instead of 'measureDistance'
+                options.checkCallback,
+                options.calibrateTrackDistanceCheckCm,
+                options.callbackStatic,
+                options.calibrateTrackDistanceCheckSecs
+            );
+        } else {
+            // ===================== CALLBACK HANDLING =====================
+            if (typeof callback === 'function') {
+                callback(data);
+            }
+        }
+        
+        // Clean up UI elements
+        RC._removeBackground();
+        // Remove feedback after a delay
+        setTimeout(() => {
+            document.body.removeChild(feedbackDiv);
+        }, 8000);
+    }
+  };
+  const breakFunction = () => {
+    // Restart: reset right line to initial position
+    objectTest(RC, options, callback);
+  };
+
+  // ===================== KEYPAD HANDLER =====================
+  let removeKeypadHandler = setUpEasyEyesKeypadHandler(
+    null,
+    RC.keypadHandler,
+    () => {
+        // If OK button is enabled, trigger its action
+        if (!okButton.disabled) {
+            objectTestFinishFunction();
+        } else {
+            // If OK button is disabled, trigger Proceed button action
+            proceedButton.click();
+        }
+    },
+    false,
+    ['return'],
+    RC
+  );
+
+  // Add keyboard event listener for Enter/Return key
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' || e.key === 'Return') {
+      if (!okButton.disabled) {
+        objectTestFinishFunction();
+      } else {
+        proceedButton.click();
+      }
+    }
+  };
+  document.addEventListener('keydown', handleKeyPress);
+
+  // Add buttons (i18n, same as blindSpotTest)
+  const buttonContainer = document.createElement('div');
+  buttonContainer.className = 'rc-button-container';
+  buttonContainer.style.position = 'fixed';
+  buttonContainer.style.bottom = '20px';
+  buttonContainer.style.right = '20px';
+  buttonContainer.style.zIndex = '1000';
+  buttonContainer.style.display = 'flex';
+  buttonContainer.style.gap = '10px';
+  RC.background.appendChild(buttonContainer);
+
+  // Add OK button first
+  const proceedButton = document.createElement('button');
+  proceedButton.className = 'rc-button';
+  proceedButton.textContent = 'OK';
+  proceedButton.style.border = '2px solid #fff';
+  proceedButton.style.backgroundColor = '#fff';
+  proceedButton.style.color = '#000';
+  proceedButton.style.padding = '8px 16px';
+  proceedButton.style.borderRadius = '4px';
+  proceedButton.style.cursor = 'pointer';
+  proceedButton.onclick = () => {
+    console.log('Proceed button clicked');
+    
+    // Remove all the lines and text elements
+    const elementsToRemove = [
+      leftLine,
+      rightLine,
+      leftLabel,
+      rightLabel,
+      horizontalLine,
+      leftArrow,
+      rightArrow,
+      maxLengthLabel,
+      instructions,
+    ];
+    
+    elementsToRemove.forEach(element => {
+      if (element && element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    });
+    
+    // Add the second instruction
+    const secondInstruction = document.createElement('div');
+    secondInstruction.style.maxWidth = '600px';
+    secondInstruction.style.paddingLeft = '3rem';
+    secondInstruction.style.textAlign = 'left';
+    secondInstruction.style.whiteSpace = 'pre-line';
+    secondInstruction.style.alignSelf = 'flex-start';
+    secondInstruction.style.position = 'relative';
+    secondInstruction.style.zIndex = '3';
+    secondInstruction.innerText = phrases.RC_UseObjectToSetViewingDistance2[RC.L];
+    container.appendChild(secondInstruction);
+    
+    // Enable the OK button
+    okButton.disabled = false;
+    okButton.style.opacity = '1';
+
+    // Remove the Proceed button
+    if (proceedButton && proceedButton.parentNode) {
+      proceedButton.parentNode.removeChild(proceedButton);
+    }
+  };
+  buttonContainer.appendChild(proceedButton);
+
+  // Add OK button second
+  const okButton = document.createElement('button');
+  okButton.className = 'rc-button';
+  okButton.textContent = 'Proceed';
+  okButton.disabled = true;
+  okButton.style.opacity = '0.5';
+  okButton.style.border = '2px solid #ff9a00';
+  okButton.style.backgroundColor = '#ff9a00';
+  okButton.style.color = 'white';
+  okButton.style.padding = '8px 16px';
+  okButton.style.borderRadius = '4px';
+  okButton.style.cursor = 'pointer';
+  okButton.onclick = () => {
+    // Remove keyboard event listener when finishing
+    document.removeEventListener('keydown', handleKeyPress);
+    objectTestFinishFunction();
+  };
+  buttonContainer.appendChild(okButton);
+
+  // Add Explanation button last
+  const explanationButton = document.createElement('button');
+  explanationButton.className = 'rc-button';
+  explanationButton.textContent = phrases.RC_viewingDistanceIntroTitle[RC.L];
+  explanationButton.style.border = '2px solid #fff';
+  explanationButton.style.backgroundColor = '#fff';
+  explanationButton.style.color = '#000';
+  explanationButton.style.padding = '8px 16px';
+  explanationButton.style.borderRadius = '4px';
+  explanationButton.style.cursor = 'pointer';
+  explanationButton.onclick = () => {
+    Swal.fire({
+      ...swalInfoOptions(RC, { showIcon: false }),
+      icon: undefined,
+      html: phrases.RC_viewingDistanceIntroLiMethod[RC.L],
+      allowEnterKey: true,
+    });
+  };
+  buttonContainer.appendChild(explanationButton);
+}
+
+// ===================== DISTANCE DATA VALIDATION =====================
+// This function validates the distance measurement data before it's used for Face Mesh calibration
+// It's crucial because Face Mesh needs accurate reference points to track distance changes
+RemoteCalibrator.prototype.validateDistanceData = function(data) {
+    // If no data provided, validation fails
+    if (!data) return false;
+    
+    // ===================== REQUIRED FIELDS CHECK =====================
+    // These fields are essential for Face Mesh calibration:
+    // - value: The measured distance in centimeters
+    // - timestamp: When the measurement was taken
+    // - method: Which measurement method was used (object/blindspot)
+    if (!data.value || !data.timestamp || !data.method) {
+        console.error('Invalid distance data: missing required fields');
+        return false;
+    }
+
+    // ===================== VALUE VALIDATION =====================
+    // The distance value must be:
+    // - A number (not string or other type)
+    // - Not NaN (Not a Number)
+    // - Greater than 0 (can't have negative or zero distance)
+    if (typeof data.value !== 'number' || isNaN(data.value) || data.value <= 0) {
+        console.error('Invalid distance value');
+        return false;
+    }
+
+    // ===================== TIMESTAMP VALIDATION =====================
+    // The timestamp must be:
+    // - A number (not string or other type)
+    // - Not NaN (Not a Number)
+    // This helps track when the measurement was taken
+    if (typeof data.timestamp !== 'number' || isNaN(data.timestamp)) {
+        console.error('Invalid timestamp');
+        return false;
+    }
+
+    // ===================== METHOD VALIDATION =====================
+    // The method must be one of:
+    // - 'object': Using the object test method
+    // - 'B': Using the blindspot method
+    // - 'F': Using the face method
+    // This helps Face Mesh understand how the reference point was obtained
+    if (data.method !== 'object' && data.method !== 'B' && data.method !== 'F') {
+        console.error('Invalid measurement method');
+        return false;
+    }
+
+    // If all validations pass, the data is valid for Face Mesh calibration
+    return true;
+};
+
+// ===================== METHOD TRANSITION VALIDATION =====================
+// This function ensures we can safely switch between object and blindspot methods
+// It's important because it verifies we have valid reference points for Face Mesh
+RemoteCalibrator.prototype.validateMethodTransition = function(fromMethod, toMethod) {
+    // Check if current tracking is active
+    if (this.gazeTracker.checkInitialized('distance', true)) {
+        console.warn('Active tracking detected. Stopping current tracking...');
+        this.endDistance();
+    }
+
+    // Validate methods - only object and blindspot are valid
+    if (fromMethod !== 'object' && fromMethod !== 'blindspot') {
+        console.error('Invalid from method');
+        return false;
+    }
+    if (toMethod !== 'object' && toMethod !== 'blindspot') {
+        console.error('Invalid to method');
+        return false;
+    }
+
+    // Check if we have valid data for the current method
+    // This is crucial because Face Mesh needs a valid reference point
+    if (fromMethod === 'object' && !this.newObjectTestDistanceData) {
+        console.warn('No object test data available');
+        return false;
+    }
+    if (fromMethod === 'blindspot' && !this.newViewingDistanceData) {
+        console.warn('No blindspot data available');
+        return false;
+    }
+
+    return true;
+};
+
+// ===================== METHOD SWITCHING =====================
+// This function allows switching between object and blindspot methods
+// It's used when we want to change how we get our reference point for Face Mesh
+RemoteCalibrator.prototype.switchDistanceMethod = function(method, options = {}, callback = undefined) {
+  if (!this.checkInitialized()) return;
+
+  // Validate method - only object and blindspot are valid
+  if (method !== 'object' && method !== 'blindspot') {
+    console.error('Invalid method. Must be either "object" or "blindspot"');
+    return;
+  }
+
+  // Stop any existing tracking
+  this.endDistance();
+
+  // Clear any existing data
+  // This is important because we want a fresh reference point for Face Mesh
+  this.newViewingDistanceData = null;
+  this.newObjectTestDistanceData = null;
+
+  // Merge options with defaults
+  const defaultOptions = {
+    fullscreen: true,
+    showVideo: true,
+    desiredDistanceMonitor: true,
+    check: false,
+    checkCallback: false,
+    showCancelButton: true
+  };
+  const mergedOptions = Object.assign({}, defaultOptions, options);
+
+  // Start new measurement based on method
+  // This will give us a new reference point for Face Mesh
+  if (method === 'object') {
+    this.measureDistanceObject(mergedOptions, callback);
+  } else {
+    this.measureDistance(mergedOptions, callback);
+  }
+};
+
+// ===================== OBJECT TEST TRACKING =====================
+// This function combines object test measurement with distance tracking
+// It's the main function that:
+// 1. Gets a reference point using the object test
+// 2. Uses that reference point to start Face Mesh tracking
+RemoteCalibrator.prototype.trackDistanceObject = function(
+  options = {},
+  callbackStatic = undefined,
+  callbackTrack = undefined
+) {
+  if (!this.checkInitialized()) return;
+
+  // First measure distance using object test
+  // This gives us our reference point for Face Mesh
+  this.measureDistanceObject({
+    fullscreen: true,
+    showVideo: true,
+    ...options
+  }, (measurementData) => {
+    // Then start tracking using the object test data
+    // This tells Face Mesh "this is what the facial landmarks look like at this distance"
+    this.trackDistance({
+      ...options,
+      useObjectTestData: true,
+      showVideo: true,
+      desiredDistanceMonitor: true
+    }, callbackStatic, callbackTrack);
+  });
+};

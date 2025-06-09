@@ -1,12 +1,17 @@
 import RemoteCalibrator from '../core'
 
-import { blindSpotTest } from './distance'
+import { blindSpotTest, objectTest } from './distance'
 import {
   toFixedNumber,
   constructInstructions,
   blurAll,
   sleep,
   safeExecuteFunc,
+  median,
+  average,
+  emptyFunc,
+  randn_bm,
+  replaceNewlinesWithBreaks,
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n/schema'
@@ -94,6 +99,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       checkCallback: null,
       showCancelButton: true,
       callbackStatic,
+      useObjectTestData: false, // New option to use object test data
     },
     trackDistanceOptions,
   )
@@ -140,6 +146,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
 
     if (excecuteCallbackStaticHere) safeExecuteFunc(callbackStatic, distData)
     stdDist.current = distData
+    stdDist.method = distData.method
+    stdFactor = null
   }
 
   /* -------------------------------------------------------------------------- */
@@ -155,7 +163,44 @@ RemoteCalibrator.prototype.trackDistance = async function (
 
     if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
 
-    blindSpotTest(this, options, true, getStdDist)
+    // Check if we should use object test data
+    if (options.useObjectTestData === 'both') {
+      console.log('=== Starting Both Methods Test ===');
+      // First run object test
+      objectTest(this, options, (data) => {
+        console.log('Object Test Data:', {
+          value: data.value,
+          method: data.method,
+          timestamp: data.timestamp,
+          raw: data.raw
+        });
+        getStdDist(data);
+      });
+    } else if (options.useObjectTestData) {
+      console.log('=== Starting Object Test Only ===');
+      // Call objectTest directly for calibration
+      objectTest(this, options, (data) => {
+        console.log('Object Test Data:', {
+          value: data.value,
+          method: data.method,
+          timestamp: data.timestamp,
+          raw: data.raw
+        });
+        getStdDist(data);
+      });
+    } else {
+      console.log('=== Starting Blindspot Test Only ===');
+      // Use blindspot test for calibration
+      blindSpotTest(this, options, true, (data) => {
+        console.log('Blindspot Test Data:', {
+          value: data.value,
+          method: data.method,
+          timestamp: data.timestamp,
+          raw: data.raw
+        });
+        getStdDist(data);
+      });
+    }
   }
 
   trackingOptions.pipWidthPx = options.pipWidthPx
@@ -254,7 +299,10 @@ const trackingOptions = {
   desiredDistanceMonitorAllowRecalibrate: true,
 }
 
-const stdDist = { current: null }
+const stdDist = { 
+    current: null,
+    method: null  // Track which method was used
+};
 
 let stdFactor = null
 let video = null
@@ -332,7 +380,6 @@ const _tracking = async (
       //
       faces = await model.estimateFaces(video)
       if (faces.length) {
-        // There's at least one face in video
         RC._trackingVideoFrameTimestamps.distance += videoTimestamp
         // https://github.com/tensorflow/tfjs-models/blob/master/facemesh/mesh_map.jpg
         const mesh = faces[0].keypoints
@@ -373,6 +420,7 @@ const _tracking = async (
 
               RC._trackingSetupFinishedStatus.distance = true
               readyToGetFirstData = true
+
             }
 
             /* -------------------------------------------------------------------------- */
@@ -390,7 +438,9 @@ const _tracking = async (
               timestamp: timestamp,
               method: RC._CONST.VIEW_METHOD.F,
               latencyMs: latency,
+              calibrationMethod: stdDist.method  // Include which method was used
             }
+
 
             RC.newViewingDistanceData = data
 
@@ -427,15 +477,7 @@ const _tracking = async (
 
             if (callbackTrack && typeof callbackTrack === 'function') {
               RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
-              callbackTrack({
-                value: {
-                  viewingDistanceCm: data.value,
-                  nearPointCm: nPData ? nPData.value : [null, null],
-                  latencyMs: latency,
-                },
-                timestamp: timestamp,
-                method: RC._CONST.VIEW_METHOD.F,
-              })
+              callbackTrack(data)
             }
           }
 
