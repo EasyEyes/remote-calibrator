@@ -165,41 +165,41 @@ RemoteCalibrator.prototype.trackDistance = async function (
 
     // Check if we should use object test data
     if (options.useObjectTestData === 'both') {
-      console.log('=== Starting Both Methods Test ===');
+      console.log('=== Starting Both Methods Test ===')
       // First run object test
-      objectTest(this, options, (data) => {
+      objectTest(this, options, data => {
         console.log('Object Test Data:', {
           value: data.value,
           method: data.method,
           timestamp: data.timestamp,
-          raw: data.raw
-        });
-        getStdDist(data);
-      });
+          raw: data.raw,
+        })
+        getStdDist(data)
+      })
     } else if (options.useObjectTestData) {
-      console.log('=== Starting Object Test Only ===');
+      console.log('=== Starting Object Test Only ===')
       // Call objectTest directly for calibration
-      objectTest(this, options, (data) => {
+      objectTest(this, options, data => {
         console.log('Object Test Data:', {
           value: data.value,
           method: data.method,
           timestamp: data.timestamp,
-          raw: data.raw
-        });
-        getStdDist(data);
-      });
+          raw: data.raw,
+        })
+        getStdDist(data)
+      })
     } else {
-      console.log('=== Starting Blindspot Test Only ===');
+      console.log('=== Starting Blindspot Test Only ===')
       // Use blindspot test for calibration
-      blindSpotTest(this, options, true, (data) => {
+      blindSpotTest(this, options, true, data => {
         console.log('Blindspot Test Data:', {
           value: data.value,
           method: data.method,
           timestamp: data.timestamp,
-          raw: data.raw
-        });
-        getStdDist(data);
-      });
+          raw: data.raw,
+        })
+        getStdDist(data)
+      })
     }
   }
 
@@ -299,10 +299,10 @@ const trackingOptions = {
   desiredDistanceMonitorAllowRecalibrate: true,
 }
 
-const stdDist = { 
-    current: null,
-    method: null  // Track which method was used
-};
+const stdDist = {
+  current: null,
+  method: null, // Track which method was used
+}
 
 let stdFactor = null
 let video = null
@@ -420,7 +420,6 @@ const _tracking = async (
 
               RC._trackingSetupFinishedStatus.distance = true
               readyToGetFirstData = true
-
             }
 
             /* -------------------------------------------------------------------------- */
@@ -438,9 +437,8 @@ const _tracking = async (
               timestamp: timestamp,
               method: RC._CONST.VIEW_METHOD.F,
               latencyMs: latency,
-              calibrationMethod: stdDist.method  // Include which method was used
+              calibrationMethod: stdDist.method, // Include which method was used
             }
-
 
             RC.newViewingDistanceData = data
 
