@@ -646,7 +646,8 @@ export function objectTest(RC, options, callback = undefined) {
   const instructionsText = phrases.RC_UseObjectToSetViewingDistance1[RC.L]
   const instructions = document.createElement('div')
   instructions.style.maxWidth = '600px'
-  instructions.style.paddingLeft = '3rem'
+  instructions.style.paddingLeft = '5em'
+  instructions.style.marginTop = '-2rem'
   instructions.style.textAlign = 'left'
   instructions.style.whiteSpace = 'pre-line'
   instructions.style.alignSelf = 'flex-start'
@@ -670,6 +671,28 @@ export function objectTest(RC, options, callback = undefined) {
     z-index: 1;
   `
 
+  // Function to update line colors based on distance
+  const updateLineColors = () => {
+    const objectLengthPx = rightLinePx - leftLinePx
+    const objectLengthMm = objectLengthPx / pxPerMm
+    const objectLengthCm = objectLengthMm / 10
+
+    // If distance is less than or equal to minimum distance, change to red and update label text and position
+    if (objectLengthCm <= options.calibrateTrackDistanceMinCm) {
+      rightLine.style.background = 'rgb(255, 0, 0)'
+      rightLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
+      rightLabel.style.color = 'rgb(255, 0, 0)'
+      rightLabel.innerText = phrases.RC_viewingDistanceObjectTooShort[RC.L]
+      rightLabel.style.top = '20px' // Move to top
+    } else {
+      rightLine.style.background = 'rgb(34, 141, 16)'
+      rightLine.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)'
+      rightLabel.style.color = 'rgb(34, 141, 16)'
+      rightLabel.innerText = phrases.RC_RightEdge[RC.L]
+      rightLabel.style.top = '80vh' // Move back to bottom
+    }
+  }
+
   // --- Left vertical line ---
   // Fixed at 5mm from the left edge
   const leftLine = document.createElement('div')
@@ -680,8 +703,7 @@ export function objectTest(RC, options, callback = undefined) {
   // --- Right vertical line ---
   // Starts at 2/3 of the screen width, but is draggable and keyboard-movable
   const rightLine = document.createElement('div')
-  rightLine.style =
-    verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
+  rightLine.style = verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
   rightLine.tabIndex = 0 // Allows keyboard focus for arrow key movement
   rightLine.setAttribute('role', 'slider') // Make it more accessible
   rightLine.setAttribute('aria-label', 'Adjust right line position')
@@ -696,6 +718,7 @@ export function objectTest(RC, options, callback = undefined) {
     line.addEventListener('mouseleave', () => {
       line.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)'
       line.style.width = '6px'
+      updateLineColors() // Update colors after hover effect
     })
   })
 
@@ -711,7 +734,7 @@ export function objectTest(RC, options, callback = undefined) {
   leftLabel.style.top = '80vh' // Just below the line
   leftLabel.style.color = 'rgb(34, 141, 16)'
   leftLabel.style.fontWeight = 'bold'
-  leftLabel.style.fontSize = '1rem'
+  leftLabel.style.fontSize = '1.4em'
   container.appendChild(leftLabel)
 
   // --- Label for the right vertical line ---
@@ -723,13 +746,14 @@ export function objectTest(RC, options, callback = undefined) {
   rightLabel.style.top = '80vh'
   rightLabel.style.color = 'rgb(34, 141, 16)'
   rightLabel.style.fontWeight = 'bold'
-  rightLabel.style.fontSize = '1rem'
+  rightLabel.style.fontSize = '1.4em'
   rightLabel.id = 'right-line-label'
   container.appendChild(rightLabel)
 
-  // --- Update right label position when rightLine moves (drag or keyboard) ---
+  // Update right label position and line colors when rightLine moves (drag or keyboard)
   function updateRightLabel() {
     rightLabel.style.left = `${rightLinePx + 6}px`
+    updateLineColors() // Update colors when line moves
   }
 
   // --- Allow the user to move the right line with arrow keys when focused ---
@@ -1094,7 +1118,7 @@ export function objectTest(RC, options, callback = undefined) {
   const buttonContainer = document.createElement('div')
   buttonContainer.className = 'rc-button-container'
   buttonContainer.style.position = 'fixed'
-  buttonContainer.style.bottom = '20px'
+  buttonContainer.style.bottom = '45px'
   buttonContainer.style.right = '20px'
   buttonContainer.style.zIndex = '1000'
   buttonContainer.style.display = 'flex'
@@ -1104,10 +1128,10 @@ export function objectTest(RC, options, callback = undefined) {
   // Add OK button first
   const proceedButton = document.createElement('button')
   proceedButton.className = 'rc-button'
-  proceedButton.textContent = 'OK'
-  proceedButton.style.border = '2px solid #fff'
-  proceedButton.style.backgroundColor = '#fff'
-  proceedButton.style.color = '#000'
+  proceedButton.textContent = 'Proceed'
+  proceedButton.style.border = '2px solid #ff9a00'
+  proceedButton.style.backgroundColor = '#ff9a00'
+  proceedButton.style.color = 'white'
   proceedButton.style.padding = '8px 16px'
   proceedButton.style.borderRadius = '4px'
   proceedButton.style.cursor = 'pointer'
@@ -1146,14 +1170,11 @@ export function objectTest(RC, options, callback = undefined) {
       phrases.RC_UseObjectToSetViewingDistance2[RC.L]
     container.appendChild(secondInstruction)
 
-    // Enable the OK button
+    // Hide the first proceed button and show the second one
+    proceedButton.style.display = 'none'
     okButton.disabled = false
     okButton.style.opacity = '1'
-
-    // Remove the Proceed button
-    if (proceedButton && proceedButton.parentNode) {
-      proceedButton.parentNode.removeChild(proceedButton)
-    }
+    okButton.style.display = 'block'
   }
   buttonContainer.appendChild(proceedButton)
 
@@ -1169,6 +1190,7 @@ export function objectTest(RC, options, callback = undefined) {
   okButton.style.padding = '8px 16px'
   okButton.style.borderRadius = '4px'
   okButton.style.cursor = 'pointer'
+  okButton.style.display = 'none'  // Initially hidden
   okButton.onclick = () => {
     // Remove keyboard event listener when finishing
     document.removeEventListener('keydown', handleKeyPress)
@@ -1190,7 +1212,7 @@ export function objectTest(RC, options, callback = undefined) {
     Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
       icon: undefined,
-      html: phrases.RC_viewingDistanceIntroLiMethod[RC.L],
+      html: phrases.RC_viewingDistanceIntroPelliMethod[RC.L],
       allowEnterKey: true,
     })
   }
