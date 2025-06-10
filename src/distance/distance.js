@@ -703,7 +703,8 @@ export function objectTest(RC, options, callback = undefined) {
   // --- Right vertical line ---
   // Starts at 2/3 of the screen width, but is draggable and keyboard-movable
   const rightLine = document.createElement('div')
-  rightLine.style = verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
+  rightLine.style =
+    verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
   rightLine.tabIndex = 0 // Allows keyboard focus for arrow key movement
   rightLine.setAttribute('role', 'slider') // Make it more accessible
   rightLine.setAttribute('aria-label', 'Adjust right line position')
@@ -1190,7 +1191,7 @@ export function objectTest(RC, options, callback = undefined) {
   okButton.style.padding = '8px 16px'
   okButton.style.borderRadius = '4px'
   okButton.style.cursor = 'pointer'
-  okButton.style.display = 'none'  // Initially hidden
+  okButton.style.display = 'none' // Initially hidden
   okButton.onclick = () => {
     // Remove keyboard event listener when finishing
     document.removeEventListener('keydown', handleKeyPress)
