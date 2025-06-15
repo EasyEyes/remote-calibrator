@@ -946,8 +946,8 @@ export function objectTest(RC, options, callback = undefined) {
     // ===================== CREATE MEASUREMENT DATA OBJECT =====================
     // Format the data object to match the blindspot mapping structure
     const data = {
-      // Convert millimeters to centimeters and round to 1 decimal place
-      value: toFixedNumber(objectLengthMm / 10, 1),
+      // Use median of both measurements, rounded to 1 decimal place
+      value: toFixedNumber(median([firstMeasurement, (rightLinePx - leftLinePx) / pxPerMm / 10]), 1),
 
       // Use performance.now() for high-precision timing
       timestamp: performance.now(),
@@ -979,9 +979,11 @@ export function objectTest(RC, options, callback = undefined) {
     feedbackDiv.style.fontFamily = 'monospace'
     feedbackDiv.style.zIndex = '1000'
     feedbackDiv.innerHTML = `
-      <div>Object Test Measurement:</div>
-      <div>Viewing Distance: ${data.value} cm</div>
-      <div>Method: ${data.method}</div>
+      <div>Object Test Measurements:</div>
+      <div>First Measurement: ${firstMeasurement.toFixed(1)} cm</div>
+      <div>Second Measurement: ${(rightLinePx - leftLinePx) / pxPerMm / 10} cm</div>
+      <div>Median: ${median([firstMeasurement, (rightLinePx - leftLinePx) / pxPerMm / 10]).toFixed(1)} cm</div>
+      <div>Method: ${data.method}</div>     
       <div>PPI: ${ppi}</div>
     `
     document.body.appendChild(feedbackDiv)
@@ -1136,46 +1138,42 @@ export function objectTest(RC, options, callback = undefined) {
   proceedButton.style.padding = '8px 16px'
   proceedButton.style.borderRadius = '4px'
   proceedButton.style.cursor = 'pointer'
+
+  // Store measurements
+  let firstMeasurement = null
+
   proceedButton.onclick = () => {
     console.log('Proceed button clicked')
 
-    // Remove all the lines and text elements
-    const elementsToRemove = [
-      leftLine,
-      rightLine,
-      leftLabel,
-      rightLabel,
-      horizontalLine,
-      leftArrow,
-      rightArrow,
-      maxLengthLabel,
-      instructions,
-    ]
+    // Record first measurement - just store the distance value
+    firstMeasurement = (rightLinePx - leftLinePx) / pxPerMm / 10
+    console.log('First measurement:', firstMeasurement)
 
-    elementsToRemove.forEach(element => {
-      if (element && element.parentNode) {
-        element.parentNode.removeChild(element)
-      }
-    })
+    // Reset right line to original position (2/3 of screen width)
+    rightLinePx = Math.round((screenWidth * 2) / 3)
+    rightLine.style.left = `${rightLinePx}px`
+    updateRightLabel()
 
-    // Add the second instruction
-    const secondInstruction = document.createElement('div')
-    secondInstruction.style.maxWidth = '600px'
-    secondInstruction.style.paddingLeft = '3rem'
-    secondInstruction.style.textAlign = 'left'
-    secondInstruction.style.whiteSpace = 'pre-line'
-    secondInstruction.style.alignSelf = 'flex-start'
-    secondInstruction.style.position = 'relative'
-    secondInstruction.style.zIndex = '3'
-    secondInstruction.innerText =
-      phrases.RC_UseObjectToSetViewingDistance2[RC.L]
-    container.appendChild(secondInstruction)
+    // Update the instruction text
+    instructions.innerText = phrases.RC_UseObjectToSetViewingDistance2[RC.L]
 
     // Hide the first proceed button and show the second one
     proceedButton.style.display = 'none'
     okButton.disabled = false
     okButton.style.opacity = '1'
     okButton.style.display = 'block'
+
+    // Initialize Face Mesh tracking if not already done
+    if (!RC.gazeTracker.checkInitialized('distance')) {
+      RC.gazeTracker._init(
+        {
+          toFixedN: 1,
+          showVideo: true,
+          showFaceOverlay: false,
+        },
+        'distance',
+      )
+    }
   }
   buttonContainer.appendChild(proceedButton)
 
