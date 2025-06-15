@@ -947,7 +947,10 @@ export function objectTest(RC, options, callback = undefined) {
     // Format the data object to match the blindspot mapping structure
     const data = {
       // Use median of both measurements, rounded to 1 decimal place
-      value: toFixedNumber(median([firstMeasurement, (rightLinePx - leftLinePx) / pxPerMm / 10]), 1),
+      value: toFixedNumber(
+        median([firstMeasurement, (rightLinePx - leftLinePx) / pxPerMm / 10]),
+        1,
+      ),
 
       // Use performance.now() for high-precision timing
       timestamp: performance.now(),
