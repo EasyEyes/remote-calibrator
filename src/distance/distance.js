@@ -615,30 +615,32 @@ export function objectTest(RC, options, callback = undefined) {
 
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   // Arrays to store 5 samples per page for calibration
-  let faceMeshSamplesPage3 = [];
-  let faceMeshSamplesPage4 = [];
+  let faceMeshSamplesPage3 = []
+  let faceMeshSamplesPage4 = []
 
   // Helper to collect 5 samples of eye pixel distance using Face Mesh
   async function collectFaceMeshSamples(RC, arr, ppi) {
-    arr.length = 0; // Clear array
+    arr.length = 0 // Clear array
     for (let i = 0; i < 5; i++) {
-      const pxDist = await measureIntraocularDistancePx(RC); // Get raw pixel distance
-      if (pxDist) arr.push(pxDist);
-      await new Promise(res => setTimeout(res, 100)); // 100ms between samples
+      const pxDist = await measureIntraocularDistancePx(RC) // Get raw pixel distance
+      if (pxDist) arr.push(pxDist)
+      await new Promise(res => setTimeout(res, 100)) // 100ms between samples
     }
   }
 
   // Helper to get intraocular distance in pixels (not cm)
   async function measureIntraocularDistancePx(RC) {
-    let video = document.getElementById('webgazerVideoCanvas') || document.getElementById('webgazerVideoFeed');
-    if (!video) return null;
-    const model = await RC.gazeTracker.webgazer.getTracker().model;
-    const faces = await model.estimateFaces(video);
-    if (!faces.length) return null;
-    const mesh = faces[0].keypoints || faces[0].scaledMesh;
-    if (!mesh || !mesh[133] || !mesh[362]) return null;
-    const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-    return eyeDist(mesh[133], mesh[362]);
+    let video =
+      document.getElementById('webgazerVideoCanvas') ||
+      document.getElementById('webgazerVideoFeed')
+    if (!video) return null
+    const model = await RC.gazeTracker.webgazer.getTracker().model
+    const faces = await model.estimateFaces(video)
+    if (!faces.length) return null
+    const mesh = faces[0].keypoints || faces[0].scaledMesh
+    if (!mesh || !mesh[133] || !mesh[362]) return null
+    const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+    return eyeDist(mesh[133], mesh[362])
   }
 
   // ===================== DRAWING THE OBJECT TEST UI =====================
@@ -768,7 +770,7 @@ export function objectTest(RC, options, callback = undefined) {
       objectLengthMm,
       objectLengthCm,
       minDistanceCm,
-      shouldBeRed: objectLengthCm <= minDistanceCm
+      shouldBeRed: objectLengthCm <= minDistanceCm,
     })
 
     // If distance is less than or equal to minimum distance, change to red and update label text and position
@@ -963,13 +965,13 @@ export function objectTest(RC, options, callback = undefined) {
   RC.background.appendChild(container)
 
   // ===================== PAGE NAVIGATION FUNCTIONS =====================
-  const showPage = async (pageNumber) => {
+  const showPage = async pageNumber => {
     currentPage = pageNumber
-    
+
     if (pageNumber === 1) {
       // ===================== PAGE 1: HORIZONTAL LINE ONLY =====================
       console.log('=== SHOWING PAGE 1: HORIZONTAL LINE ===')
-      
+
       // Show only horizontal line and hide vertical lines
       horizontalLine.style.display = 'block'
       leftArrow.style.display = 'block'
@@ -979,14 +981,14 @@ export function objectTest(RC, options, callback = undefined) {
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
-      
+
       // Update instructions
-      instructions.innerText = phrases.RC_UseObjectToSetViewingDistancePage1[RC.L]
-      
+      instructions.innerText =
+        phrases.RC_UseObjectToSetViewingDistancePage1[RC.L]
     } else if (pageNumber === 2) {
       // ===================== PAGE 2: VERTICAL LINES =====================
       console.log('=== SHOWING PAGE 2: VERTICAL LINES ===')
-      
+
       // Hide horizontal line and show vertical lines
       horizontalLine.style.display = 'none'
       leftArrow.style.display = 'none'
@@ -996,18 +998,18 @@ export function objectTest(RC, options, callback = undefined) {
       rightLine.style.display = 'block'
       leftLabel.style.display = 'block'
       rightLabel.style.display = 'block'
-      
+
       // Update right label position and line colors after showing lines
       updateRightLabel()
       updateLineColors() // Also call updateLineColors directly to ensure colors are set
-      
+
       // Update instructions
-      instructions.innerText = phrases.RC_UseObjectToSetViewingDistancePage2[RC.L]
-      
+      instructions.innerText =
+        phrases.RC_UseObjectToSetViewingDistancePage2[RC.L]
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
-      
+
       // Hide all lines and labels
       horizontalLine.style.display = 'none'
       leftArrow.style.display = 'none'
@@ -1017,18 +1019,21 @@ export function objectTest(RC, options, callback = undefined) {
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
-      
+
       // Update instructions
-      instructions.innerText = phrases.RC_UseObjectToSetViewingDistancePage3[RC.L]
-      
+      instructions.innerText =
+        phrases.RC_UseObjectToSetViewingDistancePage3[RC.L]
+
       // Collect 5 Face Mesh samples for calibration on page 3
-      await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi);
-      console.log('Face Mesh calibration samples (page 3):', faceMeshSamplesPage3);
-      
+      await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi)
+      console.log(
+        'Face Mesh calibration samples (page 3):',
+        faceMeshSamplesPage3,
+      )
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
-      
+
       // Keep all lines and labels hidden
       horizontalLine.style.display = 'none'
       leftArrow.style.display = 'none'
@@ -1038,13 +1043,17 @@ export function objectTest(RC, options, callback = undefined) {
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
-      
+
       // Update instructions
-      instructions.innerText = phrases.RC_UseObjectToSetViewingDistancePage4[RC.L]
-      
+      instructions.innerText =
+        phrases.RC_UseObjectToSetViewingDistancePage4[RC.L]
+
       // Collect 5 Face Mesh samples for calibration on page 4
-      await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi);
-      console.log('Face Mesh calibration samples (page 4):', faceMeshSamplesPage4);
+      await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi)
+      console.log(
+        'Face Mesh calibration samples (page 4):',
+        faceMeshSamplesPage4,
+      )
     }
   }
 
@@ -1054,11 +1063,11 @@ export function objectTest(RC, options, callback = undefined) {
     } else if (currentPage === 2) {
       // ===================== SAVE MEASUREMENT DATA FROM PAGE 2 =====================
       console.log('=== SAVING MEASUREMENT DATA FROM PAGE 2 ===')
-      
+
       const objectLengthPx = rightLinePx - leftLinePx
       const objectLengthMm = objectLengthPx / pxPerMm
       const objectLengthCm = objectLengthMm / 10
-      
+
       savedMeasurementData = {
         value: toFixedNumber(objectLengthCm, 1),
         timestamp: performance.now(),
@@ -1075,7 +1084,7 @@ export function objectTest(RC, options, callback = undefined) {
           ppi: ppi,
         },
       }
-      
+
       console.log('Saved measurement data:', savedMeasurementData)
       await showPage(3)
     } else if (currentPage === 3) {
@@ -1083,39 +1092,42 @@ export function objectTest(RC, options, callback = undefined) {
     } else if (currentPage === 4) {
       // ===================== SHOW DISTANCE FEEDBACK ON PAGE 4 =====================
       console.log('=== SHOWING DISTANCE FEEDBACK ON PAGE 4 ===')
-      
+
       // Use the saved measurement data from page 2
       if (savedMeasurementData) {
         console.log('Using saved measurement data:', savedMeasurementData)
-        
+
         // Measure intraocular distance using Face Mesh
         measureIntraocularDistanceCm(RC, ppi).then(intraocularDistanceCm => {
           if (intraocularDistanceCm) {
-            console.log('Measured intraocular distance (cm):', intraocularDistanceCm)
+            console.log(
+              'Measured intraocular distance (cm):',
+              intraocularDistanceCm,
+            )
             savedMeasurementData.intraocularDistanceCm = intraocularDistanceCm
           } else {
             console.warn('Could not measure intraocular distance.')
           }
         })
-        
+
         // Show feedback for 3 seconds then remove
         setTimeout(() => {
           if (document.body.contains(feedbackDiv)) {
             document.body.removeChild(feedbackDiv)
           }
         }, 3000)
-        
+
         // Store the data in RC
         RC.newObjectTestDistanceData = savedMeasurementData
         RC.newViewingDistanceData = savedMeasurementData
-        
+
         // Clean up event listeners
         document.removeEventListener('keydown', handleKeyPress)
         window.removeEventListener('beforeunload', cleanup)
-        
+
         // Clean up UI
         RC._removeBackground()
-        
+
         // Call callback with the data
         if (typeof callback === 'function') {
           callback(savedMeasurementData)
@@ -1195,12 +1207,16 @@ export function objectTest(RC, options, callback = undefined) {
 
     // ===================== VISUAL FEEDBACK =====================
     // Calculate calibration factor as in tracking (object test: no geometric correction)
-    const allFaceMeshSamples = [...faceMeshSamplesPage3, ...faceMeshSamplesPage4];
+    const allFaceMeshSamples = [
+      ...faceMeshSamplesPage3,
+      ...faceMeshSamplesPage4,
+    ]
     const averageFaceMesh = allFaceMeshSamples.length
-      ? allFaceMeshSamples.reduce((a, b) => a + b, 0) / allFaceMeshSamples.length
-      : 0;
+      ? allFaceMeshSamples.reduce((a, b) => a + b, 0) /
+        allFaceMeshSamples.length
+      : 0
     // Use the measured viewing distance (data.value)
-    const calibrationFactor = averageFaceMesh * data.value;
+    const calibrationFactor = averageFaceMesh * data.value
 
     // Create a feedback element to show measurements
     const feedbackDiv = document.createElement('div')
@@ -1268,7 +1284,7 @@ export function objectTest(RC, options, callback = undefined) {
           RC.newViewingDistanceData = medianData
 
           // Call callback with the data
-                    // Handle completion based on check settings
+          // Handle completion based on check settings
           if (options.calibrateTrackDistanceCheckBool) {
             RC._checkDistance(
               callback,
@@ -1292,7 +1308,6 @@ export function objectTest(RC, options, callback = undefined) {
           setTimeout(() => {
             document.body.removeChild(feedbackDiv)
           }, 8000)
-          
         })
       }, 500)
     } else {
@@ -1416,7 +1431,10 @@ export function objectTest(RC, options, callback = undefined) {
       // Measure intraocular distance before moving to page 4
       intraocularDistanceCm = await measureIntraocularDistancePx(RC)
       if (intraocularDistanceCm) {
-        console.log('Measured intraocular distance (cm):', intraocularDistanceCm)
+        console.log(
+          'Measured intraocular distance (cm):',
+          intraocularDistanceCm,
+        )
       } else {
         console.warn('Could not measure intraocular distance.')
       }
@@ -1463,7 +1481,7 @@ export function objectTest(RC, options, callback = undefined) {
     // Insert a <br> before each numbered step (e.g., 1., 2., 3., 4.)
     const explanationHtml = phrases.RC_viewingDistanceIntroPelliMethod[RC.L]
       .replace(/(\d\.)/g, '<br>$1')
-      .replace(/^<br>/, '');
+      .replace(/^<br>/, '')
     Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
       icon: undefined,
@@ -1651,21 +1669,23 @@ RemoteCalibrator.prototype.trackDistanceObject = function (
 // Utility to measure intraocular distance using Face Mesh
 async function measureIntraocularDistanceCm(RC, ppi) {
   // Get the video element (try both canvas and video)
-  let video = document.getElementById('webgazerVideoCanvas') || document.getElementById('webgazerVideoFeed');
-  if (!video) return null;
+  let video =
+    document.getElementById('webgazerVideoCanvas') ||
+    document.getElementById('webgazerVideoFeed')
+  if (!video) return null
   // Ensure model is loaded
-  const model = await RC.gazeTracker.webgazer.getTracker().model;
-  const faces = await model.estimateFaces(video);
-  if (!faces.length) return null;
+  const model = await RC.gazeTracker.webgazer.getTracker().model
+  const faces = await model.estimateFaces(video)
+  if (!faces.length) return null
   // Use keypoints 133 (right eye outer) and 362 (left eye outer)
-  const mesh = faces[0].keypoints || faces[0].scaledMesh;
-  if (!mesh || !mesh[133] || !mesh[362]) return null;
+  const mesh = faces[0].keypoints || faces[0].scaledMesh
+  if (!mesh || !mesh[133] || !mesh[362]) return null
   // Use eyeDist from distanceTrack.js logic
-  const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-  const pxDist = eyeDist(mesh[133], mesh[362]);
+  const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+  const pxDist = eyeDist(mesh[133], mesh[362])
   // Convert to mm, then cm
-  const pxPerMm = ppi / 25.4;
-  const distMm = pxDist / pxPerMm;
-  const distCm = distMm / 10;
-  return distCm;
+  const pxPerMm = ppi / 25.4
+  const distMm = pxDist / pxPerMm
+  const distCm = distMm / 10
+  return distCm
 }

@@ -329,8 +329,8 @@ const _tracking = async (
     let faces
 
     // ===================== OBJECT TEST SAMPLES FOR CALIBRATION =====================
-    let useObjectTestSamples = false;
-    let objectTestSamples = [];
+    let useObjectTestSamples = false
+    let objectTestSamples = []
     if (
       RC.newObjectTestDistanceData &&
       Array.isArray(RC.newObjectTestDistanceData.faceMeshSamplesPage3) &&
@@ -341,8 +341,8 @@ const _tracking = async (
       objectTestSamples = [
         ...RC.newObjectTestDistanceData.faceMeshSamplesPage3,
         ...RC.newObjectTestDistanceData.faceMeshSamplesPage4,
-      ];
-      useObjectTestSamples = true;
+      ]
+      useObjectTestSamples = true
     }
     // ... existing code ...
     // Get the average of 5 estimates for one measure
@@ -394,14 +394,14 @@ const _tracking = async (
       // ... existing code ...
       if (useObjectTestSamples && stdDist.current !== null && !stdFactor) {
         // Use the average of the 10 object test samples for calibration
-        averageDist = average(objectTestSamples);
+        averageDist = average(objectTestSamples)
         // For object test, DO NOT correct for screen height!
         // Just use the measured distance directly:
-        stdFactor = averageDist * stdDist.current.value;
-        RC._trackingSetupFinishedStatus.distance = true;
-        readyToGetFirstData = true;
+        stdFactor = averageDist * stdDist.current.value
+        RC._trackingSetupFinishedStatus.distance = true
+        readyToGetFirstData = true
         // Skip further sample collection and immediately proceed to tracking
-        return;
+        return
       }
       // ... existing code ...
       if (!useObjectTestSamples) {
@@ -442,7 +442,8 @@ const _tracking = async (
 
                 // ! FINISH
                 if (
-                  trackingConfig.options.calibrateTrackDistanceCheckBool !== true
+                  trackingConfig.options.calibrateTrackDistanceCheckBool !==
+                  true
                 )
                   RC._removeBackground() // Remove BG if no check
 
