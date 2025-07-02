@@ -328,6 +328,23 @@ const _tracking = async (
     // const canvas = RC.gazeTracker.webgazer.videoCanvas
     let faces
 
+    // ===================== OBJECT TEST SAMPLES FOR CALIBRATION =====================
+    let useObjectTestSamples = false;
+    let objectTestSamples = [];
+    if (
+      RC.newObjectTestDistanceData &&
+      Array.isArray(RC.newObjectTestDistanceData.faceMeshSamplesPage3) &&
+      Array.isArray(RC.newObjectTestDistanceData.faceMeshSamplesPage4) &&
+      RC.newObjectTestDistanceData.faceMeshSamplesPage3.length === 5 &&
+      RC.newObjectTestDistanceData.faceMeshSamplesPage4.length === 5
+    ) {
+      objectTestSamples = [
+        ...RC.newObjectTestDistanceData.faceMeshSamplesPage3,
+        ...RC.newObjectTestDistanceData.faceMeshSamplesPage4,
+      ];
+      useObjectTestSamples = true;
+    }
+    // ... existing code ...
     // Get the average of 5 estimates for one measure
     averageDist = 0
     distCount = 1
@@ -374,118 +391,130 @@ const _tracking = async (
     RC._distanceTrackNudging.distanceAllowedRatio = desiredDistanceTolerance
 
     viewingDistanceTrackingFunction = async () => {
-      //
-      if (!video) video = document.getElementById('webgazerVideoCanvas')
-      const videoTimestamp = performance.now()
-      //
-      faces = await model.estimateFaces(video)
-      if (faces.length) {
-        RC._trackingVideoFrameTimestamps.distance += videoTimestamp
-        // https://github.com/tensorflow/tfjs-models/blob/master/facemesh/mesh_map.jpg
-        const mesh = faces[0].keypoints
+      // ... existing code ...
+      if (useObjectTestSamples && stdDist.current !== null && !stdFactor) {
+        // Use the average of the 10 object test samples for calibration
+        averageDist = average(objectTestSamples);
+        // For object test, DO NOT correct for screen height!
+        // Just use the measured distance directly:
+        stdFactor = averageDist * stdDist.current.value;
+        RC._trackingSetupFinishedStatus.distance = true;
+        readyToGetFirstData = true;
+        // Skip further sample collection and immediately proceed to tracking
+        return;
+      }
+      // ... existing code ...
+      if (!useObjectTestSamples) {
+        // Only collect samples if not using object test samples
+        if (!video) video = document.getElementById('webgazerVideoCanvas')
+        const videoTimestamp = performance.now()
+        faces = await model.estimateFaces(video)
+        if (faces.length) {
+          RC._trackingVideoFrameTimestamps.distance += videoTimestamp
+          const mesh = faces[0].keypoints
+          if (targetCount === distCount) {
+            averageDist += eyeDist(mesh[133], mesh[362])
+            averageDist /= targetCount
+            RC._trackingVideoFrameTimestamps.distance /= targetCount
 
-        if (targetCount === distCount) {
-          averageDist += eyeDist(mesh[133], mesh[362])
-          averageDist /= targetCount
-          RC._trackingVideoFrameTimestamps.distance /= targetCount
+            // TODO Add more samples for the first estimate
+            if (stdDist.current !== null) {
+              if (!stdFactor) {
+                // ! First time estimate
+                // Face_Known_Px  *  Distance_Known_Cm  =  Face_Now_Px  *  Distance_x_Cm
+                // Get the factor to be used for future predictions
 
-          // TODO Add more samples for the first estimate
-          if (stdDist.current !== null) {
-            if (!stdFactor) {
-              // ! First time estimate
-              // Face_Known_Px  *  Distance_Known_Cm  =  Face_Now_Px  *  Distance_x_Cm
-              // Get the factor to be used for future predictions
+                // adjust stdDist to the distance from the center of the screen to the user's eyes
+                /*
+                stdDist.current.value is the hypotenuse of the triangle formed by 
+                the distance from the center of the screen to the top of the screen 
+                and the distance from the center of the screen to the user's eyes
+                */
 
-              // adjust stdDist to the distance from the center of the screen to the user's eyes
-              /*
-              stdDist.current.value is the hypotenuse of the triangle formed by 
-              the distance from the center of the screen to the top of the screen 
-              and the distance from the center of the screen to the user's eyes
-              */
+                const distanceFromCenterToTop =
+                  _calculateDistanceFromCenterToTop(ppi)
+                const distanceFromCenterToUser = Math.sqrt(
+                  stdDist.current.value ** 2 - distanceFromCenterToTop ** 2,
+                )
 
-              const distanceFromCenterToTop =
-                _calculateDistanceFromCenterToTop(ppi)
-              const distanceFromCenterToUser = Math.sqrt(
-                stdDist.current.value ** 2 - distanceFromCenterToTop ** 2,
+                stdDist.current.value = distanceFromCenterToUser
+                stdFactor = averageDist * stdDist.current.value
+
+                // ! FINISH
+                if (
+                  trackingConfig.options.calibrateTrackDistanceCheckBool !== true
+                )
+                  RC._removeBackground() // Remove BG if no check
+
+                RC._trackingSetupFinishedStatus.distance = true
+                readyToGetFirstData = true
+              }
+
+              /* -------------------------------------------------------------------------- */
+
+              const timestamp = performance.now()
+              const latency = Math.round(
+                timestamp - RC._trackingVideoFrameTimestamps.distance,
               )
 
-              stdDist.current.value = distanceFromCenterToUser
-              stdFactor = averageDist * stdDist.current.value
+              const data = {
+                value: toFixedNumber(
+                  stdFactor / averageDist,
+                  trackingOptions.decimalPlace,
+                ),
+                timestamp: timestamp,
+                method: RC._CONST.VIEW_METHOD.F,
+                latencyMs: latency,
+                calibrationMethod: stdDist.method, // Include which method was used
+              }
 
-              // ! FINISH
-              if (
-                trackingConfig.options.calibrateTrackDistanceCheckBool !== true
-              )
-                RC._removeBackground() // Remove BG if no check
+              RC.newViewingDistanceData = data
 
-              RC._trackingSetupFinishedStatus.distance = true
-              readyToGetFirstData = true
-            }
+              if (readyToGetFirstData || desiredDistanceMonitor) {
+                // ! Check distance
+                if (desiredDistanceCm) {
+                  RC.nudgeDistance(
+                    desiredDistanceMonitorCancelable,
+                    desiredDistanceMonitorAllowRecalibrate,
+                    trackingConfig,
+                  )
+                }
+                readyToGetFirstData = false
+              }
 
-            /* -------------------------------------------------------------------------- */
+              /* -------------------------------------------------------------------------- */
 
-            const timestamp = performance.now()
-            const latency = Math.round(
-              timestamp - RC._trackingVideoFrameTimestamps.distance,
-            )
-
-            const data = {
-              value: toFixedNumber(
-                stdFactor / averageDist,
-                trackingOptions.decimalPlace,
-              ),
-              timestamp: timestamp,
-              method: RC._CONST.VIEW_METHOD.F,
-              latencyMs: latency,
-              calibrationMethod: stdDist.method, // Include which method was used
-            }
-
-            RC.newViewingDistanceData = data
-
-            if (readyToGetFirstData || desiredDistanceMonitor) {
-              // ! Check distance
-              if (desiredDistanceCm) {
-                RC.nudgeDistance(
-                  desiredDistanceMonitorCancelable,
-                  desiredDistanceMonitorAllowRecalibrate,
-                  trackingConfig,
+              // Near point
+              let nPData
+              if (trackingOptions.nearPoint) {
+                nPData = _getNearPoint(
+                  RC,
+                  trackingOptions,
+                  video,
+                  mesh,
+                  averageDist,
+                  timestamp,
+                  ppi,
+                  latency,
                 )
               }
-              readyToGetFirstData = false
+
+              /* -------------------------------------------------------------------------- */
+
+              if (callbackTrack && typeof callbackTrack === 'function') {
+                RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
+                callbackTrack(data)
+              }
             }
 
-            /* -------------------------------------------------------------------------- */
+            averageDist = 0
+            distCount = 1
 
-            // Near point
-            let nPData
-            if (trackingOptions.nearPoint) {
-              nPData = _getNearPoint(
-                RC,
-                trackingOptions,
-                video,
-                mesh,
-                averageDist,
-                timestamp,
-                ppi,
-                latency,
-              )
-            }
-
-            /* -------------------------------------------------------------------------- */
-
-            if (callbackTrack && typeof callbackTrack === 'function') {
-              RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
-              callbackTrack(data)
-            }
+            RC._trackingVideoFrameTimestamps.distance = 0
+          } else {
+            averageDist += eyeDist(mesh[133], mesh[362])
+            ++distCount
           }
-
-          averageDist = 0
-          distCount = 1
-
-          RC._trackingVideoFrameTimestamps.distance = 0
-        } else {
-          averageDist += eyeDist(mesh[133], mesh[362])
-          ++distCount
         }
       }
     }

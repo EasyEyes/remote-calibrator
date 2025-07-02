@@ -609,6 +609,38 @@ function _getDistValues(dist) {
 export function objectTest(RC, options, callback = undefined) {
   RC._addBackground()
 
+  // ===================== PAGE STATE MANAGEMENT =====================
+  let currentPage = 1
+  let savedMeasurementData = null // Store measurement data from page 2
+
+  // ===================== FACE MESH CALIBRATION SAMPLES =====================
+  // Arrays to store 5 samples per page for calibration
+  let faceMeshSamplesPage3 = [];
+  let faceMeshSamplesPage4 = [];
+
+  // Helper to collect 5 samples of eye pixel distance using Face Mesh
+  async function collectFaceMeshSamples(RC, arr, ppi) {
+    arr.length = 0; // Clear array
+    for (let i = 0; i < 5; i++) {
+      const pxDist = await measureIntraocularDistancePx(RC); // Get raw pixel distance
+      if (pxDist) arr.push(pxDist);
+      await new Promise(res => setTimeout(res, 100)); // 100ms between samples
+    }
+  }
+
+  // Helper to get intraocular distance in pixels (not cm)
+  async function measureIntraocularDistancePx(RC) {
+    let video = document.getElementById('webgazerVideoCanvas') || document.getElementById('webgazerVideoFeed');
+    if (!video) return null;
+    const model = await RC.gazeTracker.webgazer.getTracker().model;
+    const faces = await model.estimateFaces(video);
+    if (!faces.length) return null;
+    const mesh = faces[0].keypoints || faces[0].scaledMesh;
+    if (!mesh || !mesh[133] || !mesh[362]) return null;
+    const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+    return eyeDist(mesh[133], mesh[362]);
+  }
+
   // ===================== DRAWING THE OBJECT TEST UI =====================
 
   // --- Calculate screen and layout measurements ---
@@ -643,7 +675,6 @@ export function objectTest(RC, options, callback = undefined) {
   container.appendChild(title)
 
   // --- INSTRUCTIONS ---
-  const instructionsText = phrases.RC_UseObjectToSetViewingDistance1[RC.L]
   const instructions = document.createElement('div')
   instructions.style.maxWidth = '600px'
   instructions.style.paddingLeft = '5em'
@@ -653,7 +684,6 @@ export function objectTest(RC, options, callback = undefined) {
   instructions.style.alignSelf = 'flex-start'
   instructions.style.position = 'relative'
   instructions.style.zIndex = '3'
-  instructions.innerText = instructionsText
   container.appendChild(instructions)
 
   // ===================== DRAWING THE VERTICAL LINES =====================
@@ -670,28 +700,6 @@ export function objectTest(RC, options, callback = undefined) {
     box-shadow: 0 0 8px rgba(34, 141, 16, 0.4);
     z-index: 1;
   `
-
-  // Function to update line colors based on distance
-  const updateLineColors = () => {
-    const objectLengthPx = rightLinePx - leftLinePx
-    const objectLengthMm = objectLengthPx / pxPerMm
-    const objectLengthCm = objectLengthMm / 10
-
-    // If distance is less than or equal to minimum distance, change to red and update label text and position
-    if (objectLengthCm <= options.calibrateTrackDistanceMinCm) {
-      rightLine.style.background = 'rgb(255, 0, 0)'
-      rightLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
-      rightLabel.style.color = 'rgb(255, 0, 0)'
-      rightLabel.innerText = phrases.RC_viewingDistanceObjectTooShort[RC.L]
-      rightLabel.style.top = '20px' // Move to top
-    } else {
-      rightLine.style.background = 'rgb(34, 141, 16)'
-      rightLine.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)'
-      rightLabel.style.color = 'rgb(34, 141, 16)'
-      rightLabel.innerText = phrases.RC_RightEdge[RC.L]
-      rightLabel.style.top = '80vh' // Move back to bottom
-    }
-  }
 
   // --- Left vertical line ---
   // Fixed at 5mm from the left edge
@@ -710,6 +718,79 @@ export function objectTest(RC, options, callback = undefined) {
   rightLine.setAttribute('aria-label', 'Adjust right line position')
   container.appendChild(rightLine)
 
+  // ===================== LABELS FOR VERTICAL LINES =====================
+
+  // --- Label for the left vertical line ---
+  // Tells the user to align the left edge of their object here
+  const leftLabel = document.createElement('div')
+  leftLabel.innerText = phrases.RC_LeftEdge[RC.L]
+  leftLabel.style.position = 'absolute'
+  leftLabel.style.marginLeft = '5mm'
+  leftLabel.style.left = `${leftLinePx + 6}px` // Slightly right of the line
+  leftLabel.style.top = 'calc(80vh + 4px)' // 3pt gap (4px) below the line
+  leftLabel.style.color = 'rgb(34, 141, 16)'
+  leftLabel.style.fontWeight = 'bold'
+  leftLabel.style.fontSize = '1.4em'
+  leftLabel.style.width = '120px' // Fixed width for square shape
+  leftLabel.style.wordWrap = 'break-word' // Enable word wrapping
+  leftLabel.style.textAlign = 'left' // Align text to the left
+  leftLabel.style.lineHeight = '1.2' // Tighter line height for better square appearance
+  container.appendChild(leftLabel)
+
+  // --- Label for the right vertical line ---
+  // Tells the user to move this line to the right edge of their object
+  const rightLabel = document.createElement('div')
+  rightLabel.innerText = phrases.RC_RightEdge[RC.L]
+  rightLabel.style.position = 'absolute'
+  rightLabel.style.left = `${rightLinePx + 6}px` // Slightly right of the line
+  rightLabel.style.top = 'calc(80vh + 4px)' // 3pt gap (4px) below the line
+  rightLabel.style.color = 'rgb(34, 141, 16)'
+  rightLabel.style.fontWeight = 'bold'
+  rightLabel.style.fontSize = '1.4em'
+  rightLabel.style.width = '120px' // Fixed width for square shape
+  rightLabel.style.wordWrap = 'break-word' // Enable word wrapping
+  rightLabel.style.textAlign = 'left' // Align text to the left
+  rightLabel.style.lineHeight = '1.2' // Tighter line height for better square appearance
+  rightLabel.id = 'right-line-label'
+  container.appendChild(rightLabel)
+
+  // Function to update line colors based on distance - MOVED HERE after elements are created
+  const updateLineColors = () => {
+    const objectLengthPx = rightLinePx - leftLinePx
+    const objectLengthMm = objectLengthPx / pxPerMm
+    const objectLengthCm = objectLengthMm / 10
+
+    // Get minimum distance threshold with default value of 10cm if not specified
+    const minDistanceCm = options.calibrateTrackDistanceMinCm || 10
+
+    console.log('updateLineColors called:', {
+      objectLengthPx,
+      objectLengthMm,
+      objectLengthCm,
+      minDistanceCm,
+      shouldBeRed: objectLengthCm <= minDistanceCm
+    })
+
+    // If distance is less than or equal to minimum distance, change to red and update label text and position
+    if (objectLengthCm <= minDistanceCm) {
+      rightLine.style.background = 'rgb(255, 0, 0)'
+      rightLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
+      rightLabel.style.color = 'rgb(255, 0, 0)'
+      rightLabel.innerText = phrases.RC_viewingDistanceObjectTooShort[RC.L]
+      rightLabel.style.top = 'calc(80vh + 4px)' // Always at the bottom
+      rightLabel.style.width = '220px' // Wider for red warning
+      console.log('Changed to RED')
+    } else {
+      rightLine.style.background = 'rgb(34, 141, 16)'
+      rightLine.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)'
+      rightLabel.style.color = 'rgb(34, 141, 16)'
+      rightLabel.innerText = phrases.RC_RightEdge[RC.L]
+      rightLabel.style.top = 'calc(80vh + 4px)' // Always at the bottom
+      rightLabel.style.width = '120px' // Default width
+      console.log('Changed to GREEN')
+    }
+  }
+
   // Add hover effects to both lines
   ;[leftLine, rightLine].forEach(line => {
     line.addEventListener('mouseenter', () => {
@@ -722,34 +803,6 @@ export function objectTest(RC, options, callback = undefined) {
       updateLineColors() // Update colors after hover effect
     })
   })
-
-  // ===================== LABELS FOR VERTICAL LINES =====================
-
-  // --- Label for the left vertical line ---
-  // Tells the user to align the left edge of their object here
-  const leftLabel = document.createElement('div')
-  leftLabel.innerText = phrases.RC_LeftEdge[RC.L]
-  leftLabel.style.position = 'absolute'
-  leftLabel.style.marginLeft = '5mm'
-  leftLabel.style.left = `${leftLinePx + 6}px` // Slightly right of the line
-  leftLabel.style.top = '80vh' // Just below the line
-  leftLabel.style.color = 'rgb(34, 141, 16)'
-  leftLabel.style.fontWeight = 'bold'
-  leftLabel.style.fontSize = '1.4em'
-  container.appendChild(leftLabel)
-
-  // --- Label for the right vertical line ---
-  // Tells the user to move this line to the right edge of their object
-  const rightLabel = document.createElement('div')
-  rightLabel.innerText = phrases.RC_RightEdge[RC.L]
-  rightLabel.style.position = 'absolute'
-  rightLabel.style.left = `${rightLinePx + 6}px` // Slightly right of the line
-  rightLabel.style.top = '80vh'
-  rightLabel.style.color = 'rgb(34, 141, 16)'
-  rightLabel.style.fontWeight = 'bold'
-  rightLabel.style.fontSize = '1.4em'
-  rightLabel.id = 'right-line-label'
-  container.appendChild(rightLabel)
 
   // Update right label position and line colors when rightLine moves (drag or keyboard)
   function updateRightLabel() {
@@ -883,10 +936,10 @@ export function objectTest(RC, options, callback = undefined) {
   maxLengthLabel.innerText = phrases.RC_MaximumLength[RC.L]
   maxLengthLabel.style.position = 'absolute' // Change to absolute
   maxLengthLabel.style.left = `${(leftMargin + window.innerWidth) / 2}px` // Center between left margin and screen edge
-  maxLengthLabel.style.bottom = `${bottomMargin + lineThickness + 10}px`
+  maxLengthLabel.style.bottom = `${bottomMargin + lineThickness + 14}px` // 3pt gap (4px) above the line
   maxLengthLabel.style.color = arrowColor
   maxLengthLabel.style.fontWeight = 'bold'
-  maxLengthLabel.style.fontSize = '1rem'
+  maxLengthLabel.style.fontSize = '1.4rem'
   maxLengthLabel.style.zIndex = '3'
   container.appendChild(maxLengthLabel)
 
@@ -899,7 +952,7 @@ export function objectTest(RC, options, callback = undefined) {
     leftArrow.style.bottom = `${newBottomMargin + lineThickness / 2 - arrowWidth / 2}px`
     leftArrow.style.left = `${newLeftMargin + arrowLength}px` // Position arrow tip at 5mm
     rightArrow.style.bottom = `${newBottomMargin + lineThickness / 2 - arrowWidth / 2}px`
-    maxLengthLabel.style.bottom = `${newBottomMargin + lineThickness + 10}px`
+    maxLengthLabel.style.bottom = `${newBottomMargin + lineThickness + 14}px` // 3pt gap (4px) above the line
     maxLengthLabel.style.left = `${(newLeftMargin + window.innerWidth) / 2}px`
   })
 
@@ -908,6 +961,170 @@ export function objectTest(RC, options, callback = undefined) {
   // Add to background
   RC._replaceBackground('') // Clear any previous content
   RC.background.appendChild(container)
+
+  // ===================== PAGE NAVIGATION FUNCTIONS =====================
+  const showPage = async (pageNumber) => {
+    currentPage = pageNumber
+    
+    if (pageNumber === 1) {
+      // ===================== PAGE 1: HORIZONTAL LINE ONLY =====================
+      console.log('=== SHOWING PAGE 1: HORIZONTAL LINE ===')
+      
+      // Show only horizontal line and hide vertical lines
+      horizontalLine.style.display = 'block'
+      leftArrow.style.display = 'block'
+      rightArrow.style.display = 'block'
+      maxLengthLabel.style.display = 'block'
+      leftLine.style.display = 'none'
+      rightLine.style.display = 'none'
+      leftLabel.style.display = 'none'
+      rightLabel.style.display = 'none'
+      
+      // Update instructions
+      instructions.innerText = phrases.RC_UseObjectToSetViewingDistancePage1[RC.L]
+      
+    } else if (pageNumber === 2) {
+      // ===================== PAGE 2: VERTICAL LINES =====================
+      console.log('=== SHOWING PAGE 2: VERTICAL LINES ===')
+      
+      // Hide horizontal line and show vertical lines
+      horizontalLine.style.display = 'none'
+      leftArrow.style.display = 'none'
+      rightArrow.style.display = 'none'
+      maxLengthLabel.style.display = 'none'
+      leftLine.style.display = 'block'
+      rightLine.style.display = 'block'
+      leftLabel.style.display = 'block'
+      rightLabel.style.display = 'block'
+      
+      // Update right label position and line colors after showing lines
+      updateRightLabel()
+      updateLineColors() // Also call updateLineColors directly to ensure colors are set
+      
+      // Update instructions
+      instructions.innerText = phrases.RC_UseObjectToSetViewingDistancePage2[RC.L]
+      
+    } else if (pageNumber === 3) {
+      // ===================== PAGE 3: VIDEO ONLY =====================
+      console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
+      
+      // Hide all lines and labels
+      horizontalLine.style.display = 'none'
+      leftArrow.style.display = 'none'
+      rightArrow.style.display = 'none'
+      maxLengthLabel.style.display = 'none'
+      leftLine.style.display = 'none'
+      rightLine.style.display = 'none'
+      leftLabel.style.display = 'none'
+      rightLabel.style.display = 'none'
+      
+      // Update instructions
+      instructions.innerText = phrases.RC_UseObjectToSetViewingDistancePage3[RC.L]
+      
+      // Collect 5 Face Mesh samples for calibration on page 3
+      await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi);
+      console.log('Face Mesh calibration samples (page 3):', faceMeshSamplesPage3);
+      
+    } else if (pageNumber === 4) {
+      // ===================== PAGE 4: VIDEO ONLY =====================
+      console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
+      
+      // Keep all lines and labels hidden
+      horizontalLine.style.display = 'none'
+      leftArrow.style.display = 'none'
+      rightArrow.style.display = 'none'
+      maxLengthLabel.style.display = 'none'
+      leftLine.style.display = 'none'
+      rightLine.style.display = 'none'
+      leftLabel.style.display = 'none'
+      rightLabel.style.display = 'none'
+      
+      // Update instructions
+      instructions.innerText = phrases.RC_UseObjectToSetViewingDistancePage4[RC.L]
+      
+      // Collect 5 Face Mesh samples for calibration on page 4
+      await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi);
+      console.log('Face Mesh calibration samples (page 4):', faceMeshSamplesPage4);
+    }
+  }
+
+  const nextPage = async () => {
+    if (currentPage === 1) {
+      await showPage(2)
+    } else if (currentPage === 2) {
+      // ===================== SAVE MEASUREMENT DATA FROM PAGE 2 =====================
+      console.log('=== SAVING MEASUREMENT DATA FROM PAGE 2 ===')
+      
+      const objectLengthPx = rightLinePx - leftLinePx
+      const objectLengthMm = objectLengthPx / pxPerMm
+      const objectLengthCm = objectLengthMm / 10
+      
+      savedMeasurementData = {
+        value: toFixedNumber(objectLengthCm, 1),
+        timestamp: performance.now(),
+        method: 'object',
+        intraocularDistanceCm: null,
+        faceMeshSamplesPage3: [...faceMeshSamplesPage3],
+        faceMeshSamplesPage4: [...faceMeshSamplesPage4],
+        raw: {
+          leftPx: leftLinePx,
+          rightPx: rightLinePx,
+          screenWidth,
+          objectLengthPx,
+          objectLengthMm,
+          ppi: ppi,
+        },
+      }
+      
+      console.log('Saved measurement data:', savedMeasurementData)
+      await showPage(3)
+    } else if (currentPage === 3) {
+      await showPage(4)
+    } else if (currentPage === 4) {
+      // ===================== SHOW DISTANCE FEEDBACK ON PAGE 4 =====================
+      console.log('=== SHOWING DISTANCE FEEDBACK ON PAGE 4 ===')
+      
+      // Use the saved measurement data from page 2
+      if (savedMeasurementData) {
+        console.log('Using saved measurement data:', savedMeasurementData)
+        
+        // Measure intraocular distance using Face Mesh
+        measureIntraocularDistanceCm(RC, ppi).then(intraocularDistanceCm => {
+          if (intraocularDistanceCm) {
+            console.log('Measured intraocular distance (cm):', intraocularDistanceCm)
+            savedMeasurementData.intraocularDistanceCm = intraocularDistanceCm
+          } else {
+            console.warn('Could not measure intraocular distance.')
+          }
+        })
+        
+        // Show feedback for 3 seconds then remove
+        setTimeout(() => {
+          if (document.body.contains(feedbackDiv)) {
+            document.body.removeChild(feedbackDiv)
+          }
+        }, 3000)
+        
+        // Store the data in RC
+        RC.newObjectTestDistanceData = savedMeasurementData
+        RC.newViewingDistanceData = savedMeasurementData
+        
+        // Clean up event listeners
+        document.removeEventListener('keydown', handleKeyPress)
+        window.removeEventListener('beforeunload', cleanup)
+        
+        // Clean up UI
+        RC._removeBackground()
+        
+        // Call callback with the data
+        if (typeof callback === 'function') {
+          callback(savedMeasurementData)
+        }
+      } else {
+        console.error('No measurement data found!')
+      }
+    }
+  }
 
   // ===================== OBJECT TEST FINISH FUNCTION =====================
   const objectTestFinishFunction = () => {
@@ -967,9 +1184,24 @@ export function objectTest(RC, options, callback = undefined) {
         objectLengthMm, // Object length in millimeters
         ppi: ppi, // Screen's pixels per inch
       },
+
+      // Add intraocular distance to the data object
+      intraocularDistanceCm: intraocularDistanceCm,
+
+      // Pass the samples in the savedMeasurementData and final data object
+      faceMeshSamplesPage3: [...faceMeshSamplesPage3],
+      faceMeshSamplesPage4: [...faceMeshSamplesPage4],
     }
 
     // ===================== VISUAL FEEDBACK =====================
+    // Calculate calibration factor as in tracking (object test: no geometric correction)
+    const allFaceMeshSamples = [...faceMeshSamplesPage3, ...faceMeshSamplesPage4];
+    const averageFaceMesh = allFaceMeshSamples.length
+      ? allFaceMeshSamples.reduce((a, b) => a + b, 0) / allFaceMeshSamples.length
+      : 0;
+    // Use the measured viewing distance (data.value)
+    const calibrationFactor = averageFaceMesh * data.value;
+
     // Create a feedback element to show measurements
     const feedbackDiv = document.createElement('div')
     feedbackDiv.style.position = 'fixed'
@@ -986,6 +1218,10 @@ export function objectTest(RC, options, callback = undefined) {
       <div>First Measurement: ${firstMeasurement.toFixed(1)} cm</div>
       <div>Second Measurement: ${(rightLinePx - leftLinePx) / pxPerMm / 10} cm</div>
       <div>Median: ${median([firstMeasurement, (rightLinePx - leftLinePx) / pxPerMm / 10]).toFixed(1)} cm</div>
+      <div>Face Mesh Samples (Page 3): ${faceMeshSamplesPage3.join(', ')} px</div>
+      <div>Face Mesh Samples (Page 4): ${faceMeshSamplesPage4.join(', ')} px</div>
+      <div>Average Face Mesh Intraocular Distance (all 10): ${averageFaceMesh.toFixed(2)} px</div>
+      <div>Calibration Factor: ${calibrationFactor.toFixed(2)}</div>
       <div>Method: ${data.method}</div>     
       <div>PPI: ${ppi}</div>
     `
@@ -1018,7 +1254,6 @@ export function objectTest(RC, options, callback = undefined) {
               blindspot: blindspotData,
             },
           }
-
           // Update feedback for combined measurement
           feedbackDiv.innerHTML = `
                     <div>Combined Measurement:</div>
@@ -1032,7 +1267,8 @@ export function objectTest(RC, options, callback = undefined) {
           RC.newObjectTestDistanceData = medianData
           RC.newViewingDistanceData = medianData
 
-          // Handle completion based on check settings
+          // Call callback with the data
+                    // Handle completion based on check settings
           if (options.calibrateTrackDistanceCheckBool) {
             RC._checkDistance(
               callback,
@@ -1056,8 +1292,9 @@ export function objectTest(RC, options, callback = undefined) {
           setTimeout(() => {
             document.body.removeChild(feedbackDiv)
           }, 8000)
+          
         })
-      }, 100) // Single delay to ensure cleanup and background are ready
+      }, 500)
     } else {
       // Use the same check function as blindspot
       if (options.calibrateTrackDistanceCheckBool) {
@@ -1144,38 +1381,50 @@ export function objectTest(RC, options, callback = undefined) {
 
   // Store measurements
   let firstMeasurement = null
+  let intraocularDistanceCm = null
 
-  proceedButton.onclick = () => {
+  proceedButton.onclick = async () => {
     console.log('Proceed button clicked')
 
-    // Record first measurement - just store the distance value
-    firstMeasurement = (rightLinePx - leftLinePx) / pxPerMm / 10
-    console.log('First measurement:', firstMeasurement)
+    if (currentPage === 1) {
+      await nextPage()
+    } else if (currentPage === 2) {
+      // Record first measurement - just store the distance value
+      firstMeasurement = (rightLinePx - leftLinePx) / pxPerMm / 10
+      console.log('First measurement:', firstMeasurement)
 
-    // Reset right line to original position (2/3 of screen width)
-    rightLinePx = Math.round((screenWidth * 2) / 3)
-    rightLine.style.left = `${rightLinePx}px`
-    updateRightLabel()
+      // Reset right line to original position (2/3 of screen width)
+      rightLinePx = Math.round((screenWidth * 2) / 3)
+      rightLine.style.left = `${rightLinePx}px`
+      updateRightLabel()
 
-    // Update the instruction text
-    instructions.innerText = phrases.RC_UseObjectToSetViewingDistance2[RC.L]
+      // Move to page 3
+      await nextPage()
 
-    // Hide the first proceed button and show the second one
-    proceedButton.style.display = 'none'
-    okButton.disabled = false
-    okButton.style.opacity = '1'
-    okButton.style.display = 'block'
-
-    // Initialize Face Mesh tracking if not already done
-    if (!RC.gazeTracker.checkInitialized('distance')) {
-      RC.gazeTracker._init(
-        {
-          toFixedN: 1,
-          showVideo: true,
-          showFaceOverlay: false,
-        },
-        'distance',
-      )
+      // Initialize Face Mesh tracking if not already done
+      if (!RC.gazeTracker.checkInitialized('distance')) {
+        RC.gazeTracker._init(
+          {
+            toFixedN: 1,
+            showVideo: true,
+            showFaceOverlay: false,
+          },
+          'distance',
+        )
+      }
+    } else if (currentPage === 3) {
+      // Measure intraocular distance before moving to page 4
+      intraocularDistanceCm = await measureIntraocularDistancePx(RC)
+      if (intraocularDistanceCm) {
+        console.log('Measured intraocular distance (cm):', intraocularDistanceCm)
+      } else {
+        console.warn('Could not measure intraocular distance.')
+      }
+      // Move to page 4
+      await nextPage()
+    } else if (currentPage === 4) {
+      // Finish the test
+      objectTestFinishFunction()
     }
   }
   buttonContainer.appendChild(proceedButton)
@@ -1211,14 +1460,22 @@ export function objectTest(RC, options, callback = undefined) {
   explanationButton.style.borderRadius = '4px'
   explanationButton.style.cursor = 'pointer'
   explanationButton.onclick = () => {
+    // Insert a <br> before each numbered step (e.g., 1., 2., 3., 4.)
+    const explanationHtml = phrases.RC_viewingDistanceIntroPelliMethod[RC.L]
+      .replace(/(\d\.)/g, '<br>$1')
+      .replace(/^<br>/, '');
     Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
       icon: undefined,
-      html: phrases.RC_viewingDistanceIntroPelliMethod[RC.L],
+      html: explanationHtml,
       allowEnterKey: true,
+      confirmButtonText: phrases.T_ok ? phrases.T_ok[RC.L] : 'OK',
     })
   }
   buttonContainer.appendChild(explanationButton)
+
+  // ===================== INITIALIZE PAGE 1 =====================
+  showPage(1)
 }
 
 // ===================== DISTANCE DATA VALIDATION =====================
@@ -1389,4 +1646,26 @@ RemoteCalibrator.prototype.trackDistanceObject = function (
       )
     },
   )
+}
+
+// Utility to measure intraocular distance using Face Mesh
+async function measureIntraocularDistanceCm(RC, ppi) {
+  // Get the video element (try both canvas and video)
+  let video = document.getElementById('webgazerVideoCanvas') || document.getElementById('webgazerVideoFeed');
+  if (!video) return null;
+  // Ensure model is loaded
+  const model = await RC.gazeTracker.webgazer.getTracker().model;
+  const faces = await model.estimateFaces(video);
+  if (!faces.length) return null;
+  // Use keypoints 133 (right eye outer) and 362 (left eye outer)
+  const mesh = faces[0].keypoints || faces[0].scaledMesh;
+  if (!mesh || !mesh[133] || !mesh[362]) return null;
+  // Use eyeDist from distanceTrack.js logic
+  const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+  const pxDist = eyeDist(mesh[133], mesh[362]);
+  // Convert to mm, then cm
+  const pxPerMm = ppi / 25.4;
+  const distMm = pxDist / pxPerMm;
+  const distCm = distMm / 10;
+  return distCm;
 }
