@@ -38,6 +38,21 @@ const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canv
 
 /* -------------------------------------------------------------------------- */
 
+// Helper to get intraocular distance in pixels (not cm) - moved to global scope
+async function measureIntraocularDistancePx(RC) {
+  let video =
+    document.getElementById('webgazerVideoCanvas') ||
+    document.getElementById('webgazerVideoFeed')
+  if (!video) return null
+  const model = await RC.gazeTracker.webgazer.getTracker().model
+  const faces = await model.estimateFaces(video)
+  if (!faces.length) return null
+  const mesh = faces[0].keypoints || faces[0].scaledMesh
+  if (!mesh || !mesh[133] || !mesh[362]) return null
+  const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+  return eyeDist(mesh[133], mesh[362])
+}
+
 export function blindSpotTest(
   RC,
   options,
@@ -161,6 +176,35 @@ export function blindSpotTest(
           raw: { ...dist },
         }
 
+        // Calculate calibration factor for blindspot test
+        // Collect Face Mesh samples similar to object test
+        let faceMeshSamples = []
+        if (RC.gazeTracker.checkInitialized('distance')) {
+          for (let i = 0; i < 5; i++) {
+            const pxDist = await measureIntraocularDistancePx(RC)
+            if (pxDist) faceMeshSamples.push(pxDist)
+            await new Promise(res => setTimeout(res, 100)) // 100ms between samples
+          }
+        }
+        
+        const averageFaceMesh = faceMeshSamples.length
+          ? faceMeshSamples.reduce((a, b) => a + b, 0) / faceMeshSamples.length
+          : 0
+        
+        // Calculate calibration factor: averageFaceMesh * distance
+        const calibrationFactor = averageFaceMesh * data.value
+        
+        console.log('=== Blindspot Test Calibration Factor ===')
+        console.log('Blindspot distance:', data.value, 'cm')
+        console.log('Average Face Mesh:', averageFaceMesh, 'px')
+        console.log('Calibration factor:', calibrationFactor)
+        console.log('=========================================')
+        
+        // Store calibration factor and Face Mesh data
+        data.calibrationFactor = calibrationFactor
+        data.averageFaceMesh = averageFaceMesh
+        data.faceMeshSamples = faceMeshSamples
+
         RC.newViewingDistanceData = data
 
         // ! Break
@@ -186,6 +230,8 @@ export function blindSpotTest(
             options.calibrateTrackDistanceCheckSecs,
           )
         else safeExecuteFunc(callback, data)
+        
+
       } else {
         // ! Reset
         tested = 0
@@ -628,21 +674,6 @@ export function objectTest(RC, options, callback = undefined) {
     }
   }
 
-  // Helper to get intraocular distance in pixels (not cm)
-  async function measureIntraocularDistancePx(RC) {
-    let video =
-      document.getElementById('webgazerVideoCanvas') ||
-      document.getElementById('webgazerVideoFeed')
-    if (!video) return null
-    const model = await RC.gazeTracker.webgazer.getTracker().model
-    const faces = await model.estimateFaces(video)
-    if (!faces.length) return null
-    const mesh = faces[0].keypoints || faces[0].scaledMesh
-    if (!mesh || !mesh[133] || !mesh[362]) return null
-    const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
-    return eyeDist(mesh[133], mesh[362])
-  }
-
   // ===================== DRAWING THE OBJECT TEST UI =====================
 
   // --- Calculate screen and layout measurements ---
@@ -651,7 +682,7 @@ export function objectTest(RC, options, callback = undefined) {
   const pxPerMm = ppi / 25.4
 
   // The left vertical line is always 5mm from the left edge of the screen
-  const leftLinePx = Math.round(5 * pxPerMm) // 5mm from left
+  let leftLinePx = Math.round(5 * pxPerMm) // 5mm from left
   const screenWidth = window.innerWidth
 
   // The right vertical line starts at 2/3 of the screen width, but is adjustable
@@ -692,10 +723,13 @@ export function objectTest(RC, options, callback = undefined) {
 
   // --- Style for both vertical lines (left and right) ---
   // Both lines are the same color, thickness, and height
+  // Calculate 2 inches in pixels for shorter lines
+  const twoInchesInPx = Math.round(2 * ppi) // 2 inches * pixels per inch
   const verticalLineStyle = `
     position: absolute; 
-    top: 5rem; 
-    height: 75vh; 
+    top: 50%; 
+    transform: translateY(-50%); 
+    height: ${twoInchesInPx}px; 
     width: 6px; 
     background: rgb(34, 141, 16); 
     border-radius: 2px; 
@@ -706,8 +740,7 @@ export function objectTest(RC, options, callback = undefined) {
   // --- Left vertical line ---
   // Fixed at 5mm from the left edge
   const leftLine = document.createElement('div')
-  leftLine.style = verticalLineStyle + `left: ${leftLinePx}px;`
-  leftLine.style.marginLeft = '5mm' // Ensures physical 5mm offset
+  leftLine.style = verticalLineStyle + `left: ${leftLinePx}px; cursor: ew-resize;`
   container.appendChild(leftLine)
 
   // --- Right vertical line ---
@@ -715,9 +748,6 @@ export function objectTest(RC, options, callback = undefined) {
   const rightLine = document.createElement('div')
   rightLine.style =
     verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
-  rightLine.tabIndex = 0 // Allows keyboard focus for arrow key movement
-  rightLine.setAttribute('role', 'slider') // Make it more accessible
-  rightLine.setAttribute('aria-label', 'Adjust right line position')
   container.appendChild(rightLine)
 
   // ===================== LABELS FOR VERTICAL LINES =====================
@@ -729,7 +759,7 @@ export function objectTest(RC, options, callback = undefined) {
   leftLabel.style.position = 'absolute'
   leftLabel.style.marginLeft = '5mm'
   leftLabel.style.left = `${leftLinePx + 6}px` // Slightly right of the line
-  leftLabel.style.top = 'calc(80vh + 4px)' // 3pt gap (4px) below the line
+  leftLabel.style.top = `calc(50% + ${twoInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
   leftLabel.style.color = 'rgb(34, 141, 16)'
   leftLabel.style.fontWeight = 'bold'
   leftLabel.style.fontSize = '1.4em'
@@ -745,7 +775,7 @@ export function objectTest(RC, options, callback = undefined) {
   rightLabel.innerText = phrases.RC_RightEdge[RC.L]
   rightLabel.style.position = 'absolute'
   rightLabel.style.left = `${rightLinePx + 6}px` // Slightly right of the line
-  rightLabel.style.top = 'calc(80vh + 4px)' // 3pt gap (4px) below the line
+  rightLabel.style.top = `calc(50% + ${twoInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
   rightLabel.style.color = 'rgb(34, 141, 16)'
   rightLabel.style.fontWeight = 'bold'
   rightLabel.style.fontSize = '1.4em'
@@ -779,7 +809,7 @@ export function objectTest(RC, options, callback = undefined) {
       rightLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
       rightLabel.style.color = 'rgb(255, 0, 0)'
       rightLabel.innerText = phrases.RC_viewingDistanceObjectTooShort[RC.L]
-      rightLabel.style.top = 'calc(80vh + 4px)' // Always at the bottom
+      rightLabel.style.top = `calc(50% + ${twoInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
       rightLabel.style.width = '220px' // Wider for red warning
       console.log('Changed to RED')
     } else {
@@ -787,7 +817,7 @@ export function objectTest(RC, options, callback = undefined) {
       rightLine.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)'
       rightLabel.style.color = 'rgb(34, 141, 16)'
       rightLabel.innerText = phrases.RC_RightEdge[RC.L]
-      rightLabel.style.top = 'calc(80vh + 4px)' // Always at the bottom
+      rightLabel.style.top = `calc(50% + ${twoInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
       rightLabel.style.width = '120px' // Default width
       console.log('Changed to GREEN')
     }
@@ -810,32 +840,15 @@ export function objectTest(RC, options, callback = undefined) {
   function updateRightLabel() {
     rightLabel.style.left = `${rightLinePx + 6}px`
     updateLineColors() // Update colors when line moves
+    updateHorizontalLine() // Update horizontal line and dynamic length
   }
 
-  // --- Allow the user to move the right line with arrow keys when focused ---
-  rightLine.addEventListener('keydown', e => {
-    const stepSize = 5 // Pixels to move per keypress
-    if (e.key === 'ArrowLeft') {
-      rightLinePx = Math.max(leftLinePx + 20, rightLinePx - stepSize)
-      rightLine.style.left = `${rightLinePx}px`
-      updateRightLabel()
-      e.preventDefault()
-    } else if (e.key === 'ArrowRight') {
-      rightLinePx = Math.min(screenWidth - 10, rightLinePx + stepSize)
-      rightLine.style.left = `${rightLinePx}px`
-      updateRightLabel()
-      e.preventDefault()
-    }
-  })
-
-  // --- Visual feedback for keyboard focus on the right line ---
-  rightLine.addEventListener('focus', () => {
-    rightLine.style.boxShadow = '0 0 0 2px #ff9a00'
-    rightLine.style.outline = 'none'
-  })
-  rightLine.addEventListener('blur', () => {
-    rightLine.style.boxShadow = ''
-  })
+  // Update left label position and line colors when leftLine moves (drag or keyboard)
+  function updateLeftLabel() {
+    leftLabel.style.left = `${leftLinePx + 6}px`
+    updateLineColors() // Update colors when line moves
+    updateHorizontalLine() // Update horizontal line and dynamic length
+  }
 
   // --- Allow the user to drag the right vertical line horizontally ---
   let dragging = false
@@ -858,34 +871,132 @@ export function objectTest(RC, options, callback = undefined) {
     document.body.style.cursor = ''
   })
 
-  // Add keyboard event listener for arrow keys
-  const handleArrowKeys = e => {
-    if (document.activeElement === rightLine) {
-      const stepSize = 5 // Pixels to move per keypress
-      if (e.key === 'ArrowLeft') {
-        rightLinePx = Math.max(leftLinePx + 20, rightLinePx - stepSize)
-        rightLine.style.left = `${rightLinePx}px`
-        updateRightLabel()
-        e.preventDefault()
-      } else if (e.key === 'ArrowRight') {
-        rightLinePx = Math.min(screenWidth - 10, rightLinePx + stepSize)
-        rightLine.style.left = `${rightLinePx}px`
-        updateRightLabel()
-        e.preventDefault()
+  // --- Allow the user to drag the left vertical line horizontally ---
+  let leftDragging = false
+  leftLine.addEventListener('mousedown', e => {
+    leftDragging = true
+    document.body.style.cursor = 'ew-resize'
+    e.preventDefault()
+  })
+  window.addEventListener('mousemove', e => {
+    if (!leftDragging) return
+    let x = e.clientX
+    // Clamp so it can't cross the right line or go off screen
+    x = Math.max(10, Math.min(x, rightLinePx - 20))
+    leftLinePx = x
+    leftLine.style.left = `${leftLinePx}px`
+    updateLeftLabel()
+  })
+  window.addEventListener('mouseup', () => {
+    leftDragging = false
+    document.body.style.cursor = ''
+  })
+
+  // ===================== KEYBOARD HANDLING FOR RIGHT LINE =====================
+  let arrowKeyDown = false
+  let arrowIntervalFunction = null
+  let currentArrowKey = null
+
+  const arrowDownFunction = e => {
+    // Only handle arrow keys on page 2
+    if (currentPage !== 2) return
+    
+    // Prevent default behavior
+    e.preventDefault()
+    
+    // Only handle left and right arrow keys
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    
+    // If already handling a key, ignore
+    if (arrowKeyDown) return
+
+    arrowKeyDown = true
+    currentArrowKey = e.key
+    rightLine.style.background = 'rgb(255, 165, 0)' // Orange to indicate active movement
+    rightLine.style.boxShadow = '0 0 12px rgba(255, 165, 0, 0.6)'
+
+    // Clear any existing interval
+    if (arrowIntervalFunction) {
+      clearInterval(arrowIntervalFunction)
+    }
+
+    // Start continuous movement
+    arrowIntervalFunction = setInterval(() => {
+      if (currentArrowKey === 'ArrowLeft') {
+        rightLinePx -= 5 // Move left by 5px
+        helpMoveRightLine()
+      } else if (currentArrowKey === 'ArrowRight') {
+        rightLinePx += 5 // Move right by 5px
+        helpMoveRightLine()
       }
+    }, 50) // Update every 50ms for smooth movement
+  }
+
+  const arrowUpFunction = e => {
+    // Only handle arrow keys on page 2
+    if (currentPage !== 2) return
+    
+    // Only handle left and right arrow keys
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    
+    // Only stop if this is the key we're currently handling
+    if (currentArrowKey !== e.key) return
+
+    arrowKeyDown = false
+    currentArrowKey = null
+    
+    // Restore original color based on distance
+    updateLineColors()
+
+    // Clear the interval
+    if (arrowIntervalFunction) {
+      clearInterval(arrowIntervalFunction)
+      arrowIntervalFunction = null
     }
   }
+
+  const helpMoveRightLine = () => {
+    // Clamp the position so it can't cross the left line or go off screen
+    const minX = leftLinePx + 20 // Minimum 20px gap from left line
+    const maxX = screenWidth - 10 // Maximum 10px from right edge
+    
+    rightLinePx = Math.max(minX, Math.min(rightLinePx, maxX))
+    
+    // Update the visual position
+    rightLine.style.left = `${rightLinePx}px`
+    updateRightLabel()
+  }
+
+  // Add keyboard event listeners
+  const handleArrowKeys = e => {
+    if (e.type === 'keydown') {
+      arrowDownFunction(e)
+    } else if (e.type === 'keyup') {
+      arrowUpFunction(e)
+    }
+  }
+
+  // Add event listeners for arrow keys
   document.addEventListener('keydown', handleArrowKeys)
+  document.addEventListener('keyup', handleArrowKeys)
 
   // Clean up keyboard event listener when done
-  const cleanup = () => {
+  const cleanupKeyboard = () => {
+    // Cleanup function for any remaining event listeners
     document.removeEventListener('keydown', handleArrowKeys)
+    document.removeEventListener('keyup', handleArrowKeys)
+    
+    // Clear any active intervals
+    if (arrowIntervalFunction) {
+      clearInterval(arrowIntervalFunction)
+      arrowIntervalFunction = null
+    }
   }
-  window.addEventListener('beforeunload', cleanup)
+  window.addEventListener('beforeunload', cleanupKeyboard)
 
   // ===================== DRAWING THE HORIZONTAL LINE AND ARROWHEADS =====================
-  // --- Calculate the vertical position for the horizontal line (5mm from bottom of viewport) ---
-  const bottomMargin = 5 * pxPerMm // 5mm from bottom
+  // --- Calculate the vertical position for the horizontal line (center of screen) ---
+  const screenCenterY = window.innerHeight / 2 // Center of screen
   const leftMargin = 5 * pxPerMm // 5mm from left edge
   const lineThickness = 6 // px, same as vertical lines
   const arrowLength = 24 // px, length of arrowhead
@@ -897,19 +1008,25 @@ export function objectTest(RC, options, callback = undefined) {
   horizontalLine.style.position = 'absolute'
   horizontalLine.style.left = `${leftMargin + 2 * arrowLength}px` // Start at end of left arrow base
   horizontalLine.style.right = `${arrowLength}px` // End before right arrow
-  horizontalLine.style.bottom = `${bottomMargin}px`
+  horizontalLine.style.top = `${screenCenterY - lineThickness / 2}px` // Center vertically
   horizontalLine.style.height = `${lineThickness}px`
-  horizontalLine.style.background = arrowColor
+  horizontalLine.style.background = `repeating-linear-gradient(
+    to right,
+    ${arrowColor} 0px,
+    ${arrowColor} 10px,
+    #f5f5f5 10px,
+    #f5f5f5 20px
+  )` // Dashed line with light grey gaps
   horizontalLine.style.borderRadius = '2px'
   horizontalLine.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)'
   horizontalLine.style.zIndex = '1'
   container.appendChild(horizontalLine)
 
-  // --- Left arrowhead for the horizontal line ---
+  // --- Left arrowhead for the horizontal line (at left vertical line) ---
   const leftArrow = document.createElement('div')
   leftArrow.style.position = 'absolute'
   leftArrow.style.left = `${leftMargin + arrowLength}px` // Position arrow tip at 5mm
-  leftArrow.style.bottom = `${bottomMargin + lineThickness / 2 - arrowWidth / 2}px`
+  leftArrow.style.top = `${screenCenterY - arrowWidth / 2}px` // Center vertically
   leftArrow.style.width = '0'
   leftArrow.style.height = '0'
   leftArrow.style.borderTop = `${arrowWidth / 2}px solid transparent`
@@ -919,11 +1036,11 @@ export function objectTest(RC, options, callback = undefined) {
   leftArrow.style.zIndex = '2'
   container.appendChild(leftArrow)
 
-  // --- Right arrowhead for the horizontal line ---
+  // --- Right arrowhead for the horizontal line (at right vertical line) ---
   const rightArrow = document.createElement('div')
-  rightArrow.style.position = 'fixed'
+  rightArrow.style.position = 'absolute'
   rightArrow.style.right = '0' // Position at screen edge
-  rightArrow.style.bottom = `${bottomMargin + lineThickness / 2 - arrowWidth / 2}px`
+  rightArrow.style.top = `${screenCenterY - arrowWidth / 2}px` // Center vertically
   rightArrow.style.width = '0'
   rightArrow.style.height = '0'
   rightArrow.style.borderTop = `${arrowWidth / 2}px solid transparent`
@@ -933,29 +1050,51 @@ export function objectTest(RC, options, callback = undefined) {
   rightArrow.style.zIndex = '2'
   container.appendChild(rightArrow)
 
-  // --- Label for the horizontal line ---
-  const maxLengthLabel = document.createElement('div')
-  maxLengthLabel.innerText = phrases.RC_MaximumLength[RC.L]
-  maxLengthLabel.style.position = 'absolute' // Change to absolute
-  maxLengthLabel.style.left = `${(leftMargin + window.innerWidth) / 2}px` // Center between left margin and screen edge
-  maxLengthLabel.style.bottom = `${bottomMargin + lineThickness + 14}px` // 3pt gap (4px) above the line
-  maxLengthLabel.style.color = arrowColor
-  maxLengthLabel.style.fontWeight = 'bold'
-  maxLengthLabel.style.fontSize = '1.4rem'
-  maxLengthLabel.style.zIndex = '3'
-  container.appendChild(maxLengthLabel)
+  // --- Dynamic length label ---
+  const dynamicLengthLabel = document.createElement('div')
+  dynamicLengthLabel.style.position = 'absolute'
+  dynamicLengthLabel.style.left = `${(leftMargin + window.innerWidth) / 2}px` // Center between left margin and screen edge
+  dynamicLengthLabel.style.top = `${screenCenterY + lineThickness / 2 + 20}px` // Below the centered line with 20px gap
+  dynamicLengthLabel.style.color = arrowColor
+  dynamicLengthLabel.style.fontWeight = 'bold'
+  dynamicLengthLabel.style.fontSize = '1.4rem'
+  dynamicLengthLabel.style.zIndex = '3'
+  dynamicLengthLabel.style.textAlign = 'center'
+  dynamicLengthLabel.style.width = '200px'
+  dynamicLengthLabel.style.marginLeft = '-100px' // Center the text
+  container.appendChild(dynamicLengthLabel)
+
+  // Function to update dynamic length display
+  const updateDynamicLength = () => {
+    const objectLengthPx = rightLinePx - leftLinePx
+    const objectLengthMm = objectLengthPx / pxPerMm
+    const objectLengthCm = objectLengthMm / 10
+    dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
+  }
+
+  // Function to update horizontal line and arrow positions
+  const updateHorizontalLine = () => {
+    // Update horizontal line position to connect the vertical lines
+    // End the line at the thicker base of the arrowheads, not the tips
+    horizontalLine.style.left = `${leftLinePx + 6 + arrowLength}px` // Start after left arrow base
+    horizontalLine.style.right = `${window.innerWidth - rightLinePx + 6 + arrowLength}px` // End before right arrow base
+    
+    // Update arrow positions
+    leftArrow.style.left = `${leftLinePx + 6}px` // At left line
+    rightArrow.style.right = `${window.innerWidth - rightLinePx + 6}px` // At right line
+    
+    // Update dynamic length
+    updateDynamicLength()
+  }
 
   // Update positions when window is resized
   window.addEventListener('resize', () => {
-    const newBottomMargin = 5 * pxPerMm
-    const newLeftMargin = 5 * pxPerMm
-    horizontalLine.style.bottom = `${newBottomMargin}px`
-    horizontalLine.style.left = `${newLeftMargin + 2 * arrowLength}px` // Start at end of left arrow base
-    leftArrow.style.bottom = `${newBottomMargin + lineThickness / 2 - arrowWidth / 2}px`
-    leftArrow.style.left = `${newLeftMargin + arrowLength}px` // Position arrow tip at 5mm
-    rightArrow.style.bottom = `${newBottomMargin + lineThickness / 2 - arrowWidth / 2}px`
-    maxLengthLabel.style.bottom = `${newBottomMargin + lineThickness + 14}px` // 3pt gap (4px) above the line
-    maxLengthLabel.style.left = `${(newLeftMargin + window.innerWidth) / 2}px`
+    const newScreenCenterY = window.innerHeight / 2
+    horizontalLine.style.top = `${newScreenCenterY - lineThickness / 2}px`
+    leftArrow.style.top = `${newScreenCenterY - arrowWidth / 2}px`
+    rightArrow.style.top = `${newScreenCenterY - arrowWidth / 2}px`
+    dynamicLengthLabel.style.top = `${newScreenCenterY + lineThickness / 2 + 20}px`
+    updateHorizontalLine()
   })
 
   // ===================== END DRAWING =====================
@@ -968,40 +1107,68 @@ export function objectTest(RC, options, callback = undefined) {
   const showPage = async pageNumber => {
     currentPage = pageNumber
 
-    if (pageNumber === 1) {
-      // ===================== PAGE 1: HORIZONTAL LINE ONLY =====================
-      console.log('=== SHOWING PAGE 1: HORIZONTAL LINE ===')
+    if (pageNumber === 0) {
+      // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
+      console.log('=== SHOWING PAGE 0: INSTRUCTIONS ONLY ===')
 
-      // Show only horizontal line and hide vertical lines
-      horizontalLine.style.display = 'block'
-      leftArrow.style.display = 'block'
-      rightArrow.style.display = 'block'
-      maxLengthLabel.style.display = 'block'
+      // Hide all lines and labels
+      horizontalLine.style.display = 'none'
+      leftArrow.style.display = 'none'
+      rightArrow.style.display = 'none'
+      dynamicLengthLabel.style.display = 'none'
       leftLine.style.display = 'none'
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
 
+      // Show PROCEED button on page 0
+      proceedButton.style.display = 'block'
+
+      // Update instructions
+      instructions.innerText =
+        phrases.RC_UseObjectToSetViewingDistancePage0[RC.L]
+    } else if (pageNumber === 1) {
+      // ===================== PAGE 1: NO LINES =====================
+      console.log('=== SHOWING PAGE 1: NO LINES ===')
+
+      // Hide all lines and labels
+      horizontalLine.style.display = 'none'
+      leftArrow.style.display = 'none'
+      rightArrow.style.display = 'none'
+      dynamicLengthLabel.style.display = 'none'
+      leftLine.style.display = 'none'
+      rightLine.style.display = 'none'
+      leftLabel.style.display = 'none'
+      rightLabel.style.display = 'none'
+
+      // Show PROCEED button on page 1
+      proceedButton.style.display = 'block'
+
       // Update instructions
       instructions.innerText =
         phrases.RC_UseObjectToSetViewingDistancePage1[RC.L]
     } else if (pageNumber === 2) {
-      // ===================== PAGE 2: VERTICAL LINES =====================
-      console.log('=== SHOWING PAGE 2: VERTICAL LINES ===')
+      // ===================== PAGE 2: VERTICAL LINES + HORIZONTAL LINE =====================
+      console.log('=== SHOWING PAGE 2: VERTICAL LINES + HORIZONTAL LINE ===')
 
-      // Hide horizontal line and show vertical lines
-      horizontalLine.style.display = 'none'
-      leftArrow.style.display = 'none'
-      rightArrow.style.display = 'none'
-      maxLengthLabel.style.display = 'none'
+      // Show vertical lines and horizontal line
+      horizontalLine.style.display = 'block'
+      leftArrow.style.display = 'block'
+      rightArrow.style.display = 'block'
+      dynamicLengthLabel.style.display = 'block'
       leftLine.style.display = 'block'
       rightLine.style.display = 'block'
       leftLabel.style.display = 'block'
       rightLabel.style.display = 'block'
 
-      // Update right label position and line colors after showing lines
+      // Show PROCEED button on page 2
+      proceedButton.style.display = 'block'
+
+      // Update all positions and colors after showing lines
       updateRightLabel()
-      updateLineColors() // Also call updateLineColors directly to ensure colors are set
+      updateLeftLabel()
+      updateLineColors()
+      updateHorizontalLine() // Update horizontal line and dynamic length
 
       // Update instructions
       instructions.innerText =
@@ -1014,11 +1181,14 @@ export function objectTest(RC, options, callback = undefined) {
       horizontalLine.style.display = 'none'
       leftArrow.style.display = 'none'
       rightArrow.style.display = 'none'
-      maxLengthLabel.style.display = 'none'
+      dynamicLengthLabel.style.display = 'none'
       leftLine.style.display = 'none'
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
+
+      // Hide PROCEED button on page 3 - only allow space key
+      proceedButton.style.display = 'none'
 
       // Update instructions
       instructions.innerText =
@@ -1038,11 +1208,14 @@ export function objectTest(RC, options, callback = undefined) {
       horizontalLine.style.display = 'none'
       leftArrow.style.display = 'none'
       rightArrow.style.display = 'none'
-      maxLengthLabel.style.display = 'none'
+      dynamicLengthLabel.style.display = 'none'
       leftLine.style.display = 'none'
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
+
+      // Hide PROCEED button on page 4 - only allow space key
+      proceedButton.style.display = 'none'
 
       // Update instructions
       instructions.innerText =
@@ -1058,7 +1231,9 @@ export function objectTest(RC, options, callback = undefined) {
   }
 
   const nextPage = async () => {
-    if (currentPage === 1) {
+    if (currentPage === 0) {
+      await showPage(1)
+    } else if (currentPage === 1) {
       await showPage(2)
     } else if (currentPage === 2) {
       // ===================== SAVE MEASUREMENT DATA FROM PAGE 2 =====================
@@ -1123,7 +1298,7 @@ export function objectTest(RC, options, callback = undefined) {
 
         // Clean up event listeners
         document.removeEventListener('keydown', handleKeyPress)
-        window.removeEventListener('beforeunload', cleanup)
+        window.removeEventListener('beforeunload', cleanupKeyboard)
 
         // Clean up UI
         RC._removeBackground()
@@ -1140,6 +1315,10 @@ export function objectTest(RC, options, callback = undefined) {
 
   // ===================== OBJECT TEST FINISH FUNCTION =====================
   const objectTestFinishFunction = () => {
+    // Always clean up keyboard event listeners
+    document.removeEventListener('keydown', handleKeyPress)
+    document.removeEventListener('keyup', handleKeyPress)
+
     // ===================== INITIALIZATION CHECK =====================
     // Initialize Face Mesh tracking if not already done
     if (!RC.gazeTracker.checkInitialized('distance')) {
@@ -1175,11 +1354,8 @@ export function objectTest(RC, options, callback = undefined) {
     // ===================== CREATE MEASUREMENT DATA OBJECT =====================
     // Format the data object to match the blindspot mapping structure
     const data = {
-      // Use median of both measurements, rounded to 1 decimal place
-      value: toFixedNumber(
-        median([firstMeasurement, (rightLinePx - leftLinePx) / pxPerMm / 10]),
-        1,
-      ),
+      // Use firstMeasurement directly, rounded to 1 decimal place
+      value: toFixedNumber(firstMeasurement, 1),
 
       // Use performance.now() for high-precision timing
       timestamp: performance.now(),
@@ -1218,6 +1394,16 @@ export function objectTest(RC, options, callback = undefined) {
     // Use the measured viewing distance (data.value)
     const calibrationFactor = averageFaceMesh * data.value
 
+    console.log('=== Object Test Calibration Factor ===')
+    console.log('Object distance:', data.value, 'cm')
+    console.log('Average Face Mesh:', averageFaceMesh, 'px')
+    console.log('Calibration factor:', calibrationFactor)
+    console.log('======================================')
+
+    // Store calibration factor in data object for later use
+    data.calibrationFactor = calibrationFactor
+    data.averageFaceMesh = averageFaceMesh
+
     // Create a feedback element to show measurements
     const feedbackDiv = document.createElement('div')
     feedbackDiv.style.position = 'fixed'
@@ -1231,15 +1417,13 @@ export function objectTest(RC, options, callback = undefined) {
     feedbackDiv.style.zIndex = '1000'
     feedbackDiv.innerHTML = `
       <div>Object Test Measurements:</div>
-      <div>First Measurement: ${firstMeasurement.toFixed(1)} cm</div>
-      <div>Second Measurement: ${(rightLinePx - leftLinePx) / pxPerMm / 10} cm</div>
-      <div>Median: ${median([firstMeasurement, (rightLinePx - leftLinePx) / pxPerMm / 10]).toFixed(1)} cm</div>
-      <div>Face Mesh Samples (Page 3): ${faceMeshSamplesPage3.join(', ')} px</div>
-      <div>Face Mesh Samples (Page 4): ${faceMeshSamplesPage4.join(', ')} px</div>
-      <div>Average Face Mesh Intraocular Distance (all 10): ${averageFaceMesh.toFixed(2)} px</div>
-      <div>Calibration Factor: ${calibrationFactor.toFixed(2)}</div>
+      <div>Object Measurement: ${firstMeasurement.toFixed(1)} cm</div>
+      <div>Face Mesh Samples (Page 3): ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')} px</div>
+      <div>Face Mesh Samples (Page 4): ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')} px</div>
+      <div>Average Face Mesh Intraocular Distance (all 10): ${averageFaceMesh.toFixed(1)} px</div>
+      <div>Calibration Factor: ${calibrationFactor.toFixed(1)}</div>
       <div>Method: ${data.method}</div>     
-      <div>PPI: ${ppi}</div>
+      <div>PPI: ${ppi.toFixed(1)}</div>
     `
     document.body.appendChild(feedbackDiv)
 
@@ -1252,6 +1436,10 @@ export function objectTest(RC, options, callback = undefined) {
     if (options.useObjectTestData === 'both') {
       // Clean up UI elements and handlers
       RC._removeBackground()
+      
+      // Remove object test keyboard event listener to prevent conflicts
+      document.removeEventListener('keydown', handleKeyPress)
+      document.removeEventListener('keyup', handleKeyPress)
 
       // Add a small delay to ensure cleanup is complete and background is ready
       setTimeout(() => {
@@ -1260,22 +1448,42 @@ export function objectTest(RC, options, callback = undefined) {
 
         // Start blindspot test immediately
         blindSpotTest(RC, options, true, blindspotData => {
-          // Calculate median of both measurements
+          // Calculate median of calibration factors instead of distances
+          const objectCalibrationFactor = data.calibrationFactor
+          const blindspotCalibrationFactor = blindspotData.calibrationFactor
+          
+          console.log('=== Combined Test Calibration Factors ===')
+          console.log('Object test calibration factor:', objectCalibrationFactor)
+          console.log('Blindspot test calibration factor:', blindspotCalibrationFactor)
+          
+          const medianCalibrationFactor = median([objectCalibrationFactor, blindspotCalibrationFactor])
+          
+          console.log('Median calibration factor:', medianCalibrationFactor)
+          console.log('=========================================')
+
+          // Create combined data using median calibration factor
           const medianData = {
-            value: median([data.value, blindspotData.value]),
+            value: data.value, // Keep object test distance as reference
             timestamp: Date.now(),
             method: 'both',
+            calibrationFactor: medianCalibrationFactor, // Use median calibration factor
+            averageFaceMesh: data.averageFaceMesh, // Keep object test Face Mesh data
+
             raw: {
               object: data,
               blindspot: blindspotData,
+              objectCalibrationFactor,
+              blindspotCalibrationFactor,
+              medianCalibrationFactor,
             },
           }
+          
           // Update feedback for combined measurement
           feedbackDiv.innerHTML = `
                     <div>Combined Measurement:</div>
-                    <div>Object Test: ${data.value} cm</div>
-                    <div>Blindspot Test: ${blindspotData.value} cm</div>
-                    <div>Median: ${medianData.value} cm</div>
+                    <div>Object Test CF: ${objectCalibrationFactor.toFixed(1)}</div>
+                    <div>Blindspot CF: ${blindspotCalibrationFactor.toFixed(1)}</div>
+                    <div>Median Calibration Factor: ${medianCalibrationFactor.toFixed(1)}</div>
                     <div>Method: ${medianData.method}</div>
                 `
 
@@ -1307,7 +1515,9 @@ export function objectTest(RC, options, callback = undefined) {
           // Remove feedback after a delay
           setTimeout(() => {
             document.body.removeChild(feedbackDiv)
-          }, 8000)
+          }, 3000)
+          
+
         })
       }, 500)
     } else {
@@ -1334,10 +1544,13 @@ export function objectTest(RC, options, callback = undefined) {
       // Remove feedback after a delay
       setTimeout(() => {
         document.body.removeChild(feedbackDiv)
-      }, 8000)
+      }, 3000)
     }
   }
   const breakFunction = () => {
+    // Always clean up keyboard event listeners
+    document.removeEventListener('keydown', handleKeyPress)
+    document.removeEventListener('keyup', handleKeyPress)
     // Restart: reset right line to initial position
     objectTest(RC, options, callback)
   }
@@ -1347,26 +1560,47 @@ export function objectTest(RC, options, callback = undefined) {
     null,
     RC.keypadHandler,
     () => {
-      // If OK button is enabled, trigger its action
-      if (!okButton.disabled) {
-        objectTestFinishFunction()
-      } else {
-        // If OK button is disabled, trigger Proceed button action
-        proceedButton.click()
-      }
+      // Always trigger Proceed button action since okButton is never used
+      proceedButton.click()
     },
     false,
     ['return'],
     RC,
   )
 
-  // Add keyboard event listener for Enter/Return key
+  // Add keyboard event listener for Enter/Return key and Space key
   const handleKeyPress = e => {
     if (e.key === 'Enter' || e.key === 'Return') {
-      if (!okButton.disabled) {
-        objectTestFinishFunction()
-      } else {
-        proceedButton.click()
+      // On pages 3 and 4, ignore return key - only allow space
+      if (currentPage === 3 || currentPage === 4) {
+        return
+      }
+      // Always trigger Proceed button action since okButton is never used
+      proceedButton.click()
+    } else if (e.key === ' ') {
+      // Space key - only allow on pages 3 and 4
+      if (currentPage === 3 || currentPage === 4) {
+        e.preventDefault()
+        if (currentPage === 3) {
+          // Do exactly what the PROCEED button does on page 3
+          (async () => {
+            // Measure intraocular distance before moving to page 4
+            intraocularDistanceCm = await measureIntraocularDistancePx(RC)
+            if (intraocularDistanceCm) {
+              console.log(
+                'Measured intraocular distance (cm):',
+                intraocularDistanceCm,
+              )
+            } else {
+              console.warn('Could not measure intraocular distance.')
+            }
+            // Move to page 4
+            await nextPage()
+          })()
+        } else if (currentPage === 4) {
+          // Do exactly what the PROCEED button does on page 4
+          objectTestFinishFunction()
+        }
       }
     }
   }
@@ -1401,17 +1635,23 @@ export function objectTest(RC, options, callback = undefined) {
   proceedButton.onclick = async () => {
     console.log('Proceed button clicked')
 
-    if (currentPage === 1) {
+    if (currentPage === 0) {
+      await nextPage()
+    } else if (currentPage === 1) {
       await nextPage()
     } else if (currentPage === 2) {
       // Record first measurement - just store the distance value
       firstMeasurement = (rightLinePx - leftLinePx) / pxPerMm / 10
       console.log('First measurement:', firstMeasurement)
 
-      // Reset right line to original position (2/3 of screen width)
-      rightLinePx = Math.round((screenWidth * 2) / 3)
-      rightLine.style.left = `${rightLinePx}px`
-      updateRightLabel()
+      // Store original measurement data before resetting lines
+      const originalMeasurementData = {
+        leftPx: leftLinePx,
+        rightPx: rightLinePx,
+        objectLengthPx: rightLinePx - leftLinePx,
+        objectLengthMm: (rightLinePx - leftLinePx) / pxPerMm,
+        objectLengthCm: firstMeasurement
+      }
 
       // Move to page 3
       await nextPage()
@@ -1447,26 +1687,6 @@ export function objectTest(RC, options, callback = undefined) {
   }
   buttonContainer.appendChild(proceedButton)
 
-  // Add OK button second
-  const okButton = document.createElement('button')
-  okButton.className = 'rc-button'
-  okButton.textContent = 'Proceed'
-  okButton.disabled = true
-  okButton.style.opacity = '0.5'
-  okButton.style.border = '2px solid #ff9a00'
-  okButton.style.backgroundColor = '#ff9a00'
-  okButton.style.color = 'white'
-  okButton.style.padding = '8px 16px'
-  okButton.style.borderRadius = '4px'
-  okButton.style.cursor = 'pointer'
-  okButton.style.display = 'none' // Initially hidden
-  okButton.onclick = () => {
-    // Remove keyboard event listener when finishing
-    document.removeEventListener('keydown', handleKeyPress)
-    objectTestFinishFunction()
-  }
-  buttonContainer.appendChild(okButton)
-
   // Add Explanation button last
   const explanationButton = document.createElement('button')
   explanationButton.className = 'rc-button'
@@ -1492,8 +1712,8 @@ export function objectTest(RC, options, callback = undefined) {
   }
   buttonContainer.appendChild(explanationButton)
 
-  // ===================== INITIALIZE PAGE 1 =====================
-  showPage(1)
+  // ===================== INITIALIZE PAGE 0 =====================
+  showPage(0)
 }
 
 // ===================== DISTANCE DATA VALIDATION =====================

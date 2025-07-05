@@ -116,9 +116,11 @@ export function setDefaultVideoPosition(RC, v) {
     v.style.top = RC._CONST.N.VIDEO_MARGIN
     v.style.bottom = 'unset'
   } else {
-    v.style.left = 0 // RC._CONST.N.VIDEO_MARGIN
+    // Desktop - position at top center
+    v.style.left = '50%'
     v.style.right = 'unset'
-    v.style.top = 'unset'
-    v.style.bottom = RC._CONST.N.VIDEO_MARGIN_BOTTOM
+    v.style.top = RC._CONST.N.VIDEO_MARGIN
+    v.style.bottom = 'unset'
+    v.style.transform = 'translateX(-50%)' // Center horizontally
   }
 }

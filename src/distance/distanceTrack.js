@@ -144,6 +144,23 @@ RemoteCalibrator.prototype.trackDistance = async function (
     if (this.gazeTracker.checkInitialized('gaze', false))
       this.showGazer(originalGazer)
 
+    console.log('=== Setting up tracking with measurement data ===')
+    console.log('Distance data:', {
+      value: distData.value,
+      method: distData.method,
+      calibrationFactor: distData.calibrationFactor,
+      averageFaceMesh: distData.averageFaceMesh
+    })
+    console.log('================================================')
+
+    // Validate that we have a calibration factor
+    if (!distData.calibrationFactor) {
+      console.error('ERROR: No calibration factor found in measurement data!')
+      console.error('This means the measurement test did not properly calculate the calibration factor.')
+      console.error('Measurement data:', distData)
+      return
+    }
+
     if (excecuteCallbackStaticHere) safeExecuteFunc(callbackStatic, distData)
     stdDist.current = distData
     stdDist.method = distData.method
@@ -166,36 +183,42 @@ RemoteCalibrator.prototype.trackDistance = async function (
     // Check if we should use object test data
     if (options.useObjectTestData === 'both') {
       console.log('=== Starting Both Methods Test ===')
+      console.log('This will run object test first, then blindspot test, then use median calibration factor')
       // First run object test
       objectTest(this, options, data => {
         console.log('Object Test Data:', {
           value: data.value,
           method: data.method,
           timestamp: data.timestamp,
+          calibrationFactor: data.calibrationFactor,
           raw: data.raw,
         })
         getStdDist(data)
       })
     } else if (options.useObjectTestData) {
       console.log('=== Starting Object Test Only ===')
+      console.log('This will use object test calibration factor for tracking')
       // Call objectTest directly for calibration
       objectTest(this, options, data => {
         console.log('Object Test Data:', {
           value: data.value,
           method: data.method,
           timestamp: data.timestamp,
+          calibrationFactor: data.calibrationFactor,
           raw: data.raw,
         })
         getStdDist(data)
       })
     } else {
       console.log('=== Starting Blindspot Test Only ===')
+      console.log('This will use blindspot test calibration factor for tracking')
       // Use blindspot test for calibration
       blindSpotTest(this, options, true, data => {
         console.log('Blindspot Test Data:', {
           value: data.value,
           method: data.method,
           timestamp: data.timestamp,
+          calibrationFactor: data.calibrationFactor,
           raw: data.raw,
         })
         getStdDist(data)
@@ -328,23 +351,6 @@ const _tracking = async (
     // const canvas = RC.gazeTracker.webgazer.videoCanvas
     let faces
 
-    // ===================== OBJECT TEST SAMPLES FOR CALIBRATION =====================
-    let useObjectTestSamples = false
-    let objectTestSamples = []
-    if (
-      RC.newObjectTestDistanceData &&
-      Array.isArray(RC.newObjectTestDistanceData.faceMeshSamplesPage3) &&
-      Array.isArray(RC.newObjectTestDistanceData.faceMeshSamplesPage4) &&
-      RC.newObjectTestDistanceData.faceMeshSamplesPage3.length === 5 &&
-      RC.newObjectTestDistanceData.faceMeshSamplesPage4.length === 5
-    ) {
-      objectTestSamples = [
-        ...RC.newObjectTestDistanceData.faceMeshSamplesPage3,
-        ...RC.newObjectTestDistanceData.faceMeshSamplesPage4,
-      ]
-      useObjectTestSamples = true
-    }
-    // ... existing code ...
     // Get the average of 5 estimates for one measure
     averageDist = 0
     distCount = 1
@@ -391,131 +397,108 @@ const _tracking = async (
     RC._distanceTrackNudging.distanceAllowedRatio = desiredDistanceTolerance
 
     viewingDistanceTrackingFunction = async () => {
-      // ... existing code ...
-      if (useObjectTestSamples && stdDist.current !== null && !stdFactor) {
-        // Use the average of the 10 object test samples for calibration
-        averageDist = average(objectTestSamples)
-        // For object test, DO NOT correct for screen height!
-        // Just use the measured distance directly:
-        stdFactor = averageDist * stdDist.current.value
-        RC._trackingSetupFinishedStatus.distance = true
-        readyToGetFirstData = true
-        // Skip further sample collection and immediately proceed to tracking
-        return
-      }
-      // ... existing code ...
-      if (!useObjectTestSamples) {
-        // Only collect samples if not using object test samples
-        if (!video) video = document.getElementById('webgazerVideoCanvas')
-        const videoTimestamp = performance.now()
-        faces = await model.estimateFaces(video)
-        if (faces.length) {
-          RC._trackingVideoFrameTimestamps.distance += videoTimestamp
-          const mesh = faces[0].keypoints
-          if (targetCount === distCount) {
-            averageDist += eyeDist(mesh[133], mesh[362])
-            averageDist /= targetCount
-            RC._trackingVideoFrameTimestamps.distance /= targetCount
+      // Only collect samples if not using object test samples
+      if (!video) video = document.getElementById('webgazerVideoCanvas')
+      const videoTimestamp = performance.now()
+      faces = await model.estimateFaces(video)
+      if (faces.length) {
+        RC._trackingVideoFrameTimestamps.distance += videoTimestamp
+        const mesh = faces[0].keypoints
+        if (targetCount === distCount) {
+          averageDist += eyeDist(mesh[133], mesh[362])
+          averageDist /= targetCount
+          RC._trackingVideoFrameTimestamps.distance /= targetCount
 
-            // TODO Add more samples for the first estimate
-            if (stdDist.current !== null) {
-              if (!stdFactor) {
-                // ! First time estimate
-                // Face_Known_Px  *  Distance_Known_Cm  =  Face_Now_Px  *  Distance_x_Cm
-                // Get the factor to be used for future predictions
-
-                // adjust stdDist to the distance from the center of the screen to the user's eyes
-                /*
-                stdDist.current.value is the hypotenuse of the triangle formed by 
-                the distance from the center of the screen to the top of the screen 
-                and the distance from the center of the screen to the user's eyes
-                */
-
-                const distanceFromCenterToTop =
-                  _calculateDistanceFromCenterToTop(ppi)
-                const distanceFromCenterToUser = Math.sqrt(
-                  stdDist.current.value ** 2 - distanceFromCenterToTop ** 2,
-                )
-
-                stdDist.current.value = distanceFromCenterToUser
-                stdFactor = averageDist * stdDist.current.value
-
-                // ! FINISH
-                if (
-                  trackingConfig.options.calibrateTrackDistanceCheckBool !==
-                  true
-                )
-                  RC._removeBackground() // Remove BG if no check
-
-                RC._trackingSetupFinishedStatus.distance = true
-                readyToGetFirstData = true
+          // TODO Add more samples for the first estimate
+          if (stdDist.current !== null) {
+            if (!stdFactor) {
+              // ! First time estimate
+              // ALWAYS use the pre-calculated calibration factor from measurement tests
+              if (stdDist.current.calibrationFactor) {
+                console.log('Using pre-calculated calibration factor:', stdDist.current.calibrationFactor)
+                console.log('Method used:', stdDist.current.method)
+                stdFactor = stdDist.current.calibrationFactor
+              } else {
+                console.error('No calibration factor found! This should not happen.')
+                console.error('Measurement data:', stdDist.current)
+                return
               }
 
-              /* -------------------------------------------------------------------------- */
-
-              const timestamp = performance.now()
-              const latency = Math.round(
-                timestamp - RC._trackingVideoFrameTimestamps.distance,
+              // ! FINISH
+              if (
+                trackingConfig.options.calibrateTrackDistanceCheckBool !==
+                true
               )
+                RC._removeBackground() // Remove BG if no check
 
-              const data = {
-                value: toFixedNumber(
-                  stdFactor / averageDist,
-                  trackingOptions.decimalPlace,
-                ),
-                timestamp: timestamp,
-                method: RC._CONST.VIEW_METHOD.F,
-                latencyMs: latency,
-                calibrationMethod: stdDist.method, // Include which method was used
-              }
-
-              RC.newViewingDistanceData = data
-
-              if (readyToGetFirstData || desiredDistanceMonitor) {
-                // ! Check distance
-                if (desiredDistanceCm) {
-                  RC.nudgeDistance(
-                    desiredDistanceMonitorCancelable,
-                    desiredDistanceMonitorAllowRecalibrate,
-                    trackingConfig,
-                  )
-                }
-                readyToGetFirstData = false
-              }
-
-              /* -------------------------------------------------------------------------- */
-
-              // Near point
-              let nPData
-              if (trackingOptions.nearPoint) {
-                nPData = _getNearPoint(
-                  RC,
-                  trackingOptions,
-                  video,
-                  mesh,
-                  averageDist,
-                  timestamp,
-                  ppi,
-                  latency,
-                )
-              }
-
-              /* -------------------------------------------------------------------------- */
-
-              if (callbackTrack && typeof callbackTrack === 'function') {
-                RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
-                callbackTrack(data)
-              }
+              RC._trackingSetupFinishedStatus.distance = true
+              readyToGetFirstData = true
             }
 
-            averageDist = 0
-            distCount = 1
+            /* -------------------------------------------------------------------------- */
 
-            RC._trackingVideoFrameTimestamps.distance = 0
-          } else {
-            averageDist += eyeDist(mesh[133], mesh[362])
-            ++distCount
+            const timestamp = performance.now()
+            const latency = Math.round(
+              timestamp - RC._trackingVideoFrameTimestamps.distance,
+            )
+
+            const data = {
+              value: toFixedNumber(
+                stdFactor / averageDist,
+                trackingOptions.decimalPlace,
+              ),
+              timestamp: timestamp,
+              method: RC._CONST.VIEW_METHOD.F,
+              latencyMs: latency,
+              calibrationMethod: stdDist.method, // Include which method was used
+            }
+
+            RC.newViewingDistanceData = data
+
+            if (readyToGetFirstData || desiredDistanceMonitor) {
+              // ! Check distance
+              if (desiredDistanceCm) {
+                RC.nudgeDistance(
+                  desiredDistanceMonitorCancelable,
+                  desiredDistanceMonitorAllowRecalibrate,
+                  trackingConfig,
+                )
+              }
+              readyToGetFirstData = false
+            }
+
+            /* -------------------------------------------------------------------------- */
+
+            // Near point
+            let nPData
+            if (trackingOptions.nearPoint) {
+              nPData = _getNearPoint(
+                RC,
+                trackingOptions,
+                video,
+                mesh,
+                averageDist,
+                timestamp,
+                ppi,
+                latency,
+              )
+            }
+
+            /* -------------------------------------------------------------------------- */
+
+            if (callbackTrack && typeof callbackTrack === 'function') {
+              RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
+              callbackTrack(data)
+            }
           }
+
+          averageDist = 0
+          distCount = 1
+
+          RC._trackingVideoFrameTimestamps.distance = 0
+        } else {
+          averageDist += eyeDist(mesh[133], mesh[362])
+          ++distCount
         }
       }
     }
