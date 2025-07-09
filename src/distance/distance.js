@@ -723,17 +723,18 @@ export function objectTest(RC, options, callback = undefined) {
 
   // --- Style for both vertical lines (left and right) ---
   // Both lines are the same color, thickness, and height
-  // Calculate 2 inches in pixels for shorter lines
-  const twoInchesInPx = Math.round(2 * ppi) // 2 inches * pixels per inch
+  // Calculate 3/4 inch in pixels for shorter lines
+  const threeQuarterInchesInPx = Math.round(0.75 * ppi) // 3/4 inch * pixels per inch
+  const lineThickness = 3 // px, now set to 3px
   const verticalLineStyle = `
     position: absolute; 
     top: 50%; 
     transform: translateY(-50%); 
-    height: ${twoInchesInPx}px; 
-    width: 6px; 
-    background: rgb(34, 141, 16); 
+    height: ${threeQuarterInchesInPx}px; 
+    width: ${lineThickness}px; 
+    background: rgb(0, 0, 0); 
     border-radius: 2px; 
-    box-shadow: 0 0 8px rgba(34, 141, 16, 0.4);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
     z-index: 1;
   `
 
@@ -750,6 +751,46 @@ export function objectTest(RC, options, callback = undefined) {
     verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
   container.appendChild(rightLine)
 
+  // ===================== DRAWING THE HORIZONTAL CONNECTOR LINES =====================
+  
+  // --- Rectangle background fill ---
+  const rectangleBackground = document.createElement('div')
+  rectangleBackground.style.position = 'absolute'
+  rectangleBackground.style.left = `${leftLinePx}px`
+  rectangleBackground.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+  rectangleBackground.style.top = `calc(50% - ${threeQuarterInchesInPx / 2}px)`
+  rectangleBackground.style.height = `${threeQuarterInchesInPx}px`
+  rectangleBackground.style.background = 'rgba(255, 221, 51, 0.95)' // (255, 221, 51)Bright tape measure yellow
+  rectangleBackground.style.borderRadius = '2px'
+  rectangleBackground.style.zIndex = '0' // Behind all lines
+  container.appendChild(rectangleBackground)
+  
+  // --- Top horizontal line connecting the vertical lines ---
+  const topHorizontalLine = document.createElement('div')
+  topHorizontalLine.style.position = 'absolute'
+  topHorizontalLine.style.left = `${leftLinePx}px`
+  topHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+  topHorizontalLine.style.top = `calc(50% - ${threeQuarterInchesInPx / 2}px)`
+  topHorizontalLine.style.height = `${lineThickness}px`
+  topHorizontalLine.style.background = 'rgb(0, 0, 0)'
+  topHorizontalLine.style.borderRadius = '2px'
+  topHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+  topHorizontalLine.style.zIndex = '1'
+  container.appendChild(topHorizontalLine)
+
+  // --- Bottom horizontal line connecting the vertical lines ---
+  const bottomHorizontalLine = document.createElement('div')
+  bottomHorizontalLine.style.position = 'absolute'
+  bottomHorizontalLine.style.left = `${leftLinePx}px`
+  bottomHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+  bottomHorizontalLine.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px - ${lineThickness}px)`
+  bottomHorizontalLine.style.height = `${lineThickness}px`
+  bottomHorizontalLine.style.background = 'rgb(0, 0, 0)'
+  bottomHorizontalLine.style.borderRadius = '2px'
+  bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+  bottomHorizontalLine.style.zIndex = '1'
+  container.appendChild(bottomHorizontalLine)
+
   // ===================== LABELS FOR VERTICAL LINES =====================
 
   // --- Label for the left vertical line ---
@@ -757,10 +798,9 @@ export function objectTest(RC, options, callback = undefined) {
   const leftLabel = document.createElement('div')
   leftLabel.innerText = phrases.RC_LeftEdge[RC.L]
   leftLabel.style.position = 'absolute'
-  leftLabel.style.marginLeft = '5mm'
-  leftLabel.style.left = `${leftLinePx + 6}px` // Slightly right of the line
-  leftLabel.style.top = `calc(50% + ${twoInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
-  leftLabel.style.color = 'rgb(34, 141, 16)'
+  leftLabel.style.left = `${leftLinePx + lineThickness}px` // Slightly right of the line
+  leftLabel.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+  leftLabel.style.color = 'rgb(0, 0, 0)'
   leftLabel.style.fontWeight = 'bold'
   leftLabel.style.fontSize = '1.4em'
   leftLabel.style.width = '120px' // Fixed width for square shape
@@ -774,9 +814,9 @@ export function objectTest(RC, options, callback = undefined) {
   const rightLabel = document.createElement('div')
   rightLabel.innerText = phrases.RC_RightEdge[RC.L]
   rightLabel.style.position = 'absolute'
-  rightLabel.style.left = `${rightLinePx + 6}px` // Slightly right of the line
-  rightLabel.style.top = `calc(50% + ${twoInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
-  rightLabel.style.color = 'rgb(34, 141, 16)'
+  rightLabel.style.left = `${rightLinePx + lineThickness}px` // Slightly right of the line
+  rightLabel.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+  rightLabel.style.color = 'rgb(0, 0, 0)'
   rightLabel.style.fontWeight = 'bold'
   rightLabel.style.fontSize = '1.4em'
   rightLabel.style.width = '120px' // Fixed width for square shape
@@ -805,19 +845,31 @@ export function objectTest(RC, options, callback = undefined) {
 
     // If distance is less than or equal to minimum distance, change to red and update label text and position
     if (objectLengthCm <= minDistanceCm) {
+      leftLine.style.background = 'rgb(255, 0, 0)'
+      leftLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
       rightLine.style.background = 'rgb(255, 0, 0)'
       rightLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
+      topHorizontalLine.style.background = 'rgb(255, 0, 0)'
+      topHorizontalLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
+      bottomHorizontalLine.style.background = 'rgb(255, 0, 0)'
+      bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
       rightLabel.style.color = 'rgb(255, 0, 0)'
       rightLabel.innerText = phrases.RC_viewingDistanceObjectTooShort[RC.L]
-      rightLabel.style.top = `calc(50% + ${twoInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+      rightLabel.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
       rightLabel.style.width = '220px' // Wider for red warning
       console.log('Changed to RED')
     } else {
-      rightLine.style.background = 'rgb(34, 141, 16)'
-      rightLine.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)'
-      rightLabel.style.color = 'rgb(34, 141, 16)'
+      leftLine.style.background = 'rgb(0, 0, 0)'
+      leftLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+      rightLine.style.background = 'rgb(0, 0, 0)'
+      rightLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+      topHorizontalLine.style.background = 'rgb(0, 0, 0)'
+      topHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+      bottomHorizontalLine.style.background = 'rgb(0, 0, 0)'
+      bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+      rightLabel.style.color = 'rgb(0, 0, 0)'
       rightLabel.innerText = phrases.RC_RightEdge[RC.L]
-      rightLabel.style.top = `calc(50% + ${twoInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+      rightLabel.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
       rightLabel.style.width = '120px' // Default width
       console.log('Changed to GREEN')
     }
@@ -826,28 +878,43 @@ export function objectTest(RC, options, callback = undefined) {
   // Add hover effects to both lines
   ;[leftLine, rightLine].forEach(line => {
     line.addEventListener('mouseenter', () => {
-      line.style.boxShadow = '0 0 12px rgba(34, 141, 16, 0.6)'
-      line.style.width = '8px'
+      line.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
+      line.style.width = `${lineThickness}px`
     })
     line.addEventListener('mouseleave', () => {
-      line.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)'
-      line.style.width = '6px'
+      line.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+      line.style.width = `${lineThickness}px`
       updateLineColors() // Update colors after hover effect
     })
   })
 
   // Update right label position and line colors when rightLine moves (drag or keyboard)
   function updateRightLabel() {
-    rightLabel.style.left = `${rightLinePx + 6}px`
+    rightLabel.style.left = `${rightLinePx + lineThickness}px`
     updateLineColors() // Update colors when line moves
     updateHorizontalLine() // Update horizontal line and dynamic length
+    updateRectangleLines() // Update rectangle connector lines
   }
 
   // Update left label position and line colors when leftLine moves (drag or keyboard)
   function updateLeftLabel() {
-    leftLabel.style.left = `${leftLinePx + 6}px`
+    leftLabel.style.left = `${leftLinePx + lineThickness}px`
     updateLineColors() // Update colors when line moves
     updateHorizontalLine() // Update horizontal line and dynamic length
+    updateRectangleLines() // Update rectangle connector lines
+  }
+
+  // Function to update rectangle connector lines
+  function updateRectangleLines() {
+    rectangleBackground.style.left = `${leftLinePx}px`
+    rectangleBackground.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+    topHorizontalLine.style.left = `${leftLinePx}px`
+    topHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+    bottomHorizontalLine.style.left = `${leftLinePx}px`
+    bottomHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+    
+    // Update dynamic length label position since rectangle changed
+    updateDynamicLength()
   }
 
   // --- Allow the user to drag the right vertical line horizontally ---
@@ -997,104 +1064,158 @@ export function objectTest(RC, options, callback = undefined) {
   // ===================== DRAWING THE HORIZONTAL LINE AND ARROWHEADS =====================
   // --- Calculate the vertical position for the horizontal line (center of screen) ---
   const screenCenterY = window.innerHeight / 2 // Center of screen
-  const leftMargin = 5 * pxPerMm // 5mm from left edge
-  const lineThickness = 6 // px, same as vertical lines
-  const arrowLength = 24 // px, length of arrowhead
-  const arrowWidth = 16 // px, width of arrowhead base
-  const arrowColor = 'rgb(34, 141, 16)'
+  const lineColor = 'rgb(0, 0, 0)'
 
   // --- Horizontal line ---
   const horizontalLine = document.createElement('div')
   horizontalLine.style.position = 'absolute'
-  horizontalLine.style.left = `${leftMargin + 2 * arrowLength}px` // Start at end of left arrow base
-  horizontalLine.style.right = `${arrowLength}px` // End before right arrow
-  horizontalLine.style.top = `${screenCenterY - lineThickness / 2}px` // Center vertically
+  horizontalLine.style.left = `${leftLinePx + lineThickness}px` // Start at inside edge of left vertical line
+  horizontalLine.style.right = `${window.innerWidth - rightLinePx}px` // End at inner edge of right line
+  horizontalLine.style.top = `${screenCenterY}px` // Center vertically
   horizontalLine.style.height = `${lineThickness}px`
-  horizontalLine.style.background = `repeating-linear-gradient(
-    to right,
-    ${arrowColor} 0px,
-    ${arrowColor} 10px,
-    #f5f5f5 10px,
-    #f5f5f5 20px
-  )` // Dashed line with light grey gaps
+  horizontalLine.style.background = lineColor // Solid line
   horizontalLine.style.borderRadius = '2px'
-  horizontalLine.style.boxShadow = '0 0 8px rgba(34, 141, 16, 0.4)'
-  horizontalLine.style.zIndex = '1'
+  horizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+  horizontalLine.style.zIndex = '2'
   container.appendChild(horizontalLine)
 
-  // --- Left arrowhead for the horizontal line (at left vertical line) ---
-  const leftArrow = document.createElement('div')
-  leftArrow.style.position = 'absolute'
-  leftArrow.style.left = `${leftMargin + arrowLength}px` // Position arrow tip at 5mm
-  leftArrow.style.top = `${screenCenterY - arrowWidth / 2}px` // Center vertically
-  leftArrow.style.width = '0'
-  leftArrow.style.height = '0'
-  leftArrow.style.borderTop = `${arrowWidth / 2}px solid transparent`
-  leftArrow.style.borderBottom = `${arrowWidth / 2}px solid transparent`
-  leftArrow.style.borderRight = `${arrowLength}px solid ${arrowColor}`
-  leftArrow.style.filter = 'drop-shadow(0 0 4px rgba(34, 141, 16, 0.4))'
-  leftArrow.style.zIndex = '2'
-  container.appendChild(leftArrow)
+  // --- Left arrow line (45 degrees down) ---
+  const leftArrowLine = document.createElement('div')
+  leftArrowLine.style.position = 'absolute'
+  leftArrowLine.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
+  leftArrowLine.style.top = `${screenCenterY}px` // Closer to horizontal line
+  leftArrowLine.style.width = `${lineThickness * 9}px` // Length for proper arrow tip (3x longer)
+  leftArrowLine.style.height = `${lineThickness}px`
+  leftArrowLine.style.background = lineColor
+  leftArrowLine.style.borderRadius = '2px'
+  leftArrowLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+  leftArrowLine.style.zIndex = '5' // Above all other elements
+  leftArrowLine.style.transform = 'rotate(45deg)'
+  leftArrowLine.style.transformOrigin = 'left center'
+  container.appendChild(leftArrowLine)
 
-  // --- Right arrowhead for the horizontal line (at right vertical line) ---
-  const rightArrow = document.createElement('div')
-  rightArrow.style.position = 'absolute'
-  rightArrow.style.right = '0' // Position at screen edge
-  rightArrow.style.top = `${screenCenterY - arrowWidth / 2}px` // Center vertically
-  rightArrow.style.width = '0'
-  rightArrow.style.height = '0'
-  rightArrow.style.borderTop = `${arrowWidth / 2}px solid transparent`
-  rightArrow.style.borderBottom = `${arrowWidth / 2}px solid transparent`
-  rightArrow.style.borderLeft = `${arrowLength}px solid ${arrowColor}`
-  rightArrow.style.filter = 'drop-shadow(0 0 4px rgba(34, 141, 16, 0.4))'
-  rightArrow.style.zIndex = '2'
-  container.appendChild(rightArrow)
+  // --- Right arrow line (45 degrees down) ---
+  const rightArrowLine = document.createElement('div')
+  rightArrowLine.style.position = 'absolute'
+  rightArrowLine.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
+  rightArrowLine.style.top = `${screenCenterY}px` // Closer to horizontal line
+  rightArrowLine.style.width = `${lineThickness * 9}px` // Length for proper arrow tip (3x longer)
+  rightArrowLine.style.height = `${lineThickness}px`
+  rightArrowLine.style.background = lineColor
+  rightArrowLine.style.borderRadius = '2px'
+  rightArrowLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+  rightArrowLine.style.zIndex = '5' // Above all other elements
+  rightArrowLine.style.transform = 'rotate(-45deg)'
+  rightArrowLine.style.transformOrigin = 'right center'
+  container.appendChild(rightArrowLine)
+
+  // --- Left arrow line (45 degrees up) ---
+  const leftArrowLineUp = document.createElement('div')
+  leftArrowLineUp.style.position = 'absolute'
+  leftArrowLineUp.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
+  leftArrowLineUp.style.top = `${screenCenterY}px` // Closer to horizontal line
+  leftArrowLineUp.style.width = `${lineThickness * 9}px` // Length for proper arrow tip (3x longer)
+  leftArrowLineUp.style.height = `${lineThickness}px`
+  leftArrowLineUp.style.background = lineColor
+  leftArrowLineUp.style.borderRadius = '2px'
+  leftArrowLineUp.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+  leftArrowLineUp.style.zIndex = '5' // Above all other elements
+  leftArrowLineUp.style.transform = 'rotate(-45deg)'
+  leftArrowLineUp.style.transformOrigin = 'left center'
+  container.appendChild(leftArrowLineUp)
+
+  // --- Right arrow line (45 degrees up) ---
+  const rightArrowLineUp = document.createElement('div')
+  rightArrowLineUp.style.position = 'absolute'
+  rightArrowLineUp.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
+  rightArrowLineUp.style.top = `${screenCenterY}px` // Closer to horizontal line
+  rightArrowLineUp.style.width = `${lineThickness * 9}px` // Length for proper arrow tip (3x longer)
+  rightArrowLineUp.style.height = `${lineThickness}px`
+  rightArrowLineUp.style.background = lineColor
+  rightArrowLineUp.style.borderRadius = '2px'
+  rightArrowLineUp.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+  rightArrowLineUp.style.zIndex = '5' // Above all other elements
+  rightArrowLineUp.style.transform = 'rotate(45deg)'
+  rightArrowLineUp.style.transformOrigin = 'right center'
+  container.appendChild(rightArrowLineUp)
 
   // --- Dynamic length label ---
   const dynamicLengthLabel = document.createElement('div')
   dynamicLengthLabel.style.position = 'absolute'
-  dynamicLengthLabel.style.left = `${(leftMargin + window.innerWidth) / 2}px` // Center between left margin and screen edge
-  dynamicLengthLabel.style.top = `${screenCenterY + lineThickness / 2 + 20}px` // Below the centered line with 20px gap
-  dynamicLengthLabel.style.color = arrowColor
+  dynamicLengthLabel.style.color = 'rgb(0, 0, 0)'
   dynamicLengthLabel.style.fontWeight = 'bold'
-  dynamicLengthLabel.style.fontSize = '1.4rem'
-  dynamicLengthLabel.style.zIndex = '3'
+  dynamicLengthLabel.style.fontSize = '1.4rem' // Reduced from 1.8rem to ensure it fits
+  dynamicLengthLabel.style.zIndex = '4' // Above all lines
   dynamicLengthLabel.style.textAlign = 'center'
-  dynamicLengthLabel.style.width = '200px'
-  dynamicLengthLabel.style.marginLeft = '-100px' // Center the text
+  dynamicLengthLabel.style.background = 'rgba(240, 240, 240, 0.95)' // Light grey, almost white
+  dynamicLengthLabel.style.padding = '2px 6px' // Reduced padding to fit better
+  dynamicLengthLabel.style.borderRadius = '4px'
+  dynamicLengthLabel.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)'
+  dynamicLengthLabel.style.whiteSpace = 'nowrap' // Prevent text wrapping
+  dynamicLengthLabel.style.transform = 'translate(-50%, -50%)' // Center using transform
   container.appendChild(dynamicLengthLabel)
 
-  // Function to update dynamic length display
+  // Function to update dynamic length display and position
   const updateDynamicLength = () => {
     const objectLengthPx = rightLinePx - leftLinePx
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
     dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
+    
+    // Calculate the center of the rectangle
+    const rectangleCenterX = leftLinePx + (rightLinePx - leftLinePx) / 2
+    const rectangleCenterY = screenCenterY // This is the center of the rectangle vertically
+    
+    // Position the label at the center of the rectangle
+    dynamicLengthLabel.style.left = `${rectangleCenterX}px`
+    dynamicLengthLabel.style.top = `${rectangleCenterY}px`
+    
+    // Adjust font size if the rectangle is too small
+    const rectangleWidth = rightLinePx - leftLinePx
+    
+    // More accurate estimation of label width based on text content
+    const textLength = dynamicLengthLabel.innerText.length
+    const baseCharWidth = 10 // Average character width in pixels
+    const padding = 12 // Horizontal padding
+    const estimatedLabelWidth = textLength * baseCharWidth + padding
+    
+    // If label would be too wide for rectangle, reduce font size
+    const maxAllowedWidth = rectangleWidth * 0.85 // Leave 15% margin
+    if (estimatedLabelWidth > maxAllowedWidth) {
+      const scaleFactor = maxAllowedWidth / estimatedLabelWidth
+      const newFontSize = Math.max(0.7, scaleFactor) * 1.4 // Minimum 0.7rem
+      dynamicLengthLabel.style.fontSize = `${newFontSize}rem`
+    } else {
+      // Reset to default size if there's enough space
+      dynamicLengthLabel.style.fontSize = '1.4rem'
+    }
   }
 
-  // Function to update horizontal line and arrow positions
+  // Function to update horizontal line positions
   const updateHorizontalLine = () => {
-    // Update horizontal line position to connect the vertical lines
-    // End the line at the thicker base of the arrowheads, not the tips
-    horizontalLine.style.left = `${leftLinePx + 6 + arrowLength}px` // Start after left arrow base
-    horizontalLine.style.right = `${window.innerWidth - rightLinePx + 6 + arrowLength}px` // End before right arrow base
+    // Update horizontal line position to connect the vertical lines directly
+    horizontalLine.style.left = `${leftLinePx + lineThickness}px` // Start at inside edge of left vertical line
+    horizontalLine.style.right = `${window.innerWidth - rightLinePx}px` // End at inner edge of right line
     
-    // Update arrow positions
-    leftArrow.style.left = `${leftLinePx + 6}px` // At left line
-    rightArrow.style.right = `${window.innerWidth - rightLinePx + 6}px` // At right line
+    // Update arrow line positions - account for rotation overlap
+    leftArrowLine.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
+    rightArrowLine.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
+    leftArrowLineUp.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
+    rightArrowLineUp.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
     
-    // Update dynamic length
+    // Update dynamic length (this now handles positioning too)
     updateDynamicLength()
   }
 
   // Update positions when window is resized
   window.addEventListener('resize', () => {
     const newScreenCenterY = window.innerHeight / 2
-    horizontalLine.style.top = `${newScreenCenterY - lineThickness / 2}px`
-    leftArrow.style.top = `${newScreenCenterY - arrowWidth / 2}px`
-    rightArrow.style.top = `${newScreenCenterY - arrowWidth / 2}px`
-    dynamicLengthLabel.style.top = `${newScreenCenterY + lineThickness / 2 + 20}px`
-    updateHorizontalLine()
+    horizontalLine.style.top = `${newScreenCenterY}px`
+    leftArrowLine.style.top = `${newScreenCenterY}px`
+    rightArrowLine.style.top = `${newScreenCenterY}px`
+    leftArrowLineUp.style.top = `${newScreenCenterY}px`
+    rightArrowLineUp.style.top = `${newScreenCenterY}px`
+    updateHorizontalLine() // This will also update the dynamic length label position
   })
 
   // ===================== END DRAWING =====================
@@ -1113,13 +1234,18 @@ export function objectTest(RC, options, callback = undefined) {
 
       // Hide all lines and labels
       horizontalLine.style.display = 'none'
-      leftArrow.style.display = 'none'
-      rightArrow.style.display = 'none'
+      leftArrowLine.style.display = 'none'
+      rightArrowLine.style.display = 'none'
+      leftArrowLineUp.style.display = 'none'
+      rightArrowLineUp.style.display = 'none'
       dynamicLengthLabel.style.display = 'none'
       leftLine.style.display = 'none'
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
+      topHorizontalLine.style.display = 'none'
+      bottomHorizontalLine.style.display = 'none'
+      rectangleBackground.style.display = 'none'
 
       // Show PROCEED button on page 0
       proceedButton.style.display = 'block'
@@ -1133,13 +1259,18 @@ export function objectTest(RC, options, callback = undefined) {
 
       // Hide all lines and labels
       horizontalLine.style.display = 'none'
-      leftArrow.style.display = 'none'
-      rightArrow.style.display = 'none'
+      leftArrowLine.style.display = 'none'
+      rightArrowLine.style.display = 'none'
+      leftArrowLineUp.style.display = 'none'
+      rightArrowLineUp.style.display = 'none'
       dynamicLengthLabel.style.display = 'none'
       leftLine.style.display = 'none'
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
+      topHorizontalLine.style.display = 'none'
+      bottomHorizontalLine.style.display = 'none'
+      rectangleBackground.style.display = 'none'
 
       // Show PROCEED button on page 1
       proceedButton.style.display = 'block'
@@ -1153,13 +1284,18 @@ export function objectTest(RC, options, callback = undefined) {
 
       // Show vertical lines and horizontal line
       horizontalLine.style.display = 'block'
-      leftArrow.style.display = 'block'
-      rightArrow.style.display = 'block'
+      leftArrowLine.style.display = 'block'
+      rightArrowLine.style.display = 'block'
+      leftArrowLineUp.style.display = 'block'
+      rightArrowLineUp.style.display = 'block'
       dynamicLengthLabel.style.display = 'block'
       leftLine.style.display = 'block'
       rightLine.style.display = 'block'
       leftLabel.style.display = 'block'
       rightLabel.style.display = 'block'
+      topHorizontalLine.style.display = 'block'
+      bottomHorizontalLine.style.display = 'block'
+      rectangleBackground.style.display = 'block'
 
       // Show PROCEED button on page 2
       proceedButton.style.display = 'block'
@@ -1169,6 +1305,7 @@ export function objectTest(RC, options, callback = undefined) {
       updateLeftLabel()
       updateLineColors()
       updateHorizontalLine() // Update horizontal line and dynamic length
+      updateRectangleLines() // Update rectangle connector lines
 
       // Update instructions
       instructions.innerText =
@@ -1179,13 +1316,18 @@ export function objectTest(RC, options, callback = undefined) {
 
       // Hide all lines and labels
       horizontalLine.style.display = 'none'
-      leftArrow.style.display = 'none'
-      rightArrow.style.display = 'none'
+      leftArrowLine.style.display = 'none'
+      rightArrowLine.style.display = 'none'
+      leftArrowLineUp.style.display = 'none'
+      rightArrowLineUp.style.display = 'none'
       dynamicLengthLabel.style.display = 'none'
       leftLine.style.display = 'none'
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
+      topHorizontalLine.style.display = 'none'
+      bottomHorizontalLine.style.display = 'none'
+      rectangleBackground.style.display = 'none'
 
       // Hide PROCEED button on page 3 - only allow space key
       proceedButton.style.display = 'none'
@@ -1206,13 +1348,18 @@ export function objectTest(RC, options, callback = undefined) {
 
       // Keep all lines and labels hidden
       horizontalLine.style.display = 'none'
-      leftArrow.style.display = 'none'
-      rightArrow.style.display = 'none'
+      leftArrowLine.style.display = 'none'
+      rightArrowLine.style.display = 'none'
+      leftArrowLineUp.style.display = 'none'
+      rightArrowLineUp.style.display = 'none'
       dynamicLengthLabel.style.display = 'none'
       leftLine.style.display = 'none'
       rightLine.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
+      topHorizontalLine.style.display = 'none'
+      bottomHorizontalLine.style.display = 'none'
+      rectangleBackground.style.display = 'none'
 
       // Hide PROCEED button on page 4 - only allow space key
       proceedButton.style.display = 'none'
@@ -1284,13 +1431,6 @@ export function objectTest(RC, options, callback = undefined) {
             console.warn('Could not measure intraocular distance.')
           }
         })
-
-        // Show feedback for 3 seconds then remove
-        setTimeout(() => {
-          if (document.body.contains(feedbackDiv)) {
-            document.body.removeChild(feedbackDiv)
-          }
-        }, 3000)
 
         // Store the data in RC
         RC.newObjectTestDistanceData = savedMeasurementData
@@ -1382,48 +1522,58 @@ export function objectTest(RC, options, callback = undefined) {
     }
 
     // ===================== VISUAL FEEDBACK =====================
-    // Calculate calibration factor as in tracking (object test: no geometric correction)
-    const allFaceMeshSamples = [
-      ...faceMeshSamplesPage3,
-      ...faceMeshSamplesPage4,
-    ]
-    const averageFaceMesh = allFaceMeshSamples.length
-      ? allFaceMeshSamples.reduce((a, b) => a + b, 0) /
-        allFaceMeshSamples.length
+    // Calculate calibration factors for page 3 and page 4 separately
+    const page3Average = faceMeshSamplesPage3.length
+      ? faceMeshSamplesPage3.reduce((a, b) => a + b, 0) / faceMeshSamplesPage3.length
       : 0
-    // Use the measured viewing distance (data.value)
-    const calibrationFactor = averageFaceMesh * data.value
+    const page4Average = faceMeshSamplesPage4.length
+      ? faceMeshSamplesPage4.reduce((a, b) => a + b, 0) / faceMeshSamplesPage4.length
+      : 0
+    
+    // Calculate separate calibration factors
+    const distance1FactorCmPx = page3Average * data.value
+    const distance2FactorCmPx = page4Average * data.value
+    
+    // Calculate average of the two factors
+    const averageFactorCmPx = (distance1FactorCmPx + distance2FactorCmPx) / 2
 
-    console.log('=== Object Test Calibration Factor ===')
+    console.log('=== Object Test Calibration Factors ===')
     console.log('Object distance:', data.value, 'cm')
-    console.log('Average Face Mesh:', averageFaceMesh, 'px')
-    console.log('Calibration factor:', calibrationFactor)
+    console.log('Page 3 average Face Mesh:', page3Average, 'px')
+    console.log('Page 4 average Face Mesh:', page4Average, 'px')
+    console.log('Page 3 calibration factor:', distance1FactorCmPx)
+    console.log('Page 4 calibration factor:', distance2FactorCmPx)
+    console.log('Average calibration factor:', averageFactorCmPx)
     console.log('======================================')
 
-    // Store calibration factor in data object for later use
-    data.calibrationFactor = calibrationFactor
-    data.averageFaceMesh = averageFaceMesh
+    // Store calibration factors in data object for later use
+    data.calibrationFactor = averageFactorCmPx
+    data.distance1FactorCmPx = distance1FactorCmPx
+    data.distance2FactorCmPx = distance2FactorCmPx
+    data.page3Average = page3Average
+    data.page4Average = page4Average
 
     // Create a feedback element to show measurements
     const feedbackDiv = document.createElement('div')
     feedbackDiv.style.position = 'fixed'
     feedbackDiv.style.bottom = '20px'
     feedbackDiv.style.left = '20px'
-    feedbackDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.8)'
-    feedbackDiv.style.color = 'white'
+    feedbackDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
+    feedbackDiv.style.color = 'black'
     feedbackDiv.style.padding = '10px'
     feedbackDiv.style.borderRadius = '5px'
     feedbackDiv.style.fontFamily = 'monospace'
     feedbackDiv.style.zIndex = '1000'
     feedbackDiv.innerHTML = `
-      <div>Object Test Measurements:</div>
-      <div>Object Measurement: ${firstMeasurement.toFixed(1)} cm</div>
-      <div>Face Mesh Samples (Page 3): ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')} px</div>
-      <div>Face Mesh Samples (Page 4): ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')} px</div>
-      <div>Average Face Mesh Intraocular Distance (all 10): ${averageFaceMesh.toFixed(1)} px</div>
-      <div>Calibration Factor: ${calibrationFactor.toFixed(1)}</div>
-      <div>Method: ${data.method}</div>     
-      <div>PPI: ${ppi.toFixed(1)}</div>
+      <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
+      <div style="margin-top: 10px;">Object distance calibration</div>
+      <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
+      <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
+      <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')}</div>
+      <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
+      <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')}</div>
+      <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
+      <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
     `
     document.body.appendChild(feedbackDiv)
 
@@ -1480,11 +1630,17 @@ export function objectTest(RC, options, callback = undefined) {
           
           // Update feedback for combined measurement
           feedbackDiv.innerHTML = `
-                    <div>Combined Measurement:</div>
-                    <div>Object Test CF: ${objectCalibrationFactor.toFixed(1)}</div>
-                    <div>Blindspot CF: ${blindspotCalibrationFactor.toFixed(1)}</div>
-                    <div>Median Calibration Factor: ${medianCalibrationFactor.toFixed(1)}</div>
-                    <div>Method: ${medianData.method}</div>
+                    <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
+                    <div style="margin-top: 10px;">Object distance calibration</div>
+                    <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
+                    <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
+                    <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')}</div>
+                    <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
+                    <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')}</div>
+                    <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
+                    <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
+                    <div>blindspotCalibrationFactor = ${blindspotCalibrationFactor.toFixed(1)}</div>
+                    <div>AverageCombinedCalibrationFactor = ${medianCalibrationFactor.toFixed(1)}</div>
                 `
 
           // Update the data in RC and also the data in the callback
@@ -1512,12 +1668,6 @@ export function objectTest(RC, options, callback = undefined) {
 
           // Clean up UI elements
           RC._removeBackground()
-          // Remove feedback after a delay
-          setTimeout(() => {
-            document.body.removeChild(feedbackDiv)
-          }, 3000)
-          
-
         })
       }, 500)
     } else {
@@ -1541,10 +1691,6 @@ export function objectTest(RC, options, callback = undefined) {
 
       // Clean up UI elements
       RC._removeBackground()
-      // Remove feedback after a delay
-      setTimeout(() => {
-        document.body.removeChild(feedbackDiv)
-      }, 3000)
     }
   }
   const breakFunction = () => {

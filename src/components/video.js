@@ -117,10 +117,17 @@ export function setDefaultVideoPosition(RC, v) {
     v.style.bottom = 'unset'
   } else {
     // Desktop - position at top center
-    v.style.left = '50%'
+    // Use a more robust centering approach
+    const videoWidth = parseInt(v.style.width) || parseInt(v.offsetWidth) || 0
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+    
+    // Calculate the exact pixel position for perfect centering
+    const leftPositionPx = (viewportWidth) / 2
+    
+    v.style.left = `${leftPositionPx}px`
     v.style.right = 'unset'
     v.style.top = RC._CONST.N.VIDEO_MARGIN
     v.style.bottom = 'unset'
-    v.style.transform = 'translateX(-50%)' // Center horizontally
+    v.style.transform = 'none' // Remove transform since we're calculating position explicitly
   }
 }
