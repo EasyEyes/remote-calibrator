@@ -18,7 +18,7 @@ export const swalInfoOptions = (RC, { showIcon }) => {
       // backdrop: 'animate__animated animate__fadeOut',
     },
     iconColor: RC._CONST.COLOR.ORANGE,
-    confirmButtonColor: '#aaa',
+    confirmButtonColor: '#019267',
     customClass: {
       popup: 'my__swal2__container',
       icon: 'my__swal2__icon',

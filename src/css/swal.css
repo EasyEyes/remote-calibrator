@@ -9,7 +9,7 @@
 }
 
 .my__swal2__icon * {
-  color: #ff9a00 !important;
+  color: #019267 !important;
 }
 
 .my__swal2__title {
@@ -33,6 +33,21 @@
 
 .my__swal2__html__center {
   text-align: center !important;
+}
+
+/* Ensure SweetAlert confirm buttons are green */
+.swal2-popup .swal2-confirm {
+  background-color: #019267 !important;
+  color: #fff !important;
+  font-size: 1.2rem !important;
+}
+
+.swal2-popup .swal2-confirm:hover {
+  background-color: #016b4a !important;
+}
+
+.swal2-popup .swal2-confirm:active {
+  background-color: #014d35 !important;
 }
 
 .animate__animated.animate__fadeInUp,

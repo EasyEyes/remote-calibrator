@@ -13,39 +13,40 @@
   text-align: center !important;
   border: none !important;
   line-height: 150% !important;
-  font-size: 1rem !important;
+  font-size: 1.2rem !important;
   font-weight: 700 !important;
   padding: 1rem 1.5rem !important;
   margin: 0.25rem !important;
   border-radius: 7px !important;
   cursor: pointer;
+  color: #fff !important;
 }
 
 .rc-go-button {
-  background: #ff9a00aa !important;
+  background: #019267 !important;
   color: #fff !important;
 
   &:hover {
-    background: #ff9a00 !important;
+    background: #016b4a !important;
   }
 
   &:active {
-    background: #d68200 !important;
+    background: #014d35 !important;
   }
 }
 
 .rc-cancel-button,
 .rc-custom-button {
-  background: #ffffffee !important;
-  color: #333 !important;
+  background: #999 !important;
+  color: #fff !important;
 
   &:hover {
-    background: #ddd !important;
+    background: #777 !important;
   }
 
   &:active {
-    background: #aaa !important;
-    color: #000 !important;
+    background: #555 !important;
+    color: #fff !important;
   }
 }
 
