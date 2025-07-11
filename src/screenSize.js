@@ -87,7 +87,7 @@ RemoteCalibrator.prototype.screenSize = function (
       repeatTesting: 1,
       decimalPlace: 1,
       defaultObject: 'card', // Can be card, usba, usbc
-      headline: `🖥️ ${phrases.RC_screenSizeTitle[this.L]}`,
+      headline: `${phrases.RC_screenSizeTitle[this.L]}`,
       description: phrases.RC_screenSizeIntro[this.L],
       check: false,
       checkCallback: null,
@@ -247,11 +247,12 @@ function getSize(RC, parent, options, callback) {
   sliderElement.addEventListener('input', onSliderInput, false)
   const bindKeysFunction = bindKeys({
     Escape: breakFunction,
-    Enter: finishFunction,
+    // Enter: finishFunction, // Remove Enter/Return key
     ' ': finishFunction,
   })
 
-  addButtons(
+  // Add buttons but hide the OK button - rely on space key instead
+  const addedButtons = addButtons(
     RC.L,
     RC.background,
     {
@@ -260,6 +261,12 @@ function getSize(RC, parent, options, callback) {
     },
     RC.params.showCancelButton,
   )
+  
+  // Hide the OK button (go button) - rely on space key instead
+  const goButton = addedButtons[1]
+  if (goButton) {
+    goButton.style.display = 'none'
+  }
 
   // Set to actual default object
   switchMatchingObj(currentMatchingObj, elements, setSizes)

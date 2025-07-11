@@ -179,7 +179,7 @@ const trackDistanceCheck = async (
 
         setTimeout(async () => {
           function keyupListener(event) {
-            if (event.key === 'Enter' && register) {
+            if (event.key === ' ' && register) {
               register = false
               const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
               RC.calibrateTrackDistanceMeasuredCm.push(Number(distanceFromRC))
@@ -210,7 +210,7 @@ const trackDistanceCheck = async (
             null,
             RC.keypadHandler,
             value => {
-              if (value === 'return') {
+              if (value === 'space') {
                 const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
                 RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
                 RC.calibrateTrackDistanceRequestedCm.push(
@@ -234,7 +234,7 @@ const trackDistanceCheck = async (
               }
             },
             false,
-            ['return', '❌'],
+            ['space', '❌'],
             RC,
             true,
           )
@@ -269,7 +269,7 @@ const trackDistanceCheck = async (
               Swal.clickConfirm()
             },
             false,
-            ['return'],
+            ['space'],
             RC,
           )
         }

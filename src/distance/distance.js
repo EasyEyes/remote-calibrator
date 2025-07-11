@@ -709,14 +709,16 @@ export function objectTest(RC, options, callback = undefined) {
 
   // --- INSTRUCTIONS ---
   const instructions = document.createElement('div')
-  instructions.style.maxWidth = '600px'
-  instructions.style.paddingLeft = '5em'
+  instructions.style.maxWidth = '50vw'
+  instructions.style.paddingLeft = '3rem'
   instructions.style.marginTop = '-2rem'
   instructions.style.textAlign = 'left'
   instructions.style.whiteSpace = 'pre-line'
   instructions.style.alignSelf = 'flex-start'
   instructions.style.position = 'relative'
   instructions.style.zIndex = '3'
+  instructions.style.fontSize = '1.4em'
+  instructions.style.lineHeight = '1.6'
   container.appendChild(instructions)
 
   // ===================== DRAWING THE VERTICAL LINES =====================
@@ -1296,8 +1298,8 @@ export function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.display = 'block'
       rectangleBackground.style.display = 'block'
 
-      // Show PROCEED button on page 2
-      proceedButton.style.display = 'block'
+      // Hide PROCEED button on page 2 - only allow space key
+      proceedButton.style.display = 'none'
 
       // Update all positions and colors after showing lines
       updateRightLabel()
@@ -1716,17 +1718,48 @@ export function objectTest(RC, options, callback = undefined) {
   // Add keyboard event listener for Enter/Return key and Space key
   const handleKeyPress = e => {
     if (e.key === 'Enter' || e.key === 'Return') {
-      // On pages 3 and 4, ignore return key - only allow space
-      if (currentPage === 3 || currentPage === 4) {
+      // On pages 2, 3 and 4, ignore return key - only allow space
+      if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
         return
       }
       // Always trigger Proceed button action since okButton is never used
       proceedButton.click()
     } else if (e.key === ' ') {
-      // Space key - only allow on pages 3 and 4
-      if (currentPage === 3 || currentPage === 4) {
+      // Space key - allow on pages 2, 3 and 4
+      if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
         e.preventDefault()
-        if (currentPage === 3) {
+        if (currentPage === 2) {
+          // Do exactly what the PROCEED button does on page 2
+          (async () => {
+            // Record first measurement - just store the distance value
+            firstMeasurement = (rightLinePx - leftLinePx) / pxPerMm / 10
+            console.log('First measurement:', firstMeasurement)
+
+            // Store original measurement data before resetting lines
+            const originalMeasurementData = {
+              leftPx: leftLinePx,
+              rightPx: rightLinePx,
+              objectLengthPx: rightLinePx - leftLinePx,
+              objectLengthMm: (rightLinePx - leftLinePx) / pxPerMm,
+              objectLengthCm: firstMeasurement
+            }
+
+            // Move to page 3
+            await nextPage()
+
+            // Initialize Face Mesh tracking if not already done
+            if (!RC.gazeTracker.checkInitialized('distance')) {
+              RC.gazeTracker._init(
+                {
+                  toFixedN: 1,
+                  showVideo: true,
+                  showFaceOverlay: false,
+                },
+                'distance',
+              )
+            }
+          })()
+        } else if (currentPage === 3) {
           // Do exactly what the PROCEED button does on page 3
           (async () => {
             // Measure intraocular distance before moving to page 4
@@ -1840,7 +1873,7 @@ export function objectTest(RC, options, callback = undefined) {
   explanationButton.style.border = '2px solid #999'
   explanationButton.style.backgroundColor = '#999'
   explanationButton.style.color = 'white'
-  explanationButton.style.fontSize = '1.2rem'
+  explanationButton.style.fontSize = '0.9rem'
   explanationButton.style.padding = '8px 16px'
   explanationButton.style.borderRadius = '4px'
   explanationButton.style.cursor = 'pointer'

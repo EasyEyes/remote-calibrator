@@ -108,8 +108,8 @@
 }
 
 .calibration-instruction * {
-  font-size: 1.2rem;
-  line-height: 170%;
+  font-size: 1.4rem;
+  line-height: 1.6;
   margin: 0;
   padding: 0;
 }
@@ -120,7 +120,7 @@
 }
 
 .calibration-description {
-  line-height: 170%;
+  line-height: 1.6;
 }
 
 .rc-hang-description {
@@ -148,7 +148,7 @@
 
   .calibration-description,
   .calibration-description * {
-    font-size: 1.2rem;
+    font-size: 1.4rem;
   }
 
   .calibration-credit-text {
@@ -172,7 +172,7 @@
 
   .calibration-description,
   .calibration-description * {
-    font-size: 1rem;
+    font-size: 1.4rem;
   }
 
   .calibration-credit-text {
