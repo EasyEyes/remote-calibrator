@@ -75,7 +75,8 @@ RemoteCalibrator.prototype.nudgeDistance = function (
             }
           : {}
 
-        if (allowRecalibrate) {
+        // Temporarily hide recalibrate button while keeping code intact
+        if (allowRecalibrate && false) { // Changed from: if (allowRecalibrate) {
           buttonConfig = {
             ...buttonConfig,
             // TODO double check the callback function here
@@ -86,7 +87,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           }
         }
 
-        if (cancelable || allowRecalibrate)
+        if (cancelable || (allowRecalibrate && false)) // Changed from: if (cancelable || allowRecalibrate)
           addButtons(
             this.L,
             this.nudger,
