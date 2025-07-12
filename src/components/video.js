@@ -127,7 +127,7 @@ export function setDefaultVideoPosition(RC, v) {
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight
     
     // Calculate the exact pixel position for perfect horizontal centering
-    const leftPositionPx = (viewportWidth - videoWidth) / 2
+    const leftPositionPx = (viewportWidth) / 2
     
     v.style.left = `${leftPositionPx}px`
     v.style.right = 'unset'

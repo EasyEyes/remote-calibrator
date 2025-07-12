@@ -28,6 +28,7 @@ import { addButtons } from '../components/buttons'
 import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
+import { setDefaultVideoPosition } from '../components/video'
 
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
@@ -688,8 +689,10 @@ export function objectTest(RC, options, callback = undefined) {
   // The right vertical line starts at 2/3 of the screen width, but is adjustable
   let rightLinePx = Math.round((screenWidth * 2) / 3)
 
+  // --- Calculate the vertical position for all elements (10% lower than center) ---
+  const screenCenterY = window.innerHeight * 0.6 // Move 10% lower from center (was 0.5)
+
   // --- Create the main overlay container ---
-  // This container holds all UI elements for the object test
   const container = document.createElement('div')
   container.style.position = 'fixed' // Change to fixed to cover entire viewport
   container.style.top = '0'
@@ -730,7 +733,7 @@ export function objectTest(RC, options, callback = undefined) {
   const lineThickness = 3 // px, now set to 3px
   const verticalLineStyle = `
     position: absolute; 
-    top: 50%; 
+    top: ${screenCenterY}px; 
     transform: translateY(-50%); 
     height: ${threeQuarterInchesInPx}px; 
     width: ${lineThickness}px; 
@@ -760,7 +763,7 @@ export function objectTest(RC, options, callback = undefined) {
   rectangleBackground.style.position = 'absolute'
   rectangleBackground.style.left = `${leftLinePx}px`
   rectangleBackground.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-  rectangleBackground.style.top = `calc(50% - ${threeQuarterInchesInPx / 2}px)`
+  rectangleBackground.style.top = `calc(${screenCenterY}px - ${threeQuarterInchesInPx / 2}px)`
   rectangleBackground.style.height = `${threeQuarterInchesInPx}px`
   rectangleBackground.style.background = 'rgba(255, 221, 51, 0.95)' // (255, 221, 51)Bright tape measure yellow
   rectangleBackground.style.borderRadius = '2px'
@@ -772,7 +775,7 @@ export function objectTest(RC, options, callback = undefined) {
   topHorizontalLine.style.position = 'absolute'
   topHorizontalLine.style.left = `${leftLinePx}px`
   topHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-  topHorizontalLine.style.top = `calc(50% - ${threeQuarterInchesInPx / 2}px)`
+  topHorizontalLine.style.top = `calc(${screenCenterY}px - ${threeQuarterInchesInPx / 2}px)`
   topHorizontalLine.style.height = `${lineThickness}px`
   topHorizontalLine.style.background = 'rgb(0, 0, 0)'
   topHorizontalLine.style.borderRadius = '2px'
@@ -785,7 +788,7 @@ export function objectTest(RC, options, callback = undefined) {
   bottomHorizontalLine.style.position = 'absolute'
   bottomHorizontalLine.style.left = `${leftLinePx}px`
   bottomHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-  bottomHorizontalLine.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px - ${lineThickness}px)`
+  bottomHorizontalLine.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px - ${lineThickness}px)`
   bottomHorizontalLine.style.height = `${lineThickness}px`
   bottomHorizontalLine.style.background = 'rgb(0, 0, 0)'
   bottomHorizontalLine.style.borderRadius = '2px'
@@ -801,7 +804,7 @@ export function objectTest(RC, options, callback = undefined) {
   leftLabel.innerText = phrases.RC_LeftEdge[RC.L]
   leftLabel.style.position = 'absolute'
   leftLabel.style.left = `${leftLinePx + lineThickness}px` // Slightly right of the line
-  leftLabel.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+  leftLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
   leftLabel.style.color = 'rgb(0, 0, 0)'
   leftLabel.style.fontWeight = 'normal'
   leftLabel.style.fontSize = '1.4em'
@@ -817,7 +820,7 @@ export function objectTest(RC, options, callback = undefined) {
   rightLabel.innerText = phrases.RC_RightEdge[RC.L]
   rightLabel.style.position = 'absolute'
   rightLabel.style.left = `${rightLinePx + lineThickness}px` // Slightly right of the line
-  rightLabel.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+  rightLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
   rightLabel.style.color = 'rgb(0, 0, 0)'
   rightLabel.style.fontWeight = 'normal'
   rightLabel.style.fontSize = '1.4em'
@@ -857,7 +860,7 @@ export function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
       rightLabel.style.color = 'rgb(255, 0, 0)'
       rightLabel.innerText = phrases.RC_viewingDistanceObjectTooShort[RC.L]
-      rightLabel.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+      rightLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
       rightLabel.style.width = '220px' // Wider for red warning
       console.log('Changed to RED')
     } else {
@@ -871,7 +874,7 @@ export function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
       rightLabel.style.color = 'rgb(0, 0, 0)'
       rightLabel.innerText = phrases.RC_RightEdge[RC.L]
-      rightLabel.style.top = `calc(50% + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+      rightLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
       rightLabel.style.width = '120px' // Default width
       console.log('Changed to GREEN')
     }
@@ -1065,7 +1068,6 @@ export function objectTest(RC, options, callback = undefined) {
 
   // ===================== DRAWING THE HORIZONTAL LINE AND ARROWHEADS =====================
   // --- Calculate the vertical position for the horizontal line (center of screen) ---
-  const screenCenterY = window.innerHeight / 2 // Center of screen
   const lineColor = 'rgb(0, 0, 0)'
 
   // --- Horizontal line ---
@@ -1194,15 +1196,23 @@ export function objectTest(RC, options, callback = undefined) {
 
   // Function to update horizontal line positions
   const updateHorizontalLine = () => {
+    // Get current screenCenterY value (in case window was resized)
+    const currentScreenCenterY = window.innerHeight * 0.6
+    
     // Update horizontal line position to connect the vertical lines directly
     horizontalLine.style.left = `${leftLinePx + lineThickness}px` // Start at inside edge of left vertical line
     horizontalLine.style.right = `${window.innerWidth - rightLinePx}px` // End at inner edge of right line
+    horizontalLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
     
     // Update arrow line positions - account for rotation overlap
     leftArrowLine.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
+    leftArrowLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
     rightArrowLine.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
+    rightArrowLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
     leftArrowLineUp.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
+    leftArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
     rightArrowLineUp.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
+    rightArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
     
     // Update dynamic length (this now handles positioning too)
     updateDynamicLength()
@@ -1210,7 +1220,10 @@ export function objectTest(RC, options, callback = undefined) {
 
   // Update positions when window is resized
   window.addEventListener('resize', () => {
-    const newScreenCenterY = window.innerHeight / 2
+    // Update the main screenCenterY variable
+    const newScreenCenterY = window.innerHeight * 0.6 // Move 10% lower from center (was 0.5)
+    
+    // Update horizontal line and arrows
     horizontalLine.style.top = `${newScreenCenterY}px`
     leftArrowLine.style.top = `${newScreenCenterY}px`
     rightArrowLine.style.top = `${newScreenCenterY}px`
@@ -1224,6 +1237,12 @@ export function objectTest(RC, options, callback = undefined) {
   // Add to background
   RC._replaceBackground('') // Clear any previous content
   RC.background.appendChild(container)
+
+  // Ensure video is properly positioned after adding object test container
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  if (videoContainer) {
+    setDefaultVideoPosition(RC, videoContainer)
+  }
 
   // ===================== PAGE NAVIGATION FUNCTIONS =====================
   const showPage = async pageNumber => {
@@ -1308,9 +1327,9 @@ export function objectTest(RC, options, callback = undefined) {
       updateHorizontalLine() // Update horizontal line and dynamic length
       updateRectangleLines() // Update rectangle connector lines
 
-      // Update instructions
+      // Update instructions with combined phrase
       instructions.innerText =
-        phrases.RC_UseObjectToSetViewingDistancePage2[RC.L]
+        phrases['RC_UseObjectToSetViewingDistancePage1&2'][RC.L]
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
@@ -1380,7 +1399,7 @@ export function objectTest(RC, options, callback = undefined) {
 
   const nextPage = async () => {
     if (currentPage === 0) {
-      await showPage(1)
+      await showPage(2) // Skip page 1, go directly to page 2
     } else if (currentPage === 1) {
       await showPage(2)
     } else if (currentPage === 2) {
@@ -1495,8 +1514,20 @@ export function objectTest(RC, options, callback = undefined) {
     // ===================== CREATE MEASUREMENT DATA OBJECT =====================
     // Format the data object to match the blindspot mapping structure
     const data = {
-      // Use firstMeasurement directly, rounded to 1 decimal place
-      value: toFixedNumber(firstMeasurement, 1),
+      // Calculate distance from screen center using trigonometry
+      // Given: webcam-to-eyes distance (firstMeasurement)
+      // Webcam is positioned at the top center of the screen
+      // We need to find: screen-center-to-eyes distance
+      value: (() => {
+        const webcamToEyes = firstMeasurement
+        const screenHeightCm = (window.screen.height * 2.54) / ppi // Convert screen height to cm
+        const webcamToScreenCenter = screenHeightCm / 2 // Webcam is at top center, so offset is half screen height
+        
+        // Using Pythagorean theorem: screen-center-to-eyes = sqrt(webcam-to-eyes² - webcam-to-screen-center²)
+        const screenCenterToEyes = Math.sqrt(webcamToEyes * webcamToEyes - webcamToScreenCenter * webcamToScreenCenter)
+        
+        return toFixedNumber(screenCenterToEyes, 1)
+      })(),
 
       // Use performance.now() for high-precision timing
       timestamp: performance.now(),
@@ -1512,6 +1543,10 @@ export function objectTest(RC, options, callback = undefined) {
         objectLengthPx, // Object length in pixels
         objectLengthMm, // Object length in millimeters
         ppi: ppi, // Screen's pixels per inch
+        webcamToEyesCm: firstMeasurement, // Original webcam-to-eyes measurement
+        screenHeightCm: (window.screen.height * 2.54) / ppi, // Screen height in cm
+        webcamToScreenCenterCm: ((window.screen.height * 2.54) / ppi) / 2, // Half screen height
+        screenCenterToEyesCm: Math.sqrt(firstMeasurement * firstMeasurement - (((window.screen.height * 2.54) / ppi) / 2) * (((window.screen.height * 2.54) / ppi) / 2)), // Calculated distance
       },
 
       // Add intraocular distance to the data object
@@ -1820,7 +1855,7 @@ export function objectTest(RC, options, callback = undefined) {
     console.log('Proceed button clicked')
 
     if (currentPage === 0) {
-      await nextPage()
+      await nextPage() // This will now go directly to page 2
     } else if (currentPage === 1) {
       await nextPage()
     } else if (currentPage === 2) {
