@@ -1554,29 +1554,32 @@ export function objectTest(RC, options, callback = undefined) {
     data.page3Average = page3Average
     data.page4Average = page4Average
 
-    // Create a feedback element to show measurements
-    const feedbackDiv = document.createElement('div')
-    feedbackDiv.style.position = 'fixed'
-    feedbackDiv.style.bottom = '20px'
-    feedbackDiv.style.left = '20px'
-    feedbackDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
-    feedbackDiv.style.color = 'black'
-    feedbackDiv.style.padding = '10px'
-    feedbackDiv.style.borderRadius = '5px'
-    feedbackDiv.style.fontFamily = 'monospace'
-    feedbackDiv.style.zIndex = '1000'
-    feedbackDiv.innerHTML = `
-      <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
-      <div style="margin-top: 10px;">Object distance calibration</div>
-      <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
-      <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
-      <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')}</div>
-      <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
-      <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')}</div>
-      <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
-      <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
-    `
-    document.body.appendChild(feedbackDiv)
+    // Create a feedback element to show measurements only when objecttestdebug is true
+    let feedbackDiv = null
+    if (options.objecttestdebug) {
+      feedbackDiv = document.createElement('div')
+      feedbackDiv.style.position = 'fixed'
+      feedbackDiv.style.bottom = '20px'
+      feedbackDiv.style.left = '20px'
+      feedbackDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
+      feedbackDiv.style.color = 'black'
+      feedbackDiv.style.padding = '10px'
+      feedbackDiv.style.borderRadius = '5px'
+      feedbackDiv.style.fontFamily = 'monospace'
+      feedbackDiv.style.zIndex = '9999999999'
+      feedbackDiv.innerHTML = `
+        <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
+        <div style="margin-top: 10px;">Object distance calibration</div>
+        <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
+        <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
+        <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')}</div>
+        <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
+        <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')}</div>
+        <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
+        <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
+      `
+      document.body.appendChild(feedbackDiv)
+    }
 
     // ===================== STORE MEASUREMENT DATA =====================
     RC.newObjectTestDistanceData = data
@@ -1630,19 +1633,21 @@ export function objectTest(RC, options, callback = undefined) {
           }
           
           // Update feedback for combined measurement
-          feedbackDiv.innerHTML = `
-                    <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
-                    <div style="margin-top: 10px;">Object distance calibration</div>
-                    <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
-                    <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
-                    <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')}</div>
-                    <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
-                    <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')}</div>
-                    <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
-                    <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
-                    <div>blindspotCalibrationFactor = ${blindspotCalibrationFactor.toFixed(1)}</div>
-                    <div>AverageCombinedCalibrationFactor = ${medianCalibrationFactor.toFixed(1)}</div>
-                `
+          if (options.objecttestdebug && feedbackDiv) {
+            feedbackDiv.innerHTML = `
+                      <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
+                      <div style="margin-top: 10px;">Object distance calibration</div>
+                      <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
+                      <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
+                      <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')}</div>
+                      <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
+                      <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')}</div>
+                      <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
+                      <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
+                      <div>blindspotCalibrationFactor = ${blindspotCalibrationFactor.toFixed(1)}</div>
+                      <div>AverageCombinedCalibrationFactor = ${medianCalibrationFactor.toFixed(1)}</div>
+                  `
+          }
 
           // Update the data in RC and also the data in the callback
           RC.newObjectTestDistanceData = medianData
@@ -1790,7 +1795,7 @@ export function objectTest(RC, options, callback = undefined) {
   buttonContainer.style.position = 'fixed'
   buttonContainer.style.bottom = '45px'
   buttonContainer.style.right = '20px'
-  buttonContainer.style.zIndex = '1000'
+  buttonContainer.style.zIndex = '9999999999'
   buttonContainer.style.display = 'flex'
   buttonContainer.style.gap = '10px'
   RC.background.appendChild(buttonContainer)

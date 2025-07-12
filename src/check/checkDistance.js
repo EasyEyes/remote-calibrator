@@ -10,6 +10,7 @@ import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { phrases } from '../i18n/schema'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
+import { setDefaultVideoPosition } from '../components/video'
 
 RemoteCalibrator.prototype._checkDistance = async function (
   distanceCallback,
@@ -138,7 +139,7 @@ const trackDistanceCheck = async (
 
     RC._removeBackground()
     RC.pauseNudger()
-    createProgressBar()
+    createProgressBar(RC)
     createViewingDistanceDiv()
     RC.calibrateTrackDistanceMeasuredCm = []
     RC.calibrateTrackDistanceRequestedCm = []
@@ -156,7 +157,7 @@ const trackDistanceCheck = async (
       )
       updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
       const html = constructInstructions(
-        phrases.RC_produceDistanceTitle1[RC.language.value]
+        phrases.RC_produceDistanceTitle[RC.language.value]
           .replace('222', index)
           .replace('333', calibrateTrackDistanceCheckCm.length),
         phrases.RC_produceDistance[RC.language.value]
@@ -166,9 +167,6 @@ const trackDistanceCheck = async (
         false,
         'bodyText',
         'left',
-        phrases.RC_produceDistanceTitle2[RC.language.value]
-          .replace('222', index)
-          .replace('333', calibrateTrackDistanceCheckCm.length),
       )
       RC._replaceBackground(html)
 
@@ -244,7 +242,7 @@ const trackDistanceCheck = async (
       })
     }
 
-    removeProgressBar()
+    removeProgressBar(RC)
     removeViewingDistanceDiv()
     //join the arrays into a string
     //show thank you message
@@ -383,7 +381,7 @@ const updateViewingDistanceDiv = (distance, units) => {
 }
 
 // Function to create the progress bar div
-const createProgressBar = () => {
+const createProgressBar = (RC) => {
   // Check if the progress bar already exists
   if (document.getElementById('custom-progress-bar')) {
     console.warn('Progress bar already exists.')
@@ -409,6 +407,12 @@ const createProgressBar = () => {
   progressBarContainer.appendChild(progressBar)
   progressBarContainer.appendChild(progressBarText)
   document.body.appendChild(progressBarContainer)
+  
+  // Reposition video to center when progress bar is created
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  if (videoContainer && RC) {
+    setDefaultVideoPosition(RC, videoContainer)
+  }
 }
 
 // Function to update the progress
@@ -435,10 +439,16 @@ const updateProgressBar = (progress, current, total) => {
 }
 
 // Function to remove the progress bar
-const removeProgressBar = () => {
+const removeProgressBar = (RC) => {
   const progressBarContainer = document.getElementById('custom-progress-bar')
   if (progressBarContainer) {
     document.body.removeChild(progressBarContainer)
+    
+    // Reposition video back to top when progress bar is removed
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+    if (videoContainer && RC) {
+      setDefaultVideoPosition(RC, videoContainer)
+    }
   } else {
     console.warn('Progress bar does not exist.')
   }
