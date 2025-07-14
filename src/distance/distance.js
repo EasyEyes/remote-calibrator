@@ -32,8 +32,12 @@ import { setDefaultVideoPosition } from '../components/video'
 
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
-if (env !== 'mocha')
-  soundFeedback = require('../components/sound').soundFeedback
+let cameraShutterSound
+if (env !== 'mocha') {
+  const soundModule = require('../components/sound')
+  soundFeedback = soundModule.soundFeedback
+  cameraShutterSound = soundModule.cameraShutterSound
+}
 
 const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canvas>`
 
@@ -52,6 +56,32 @@ async function measureIntraocularDistancePx(RC) {
   if (!mesh || !mesh[133] || !mesh[362]) return null
   const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
   return eyeDist(mesh[133], mesh[362])
+}
+
+// Helper to capture current video frame as base64 image
+function captureVideoFrame(RC) {
+  try {
+    const video = document.getElementById('webgazerVideoCanvas') || 
+                  document.getElementById('webgazerVideoFeed')
+    if (!video) return null
+    
+    // Create a canvas to capture the frame
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    
+    // Set canvas size to match video
+    canvas.width = video.videoWidth || video.width
+    canvas.height = video.videoHeight || video.height
+    
+    // Draw the current video frame to canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    
+    // Convert to base64 data URL
+    return canvas.toDataURL('image/jpeg', 0.8)
+  } catch (error) {
+    console.warn('Failed to capture video frame:', error)
+    return null
+  }
 }
 
 export function blindSpotTest(
@@ -668,10 +698,41 @@ export function objectTest(RC, options, callback = undefined) {
   // Helper to collect 5 samples of eye pixel distance using Face Mesh
   async function collectFaceMeshSamples(RC, arr, ppi) {
     arr.length = 0 // Clear array
+    
+    // Always collect exactly 5 samples, using NaN for failed measurements
     for (let i = 0; i < 5; i++) {
-      const pxDist = await measureIntraocularDistancePx(RC) // Get raw pixel distance
-      if (pxDist) arr.push(pxDist)
-      await new Promise(res => setTimeout(res, 100)) // 100ms between samples
+      try {
+        const pxDist = await measureIntraocularDistancePx(RC) // Get raw pixel distance
+        if (pxDist && !isNaN(pxDist)) {
+          arr.push(pxDist)
+        } else {
+          // If Face Mesh returns null, undefined, or NaN, store NaN
+          arr.push(NaN)
+          console.warn(`Face Mesh measurement ${i + 1} failed, storing NaN`)
+        }
+      } catch (error) {
+        // If there's an error during measurement, store NaN
+        arr.push(NaN)
+        console.warn(`Face Mesh measurement ${i + 1} error:`, error)
+      }
+      
+      // Wait 100ms between samples (even for failed measurements)
+      await new Promise(res => setTimeout(res, 100))
+    }
+    
+    // Log the results
+    const validSamples = arr.filter(sample => !isNaN(sample))
+    const failedSamples = arr.filter(sample => isNaN(sample))
+    
+    console.log(`Face Mesh samples collected: ${validSamples.length} valid, ${failedSamples.length} failed`)
+    console.log('All samples:', arr.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(2)))
+    
+    // Ensure we always have exactly 5 samples
+    if (arr.length !== 5) {
+      console.error(`Expected 5 samples but got ${arr.length}. Padding with NaN.`)
+      while (arr.length < 5) {
+        arr.push(NaN)
+      }
     }
   }
 
@@ -1356,12 +1417,8 @@ export function objectTest(RC, options, callback = undefined) {
       instructions.innerText =
         phrases.RC_UseObjectToSetViewingDistancePage3[RC.L]
 
-      // Collect 5 Face Mesh samples for calibration on page 3
-      await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi)
-      console.log(
-        'Face Mesh calibration samples (page 3):',
-        faceMeshSamplesPage3,
-      )
+      // Note: Face Mesh samples will be collected when space key is pressed
+      console.log('=== PAGE 3 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===')
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
@@ -1388,12 +1445,8 @@ export function objectTest(RC, options, callback = undefined) {
       instructions.innerText =
         phrases.RC_UseObjectToSetViewingDistancePage4[RC.L]
 
-      // Collect 5 Face Mesh samples for calibration on page 4
-      await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi)
-      console.log(
-        'Face Mesh calibration samples (page 4):',
-        faceMeshSamplesPage4,
-      )
+      // Note: Face Mesh samples will be collected when space key is pressed
+      console.log('=== PAGE 4 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===')
     }
   }
 
@@ -1559,11 +1612,15 @@ export function objectTest(RC, options, callback = undefined) {
 
     // ===================== VISUAL FEEDBACK =====================
     // Calculate calibration factors for page 3 and page 4 separately
-    const page3Average = faceMeshSamplesPage3.length
-      ? faceMeshSamplesPage3.reduce((a, b) => a + b, 0) / faceMeshSamplesPage3.length
+    // Filter out NaN values before calculating averages
+    const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
+    const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+    
+    const page3Average = validPage3Samples.length
+      ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
       : 0
-    const page4Average = faceMeshSamplesPage4.length
-      ? faceMeshSamplesPage4.reduce((a, b) => a + b, 0) / faceMeshSamplesPage4.length
+    const page4Average = validPage4Samples.length
+      ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
       : 0
     
     // Calculate separate calibration factors
@@ -1575,6 +1632,8 @@ export function objectTest(RC, options, callback = undefined) {
 
     console.log('=== Object Test Calibration Factors ===')
     console.log('Object distance:', data.value, 'cm')
+    console.log('Page 3 valid samples:', validPage3Samples.length, '/ 5')
+    console.log('Page 4 valid samples:', validPage4Samples.length, '/ 5')
     console.log('Page 3 average Face Mesh:', page3Average, 'px')
     console.log('Page 4 average Face Mesh:', page4Average, 'px')
     console.log('Page 3 calibration factor:', distance1FactorCmPx)
@@ -1607,9 +1666,9 @@ export function objectTest(RC, options, callback = undefined) {
         <div style="margin-top: 10px;">Object distance calibration</div>
         <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
         <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
-        <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')}</div>
+        <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
         <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
-        <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')}</div>
+        <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
         <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
         <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
       `
@@ -1674,9 +1733,9 @@ export function objectTest(RC, options, callback = undefined) {
                       <div style="margin-top: 10px;">Object distance calibration</div>
                       <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
                       <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
-                      <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => sample.toFixed(1)).join(', ')}</div>
+                      <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
                       <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
-                      <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => sample.toFixed(1)).join(', ')}</div>
+                      <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
                       <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
                       <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
                       <div>blindspotCalibrationFactor = ${blindspotCalibrationFactor.toFixed(1)}</div>
@@ -1755,6 +1814,9 @@ export function objectTest(RC, options, callback = undefined) {
     RC,
   )
 
+  // Store the last face image captured on space press
+  let lastCapturedFaceImage = null
+
   // Add keyboard event listener for Enter/Return key and Space key
   const handleKeyPress = e => {
     if (e.key === 'Enter' || e.key === 'Return') {
@@ -1768,6 +1830,19 @@ export function objectTest(RC, options, callback = undefined) {
       // Space key - allow on pages 2, 3 and 4
       if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
         e.preventDefault()
+        
+        // Play camera shutter sound on pages 3 and 4
+        if (currentPage === 3 || currentPage === 4) {
+          if (env !== 'mocha' && cameraShutterSound) {
+            cameraShutterSound()
+          }
+        }
+
+        // Capture the video frame immediately on space press (for 3 and 4)
+        if (currentPage === 3 || currentPage === 4) {
+          lastCapturedFaceImage = captureVideoFrame(RC)
+        }
+        
         if (currentPage === 2) {
           // Do exactly what the PROCEED button does on page 2
           (async () => {
@@ -1800,24 +1875,91 @@ export function objectTest(RC, options, callback = undefined) {
             }
           })()
         } else if (currentPage === 3) {
-          // Do exactly what the PROCEED button does on page 3
+          // Collect 5 Face Mesh samples for calibration on page 3
           (async () => {
-            // Measure intraocular distance before moving to page 4
-            intraocularDistanceCm = await measureIntraocularDistancePx(RC)
-            if (intraocularDistanceCm) {
-              console.log(
-                'Measured intraocular distance (cm):',
-                intraocularDistanceCm,
-              )
+            console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
+            
+            // Collect 5 Face Mesh samples for calibration
+            await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi)
+            console.log(
+              'Face Mesh calibration samples (page 3):',
+              faceMeshSamplesPage3,
+            )
+            
+            // Only show retry dialog if we have fewer than 5 valid samples or if any samples are NaN
+            const validSamples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
+            if (validSamples.length < 5 || faceMeshSamplesPage3.some(sample => isNaN(sample))) {
+              // Use the image captured at space press
+              const capturedImage = lastCapturedFaceImage
+              
+              const result = await Swal.fire({
+                ...swalInfoOptions(RC, { showIcon: false }),
+                title: '❌ Face was blocked. Please try again.',
+                html: `<div style="text-align: center;">
+                    <img src="${capturedImage}" style="max-width: 300px; max-height: 200px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
+                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">PRIVACY ASSURANCE. Don't worry. No photos are saved. This image, illustrating the blocked view, will be erased when you press OK.</p>
+                   </div>`,
+                showCancelButton: false,
+                confirmButtonText: phrases.EE_ok[RC.L],
+                allowEnterKey: true,
+              })
+              
+              // The user will press space again to collect new samples
+              console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 3 ===')
+              // The user will press space again to collect new samples
+              // Clean up the captured image for privacy
+              lastCapturedFaceImage = null;
             } else {
-              console.warn('Could not measure intraocular distance.')
+              // All 5 samples are valid - automatically continue to page 4
+              console.log('=== ALL 5 FACE MESH SAMPLES VALID - CONTINUING TO PAGE 4 ===')
+              await nextPage()
+              // Clean up the captured image for privacy
+              lastCapturedFaceImage = null;
             }
-            // Move to page 4
-            await nextPage()
           })()
         } else if (currentPage === 4) {
-          // Do exactly what the PROCEED button does on page 4
-          objectTestFinishFunction()
+          // Collect 5 Face Mesh samples for calibration on page 4
+          (async () => {
+            console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
+            
+            // Collect 5 Face Mesh samples for calibration
+            await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi)
+            console.log(
+              'Face Mesh calibration samples (page 4):',
+              faceMeshSamplesPage4,
+            )
+            
+            // Only show retry dialog if we have fewer than 5 valid samples or if any samples are NaN
+            const validSamples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+            if (validSamples.length < 5 || faceMeshSamplesPage4.some(sample => isNaN(sample))) {
+              // Use the image captured at space press
+              const capturedImage = lastCapturedFaceImage
+              
+              const result = await Swal.fire({
+                ...swalInfoOptions(RC, { showIcon: false }),
+                title: '❌ Face was blocked. Please try again.',
+                html: `<div style="text-align: center;">
+                    <img src="${capturedImage}" style="max-width: 300px; max-height: 200px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
+                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">PRIVACY ASSURANCE. Don't worry. No photos are saved. This image, illustrating the blocked view, will be erased when you press OK.</p>
+                   </div>`,
+                showCancelButton: false,
+                confirmButtonText: phrases.EE_ok[RC.L],
+                allowEnterKey: true,
+              })
+              
+              // User must retry - stay on page 4 and collect new samples
+              console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 4 ===')
+              // The user will press space again to collect new samples
+              // Clean up the captured image for privacy
+              lastCapturedFaceImage = null;
+            } else {
+              // All 5 samples are valid - finish the test
+              console.log('=== ALL 5 FACE MESH SAMPLES VALID - FINISHING TEST ===')
+              objectTestFinishFunction()
+              // Clean up the captured image for privacy
+              lastCapturedFaceImage = null;
+            }
+          })()
         }
       }
     }
@@ -1887,19 +2029,39 @@ export function objectTest(RC, options, callback = undefined) {
         )
       }
     } else if (currentPage === 3) {
-      // Measure intraocular distance before moving to page 4
-      intraocularDistanceCm = await measureIntraocularDistancePx(RC)
-      if (intraocularDistanceCm) {
-        console.log(
-          'Measured intraocular distance (cm):',
-          intraocularDistanceCm,
-        )
-      } else {
-        console.warn('Could not measure intraocular distance.')
+      // Play camera shutter sound on page 3
+      if (env !== 'mocha' && cameraShutterSound) {
+        cameraShutterSound()
       }
+      
+      // Collect 5 Face Mesh samples for calibration on page 3
+      console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
+      
+      // Collect 5 Face Mesh samples for calibration
+      await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi)
+      console.log(
+        'Face Mesh calibration samples (page 3):',
+        faceMeshSamplesPage3,
+      )
+      
       // Move to page 4
       await nextPage()
     } else if (currentPage === 4) {
+      // Play camera shutter sound on page 4
+      if (env !== 'mocha' && cameraShutterSound) {
+        cameraShutterSound()
+      }
+      
+      // Collect 5 Face Mesh samples for calibration on page 4
+      console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
+      
+      // Collect 5 Face Mesh samples for calibration
+      await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi)
+      console.log(
+        'Face Mesh calibration samples (page 4):',
+        faceMeshSamplesPage4,
+      )
+      
       // Finish the test
       objectTestFinishFunction()
     }
