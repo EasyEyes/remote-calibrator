@@ -676,6 +676,31 @@ function checkDataRepeatability(dist) {
   return Math.abs(leftMean - rightMean) < 0.2 * Math.min(leftMean, rightMean)
 }
 
+function checkFaceMeshDataRepeatability(page3Samples, page4Samples) {
+  // Filter out NaN values and calculate averages
+  const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
+  const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
+  
+  // Need at least 3 valid samples from each page for meaningful comparison
+  if (validPage3Samples.length < 3 || validPage4Samples.length < 3) {
+    console.warn('Insufficient valid Face Mesh samples for tolerance check')
+    return false
+  }
+  
+  const page3Mean = validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+  const page4Mean = validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+  
+  console.log('=== Face Mesh Tolerance Check ===')
+  console.log('Page 3 average:', page3Mean.toFixed(2), 'px')
+  console.log('Page 4 average:', page4Mean.toFixed(2), 'px')
+  console.log('Difference:', Math.abs(page3Mean - page4Mean).toFixed(2), 'px')
+  console.log('Tolerance threshold:', (0.2 * Math.min(page3Mean, page4Mean)).toFixed(2), 'px')
+  console.log('Tolerance check passed:', Math.abs(page3Mean - page4Mean) < 0.2 * Math.min(page3Mean, page4Mean))
+  console.log('================================')
+  
+  return Math.abs(page3Mean - page4Mean) < 0.2 * Math.min(page3Mean, page4Mean)
+}
+
 function _getDistValues(dist) {
   const v = []
   for (const d of dist) v.push(d.dist)
@@ -1953,9 +1978,35 @@ export function objectTest(RC, options, callback = undefined) {
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null;
             } else {
-              // All 5 samples are valid - finish the test
-              console.log('=== ALL 5 FACE MESH SAMPLES VALID - FINISHING TEST ===')
-              objectTestFinishFunction()
+              // All 5 samples are valid - check tolerance before finishing
+              console.log('=== ALL 5 FACE MESH SAMPLES VALID - CHECKING TOLERANCE ===')
+              
+              // Check if the two sets of Face Mesh samples are consistent
+              if (checkFaceMeshDataRepeatability(faceMeshSamplesPage3, faceMeshSamplesPage4)) {
+                // Tolerance check passed - finish the test
+                console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
+                objectTestFinishFunction()
+              } else {
+                // Tolerance check failed - show error and restart Face Mesh collection
+                console.log('=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===')
+                
+                // Clear both sample arrays to restart collection
+                faceMeshSamplesPage3.length = 0
+                faceMeshSamplesPage4.length = 0
+                
+                // Show error message using the same phrase as blindspot test
+                await Swal.fire({
+                  ...swalInfoOptions(RC, { showIcon: false }),
+                  icon: undefined,
+                  html: phrases.RC_viewingBlindSpotRejected[RC.L],
+                  allowEnterKey: true,
+                })
+                
+                // Reset to page 3 to restart Face Mesh collection
+                currentPage = 2
+                await nextPage()
+              }
+              
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null;
             }
@@ -2062,8 +2113,33 @@ export function objectTest(RC, options, callback = undefined) {
         faceMeshSamplesPage4,
       )
       
-      // Finish the test
-      objectTestFinishFunction()
+      // Check tolerance before finishing
+      console.log('=== CHECKING TOLERANCE BEFORE FINISHING ===')
+      
+      if (checkFaceMeshDataRepeatability(faceMeshSamplesPage3, faceMeshSamplesPage4)) {
+        // Tolerance check passed - finish the test
+        console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
+        objectTestFinishFunction()
+      } else {
+        // Tolerance check failed - show error and restart Face Mesh collection
+        console.log('=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===')
+        
+        // Clear both sample arrays to restart collection
+        faceMeshSamplesPage3.length = 0
+        faceMeshSamplesPage4.length = 0
+        
+        // Show error message using the same phrase as blindspot test
+        await Swal.fire({
+          ...swalInfoOptions(RC, { showIcon: false }),
+          icon: undefined,
+          html: phrases.RC_viewingBlindSpotRejected[RC.L],
+          allowEnterKey: true,
+        })
+        
+        // Reset to page 3 to restart Face Mesh collection
+        currentPage = 2
+        await nextPage()
+      }
     }
   }
   buttonContainer.appendChild(proceedButton)
