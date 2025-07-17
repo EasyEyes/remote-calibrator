@@ -1894,10 +1894,10 @@ export function objectTest(RC, options, callback = undefined) {
               
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
-                title: '❌ Face was blocked. Please try again.',
+                title: phrases.RC_FaceBlocked[RC.L],
                 html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 200px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">PRIVACY ASSURANCE. Don't worry. No photos are saved. This image, illustrating the blocked view, will be erased when you press OK.</p>
+                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}.</p>
                    </div>`,
                 showCancelButton: false,
                 confirmButtonText: phrases.EE_ok[RC.L],
@@ -1937,10 +1937,10 @@ export function objectTest(RC, options, callback = undefined) {
               
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
-                title: '❌ Face was blocked. Please try again.',
+                title: phrases.RC_FaceBlocked[RC.L],
                 html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 200px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">PRIVACY ASSURANCE. Don't worry. No photos are saved. This image, illustrating the blocked view, will be erased when you press OK.</p>
+                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}.</p>
                    </div>`,
                 showCancelButton: false,
                 confirmButtonText: phrases.EE_ok[RC.L],
