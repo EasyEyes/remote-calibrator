@@ -1696,6 +1696,9 @@ export function objectTest(RC, options, callback = undefined) {
         <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
         <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
         <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
+        <div>webcamToEyesCm = ${firstMeasurement.toFixed(1)}</div>
+        <div>screenHeightCm = ${(window.screen.height * 2.54) / ppi}</div>
+        <div>screenCenterToEyesCm = ${Math.sqrt(firstMeasurement * firstMeasurement - (((window.screen.height * 2.54) / ppi) / 2) * (((window.screen.height * 2.54) / ppi) / 2)).toFixed(1)}</div>
       `
       document.body.appendChild(feedbackDiv)
     }
