@@ -1592,20 +1592,8 @@ export function objectTest(RC, options, callback = undefined) {
     // ===================== CREATE MEASUREMENT DATA OBJECT =====================
     // Format the data object to match the blindspot mapping structure
     const data = {
-      // Calculate distance from screen center using trigonometry
-      // Given: webcam-to-eyes distance (firstMeasurement)
-      // Webcam is positioned at the top center of the screen
-      // We need to find: screen-center-to-eyes distance
-      value: (() => {
-        const webcamToEyes = firstMeasurement
-        const screenHeightCm = (window.screen.height * 2.54) / ppi // Convert screen height to cm
-        const webcamToScreenCenter = screenHeightCm / 2 // Webcam is at top center, so offset is half screen height
-        
-        // Using Pythagorean theorem: screen-center-to-eyes = sqrt(webcam-to-eyes² - webcam-to-screen-center²)
-        const screenCenterToEyes = Math.sqrt(webcamToEyes * webcamToEyes - webcamToScreenCenter * webcamToScreenCenter)
-        
-        return toFixedNumber(screenCenterToEyes, 1)
-      })(),
+      // Use the first measurement directly as the value
+      value: toFixedNumber(firstMeasurement, 1),
 
       // Use performance.now() for high-precision timing
       timestamp: performance.now(),
@@ -1622,9 +1610,6 @@ export function objectTest(RC, options, callback = undefined) {
         objectLengthMm, // Object length in millimeters
         ppi: ppi, // Screen's pixels per inch
         webcamToEyesCm: firstMeasurement, // Original webcam-to-eyes measurement
-        screenHeightCm: (window.screen.height * 2.54) / ppi, // Screen height in cm
-        webcamToScreenCenterCm: ((window.screen.height * 2.54) / ppi) / 2, // Half screen height
-        screenCenterToEyesCm: Math.sqrt(firstMeasurement * firstMeasurement - (((window.screen.height * 2.54) / ppi) / 2) * (((window.screen.height * 2.54) / ppi) / 2)), // Calculated distance
       },
 
       // Add intraocular distance to the data object
@@ -1696,9 +1681,6 @@ export function objectTest(RC, options, callback = undefined) {
         <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
         <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
         <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
-        <div>webcamToEyesCm = ${firstMeasurement.toFixed(1)}</div>
-        <div>screenHeightCm = ${(window.screen.height * 2.54) / ppi}</div>
-        <div>screenCenterToEyesCm = ${Math.sqrt(firstMeasurement * firstMeasurement - (((window.screen.height * 2.54) / ppi) / 2) * (((window.screen.height * 2.54) / ppi) / 2)).toFixed(1)}</div>
       `
       document.body.appendChild(feedbackDiv)
     }
@@ -2164,7 +2146,7 @@ export function objectTest(RC, options, callback = undefined) {
       .replace(/(\d\.)/g, '<br>$1')
       .replace(/^<br>/, '')
     Swal.fire({
-      ...swalInfoOptions(RC, { showIcon: false }),
+      ...swalInfoOptions(RC, { showIcon: false}),
       icon: undefined,
       html: explanationHtml,
       allowEnterKey: true,
