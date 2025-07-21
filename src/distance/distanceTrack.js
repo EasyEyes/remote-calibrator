@@ -101,6 +101,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       callbackStatic,
       useObjectTestData: false, // New option to use object test data
       objecttestdebug: false, // New option to show debug feedback div in object test
+      calibrateTrackDistanceAllowedRatio: 1.1,
     },
     trackDistanceOptions,
   )

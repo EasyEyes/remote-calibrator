@@ -195,7 +195,9 @@ export function blindSpotTest(
     // Enough tests?
     if (Math.floor(tested / options.repeatTesting) === 2) {
       // Check if these data are acceptable
-      if (checkDataRepeatability(dist)) {
+      // OLD METHOD: if (checkDataRepeatability(dist)) {
+      // NEW METHOD: Uses ratio-based tolerance with calibrateTrackDistanceAllowedRatio
+      if (checkBlindspotTolerance(dist, options.calibrateTrackDistanceAllowedRatio)) {
         // ! Put dist into data and callback function
         const data = {
           value: toFixedNumber(
@@ -714,6 +716,7 @@ export function objectTest(RC, options, callback = undefined) {
   // ===================== PAGE STATE MANAGEMENT =====================
   let currentPage = 1
   let savedMeasurementData = null // Store measurement data from page 2
+  let selectedPage0Option = null // Store the selected radio button option from page 0
 
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   // Arrays to store 5 samples per page for calibration
@@ -809,6 +812,149 @@ export function objectTest(RC, options, callback = undefined) {
   instructions.style.fontSize = '1.4em'
   instructions.style.lineHeight = '1.6'
   container.appendChild(instructions)
+
+  // --- RADIO BUTTON CONTAINER ---
+  const radioOverlay = document.createElement('div')
+  radioOverlay.style.position = 'fixed'
+  radioOverlay.style.top = '0'
+  radioOverlay.style.left = '0'
+  radioOverlay.style.width = '100%'
+  radioOverlay.style.height = '100%'
+  radioOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'
+  radioOverlay.style.zIndex = '9998'
+  radioOverlay.style.display = 'none' // Hidden by default
+  container.appendChild(radioOverlay)
+
+  const radioContainer = document.createElement('div')
+  radioContainer.id = 'custom-radio-group'
+  radioContainer.style.position = 'fixed'
+  radioContainer.style.top = '50%'
+  radioContainer.style.left = '50%'
+  radioContainer.style.transform = 'translate(-50%, -50%)'
+  radioContainer.style.backgroundColor = 'white'
+  radioContainer.style.borderRadius = '0.5rem'
+  radioContainer.style.padding = '2rem'
+  radioContainer.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.3)'
+  radioContainer.style.zIndex = '9999'
+  radioContainer.style.width = '70vw'
+  radioContainer.style.maxWidth = '70vw'
+  radioContainer.style.textAlign = 'center'
+  radioContainer.style.display = 'none' // Hidden by default
+  container.appendChild(radioContainer)
+
+  // // Add title to radio container
+  // const radioTitle = document.createElement('h3')
+  // radioTitle.textContent = phrases.RC_UseObjectToSetViewingDistancePage0q[RC.L]
+  // radioTitle.style.margin = '0 0 1.5rem 0'
+  // radioTitle.style.fontSize = '1.3em'
+  // radioTitle.style.fontWeight = '600'
+  // radioTitle.style.color = '#333'
+  // radioContainer.appendChild(radioTitle)
+
+  // Create radio button options
+  const radioOptions = [
+    { value: 'yes', label: phrases.RC_Yes[RC.L] },
+    { value: 'no', label: phrases.RC_No[RC.L] },
+    { value: 'dontknow', label: phrases.RC_DontKnow[RC.L] }
+  ]
+
+  // Create a flex container for side-by-side layout
+  const radioFlexContainer = document.createElement('div')
+  radioFlexContainer.style.display = 'flex'
+  radioFlexContainer.style.justifyContent = 'center'
+  radioFlexContainer.style.alignItems = 'center'
+  radioFlexContainer.style.gap = '3vw'
+  radioContainer.appendChild(radioFlexContainer)
+
+  // --- Validation message for radio selection ---
+  const validationMessage = document.createElement('div')
+  validationMessage.style.color = 'red'
+  validationMessage.style.fontSize = '0.95em'
+  validationMessage.style.marginTop = '0.5em'
+  validationMessage.style.display = 'none'
+  validationMessage.style.textAlign = 'center'
+  validationMessage.textContent = 'Please select an option.'
+  radioContainer.appendChild(validationMessage)
+
+  radioOptions.forEach(option => {
+    const label = document.createElement('label')
+    label.style.display = 'flex'
+    label.style.flexDirection = 'row'
+    label.style.alignItems = 'center'
+    label.style.cursor = 'pointer'
+    label.style.padding = '1rem'
+    label.style.borderRadius = '0.375rem'
+    label.style.transition = 'background-color 0.2s'
+    label.style.textAlign = 'left'
+    label.style.whiteSpace = 'nowrap'
+    
+    const radio = document.createElement('input')
+    radio.type = 'radio'
+    radio.name = 'page0option'
+    radio.value = option.value
+    radio.style.marginRight = '0.5rem'
+    radio.style.flexShrink = '0'
+    radio.style.transform = 'scale(1.2)'
+    radio.className = 'custom-input-class' // Add class for keyboard handling
+    // Hide validation message when any radio is selected
+    radio.addEventListener('change', () => {
+      validationMessage.style.display = 'none'
+    })
+    
+    const span = document.createElement('span')
+    span.textContent = option.label
+    span.style.fontSize = '1.1em'
+    span.style.fontWeight = '500'
+    span.style.whiteSpace = 'nowrap'
+    span.style.flexShrink = '0'
+    
+    label.appendChild(radio)
+    label.appendChild(span)
+    radioFlexContainer.appendChild(label)
+    
+    // Add hover effect
+    label.addEventListener('mouseenter', () => {
+      label.style.backgroundColor = '#f8f9fa'
+    })
+    label.addEventListener('mouseleave', () => {
+      label.style.backgroundColor = 'transparent'
+    })
+  })
+
+  // Add keyboard event listeners for radio buttons
+  const customInputs = radioContainer.querySelectorAll('.custom-input-class')
+  const keydownListener = event => {
+    if (event.key === 'Enter') {
+      // Check if a radio button is selected before proceeding
+      const selectedRadio = document.querySelector('input[name="page0option"]:checked')
+      if (selectedRadio) {
+        nextPage() // Simulate the "PROCEED" button click
+      }
+    }
+  }
+
+  customInputs.forEach(input => {
+    input.addEventListener('keyup', keydownListener)
+  })
+
+  // Add EasyEyes keypad handler support
+  if (RC.keypadHandler) {
+    const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+      null,
+      RC.keypadHandler,
+      () => {
+        removeKeypadHandler()
+        // Check if a radio button is selected before proceeding
+        const selectedRadio = document.querySelector('input[name="page0option"]:checked')
+        if (selectedRadio) {
+          nextPage() // Simulate the "PROCEED" button click
+        }
+      },
+      false,
+      ['return'],
+      RC,
+    )
+  }
 
   // ===================== DRAWING THE VERTICAL LINES =====================
 
@@ -1353,12 +1499,15 @@ export function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.display = 'none'
       rectangleBackground.style.display = 'none'
 
+      // Show radio buttons on page 0
+      radioContainer.style.display = 'block'
+
       // Show PROCEED button on page 0
       proceedButton.style.display = 'block'
 
       // Update instructions
       instructions.innerText =
-        phrases.RC_UseObjectToSetViewingDistancePage0[RC.L]
+        phrases.RC_UseObjectToSetViewingDistancePage0q[RC.L]
     } else if (pageNumber === 1) {
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
@@ -1377,6 +1526,9 @@ export function objectTest(RC, options, callback = undefined) {
       topHorizontalLine.style.display = 'none'
       bottomHorizontalLine.style.display = 'none'
       rectangleBackground.style.display = 'none'
+
+      // Hide radio buttons on page 1
+      radioContainer.style.display = 'none'
 
       // Show PROCEED button on page 1
       proceedButton.style.display = 'block'
@@ -1402,6 +1554,9 @@ export function objectTest(RC, options, callback = undefined) {
       topHorizontalLine.style.display = 'block'
       bottomHorizontalLine.style.display = 'block'
       rectangleBackground.style.display = 'block'
+
+      // Hide radio buttons on page 2
+      radioContainer.style.display = 'none'
 
       // Hide PROCEED button on page 2 - only allow space key
       proceedButton.style.display = 'none'
@@ -1435,6 +1590,9 @@ export function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.display = 'none'
       rectangleBackground.style.display = 'none'
 
+      // Hide radio buttons on page 3
+      radioContainer.style.display = 'none'
+
       // Hide PROCEED button on page 3 - only allow space key
       proceedButton.style.display = 'none'
 
@@ -1463,6 +1621,9 @@ export function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.display = 'none'
       rectangleBackground.style.display = 'none'
 
+      // Hide radio buttons on page 4
+      radioContainer.style.display = 'none'
+
       // Hide PROCEED button on page 4 - only allow space key
       proceedButton.style.display = 'none'
 
@@ -1477,6 +1638,19 @@ export function objectTest(RC, options, callback = undefined) {
 
   const nextPage = async () => {
     if (currentPage === 0) {
+      // Check if a radio button option is selected
+      const selectedRadio = document.querySelector('input[name="page0option"]:checked')
+      if (!selectedRadio) {
+        // Show validation message - you can customize this
+        validationMessage.style.display = 'block'
+        return
+      }
+      // Hide validation message if present
+      validationMessage.style.display = 'none'
+      // Store the selected option
+      selectedPage0Option = selectedRadio.value
+      console.log('Selected page 0 option:', selectedPage0Option)
+      
       await showPage(2) // Skip page 1, go directly to page 2
     } else if (currentPage === 1) {
       await showPage(2)
@@ -1495,6 +1669,7 @@ export function objectTest(RC, options, callback = undefined) {
         intraocularDistanceCm: null,
         faceMeshSamplesPage3: [...faceMeshSamplesPage3],
         faceMeshSamplesPage4: [...faceMeshSamplesPage4],
+        page0Option: selectedPage0Option, // Store the radio button answer
         raw: {
           leftPx: leftLinePx,
           rightPx: rightLinePx,
@@ -1556,6 +1731,13 @@ export function objectTest(RC, options, callback = undefined) {
     // Always clean up keyboard event listeners
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
+
+    // Clean up radio button event listeners
+    if (customInputs) {
+      customInputs.forEach(input => {
+        input.removeEventListener('keyup', keydownListener)
+      })
+    }
 
     // ===================== INITIALIZATION CHECK =====================
     // Initialize Face Mesh tracking if not already done
@@ -1807,6 +1989,14 @@ export function objectTest(RC, options, callback = undefined) {
     // Always clean up keyboard event listeners
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
+    
+    // Clean up radio button event listeners
+    if (customInputs) {
+      customInputs.forEach(input => {
+        input.removeEventListener('keyup', keydownListener)
+      })
+    }
+    
     // Restart: reset right line to initial position
     objectTest(RC, options, callback)
   }
@@ -1967,7 +2157,7 @@ export function objectTest(RC, options, callback = undefined) {
               console.log('=== ALL 5 FACE MESH SAMPLES VALID - CHECKING TOLERANCE ===')
               
               // Check if the two sets of Face Mesh samples are consistent
-              if (checkFaceMeshDataRepeatability(faceMeshSamplesPage3, faceMeshSamplesPage4)) {
+              if (checkObjectTestTolerance(faceMeshSamplesPage3, faceMeshSamplesPage4, options.calibrateTrackDistanceAllowedRatio)) {
                 // Tolerance check passed - finish the test
                 console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
                 objectTestFinishFunction()
@@ -1983,12 +2173,13 @@ export function objectTest(RC, options, callback = undefined) {
                 await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
                   icon: undefined,
-                  html: phrases.RC_viewingBlindSpotRejected[RC.L],
+                  html: phrases.RC_viewingObjectRejected[RC.L],
                   allowEnterKey: true,
                 })
                 
-                // Reset to page 3 to restart Face Mesh collection
-                currentPage = 2
+                // Reset to page 2 to restart object measurement
+                currentPage = 1
+                firstMeasurement = null
                 await nextPage()
               }
               
@@ -2101,7 +2292,7 @@ export function objectTest(RC, options, callback = undefined) {
       // Check tolerance before finishing
       console.log('=== CHECKING TOLERANCE BEFORE FINISHING ===')
       
-      if (checkFaceMeshDataRepeatability(faceMeshSamplesPage3, faceMeshSamplesPage4)) {
+      if (checkObjectTestTolerance(faceMeshSamplesPage3, faceMeshSamplesPage4, options.calibrateTrackDistanceAllowedRatio)) {
         // Tolerance check passed - finish the test
         console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
         objectTestFinishFunction()
@@ -2117,12 +2308,13 @@ export function objectTest(RC, options, callback = undefined) {
         await Swal.fire({
           ...swalInfoOptions(RC, { showIcon: false }),
           icon: undefined,
-          html: phrases.RC_viewingBlindSpotRejected[RC.L],
+          html: phrases.RC_viewingObjectRejected[RC.L],
           allowEnterKey: true,
         })
         
-        // Reset to page 3 to restart Face Mesh collection
-        currentPage = 2
+        // Reset to page 2 to restart object measurement
+        currentPage = 1
+        firstMeasurement = null
         await nextPage()
       }
     }
@@ -2351,4 +2543,82 @@ async function measureIntraocularDistanceCm(RC, ppi) {
   const distMm = pxDist / pxPerMm
   const distCm = distMm / 10
   return distCm
+}
+
+function checkObjectTestTolerance(page3Samples, page4Samples, allowedRatio = 1.1) {
+  // Filter out NaN values and calculate averages
+  const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
+  const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
+  
+  // Need at least 3 valid samples from each page for meaningful comparison
+  if (validPage3Samples.length < 3 || validPage4Samples.length < 3) {
+    console.warn('Insufficient valid Face Mesh samples for tolerance check')
+    return false
+  }
+  
+  const page3Mean = validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+  const page4Mean = validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+  
+  // Calculate the ratio between the two measurements
+  const ratio1 = page3Mean / page4Mean
+  const ratio2 = page4Mean / page3Mean
+  
+  // Get the maximum ratio
+  const maxRatio = Math.max(ratio1, ratio2)
+  
+  // Calculate the maximum allowed ratio
+  const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
+  
+  console.log('=== Object Test Tolerance Check ===')
+  console.log('Page 3 average:', page3Mean.toFixed(2), 'px')
+  console.log('Page 4 average:', page4Mean.toFixed(2), 'px')
+  console.log('Ratio (M1/M2):', ratio1.toFixed(3))
+  console.log('Ratio (M2/M1):', ratio2.toFixed(3))
+  console.log('Max ratio:', maxRatio.toFixed(3))
+  console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
+  console.log('Tolerance check passed:', maxRatio <= maxAllowedRatio)
+  console.log('================================')
+  
+  return maxRatio <= maxAllowedRatio
+}
+
+function checkBlindspotTolerance(dist, allowedRatio = 1.1) {
+  // Separate left and right eye measurements
+  const lefts = []
+  const rights = []
+  for (const d of dist) {
+    if (d.closedEyeSide === 'left') lefts.push(d.dist)
+    else rights.push(d.dist)
+  }
+  
+  // Need at least 1 measurement from each eye for meaningful comparison
+  if (lefts.length < 1 || rights.length < 1) {
+    console.warn('Insufficient measurements for blindspot tolerance check')
+    return false
+  }
+  
+  const leftMean = average(lefts)
+  const rightMean = average(rights)
+  
+  // Calculate the ratio between the two measurements
+  const ratio1 = leftMean / rightMean
+  const ratio2 = rightMean / leftMean
+  
+  // Get the maximum ratio
+  const maxRatio = Math.max(ratio1, ratio2)
+  
+  // Calculate the maximum allowed ratio
+  const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
+  
+  console.log('=== Blindspot Tolerance Check ===')
+  console.log('Left eye average:', leftMean.toFixed(2), 'cm')
+  console.log('Right eye average:', rightMean.toFixed(2), 'cm')
+  console.log('Ratio (Left/Right):', ratio1.toFixed(3))
+  console.log('Ratio (Right/Left):', ratio2.toFixed(3))
+  console.log('Max ratio:', maxRatio.toFixed(3))
+  console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
+  console.log('Tolerance check passed:', maxRatio <= maxAllowedRatio)
+  console.log('================================')
+  
+  return maxRatio <= maxAllowedRatio
 }
