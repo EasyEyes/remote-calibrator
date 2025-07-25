@@ -61,21 +61,22 @@ async function measureIntraocularDistancePx(RC) {
 // Helper to capture current video frame as base64 image
 function captureVideoFrame(RC) {
   try {
-    const video = document.getElementById('webgazerVideoCanvas') || 
-                  document.getElementById('webgazerVideoFeed')
+    const video =
+      document.getElementById('webgazerVideoCanvas') ||
+      document.getElementById('webgazerVideoFeed')
     if (!video) return null
-    
+
     // Create a canvas to capture the frame
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
-    
+
     // Set canvas size to match video
     canvas.width = video.videoWidth || video.width
     canvas.height = video.videoHeight || video.height
-    
+
     // Draw the current video frame to canvas
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    
+
     // Convert to base64 data URL
     return canvas.toDataURL('image/jpeg', 0.8)
   } catch (error) {
@@ -197,7 +198,12 @@ export function blindSpotTest(
       // Check if these data are acceptable
       // OLD METHOD: if (checkDataRepeatability(dist)) {
       // NEW METHOD: Uses ratio-based tolerance with calibrateTrackDistanceAllowedRatio
-      if (checkBlindspotTolerance(dist, options.calibrateTrackDistanceAllowedRatio)) {
+      if (
+        checkBlindspotTolerance(
+          dist,
+          options.calibrateTrackDistanceAllowedRatio,
+        )
+      ) {
         // ! Put dist into data and callback function
         const data = {
           value: toFixedNumber(
@@ -219,20 +225,20 @@ export function blindSpotTest(
             await new Promise(res => setTimeout(res, 100)) // 100ms between samples
           }
         }
-        
+
         const averageFaceMesh = faceMeshSamples.length
           ? faceMeshSamples.reduce((a, b) => a + b, 0) / faceMeshSamples.length
           : 0
-        
+
         // Calculate calibration factor: averageFaceMesh * distance
         const calibrationFactor = averageFaceMesh * data.value
-        
+
         console.log('=== Blindspot Test Calibration Factor ===')
         console.log('Blindspot distance:', data.value, 'cm')
         console.log('Average Face Mesh:', averageFaceMesh, 'px')
         console.log('Calibration factor:', calibrationFactor)
         console.log('=========================================')
-        
+
         // Store calibration factor and Face Mesh data
         data.calibrationFactor = calibrationFactor
         data.averageFaceMesh = averageFaceMesh
@@ -263,8 +269,6 @@ export function blindSpotTest(
             options.calibrateTrackDistanceCheckSecs,
           )
         else safeExecuteFunc(callback, data)
-        
-
       } else {
         // ! Reset
         tested = 0
@@ -682,24 +686,33 @@ function checkFaceMeshDataRepeatability(page3Samples, page4Samples) {
   // Filter out NaN values and calculate averages
   const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
   const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
-  
+
   // Need at least 3 valid samples from each page for meaningful comparison
   if (validPage3Samples.length < 3 || validPage4Samples.length < 3) {
     console.warn('Insufficient valid Face Mesh samples for tolerance check')
     return false
   }
-  
-  const page3Mean = validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
-  const page4Mean = validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
-  
+
+  const page3Mean =
+    validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+  const page4Mean =
+    validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+
   console.log('=== Face Mesh Tolerance Check ===')
   console.log('Page 3 average:', page3Mean.toFixed(2), 'px')
   console.log('Page 4 average:', page4Mean.toFixed(2), 'px')
   console.log('Difference:', Math.abs(page3Mean - page4Mean).toFixed(2), 'px')
-  console.log('Tolerance threshold:', (0.2 * Math.min(page3Mean, page4Mean)).toFixed(2), 'px')
-  console.log('Tolerance check passed:', Math.abs(page3Mean - page4Mean) < 0.2 * Math.min(page3Mean, page4Mean))
+  console.log(
+    'Tolerance threshold:',
+    (0.2 * Math.min(page3Mean, page4Mean)).toFixed(2),
+    'px',
+  )
+  console.log(
+    'Tolerance check passed:',
+    Math.abs(page3Mean - page4Mean) < 0.2 * Math.min(page3Mean, page4Mean),
+  )
   console.log('================================')
-  
+
   return Math.abs(page3Mean - page4Mean) < 0.2 * Math.min(page3Mean, page4Mean)
 }
 
@@ -726,7 +739,7 @@ export function objectTest(RC, options, callback = undefined) {
   // Helper to collect 5 samples of eye pixel distance using Face Mesh
   async function collectFaceMeshSamples(RC, arr, ppi) {
     arr.length = 0 // Clear array
-    
+
     // Always collect exactly 5 samples, using NaN for failed measurements
     for (let i = 0; i < 5; i++) {
       try {
@@ -743,21 +756,28 @@ export function objectTest(RC, options, callback = undefined) {
         arr.push(NaN)
         console.warn(`Face Mesh measurement ${i + 1} error:`, error)
       }
-      
+
       // Wait 100ms between samples (even for failed measurements)
       await new Promise(res => setTimeout(res, 100))
     }
-    
+
     // Log the results
     const validSamples = arr.filter(sample => !isNaN(sample))
     const failedSamples = arr.filter(sample => isNaN(sample))
-    
-    console.log(`Face Mesh samples collected: ${validSamples.length} valid, ${failedSamples.length} failed`)
-    console.log('All samples:', arr.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(2)))
-    
+
+    console.log(
+      `Face Mesh samples collected: ${validSamples.length} valid, ${failedSamples.length} failed`,
+    )
+    console.log(
+      'All samples:',
+      arr.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(2))),
+    )
+
     // Ensure we always have exactly 5 samples
     if (arr.length !== 5) {
-      console.error(`Expected 5 samples but got ${arr.length}. Padding with NaN.`)
+      console.error(
+        `Expected 5 samples but got ${arr.length}. Padding with NaN.`,
+      )
       while (arr.length < 5) {
         arr.push(NaN)
       }
@@ -855,7 +875,7 @@ export function objectTest(RC, options, callback = undefined) {
   const radioOptions = [
     { value: 'yes', label: phrases.RC_Yes[RC.L] },
     { value: 'no', label: phrases.RC_No[RC.L] },
-    { value: 'dontknow', label: phrases.RC_DontKnow[RC.L] }
+    { value: 'dontknow', label: phrases.RC_DontKnow[RC.L] },
   ]
 
   // Create a flex container for side-by-side layout
@@ -887,7 +907,7 @@ export function objectTest(RC, options, callback = undefined) {
     label.style.transition = 'background-color 0.2s'
     label.style.textAlign = 'left'
     label.style.whiteSpace = 'nowrap'
-    
+
     const radio = document.createElement('input')
     radio.type = 'radio'
     radio.name = 'page0option'
@@ -900,18 +920,18 @@ export function objectTest(RC, options, callback = undefined) {
     radio.addEventListener('change', () => {
       validationMessage.style.display = 'none'
     })
-    
+
     const span = document.createElement('span')
     span.textContent = option.label
     span.style.fontSize = '1.1em'
     span.style.fontWeight = '500'
     span.style.whiteSpace = 'nowrap'
     span.style.flexShrink = '0'
-    
+
     label.appendChild(radio)
     label.appendChild(span)
     radioFlexContainer.appendChild(label)
-    
+
     // Add hover effect
     label.addEventListener('mouseenter', () => {
       label.style.backgroundColor = '#f8f9fa'
@@ -926,7 +946,9 @@ export function objectTest(RC, options, callback = undefined) {
   const keydownListener = event => {
     if (event.key === 'Enter') {
       // Check if a radio button is selected before proceeding
-      const selectedRadio = document.querySelector('input[name="page0option"]:checked')
+      const selectedRadio = document.querySelector(
+        'input[name="page0option"]:checked',
+      )
       if (selectedRadio) {
         nextPage() // Simulate the "PROCEED" button click
       }
@@ -945,7 +967,9 @@ export function objectTest(RC, options, callback = undefined) {
       () => {
         removeKeypadHandler()
         // Check if a radio button is selected before proceeding
-        const selectedRadio = document.querySelector('input[name="page0option"]:checked')
+        const selectedRadio = document.querySelector(
+          'input[name="page0option"]:checked',
+        )
         if (selectedRadio) {
           nextPage() // Simulate the "PROCEED" button click
         }
@@ -978,7 +1002,8 @@ export function objectTest(RC, options, callback = undefined) {
   // --- Left vertical line ---
   // Fixed at 5mm from the left edge
   const leftLine = document.createElement('div')
-  leftLine.style = verticalLineStyle + `left: ${leftLinePx}px; cursor: ew-resize;`
+  leftLine.style =
+    verticalLineStyle + `left: ${leftLinePx}px; cursor: ew-resize;`
   container.appendChild(leftLine)
 
   // --- Right vertical line ---
@@ -989,7 +1014,7 @@ export function objectTest(RC, options, callback = undefined) {
   container.appendChild(rightLine)
 
   // ===================== DRAWING THE HORIZONTAL CONNECTOR LINES =====================
-  
+
   // --- Rectangle background fill ---
   const rectangleBackground = document.createElement('div')
   rectangleBackground.style.position = 'absolute'
@@ -1001,7 +1026,7 @@ export function objectTest(RC, options, callback = undefined) {
   rectangleBackground.style.borderRadius = '2px'
   rectangleBackground.style.zIndex = '0' // Behind all lines
   container.appendChild(rectangleBackground)
-  
+
   // --- Top horizontal line connecting the vertical lines ---
   const topHorizontalLine = document.createElement('div')
   topHorizontalLine.style.position = 'absolute'
@@ -1149,7 +1174,7 @@ export function objectTest(RC, options, callback = undefined) {
     topHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
     bottomHorizontalLine.style.left = `${leftLinePx}px`
     bottomHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-    
+
     // Update dynamic length label position since rectangle changed
     updateDynamicLength()
   }
@@ -1204,13 +1229,13 @@ export function objectTest(RC, options, callback = undefined) {
   const arrowDownFunction = e => {
     // Only handle arrow keys on page 2
     if (currentPage !== 2) return
-    
+
     // Prevent default behavior
     e.preventDefault()
-    
+
     // Only handle left and right arrow keys
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-    
+
     // If already handling a key, ignore
     if (arrowKeyDown) return
 
@@ -1239,16 +1264,16 @@ export function objectTest(RC, options, callback = undefined) {
   const arrowUpFunction = e => {
     // Only handle arrow keys on page 2
     if (currentPage !== 2) return
-    
+
     // Only handle left and right arrow keys
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-    
+
     // Only stop if this is the key we're currently handling
     if (currentArrowKey !== e.key) return
 
     arrowKeyDown = false
     currentArrowKey = null
-    
+
     // Restore original color based on distance
     updateLineColors()
 
@@ -1263,9 +1288,9 @@ export function objectTest(RC, options, callback = undefined) {
     // Clamp the position so it can't cross the left line or go off screen
     const minX = leftLinePx + 20 // Minimum 20px gap from left line
     const maxX = screenWidth - 10 // Maximum 10px from right edge
-    
+
     rightLinePx = Math.max(minX, Math.min(rightLinePx, maxX))
-    
+
     // Update the visual position
     rightLine.style.left = `${rightLinePx}px`
     updateRightLabel()
@@ -1289,7 +1314,7 @@ export function objectTest(RC, options, callback = undefined) {
     // Cleanup function for any remaining event listeners
     document.removeEventListener('keydown', handleArrowKeys)
     document.removeEventListener('keyup', handleArrowKeys)
-    
+
     // Clear any active intervals
     if (arrowIntervalFunction) {
       clearInterval(arrowIntervalFunction)
@@ -1396,24 +1421,24 @@ export function objectTest(RC, options, callback = undefined) {
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
     dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
-    
+
     // Calculate the center of the rectangle
     const rectangleCenterX = leftLinePx + (rightLinePx - leftLinePx) / 2
     const rectangleCenterY = screenCenterY // This is the center of the rectangle vertically
-    
+
     // Position the label at the center of the rectangle
     dynamicLengthLabel.style.left = `${rectangleCenterX}px`
     dynamicLengthLabel.style.top = `${rectangleCenterY}px`
-    
+
     // Adjust font size if the rectangle is too small
     const rectangleWidth = rightLinePx - leftLinePx
-    
+
     // More accurate estimation of label width based on text content
     const textLength = dynamicLengthLabel.innerText.length
     const baseCharWidth = 10 // Average character width in pixels
     const padding = 12 // Horizontal padding
     const estimatedLabelWidth = textLength * baseCharWidth + padding
-    
+
     // If label would be too wide for rectangle, reduce font size
     const maxAllowedWidth = rectangleWidth * 0.85 // Leave 15% margin
     if (estimatedLabelWidth > maxAllowedWidth) {
@@ -1430,12 +1455,12 @@ export function objectTest(RC, options, callback = undefined) {
   const updateHorizontalLine = () => {
     // Get current screenCenterY value (in case window was resized)
     const currentScreenCenterY = window.innerHeight * 0.6
-    
+
     // Update horizontal line position to connect the vertical lines directly
     horizontalLine.style.left = `${leftLinePx + lineThickness}px` // Start at inside edge of left vertical line
     horizontalLine.style.right = `${window.innerWidth - rightLinePx}px` // End at inner edge of right line
     horizontalLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
-    
+
     // Update arrow line positions - account for rotation overlap
     leftArrowLine.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
     leftArrowLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
@@ -1445,7 +1470,7 @@ export function objectTest(RC, options, callback = undefined) {
     leftArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
     rightArrowLineUp.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
     rightArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
-    
+
     // Update dynamic length (this now handles positioning too)
     updateDynamicLength()
   }
@@ -1454,7 +1479,7 @@ export function objectTest(RC, options, callback = undefined) {
   window.addEventListener('resize', () => {
     // Update the main screenCenterY variable
     const newScreenCenterY = window.innerHeight * 0.6 // Move 10% lower from center (was 0.5)
-    
+
     // Update horizontal line and arrows
     horizontalLine.style.top = `${newScreenCenterY}px`
     leftArrowLine.style.top = `${newScreenCenterY}px`
@@ -1601,7 +1626,9 @@ export function objectTest(RC, options, callback = undefined) {
         phrases.RC_UseObjectToSetViewingDistancePage3[RC.L]
 
       // Note: Face Mesh samples will be collected when space key is pressed
-      console.log('=== PAGE 3 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===')
+      console.log(
+        '=== PAGE 3 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
+      )
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
@@ -1632,14 +1659,18 @@ export function objectTest(RC, options, callback = undefined) {
         phrases.RC_UseObjectToSetViewingDistancePage4[RC.L]
 
       // Note: Face Mesh samples will be collected when space key is pressed
-      console.log('=== PAGE 4 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===')
+      console.log(
+        '=== PAGE 4 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
+      )
     }
   }
 
   const nextPage = async () => {
     if (currentPage === 0) {
       // Check if a radio button option is selected
-      const selectedRadio = document.querySelector('input[name="page0option"]:checked')
+      const selectedRadio = document.querySelector(
+        'input[name="page0option"]:checked',
+      )
       if (!selectedRadio) {
         // Show validation message - you can customize this
         validationMessage.style.display = 'block'
@@ -1650,7 +1681,7 @@ export function objectTest(RC, options, callback = undefined) {
       // Store the selected option
       selectedPage0Option = selectedRadio.value
       console.log('Selected page 0 option:', selectedPage0Option)
-      
+
       await showPage(2) // Skip page 1, go directly to page 2
     } else if (currentPage === 1) {
       await showPage(2)
@@ -1727,7 +1758,7 @@ export function objectTest(RC, options, callback = undefined) {
   }
 
   // ===================== OBJECT TEST FINISH FUNCTION =====================
-  const objectTestFinishFunction = () => {
+  const objectTestFinishFunction = async () => {
     // Always clean up keyboard event listeners
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
@@ -1805,20 +1836,24 @@ export function objectTest(RC, options, callback = undefined) {
     // ===================== VISUAL FEEDBACK =====================
     // Calculate calibration factors for page 3 and page 4 separately
     // Filter out NaN values before calculating averages
-    const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
-    const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
-    
+    const validPage3Samples = faceMeshSamplesPage3.filter(
+      sample => !isNaN(sample),
+    )
+    const validPage4Samples = faceMeshSamplesPage4.filter(
+      sample => !isNaN(sample),
+    )
+
     const page3Average = validPage3Samples.length
       ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
       : 0
     const page4Average = validPage4Samples.length
       ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
       : 0
-    
+
     // Calculate separate calibration factors
     const distance1FactorCmPx = page3Average * data.value
     const distance2FactorCmPx = page4Average * data.value
-    
+
     // Calculate average of the two factors
     const averageFactorCmPx = (distance1FactorCmPx + distance2FactorCmPx) / 2
 
@@ -1858,9 +1893,9 @@ export function objectTest(RC, options, callback = undefined) {
         <div style="margin-top: 10px;">Object distance calibration</div>
         <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
         <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
-        <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
+        <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(1))).join(', ')}</div>
         <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
-        <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
+        <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(1))).join(', ')}</div>
         <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
         <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
       `
@@ -1876,7 +1911,7 @@ export function objectTest(RC, options, callback = undefined) {
     if (options.useObjectTestData === 'both') {
       // Clean up UI elements and handlers
       RC._removeBackground()
-      
+
       // Remove object test keyboard event listener to prevent conflicts
       document.removeEventListener('keydown', handleKeyPress)
       document.removeEventListener('keyup', handleKeyPress)
@@ -1887,17 +1922,26 @@ export function objectTest(RC, options, callback = undefined) {
         RC._addBackground()
 
         // Start blindspot test immediately
-        blindSpotTest(RC, options, true, blindspotData => {
+        blindSpotTest(RC, options, true, async blindspotData => {
           // Calculate median of calibration factors instead of distances
           const objectCalibrationFactor = data.calibrationFactor
           const blindspotCalibrationFactor = blindspotData.calibrationFactor
-          
+
           console.log('=== Combined Test Calibration Factors ===')
-          console.log('Object test calibration factor:', objectCalibrationFactor)
-          console.log('Blindspot test calibration factor:', blindspotCalibrationFactor)
-          
-          const medianCalibrationFactor = median([objectCalibrationFactor, blindspotCalibrationFactor])
-          
+          console.log(
+            'Object test calibration factor:',
+            objectCalibrationFactor,
+          )
+          console.log(
+            'Blindspot test calibration factor:',
+            blindspotCalibrationFactor,
+          )
+
+          const medianCalibrationFactor = median([
+            objectCalibrationFactor,
+            blindspotCalibrationFactor,
+          ])
+
           console.log('Median calibration factor:', medianCalibrationFactor)
           console.log('=========================================')
 
@@ -1917,7 +1961,7 @@ export function objectTest(RC, options, callback = undefined) {
               medianCalibrationFactor,
             },
           }
-          
+
           // Update feedback for combined measurement
           if (options.objecttestdebug && feedbackDiv) {
             feedbackDiv.innerHTML = `
@@ -1925,9 +1969,9 @@ export function objectTest(RC, options, callback = undefined) {
                       <div style="margin-top: 10px;">Object distance calibration</div>
                       <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
                       <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
-                      <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
+                      <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(1))).join(', ')}</div>
                       <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
-                      <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => isNaN(sample) ? 'NaN' : sample.toFixed(1)).join(', ')}</div>
+                      <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(1))).join(', ')}</div>
                       <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
                       <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
                       <div>blindspotCalibrationFactor = ${blindspotCalibrationFactor.toFixed(1)}</div>
@@ -1942,10 +1986,10 @@ export function objectTest(RC, options, callback = undefined) {
           // Call callback with the data
           // Handle completion based on check settings
           if (options.calibrateTrackDistanceCheckBool) {
-            RC._checkDistance(
+            await RC._checkDistance(
               callback,
               data,
-              'object', // Use 'object' instead of 'measureDistance'
+              'trackDistance', // Use 'object' instead of 'measureDistance'
               options.checkCallback,
               options.calibrateTrackDistanceCheckCm,
               options.callbackStatic,
@@ -1965,10 +2009,10 @@ export function objectTest(RC, options, callback = undefined) {
     } else {
       // Use the same check function as blindspot
       if (options.calibrateTrackDistanceCheckBool) {
-        RC._checkDistance(
+        await RC._checkDistance(
           callback,
           data,
-          'object', // Use 'object' instead of 'measureDistance'
+          'trackDistance', // Use 'object' instead of 'measureDistance'
           options.checkCallback,
           options.calibrateTrackDistanceCheckCm,
           options.callbackStatic,
@@ -1989,14 +2033,14 @@ export function objectTest(RC, options, callback = undefined) {
     // Always clean up keyboard event listeners
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
-    
+
     // Clean up radio button event listeners
     if (customInputs) {
       customInputs.forEach(input => {
         input.removeEventListener('keyup', keydownListener)
       })
     }
-    
+
     // Restart: reset right line to initial position
     objectTest(RC, options, callback)
   }
@@ -2030,7 +2074,7 @@ export function objectTest(RC, options, callback = undefined) {
       // Space key - allow on pages 2, 3 and 4
       if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
         e.preventDefault()
-        
+
         // Play camera shutter sound on pages 3 and 4
         if (currentPage === 3 || currentPage === 4) {
           if (env !== 'mocha' && cameraShutterSound) {
@@ -2042,10 +2086,10 @@ export function objectTest(RC, options, callback = undefined) {
         if (currentPage === 3 || currentPage === 4) {
           lastCapturedFaceImage = captureVideoFrame(RC)
         }
-        
+
         if (currentPage === 2) {
           // Do exactly what the PROCEED button does on page 2
-          (async () => {
+          ;(async () => {
             // Record first measurement - just store the distance value
             firstMeasurement = (rightLinePx - leftLinePx) / pxPerMm / 10
             console.log('First measurement:', firstMeasurement)
@@ -2056,7 +2100,7 @@ export function objectTest(RC, options, callback = undefined) {
               rightPx: rightLinePx,
               objectLengthPx: rightLinePx - leftLinePx,
               objectLengthMm: (rightLinePx - leftLinePx) / pxPerMm,
-              objectLengthCm: firstMeasurement
+              objectLengthCm: firstMeasurement,
             }
 
             // Move to page 3
@@ -2076,22 +2120,27 @@ export function objectTest(RC, options, callback = undefined) {
           })()
         } else if (currentPage === 3) {
           // Collect 5 Face Mesh samples for calibration on page 3
-          (async () => {
+          ;(async () => {
             console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
-            
+
             // Collect 5 Face Mesh samples for calibration
             await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi)
             console.log(
               'Face Mesh calibration samples (page 3):',
               faceMeshSamplesPage3,
             )
-            
+
             // Only show retry dialog if we have fewer than 5 valid samples or if any samples are NaN
-            const validSamples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
-            if (validSamples.length < 5 || faceMeshSamplesPage3.some(sample => isNaN(sample))) {
+            const validSamples = faceMeshSamplesPage3.filter(
+              sample => !isNaN(sample),
+            )
+            if (
+              validSamples.length < 5 ||
+              faceMeshSamplesPage3.some(sample => isNaN(sample))
+            ) {
               // Use the image captured at space press
               const capturedImage = lastCapturedFaceImage
-              
+
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
@@ -2103,38 +2152,45 @@ export function objectTest(RC, options, callback = undefined) {
                 confirmButtonText: phrases.EE_ok[RC.L],
                 allowEnterKey: true,
               })
-              
+
               // The user will press space again to collect new samples
               console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 3 ===')
               // The user will press space again to collect new samples
               // Clean up the captured image for privacy
-              lastCapturedFaceImage = null;
+              lastCapturedFaceImage = null
             } else {
               // All 5 samples are valid - automatically continue to page 4
-              console.log('=== ALL 5 FACE MESH SAMPLES VALID - CONTINUING TO PAGE 4 ===')
+              console.log(
+                '=== ALL 5 FACE MESH SAMPLES VALID - CONTINUING TO PAGE 4 ===',
+              )
               await nextPage()
               // Clean up the captured image for privacy
-              lastCapturedFaceImage = null;
+              lastCapturedFaceImage = null
             }
           })()
         } else if (currentPage === 4) {
           // Collect 5 Face Mesh samples for calibration on page 4
-          (async () => {
+          ;(async () => {
             console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
-            
+
             // Collect 5 Face Mesh samples for calibration
             await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi)
             console.log(
               'Face Mesh calibration samples (page 4):',
               faceMeshSamplesPage4,
             )
-            
+
             // Only show retry dialog if we have fewer than 5 valid samples or if any samples are NaN
-            const validSamples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
-            if (validSamples.length < 5 || faceMeshSamplesPage4.some(sample => isNaN(sample))) {
+            const validSamples = faceMeshSamplesPage4.filter(
+              sample => !isNaN(sample),
+            )
+            if (
+              validSamples.length < 5 ||
+              faceMeshSamplesPage4.some(sample => isNaN(sample))
+            ) {
               // Use the image captured at space press
               const capturedImage = lastCapturedFaceImage
-              
+
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
@@ -2146,29 +2202,39 @@ export function objectTest(RC, options, callback = undefined) {
                 confirmButtonText: phrases.EE_ok[RC.L],
                 allowEnterKey: true,
               })
-              
+
               // User must retry - stay on page 4 and collect new samples
               console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 4 ===')
               // The user will press space again to collect new samples
               // Clean up the captured image for privacy
-              lastCapturedFaceImage = null;
+              lastCapturedFaceImage = null
             } else {
               // All 5 samples are valid - check tolerance before finishing
-              console.log('=== ALL 5 FACE MESH SAMPLES VALID - CHECKING TOLERANCE ===')
-              
+              console.log(
+                '=== ALL 5 FACE MESH SAMPLES VALID - CHECKING TOLERANCE ===',
+              )
+
               // Check if the two sets of Face Mesh samples are consistent
-              if (checkObjectTestTolerance(faceMeshSamplesPage3, faceMeshSamplesPage4, options.calibrateTrackDistanceAllowedRatio)) {
+              if (
+                checkObjectTestTolerance(
+                  faceMeshSamplesPage3,
+                  faceMeshSamplesPage4,
+                  options.calibrateTrackDistanceAllowedRatio,
+                )
+              ) {
                 // Tolerance check passed - finish the test
                 console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
-                objectTestFinishFunction()
+                await objectTestFinishFunction()
               } else {
                 // Tolerance check failed - show error and restart Face Mesh collection
-                console.log('=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===')
-                
+                console.log(
+                  '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
+                )
+
                 // Clear both sample arrays to restart collection
                 faceMeshSamplesPage3.length = 0
                 faceMeshSamplesPage4.length = 0
-                
+
                 // Show error message using the same phrase as blindspot test
                 await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
@@ -2176,15 +2242,15 @@ export function objectTest(RC, options, callback = undefined) {
                   html: phrases.RC_viewingObjectRejected[RC.L],
                   allowEnterKey: true,
                 })
-                
+
                 // Reset to page 2 to restart object measurement
                 currentPage = 1
                 firstMeasurement = null
                 await nextPage()
               }
-              
+
               // Clean up the captured image for privacy
-              lastCapturedFaceImage = null;
+              lastCapturedFaceImage = null
             }
           })()
         }
@@ -2238,7 +2304,7 @@ export function objectTest(RC, options, callback = undefined) {
         rightPx: rightLinePx,
         objectLengthPx: rightLinePx - leftLinePx,
         objectLengthMm: (rightLinePx - leftLinePx) / pxPerMm,
-        objectLengthCm: firstMeasurement
+        objectLengthCm: firstMeasurement,
       }
 
       // Move to page 3
@@ -2260,17 +2326,17 @@ export function objectTest(RC, options, callback = undefined) {
       if (env !== 'mocha' && cameraShutterSound) {
         cameraShutterSound()
       }
-      
+
       // Collect 5 Face Mesh samples for calibration on page 3
       console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
-      
+
       // Collect 5 Face Mesh samples for calibration
       await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi)
       console.log(
         'Face Mesh calibration samples (page 3):',
         faceMeshSamplesPage3,
       )
-      
+
       // Move to page 4
       await nextPage()
     } else if (currentPage === 4) {
@@ -2278,32 +2344,40 @@ export function objectTest(RC, options, callback = undefined) {
       if (env !== 'mocha' && cameraShutterSound) {
         cameraShutterSound()
       }
-      
+
       // Collect 5 Face Mesh samples for calibration on page 4
       console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
-      
+
       // Collect 5 Face Mesh samples for calibration
       await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi)
       console.log(
         'Face Mesh calibration samples (page 4):',
         faceMeshSamplesPage4,
       )
-      
+
       // Check tolerance before finishing
       console.log('=== CHECKING TOLERANCE BEFORE FINISHING ===')
-      
-      if (checkObjectTestTolerance(faceMeshSamplesPage3, faceMeshSamplesPage4, options.calibrateTrackDistanceAllowedRatio)) {
+
+      if (
+        checkObjectTestTolerance(
+          faceMeshSamplesPage3,
+          faceMeshSamplesPage4,
+          options.calibrateTrackDistanceAllowedRatio,
+        )
+      ) {
         // Tolerance check passed - finish the test
         console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
-        objectTestFinishFunction()
+        await objectTestFinishFunction()
       } else {
         // Tolerance check failed - show error and restart Face Mesh collection
-        console.log('=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===')
-        
+        console.log(
+          '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
+        )
+
         // Clear both sample arrays to restart collection
         faceMeshSamplesPage3.length = 0
         faceMeshSamplesPage4.length = 0
-        
+
         // Show error message using the same phrase as blindspot test
         await Swal.fire({
           ...swalInfoOptions(RC, { showIcon: false }),
@@ -2311,7 +2385,7 @@ export function objectTest(RC, options, callback = undefined) {
           html: phrases.RC_viewingObjectRejected[RC.L],
           allowEnterKey: true,
         })
-        
+
         // Reset to page 2 to restart object measurement
         currentPage = 1
         firstMeasurement = null
@@ -2338,7 +2412,7 @@ export function objectTest(RC, options, callback = undefined) {
       .replace(/(\d\.)/g, '<br>$1')
       .replace(/^<br>/, '')
     Swal.fire({
-      ...swalInfoOptions(RC, { showIcon: false}),
+      ...swalInfoOptions(RC, { showIcon: false }),
       icon: undefined,
       html: explanationHtml,
       allowEnterKey: true,
@@ -2545,30 +2619,36 @@ async function measureIntraocularDistanceCm(RC, ppi) {
   return distCm
 }
 
-function checkObjectTestTolerance(page3Samples, page4Samples, allowedRatio = 1.1) {
+function checkObjectTestTolerance(
+  page3Samples,
+  page4Samples,
+  allowedRatio = 1.1,
+) {
   // Filter out NaN values and calculate averages
   const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
   const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
-  
+
   // Need at least 3 valid samples from each page for meaningful comparison
   if (validPage3Samples.length < 3 || validPage4Samples.length < 3) {
     console.warn('Insufficient valid Face Mesh samples for tolerance check')
     return false
   }
-  
-  const page3Mean = validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
-  const page4Mean = validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
-  
+
+  const page3Mean =
+    validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+  const page4Mean =
+    validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+
   // Calculate the ratio between the two measurements
   const ratio1 = page3Mean / page4Mean
   const ratio2 = page4Mean / page3Mean
-  
+
   // Get the maximum ratio
   const maxRatio = Math.max(ratio1, ratio2)
-  
+
   // Calculate the maximum allowed ratio
   const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
-  
+
   console.log('=== Object Test Tolerance Check ===')
   console.log('Page 3 average:', page3Mean.toFixed(2), 'px')
   console.log('Page 4 average:', page4Mean.toFixed(2), 'px')
@@ -2578,7 +2658,7 @@ function checkObjectTestTolerance(page3Samples, page4Samples, allowedRatio = 1.1
   console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
   console.log('Tolerance check passed:', maxRatio <= maxAllowedRatio)
   console.log('================================')
-  
+
   return maxRatio <= maxAllowedRatio
 }
 
@@ -2590,26 +2670,26 @@ function checkBlindspotTolerance(dist, allowedRatio = 1.1) {
     if (d.closedEyeSide === 'left') lefts.push(d.dist)
     else rights.push(d.dist)
   }
-  
+
   // Need at least 1 measurement from each eye for meaningful comparison
   if (lefts.length < 1 || rights.length < 1) {
     console.warn('Insufficient measurements for blindspot tolerance check')
     return false
   }
-  
+
   const leftMean = average(lefts)
   const rightMean = average(rights)
-  
+
   // Calculate the ratio between the two measurements
   const ratio1 = leftMean / rightMean
   const ratio2 = rightMean / leftMean
-  
+
   // Get the maximum ratio
   const maxRatio = Math.max(ratio1, ratio2)
-  
+
   // Calculate the maximum allowed ratio
   const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
-  
+
   console.log('=== Blindspot Tolerance Check ===')
   console.log('Left eye average:', leftMean.toFixed(2), 'cm')
   console.log('Right eye average:', rightMean.toFixed(2), 'cm')
@@ -2619,6 +2699,6 @@ function checkBlindspotTolerance(dist, allowedRatio = 1.1) {
   console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
   console.log('Tolerance check passed:', maxRatio <= maxAllowedRatio)
   console.log('================================')
-  
+
   return maxRatio <= maxAllowedRatio
 }

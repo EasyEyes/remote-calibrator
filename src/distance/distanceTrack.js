@@ -151,18 +151,26 @@ RemoteCalibrator.prototype.trackDistance = async function (
       value: distData.value,
       method: distData.method,
       calibrationFactor: distData.calibrationFactor,
-      averageFaceMesh: distData.averageFaceMesh
+      averageFaceMesh: distData.averageFaceMesh,
     })
     console.log('================================================')
 
     // Validate that we have a calibration factor
     if (!distData.calibrationFactor) {
       console.error('ERROR: No calibration factor found in measurement data!')
-      console.error('This means the measurement test did not properly calculate the calibration factor.')
+      console.error(
+        'This means the measurement test did not properly calculate the calibration factor.',
+      )
       console.error('Measurement data:', distData)
       return
     }
 
+    console.log(
+      '=== CALLING CALLBACK STATIC ===',
+      excecuteCallbackStaticHere,
+      distData,
+      callbackStatic,
+    )
     if (excecuteCallbackStaticHere) safeExecuteFunc(callbackStatic, distData)
     stdDist.current = distData
     stdDist.method = distData.method
@@ -185,46 +193,23 @@ RemoteCalibrator.prototype.trackDistance = async function (
     // Check if we should use object test data
     if (options.useObjectTestData === 'both') {
       console.log('=== Starting Both Methods Test ===')
-      console.log('This will run object test first, then blindspot test, then use median calibration factor')
+      console.log(
+        'This will run object test first, then blindspot test, then use median calibration factor',
+      )
       // First run object test
-      objectTest(this, options, data => {
-        console.log('Object Test Data:', {
-          value: data.value,
-          method: data.method,
-          timestamp: data.timestamp,
-          calibrationFactor: data.calibrationFactor,
-          raw: data.raw,
-        })
-        getStdDist(data)
-      })
+      objectTest(this, options, getStdDist)
     } else if (options.useObjectTestData) {
       console.log('=== Starting Object Test Only ===')
       console.log('This will use object test calibration factor for tracking')
       // Call objectTest directly for calibration
-      objectTest(this, options, data => {
-        console.log('Object Test Data:', {
-          value: data.value,
-          method: data.method,
-          timestamp: data.timestamp,
-          calibrationFactor: data.calibrationFactor,
-          raw: data.raw,
-        })
-        getStdDist(data)
-      })
+      objectTest(this, options, getStdDist)
     } else {
       console.log('=== Starting Blindspot Test Only ===')
-      console.log('This will use blindspot test calibration factor for tracking')
+      console.log(
+        'This will use blindspot test calibration factor for tracking',
+      )
       // Use blindspot test for calibration
-      blindSpotTest(this, options, true, data => {
-        console.log('Blindspot Test Data:', {
-          value: data.value,
-          method: data.method,
-          timestamp: data.timestamp,
-          calibrationFactor: data.calibrationFactor,
-          raw: data.raw,
-        })
-        getStdDist(data)
-      })
+      blindSpotTest(this, options, true, getStdDist)
     }
   }
 
@@ -417,19 +402,23 @@ const _tracking = async (
               // ! First time estimate
               // ALWAYS use the pre-calculated calibration factor from measurement tests
               if (stdDist.current.calibrationFactor) {
-                console.log('Using pre-calculated calibration factor:', stdDist.current.calibrationFactor)
+                console.log(
+                  'Using pre-calculated calibration factor:',
+                  stdDist.current.calibrationFactor,
+                )
                 console.log('Method used:', stdDist.current.method)
                 stdFactor = stdDist.current.calibrationFactor
               } else {
-                console.error('No calibration factor found! This should not happen.')
+                console.error(
+                  'No calibration factor found! This should not happen.',
+                )
                 console.error('Measurement data:', stdDist.current)
                 return
               }
 
               // ! FINISH
               if (
-                trackingConfig.options.calibrateTrackDistanceCheckBool !==
-                true
+                trackingConfig.options.calibrateTrackDistanceCheckBool !== true
               )
                 RC._removeBackground() // Remove BG if no check
 
