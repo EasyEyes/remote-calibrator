@@ -76,7 +76,8 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           : {}
 
         // Temporarily hide recalibrate button while keeping code intact
-        if (allowRecalibrate && false) { // Changed from: if (allowRecalibrate) {
+        if (allowRecalibrate && false) {
+          // Changed from: if (allowRecalibrate) {
           buttonConfig = {
             ...buttonConfig,
             // TODO double check the callback function here
@@ -87,7 +88,8 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           }
         }
 
-        if (cancelable || (allowRecalibrate && false)) // Changed from: if (cancelable || allowRecalibrate)
+        if (cancelable || (allowRecalibrate && false))
+          // Changed from: if (cancelable || allowRecalibrate)
           addButtons(
             this.L,
             this.nudger,
@@ -168,11 +170,11 @@ const startCorrecting = RC => {
   <p id="rc-distance-correct-instruction"></p>
   <p id="rc-distance-correct-guide">${phrases.RC_distanceTrackingGuide1[RC.L]
     .replace(
-      '111',
+      '𝟙𝟙𝟙',
       `<span class="rc-distance-num rc-distance-now" id="rc-distance-now"></span>`,
     )
     .replace(
-      '222',
+      '𝟚𝟚𝟚',
       `<span class="rc-distance-num rc-distance-desired" id="rc-distance-desired"></span>`,
     )}<span class="rc-distance-desired" id="rc-can-use-keypad"></span></p>
 </div>

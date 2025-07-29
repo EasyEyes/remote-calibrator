@@ -158,11 +158,11 @@ const trackDistanceCheck = async (
       updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
       const html = constructInstructions(
         phrases.RC_produceDistanceTitle[RC.language.value]
-          .replace('222', index)
-          .replace('333', calibrateTrackDistanceCheckCm.length),
+          .replace('𝟚𝟚𝟚', index)
+          .replace('𝟛𝟛𝟛', calibrateTrackDistanceCheckCm.length),
         phrases.RC_produceDistance[RC.language.value]
-          .replace('111', cm)
-          .replace('AAA', RC.equipment?.value?.unit)
+          .replace('𝟙𝟙𝟙', cm)
+          .replace('𝔸𝔸𝔸', RC.equipment?.value?.unit)
           .replace(/(?:\r\n|\r|\n)/g, '<br><br>'),
         false,
         'bodyText',
@@ -253,7 +253,7 @@ const trackDistanceCheck = async (
       title:
         '<p class="heading2">' +
         phrases.RC_AllDistancesRecorded[RC.language.value].replace(
-          '111',
+          '𝟙𝟙𝟙',
           RC.calibrateTrackDistanceRequestedCm.length,
         ) +
         '</p>',
@@ -381,7 +381,7 @@ const updateViewingDistanceDiv = (distance, units) => {
 }
 
 // Function to create the progress bar div
-const createProgressBar = (RC) => {
+const createProgressBar = RC => {
   // Check if the progress bar already exists
   if (document.getElementById('custom-progress-bar')) {
     console.warn('Progress bar already exists.')
@@ -407,7 +407,7 @@ const createProgressBar = (RC) => {
   progressBarContainer.appendChild(progressBar)
   progressBarContainer.appendChild(progressBarText)
   document.body.appendChild(progressBarContainer)
-  
+
   // Reposition video to center when progress bar is created
   const videoContainer = document.getElementById('webgazerVideoContainer')
   if (videoContainer && RC) {
@@ -439,11 +439,11 @@ const updateProgressBar = (progress, current, total) => {
 }
 
 // Function to remove the progress bar
-const removeProgressBar = (RC) => {
+const removeProgressBar = RC => {
   const progressBarContainer = document.getElementById('custom-progress-bar')
   if (progressBarContainer) {
     document.body.removeChild(progressBarContainer)
-    
+
     // Reposition video back to top when progress bar is removed
     const videoContainer = document.getElementById('webgazerVideoContainer')
     if (videoContainer && RC) {

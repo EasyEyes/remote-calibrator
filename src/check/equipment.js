@@ -154,7 +154,7 @@ const getEquipmentDetails = async (RC, data) => {
     }),
     title:
       '<p style=text-align:justify class="heading2">' +
-      phrases.RC_howLong[RC.language.value].replace('AAA', data.value.unit) +
+      phrases.RC_howLong[RC.language.value].replace('𝔸𝔸𝔸', data.value.unit) +
       '</p>',
     input: 'number',
     inputAttributes: {

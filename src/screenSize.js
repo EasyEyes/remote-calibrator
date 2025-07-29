@@ -103,7 +103,7 @@ RemoteCalibrator.prototype.screenSize = function (
   options.description += `<br /><br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
     this.L
   ].replace(
-    'xxx',
+    '𝕏𝕏𝕏',
     `<select id="matching-obj"><option value="usba"${
       options.defaultObject === 'usba' ? ' selected' : ''
     }>${phrases.RC_screenSizeUSBA[this.L]}</option><option value="usbc"${
@@ -261,7 +261,7 @@ function getSize(RC, parent, options, callback) {
     },
     RC.params.showCancelButton,
   )
-  
+
   // Hide the OK button (go button) - rely on space key instead
   const goButton = addedButtons[1]
   if (goButton) {
