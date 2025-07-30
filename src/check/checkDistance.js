@@ -158,11 +158,11 @@ const trackDistanceCheck = async (
       updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
       const html = constructInstructions(
         phrases.RC_produceDistanceTitle[RC.language.value]
-          .replace('𝟚𝟚𝟚', index)
-          .replace('𝟛𝟛𝟛', calibrateTrackDistanceCheckCm.length),
+          .replace('[[222]]', index)
+          .replace('[[333]]', calibrateTrackDistanceCheckCm.length),
         phrases.RC_produceDistance[RC.language.value]
-          .replace('𝟙𝟙𝟙', cm)
-          .replace('𝔸𝔸𝔸', RC.equipment?.value?.unit)
+          .replace('[[111]]', cm)
+          .replace('[[AAA]]', RC.equipment?.value?.unit)
           .replace(/(?:\r\n|\r|\n)/g, '<br><br>'),
         false,
         'bodyText',
@@ -253,7 +253,7 @@ const trackDistanceCheck = async (
       title:
         '<p class="heading2">' +
         phrases.RC_AllDistancesRecorded[RC.language.value].replace(
-          '𝟙𝟙𝟙',
+          '[[111]]',
           RC.calibrateTrackDistanceRequestedCm.length,
         ) +
         '</p>',

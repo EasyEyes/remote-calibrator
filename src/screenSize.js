@@ -103,7 +103,7 @@ RemoteCalibrator.prototype.screenSize = function (
   options.description += `<br /><br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
     this.L
   ].replace(
-    '𝕏𝕏𝕏',
+    '[[xxx]]',
     `<select id="matching-obj"><option value="usba"${
       options.defaultObject === 'usba' ? ' selected' : ''
     }>${phrases.RC_screenSizeUSBA[this.L]}</option><option value="usbc"${

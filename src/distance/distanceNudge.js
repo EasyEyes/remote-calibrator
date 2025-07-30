@@ -170,11 +170,11 @@ const startCorrecting = RC => {
   <p id="rc-distance-correct-instruction"></p>
   <p id="rc-distance-correct-guide">${phrases.RC_distanceTrackingGuide1[RC.L]
     .replace(
-      '𝟙𝟙𝟙',
+      '[[111]]',
       `<span class="rc-distance-num rc-distance-now" id="rc-distance-now"></span>`,
     )
     .replace(
-      '𝟚𝟚𝟚',
+      '[[222]]',
       `<span class="rc-distance-num rc-distance-desired" id="rc-distance-desired"></span>`,
     )}<span class="rc-distance-desired" id="rc-can-use-keypad"></span></p>
 </div>
