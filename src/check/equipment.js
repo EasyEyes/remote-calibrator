@@ -28,15 +28,15 @@ RemoteCalibrator.prototype.getEquipment = async function (
       <div id="custom-radio-group">
         <label>
           <input type="radio" name="equipment" value="cm" />
-          Centimeter
+          ${phrases.RC_cm[this.language.value]}
         </label>
         <label>
           <input type="radio" name="equipment" value="inches" />
-          Inch (decimal, e.g. 11.5 in)
+          ${phrases.RC_Inches[this.language.value]}
         </label>
         <label>
           <input type="radio" name="equipment" value="none" />
-          No ruler or tape measure is available
+          ${phrases.RC_NoRuler[this.language.value]}
         </label>
       </div>
     `
@@ -51,15 +51,15 @@ RemoteCalibrator.prototype.getEquipment = async function (
       <div id="custom-radio-group">
         <label class="bodyText">
           <input class="custom-input-class"  type="radio" name="equipment" value="inches" />
-          Inches
+          ${phrases.RC_Inches[this.language.value]}
         </label>
         <label class="bodyText">
           <input class="custom-input-class"  type="radio" name="equipment" value="cm" />
-          Centimeters
+          ${phrases.RC_cm[this.language.value]}
         </label>
         <label class="bodyText">
           <input class="custom-input-class"  type="radio" name="equipment" value="none" />
-          None
+          ${phrases.RC_NoRuler[this.language.value]}
         </label>
       </div>
     `
@@ -74,7 +74,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
     preConfirm: () => {
       const selected = document.querySelector('input[name="equipment"]:checked')
       if (!selected) {
-        Swal.showValidationMessage('Please select an option.')
+        Swal.showValidationMessage(phrases.RC_PleaseSelectAnOption[this.language.value])
         return null
       }
       return selected.value
