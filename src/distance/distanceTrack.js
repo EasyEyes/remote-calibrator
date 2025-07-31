@@ -197,19 +197,19 @@ RemoteCalibrator.prototype.trackDistance = async function (
         'This will run object test first, then blindspot test, then use median calibration factor',
       )
       // First run object test
-      objectTest(this, options, getStdDist)
+      await objectTest(this, options, getStdDist)
     } else if (options.useObjectTestData) {
       console.log('=== Starting Object Test Only ===')
       console.log('This will use object test calibration factor for tracking')
       // Call objectTest directly for calibration
-      objectTest(this, options, getStdDist)
+      await objectTest(this, options, getStdDist)
     } else {
       console.log('=== Starting Blindspot Test Only ===')
       console.log(
         'This will use blindspot test calibration factor for tracking',
       )
       // Use blindspot test for calibration
-      blindSpotTest(this, options, true, getStdDist)
+      await blindSpotTest(this, options, true, getStdDist)
     }
   }
 

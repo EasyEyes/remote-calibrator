@@ -29,6 +29,7 @@ import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { setDefaultVideoPosition } from '../components/video'
+import { showTestPopup } from '../components/popup'
 
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
@@ -85,7 +86,7 @@ function captureVideoFrame(RC) {
   }
 }
 
-export function blindSpotTest(
+export async function blindSpotTest(
   RC,
   options,
   toTrackDistance = false,
@@ -103,6 +104,12 @@ export function blindSpotTest(
   let inTest = true // Used to break animation
   let dist = [] // Take the MEDIAN after all tests finished
   let tested = 0 // options.repeatedTesting times
+
+  // ===================== SHOW POPUP BEFORE CALIBRATION STARTS =====================
+  // Only show popup if not running as part of "both" methods
+  if (options.useObjectTestData !== 'both') {
+    await showTestPopup(RC)
+  }
 
   // Add HTML
   const blindSpotDiv = document.createElement('div')
@@ -583,7 +590,7 @@ export function blindSpotTest(
 /*                               measureDistance                              */
 /* -------------------------------------------------------------------------- */
 
-RemoteCalibrator.prototype.measureDistance = function (
+RemoteCalibrator.prototype.measureDistance = async function (
   measureDistanceOptions = {},
   callback = undefined,
 ) {
@@ -632,10 +639,10 @@ RemoteCalibrator.prototype.measureDistance = function (
   this._replaceBackground(
     constructInstructions(options.headline, null, true, ''),
   )
-  blindSpotTest(this, options, false, callback)
+  await blindSpotTest(this, options, false, callback)
 }
 
-RemoteCalibrator.prototype.measureDistanceObject = function (
+RemoteCalibrator.prototype.measureDistanceObject = async function (
   options = {},
   callback = undefined,
 ) {
@@ -655,7 +662,7 @@ RemoteCalibrator.prototype.measureDistanceObject = function (
   this.getFullscreen(opts.fullscreen)
   blurAll()
 
-  objectTest(this, opts, callback)
+  await objectTest(this, opts, callback)
 }
 
 // Helper functions
@@ -723,7 +730,7 @@ function _getDistValues(dist) {
 }
 
 // ===================== OBJECT TEST SCHEME =====================
-export function objectTest(RC, options, callback = undefined) {
+export async function objectTest(RC, options, callback = undefined) {
   RC._addBackground()
 
   // ===================== PAGE STATE MANAGEMENT =====================
@@ -2421,6 +2428,9 @@ export function objectTest(RC, options, callback = undefined) {
   }
   buttonContainer.appendChild(explanationButton)
 
+  // ===================== SHOW POPUP BEFORE PAGE 0 =====================
+  await showTestPopup(RC)
+  
   // ===================== INITIALIZE PAGE 0 =====================
   showPage(0)
 }
@@ -2702,3 +2712,4 @@ function checkBlindspotTolerance(dist, allowedRatio = 1.1) {
 
   return maxRatio <= maxAllowedRatio
 }
+
