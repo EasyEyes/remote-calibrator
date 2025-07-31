@@ -860,23 +860,13 @@ export async function objectTest(RC, options, callback = undefined) {
   radioContainer.style.transform = 'translate(-50%, -50%)'
   radioContainer.style.backgroundColor = 'white'
   radioContainer.style.borderRadius = '0.5rem'
-  radioContainer.style.padding = '2rem'
-  radioContainer.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.3)'
+  radioContainer.style.padding = '2rem 2.5rem'
   radioContainer.style.zIndex = '9999'
-  radioContainer.style.width = '70vw'
-  radioContainer.style.maxWidth = '70vw'
+  radioContainer.style.minWidth = 'fit-content'
+  radioContainer.style.maxWidth = '95vw'
   radioContainer.style.textAlign = 'center'
   radioContainer.style.display = 'none' // Hidden by default
   container.appendChild(radioContainer)
-
-  // // Add title to radio container
-  // const radioTitle = document.createElement('h3')
-  // radioTitle.textContent = phrases.RC_UseObjectToSetViewingDistancePage0q[RC.L]
-  // radioTitle.style.margin = '0 0 1.5rem 0'
-  // radioTitle.style.fontSize = '1.3em'
-  // radioTitle.style.fontWeight = '600'
-  // radioTitle.style.color = '#333'
-  // radioContainer.appendChild(radioTitle)
 
   // Create radio button options
   const radioOptions = [
@@ -890,7 +880,7 @@ export async function objectTest(RC, options, callback = undefined) {
   radioFlexContainer.style.display = 'flex'
   radioFlexContainer.style.justifyContent = 'center'
   radioFlexContainer.style.alignItems = 'center'
-  radioFlexContainer.style.gap = '3vw'
+  radioFlexContainer.style.gap = '2rem'
   radioContainer.appendChild(radioFlexContainer)
 
   // --- Validation message for radio selection ---
@@ -900,7 +890,7 @@ export async function objectTest(RC, options, callback = undefined) {
   validationMessage.style.marginTop = '0.5em'
   validationMessage.style.display = 'none'
   validationMessage.style.textAlign = 'center'
-  validationMessage.textContent = 'Please select an option.'
+  validationMessage.textContent = phrases.RC_PleaseSelectAnOption[RC.L]
   radioContainer.appendChild(validationMessage)
 
   radioOptions.forEach(option => {
@@ -909,17 +899,19 @@ export async function objectTest(RC, options, callback = undefined) {
     label.style.flexDirection = 'row'
     label.style.alignItems = 'center'
     label.style.cursor = 'pointer'
-    label.style.padding = '1rem'
+    label.style.padding = '1rem 1.5rem'
     label.style.borderRadius = '0.375rem'
     label.style.transition = 'background-color 0.2s'
     label.style.textAlign = 'left'
     label.style.whiteSpace = 'nowrap'
+    label.style.minWidth = 'fit-content'
+    label.style.flexShrink = '0'
 
     const radio = document.createElement('input')
     radio.type = 'radio'
     radio.name = 'page0option'
     radio.value = option.value
-    radio.style.marginRight = '0.5rem'
+    radio.style.marginRight = '0.75rem'
     radio.style.flexShrink = '0'
     radio.style.transform = 'scale(1.2)'
     radio.className = 'custom-input-class' // Add class for keyboard handling
@@ -930,10 +922,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
     const span = document.createElement('span')
     span.textContent = option.label
-    span.style.fontSize = '1.1em'
-    span.style.fontWeight = '500'
+    span.style.fontSize = '1.4em'
+    span.style.lineHeight = '1.6'
     span.style.whiteSpace = 'nowrap'
     span.style.flexShrink = '0'
+    span.style.minWidth = 'fit-content'
 
     label.appendChild(radio)
     label.appendChild(span)
