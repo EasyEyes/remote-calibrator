@@ -2423,7 +2423,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== SHOW POPUP BEFORE PAGE 0 =====================
   await showTestPopup(RC)
-  
+
   // ===================== INITIALIZE PAGE 0 =====================
   showPage(0)
 }
@@ -2705,4 +2705,3 @@ function checkBlindspotTolerance(dist, allowedRatio = 1.1) {
 
   return maxRatio <= maxAllowedRatio
 }
-

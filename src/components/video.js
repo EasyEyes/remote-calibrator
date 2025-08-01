@@ -111,7 +111,7 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
 export function setDefaultVideoPosition(RC, v) {
   // Check if we're on a page with progress bar (distance check pages)
   const hasProgressBar = document.getElementById('custom-progress-bar') !== null
-  
+
   if (RC.isMobile.value) {
     // Mobile
     v.style.left = 'unset'
@@ -122,17 +122,20 @@ export function setDefaultVideoPosition(RC, v) {
     // Desktop - position at top center or center of screen based on progress bar presence
     // Use a more robust centering approach
     const videoWidth = parseInt(v.style.width) || parseInt(v.offsetWidth) || 0
-    const videoHeight = parseInt(v.style.height) || parseInt(v.offsetHeight) || 0
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight
-    
+    const videoHeight =
+      parseInt(v.style.height) || parseInt(v.offsetHeight) || 0
+    const viewportWidth =
+      window.innerWidth || document.documentElement.clientWidth
+    const viewportHeight =
+      window.innerHeight || document.documentElement.clientHeight
+
     // Calculate the exact pixel position for perfect horizontal centering
-    const leftPositionPx = (viewportWidth) / 2
-    
+    const leftPositionPx = viewportWidth / 2
+
     v.style.left = `${leftPositionPx}px`
     v.style.right = 'unset'
     v.style.transform = 'none' // Remove transform since we're calculating position explicitly
-    
+
     if (hasProgressBar) {
       // Center vertically when progress bar is present
       const topPositionPx = (viewportHeight - videoHeight) / 2

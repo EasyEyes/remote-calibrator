@@ -74,7 +74,9 @@ RemoteCalibrator.prototype.getEquipment = async function (
     preConfirm: () => {
       const selected = document.querySelector('input[name="equipment"]:checked')
       if (!selected) {
-        Swal.showValidationMessage(phrases.RC_PleaseSelectAnOption[this.language.value])
+        Swal.showValidationMessage(
+          phrases.RC_PleaseSelectAnOption[this.language.value],
+        )
         return null
       }
       return selected.value
