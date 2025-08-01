@@ -16,7 +16,8 @@ export const showPopup = async (RC, title, message, onClose = null) => {
   const originalVideoState = {
     showVideo: RC.gazeTracker?.webgazer?.params?.showVideo ?? true,
     showFaceOverlay: RC.gazeTracker?.webgazer?.params?.showFaceOverlay ?? true,
-    showFaceFeedbackBox: RC.gazeTracker?.webgazer?.params?.showFaceFeedbackBox ?? true,
+    showFaceFeedbackBox:
+      RC.gazeTracker?.webgazer?.params?.showFaceFeedbackBox ?? true,
   }
 
   // Store original z-index of video container
@@ -89,7 +90,9 @@ export const showPopup = async (RC, title, message, onClose = null) => {
   if (RC.gazeTracker?.webgazer) {
     RC.gazeTracker.webgazer.showVideo(originalVideoState.showVideo)
     RC.gazeTracker.webgazer.showFaceOverlay(originalVideoState.showFaceOverlay)
-    RC.gazeTracker.webgazer.showFaceFeedbackBox(originalVideoState.showFaceFeedbackBox)
+    RC.gazeTracker.webgazer.showFaceFeedbackBox(
+      originalVideoState.showFaceFeedbackBox,
+    )
   }
 
   // Call onClose callback if provided
@@ -118,6 +121,130 @@ const getAvailableCameras = async () => {
 }
 
 /**
+ * Gets the currently active camera from webgazer
+ * @param {Object} RC - RemoteCalibrator instance
+ * @returns {Object|null} - Current active camera or null
+ */
+const getCurrentActiveCamera = (RC) => {
+  if (!RC.gazeTracker?.webgazer?.params?.activeCamera) {
+    return null
+  }
+  
+  return {
+    deviceId: RC.gazeTracker.webgazer.params.activeCamera.id,
+    label: RC.gazeTracker.webgazer.params.activeCamera.label
+  }
+}
+
+/**
+ * Attempts to switch to a new camera with error handling
+ * @param {Object} RC - RemoteCalibrator instance
+ * @param {Object} selectedCamera - Camera to switch to
+ * @returns {Promise<boolean>} - True if successful, false otherwise
+ */
+const switchToCamera = async (RC, selectedCamera) => {
+  if (!RC.gazeTracker?.webgazer || !selectedCamera) {
+    return false
+  }
+
+  try {
+    // Update webgazer camera parameters
+    RC.gazeTracker.webgazer.params.activeCamera.label = selectedCamera.label
+    RC.gazeTracker.webgazer.params.activeCamera.id = selectedCamera.deviceId
+
+    // Update camera constraints if webgazer is already running
+    if (RC.gazeTracker.webgazer.params.videoIsOn) {
+      await RC.gazeTracker.webgazer.setCameraConstraints({
+        video: {
+          deviceId: selectedCamera.deviceId,
+        },
+      })
+    }
+    
+    return true
+  } catch (error) {
+    console.error('Failed to switch camera:', error)
+    return false
+  }
+}
+
+/**
+ * Creates video previews for all available cameras
+ * @param {Array} cameras - Array of camera devices
+ * @param {Object} RC - RemoteCalibrator instance
+ * @param {Function} onCameraSelect - Callback when camera is selected
+ * @param {Object} currentActiveCamera - Currently active camera
+ * @returns {Promise<string>} - HTML string with video previews
+ */
+const createCameraPreviews = async (cameras, RC, onCameraSelect, currentActiveCamera) => {
+  if (cameras.length === 0) {
+    return '<p style="color: #666; font-style: italic;">No cameras detected</p>'
+  }
+
+  // Get the size of the main video preview for reference
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  const previewSize = videoContainer ? {
+    width: videoContainer.style.width || '320px',
+    height: videoContainer.style.height || '240px'
+  } : { width: '320px', height: '240px' }
+
+  let previewsHTML = '<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; justify-content: center; align-items: center;">'
+  
+  for (let i = 0; i < cameras.length; i++) {
+    const camera = cameras[i]
+    const previewId = `camera-preview-${i}`
+    const isActive = currentActiveCamera && currentActiveCamera.deviceId === camera.deviceId
+    
+    previewsHTML += `
+      <div 
+        id="camera-preview-container-${i}"
+        style="display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; cursor: pointer; padding: 5px; border-radius: 8px; transition: all 0.2s ease; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
+        onclick="window.selectCamera('${camera.deviceId}', '${camera.label || `Camera ${i + 1}`}')"
+      >
+        <video 
+          id="${previewId}" 
+          style="width: ${previewSize.width}; height: ${previewSize.height}; border: 2px solid #ccc; border-radius: 4px; object-fit: cover; pointer-events: none;"
+          autoplay 
+          muted 
+          playsinline
+        ></video>
+        <div style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${isActive ? '#28a745' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'};">
+          ${camera.label || `Camera ${i + 1}`} ${isActive ? '(Current)' : ''}
+        </div>
+      </div>
+    `
+  }
+  
+  previewsHTML += '</div>'
+
+  // Start video streams for all cameras
+  setTimeout(async () => {
+    for (let i = 0; i < cameras.length; i++) {
+      const camera = cameras[i]
+      const videoElement = document.getElementById(`camera-preview-${i}`)
+      
+      if (videoElement) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              deviceId: { exact: camera.deviceId }
+            }
+          })
+          videoElement.srcObject = stream
+        } catch (error) {
+          console.error(`Failed to get stream for camera ${camera.label}:`, error)
+          // Show error state
+          videoElement.style.border = '2px solid #dc3545'
+          videoElement.style.backgroundColor = '#f8d7da'
+        }
+      }
+    }
+  }, 100)
+
+  return previewsHTML
+}
+
+/**
  * Shows a popup with camera selection dropdown
  * @param {Object} RC - RemoteCalibrator instance
  * @param {string} title - Popup title
@@ -125,12 +252,18 @@ const getAvailableCameras = async () => {
  * @param {Function} onClose - Callback function when popup is closed
  * @returns {Promise} - Promise that resolves when popup is closed with selected camera
  */
-export const showCameraSelectionPopup = async (RC, title, message, onClose = null) => {
+export const showCameraSelectionPopup = async (
+  RC,
+  title,
+  message,
+  onClose = null,
+) => {
   // Store current video visibility state
   const originalVideoState = {
     showVideo: RC.gazeTracker?.webgazer?.params?.showVideo ?? true,
     showFaceOverlay: RC.gazeTracker?.webgazer?.params?.showFaceOverlay ?? true,
-    showFaceFeedbackBox: RC.gazeTracker?.webgazer?.params?.showFaceFeedbackBox ?? true,
+    showFaceFeedbackBox:
+      RC.gazeTracker?.webgazer?.params?.showFaceFeedbackBox ?? true,
   }
 
   // Store original z-index of video container
@@ -152,26 +285,25 @@ export const showCameraSelectionPopup = async (RC, title, message, onClose = nul
   // Get available cameras
   const cameras = await getAvailableCameras()
   
-  // Create camera selection HTML
-  const cameraSelectHTML = cameras.length > 0
-    ? `<div style="margin: 20px 0;">
-         <select id="camera-select" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-           ${cameras.map((camera, index) => 
-             `<option value="${camera.deviceId}" ${index === 0 ? 'selected' : ''}>
-                ${camera.label || `Camera ${index + 1}`}
-              </option>`
-           ).join('')}
-         </select>
-       </div>`
-    : '<p style="color: #666; font-style: italic;">No cameras detected</p>'
+  // Get current active camera
+  const currentActiveCamera = getCurrentActiveCamera(RC)
+  
+  // Create camera previews
+  const cameraPreviewsHTML = await createCameraPreviews(cameras, RC, null, currentActiveCamera)
+
+  // Create status div for feedback
+  const statusHTML = '<div id="camera-status" style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;"></div>'
 
   const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title,
-    html: `${message}<br><br>${cameraSelectHTML}`,
+    html: `${message}<br><br>${cameraPreviewsHTML}<br><br>${statusHTML}`,
     confirmButtonText: phrases.RC_ok[RC.L],
     allowEnterKey: true,
+    // Reduce popup width to fit content
+    width: 'auto',
+    maxWidth: '600px',
     didOpen: () => {
       // Handle keyboard events
       const keydownListener = event => {
@@ -201,31 +333,97 @@ export const showCameraSelectionPopup = async (RC, title, message, onClose = nul
       // Store listener for cleanup
       RC.popupKeydownListener = keydownListener
 
-      // Add camera change listener
-      const cameraSelect = document.getElementById('camera-select')
-      if (cameraSelect && cameras.length > 0) {
-        const cameraChangeListener = (event) => {
-          const selectedCamera = cameras.find(cam => cam.deviceId === event.target.value)
-          if (selectedCamera && RC.gazeTracker?.webgazer) {
-            // Update webgazer camera immediately
-            RC.gazeTracker.webgazer.params.activeCamera.label = selectedCamera.label
-            RC.gazeTracker.webgazer.params.activeCamera.id = selectedCamera.deviceId
+      // Initialize status with current camera
+      const statusDiv = document.getElementById('camera-status')
+      if (statusDiv && currentActiveCamera) {
+        statusDiv.innerHTML = `Current: ${currentActiveCamera.label || 'camera'}`
+        statusDiv.style.color = '#666'
+      }
+
+      // Create global camera selection function
+      window.selectCamera = async (deviceId, label) => {
+        const selectedCamera = cameras.find(cam => cam.deviceId === deviceId)
+        
+        if (selectedCamera && RC.gazeTracker?.webgazer) {
+          const statusDiv = document.getElementById('camera-status')
+          
+          // Show loading status
+          if (statusDiv) {
+            statusDiv.innerHTML = 'Switching camera...'
+            statusDiv.style.color = '#666'
+          }
+          
+          // Disable all preview containers during switching
+          cameras.forEach((camera, index) => {
+            const container = document.getElementById(`camera-preview-container-${index}`)
+            if (container) {
+              container.style.pointerEvents = 'none'
+              container.style.opacity = '0.6'
+            }
+          })
+          
+          try {
+            const success = await switchToCamera(RC, selectedCamera)
             
-            // Update camera constraints if webgazer is already running
-            if (RC.gazeTracker.webgazer.params.videoIsOn) {
-              RC.gazeTracker.webgazer.setCameraConstraints({
-                video: {
-                  deviceId: selectedCamera.deviceId
+            if (success) {
+              // Keep "Switching camera..." message for 1.5 seconds before showing success
+              setTimeout(() => {
+                if (statusDiv) {
+                  statusDiv.innerHTML = `✓ Switched to ${selectedCamera.label || 'camera'}`
+                  statusDiv.style.color = '#28a745'
+                }
+              }, 1500)
+              
+              // Update visual state of all previews immediately
+              cameras.forEach((camera, index) => {
+                const container = document.getElementById(`camera-preview-container-${index}`)
+                const isActive = camera.deviceId === selectedCamera.deviceId
+                
+                if (container) {
+                  if (isActive) {
+                    container.style.backgroundColor = '#e8f5e8'
+                    container.style.border = '2px solid #28a745'
+                    container.querySelector('div').style.color = '#28a745'
+                    container.querySelector('div').style.fontWeight = 'bold'
+                    container.querySelector('div').textContent = `${camera.label || `Camera ${index + 1}`} (Current)`
+                  } else {
+                    container.style.backgroundColor = 'transparent'
+                    container.style.border = '2px solid transparent'
+                    container.querySelector('div').style.color = '#666'
+                    container.querySelector('div').style.fontWeight = 'normal'
+                    container.querySelector('div').textContent = camera.label || `Camera ${index + 1}`
+                  }
                 }
               })
+              
+              // Store the selected camera for return
+              RC.selectedCamera = selectedCamera
+            } else {
+              // Show error status immediately
+              if (statusDiv) {
+                statusDiv.innerHTML = '✗ Failed to switch camera'
+                statusDiv.style.color = '#dc3545'
+              }
             }
+          } catch (error) {
+            console.error('Camera switch error:', error)
+            
+            // Show error status immediately
+            if (statusDiv) {
+              statusDiv.innerHTML = '✗ Failed to switch camera'
+              statusDiv.style.color = '#dc3545'
+            }
+          } finally {
+            // Re-enable all preview containers
+            cameras.forEach((camera, index) => {
+              const container = document.getElementById(`camera-preview-container-${index}`)
+              if (container) {
+                container.style.pointerEvents = 'auto'
+                container.style.opacity = '1'
+              }
+            })
           }
         }
-        
-        cameraSelect.addEventListener('change', cameraChangeListener)
-        
-        // Store the listener for cleanup
-        RC.cameraChangeListener = cameraChangeListener
       }
     },
     willClose: () => {
@@ -234,15 +432,20 @@ export const showCameraSelectionPopup = async (RC, title, message, onClose = nul
         document.removeEventListener('keydown', RC.popupKeydownListener)
         RC.popupKeydownListener = null
       }
-      
-      // Remove camera change listener
-      if (RC.cameraChangeListener) {
-        const cameraSelect = document.getElementById('camera-select')
-        if (cameraSelect) {
-          cameraSelect.removeEventListener('change', RC.cameraChangeListener)
-        }
-        RC.cameraChangeListener = null
+
+      // Remove global camera selection function
+      if (window.selectCamera) {
+        delete window.selectCamera
       }
+
+      // Stop all preview video streams
+      cameras.forEach((camera, index) => {
+        const videoElement = document.getElementById(`camera-preview-${index}`)
+        if (videoElement && videoElement.srcObject) {
+          const stream = videoElement.srcObject
+          stream.getTracks().forEach(track => track.stop())
+        }
+      })
     },
   })
 
@@ -255,12 +458,13 @@ export const showCameraSelectionPopup = async (RC, title, message, onClose = nul
   if (RC.gazeTracker?.webgazer) {
     RC.gazeTracker.webgazer.showVideo(originalVideoState.showVideo)
     RC.gazeTracker.webgazer.showFaceOverlay(originalVideoState.showFaceOverlay)
-    RC.gazeTracker.webgazer.showFaceFeedbackBox(originalVideoState.showFaceFeedbackBox)
+    RC.gazeTracker.webgazer.showFaceFeedbackBox(
+      originalVideoState.showFaceFeedbackBox,
+    )
   }
 
-  // Get selected camera
-  const cameraSelect = document.getElementById('camera-select')
-  const selectedCamera = cameraSelect ? cameras.find(cam => cam.deviceId === cameraSelect.value) : null
+  // Get selected camera (either from user selection or current active)
+  const selectedCamera = RC.selectedCamera || currentActiveCamera
 
   // Call onClose callback if provided
   if (onClose && typeof onClose === 'function') {
@@ -279,7 +483,7 @@ export const showCameraSelectionPopup = async (RC, title, message, onClose = nul
 export const showTestPopup = async (RC, onClose = null) => {
   // Check if there are at least 2 cameras available
   const cameras = await getAvailableCameras()
-  
+
   // If less than 2 cameras, skip the popup
   if (cameras.length < 2) {
     // Call onClose callback if provided
@@ -288,12 +492,12 @@ export const showTestPopup = async (RC, onClose = null) => {
     }
     return { selectedCamera: null }
   }
-  
+
   // Show popup only if there are 2 or more cameras
   return await showCameraSelectionPopup(
     RC,
     '',
     phrases.RC_SelectCamera[RC.L],
-    onClose
+    onClose,
   )
-} 
+}
