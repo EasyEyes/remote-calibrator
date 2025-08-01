@@ -523,7 +523,7 @@ export const showTestPopup = async (RC, onClose = null) => {
   return await showCameraSelectionPopup(
     RC,
     '',
-    phrases.RC_SelectCamera[RC.L],
+    phrases.RC_ChooseCamera[RC.L],
     onClose,
   )
 }
