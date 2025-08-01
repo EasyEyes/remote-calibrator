@@ -156,7 +156,7 @@ const switchToCamera = async (RC, selectedCamera) => {
     if (RC.gazeTracker.webgazer.params.videoIsOn) {
       await RC.gazeTracker.webgazer.setCameraConstraints({
         video: {
-          deviceId: selectedCamera.deviceId,
+          deviceId: { exact: selectedCamera.deviceId },
         },
       })
     }
