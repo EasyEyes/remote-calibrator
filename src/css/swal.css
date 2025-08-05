@@ -66,10 +66,11 @@
   display: flex;
   flex-direction: row;
   align-items: center;
+  padding-left: 1.75rem;
 }
 
 #custom-radio-group label {
-  margin-right: 25px;
+  margin-right: 10px;
   display: flex;
   flex-direction: row;
 }

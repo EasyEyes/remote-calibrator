@@ -855,17 +855,19 @@ export async function objectTest(RC, options, callback = undefined) {
   const radioContainer = document.createElement('div')
   radioContainer.id = 'custom-radio-group'
   radioContainer.style.position = 'fixed'
-  radioContainer.style.top = '50%'
-  radioContainer.style.left = '50%'
-  radioContainer.style.transform = 'translate(-50%, -50%)'
-  radioContainer.style.backgroundColor = 'white'
+  radioContainer.style.top = '31.2%'
+  radioContainer.style.left = '0'
+  radioContainer.style.transform = 'translateY(-50%)'
+  radioContainer.style.backgroundColor = 'transparent'
   radioContainer.style.borderRadius = '0.5rem'
   radioContainer.style.padding = '2rem 2.5rem'
   radioContainer.style.zIndex = '9999'
-  radioContainer.style.minWidth = 'fit-content'
-  radioContainer.style.maxWidth = '95vw'
-  radioContainer.style.textAlign = 'center'
+  radioContainer.style.width = '50vw'
+  radioContainer.style.maxWidth = '50vw'
+  radioContainer.style.textAlign = 'left'
   radioContainer.style.display = 'none' // Hidden by default
+  // Remove dynamic padding - use fixed 3rem to match other elements
+  radioContainer.style.paddingLeft = '4.5rem'
   container.appendChild(radioContainer)
 
   // Create radio button options
@@ -878,9 +880,9 @@ export async function objectTest(RC, options, callback = undefined) {
   // Create a flex container for side-by-side layout
   const radioFlexContainer = document.createElement('div')
   radioFlexContainer.style.display = 'flex'
-  radioFlexContainer.style.justifyContent = 'center'
+  radioFlexContainer.style.justifyContent = 'flex-start'
   radioFlexContainer.style.alignItems = 'center'
-  radioFlexContainer.style.gap = '2rem'
+  radioFlexContainer.style.gap = '0.5em'
   radioContainer.appendChild(radioFlexContainer)
 
   // --- Validation message for radio selection ---
@@ -889,30 +891,22 @@ export async function objectTest(RC, options, callback = undefined) {
   validationMessage.style.fontSize = '0.95em'
   validationMessage.style.marginTop = '0.5em'
   validationMessage.style.display = 'none'
-  validationMessage.style.textAlign = 'center'
+  validationMessage.style.textAlign = 'left'
   validationMessage.textContent = phrases.RC_PleaseSelectAnOption[RC.L]
   radioContainer.appendChild(validationMessage)
 
   radioOptions.forEach(option => {
-    const label = document.createElement('label')
-    label.style.display = 'flex'
-    label.style.flexDirection = 'row'
-    label.style.alignItems = 'center'
-    label.style.cursor = 'pointer'
-    label.style.padding = '1rem 1.5rem'
-    label.style.borderRadius = '0.375rem'
-    label.style.transition = 'background-color 0.2s'
-    label.style.textAlign = 'left'
-    label.style.whiteSpace = 'nowrap'
-    label.style.minWidth = 'fit-content'
-    label.style.flexShrink = '0'
+    const container = document.createElement('div')
+    container.style.display = 'flex'
+    container.style.flexDirection = 'row'
+    container.style.alignItems = 'center'
+    container.style.gap = '0.2em'
 
     const radio = document.createElement('input')
     radio.type = 'radio'
     radio.name = 'page0option'
     radio.value = option.value
-    radio.style.marginRight = '0.75rem'
-    radio.style.flexShrink = '0'
+    radio.style.cursor = 'pointer'
     radio.style.transform = 'scale(1.2)'
     radio.className = 'custom-input-class' // Add class for keyboard handling
     // Hide validation message when any radio is selected
@@ -925,20 +919,11 @@ export async function objectTest(RC, options, callback = undefined) {
     span.style.fontSize = '1.4em'
     span.style.lineHeight = '1.6'
     span.style.whiteSpace = 'nowrap'
-    span.style.flexShrink = '0'
-    span.style.minWidth = 'fit-content'
+    span.style.userSelect = 'none' // Prevent text selection
 
-    label.appendChild(radio)
-    label.appendChild(span)
-    radioFlexContainer.appendChild(label)
-
-    // Add hover effect
-    label.addEventListener('mouseenter', () => {
-      label.style.backgroundColor = '#f8f9fa'
-    })
-    label.addEventListener('mouseleave', () => {
-      label.style.backgroundColor = 'transparent'
-    })
+    container.appendChild(radio)
+    container.appendChild(span)
+    radioFlexContainer.appendChild(container)
   })
 
   // Add keyboard event listeners for radio buttons
@@ -1065,7 +1050,9 @@ export async function objectTest(RC, options, callback = undefined) {
   leftLabel.style.color = 'rgb(0, 0, 0)'
   leftLabel.style.fontWeight = 'normal'
   leftLabel.style.fontSize = '1.4em'
-  leftLabel.style.width = '120px' // Fixed width for square shape
+  leftLabel.style.width = '240px' // Fixed width for square shape
+  leftLabel.style.maxWidth = '240px' // Ensure it doesn't exceed the bounding box
+  leftLabel.style.overflowWrap = 'break-word' // Modern CSS property for word wrapping
   leftLabel.style.wordWrap = 'break-word' // Enable word wrapping
   leftLabel.style.textAlign = 'left' // Align text to the left
   leftLabel.style.lineHeight = '1.2' // Tighter line height for better square appearance
@@ -1081,7 +1068,9 @@ export async function objectTest(RC, options, callback = undefined) {
   rightLabel.style.color = 'rgb(0, 0, 0)'
   rightLabel.style.fontWeight = 'normal'
   rightLabel.style.fontSize = '1.4em'
-  rightLabel.style.width = '120px' // Fixed width for square shape
+  rightLabel.style.width = '240px' // Fixed width for square shape
+  rightLabel.style.maxWidth = '240px' // Ensure it doesn't exceed the bounding box
+  rightLabel.style.overflowWrap = 'break-word' // Modern CSS property for word wrapping
   rightLabel.style.wordWrap = 'break-word' // Enable word wrapping
   rightLabel.style.textAlign = 'left' // Align text to the left
   rightLabel.style.lineHeight = '1.2' // Tighter line height for better square appearance
@@ -1118,7 +1107,8 @@ export async function objectTest(RC, options, callback = undefined) {
       rightLabel.style.color = 'rgb(255, 0, 0)'
       rightLabel.innerText = phrases.RC_viewingDistanceObjectTooShort[RC.L]
       rightLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
-      rightLabel.style.width = '220px' // Wider for red warning
+      rightLabel.style.width = '440px' // Wider for red warning
+      rightLabel.style.maxWidth = '440px' // Ensure it doesn't exceed the bounding box
       console.log('Changed to RED')
     } else {
       leftLine.style.background = 'rgb(0, 0, 0)'
@@ -1132,7 +1122,8 @@ export async function objectTest(RC, options, callback = undefined) {
       rightLabel.style.color = 'rgb(0, 0, 0)'
       rightLabel.innerText = phrases.RC_RightEdge[RC.L]
       rightLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
-      rightLabel.style.width = '120px' // Default width
+      rightLabel.style.width = '240px' // Default width
+      rightLabel.style.maxWidth = '240px' // Ensure it doesn't exceed the bounding box
       console.log('Changed to GREEN')
     }
   }
@@ -1190,7 +1181,7 @@ export async function objectTest(RC, options, callback = undefined) {
     if (!dragging) return
     let x = e.clientX
     // Clamp so it can't cross the left line or go off screen
-    x = Math.max(leftLinePx + 20, Math.min(x, screenWidth - 10))
+    x = Math.max(leftLinePx + 10, Math.min(x, screenWidth - 2))
     rightLinePx = x
     rightLine.style.left = `${rightLinePx}px`
     updateRightLabel()
@@ -1211,7 +1202,7 @@ export async function objectTest(RC, options, callback = undefined) {
     if (!leftDragging) return
     let x = e.clientX
     // Clamp so it can't cross the right line or go off screen
-    x = Math.max(10, Math.min(x, rightLinePx - 20))
+    x = Math.max(2, Math.min(x, rightLinePx - 2))
     leftLinePx = x
     leftLine.style.left = `${leftLinePx}px`
     updateLeftLabel()
@@ -1459,17 +1450,17 @@ export async function objectTest(RC, options, callback = undefined) {
     // Update horizontal line position to connect the vertical lines directly
     horizontalLine.style.left = `${leftLinePx + lineThickness}px` // Start at inside edge of left vertical line
     horizontalLine.style.right = `${window.innerWidth - rightLinePx}px` // End at inner edge of right line
-    horizontalLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
+    //horizontalLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
 
     // Update arrow line positions - account for rotation overlap
     leftArrowLine.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
-    leftArrowLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
+    // //leftArrowLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
     rightArrowLine.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
-    rightArrowLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
+    // //rightArrowLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
     leftArrowLineUp.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
-    leftArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
+    // //leftArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
     rightArrowLineUp.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
-    rightArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
+    // //rightArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
 
     // Update dynamic length (this now handles positioning too)
     updateDynamicLength()
@@ -1477,16 +1468,10 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Update positions when window is resized
   window.addEventListener('resize', () => {
-    // Update the main screenCenterY variable
-    const newScreenCenterY = window.innerHeight * 0.6 // Move 10% lower from center (was 0.5)
+    //updateHorizontalLine() // This will update all horizontal line and arrow positions
 
-    // Update horizontal line and arrows
-    horizontalLine.style.top = `${newScreenCenterY}px`
-    leftArrowLine.style.top = `${newScreenCenterY}px`
-    rightArrowLine.style.top = `${newScreenCenterY}px`
-    leftArrowLineUp.style.top = `${newScreenCenterY}px`
-    rightArrowLineUp.style.top = `${newScreenCenterY}px`
-    updateHorizontalLine() // This will also update the dynamic length label position
+    // Update radio container position to maintain 31.2% from top
+    radioContainer.style.top = '36%'
   })
 
   // ===================== END DRAWING =====================
@@ -2427,7 +2412,6 @@ export async function objectTest(RC, options, callback = undefined) {
   // ===================== INITIALIZE PAGE 0 =====================
   showPage(0)
 }
-
 // ===================== DISTANCE DATA VALIDATION =====================
 // This function validates the distance measurement data before it's used for Face Mesh calibration
 // It's crucial because Face Mesh needs accurate reference points to track distance changes
@@ -2705,3 +2689,4 @@ function checkBlindspotTolerance(dist, allowedRatio = 1.1) {
 
   return maxRatio <= maxAllowedRatio
 }
+
