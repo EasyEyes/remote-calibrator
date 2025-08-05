@@ -64,7 +64,7 @@
   position: fixed !important;
   transform-origin: bottom left;
   border-radius: 5px;
-  /* opacity: 0.8; */
+  opacity: 1 !important;
   overflow: hidden;
   /* pointer-events: none; */
   user-select: none;
