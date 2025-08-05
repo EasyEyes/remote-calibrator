@@ -318,16 +318,17 @@ export const showCameraSelectionPopup = async (
     title,
     html: `${message}<br><br>${cameraPreviewsHTML}<br><br>${statusHTML}`,
     confirmButtonText: phrases.RC_ok[RC.L],
-    allowEnterKey: true,
+    allowEnterKey: false, // To be changed
     // Reduce popup width to fit content
     width: 'auto',
     maxWidth: '600px',
     didOpen: () => {
       // Handle keyboard events
       const keydownListener = event => {
-        if (event.key === 'Enter' || event.key === 'Return') {
-          Swal.clickConfirm()
-        }
+        // Removed Enter/Return key handling to prevent return key from being selected
+        // if (event.key === 'Enter' || event.key === 'Return') {
+        //   Swal.clickConfirm()
+        // }
       }
 
       // Add keyboard listener
