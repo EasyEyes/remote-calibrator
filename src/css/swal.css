@@ -80,3 +80,17 @@
   width: auto;
   margin-right: 5px;
 }
+
+/* Camera selection popup specific positioning */
+.camera-selection-popup {
+  position: fixed !important;
+  top: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  bottom: auto !important;
+}
+
+/* Mirror video previews in camera selection popup */
+.camera-selection-popup video {
+  transform: scaleX(-1) !important;
+}

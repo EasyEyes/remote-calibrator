@@ -46,13 +46,20 @@ export const showPopup = async (RC, title, message, onClose = null) => {
     didOpen: () => {
       // Handle keyboard events
       const keydownListener = event => {
+        // Prevent space key from triggering other functions
+        if (event.key === ' ') {
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+        
         if (event.key === 'Enter' || event.key === 'Return') {
           Swal.clickConfirm()
         }
       }
 
       // Add keyboard listener
-      document.addEventListener('keydown', keydownListener)
+      document.addEventListener('keydown', keydownListener, true) // Use capture phase to intercept early
 
       // Handle EasyEyes keypad if available
       if (RC.keypadHandler) {
@@ -75,7 +82,7 @@ export const showPopup = async (RC, title, message, onClose = null) => {
     willClose: () => {
       // Remove keyboard event listener
       if (RC.popupKeydownListener) {
-        document.removeEventListener('keydown', RC.popupKeydownListener)
+        document.removeEventListener('keydown', RC.popupKeydownListener, true) // Use capture phase to match how it was added
         RC.popupKeydownListener = null
       }
     },
@@ -207,8 +214,10 @@ const createCameraPreviews = async (
     previewsHTML += `
       <div 
         id="camera-preview-container-${i}"
+        class="camera-preview-container"
+        data-device-id="${camera.deviceId}"
+        data-camera-label="${camera.label || `Camera ${i + 1}`}"
         style="display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; cursor: pointer; padding: 5px; border-radius: 8px; transition: all 0.2s ease; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
-        onclick="window.selectCamera('${camera.deviceId}', '${camera.label || `Camera ${i + 1}`}')"
       >
         <video 
           id="${previewId}" 
@@ -257,6 +266,120 @@ const createCameraPreviews = async (
 }
 
 /**
+ * Updates camera previews when camera list changes
+ * @param {Array} newCameras - Updated array of camera devices
+ * @param {Object} RC - RemoteCalibrator instance
+ * @param {Object} currentActiveCamera - Currently active camera
+ * @param {Array} oldCameras - Previous array of camera devices
+ */
+const updateCameraPreviews = async (newCameras, RC, currentActiveCamera, oldCameras = []) => {
+  const previewContainer = document.querySelector('.camera-selection-popup .swal2-html-container')
+  if (!previewContainer) return
+
+  // Stop old video streams
+  oldCameras.forEach((camera, index) => {
+    const videoElement = document.getElementById(`camera-preview-${index}`)
+    if (videoElement && videoElement.srcObject) {
+      const stream = videoElement.srcObject
+      stream.getTracks().forEach(track => track.stop())
+    }
+  })
+
+  // Create new previews HTML
+  const newPreviewsHTML = await createCameraPreviews(newCameras, RC, null, currentActiveCamera)
+  
+  // Replace the previews section
+  const oldPreviewsDiv = previewContainer.querySelector('div[style*="display: flex"]')
+  if (oldPreviewsDiv) {
+    oldPreviewsDiv.outerHTML = newPreviewsHTML
+  }
+
+  // Re-add event listeners for new previews
+  newCameras.forEach((camera, index) => {
+    const container = document.getElementById(`camera-preview-container-${index}`)
+    if (container) {
+      // Hover highlight - treat as tentative selection
+      container.addEventListener('mouseenter', async () => {
+        const deviceId = container.getAttribute('data-device-id')
+        const label = container.getAttribute('data-camera-label')
+        
+        // Unhighlight all containers first (including active ones)
+        newCameras.forEach((otherCamera, otherIndex) => {
+          const otherContainer = document.getElementById(`camera-preview-container-${otherIndex}`)
+          if (otherContainer) {
+            otherContainer.style.backgroundColor = 'transparent'
+            otherContainer.style.border = '2px solid transparent'
+            const otherDiv = otherContainer.querySelector('div')
+            if (otherDiv) {
+              otherDiv.style.color = '#666'
+              otherDiv.style.fontWeight = 'normal'
+            }
+          }
+        })
+        
+        // Highlight current container as tentative selection
+        container.style.backgroundColor = '#e8f5e8'
+        container.style.border = '2px solid #28a745'
+        const div = container.querySelector('div')
+        if (div) {
+          div.style.color = '#28a745'
+          div.style.fontWeight = 'bold'
+        }
+
+        // Actually switch to this camera temporarily
+        const selectedCamera = newCameras.find(cam => cam.deviceId === deviceId)
+        if (selectedCamera && RC.gazeTracker?.webgazer) {
+          try {
+            await switchToCamera(RC, selectedCamera)
+          } catch (error) {
+            console.error('Tentative camera switch error:', error)
+          }
+        }
+      })
+
+      // Click to commit (same as clicking OK)
+      container.addEventListener('click', async () => {
+        const deviceId = container.getAttribute('data-device-id')
+        const label = container.getAttribute('data-camera-label')
+        
+        // Add loading text between preview and instruction
+        const loadingText = document.createElement('div')
+        loadingText.id = 'camera-loading-text'
+        loadingText.style.cssText = `
+          text-align: center;
+          color: #666;
+          font-style: italic;
+          margin: 10px 0;
+          font-size: 14px;
+        `
+        loadingText.textContent = 'Loading...'
+        
+        // Insert loading text after the preview container
+        const previewContainer = document.querySelector('.camera-selection-popup .swal2-html-container')
+        if (previewContainer) {
+          previewContainer.appendChild(loadingText)
+        }
+        
+        // Call the same function that OK button would call
+        await window.selectCamera(deviceId, label)
+        
+        // Add 1500ms delay to account for video switching time
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        
+        // Remove loading text
+        const loadingTextElement = document.getElementById('camera-loading-text')
+        if (loadingTextElement) {
+          loadingTextElement.remove()
+        }
+        
+        // Close the popup (same as clicking OK)
+        Swal.clickConfirm()
+      })
+    }
+  })
+}
+
+/**
  * Shows a popup with camera selection dropdown
  * @param {Object} RC - RemoteCalibrator instance
  * @param {string} title - Popup title
@@ -294,6 +417,13 @@ export const showCameraSelectionPopup = async (
     videoContainer.style.zIndex = '9999999999'
   }
 
+  // Hide the main video preview when camera selection popup opens
+  const mainVideoContainer = document.getElementById('webgazerVideoContainer')
+  const originalMainVideoDisplay = mainVideoContainer?.style?.display || 'block'
+  if (mainVideoContainer) {
+    mainVideoContainer.style.display = 'none'
+  }
+
   // Get available cameras
   const cameras = await getAvailableCameras()
 
@@ -308,23 +438,142 @@ export const showCameraSelectionPopup = async (
     currentActiveCamera,
   )
 
-  // Create status div for feedback
-  const statusHTML =
-    '<div id="camera-status" style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;"></div>'
-
   const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title,
-    html: `${message}<br><br>${cameraPreviewsHTML}<br><br>${statusHTML}`,
-    confirmButtonText: phrases.RC_ok[RC.L],
+    html: `${cameraPreviewsHTML}<br>${message}`,
+    showConfirmButton: false,
     allowEnterKey: false, // To be changed
     // Reduce popup width to fit content
     width: 'auto',
     maxWidth: '600px',
+    customClass: {
+      popup: 'my__swal2__container camera-selection-popup',
+      icon: 'my__swal2__icon',
+      title: 'my__swal2__title',
+      htmlContainer: `my__swal2__html rc-lang-${RC.LD.toLowerCase()}`,
+      confirmButton: 'rc-button rc-go-button',
+    },
     didOpen: () => {
+      // Store initial cameras for comparison
+      let currentCameras = [...cameras]
+      let cameraPollingInterval = null
+
+      // Start polling for camera changes
+      const startCameraPolling = () => {
+        // Clear any existing interval first
+        if (RC.cameraPollingInterval) {
+          clearInterval(RC.cameraPollingInterval)
+          RC.cameraPollingInterval = null
+        }
+        
+        cameraPollingInterval = setInterval(async () => {
+          try {
+            const newCameras = await getAvailableCameras()
+            
+            // Check if camera list has changed
+            const hasChanged = newCameras.length !== currentCameras.length || 
+              newCameras.some((newCam, index) => 
+                !currentCameras[index] || 
+                newCam.deviceId !== currentCameras[index].deviceId
+              )
+
+            if (hasChanged) {
+              console.log('Camera list changed, updating UI...')
+              const oldCameras = [...currentCameras]
+              currentCameras = [...newCameras]
+              
+              // Update the UI with new cameras
+              await updateCameraPreviews(newCameras, RC, currentActiveCamera, oldCameras)
+              
+              // Update global selectCamera function with new cameras
+              window.selectCamera = async (deviceId, label) => {
+                const selectedCamera = newCameras.find(cam => cam.deviceId === deviceId)
+
+                if (selectedCamera && RC.gazeTracker?.webgazer) {
+                  // Disable all preview containers during switching
+                  newCameras.forEach((camera, index) => {
+                    const container = document.getElementById(
+                      `camera-preview-container-${index}`,
+                    )
+                    if (container) {
+                      container.style.pointerEvents = 'none'
+                      container.style.opacity = '0.6'
+                    }
+                  })
+
+                  try {
+                    const success = await switchToCamera(RC, selectedCamera)
+
+                    if (success) {
+                      // Update visual state of all previews immediately
+                      newCameras.forEach((camera, index) => {
+                        const container = document.getElementById(
+                          `camera-preview-container-${index}`,
+                        )
+                        const isActive = camera.deviceId === selectedCamera.deviceId
+
+                        if (container) {
+                          if (isActive) {
+                            container.style.backgroundColor = '#e8f5e8'
+                            container.style.border = '2px solid #28a745'
+                            container.querySelector('div').style.color = '#28a745'
+                            container.querySelector('div').style.fontWeight = 'bold'
+                            container.querySelector('div').textContent =
+                              `${camera.label || `Camera ${index + 1}`} (Current)`
+                          } else {
+                            container.style.backgroundColor = 'transparent'
+                            container.style.border = '2px solid transparent'
+                            container.querySelector('div').style.color = '#666'
+                            container.querySelector('div').style.fontWeight = 'normal'
+                            container.querySelector('div').textContent =
+                              camera.label || `Camera ${index + 1}`
+                          }
+                        }
+                      })
+
+                      // Store the selected camera for return
+                      RC.selectedCamera = selectedCamera
+                    }
+                  } catch (error) {
+                    console.error('Camera switch error:', error)
+                  } finally {
+                    // Re-enable all preview containers
+                    newCameras.forEach((camera, index) => {
+                      const container = document.getElementById(
+                        `camera-preview-container-${index}`,
+                      )
+                      if (container) {
+                        container.style.pointerEvents = 'auto'
+                        container.style.opacity = '1'
+                      }
+                    })
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error polling for camera changes:', error)
+          }
+        }, 100) // Check every 100ms
+        
+        // Store the interval reference for cleanup
+        RC.cameraPollingInterval = cameraPollingInterval
+      }
+
+      // Start polling
+      startCameraPolling()
+
       // Handle keyboard events
       const keydownListener = event => {
+        // Prevent space key from triggering other functions
+        if (event.key === ' ') {
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+        
         // Removed Enter/Return key handling to prevent return key from being selected
         // if (event.key === 'Enter' || event.key === 'Return') {
         //   Swal.clickConfirm()
@@ -332,7 +581,7 @@ export const showCameraSelectionPopup = async (
       }
 
       // Add keyboard listener
-      document.addEventListener('keydown', keydownListener)
+      document.addEventListener('keydown', keydownListener, true) // Use capture phase to intercept early
 
       // Handle EasyEyes keypad if available
       if (RC.keypadHandler) {
@@ -352,26 +601,11 @@ export const showCameraSelectionPopup = async (
       // Store listener for cleanup
       RC.popupKeydownListener = keydownListener
 
-      // Initialize status with current camera
-      const statusDiv = document.getElementById('camera-status')
-      if (statusDiv && currentActiveCamera) {
-        statusDiv.innerHTML = `Current: ${currentActiveCamera.label || 'camera'}`
-        statusDiv.style.color = '#666'
-      }
-
       // Create global camera selection function
       window.selectCamera = async (deviceId, label) => {
         const selectedCamera = cameras.find(cam => cam.deviceId === deviceId)
 
         if (selectedCamera && RC.gazeTracker?.webgazer) {
-          const statusDiv = document.getElementById('camera-status')
-
-          // Show loading status
-          if (statusDiv) {
-            statusDiv.innerHTML = 'Switching camera...'
-            statusDiv.style.color = '#666'
-          }
-
           // Disable all preview containers during switching
           cameras.forEach((camera, index) => {
             const container = document.getElementById(
@@ -387,14 +621,6 @@ export const showCameraSelectionPopup = async (
             const success = await switchToCamera(RC, selectedCamera)
 
             if (success) {
-              // Keep "Switching camera..." message for 1.5 seconds before showing success
-              setTimeout(() => {
-                if (statusDiv) {
-                  statusDiv.innerHTML = `✓ Switched to ${selectedCamera.label || 'camera'}`
-                  statusDiv.style.color = '#28a745'
-                }
-              }, 1500)
-
               // Update visual state of all previews immediately
               cameras.forEach((camera, index) => {
                 const container = document.getElementById(
@@ -423,7 +649,195 @@ export const showCameraSelectionPopup = async (
 
               // Store the selected camera for return
               RC.selectedCamera = selectedCamera
+            }
+          } catch (error) {
+            console.error('Camera switch error:', error)
+          } finally {
+            // Re-enable all preview containers
+            cameras.forEach((camera, index) => {
+              const container = document.getElementById(
+                `camera-preview-container-${index}`,
+              )
+              if (container) {
+                container.style.pointerEvents = 'auto'
+                container.style.opacity = '1'
+              }
+            })
+          }
+        }
+      }
+
+      // Add event listeners for hover and click behavior
+      cameras.forEach((camera, index) => {
+        const container = document.getElementById(`camera-preview-container-${index}`)
+        if (container) {
+          // Hover highlight - treat as tentative selection
+          container.addEventListener('mouseenter', async () => {
+            const deviceId = container.getAttribute('data-device-id')
+            const label = container.getAttribute('data-camera-label')
+            
+            // Unhighlight all containers first (including active ones)
+            cameras.forEach((otherCamera, otherIndex) => {
+              const otherContainer = document.getElementById(`camera-preview-container-${otherIndex}`)
+              if (otherContainer) {
+                otherContainer.style.backgroundColor = 'transparent'
+                otherContainer.style.border = '2px solid transparent'
+                const otherDiv = otherContainer.querySelector('div')
+                if (otherDiv) {
+                  otherDiv.style.color = '#666'
+                  otherDiv.style.fontWeight = 'normal'
+                }
+              }
+            })
+            
+            // Highlight current container as tentative selection
+            container.style.backgroundColor = '#e8f5e8'
+            container.style.border = '2px solid #28a745'
+            const div = container.querySelector('div')
+            if (div) {
+              div.style.color = '#28a745'
+              div.style.fontWeight = 'bold'
+            }
+
+            // Actually switch to this camera temporarily
+            const selectedCamera = cameras.find(cam => cam.deviceId === deviceId)
+            if (selectedCamera && RC.gazeTracker?.webgazer) {
+              try {
+                await switchToCamera(RC, selectedCamera)
+              } catch (error) {
+                console.error('Tentative camera switch error:', error)
+              }
+            }
+          })
+
+          // No mouseleave handler - highlighting persists until hovering over something else
+
+          // Click to commit (same as clicking OK)
+          container.addEventListener('click', async () => {
+            const deviceId = container.getAttribute('data-device-id')
+            const label = container.getAttribute('data-camera-label')
+            
+            // Add loading text between preview and instruction
+            const loadingText = document.createElement('div')
+            loadingText.id = 'camera-loading-text'
+            loadingText.style.cssText = `
+              text-align: center;
+              color: #666;
+              font-style: italic;
+              margin: 10px 0;
+              font-size: 14px;
+            `
+            loadingText.textContent = 'Loading...'
+            
+            // Insert loading text after the preview container
+            const previewContainer = document.querySelector('.camera-selection-popup .swal2-html-container')
+            if (previewContainer) {
+              previewContainer.appendChild(loadingText)
+            }
+            
+            // Call the same function that OK button would call
+            await window.selectCamera(deviceId, label)
+            
+            // Add 1500ms delay to account for video switching time
+            await new Promise(resolve => setTimeout(resolve, 1500))
+            
+            // Remove loading text
+            const loadingTextElement = document.getElementById('camera-loading-text')
+            if (loadingTextElement) {
+              loadingTextElement.remove()
+            }
+            
+            // Close the popup (same as clicking OK)
+            Swal.clickConfirm()
+          })
+        }
+      })
+
+      // Create global camera hover highlighting functions
+      window.highlightCamera = (deviceId) => {
+        const cameraIndex = cameras.findIndex(cam => cam.deviceId === deviceId)
+        if (cameraIndex !== -1) {
+          const container = document.getElementById(`camera-preview-container-${cameraIndex}`)
+          if (container) {
+            container.style.backgroundColor = '#f0f8ff'
+            container.style.border = '2px solid #007bff'
+            container.style.transform = 'scale(1.02)'
+          }
+        }
+      }
+
+      window.unhighlightCamera = (deviceId) => {
+        const cameraIndex = cameras.findIndex(cam => cam.deviceId === deviceId)
+        if (cameraIndex !== -1) {
+          const container = document.getElementById(`camera-preview-container-${cameraIndex}`)
+          if (container) {
+            const isActive = currentActiveCamera && currentActiveCamera.deviceId === deviceId
+            container.style.backgroundColor = isActive ? '#e8f5e8' : 'transparent'
+            container.style.border = isActive ? '2px solid #28a745' : '2px solid transparent'
+            container.style.transform = 'scale(1)'
+          }
+        }
+      }
+
+      // Create global camera selection and commit function
+      window.selectAndCommitCamera = async (deviceId, label) => {
+        const selectedCamera = cameras.find(cam => cam.deviceId === deviceId)
+
+        if (selectedCamera && RC.gazeTracker?.webgazer) {
+          // Add loading text between preview and instruction
+          const loadingText = document.createElement('div')
+          loadingText.id = 'camera-loading-text'
+          loadingText.style.cssText = `
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin: 10px 0;
+            font-size: 14px;
+          `
+          loadingText.textContent = 'Loading...'
+          
+          // Insert loading text after the preview container
+          const previewContainer = document.querySelector('.camera-selection-popup .swal2-html-container')
+          if (previewContainer) {
+            previewContainer.appendChild(loadingText)
+          }
+
+          // Disable all preview containers during switching
+          cameras.forEach((camera, index) => {
+            const container = document.getElementById(
+              `camera-preview-container-${index}`,
+            )
+            if (container) {
+              container.style.pointerEvents = 'none'
+              container.style.opacity = '0.6'
+            }
+          })
+
+          try {
+            const success = await switchToCamera(RC, selectedCamera)
+
+            if (success) {
+              // Store the selected camera for return
+              RC.selectedCamera = selectedCamera
+              
+              // Add 1500ms delay to account for video switching time
+              await new Promise(resolve => setTimeout(resolve, 1500))
+              
+              // Remove loading text
+              const loadingTextElement = document.getElementById('camera-loading-text')
+              if (loadingTextElement) {
+                loadingTextElement.remove()
+              }
+              
+              // Close the popup immediately after successful switch
+              Swal.clickConfirm()
             } else {
+              // Remove loading text on error
+              const loadingTextElement = document.getElementById('camera-loading-text')
+              if (loadingTextElement) {
+                loadingTextElement.remove()
+              }
+              
               // Show error status immediately
               if (statusDiv) {
                 statusDiv.innerHTML = '✗ Failed to switch camera'
@@ -432,6 +846,12 @@ export const showCameraSelectionPopup = async (
             }
           } catch (error) {
             console.error('Camera switch error:', error)
+
+            // Remove loading text on error
+            const loadingTextElement = document.getElementById('camera-loading-text')
+            if (loadingTextElement) {
+              loadingTextElement.remove()
+            }
 
             // Show error status immediately
             if (statusDiv) {
@@ -454,15 +874,51 @@ export const showCameraSelectionPopup = async (
       }
     },
     willClose: () => {
+      // Clear camera polling interval - clean up both local and global references
+      if (RC.cameraPollingInterval) {
+        clearInterval(RC.cameraPollingInterval)
+        RC.cameraPollingInterval = null
+      }
+
       // Remove keyboard event listener
       if (RC.popupKeydownListener) {
-        document.removeEventListener('keydown', RC.popupKeydownListener)
+        document.removeEventListener('keydown', RC.popupKeydownListener, true) // Use capture phase to match how it was added
         RC.popupKeydownListener = null
       }
 
       // Remove global camera selection function
       if (window.selectCamera) {
         delete window.selectCamera
+      }
+      
+      // Remove other global functions that might have been created
+      if (window.highlightCamera) {
+        delete window.highlightCamera
+      }
+      if (window.unhighlightCamera) {
+        delete window.unhighlightCamera
+      }
+      if (window.selectAndCommitCamera) {
+        delete window.selectAndCommitCamera
+      }
+
+      // Show the main video preview again when the popup closes
+      if (mainVideoContainer) {
+        mainVideoContainer.style.display = originalMainVideoDisplay
+      }
+
+      // If no camera was explicitly selected, restore the original camera
+      if (!RC.selectedCamera && RC.gazeTracker?.webgazer) {
+        // Restore to the original active camera
+        const originalCamera = getCurrentActiveCamera(RC)
+        if (originalCamera) {
+          const originalCameraObj = cameras.find(cam => cam.deviceId === originalCamera.deviceId)
+          if (originalCameraObj) {
+            switchToCamera(RC, originalCameraObj).catch(error => {
+              console.error('Failed to restore original camera:', error)
+            })
+          }
+        }
       }
 
       // Stop all preview video streams
@@ -473,6 +929,11 @@ export const showCameraSelectionPopup = async (
           stream.getTracks().forEach(track => track.stop())
         }
       })
+
+      // Show the main video preview again when the popup closes
+      if (mainVideoContainer) {
+        mainVideoContainer.style.display = originalMainVideoDisplay
+      }
     },
   })
 
@@ -498,6 +959,12 @@ export const showCameraSelectionPopup = async (
     onClose(selectedCamera)
   }
 
+  // Final safety cleanup - ensure camera polling is stopped
+  if (RC.cameraPollingInterval) {
+    clearInterval(RC.cameraPollingInterval)
+    RC.cameraPollingInterval = null
+  }
+
   return { ...result, selectedCamera }
 }
 
@@ -508,11 +975,23 @@ export const showCameraSelectionPopup = async (
  * @returns {Promise} - Promise that resolves when popup is closed with selected camera
  */
 export const showTestPopup = async (RC, onClose = null) => {
+  // Hide the main video preview immediately to prevent flash
+  const mainVideoContainer = document.getElementById('webgazerVideoContainer')
+  const originalMainVideoDisplay = mainVideoContainer?.style?.display || 'block'
+  if (mainVideoContainer) {
+    mainVideoContainer.style.display = 'none'
+  }
+
   // Check if there are at least 2 cameras available
   const cameras = await getAvailableCameras()
 
-  // If less than 2 cameras, skip the popup
+  // If less than 2 cameras, show the main video preview again and skip the popup
   if (cameras.length < 2) {
+    // Show the main video preview again
+    if (mainVideoContainer) {
+      mainVideoContainer.style.display = originalMainVideoDisplay
+    }
+    
     // Call onClose callback if provided
     if (onClose && typeof onClose === 'function') {
       onClose(null)
@@ -521,10 +1000,18 @@ export const showTestPopup = async (RC, onClose = null) => {
   }
 
   // Show popup only if there are 2 or more cameras
-  return await showCameraSelectionPopup(
+  const result = await showCameraSelectionPopup(
     RC,
     '',
     phrases.RC_ChooseCamera[RC.L],
     onClose,
   )
+  
+  // Final safety cleanup - ensure camera polling is stopped
+  if (RC.cameraPollingInterval) {
+    clearInterval(RC.cameraPollingInterval)
+    RC.cameraPollingInterval = null
+  }
+  
+  return result
 }
