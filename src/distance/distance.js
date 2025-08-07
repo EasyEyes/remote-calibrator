@@ -824,7 +824,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // --- INSTRUCTIONS ---
   const instructions = document.createElement('div')
-  instructions.style.maxWidth = '50vw'
+  instructions.style.maxWidth = '45vw' // Decreased by 10% from 50vw
   instructions.style.paddingLeft = '3rem'
   instructions.style.marginTop = '-2rem'
   instructions.style.textAlign = 'left'
@@ -834,6 +834,8 @@ export async function objectTest(RC, options, callback = undefined) {
   instructions.style.zIndex = '3'
   instructions.style.fontSize = '1.4em'
   instructions.style.lineHeight = '1.6'
+  // Add responsive font size
+  instructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
   container.appendChild(instructions)
 
   // --- RADIO BUTTON CONTAINER ---
@@ -850,20 +852,17 @@ export async function objectTest(RC, options, callback = undefined) {
 
   const radioContainer = document.createElement('div')
   radioContainer.id = 'custom-radio-group'
-  radioContainer.style.position = 'fixed'
-  radioContainer.style.top = '31.2%'
-  radioContainer.style.left = '0'
-  radioContainer.style.transform = 'translateY(-50%)'
+  radioContainer.style.position = 'relative' // Changed from fixed to relative
+  radioContainer.style.marginTop = '0.5rem' // Decreased from 2rem to 1rem for smaller gap
+  radioContainer.style.marginLeft = '3rem' // Match instructions padding
   radioContainer.style.backgroundColor = 'transparent'
   radioContainer.style.borderRadius = '0.5rem'
-  radioContainer.style.padding = '2rem 2.5rem'
+  radioContainer.style.padding = '0' // Remove padding since we're using margin
   radioContainer.style.zIndex = '9999'
-  radioContainer.style.width = '50vw'
-  radioContainer.style.maxWidth = '50vw'
+  radioContainer.style.width = '45vw' // Match instructions maxWidth
+  radioContainer.style.maxWidth = '45vw' // Match instructions maxWidth
   radioContainer.style.textAlign = 'left'
   radioContainer.style.display = 'none' // Hidden by default
-  // Remove dynamic padding - use fixed 3rem to match other elements
-  radioContainer.style.paddingLeft = '4.5rem'
   container.appendChild(radioContainer)
 
   // Create radio button options
@@ -884,7 +883,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // --- Validation message for radio selection ---
   const validationMessage = document.createElement('div')
   validationMessage.style.color = 'red'
-  validationMessage.style.fontSize = '0.95em'
+  validationMessage.style.fontSize = 'clamp(0.9em, 2vw, 0.95em)' // Responsive font size
   validationMessage.style.marginTop = '0.5em'
   validationMessage.style.display = 'none'
   validationMessage.style.textAlign = 'left'
@@ -912,7 +911,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
     const span = document.createElement('span')
     span.textContent = option.label
-    span.style.fontSize = '1.4em'
+    span.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)' // Responsive font size
     span.style.lineHeight = '1.6'
     span.style.whiteSpace = 'nowrap'
     span.style.userSelect = 'none' // Prevent text selection
@@ -1177,7 +1176,7 @@ export async function objectTest(RC, options, callback = undefined) {
     if (!dragging) return
     let x = e.clientX
     // Clamp so it can't cross the left line or go off screen
-    x = Math.max(leftLinePx + 10, Math.min(x, screenWidth - 2))
+    x = Math.max(leftLinePx + 10, Math.min(x, screenWidth)) // Changed from screenWidth - 2 to screenWidth
     rightLinePx = x
     rightLine.style.left = `${rightLinePx}px`
     updateRightLabel()
@@ -1198,7 +1197,7 @@ export async function objectTest(RC, options, callback = undefined) {
     if (!leftDragging) return
     let x = e.clientX
     // Clamp so it can't cross the right line or go off screen
-    x = Math.max(2, Math.min(x, rightLinePx - 2))
+    x = Math.max(0, Math.min(x, rightLinePx - 2)) // Changed from 2 to 0 to touch left edge
     leftLinePx = x
     leftLine.style.left = `${leftLinePx}px`
     updateLeftLabel()
@@ -1228,8 +1227,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
     arrowKeyDown = true
     currentArrowKey = e.key
-    rightLine.style.background = 'rgb(255, 165, 0)' // Orange to indicate active movement
-    rightLine.style.boxShadow = '0 0 12px rgba(255, 165, 0, 0.6)'
+    // Removed orange color change for active movement
 
     // Clear any existing interval
     if (arrowIntervalFunction) {
@@ -1261,8 +1259,7 @@ export async function objectTest(RC, options, callback = undefined) {
     arrowKeyDown = false
     currentArrowKey = null
 
-    // Restore original color based on distance
-    updateLineColors()
+    // Removed color restoration since we're not changing colors anymore
 
     // Clear the interval
     if (arrowIntervalFunction) {
@@ -1273,8 +1270,8 @@ export async function objectTest(RC, options, callback = undefined) {
 
   const helpMoveRightLine = () => {
     // Clamp the position so it can't cross the left line or go off screen
-    const minX = leftLinePx + 20 // Minimum 20px gap from left line
-    const maxX = screenWidth - 10 // Maximum 10px from right edge
+    const minX = leftLinePx + 10 // Changed from 20px to 10px minimum gap from left line
+    const maxX = screenWidth // Changed from screenWidth - 10 to screenWidth to touch right edge
 
     rightLinePx = Math.max(minX, Math.min(rightLinePx, maxX))
 
@@ -1465,9 +1462,6 @@ export async function objectTest(RC, options, callback = undefined) {
   // Update positions when window is resized
   window.addEventListener('resize', () => {
     //updateHorizontalLine() // This will update all horizontal line and arrow positions
-
-    // Update radio container position to maintain 31.2% from top
-    radioContainer.style.top = '36%'
   })
 
   // ===================== END DRAWING =====================

@@ -116,7 +116,7 @@ export function setDefaultVideoPosition(RC, v) {
     // Mobile
     v.style.left = 'unset'
     v.style.right = RC._CONST.N.VIDEO_MARGIN
-    v.style.top = RC._CONST.N.VIDEO_MARGIN
+    v.style.top = '0px' // Push to top edge with no gap
     v.style.bottom = 'unset'
   } else {
     // Desktop - position at top center or center of screen based on progress bar presence
@@ -144,8 +144,8 @@ export function setDefaultVideoPosition(RC, v) {
       v.style.left = `${leftPositionPx}px`
       v.style.bottom = 'unset'
     } else {
-      // Default top positioning when no progress bar
-      v.style.top = RC._CONST.N.VIDEO_MARGIN
+      // Default top positioning when no progress bar - push to top edge with no gap
+      v.style.top = '0px'
       v.style.bottom = 'unset'
     }
   }
