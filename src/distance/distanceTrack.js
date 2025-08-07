@@ -433,9 +433,18 @@ const _tracking = async (
               timestamp - RC._trackingVideoFrameTimestamps.distance,
             )
 
+            // Calculate webcam-to-eye distance
+            const webcamToEyeDistance = stdFactor / averageDist
+            
+            // Apply trigonometric adjustment to get screen-center-to-eye distance
+            const screenCenterToEyeDistance = _adjustDistanceToScreenCenter(webcamToEyeDistance, ppi)
+
+            //print adjusted and adjusted 
+            console.log('.....screenCenterToEyeDistance', screenCenterToEyeDistance)
+            console.log('.....webcamToEyeDistance', webcamToEyeDistance)
             const data = {
               value: toFixedNumber(
-                stdFactor / averageDist,
+                screenCenterToEyeDistance,
                 trackingOptions.decimalPlace,
               ),
               timestamp: timestamp,
@@ -645,7 +654,7 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
 
   const c = callback || this.gazeTracker.defaultDistanceTrackCallback
 
-  const v = document.querySelector('#webgazerVideoFeed')
+  const v = document.getElementById('webgazerVideoCanvas')
   const m = await this.gazeTracker.webgazer.getTracker().model
   const videoTimestamp = performance.now()
   const f = await m.estimateFaces(v)
@@ -659,8 +668,15 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
     const latency = timestamp - videoTimestamp
     //
 
+    // Calculate webcam-to-eye distance
+    const webcamToEyeDistance = stdFactor / dist
+    
+    // Apply trigonometric adjustment to get screen-center-to-eye distance
+    const ppi = this.screenPpi ? this.screenPpi.value : this._CONST.N.PPI_DONT_USE
+    const screenCenterToEyeDistance = _adjustDistanceToScreenCenter(webcamToEyeDistance, ppi)
+
     this.newViewingDistanceData = {
-      value: toFixedNumber(stdFactor / dist, trackingOptions.decimalPlace),
+      value: toFixedNumber(screenCenterToEyeDistance, trackingOptions.decimalPlace),
       timestamp: timestamp,
       method: this._CONST.VIEW_METHOD.F,
       latencyMs: latency,
@@ -706,6 +722,7 @@ RemoteCalibrator.prototype.showNearPoint = function (show = true) {
 const _calculateDistanceFromCenterToTop = ppi => {
   // get the screen height in pixels
   const screenHeightPixels = window.screen.height
+  console.log('.....screenHeightPixels', ppi)
 
   // calculate half the screen height in pixels
   const halfScreenHeightPixels = screenHeightPixels / 2
@@ -713,8 +730,24 @@ const _calculateDistanceFromCenterToTop = ppi => {
   // convert pixels to inches using the ppi
   const halfScreenHeightInches = halfScreenHeightPixels / ppi
 
-  // convert inches to centimeters (1 inch = 2.54 cm)
-  const halfScreenHeightCm = halfScreenHeightInches * 2.54
 
-  return halfScreenHeightCm
+  // convert inches to centimeters (1 inch = 2.54 cm)
+  const halfScreenHeightCm = (halfScreenHeightInches * 2.54)
+
+  console.log('.....halfScreenHeightCm', halfScreenHeightCm)
+
+  return halfScreenHeightCm 
+}
+
+// Helper function to convert webcam-to-eye distance to screen-center-to-eye distance
+const _adjustDistanceToScreenCenter = (webcamToEyeDistance, ppi) => {
+  // Calculate distance from webcam to screen center (half screen height)
+  const webcamToScreenCenterDistance = _calculateDistanceFromCenterToTop(ppi)
+  
+  // Use Pythagorean theorem: screen-center-to-eye = sqrt(webcam-to-eye² + webcam-to-screen-center²)
+  const screenCenterToEyeDistance = Math.sqrt(
+    Math.pow(webcamToEyeDistance, 2) - Math.pow(webcamToScreenCenterDistance, 2)
+  )
+  
+  return screenCenterToEyeDistance
 }

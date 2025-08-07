@@ -46,14 +46,12 @@ const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canv
 
 // Helper to get intraocular distance in pixels (not cm) - moved to global scope
 async function measureIntraocularDistancePx(RC) {
-  let video =
-    document.getElementById('webgazerVideoCanvas') ||
-    document.getElementById('webgazerVideoFeed')
+  let video = document.getElementById('webgazerVideoCanvas')
   if (!video) return null
   const model = await RC.gazeTracker.webgazer.getTracker().model
   const faces = await model.estimateFaces(video)
   if (!faces.length) return null
-  const mesh = faces[0].keypoints || faces[0].scaledMesh
+  const mesh = faces[0].keypoints
   if (!mesh || !mesh[133] || !mesh[362]) return null
   const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
   return eyeDist(mesh[133], mesh[362])
@@ -62,9 +60,7 @@ async function measureIntraocularDistancePx(RC) {
 // Helper to capture current video frame as base64 image
 function captureVideoFrame(RC) {
   try {
-    const video =
-      document.getElementById('webgazerVideoCanvas') ||
-      document.getElementById('webgazerVideoFeed')
+    const video = document.getElementById('webgazerVideoCanvas')
     if (!video) return null
 
     // Create a canvas to capture the frame
@@ -2584,10 +2580,8 @@ RemoteCalibrator.prototype.trackDistanceObject = function (
 
 // Utility to measure intraocular distance using Face Mesh
 async function measureIntraocularDistanceCm(RC, ppi) {
-  // Get the video element (try both canvas and video)
-  let video =
-    document.getElementById('webgazerVideoCanvas') ||
-    document.getElementById('webgazerVideoFeed')
+  // Get the video element (use canvas only)
+  let video = document.getElementById('webgazerVideoCanvas')
   if (!video) return null
   // Ensure model is loaded
   const model = await RC.gazeTracker.webgazer.getTracker().model
