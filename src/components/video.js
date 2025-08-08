@@ -130,7 +130,7 @@ export function setDefaultVideoPosition(RC, v) {
       window.innerHeight || document.documentElement.clientHeight
 
     // Calculate the exact pixel position for perfect horizontal centering
-    const leftPositionPx = viewportWidth / 2 - videoWidth / 4
+    const leftPositionPx = viewportWidth / 2 - videoWidth / 2
 
     v.style.left = `${leftPositionPx}px`
     v.style.right = 'unset'
@@ -139,7 +139,7 @@ export function setDefaultVideoPosition(RC, v) {
     if (hasProgressBar) {
       // Center vertically when progress bar is present
       const topPositionPx = (viewportHeight - videoHeight) / 2
-      const leftPositionPx = viewportWidth / 2 - videoWidth / 4
+      const leftPositionPx = viewportWidth / 2 - videoWidth / 2
       v.style.top = `${topPositionPx}px`
       v.style.left = `${leftPositionPx}px`
       v.style.bottom = 'unset'
