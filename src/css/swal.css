@@ -84,7 +84,7 @@
 /* Camera selection popup specific positioning */
 .camera-selection-popup {
   position: fixed !important;
-  top: 20px !important;
+  top: 0 !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
   bottom: auto !important;
@@ -93,4 +93,25 @@
 /* Mirror video previews in camera selection popup */
 .camera-selection-popup video {
   transform: scaleX(-1) !important;
+}
+
+/* Remove margins from HTML container in camera selection popup */
+.camera-selection-popup .my__swal2__html {
+  margin: 0 !important;
+}
+
+/* Remove only top padding and margin from camera selection popup */
+.camera-selection-popup.my__swal2__container {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+.camera-selection-popup .swal2-content {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+.camera-selection-popup .swal2-html-container {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
 }

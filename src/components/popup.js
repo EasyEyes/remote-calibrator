@@ -197,13 +197,13 @@ const createCameraPreviews = async (
   const videoContainer = document.getElementById('webgazerVideoContainer')
   const previewSize = videoContainer
     ? {
-        width: videoContainer.style.width || '320px',
+        width: `calc(${videoContainer.style.width || '320px'} * 0.85)`,
         height: videoContainer.style.height || '240px',
       }
-    : { width: '320px', height: '240px' }
+    : { width: '272px', height: '240px' } // 320px * 0.85 = 272px
 
   let previewsHTML =
-    '<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; justify-content: center; align-items: center;">'
+    '<div style="display: flex; flex-wrap: nowrap; gap: 5px; margin: 0; justify-content: center; align-items: center; overflow-x: auto;">'
 
   for (let i = 0; i < cameras.length; i++) {
     const camera = cameras[i]
@@ -217,7 +217,7 @@ const createCameraPreviews = async (
         class="camera-preview-container"
         data-device-id="${camera.deviceId}"
         data-camera-label="${camera.label || `Camera ${i + 1}`}"
-        style="display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; cursor: pointer; padding: 5px; border-radius: 8px; transition: all 0.2s ease; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
+        style="display: flex; flex-direction: column; align-items: center; margin: 0; padding: 5px; border-radius: 8px; transition: all 0.2s ease; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
       >
         <video 
           id="${previewId}" 
@@ -339,8 +339,25 @@ const updateCameraPreviews = async (newCameras, RC, currentActiveCamera, oldCame
 
       // Click to commit (same as clicking OK)
       container.addEventListener('click', async () => {
+        // Prevent action if already loading
+        if (RC.cameraSelectionLoading) {
+          return
+        }
+        
         const deviceId = container.getAttribute('data-device-id')
         const label = container.getAttribute('data-camera-label')
+        
+        // Set loading state
+        RC.cameraSelectionLoading = true
+        
+        // Disable all camera previews during loading
+        newCameras.forEach((camera, index) => {
+          const container = document.getElementById(`camera-preview-container-${index}`)
+          if (container) {
+            container.style.pointerEvents = 'none'
+            container.style.opacity = '0.6'
+          }
+        })
         
         // Add loading text between preview and instruction
         const loadingText = document.createElement('div')
@@ -427,6 +444,9 @@ export const showCameraSelectionPopup = async (
   // Get available cameras
   const cameras = await getAvailableCameras()
 
+  // Store available cameras on RC object
+  RC.availableCameras = cameras
+
   // Get current active camera
   const currentActiveCamera = getCurrentActiveCamera(RC)
 
@@ -459,6 +479,7 @@ export const showCameraSelectionPopup = async (
       // Store initial cameras for comparison
       let currentCameras = [...cameras]
       let cameraPollingInterval = null
+      RC.cameraSelectionLoading = false // Store loading state on RC object for proper cleanup
 
       // Start polling for camera changes
       const startCameraPolling = () => {
@@ -538,17 +559,6 @@ export const showCameraSelectionPopup = async (
                     }
                   } catch (error) {
                     console.error('Camera switch error:', error)
-                  } finally {
-                    // Re-enable all preview containers
-                    newCameras.forEach((camera, index) => {
-                      const container = document.getElementById(
-                        `camera-preview-container-${index}`,
-                      )
-                      if (container) {
-                        container.style.pointerEvents = 'auto'
-                        container.style.opacity = '1'
-                      }
-                    })
                   }
                 }
               }
@@ -574,10 +584,68 @@ export const showCameraSelectionPopup = async (
           return
         }
         
-        // Removed Enter/Return key handling to prevent return key from being selected
-        // if (event.key === 'Enter' || event.key === 'Return') {
-        //   Swal.clickConfirm()
-        // }
+        if (event.key === 'Enter' || event.key === 'Return') {
+          // Prevent action if already loading
+          if (RC.cameraSelectionLoading) {
+            return
+          }
+          
+          // Find the currently highlighted camera (the one being hovered)
+          let hoveredCamera = null
+          cameras.forEach((camera, index) => {
+            const container = document.getElementById(`camera-preview-container-${index}`)
+            if (container && container.style.backgroundColor === 'rgb(232, 245, 232)') {
+              hoveredCamera = camera
+            }
+          })
+          
+          // Store the hovered camera as selected
+          if (hoveredCamera) {
+            RC.selectedCamera = hoveredCamera
+          }
+          
+          // Set loading state
+          RC.cameraSelectionLoading = true
+          
+          // Disable all camera previews during loading
+          cameras.forEach((camera, index) => {
+            const container = document.getElementById(`camera-preview-container-${index}`)
+            if (container) {
+              container.style.pointerEvents = 'none'
+              container.style.opacity = '0.6'
+            }
+          })
+          
+          // Add loading text between preview and instruction
+          const loadingText = document.createElement('div')
+          loadingText.id = 'camera-loading-text'
+          loadingText.style.cssText = `
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin: 10px 0;
+            font-size: 14px;
+          `
+          loadingText.textContent = 'Loading...'
+          
+          // Insert loading text after the preview container
+          const previewContainer = document.querySelector('.camera-selection-popup .swal2-html-container')
+          if (previewContainer) {
+            previewContainer.appendChild(loadingText)
+          }
+          
+          // Add 1500ms delay to account for video switching time
+          setTimeout(async () => {
+            // Remove loading text
+            const loadingTextElement = document.getElementById('camera-loading-text')
+            if (loadingTextElement) {
+              loadingTextElement.remove()
+            }
+            
+            // Close the popup
+            Swal.clickConfirm()
+          }, 1500)
+        }
       }
 
       // Add keyboard listener
@@ -652,18 +720,8 @@ export const showCameraSelectionPopup = async (
             }
           } catch (error) {
             console.error('Camera switch error:', error)
-          } finally {
-            // Re-enable all preview containers
-            cameras.forEach((camera, index) => {
-              const container = document.getElementById(
-                `camera-preview-container-${index}`,
-              )
-              if (container) {
-                container.style.pointerEvents = 'auto'
-                container.style.opacity = '1'
-              }
-            })
           }
+          // Remove the finally block that re-enables containers - let the timeout handle it
         }
       }
 
@@ -714,8 +772,25 @@ export const showCameraSelectionPopup = async (
 
           // Click to commit (same as clicking OK)
           container.addEventListener('click', async () => {
+            // Prevent action if already loading
+            if (RC.cameraSelectionLoading) {
+              return
+            }
+            
             const deviceId = container.getAttribute('data-device-id')
             const label = container.getAttribute('data-camera-label')
+            
+            // Set loading state
+            RC.cameraSelectionLoading = true
+            
+            // Disable all camera previews during loading
+            cameras.forEach((camera, index) => {
+              const container = document.getElementById(`camera-preview-container-${index}`)
+              if (container) {
+                container.style.pointerEvents = 'none'
+                container.style.opacity = '0.6'
+              }
+            })
             
             // Add loading text between preview and instruction
             const loadingText = document.createElement('div')
@@ -781,9 +856,17 @@ export const showCameraSelectionPopup = async (
 
       // Create global camera selection and commit function
       window.selectAndCommitCamera = async (deviceId, label) => {
+        // Prevent action if already loading
+        if (RC.cameraSelectionLoading) {
+          return
+        }
+        
         const selectedCamera = cameras.find(cam => cam.deviceId === deviceId)
 
         if (selectedCamera && RC.gazeTracker?.webgazer) {
+          // Set loading state
+          RC.cameraSelectionLoading = true
+          
           // Add loading text between preview and instruction
           const loadingText = document.createElement('div')
           loadingText.id = 'camera-loading-text'
@@ -858,17 +941,6 @@ export const showCameraSelectionPopup = async (
               statusDiv.innerHTML = '✗ Failed to switch camera'
               statusDiv.style.color = '#dc3545'
             }
-          } finally {
-            // Re-enable all preview containers
-            cameras.forEach((camera, index) => {
-              const container = document.getElementById(
-                `camera-preview-container-${index}`,
-              )
-              if (container) {
-                container.style.pointerEvents = 'auto'
-                container.style.opacity = '1'
-              }
-            })
           }
         }
       }
@@ -884,6 +956,17 @@ export const showCameraSelectionPopup = async (
       if (RC.popupKeydownListener) {
         document.removeEventListener('keydown', RC.popupKeydownListener, true) // Use capture phase to match how it was added
         RC.popupKeydownListener = null
+      }
+
+      // Reset loading state to ensure no lingering state affects next page
+      if (typeof RC.cameraSelectionLoading !== 'undefined') {
+        RC.cameraSelectionLoading = false
+      }
+
+      // Remove any existing loading text
+      const loadingTextElement = document.getElementById('camera-loading-text')
+      if (loadingTextElement) {
+        loadingTextElement.remove()
       }
 
       // Remove global camera selection function
@@ -951,8 +1034,8 @@ export const showCameraSelectionPopup = async (
     )
   }
 
-  // Get selected camera (either from user selection or current active)
-  const selectedCamera = RC.selectedCamera || currentActiveCamera
+  // Get selected camera (only from user selection, no fallback)
+  const selectedCamera = RC.selectedCamera
 
   // Call onClose callback if provided
   if (onClose && typeof onClose === 'function') {
