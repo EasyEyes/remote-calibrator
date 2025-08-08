@@ -30,6 +30,7 @@ import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { setDefaultVideoPosition } from '../components/video'
 import { showTestPopup } from '../components/popup'
+import { ppiToPxPerCm } from '../components/converters'
 
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
@@ -100,6 +101,10 @@ export async function blindSpotTest(
   let inTest = true // Used to break animation
   let dist = [] // Take the MEDIAN after all tests finished
   let tested = 0 // options.repeatedTesting times
+
+  // Per-eye Face Mesh samples for calibration factor checks
+  const faceMeshSamplesLeft = []
+  const faceMeshSamplesRight = []
 
   // ===================== SHOW POPUP BEFORE CALIBRATION STARTS =====================
   // Only show popup if not running as part of "both" methods
@@ -196,17 +201,50 @@ export async function blindSpotTest(
       timestamp: performance.now(),
     })
 
+    if (!RC.blindspotData) RC.blindspotData = {}
+    if (eyeSide === 'left')
+      RC.blindspotData.viewingDistanceByBlindSpot1Cm = toFixedNumber(
+        _getDist(circleX, crossX, ppi),
+        options.decimalPlace,
+      )
+    else
+      RC.blindspotData.viewingDistanceByBlindSpot2Cm = toFixedNumber(
+        _getDist(circleX, crossX, ppi),
+        options.decimalPlace,
+      )
+
+    // Collect per-eye Face Mesh samples for calibration factor checks
+    const collectFiveSamples = async targetArray => {
+      for (let i = 0; i < 5; i++) {
+        try {
+          const pxDist = await measureIntraocularDistancePx(RC)
+          targetArray.push(pxDist && !isNaN(pxDist) ? pxDist : NaN)
+        } catch (e) {
+          targetArray.push(NaN)
+        }
+        await new Promise(res => setTimeout(res, 100))
+      }
+    }
+    if (eyeSide === 'left') await collectFiveSamples(faceMeshSamplesLeft)
+    else await collectFiveSamples(faceMeshSamplesRight)
+
     // Enough tests?
     if (Math.floor(tested / options.repeatTesting) === 2) {
       // Check if these data are acceptable
       // OLD METHOD: if (checkDataRepeatability(dist)) {
       // NEW METHOD: Uses ratio-based tolerance with calibrateTrackDistanceAllowedRatio
-      if (
-        checkBlindspotTolerance(
-          dist,
-          options.calibrateTrackDistanceAllowedRatio,
-        )
-      ) {
+      const [pass, message, min, max, RMin, RMax] = checkBlindspotTolerance(
+        dist,
+        options.calibrateTrackDistanceAllowedRatio,
+        options.calibrateTrackDistanceAllowedRangeCm,
+        faceMeshSamplesLeft,
+        faceMeshSamplesRight,
+      )
+      if (RC.measurementHistory && message !== 'Pass')
+        RC.measurementHistory.push(message)
+      else if (message !== 'Pass') RC.measurementHistory = [message]
+
+      if (pass) {
         // ! Put dist into data and callback function
         const data = {
           value: toFixedNumber(
@@ -218,34 +256,54 @@ export async function blindSpotTest(
           raw: { ...dist },
         }
 
-        // Calculate calibration factor for blindspot test
-        // Collect Face Mesh samples similar to object test
-        let faceMeshSamples = []
-        if (RC.gazeTracker.checkInitialized('distance')) {
-          for (let i = 0; i < 5; i++) {
-            const pxDist = await measureIntraocularDistancePx(RC)
-            if (pxDist) faceMeshSamples.push(pxDist)
-            await new Promise(res => setTimeout(res, 100)) // 100ms between samples
-          }
-        }
-
-        const averageFaceMesh = faceMeshSamples.length
-          ? faceMeshSamples.reduce((a, b) => a + b, 0) / faceMeshSamples.length
+        // Compute per-eye and overall Face Mesh averages
+        const validLeft = faceMeshSamplesLeft.filter(s => !isNaN(s))
+        const validRight = faceMeshSamplesRight.filter(s => !isNaN(s))
+        const allValid = [...validLeft, ...validRight]
+        const averageFaceMesh = allValid.length
+          ? allValid.reduce((a, b) => a + b, 0) / allValid.length
           : 0
 
-        // Calculate calibration factor: averageFaceMesh * distance
+        // Compute per-eye means for debug
+        const lefts = []
+        const rights = []
+        for (const d of dist) {
+          if (d.closedEyeSide === 'left') lefts.push(d.dist)
+          else rights.push(d.dist)
+        }
+        const leftMean = lefts.length ? average(lefts) : 0
+        const rightMean = rights.length ? average(rights) : 0
+        const leftAvgFM = validLeft.length
+          ? validLeft.reduce((a, b) => a + b, 0) / validLeft.length
+          : 0
+        const rightAvgFM = validRight.length
+          ? validRight.reduce((a, b) => a + b, 0) / validRight.length
+          : 0
+        const distance1FactorCmPx = leftAvgFM * leftMean
+        const distance2FactorCmPx = rightAvgFM * rightMean
+
+        // Calibration factor used for tracking
         const calibrationFactor = averageFaceMesh * data.value
 
         console.log('=== Blindspot Test Calibration Factor ===')
-        console.log('Blindspot distance:', data.value, 'cm')
-        console.log('Average Face Mesh:', averageFaceMesh, 'px')
-        console.log('Calibration factor:', calibrationFactor)
+        console.log('Blindspot distance (median):', data.value, 'cm')
+        console.log('Left/Right avg Face Mesh:', leftAvgFM, rightAvgFM, 'px')
+        console.log(
+          'Left/Right factors (cm*px):',
+          distance1FactorCmPx,
+          distance2FactorCmPx,
+        )
+        console.log('Overall avg Face Mesh:', averageFaceMesh, 'px')
+        console.log('Calibration factor (overall):', calibrationFactor)
         console.log('=========================================')
 
         // Store calibration factor and Face Mesh data
         data.calibrationFactor = calibrationFactor
         data.averageFaceMesh = averageFaceMesh
-        data.faceMeshSamples = faceMeshSamples
+        data.faceMeshSamplesLeft = faceMeshSamplesLeft
+        data.faceMeshSamplesRight = faceMeshSamplesRight
+        data.distance1FactorCmPx = distance1FactorCmPx
+        data.distance2FactorCmPx = distance2FactorCmPx
 
         RC.newViewingDistanceData = data
 
@@ -273,6 +331,15 @@ export async function blindSpotTest(
           )
         else safeExecuteFunc(callback, data)
       } else {
+        const reasonIsOutOfRange = message.includes('out of allowed range')
+        let displayMessage = phrases.RC_viewingBlindSpotRejected[RC.L]
+        if (reasonIsOutOfRange) {
+          displayMessage = phrases.RC_viewingExceededRange[RC.L]
+            .replace('[[N11]]', min.toFixed(1))
+            .replace('[[N22]]', max.toFixed(1))
+            .replace('[[N33]]', RMin.toFixed(1))
+            .replace('[[N44]]', RMax.toFixed(1))
+        }
         // ! Reset
         tested = 0
         // customButton.disabled = true
@@ -289,7 +356,7 @@ export async function blindSpotTest(
         Swal.fire({
           ...swalInfoOptions(RC, { showIcon: false }),
           icon: undefined,
-          html: phrases.RC_viewingBlindSpotRejected[RC.L],
+          html: displayMessage,
           allowEnterKey: true,
         })
       }
@@ -1847,6 +1914,9 @@ export async function objectTest(RC, options, callback = undefined) {
     data.calibrationFactor = averageFactorCmPx
     data.distance1FactorCmPx = distance1FactorCmPx
     data.distance2FactorCmPx = distance2FactorCmPx
+    data.viewingDistanceByObject1Cm = data.value
+    data.viewingDistanceByObject2Cm = data.value
+
     data.page3Average = page3Average
     data.page4Average = page4Average
 
@@ -2190,17 +2260,34 @@ export async function objectTest(RC, options, callback = undefined) {
               )
 
               // Check if the two sets of Face Mesh samples are consistent
-              if (
+              const [pass, message, min, max, RMin, RMax] =
                 checkObjectTestTolerance(
                   faceMeshSamplesPage3,
                   faceMeshSamplesPage4,
                   options.calibrateTrackDistanceAllowedRatio,
+                  options.calibrateTrackDistanceAllowedRangeCm,
+                  firstMeasurement,
                 )
-              ) {
+              if (RC.measurementHistory && message !== 'Pass')
+                RC.measurementHistory.push(message)
+              else if (message !== 'Pass') RC.measurementHistory = [message]
+
+              if (pass) {
                 // Tolerance check passed - finish the test
                 console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
                 await objectTestFinishFunction()
               } else {
+                let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
+                const reasonIsOutOfRange = message.includes(
+                  'out of allowed range',
+                )
+                if (reasonIsOutOfRange) {
+                  displayMessage = phrases.RC_viewingExceededRange[RC.L]
+                    .replace('[[N11]]', min.toFixed(1))
+                    .replace('[[N22]]', max.toFixed(1))
+                    .replace('[[N33]]', RMin.toFixed(1))
+                    .replace('[[N44]]', RMax.toFixed(1))
+                }
                 // Tolerance check failed - show error and restart Face Mesh collection
                 console.log(
                   '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
@@ -2214,7 +2301,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
                   icon: undefined,
-                  html: phrases.RC_viewingObjectRejected[RC.L],
+                  html: displayMessage,
                   allowEnterKey: true,
                 })
 
@@ -2330,38 +2417,46 @@ export async function objectTest(RC, options, callback = undefined) {
         faceMeshSamplesPage4,
       )
 
-      // Check tolerance before finishing
       console.log('=== CHECKING TOLERANCE BEFORE FINISHING ===')
 
-      if (
-        checkObjectTestTolerance(
-          faceMeshSamplesPage3,
-          faceMeshSamplesPage4,
-          options.calibrateTrackDistanceAllowedRatio,
-        )
-      ) {
-        // Tolerance check passed - finish the test
+      const [pass, message, min, max, RMin, RMax] = checkObjectTestTolerance(
+        faceMeshSamplesPage3,
+        faceMeshSamplesPage4,
+        options.calibrateTrackDistanceAllowedRatio,
+        options.calibrateTrackDistanceAllowedRangeCm,
+        firstMeasurement,
+      )
+      if (RC.measurementHistory && message !== 'Pass')
+        RC.measurementHistory.push(message)
+      else if (message !== 'Pass') RC.measurementHistory = [message]
+
+      if (pass) {
         console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
         await objectTestFinishFunction()
       } else {
-        // Tolerance check failed - show error and restart Face Mesh collection
+        let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
+        const reasonIsOutOfRange = message.includes('out of allowed range')
+        if (reasonIsOutOfRange) {
+          displayMessage = phrases.RC_viewingExceededRange[RC.L]
+            .replace('[[N11]]', min.toFixed(1))
+            .replace('[[N22]]', max.toFixed(1))
+            .replace('[[N33]]', RMin.toFixed(1))
+            .replace('[[N44]]', RMax.toFixed(1))
+        }
         console.log(
           '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
         )
 
-        // Clear both sample arrays to restart collection
         faceMeshSamplesPage3.length = 0
         faceMeshSamplesPage4.length = 0
 
-        // Show error message using the same phrase as blindspot test
         await Swal.fire({
           ...swalInfoOptions(RC, { showIcon: false }),
           icon: undefined,
-          html: phrases.RC_viewingObjectRejected[RC.L],
+          html: displayMessage,
           allowEnterKey: true,
         })
 
-        // Reset to page 2 to restart object measurement
         currentPage = 1
         firstMeasurement = null
         await nextPage()
@@ -2598,15 +2693,22 @@ function checkObjectTestTolerance(
   page3Samples,
   page4Samples,
   allowedRatio = 1.1,
+  allowedRangeCm,
+  measurementCm,
 ) {
-  // Filter out NaN values and calculate averages
   const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
   const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
 
-  // Need at least 3 valid samples from each page for meaningful comparison
   if (validPage3Samples.length < 3 || validPage4Samples.length < 3) {
     console.warn('Insufficient valid Face Mesh samples for tolerance check')
-    return false
+    return [
+      false,
+      'Insufficient valid Face Mesh samples for tolerance check',
+      -Infinity,
+      Infinity,
+      -Infinity,
+      Infinity,
+    ]
   }
 
   const page3Mean =
@@ -2614,31 +2716,78 @@ function checkObjectTestTolerance(
   const page4Mean =
     validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
 
-  // Calculate the ratio between the two measurements
-  const ratio1 = page3Mean / page4Mean
-  const ratio2 = page4Mean / page3Mean
-
-  // Get the maximum ratio
+  // Factor ratio using calibration factors F1 and F2
+  const F1 = page3Mean * measurementCm
+  const F2 = page4Mean * measurementCm
+  const ratio1 = F1 / F2
+  const ratio2 = F2 / F1
   const maxRatio = Math.max(ratio1, ratio2)
-
-  // Calculate the maximum allowed ratio
   const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
 
-  console.log('=== Object Test Tolerance Check ===')
-  console.log('Page 3 average:', page3Mean.toFixed(2), 'px')
-  console.log('Page 4 average:', page4Mean.toFixed(2), 'px')
-  console.log('Ratio (M1/M2):', ratio1.toFixed(3))
-  console.log('Ratio (M2/M1):', ratio2.toFixed(3))
+  console.log('=== Object Test Tolerance Check (Factors) ===')
+  console.log('Measurement (cm):', measurementCm.toFixed(2))
+  console.log('Page 3 avg FM (px):', page3Mean.toFixed(2))
+  console.log('Page 4 avg FM (px):', page4Mean.toFixed(2))
+  console.log('F1, F2 (cm*px):', F1.toFixed(2), F2.toFixed(2))
   console.log('Max ratio:', maxRatio.toFixed(3))
   console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
-  console.log('Tolerance check passed:', maxRatio <= maxAllowedRatio)
-  console.log('================================')
 
-  return maxRatio <= maxAllowedRatio
+  // Range check on measurement
+  const ppi = RC.screenPpi.value || 96
+  // page3Mean and page4Mean are in pixels. to convert to cm, we need to divide by ppi
+  const distance1Cm = page3Mean / ppiToPxPerCm(ppi)
+  const distance2Cm = page4Mean / ppiToPxPerCm(ppi)
+  const RMin = Array.isArray(allowedRangeCm) ? allowedRangeCm[0] : -Infinity
+  const RMax = Array.isArray(allowedRangeCm) ? allowedRangeCm[1] : Infinity
+  const minM = Math.min(measurementCm, measurementCm)
+  const maxM = Math.max(measurementCm, measurementCm)
+  if (minM < RMin || maxM > RMax) {
+    console.warn('Object measurement out of allowed range')
+    return [
+      false,
+      `Object measurement out of allowed range
+        MinCm: ${minM.toFixed(1)};
+        MaxCm: ${maxM.toFixed(1)};
+        distance1Cm: ${distance1Cm.toFixed(2)};
+        distance2Cm: ${distance2Cm.toFixed(2)};
+        distance1FactorCmPx: ${F1.toFixed(1)};
+        distance2FactorCmPx: ${F2.toFixed(1)};
+        `,
+      minM,
+      maxM,
+      RMin,
+      RMax,
+    ]
+  }
+
+  console.log('Pass:', maxRatio <= maxAllowedRatio)
+  console.log('================================')
+  const pass = maxRatio <= maxAllowedRatio
+
+  return [
+    pass,
+    pass
+      ? 'Pass'
+      : `Measurements not consistent
+      distance1Cm: ${distance1Cm.toFixed(2)};
+      distance2Cm: ${distance2Cm.toFixed(2)};
+      distance1FactorCmPx: ${F1.toFixed(1)};
+      distance2FactorCmPx: ${F2.toFixed(1)};
+      `,
+    minM,
+    maxM,
+    RMin,
+    RMax,
+  ]
 }
 
-function checkBlindspotTolerance(dist, allowedRatio = 1.1) {
-  // Separate left and right eye measurements
+function checkBlindspotTolerance(
+  dist,
+  allowedRatio = 1.1,
+  allowedRangeCm,
+  faceMeshSamplesLeft,
+  faceMeshSamplesRight,
+) {
   const lefts = []
   const rights = []
   for (const d of dist) {
@@ -2646,35 +2795,103 @@ function checkBlindspotTolerance(dist, allowedRatio = 1.1) {
     else rights.push(d.dist)
   }
 
-  // Need at least 1 measurement from each eye for meaningful comparison
   if (lefts.length < 1 || rights.length < 1) {
     console.warn('Insufficient measurements for blindspot tolerance check')
-    return false
+    return [
+      false,
+      'Insufficient measurements for blindspot tolerance check',
+      -Infinity,
+      Infinity,
+      -Infinity,
+      Infinity,
+    ]
   }
 
   const leftMean = average(lefts)
   const rightMean = average(rights)
 
-  // Calculate the ratio between the two measurements
-  const ratio1 = leftMean / rightMean
-  const ratio2 = rightMean / leftMean
-
-  // Get the maximum ratio
+  // Factor ratio using per-eye calibration factors
+  const validLeft = faceMeshSamplesLeft.filter(s => !isNaN(s))
+  const validRight = faceMeshSamplesRight.filter(s => !isNaN(s))
+  if (validLeft.length < 3 || validRight.length < 3) {
+    console.warn('Insufficient Face Mesh samples per eye for tolerance check')
+    return [
+      false,
+      'Insufficient Face Mesh samples per eye for tolerance check',
+      -Infinity,
+      Infinity,
+      -Infinity,
+      Infinity,
+    ]
+  }
+  const leftAvgFM = validLeft.reduce((a, b) => a + b, 0) / validLeft.length
+  const rightAvgFM = validRight.reduce((a, b) => a + b, 0) / validRight.length
+  const F1 = leftAvgFM * leftMean
+  const F2 = rightAvgFM * rightMean
+  const ratio1 = F1 / F2
+  const ratio2 = F2 / F1
   const maxRatio = Math.max(ratio1, ratio2)
-
-  // Calculate the maximum allowed ratio
   const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
 
-  console.log('=== Blindspot Tolerance Check ===')
-  console.log('Left eye average:', leftMean.toFixed(2), 'cm')
-  console.log('Right eye average:', rightMean.toFixed(2), 'cm')
-  console.log('Ratio (Left/Right):', ratio1.toFixed(3))
-  console.log('Ratio (Right/Left):', ratio2.toFixed(3))
+  console.log('=== Blindspot Tolerance Check (Factors) ===')
+  console.log('Left/Right avg (cm):', leftMean.toFixed(2), rightMean.toFixed(2))
+  console.log(
+    'Left/Right avg FM (px):',
+    leftAvgFM.toFixed(2),
+    rightAvgFM.toFixed(2),
+  )
+  console.log('F1, F2 (cm*px):', F1.toFixed(2), F2.toFixed(2))
   console.log('Max ratio:', maxRatio.toFixed(3))
   console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
-  console.log('Tolerance check passed:', maxRatio <= maxAllowedRatio)
+
+  // Range check on measurements
+  if (typeof allowedRangeCm === 'string')
+    allowedRangeCm = allowedRangeCm.split(',').map(Number)
+  const RMin = Array.isArray(allowedRangeCm) ? allowedRangeCm[0] : -Infinity
+  const RMax = Array.isArray(allowedRangeCm) ? allowedRangeCm[1] : Infinity
+  console.log('allowedRangeCm', allowedRangeCm)
+  console.log('RMin', RMin)
+  console.log('RMax', RMax)
+  console.log('leftMean', leftMean)
+  console.log('rightMean', rightMean)
+
+  if (
+    Math.min(leftMean, rightMean) < RMin ||
+    Math.max(leftMean, rightMean) > RMax
+  ) {
+    console.warn('Blindspot measurements out of allowed range')
+    return [
+      false,
+      `Blindspot measurements out of allowed range
+      MinCm: ${Math.min(leftMean, rightMean).toFixed(1)};
+      MaxCm: ${Math.max(leftMean, rightMean).toFixed(1)};
+      distance1FactorCmPx: ${F1.toFixed(1)};
+      distance2FactorCmPx: ${F2.toFixed(1)};
+      `,
+      Math.min(leftMean, rightMean),
+      Math.max(leftMean, rightMean),
+      RMin,
+      RMax,
+    ]
+  }
+  console.log('Pass:', maxRatio <= maxAllowedRatio)
   console.log('================================')
 
-  return maxRatio <= maxAllowedRatio
-}
+  const pass = maxRatio <= maxAllowedRatio
 
+  return [
+    pass,
+    pass
+      ? 'Pass'
+      : `Measurements not consistent
+      distance1Cm: ${leftMean.toFixed(1)};
+      distance2Cm: ${rightMean.toFixed(1)};
+      distance1FactorCmPx: ${F1.toFixed(1)};
+      distance2FactorCmPx: ${F2.toFixed(1)};
+      `,
+    Math.min(leftMean, rightMean),
+    Math.max(leftMean, rightMean),
+    RMin,
+    RMax,
+  ]
+}
