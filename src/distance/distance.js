@@ -1572,6 +1572,16 @@ export async function objectTest(RC, options, callback = undefined) {
       // Show PROCEED button on page 0
       proceedButton.style.display = 'block'
 
+            // Hide don't use ruler text if it exists
+      if (options.calibrateTrackDistanceCheckBool) {
+        const dontUseRuler = document.querySelector(
+          'div[style*="color: rgb(139, 0, 0)"]',
+        )
+        if (dontUseRuler) {
+          dontUseRuler.style.display = 'none'
+        }
+      }
+
       // Update instructions
       instructions.innerText =
         phrases.RC_UseObjectToSetViewingDistancePage0q[RC.L]
@@ -1599,6 +1609,16 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Show PROCEED button on page 1
       proceedButton.style.display = 'block'
+
+      // Hide don't use ruler text if it exists
+      if (options.calibrateTrackDistanceCheckBool) {
+        const dontUseRuler = document.querySelector(
+          'div[style*="color: rgb(139, 0, 0)"]',
+        )
+        if (dontUseRuler) {
+          dontUseRuler.style.display = 'none'
+        }
+      }
 
       // Update instructions
       instructions.innerText =
@@ -1834,7 +1854,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Hide don't use ruler text if it was created
     if (options.calibrateTrackDistanceCheckBool) {
-      const dontUseRuler = document.querySelector('div[style*="color: rgb(139, 0, 0)"]')
+      const dontUseRuler = document.querySelector(
+        'div[style*="color: rgb(139, 0, 0)"]',
+      )
       if (dontUseRuler) {
         dontUseRuler.style.display = 'none'
       }
