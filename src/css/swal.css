@@ -88,6 +88,23 @@
   left: 50% !important;
   transform: translateX(-50%) !important;
   bottom: auto !important;
+  max-width: none !important;
+  /* Remove width: auto !important to allow dynamic width calculation */
+  overflow: visible !important;
+}
+
+/* Ensure the popup container can expand beyond viewport */
+.camera-selection-popup .swal2-container {
+  overflow: visible !important;
+  max-width: none !important;
+}
+
+/* Override SweetAlert2's default max-width for camera selection popup */
+.camera-selection-popup.swal2-popup {
+  max-width: none !important;
+  /* Remove width: auto !important to allow dynamic width calculation */
+  min-width: fit-content !important;
+  width: fit-content !important;
 }
 
 /* Mirror video previews in camera selection popup */

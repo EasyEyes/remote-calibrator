@@ -203,7 +203,7 @@ const createCameraPreviews = async (
     : { width: '272px', height: '240px' } // 320px * 0.85 = 272px
 
   let previewsHTML =
-    '<div style="display: flex; flex-wrap: nowrap; gap: 5px; margin: 0; justify-content: center; align-items: center; overflow-x: auto;">'
+    '<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 0; justify-content: center; align-items: center; width: 100%;">'
 
   for (let i = 0; i < cameras.length; i++) {
     const camera = cameras[i]
@@ -369,7 +369,7 @@ const updateCameraPreviews = async (newCameras, RC, currentActiveCamera, oldCame
           margin: 10px 0;
           font-size: 14px;
         `
-        loadingText.textContent = 'Loading...'
+        loadingText.textContent = RC_LoadingVideo
         
         // Insert loading text after the preview container
         const previewContainer = document.querySelector('.camera-selection-popup .swal2-html-container')
@@ -458,6 +458,17 @@ export const showCameraSelectionPopup = async (
     currentActiveCamera,
   )
 
+  // Calculate dynamic maxWidth based on number of cameras
+  // Each camera preview is approximately 280px wide (272px + padding + margins)
+  // Allow the popup to expand to fit all cameras without artificial width limits
+  const cameraPreviewWidth = 272 // Actual video width
+  const cameraPadding = 10 // Padding around each camera
+  const cameraMargin = 5 // Margin between cameras
+  const totalCameraWidth = cameraPreviewWidth + (cameraPadding * 2) + cameraMargin
+  const minWidth = 600 // Minimum width for 2 cameras
+  const calculatedWidth = Math.max(minWidth, totalCameraWidth * cameras.length + 100)
+  const dynamicMaxWidth = `${calculatedWidth}px`
+
   const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
@@ -465,9 +476,8 @@ export const showCameraSelectionPopup = async (
     html: `${cameraPreviewsHTML}<br>${message}`,
     showConfirmButton: false,
     allowEnterKey: false, // To be changed
-    // Reduce popup width to fit content
-    width: 'auto',
-    maxWidth: '600px',
+    // Dynamic popup width based on number of cameras
+    width: dynamicMaxWidth,
     customClass: {
       popup: 'my__swal2__container camera-selection-popup',
       icon: 'my__swal2__icon',
@@ -480,6 +490,15 @@ export const showCameraSelectionPopup = async (
       let currentCameras = [...cameras]
       let cameraPollingInterval = null
       RC.cameraSelectionLoading = false // Store loading state on RC object for proper cleanup
+
+      // Force set the popup width via inline styles to ensure it takes effect
+      const popupElement = document.querySelector('.camera-selection-popup')
+      if (popupElement) {
+        popupElement.style.maxWidth = 'none'
+        popupElement.style.width = dynamicMaxWidth
+        popupElement.style.minWidth = dynamicMaxWidth
+        console.log('Applied inline width to popup:', dynamicMaxWidth)
+      }
 
       // Start polling for camera changes
       const startCameraPolling = () => {
@@ -626,7 +645,7 @@ export const showCameraSelectionPopup = async (
             margin: 10px 0;
             font-size: 14px;
           `
-          loadingText.textContent = 'Loading...'
+          loadingText.textContent = RC_LoadingVideo
           
           // Insert loading text after the preview container
           const previewContainer = document.querySelector('.camera-selection-popup .swal2-html-container')
@@ -802,7 +821,7 @@ export const showCameraSelectionPopup = async (
               margin: 10px 0;
               font-size: 14px;
             `
-            loadingText.textContent = 'Loading...'
+            loadingText.textContent = RC_LoadingVideo
             
             // Insert loading text after the preview container
             const previewContainer = document.querySelector('.camera-selection-popup .swal2-html-container')
@@ -877,7 +896,7 @@ export const showCameraSelectionPopup = async (
             margin: 10px 0;
             font-size: 14px;
           `
-          loadingText.textContent = 'Loading...'
+          loadingText.textContent = RC_LoadingVideo
           
           // Insert loading text after the preview container
           const previewContainer = document.querySelector('.camera-selection-popup .swal2-html-container')
