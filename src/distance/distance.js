@@ -1628,6 +1628,26 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide PROCEED button on page 2 - only allow space key
       proceedButton.style.display = 'none'
 
+      // Create placeholder text for page 2 only if calibrateTrackDistanceCheckBool is true
+      if (options.calibrateTrackDistanceCheckBool) {
+        const dontUseRuler = document.createElement('div')
+        dontUseRuler.innerText = phrases.RC_DontUseYourRulerYet[RC.L]
+        dontUseRuler.style.position = 'absolute'
+        dontUseRuler.style.top = '0'
+        dontUseRuler.style.marginTop = '2rem'
+        dontUseRuler.style.right = '3rem'
+        dontUseRuler.style.color = '#8B0000' // Dark red ink
+        dontUseRuler.style.fontSize = '16pt'
+        dontUseRuler.style.fontWeight = 'normal'
+        dontUseRuler.style.zIndex = '10'
+        dontUseRuler.style.userSelect = 'none'
+        dontUseRuler.style.textAlign = 'right'
+        dontUseRuler.style.lineHeight = '1.6'
+        // max width of 40vwhw
+        dontUseRuler.style.maxWidth = '40vw'
+        container.appendChild(dontUseRuler)
+      }
+
       // Update all positions and colors after showing lines
       updateRightLabel()
       updateLeftLabel()
@@ -1810,6 +1830,14 @@ export async function objectTest(RC, options, callback = undefined) {
       customInputs.forEach(input => {
         input.removeEventListener('keyup', keydownListener)
       })
+    }
+
+    // Hide don't use ruler text if it was created
+    if (options.calibrateTrackDistanceCheckBool) {
+      const dontUseRuler = document.querySelector('div[style*="color: rgb(139, 0, 0)"]')
+      if (dontUseRuler) {
+        dontUseRuler.style.display = 'none'
+      }
     }
 
     // ===================== INITIALIZATION CHECK =====================
@@ -2262,6 +2290,7 @@ export async function objectTest(RC, options, callback = undefined) {
               // Check if the two sets of Face Mesh samples are consistent
               const [pass, message, min, max, RMin, RMax] =
                 checkObjectTestTolerance(
+                  RC,
                   faceMeshSamplesPage3,
                   faceMeshSamplesPage4,
                   options.calibrateTrackDistanceAllowedRatio,
@@ -2420,6 +2449,7 @@ export async function objectTest(RC, options, callback = undefined) {
       console.log('=== CHECKING TOLERANCE BEFORE FINISHING ===')
 
       const [pass, message, min, max, RMin, RMax] = checkObjectTestTolerance(
+        RC,
         faceMeshSamplesPage3,
         faceMeshSamplesPage4,
         options.calibrateTrackDistanceAllowedRatio,
@@ -2690,6 +2720,7 @@ async function measureIntraocularDistanceCm(RC, ppi) {
 }
 
 function checkObjectTestTolerance(
+  RC,
   page3Samples,
   page4Samples,
   allowedRatio = 1.1,
@@ -2733,7 +2764,7 @@ function checkObjectTestTolerance(
   console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
 
   // Range check on measurement
-  const ppi = RC.screenPpi.value || 96
+  const ppi = RC.screenPpi ? RC.screenPpi.value : 96
   // page3Mean and page4Mean are in pixels. to convert to cm, we need to divide by ppi
   const distance1Cm = page3Mean / ppiToPxPerCm(ppi)
   const distance2Cm = page4Mean / ppiToPxPerCm(ppi)
