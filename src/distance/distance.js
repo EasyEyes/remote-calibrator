@@ -880,13 +880,18 @@ export async function objectTest(RC, options, callback = undefined) {
   container.style.height = '100vh'
   container.style.userSelect = 'none'
   container.style.overflow = 'hidden' // Prevent scrolling
+  
 
   // --- TITLE  ---
   const title = document.createElement('h1')
   title.innerText = phrases.RC_SetViewingDistance[RC.L]
-  title.style.textAlign = 'left'
-  title.style.paddingLeft = '3rem'
+  title.style.whiteSpace = 'pre-line'
+  title.style.alignSelf = 'flex-start'
+  title.style.position = 'relative'
+  title.style.textAlign = 'start'
+  title.style.paddingInlineStart = '3rem'
   title.style.margin = '2rem 0 5rem 0'
+  title.dir = RC.LD.toLowerCase()
   container.appendChild(title)
 
   // --- INSTRUCTIONS ---
@@ -901,6 +906,9 @@ export async function objectTest(RC, options, callback = undefined) {
   instructions.style.zIndex = '3'
   instructions.style.fontSize = '1.4em'
   instructions.style.lineHeight = '1.6'
+  instructions.style.textAlign = 'start'
+  //padding inline start
+  instructions.style.paddingInlineStart = '3rem'
   // Add responsive font size
   instructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
   container.appendChild(instructions)
@@ -930,6 +938,8 @@ export async function objectTest(RC, options, callback = undefined) {
   radioContainer.style.maxWidth = '45vw' // Match instructions maxWidth
   radioContainer.style.textAlign = 'left'
   radioContainer.style.display = 'none' // Hidden by default
+  //padding when its rtl/ltr
+  radioContainer.style.paddingInlineStart = '3rem'
   container.appendChild(radioContainer)
 
   // Create radio button options
@@ -1572,7 +1582,7 @@ export async function objectTest(RC, options, callback = undefined) {
       // Show PROCEED button on page 0
       proceedButton.style.display = 'block'
 
-            // Hide don't use ruler text if it exists
+      // Hide don't use ruler text if it exists
       if (options.calibrateTrackDistanceCheckBool) {
         const dontUseRuler = document.querySelector(
           'div[style*="color: rgb(139, 0, 0)"]',
@@ -1652,7 +1662,7 @@ export async function objectTest(RC, options, callback = undefined) {
       if (options.calibrateTrackDistanceCheckBool) {
         const dontUseRuler = document.createElement('div')
         dontUseRuler.innerText = phrases.RC_DontUseYourRulerYet[RC.L]
-        dontUseRuler.style.position = 'absolute'
+        dontUseRuler.style.position = 'fixed'
         dontUseRuler.style.top = '0'
         dontUseRuler.style.marginTop = '2rem'
         dontUseRuler.style.right = '3rem'
@@ -1663,8 +1673,16 @@ export async function objectTest(RC, options, callback = undefined) {
         dontUseRuler.style.userSelect = 'none'
         dontUseRuler.style.textAlign = 'right'
         dontUseRuler.style.lineHeight = '1.6'
-        // max width of 40vwhw
+        dontUseRuler.style.textAlign = 'start'
+        //dontUseRuler.dir = RC.LD.toLowerCase()
         dontUseRuler.style.maxWidth = '40vw'
+        dontUseRuler.style.paddingInlineStart = '3rem'
+
+        // inver alignment adn horziontal offset oppositr 
+        if (RC.LD === RC._CONST.RTL) {
+          dontUseRuler.style.textAlign = 'left'
+          dontUseRuler.style.left = '3rem'
+        } 
         container.appendChild(dontUseRuler)
       }
 
