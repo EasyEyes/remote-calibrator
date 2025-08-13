@@ -182,6 +182,31 @@ function getSize(RC, parent, options, callback) {
   }
 
   setSizes()
+  
+  // Add "please measure carefully" text below slider
+  const measureText = document.createElement('div')
+  measureText.innerText = phrases.RC_screenSizeMatters[RC.L]
+  measureText.style.position = 'absolute'
+  measureText.style.left = '50%'  // Start at center of screen
+  measureText.style.width = 'calc(50% - 2rem)'  // Extend from center to right margin
+  measureText.style.color = 'black'
+  measureText.style.fontSize = '18pt'
+  measureText.style.fontWeight = '500'
+  measureText.style.textAlign = 'left'
+  measureText.style.zIndex = '1'  // Lower z-index so elements appear above text
+  measureText.className = 'rc-measure-text'
+  measureText.id = 'rc-measure-text'
+  parent.appendChild(measureText)
+  
+  // Position the text below the slider using same logic as setObjectsPosition
+  const positionMeasureText = () => {
+    measureText.style.top = `${sliderElement.getBoundingClientRect().top + 35}px`
+    //console.log('Positioning measure text at:', measureText.style.top, 'Visible:', measureText.style.visibility)
+  }
+  
+  // Initial positioning
+  positionMeasureText()
+  
   const onSliderInput = () => {
     setSliderStyle(sliderElement)
     setSizes()
@@ -190,6 +215,7 @@ function getSize(RC, parent, options, callback) {
     setSizes()
     setSliderPosition(sliderElement, parent)
     setObjectsPosition(elements, sliderElement)
+    positionMeasureText()  // Update text position on resize
   })
   resizeObserver.observe(parent)
 
@@ -212,6 +238,12 @@ function getSize(RC, parent, options, callback) {
     resizeObserver.unobserve(parent)
     RC._removeBackground()
     removeKeypadHandler()
+    
+    // Remove the measure text
+    const measureTextElement = document.getElementById('rc-measure-text')
+    if (measureTextElement && measureTextElement.parentNode) {
+      measureTextElement.parentNode.removeChild(measureTextElement)
+    }
 
     // Unbind keys
     unbindKeys(bindKeysFunction)
