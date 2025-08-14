@@ -200,7 +200,7 @@ function getSize(RC, parent, options, callback) {
   
   // Position the text below the slider using same logic as setObjectsPosition
   const positionMeasureText = () => {
-    measureText.style.top = `${sliderElement.getBoundingClientRect().top + 35}px`
+    measureText.style.top = `${sliderElement.getBoundingClientRect().top + 50}px`
     //console.log('Positioning measure text at:', measureText.style.top, 'Visible:', measureText.style.visibility)
   }
   
