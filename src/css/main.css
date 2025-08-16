@@ -93,6 +93,33 @@
   text-align: center;
 }
 
+.calibration-checkSize-lengthDisplay-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  max-width: 50%;
+  min-width: 50%;
+  height: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999995;
+  line-height: 1;
+}
+
+.calibration-checkSize-lengthDisplay {
+  font-size: 27vh;
+  margin: 0;
+  text-align: center;
+}
+
+.calibration-checkSize-lengthDisplay-units {
+  font-size: 15vh;
+  margin: 0;
+  text-align: center;
+}
+
 .calibration-instruction-left {
   /* use only the left half of the screen */
   left: 0;
@@ -143,7 +170,7 @@
 
   .calibration-description {
     width: calc(100% - 4rem);
-    width: max(min(100% - 4rem, 960px), 300px);
+    width: max(min(100% - 7rem, 864px), 300px);
   }
 
   .calibration-description,
@@ -167,7 +194,7 @@
   }
 
   .calibration-description {
-    width: calc(100% - 1rem);
+    width: calc(90% - 6rem);
   }
 
   .calibration-description,

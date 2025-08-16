@@ -328,6 +328,7 @@ export async function blindSpotTest(
             options.calibrateTrackDistanceCheckCm,
             options.callbackStatic,
             options.calibrateTrackDistanceCheckSecs,
+            options.calibrateTrackDistanceCheckLengthCm,
           )
         else safeExecuteFunc(callback, data)
       } else {
@@ -2107,6 +2108,7 @@ export async function objectTest(RC, options, callback = undefined) {
               options.calibrateTrackDistanceCheckCm,
               options.callbackStatic,
               options.calibrateTrackDistanceCheckSecs,
+              options.calibrateTrackDistanceCheckLengthCm,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -2130,6 +2132,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateTrackDistanceCheckCm,
           options.callbackStatic,
           options.calibrateTrackDistanceCheckSecs,
+          options.calibrateTrackDistanceCheckLengthCm,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
