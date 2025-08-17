@@ -99,10 +99,10 @@ const checkDistance = async (
 }
 
 // Helper function to create yellow tape rectangle (extracted from object test)
-const createYellowTapeRectangle = (RC) => {
+const createYellowTapeRectangle = RC => {
   // Get the screen's pixels per millimeter (for accurate physical placement)
   const ppi = RC.screenPpi.value
-  const pxPerMm = ppi / 25.4  // Note: 25.4 mm = 1 inch, so pxPerMm = ppi / 25.4
+  const pxPerMm = ppi / 25.4 // Note: 25.4 mm = 1 inch, so pxPerMm = ppi / 25.4
 
   // The left vertical line is always 5mm from the left edge of the screen
   let leftLinePx = Math.round(5 * pxPerMm) // 5mm from left
@@ -143,12 +143,14 @@ const createYellowTapeRectangle = (RC) => {
 
   // Left vertical line
   const leftLine = document.createElement('div')
-  leftLine.style = verticalLineStyle + `left: ${leftLinePx}px; cursor: ew-resize;`
+  leftLine.style =
+    verticalLineStyle + `left: ${leftLinePx}px; cursor: ew-resize;`
   container.appendChild(leftLine)
 
   // Right vertical line
   const rightLine = document.createElement('div')
-  rightLine.style = verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
+  rightLine.style =
+    verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
   container.appendChild(rightLine)
 
   // Rectangle background fill
@@ -324,7 +326,7 @@ const createYellowTapeRectangle = (RC) => {
   return {
     container,
     cleanup,
-    getCurrentLengthPx
+    getCurrentLengthPx,
   }
 }
 
@@ -340,10 +342,17 @@ const createLengthDisplayDiv = () => {
   lengthContainer.id = 'calibration-checkSize-lengthDisplay-container'
   lengthContainer.className = 'calibration-checkSize-lengthDisplay-container'
 
-  // Create the div element for the length value
-  const lengthDisplayDiv = document.createElement('p')
-  lengthDisplayDiv.id = 'length-display-p'
-  lengthDisplayDiv.className = 'calibration-checkSize-lengthDisplay'
+  // Create the input element for the length value
+  const lengthDisplayInput = document.createElement('input')
+  lengthDisplayInput.id = 'length-display-input'
+  lengthDisplayInput.className = 'calibration-checkSize-lengthDisplay'
+  lengthDisplayInput.type = 'number'
+  lengthDisplayInput.step = '1'
+  lengthDisplayInput.style.border = 'none'
+  lengthDisplayInput.style.background = 'transparent'
+  lengthDisplayInput.style.textAlign = 'center'
+  lengthDisplayInput.style.width = '100%'
+  lengthDisplayInput.style.outline = 'none'
 
   // Create p for units
   const units = document.createElement('p')
@@ -351,18 +360,22 @@ const createLengthDisplayDiv = () => {
   units.className = 'calibration-checkSize-lengthDisplay-units'
 
   // Append to the container
-  lengthContainer.appendChild(lengthDisplayDiv)
+  lengthContainer.appendChild(lengthDisplayInput)
   lengthContainer.appendChild(units)
   document.body.appendChild(lengthContainer)
 }
 
 const removeLengthDisplayDiv = () => {
-  const lengthDisplayDiv = document.getElementById('length-display-p')
-  const unitsDiv = document.getElementById('calibration-checkSize-lengthDisplay-units')
-  const lengthContainer = document.getElementById('calibration-checkSize-lengthDisplay-container')
+  const lengthDisplayInput = document.getElementById('length-display-input')
+  const unitsDiv = document.getElementById(
+    'calibration-checkSize-lengthDisplay-units',
+  )
+  const lengthContainer = document.getElementById(
+    'calibration-checkSize-lengthDisplay-container',
+  )
 
-  if (lengthDisplayDiv) {
-    lengthDisplayDiv.remove()
+  if (lengthDisplayInput) {
+    lengthDisplayInput.remove()
   }
 
   if (unitsDiv) {
@@ -397,18 +410,22 @@ const adjustLengthFontSize = (lengthDiv, unitsDiv) => {
 }
 
 const updateLengthDisplayDiv = (length, units) => {
-  const lengthDisplayDiv = document.getElementById('length-display-p')
+  const lengthDisplayInput = document.getElementById('length-display-input')
 
-  if (!lengthDisplayDiv) {
+  if (!lengthDisplayInput) {
     console.warn(
       'Length display div does not exist. Call createLengthDisplayDiv() first.',
     )
     return
   }
 
-  lengthDisplayDiv.innerText = length
+  lengthDisplayInput.value = length
+  lengthDisplayInput.min = 1
+  lengthDisplayInput.max = 100
 
-  const unitsDiv = document.getElementById('calibration-checkSize-lengthDisplay-units')
+  const unitsDiv = document.getElementById(
+    'calibration-checkSize-lengthDisplay-units',
+  )
 
   if (!unitsDiv) {
     console.warn('Units div does not exist.')
@@ -417,21 +434,21 @@ const updateLengthDisplayDiv = (length, units) => {
 
   unitsDiv.innerText = units
 
-  adjustLengthFontSize(lengthDisplayDiv, unitsDiv)
+  adjustLengthFontSize(lengthDisplayInput, unitsDiv)
 }
 
 const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   // Use the already calculated values from screen calibration
   const pxPerCm = RC.screenPpi.value / 2.54 // pixels per cm from calibrated PPI (Note: 2.54 cm = 1 inch)
   const screenWidthCm = RC.screenWidthCm.value // already calculated during screen calibration
-  console.log("//.screenWidthCm", screenWidthCm)
+  console.log('//.screenWidthCm', screenWidthCm)
   const rulerLengthCm = RC.equipment?.value?.length
   const maxLengthCm = Math.min(rulerLengthCm, screenWidthCm)
 
   // Process calibrateTrackDistanceCheckLengthCm the same way as calibrateTrackDistanceCheckCm
   let processedLengthCm = calibrateTrackDistanceCheckLengthCm.map(cm =>
     RC.equipment?.value?.unit === 'inches'
-      ? Math.floor(Number(cm) / 2.54) 
+      ? Math.floor(Number(cm) / 2.54)
       : Math.floor(Number(cm)),
   )
 
@@ -439,7 +456,7 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
     cm => cm > 0 && cm <= maxLengthCm,
   )
 
-  console.log("//.processedLengthCm", processedLengthCm)
+  console.log('//.processedLengthCm', processedLengthCm)
 
   if (processedLengthCm.length === 0) {
     console.warn('No valid lengths to check.')
@@ -462,47 +479,83 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
     // Update the length display with the current required length
     updateLengthDisplayDiv(cm, RC.equipment?.value?.unit)
 
-    // Create the page content with dynamic replacements
-    const html = constructInstructions(
-      phrases.RC_SetLengthTitle[RC.language.value]
+    // Create and update instruction content
+    const updateInstructionText = currentLength => {
+      const instructionTitle = phrases.RC_SetLengthTitle[RC.language.value]
         .replace('[[N11]]', index)
-        .replace('[[N22]]', processedLengthCm.length),
-      phrases.RC_SetLength[RC.language.value]
-        .replace('[[N33]]', cm)
-        .replace('[[UUU]]', RC.equipment?.value?.unit)
-        .replace(/(?:\r\n|\r|\n)/g, '<br><br>'),
-      false,
-      'bodyText',
-      'left'
-    )
-    
-    RC._replaceBackground(html)
+        .replace('[[N22]]', processedLengthCm.length)
 
-    // Create and display the yellow tape rectangle
+      const instructionBody = phrases.RC_SetLength[RC.language.value]
+        .replace('[[N33]]', currentLength)
+        .replace('[[UUU]]', RC.equipment?.value?.unit)
+        .replace(/(?:\r\n|\r|\n)/g, '<br><br>')
+
+      if (!document.getElementById('instruction-title')) {
+        const html = constructInstructions(
+          instructionTitle,
+          instructionBody,
+          false,
+          'bodyText',
+          'left',
+        )
+        RC._replaceBackground(html)
+      } else {
+        const titleElement = document.getElementById('instruction-title')
+        const bodyElement = document.getElementById('instruction-body')
+        if (titleElement) titleElement.innerHTML = instructionTitle
+        if (bodyElement) bodyElement.innerHTML = instructionBody
+      }
+    }
+
+    updateInstructionText(cm)
+
     const yellowTape = createYellowTapeRectangle(RC)
     RC.background.appendChild(yellowTape.container)
 
     // Wait for space key press for each page
-    await new Promise((resolve) => {
+    await new Promise(resolve => {
       let register = true
 
-      function keyupListener(event) {
-        if (event.key === ' ' && register) {
+      function handleMeasurement() {
+        if (register) {
           register = false
+          const lengthDisplayInput = document.getElementById(
+            'length-display-input',
+          )
+          const editedLength = Number(lengthDisplayInput.value)
+
           // Store the requested length (and measured length from yellow tape)
           const measuredLength = yellowTape.getCurrentLengthPx()
-          RC.calibrateTrackLengthMeasuredCm.push(Number(measuredLength.toFixed(1)))
+          RC.calibrateTrackLengthMeasuredCm.push(
+            Number(measuredLength.toFixed(1)),
+          )
           RC.calibrateTrackLengthRequestedCm.push(
             Number(
               RC.equipment?.value?.unit === 'inches'
-                ? (cm * 2.54).toFixed(1)
-                : cm.toFixed(1),
+                ? (editedLength * 2.54).toFixed(1)
+                : editedLength.toFixed(1),
             ),
           )
-          RC.calibrateTrackDistancePxPerCm.push((Number(measuredLength.toFixed(1)) / cm).toFixed(1))
-          console.log("//RC.calibrateTrackLengthMeasuredCm", RC.calibrateTrackLengthMeasuredCm)
-          console.log("//RC.calibrateTrackLengthRequestedCm", RC.calibrateTrackLengthRequestedCm)
-          console.log("//RC.calibrateTrackDistancePxPerCm", RC.calibrateTrackDistancePxPerCm)
+          const lengthInCm = Number(
+            RC.equipment?.value?.unit === 'inches'
+              ? (editedLength * 2.54).toFixed(1)
+              : editedLength.toFixed(1),
+          )
+          RC.calibrateTrackDistancePxPerCm.push(
+            (Number(measuredLength.toFixed(1)) / lengthInCm).toFixed(1),
+          )
+          console.log(
+            '//RC.calibrateTrackLengthMeasuredCm',
+            RC.calibrateTrackLengthMeasuredCm,
+          )
+          console.log(
+            '//RC.calibrateTrackLengthRequestedCm',
+            RC.calibrateTrackLengthRequestedCm,
+          )
+          console.log(
+            '//RC.calibrateTrackDistancePxPerCm',
+            RC.calibrateTrackDistancePxPerCm,
+          )
 
           document.removeEventListener('keyup', keyupListener)
           removeKeypadHandler()
@@ -511,30 +564,19 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
         }
       }
 
+      function keyupListener(event) {
+        if (event.key === ' ') {
+          handleMeasurement()
+        }
+      }
+
       // Set up keypad handler for space key (for devices with keypad)
       const removeKeypadHandler = setUpEasyEyesKeypadHandler(
         null,
         RC.keypadHandler,
         value => {
-          if (value === 'space' && register) {
-            register = false
-            // Store the requested length (and measured length from yellow tape)
-            const measuredLength = yellowTape.getCurrentLengthPx()
-            RC.calibrateTrackLengthMeasuredCm.push(Number(measuredLength.toFixed(1)))
-            RC.calibrateTrackLengthRequestedCm.push(
-              Number(
-                RC.equipment?.value?.unit === 'inches'  
-                  ? (cm * 2.54).toFixed(1)
-                  : cm.toFixed(1),
-              )
-            )
-            console.log("...RC.calibrateTrackLengthMeasuredCm", RC.calibrateTrackLengthMeasuredCm)
-            console.log("...RC.calibrateTrackLengthRequestedCm", RC.calibrateTrackLengthRequestedCm)
-            
-            removeKeypadHandler()
-            document.removeEventListener('keyup', keyupListener)
-            yellowTape.cleanup() // Clean up the yellow tape
-            resolve()
+          if (value === 'space') {
+            handleMeasurement()
           }
         },
         false,
@@ -542,6 +584,31 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
         RC,
         true,
       )
+
+      const lengthDisplayInput = document.getElementById('length-display-input')
+      lengthDisplayInput.addEventListener('input', e => {
+        if (e.target.value === '' || e.target.value === '-') {
+          return
+        }
+
+        const value = Number(e.target.value)
+        if (!isNaN(value)) {
+          if (value > 100) {
+            e.target.value = '100'
+            updateInstructionText(100)
+          } else {
+            updateInstructionText(value)
+          }
+        }
+      })
+
+      lengthDisplayInput.addEventListener('blur', e => {
+        const value = Number(e.target.value)
+        if (e.target.value === '' || isNaN(value) || value < 1) {
+          e.target.value = '1'
+          updateInstructionText(1)
+        }
+      })
 
       document.addEventListener('keyup', keyupListener)
     })

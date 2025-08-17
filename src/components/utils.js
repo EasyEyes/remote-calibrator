@@ -170,9 +170,9 @@ export function constructInstructions(
 ) {
   return `<div class="calibration-instruction${
     scrollable ? ' calibration-instruction-scrollable' : ''
-  }${position === 'left' ? ' calibration-instruction-left' : ''}"><p class="heading1">${headline}</p>${headline2 ? '<p class="heading1">' + headline2 + '</p>' : ''}${
+  }${position === 'left' ? ' calibration-instruction-left' : ''}"><p id="instruction-title" class="heading1">${headline}</p>${headline2 ? '<p class="heading1">' + headline2 + '</p>' : ''}${
     description
-      ? `<p class="${useDescriptionClassOnly ? descriptionClass : 'calibration-description ' + descriptionClass}">${description}</p></div>`
+      ? `<p id="instruction-body" class="${useDescriptionClassOnly ? descriptionClass : 'calibration-description ' + descriptionClass}">${description}</p></div>`
       : ''
   }`
 }
