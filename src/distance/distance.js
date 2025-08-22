@@ -83,6 +83,25 @@ function captureVideoFrame(RC) {
   }
 }
 
+// Helper function to calulcte the distance from the center of the screen to the top of the screen in cm
+const _calculateDistanceFromCenterToTop = ppi => {
+  // get the screen height in pixels
+  const screenHeightPixels = window.screen.height
+
+  // calculate half the screen height in pixels
+  const halfScreenHeightPixels = screenHeightPixels / 2
+
+  // convert pixels to inches using the ppi
+  const halfScreenHeightInches = halfScreenHeightPixels / ppi
+
+  // convert inches to centimeters (1 inch = 2.54 cm)
+  const halfScreenHeightCm = halfScreenHeightInches * 2.54
+
+  console.log('.....halfScreenHeightCm', halfScreenHeightCm)
+
+  return halfScreenHeightCm
+}
+
 export async function blindSpotTest(
   RC,
   options,
@@ -239,6 +258,7 @@ export async function blindSpotTest(
         options.calibrateTrackDistanceAllowedRangeCm,
         faceMeshSamplesLeft,
         faceMeshSamplesRight,
+        ppi,
       )
       if (RC.measurementHistory && message !== 'Pass')
         RC.measurementHistory.push(message)
@@ -283,10 +303,15 @@ export async function blindSpotTest(
         const distance2FactorCmPx = rightAvgFM * rightMean
 
         // Calibration factor used for tracking
-        const calibrationFactor = averageFaceMesh * data.value
+        // Apply Pythagorean correction: blindspot gives eyeToScreenCm, but we need eyeToCameraCm for calibration
+        const halfScreenHeightCm = _calculateDistanceFromCenterToTop(ppi)
+        const eyeToCameraCm = Math.sqrt(data.value ** 2 - halfScreenHeightCm ** 2)
+        const calibrationFactor = averageFaceMesh * eyeToCameraCm
 
         console.log('=== Blindspot Test Calibration Factor ===')
-        console.log('Blindspot distance (median):', data.value, 'cm')
+        console.log('Blindspot distance (eyeToScreenCm):', data.value, 'cm')
+        console.log('Half screen height:', halfScreenHeightCm.toFixed(2), 'cm')  
+        console.log('Corrected distance (eyeToCameraCm):', eyeToCameraCm.toFixed(2), 'cm')
         console.log('Left/Right avg Face Mesh:', leftAvgFM, rightAvgFM, 'px')
         console.log(
           'Left/Right factors (cm*px):',
@@ -2861,6 +2886,7 @@ function checkBlindspotTolerance(
   allowedRangeCm,
   faceMeshSamplesLeft,
   faceMeshSamplesRight,
+  ppi,
 ) {
   const lefts = []
   const rights = []
@@ -2900,8 +2926,12 @@ function checkBlindspotTolerance(
   }
   const leftAvgFM = validLeft.reduce((a, b) => a + b, 0) / validLeft.length
   const rightAvgFM = validRight.reduce((a, b) => a + b, 0) / validRight.length
-  const F1 = leftAvgFM * leftMean
-  const F2 = rightAvgFM * rightMean
+  // Apply Pythagorean correction for blindspot tolerance check
+  const halfScreenHeightCm = _calculateDistanceFromCenterToTop(ppi)
+  const leftEyeToCameraCm = Math.sqrt(leftMean ** 2 - halfScreenHeightCm ** 2)
+  const rightEyeToCameraCm = Math.sqrt(rightMean ** 2 - halfScreenHeightCm ** 2)
+  const F1 = leftAvgFM * leftEyeToCameraCm
+  const F2 = rightAvgFM * rightEyeToCameraCm
   const ratio1 = F1 / F2
   const ratio2 = F2 / F1
   const maxRatio = Math.max(ratio1, ratio2)
