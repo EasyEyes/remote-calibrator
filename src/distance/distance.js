@@ -359,6 +359,8 @@ export async function blindSpotTest(
       } else {
         const reasonIsOutOfRange = message.includes('out of allowed range')
         let displayMessage = phrases.RC_viewingBlindSpotRejected[RC.L]
+        .replace('[[N11]]', min.toFixed(1))
+        .replace('[[N22]]', max.toFixed(1))
         if (reasonIsOutOfRange) {
           displayMessage = phrases.RC_viewingExceededRange[RC.L]
             .replace('[[N11]]', min.toFixed(1))
@@ -2286,8 +2288,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
                 html: `<div style="text-align: center;">
-                    <img src="${capturedImage}" style="max-width: 300px; max-height: 200px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}.</p>
+                    <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
+                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
                    </div>`,
                 showCancelButton: false,
                 confirmButtonText: phrases.EE_ok[RC.L],
@@ -2336,8 +2338,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
                 html: `<div style="text-align: center;">
-                    <img src="${capturedImage}" style="max-width: 300px; max-height: 200px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}.</p>
+                    <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
+                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
                    </div>`,
                 showCancelButton: false,
                 confirmButtonText: phrases.EE_ok[RC.L],
@@ -2375,6 +2377,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 await objectTestFinishFunction()
               } else {
                 let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
+                .replace('[[N11]]', min.toFixed(1))
+                .replace('[[N22]]', max.toFixed(1))
                 const reasonIsOutOfRange = message.includes(
                   'out of allowed range',
                 )
@@ -2533,6 +2537,8 @@ export async function objectTest(RC, options, callback = undefined) {
         await objectTestFinishFunction()
       } else {
         let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
+        .replace('[[N11]]', min.toFixed(1))
+        .replace('[[N22]]', max.toFixed(1))
         const reasonIsOutOfRange = message.includes('out of allowed range')
         if (reasonIsOutOfRange) {
           displayMessage = phrases.RC_viewingExceededRange[RC.L]
