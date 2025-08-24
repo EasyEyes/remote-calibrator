@@ -305,13 +305,19 @@ export async function blindSpotTest(
         // Calibration factor used for tracking
         // Apply Pythagorean correction: blindspot gives eyeToScreenCm, but we need eyeToCameraCm for calibration
         const halfScreenHeightCm = _calculateDistanceFromCenterToTop(ppi)
-        const eyeToCameraCm = Math.sqrt(data.value ** 2 - halfScreenHeightCm ** 2)
+        const eyeToCameraCm = Math.sqrt(
+          data.value ** 2 - halfScreenHeightCm ** 2,
+        )
         const calibrationFactor = averageFaceMesh * eyeToCameraCm
 
         console.log('=== Blindspot Test Calibration Factor ===')
         console.log('Blindspot distance (eyeToScreenCm):', data.value, 'cm')
-        console.log('Half screen height:', halfScreenHeightCm.toFixed(2), 'cm')  
-        console.log('Corrected distance (eyeToCameraCm):', eyeToCameraCm.toFixed(2), 'cm')
+        console.log('Half screen height:', halfScreenHeightCm.toFixed(2), 'cm')
+        console.log(
+          'Corrected distance (eyeToCameraCm):',
+          eyeToCameraCm.toFixed(2),
+          'cm',
+        )
         console.log('Left/Right avg Face Mesh:', leftAvgFM, rightAvgFM, 'px')
         console.log(
           'Left/Right factors (cm*px):',
@@ -359,8 +365,8 @@ export async function blindSpotTest(
       } else {
         const reasonIsOutOfRange = message.includes('out of allowed range')
         let displayMessage = phrases.RC_viewingBlindSpotRejected[RC.L]
-        .replace('[[N11]]', min.toFixed(1))
-        .replace('[[N22]]', max.toFixed(1))
+          .replace('[[N11]]', min.toFixed(1))
+          .replace('[[N22]]', max.toFixed(1))
         if (reasonIsOutOfRange) {
           displayMessage = phrases.RC_viewingExceededRange[RC.L]
             .replace('[[N11]]', min.toFixed(1))
@@ -381,12 +387,30 @@ export async function blindSpotTest(
 
         dist = [] // Discard old data
 
-        Swal.fire({
-          ...swalInfoOptions(RC, { showIcon: false }),
-          icon: undefined,
-          html: displayMessage,
-          allowEnterKey: true,
-        })
+        const isOutOfRangeError = reasonIsOutOfRange
+        const inPanelContext = RC._panelStatus.hasPanel
+
+        if (isOutOfRangeError && inPanelContext) {
+          Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            html: displayMessage,
+            allowEnterKey: true,
+          }).then(() => {
+            // Clean up blindspot test before returning to panel
+            if (removeKeypadHandler) removeKeypadHandler() // Clean up keypad handler
+            breakFunction(false) // Don't break tracking, just clean up test
+            RC._returnToPanelForScreenSize()
+          })
+          return
+        } else {
+          Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            html: displayMessage,
+            allowEnterKey: true,
+          })
+        }
       }
     } else if (tested % options.repeatTesting === 0) {
       removeKeypadHandler()
@@ -908,7 +932,6 @@ export async function objectTest(RC, options, callback = undefined) {
   container.style.height = '100vh'
   container.style.userSelect = 'none'
   container.style.overflow = 'hidden' // Prevent scrolling
-  
 
   // --- TITLE  ---
   const title = document.createElement('h1')
@@ -1706,11 +1729,10 @@ export async function objectTest(RC, options, callback = undefined) {
         dontUseRuler.style.maxWidth = '40vw'
         dontUseRuler.style.paddingInlineStart = '3rem'
 
-        // inver alignment adn horziontal offset oppositr 
         if (RC.LD === RC._CONST.RTL) {
           dontUseRuler.style.textAlign = 'left'
           dontUseRuler.style.left = '3rem'
-        } 
+        }
         container.appendChild(dontUseRuler)
       }
 
@@ -2172,6 +2194,32 @@ export async function objectTest(RC, options, callback = undefined) {
       RC._removeBackground()
     }
   }
+  const cleanupObjectTest = () => {
+    // Clean up keyboard event listeners
+    document.removeEventListener('keydown', handleKeyPress)
+    document.removeEventListener('keyup', handleKeyPress)
+
+    // Clean up radio button event listeners
+    if (customInputs) {
+      customInputs.forEach(input => {
+        input.removeEventListener('keyup', keydownListener)
+      })
+    }
+
+    // Clean up keypad handler
+    if (removeKeypadHandler) {
+      removeKeypadHandler()
+    }
+
+    // Clean up any remaining DOM elements
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container)
+    }
+
+    // Clean up background
+    RC._removeBackground()
+  }
+
   const breakFunction = () => {
     // Always clean up keyboard event listeners
     document.removeEventListener('keydown', handleKeyPress)
@@ -2377,8 +2425,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 await objectTestFinishFunction()
               } else {
                 let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-                .replace('[[N11]]', min.toFixed(1))
-                .replace('[[N22]]', max.toFixed(1))
+                  .replace('[[N11]]', min.toFixed(1))
+                  .replace('[[N22]]', max.toFixed(1))
                 const reasonIsOutOfRange = message.includes(
                   'out of allowed range',
                 )
@@ -2398,13 +2446,29 @@ export async function objectTest(RC, options, callback = undefined) {
                 faceMeshSamplesPage3.length = 0
                 faceMeshSamplesPage4.length = 0
 
-                // Show error message using the same phrase as blindspot test
-                await Swal.fire({
-                  ...swalInfoOptions(RC, { showIcon: false }),
-                  icon: undefined,
-                  html: displayMessage,
-                  allowEnterKey: true,
-                })
+                const isOutOfRangeError = reasonIsOutOfRange
+                const inPanelContext = RC._panelStatus.hasPanel
+
+                if (isOutOfRangeError && inPanelContext) {
+                  await Swal.fire({
+                    ...swalInfoOptions(RC, { showIcon: false }),
+                    icon: undefined,
+                    html: displayMessage,
+                    allowEnterKey: true,
+                  }).then(() => {
+                    // Clean up object test before returning to panel
+                    cleanupObjectTest()
+                    RC._returnToPanelForScreenSize()
+                  })
+                  return // Exit early to prevent the normal restart flow
+                } else {
+                  await Swal.fire({
+                    ...swalInfoOptions(RC, { showIcon: false }),
+                    icon: undefined,
+                    html: displayMessage,
+                    allowEnterKey: true,
+                  })
+                }
 
                 // Reset to page 2 to restart object measurement
                 currentPage = 1
@@ -2537,8 +2601,8 @@ export async function objectTest(RC, options, callback = undefined) {
         await objectTestFinishFunction()
       } else {
         let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-        .replace('[[N11]]', min.toFixed(1))
-        .replace('[[N22]]', max.toFixed(1))
+          .replace('[[N11]]', min.toFixed(1))
+          .replace('[[N22]]', max.toFixed(1))
         const reasonIsOutOfRange = message.includes('out of allowed range')
         if (reasonIsOutOfRange) {
           displayMessage = phrases.RC_viewingExceededRange[RC.L]
@@ -2554,12 +2618,31 @@ export async function objectTest(RC, options, callback = undefined) {
         faceMeshSamplesPage3.length = 0
         faceMeshSamplesPage4.length = 0
 
-        await Swal.fire({
-          ...swalInfoOptions(RC, { showIcon: false }),
-          icon: undefined,
-          html: displayMessage,
-          allowEnterKey: true,
-        })
+        const isOutOfRangeError = reasonIsOutOfRange
+        const inPanelContext = RC._panelStatus.hasPanel
+
+        if (isOutOfRangeError && inPanelContext) {
+          // Show normal error dialog but redirect to panel when OK is pressed
+          await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            html: displayMessage,
+            allowEnterKey: true,
+          }).then(() => {
+            // Clean up object test before returning to panel
+            cleanupObjectTest()
+            RC._returnToPanelForScreenSize()
+          })
+          return // Exit early to prevent the normal restart flow
+        } else {
+          // Normal error dialog without panel return functionality
+          await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            html: displayMessage,
+            allowEnterKey: true,
+          })
+        }
 
         currentPage = 1
         firstMeasurement = null

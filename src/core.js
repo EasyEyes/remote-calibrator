@@ -658,6 +658,352 @@ RemoteCalibrator.prototype.removeKeypadHandler = function () {
 }
 
 /**
+ * Return to panel for screen size calibration when viewing distance exceeds range
+ * This method resets the panel to allow the user to recalibrate screen size
+ */
+RemoteCalibrator.prototype._returnToPanelForScreenSize = function () {
+  if (!this._panelStatus.hasPanel) {
+    console.warn('Cannot return to panel - no panel is currently active')
+    return
+  }
+
+  // Clean up any current calibration state thoroughly
+  this._removeBackground()
+  this._removeFloatInstructionElement()
+
+  // End any active distance tracking
+  if (
+    this.gazeTracker &&
+    this.gazeTracker.checkInitialized('distance', false)
+  ) {
+    this.endDistance()
+  }
+
+  // Clean up any remaining DOM elements from distance calibration
+  this._cleanupDistanceCalibrationElements()
+
+  // Remove any global event listeners that might be left from distance tests
+  this._removeGlobalDistanceEventListeners()
+
+  // Reset panel to screen size step
+  // Find the index of the screenSize task
+  const tasks = this._panel.panelTasks
+  let screenSizeIndex = -1
+
+  for (let i = 0; i < tasks.length; i++) {
+    const taskName = typeof tasks[i] === 'string' ? tasks[i] : tasks[i].name
+    if (taskName === 'screenSize') {
+      screenSizeIndex = i
+      break
+    }
+  }
+
+  if (screenSizeIndex === -1) {
+    console.warn('Screen size task not found in panel tasks')
+    return
+  }
+
+  // Reset panel to activate screen size step
+  this._resetPanelToStep(screenSizeIndex)
+}
+
+/**
+ * Reset panel to a specific step index
+ * @param {number} stepIndex - The index of the step to activate
+ */
+RemoteCalibrator.prototype._resetPanelToStep = function (stepIndex) {
+  if (!this._panelStatus.hasPanel) {
+    console.warn('Cannot reset panel - no panel is currently active')
+    return
+  }
+
+  const tasks = this._panel.panelTasks
+  const options = this._panel.panelOptions
+  const finalCallback = this._panel.panelCallback
+
+  // Create a current state object that matches the panel's internal structure
+  const current = { index: stepIndex, finished: [] }
+
+  // Mark all previous steps as finished
+  for (let i = 0; i < stepIndex; i++) {
+    current.finished.push(
+      typeof tasks[i] === 'string' ? tasks[i] : tasks[i].name,
+    )
+  }
+
+  // Reset step visual states
+  document.querySelectorAll('.rc-panel-step').forEach((e, ind) => {
+    const eIndex = Number(e.dataset.index)
+
+    // Remove all step state classes
+    e.classList.remove(
+      'rc-panel-step-active',
+      'rc-panel-step-inactive',
+      'rc-panel-step-finished',
+      'rc-panel-step-todo',
+    )
+
+    if (eIndex < stepIndex) {
+      // Mark previous steps as todo (so they can be re-run if needed)
+      e.classList.add('rc-panel-step-todo', 'rc-panel-step-inactive')
+    } else if (eIndex === stepIndex) {
+      // Mark current step as todo and make it active
+      e.classList.add('rc-panel-step-todo', 'rc-panel-step-active')
+    } else {
+      // Mark future steps as todo and inactive
+      e.classList.add('rc-panel-step-todo', 'rc-panel-step-inactive')
+    }
+  })
+
+  // Reactivate the target step using the panel's internal activation function
+  // We need to access the internal _activateStepAt function from panel.js
+  this._activateStepAt(current, tasks, options, finalCallback)
+}
+
+/**
+ * Internal method to activate a step (this duplicates the logic from panel.js)
+ * @param {object} current - Current panel state
+ * @param {array} tasks - Panel tasks
+ * @param {object} options - Panel options
+ * @param {function} finalCallback - Final callback
+ */
+RemoteCalibrator.prototype._activateStepAt = function (
+  current,
+  tasks,
+  options,
+  finalCallback,
+) {
+  document.querySelectorAll('.rc-panel-step').forEach((e, ind) => {
+    const eIndex = Number(e.dataset.index)
+
+    if (eIndex === current.index) {
+      e.classList.replace('rc-panel-step-inactive', 'rc-panel-step-active')
+      e.focus()
+
+      if (eIndex !== tasks.length) {
+        if (eIndex === tasks.length - 1 && !options.showNextButton) {
+          // Last task without next button
+          e.onclick = () => {
+            const taskName =
+              typeof tasks[current.index] === 'string'
+                ? tasks[current.index]
+                : tasks[current.index].name
+            this[taskName](
+              ...this._getTaskOptionsCallbacks(
+                tasks[current.index],
+                // Fixed task callback
+                () => {
+                  this._finishStepAt(current.index)
+                },
+                finalCallback,
+                // Fixed final callback
+                () => {
+                  this._panelStatus.panelFinished = true
+                },
+              ),
+            )
+          }
+        } else {
+          // Interim tasks
+          e.onclick = () => {
+            const taskName =
+              typeof tasks[current.index] === 'string'
+                ? tasks[current.index]
+                : tasks[current.index].name
+            this[taskName](
+              ...this._getTaskOptionsCallbacks(
+                tasks[current.index],
+                // Fixed task callback
+                () => {
+                  this._finishStepAt(current.index)
+                  current.index++
+                  this._activateStepAt(current, tasks, options, finalCallback)
+                },
+              ),
+            )
+          }
+        }
+      }
+    }
+  })
+}
+
+/**
+ * Mark a step as finished (duplicates logic from panel.js)
+ * @param {number} index - Step index to finish
+ */
+RemoteCalibrator.prototype._finishStepAt = function (index) {
+  const steps = document.querySelectorAll('.rc-panel-step')
+
+  for (const e of steps) {
+    if (Number(e.dataset.index) === index) {
+      e.classList.replace('rc-panel-step-todo', 'rc-panel-step-finished')
+      e.classList.replace('rc-panel-step-active', 'rc-panel-step-inactive')
+    }
+  }
+}
+
+/**
+ * Get task options and callbacks (duplicates logic from panel.js)
+ * @param {object|string} task - Task definition
+ * @param {function} fixedTaskCallback - Fixed task callback
+ * @param {function} finalCallback - Final callback
+ * @param {function} fixedFinalCallback - Fixed final callback
+ */
+RemoteCalibrator.prototype._getTaskOptionsCallbacks = function (
+  task,
+  fixedTaskCallback,
+  finalCallback = null,
+  fixedFinalCallback = null,
+) {
+  if (typeof task === 'string')
+    task = {
+      name: task,
+    }
+
+  const getFinalCallbacks = () => {
+    // Task
+    if (fixedTaskCallback) fixedTaskCallback()
+    // Panel
+    if (finalCallback) finalCallback({ timestamp: performance.now() })
+    if (fixedFinalCallback) fixedFinalCallback()
+  }
+
+  if (['screenSize', 'measureDistance', 'performance'].includes(task.name)) {
+    return [
+      task.options || {},
+      data => {
+        if (task.callback) task.callback(data)
+        getFinalCallbacks()
+      },
+    ]
+  }
+
+  if ('trackGaze' === task.name) {
+    return [
+      task.options || {},
+      data => {
+        if (task.callbackOnCalibrationEnd) task.callbackOnCalibrationEnd(data)
+        getFinalCallbacks()
+      },
+      task.callbackTrack || null,
+    ]
+  }
+
+  if ('trackDistance' === task.name) {
+    return [
+      task.options || {},
+      data => {
+        if (task.callbackStatic) task.callbackStatic(data)
+        getFinalCallbacks()
+      },
+      task.callbackTrack || null,
+    ]
+  }
+}
+
+/**
+ * Clean up any remaining DOM elements from distance calibration
+ * This prevents null reference errors when switching back to panel
+ */
+RemoteCalibrator.prototype._cleanupDistanceCalibrationElements = function () {
+  // Remove any floating instruction elements
+  const floatInstructions = document.querySelectorAll('.float-instruction')
+  floatInstructions.forEach(element => {
+    if (element.parentNode) {
+      element.parentNode.removeChild(element)
+    }
+  })
+
+  // Remove blind spot canvas and related elements
+  const blindSpotCanvas = document.querySelector('#blind-spot-canvas')
+  if (blindSpotCanvas && blindSpotCanvas.parentNode) {
+    blindSpotCanvas.parentNode.removeChild(blindSpotCanvas)
+  }
+
+  // Remove blind spot instruction
+  const blindSpotInstruction = document.querySelector('#blind-spot-instruction')
+  if (blindSpotInstruction && blindSpotInstruction.parentNode) {
+    blindSpotInstruction.parentNode.removeChild(blindSpotInstruction)
+  }
+
+  // Remove any object test containers
+  const objectTestContainers = document.querySelectorAll('[id*="object-test"]')
+  objectTestContainers.forEach(element => {
+    if (element.parentNode) {
+      element.parentNode.removeChild(element)
+    }
+  })
+
+  // Remove buttons container
+  const buttonContainer = document.querySelector('.rc-button-container')
+  if (buttonContainer && buttonContainer.parentNode) {
+    buttonContainer.parentNode.removeChild(buttonContainer)
+  }
+
+  // Reset instruction element reference to null to prevent getBoundingClientRect errors
+  if (this._background) {
+    this._background.instructionElement = null
+  }
+
+  // Note: We don't aggressively clear all intervals as that could interfere
+  // with other parts of the application. Specific interval cleanup should
+  // be handled by the individual calibration methods.
+}
+
+/**
+ * Remove global event listeners that might be left from distance tests
+ */
+RemoteCalibrator.prototype._removeGlobalDistanceEventListeners = function () {
+  // Remove keydown and keyup listeners that might be from distance tests
+  // Note: We can't remove ALL listeners as that would break other functionality
+  // Instead, we'll create a more targeted approach by storing references
+
+  // Remove common distance test event listeners
+  const eventsToClean = [
+    'keydown',
+    'keyup',
+    'mousedown',
+    'mouseup',
+    'mousemove',
+    'touchstart',
+    'touchend',
+    'touchmove',
+  ]
+
+  eventsToClean.forEach(eventType => {
+    // Clone the node to remove all event listeners of this type
+    // This is a brute-force approach but effective for cleanup
+    const elements = document.querySelectorAll('canvas, div, button')
+    elements.forEach(element => {
+      if (
+        element.id &&
+        (element.id.includes('blind-spot') ||
+          element.id.includes('object-test'))
+      ) {
+        const clone = element.cloneNode(true)
+        if (element.parentNode) {
+          element.parentNode.replaceChild(clone, element)
+        }
+      }
+    })
+  })
+
+  // Remove any resize observers that might be left
+  try {
+    // This is a more gentle approach - just stop observing if observers exist
+    if (window.ResizeObserver) {
+      const elements = document.querySelectorAll('[data-observed]')
+      elements.forEach(element => {
+        element.removeAttribute('data-observed')
+      })
+    }
+  } catch (e) {
+    // Ignore errors in cleanup
+  }
+}
+
+/**
  * Get fullscreen
  * @param {Boolean} f Get fullscreen or not from options
  */
@@ -806,6 +1152,12 @@ RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
   yOffset = 16,
 ) {
   // For blind spot test instructions
+  // Safety check to prevent null reference errors
+  if (!this.instructionElement) {
+    console.warn('Cannot set instruction element position - element is null')
+    return
+  }
+
   const r = this.instructionElement.getBoundingClientRect()
   this.instructionElement.style.bottom = `calc(50% + ${yOffset + 10}px)`
   this.instructionElement.style.textAlign = 'left'
