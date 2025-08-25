@@ -482,6 +482,9 @@ export const showCameraSelectionPopup = async (
     currentActiveCamera,
   )
 
+  // Create title HTML with same styling as RC_distanceTrackingTitle
+  const titleHTML = `<div style="text-align: left; margin-bottom: 0; margin-top: 1rem;"><p class="heading1" style="font-size: 22pt; font-weight: bold; font-family: Verdana; margin: 0; padding: 0;">${phrases.RC_ChooseCameraTitle[RC.L]}</p></div>`
+
   // Calculate dynamic maxWidth based on number of cameras
   // Each camera preview is approximately 280px wide (272px + padding + margins)
   // Allow the popup to expand to fit all cameras without artificial width limits
@@ -499,14 +502,16 @@ export const showCameraSelectionPopup = async (
   const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
-    title,
-    html: `${cameraPreviewsHTML}<br>${message}`,
+    title: '', // Remove the default title since we're adding our own
+    html: `${titleHTML}${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${message}</div>`,
     showConfirmButton: false,
     allowEnterKey: false, // To be changed
     // Dynamic popup width based on number of cameras
     width: dynamicMaxWidth,
+    background: '#eee', // Match standard RC background color
+    backdrop: '#eee',
     customClass: {
-      popup: 'my__swal2__container camera-selection-popup',
+      popup: 'my__swal2__container camera-selection-popup camera-no-overlay',
       icon: 'my__swal2__icon',
       title: 'my__swal2__title',
       htmlContainer: `my__swal2__html rc-lang-${RC.LD.toLowerCase()}`,
@@ -1153,6 +1158,73 @@ export const showCameraSelectionPopup = async (
 }
 
 /**
+ * Shows a popup when no cameras are detected
+ * @param {Object} RC - RemoteCalibrator instance
+ * @param {Element} mainVideoContainer - Main video container element
+ * @param {string} originalMainVideoDisplay - Original display style
+ * @returns {Promise<string>} - 'retry' or 'end'
+ */
+const showNoCameraPopup = async (RC, mainVideoContainer, originalMainVideoDisplay) => {
+  // Restore video container display for the popup
+  if (mainVideoContainer) {
+    mainVideoContainer.style.display = originalMainVideoDisplay
+  }
+
+  const result = await Swal.fire({
+    ...swalInfoOptions(RC, { showIcon: false }),
+    html: `
+      <p style="text-align: left; margin-top: 1rem; font-size: 1.2rem; line-height: 1.6;">
+        ${phrases.RC_CameraNotFound[RC.L].replace('\n', '<br />')}
+      </p>
+    `,
+    showCancelButton: true,
+    confirmButtonText: phrases.RC_TryAgain[RC.L],
+    cancelButtonText: phrases.RC_OK[RC.L],
+    allowEnterKey: true,
+    didOpen: () => {
+      // Handle keyboard events
+      const keydownListener = event => {
+        if (event.key === 'Enter' || event.key === 'Return') {
+          Swal.clickConfirm() // Try Again
+        } else if (event.key === 'Escape') {
+          Swal.clickCancel() // End Experiment
+        }
+      }
+
+      // Add keyboard listener
+      document.addEventListener('keydown', keydownListener, true)
+
+      // Handle EasyEyes keypad if available
+      if (RC.keypadHandler) {
+        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+          null,
+          RC.keypadHandler,
+          () => {
+            removeKeypadHandler()
+            Swal.clickConfirm()
+          },
+          false,
+          ['return'],
+          RC,
+        )
+      }
+
+      // Store listener for cleanup
+      RC.popupKeydownListener = keydownListener
+    },
+    willClose: () => {
+      // Remove keyboard event listener
+      if (RC.popupKeydownListener) {
+        document.removeEventListener('keydown', RC.popupKeydownListener, true)
+        RC.popupKeydownListener = null
+      }
+    },
+  })
+
+  return result.isConfirmed ? 'retry' : 'end'
+}
+
+/**
  * Shows a unified popup for all tests with camera selection
  * @param {Object} RC - RemoteCalibrator instance
  * @param {Function} onClose - Callback function when popup is closed
@@ -1166,12 +1238,25 @@ export const showTestPopup = async (RC, onClose = null) => {
     mainVideoContainer.style.display = 'none'
   }
 
-  // Check if there are at least 2 cameras available
+  // Check if there are cameras available
   const cameras = await getAvailableCameras()
 
-  // If less than 2 cameras, show the main video preview again and skip the popup
-  if (cameras.length < 2) {
-    // Show the main video preview again
+  // Handle different camera scenarios
+  if (cameras.length === 0) {
+    // No cameras detected - show retry popup
+    const noCameraResult = await showNoCameraPopup(RC, mainVideoContainer, originalMainVideoDisplay)
+    if (noCameraResult === 'retry') {
+      // Recursively call showTestPopup to retry camera detection
+      return await showTestPopup(RC, onClose)
+    } else {
+      // User chose to end experiment
+      if (onClose && typeof onClose === 'function') {
+        onClose('experiment_ended')
+      }
+      return { selectedCamera: null, experimentEnded: true }
+    }
+  } else if (cameras.length === 1) {
+    // Only one camera - skip popup and continue normally
     if (mainVideoContainer) {
       mainVideoContainer.style.display = originalMainVideoDisplay
     }

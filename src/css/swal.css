@@ -67,12 +67,15 @@
   flex-direction: row;
   align-items: center;
   padding-left: 1.75rem;
+  justify-content: left;
+  align-self: center;
 }
 
 #custom-radio-group label {
   margin-right: 10px;
   display: flex;
   flex-direction: row;
+  font-size: 1.4rem;
 }
 
 /* input inside the label */
@@ -131,4 +134,19 @@
 .camera-selection-popup .swal2-html-container {
   padding-top: 0 !important;
   margin-top: 0 !important;
+}
+
+/* Remove any overlay effects completely */
+.camera-no-overlay {
+  box-shadow: none !important;
+  border: none !important;
+  background: #eee !important;
+  background-color: #eee !important;
+}
+
+.camera-no-overlay.swal2-popup {
+  box-shadow: none !important;
+  border: none !important;
+  background: #eee !important;
+  background-color: #eee !important;
 }

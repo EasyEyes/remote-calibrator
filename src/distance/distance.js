@@ -126,8 +126,8 @@ export async function blindSpotTest(
   const faceMeshSamplesRight = []
 
   // ===================== SHOW POPUP BEFORE CALIBRATION STARTS =====================
-  // Only show popup if not running as part of "both" methods
-  if (options.useObjectTestData !== 'both') {
+  // Only show popup if not running as part of "both" methods and camera selection hasn't been done
+  if (options.useObjectTestData !== 'both' && !options.cameraSelectionDone) {
     await showTestPopup(RC)
   }
 
@@ -851,7 +851,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // ===================== PAGE STATE MANAGEMENT =====================
   let currentPage = 1
   let savedMeasurementData = null // Store measurement data from page 2
-  let selectedPage0Option = null // Store the selected radio button option from page 0
+  // let selectedPage0Option = null // Store the selected radio button option from page 0
 
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   // Arrays to store 5 samples per page for calibration
@@ -976,117 +976,118 @@ export async function objectTest(RC, options, callback = undefined) {
   radioOverlay.style.display = 'none' // Hidden by default
   container.appendChild(radioOverlay)
 
-  const radioContainer = document.createElement('div')
-  radioContainer.id = 'custom-radio-group'
-  radioContainer.style.position = 'relative' // Changed from fixed to relative
-  radioContainer.style.marginTop = '0.5rem' // Decreased from 2rem to 1rem for smaller gap
-  radioContainer.style.marginLeft = '3rem' // Match instructions padding
-  radioContainer.style.backgroundColor = 'transparent'
-  radioContainer.style.borderRadius = '0.5rem'
-  radioContainer.style.padding = '0' // Remove padding since we're using margin
-  radioContainer.style.zIndex = '9999'
-  radioContainer.style.width = '45vw' // Match instructions maxWidth
-  radioContainer.style.maxWidth = '45vw' // Match instructions maxWidth
-  radioContainer.style.textAlign = 'left'
-  radioContainer.style.display = 'none' // Hidden by default
-  //padding when its rtl/ltr
-  radioContainer.style.paddingInlineStart = '3rem'
-  container.appendChild(radioContainer)
+  // TODO: COMMENTED OUT - radioContainer logic will be integrated elsewhere
+  // const radioContainer = document.createElement('div')
+  // radioContainer.id = 'custom-radio-group'
+  // radioContainer.style.position = 'relative' // Changed from fixed to relative
+  // radioContainer.style.marginTop = '0.5rem' // Decreased from 2rem to 1rem for smaller gap
+  // radioContainer.style.marginLeft = '3rem' // Match instructions padding
+  // radioContainer.style.backgroundColor = 'transparent'
+  // radioContainer.style.borderRadius = '0.5rem'
+  // radioContainer.style.padding = '0' // Remove padding since we're using margin
+  // radioContainer.style.zIndex = '9999'
+  // radioContainer.style.width = '45vw' // Match instructions maxWidth
+  // radioContainer.style.maxWidth = '45vw' // Match instructions maxWidth
+  // radioContainer.style.textAlign = 'left'
+  // radioContainer.style.display = 'none' // Hidden by default
+  // //padding when its rtl/ltr
+  // radioContainer.style.paddingInlineStart = '3rem'
+  // container.appendChild(radioContainer)
 
-  // Create radio button options
-  const radioOptions = [
-    { value: 'yes', label: phrases.RC_Yes[RC.L] },
-    { value: 'no', label: phrases.RC_No[RC.L] },
-    { value: 'dontknow', label: phrases.RC_DontKnow[RC.L] },
-  ]
+  // // Create radio button options
+  // const radioOptions = [
+  //   { value: 'yes', label: phrases.RC_Yes[RC.L] },
+  //   { value: 'no', label: phrases.RC_No[RC.L] },
+  //   { value: 'dontknow', label: phrases.RC_DontKnow[RC.L] },
+  // ]
 
-  // Create a flex container for side-by-side layout
-  const radioFlexContainer = document.createElement('div')
-  radioFlexContainer.style.display = 'flex'
-  radioFlexContainer.style.justifyContent = 'flex-start'
-  radioFlexContainer.style.alignItems = 'center'
-  radioFlexContainer.style.gap = '0.5em'
-  radioContainer.appendChild(radioFlexContainer)
+  // // Create a flex container for side-by-side layout
+  // const radioFlexContainer = document.createElement('div')
+  // radioFlexContainer.style.display = 'flex'
+  // radioFlexContainer.style.justifyContent = 'flex-start'
+  // radioFlexContainer.style.alignItems = 'center'
+  // radioFlexContainer.style.gap = '0.5em'
+  // radioContainer.appendChild(radioFlexContainer)
 
-  // --- Validation message for radio selection ---
-  const validationMessage = document.createElement('div')
-  validationMessage.style.color = 'red'
-  validationMessage.style.fontSize = 'clamp(0.9em, 2vw, 0.95em)' // Responsive font size
-  validationMessage.style.marginTop = '0.5em'
-  validationMessage.style.display = 'none'
-  validationMessage.style.textAlign = 'left'
-  validationMessage.textContent = phrases.RC_PleaseSelectAnOption[RC.L]
-  radioContainer.appendChild(validationMessage)
+  // // --- Validation message for radio selection ---
+  // const validationMessage = document.createElement('div')
+  // validationMessage.style.color = 'red'
+  // validationMessage.style.fontSize = 'clamp(0.9em, 2vw, 0.95em)' // Responsive font size
+  // validationMessage.style.marginTop = '0.5em'
+  // validationMessage.style.display = 'none'
+  // validationMessage.style.textAlign = 'left'
+  // validationMessage.textContent = phrases.RC_PleaseSelectAnOption[RC.L]
+  // radioContainer.appendChild(validationMessage)
 
-  radioOptions.forEach(option => {
-    const container = document.createElement('div')
-    container.style.display = 'flex'
-    container.style.flexDirection = 'row'
-    container.style.alignItems = 'center'
-    container.style.gap = '0.2em'
+  // radioOptions.forEach(option => {
+  //   const container = document.createElement('div')
+  //   container.style.display = 'flex'
+  //   container.style.flexDirection = 'row'
+  //   container.style.alignItems = 'center'
+  //   container.style.gap = '0.2em'
 
-    const radio = document.createElement('input')
-    radio.type = 'radio'
-    radio.name = 'page0option'
-    radio.value = option.value
-    radio.style.cursor = 'pointer'
-    radio.style.transform = 'scale(1.2)'
-    radio.className = 'custom-input-class' // Add class for keyboard handling
-    // Hide validation message when any radio is selected
-    radio.addEventListener('change', () => {
-      validationMessage.style.display = 'none'
-    })
+  //   const radio = document.createElement('input')
+  //   radio.type = 'radio'
+  //   radio.name = 'page0option'
+  //   radio.value = option.value
+  //   radio.style.cursor = 'pointer'
+  //   radio.style.transform = 'scale(1.2)'
+  //   radio.className = 'custom-input-class' // Add class for keyboard handling
+  //   // Hide validation message when any radio is selected
+  //   radio.addEventListener('change', () => {
+  //     validationMessage.style.display = 'none'
+  //   })
 
-    const span = document.createElement('span')
-    span.textContent = option.label
-    span.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)' // Responsive font size
-    span.style.lineHeight = '1.6'
-    span.style.whiteSpace = 'nowrap'
-    span.style.userSelect = 'none' // Prevent text selection
+  //   const span = document.createElement('span')
+  //   span.textContent = option.label
+  //   span.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)' // Responsive font size
+  //   span.style.lineHeight = '1.6'
+  //   span.style.whiteSpace = 'nowrap'
+  //   span.style.userSelect = 'none' // Prevent text selection
 
-    container.appendChild(radio)
-    container.appendChild(span)
-    radioFlexContainer.appendChild(container)
-  })
+  //   container.appendChild(radio)
+  //   container.appendChild(span)
+  //   radioFlexContainer.appendChild(container)
+  // })
 
-  // Add keyboard event listeners for radio buttons
-  const customInputs = radioContainer.querySelectorAll('.custom-input-class')
-  const keydownListener = event => {
-    if (event.key === 'Enter') {
-      // Check if a radio button is selected before proceeding
-      const selectedRadio = document.querySelector(
-        'input[name="page0option"]:checked',
-      )
-      if (selectedRadio) {
-        nextPage() // Simulate the "PROCEED" button click
-      }
-    }
-  }
+  // // Add keyboard event listeners for radio buttons
+  // const customInputs = radioContainer.querySelectorAll('.custom-input-class')
+  // const keydownListener = event => {
+  //   if (event.key === 'Enter') {
+  //     // Check if a radio button is selected before proceeding
+  //     const selectedRadio = document.querySelector(
+  //       'input[name="page0option"]:checked',
+  //     )
+  //     if (selectedRadio) {
+  //       nextPage() // Simulate the "PROCEED" button click
+  //     }
+  //   }
+  // }
 
-  customInputs.forEach(input => {
-    input.addEventListener('keyup', keydownListener)
-  })
+  // customInputs.forEach(input => {
+  //   input.addEventListener('keyup', keydownListener)
+  // })
 
-  // Add EasyEyes keypad handler support
-  if (RC.keypadHandler) {
-    const removeKeypadHandler = setUpEasyEyesKeypadHandler(
-      null,
-      RC.keypadHandler,
-      () => {
-        removeKeypadHandler()
-        // Check if a radio button is selected before proceeding
-        const selectedRadio = document.querySelector(
-          'input[name="page0option"]:checked',
-        )
-        if (selectedRadio) {
-          nextPage() // Simulate the "PROCEED" button click
-        }
-      },
-      false,
-      ['return'],
-      RC,
-    )
-  }
+  // // Add EasyEyes keypad handler support
+  // if (RC.keypadHandler) {
+  //   const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+  //     null,
+  //     RC.keypadHandler,
+  //     () => {
+  //       removeKeypadHandler()
+  //       // Check if a radio button is selected before proceeding
+  //       const selectedRadio = document.querySelector(
+  //         'input[name="page0option"]:checked',
+  //       )
+  //       if (selectedRadio) {
+  //         nextPage() // Simulate the "PROCEED" button click
+  //       }
+  //     },
+  //     false,
+  //     ['return'],
+  //     RC,
+  //   )
+  // }
 
   // ===================== DRAWING THE VERTICAL LINES =====================
 
@@ -1627,8 +1628,8 @@ export async function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.display = 'none'
       rectangleBackground.style.display = 'none'
 
-      // Show radio buttons on page 0
-      radioContainer.style.display = 'block'
+      // // Show radio buttons on page 0
+      // radioContainer.style.display = 'block'
 
       // Show PROCEED button on page 0
       proceedButton.style.display = 'block'
@@ -1665,8 +1666,8 @@ export async function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.display = 'none'
       rectangleBackground.style.display = 'none'
 
-      // Hide radio buttons on page 1
-      radioContainer.style.display = 'none'
+      // // Hide radio buttons on page 1
+      // radioContainer.style.display = 'none'
 
       // Show PROCEED button on page 1
       proceedButton.style.display = 'block'
@@ -1703,8 +1704,8 @@ export async function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.display = 'block'
       rectangleBackground.style.display = 'block'
 
-      // Hide radio buttons on page 2
-      radioContainer.style.display = 'none'
+      // // Hide radio buttons on page 2
+      // radioContainer.style.display = 'none'
 
       // Hide PROCEED button on page 2 - only allow space key
       proceedButton.style.display = 'none'
@@ -1765,8 +1766,8 @@ export async function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.display = 'none'
       rectangleBackground.style.display = 'none'
 
-      // Hide radio buttons on page 3
-      radioContainer.style.display = 'none'
+      // // Hide radio buttons on page 3
+      // radioContainer.style.display = 'none'
 
       // Hide PROCEED button on page 3 - only allow space key
       proceedButton.style.display = 'none'
@@ -1798,8 +1799,8 @@ export async function objectTest(RC, options, callback = undefined) {
       bottomHorizontalLine.style.display = 'none'
       rectangleBackground.style.display = 'none'
 
-      // Hide radio buttons on page 4
-      radioContainer.style.display = 'none'
+      // // Hide radio buttons on page 4
+      // radioContainer.style.display = 'none'
 
       // Hide PROCEED button on page 4 - only allow space key
       proceedButton.style.display = 'none'
@@ -1817,20 +1818,20 @@ export async function objectTest(RC, options, callback = undefined) {
 
   const nextPage = async () => {
     if (currentPage === 0) {
-      // Check if a radio button option is selected
-      const selectedRadio = document.querySelector(
-        'input[name="page0option"]:checked',
-      )
-      if (!selectedRadio) {
-        // Show validation message - you can customize this
-        validationMessage.style.display = 'block'
-        return
-      }
-      // Hide validation message if present
-      validationMessage.style.display = 'none'
-      // Store the selected option
-      selectedPage0Option = selectedRadio.value
-      console.log('Selected page 0 option:', selectedPage0Option)
+      // // Check if a radio button option is selected
+      // const selectedRadio = document.querySelector(
+      //   'input[name="page0option"]:checked',
+      // )
+      // if (!selectedRadio) {
+      //   // Show validation message - you can customize this
+      //   validationMessage.style.display = 'block'
+      //   return
+      // }
+      // // Hide validation message if present
+      // validationMessage.style.display = 'none'
+      // // Store the selected option
+      // selectedPage0Option = selectedRadio.value
+      // console.log('Selected page 0 option:', selectedPage0Option)
 
       await showPage(2) // Skip page 1, go directly to page 2
     } else if (currentPage === 1) {
@@ -1850,7 +1851,7 @@ export async function objectTest(RC, options, callback = undefined) {
         intraocularDistanceCm: null,
         faceMeshSamplesPage3: [...faceMeshSamplesPage3],
         faceMeshSamplesPage4: [...faceMeshSamplesPage4],
-        page0Option: selectedPage0Option, // Store the radio button answer
+        // page0Option: selectedPage0Option, // Store the radio button answer
         raw: {
           leftPx: leftLinePx,
           rightPx: rightLinePx,
@@ -1913,12 +1914,12 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
 
-    // Clean up radio button event listeners
-    if (customInputs) {
-      customInputs.forEach(input => {
-        input.removeEventListener('keyup', keydownListener)
-      })
-    }
+    // // Clean up radio button event listeners
+    // if (customInputs) {
+    //   customInputs.forEach(input => {
+    //     input.removeEventListener('keyup', keydownListener)
+    //   })
+    // }
 
     // Hide don't use ruler text if it was created
     if (options.calibrateTrackDistanceCheckBool) {
@@ -2199,12 +2200,12 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
 
-    // Clean up radio button event listeners
-    if (customInputs) {
-      customInputs.forEach(input => {
-        input.removeEventListener('keyup', keydownListener)
-      })
-    }
+    // // Clean up radio button event listeners
+    // if (customInputs) {
+    //   customInputs.forEach(input => {
+    //     input.removeEventListener('keyup', keydownListener)
+    //   })
+    // }
 
     // Clean up keypad handler
     if (removeKeypadHandler) {
@@ -2225,12 +2226,12 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
 
-    // Clean up radio button event listeners
-    if (customInputs) {
-      customInputs.forEach(input => {
-        input.removeEventListener('keyup', keydownListener)
-      })
-    }
+    // // Clean up radio button event listeners
+    // if (customInputs) {
+    //   customInputs.forEach(input => {
+    //     input.removeEventListener('keyup', keydownListener)
+    //   })
+    // }
 
     // Restart: reset right line to initial position
     objectTest(RC, options, callback)
@@ -2679,7 +2680,10 @@ export async function objectTest(RC, options, callback = undefined) {
   buttonContainer.appendChild(explanationButton)
 
   // ===================== SHOW POPUP BEFORE PAGE 0 =====================
-  await showTestPopup(RC)
+  // Only show popup if camera selection hasn't been done already
+  if (!options.cameraSelectionDone) {
+    await showTestPopup(RC)
+  }
 
   // ===================== INITIALIZE PAGE 0 =====================
   showPage(0)

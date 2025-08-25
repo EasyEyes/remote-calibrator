@@ -17,9 +17,99 @@ import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n/schema'
 import { spaceForLanguage } from '../components/language'
 import { checkPermissions } from '../components/mediaPermission'
+import Swal from 'sweetalert2'
+import { swalInfoOptions } from '../components/swalOptions'
+import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
+import { showTestPopup } from '../components/popup'
 
 const originalStyles = {
   video: false,
+}
+
+// Pre-calibration popup similar to equipment popup
+const showPreCalibrationPopup = async (RC) => {
+  const html = `
+    <p style="text-align: left; margin-top: 1rem; font-size: 1.4rem; line-height: 1.6;">
+      ${phrases.RC_IsCameraTopCenter[RC.L].replace('\n', '<br />').replace('\n', '<br />')}
+    </p>
+    <div id="custom-radio-group">
+      <label>
+        <input type="radio" name="calibration-method" value="Yes" />
+        ${phrases.RC_Yes[RC.L]}
+      </label>
+      <label>
+        <input type="radio" name="calibration-method" value="No" />
+        ${phrases.RC_No[RC.L]}
+      </label>
+      <label>
+        <input type="radio" name="calibration-method" value="DontKnow" />
+        ${phrases.RC_DontKnow[RC.L]}
+      </label>
+    </div>
+  `
+
+  const { value: result } = await Swal.fire({
+    ...swalInfoOptions(RC, {
+      showIcon: false,
+    }),
+    html,
+    preConfirm: () => {
+      const selected = document.querySelector('input[name="calibration-method"]:checked')
+      if (!selected) {
+        Swal.showValidationMessage(
+          phrases.RC_PleaseSelectAnOption[RC.language.value],
+        )
+        return null
+      }
+      return selected.value
+    },
+    didOpen: () => {
+      const customInputs = document.querySelectorAll('input[name="calibration-method"]')
+      const keydownListener = event => {
+        if (event.key === 'Enter') {
+          Swal.clickConfirm() // Simulate the "OK" button click
+        }
+      }
+
+      customInputs.forEach(input => {
+        input.addEventListener('keyup', keydownListener)
+      })
+
+      if (RC.keypadHandler) {
+        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+          null,
+          RC.keypadHandler,
+          () => {
+            removeKeypadHandler()
+            Swal.clickConfirm()
+          },
+          false,
+          ['return'],
+          RC,
+        )
+      }
+
+      // Store listeners for cleanup
+      RC.customKeydownListener = keydownListener
+      RC.customInputs = customInputs
+    },
+    willClose: () => {
+      // Remove keydown event listeners when the modal closes
+      if (RC.customInputs) {
+        RC.customInputs.forEach(input => {
+          input.removeEventListener('keyup', RC.customKeydownListener)
+        })
+      }
+    },
+  })
+
+  if (!result) return null
+
+  // Store the selected option for potential future use
+  RC.preCalibrationChoice = result
+  console.log('Selected pre-calibration option:', result)
+  
+  return result
 }
 
 RemoteCalibrator.prototype.trackDistance = async function (
@@ -190,6 +280,26 @@ RemoteCalibrator.prototype.trackDistance = async function (
     )
 
     if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
+
+    // Show camera selection popup first (if multiple cameras available)
+    console.log('=== Checking for camera selection ===')
+    const cameraResult = await showTestPopup(this)
+
+    // Check if experiment was ended due to no cameras
+    if (cameraResult?.experimentEnded) {
+      console.log('Experiment ended - no cameras detected')
+    }
+
+    // Mark that camera selection has been done to avoid calling it again in calibration methods
+    options.cameraSelectionDone = true
+
+    // Show pre-calibration popup before starting any calibration methods
+    const preCalibrationResult = await showPreCalibrationPopup(this)
+    if (!preCalibrationResult) {
+      // User cancelled or didn't select anything, exit gracefully
+      console.log('Pre-calibration popup cancelled by user')
+      return
+    }
 
     // Check if we should use object test data
     if (options.useObjectTestData === 'both') {
