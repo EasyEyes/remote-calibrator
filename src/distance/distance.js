@@ -2425,16 +2425,21 @@ export async function objectTest(RC, options, callback = undefined) {
                 console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
                 await objectTestFinishFunction()
               } else {
+                const ipdpxRatio = Math.sqrt(
+                  faceMeshSamplesPage3[0] / faceMeshSamplesPage4[0],
+                )
+                const newMin = min.toFixed(1) * ipdpxRatio
+                const newMax = max.toFixed(1) / ipdpxRatio
                 let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-                  .replace('[[N11]]', min.toFixed(1))
-                  .replace('[[N22]]', max.toFixed(1))
+                  .replace('[[N11]]', newMin.toFixed(1))
+                  .replace('[[N22]]', newMax.toFixed(1))
                 const reasonIsOutOfRange = message.includes(
                   'out of allowed range',
                 )
                 if (reasonIsOutOfRange) {
                   displayMessage = phrases.RC_viewingExceededRange[RC.L]
-                    .replace('[[N11]]', min.toFixed(1))
-                    .replace('[[N22]]', max.toFixed(1))
+                    .replace('[[N11]]', newMin.toFixed(1))
+                    .replace('[[N22]]', newMax.toFixed(1))
                     .replace('[[N33]]', RMin.toFixed(1))
                     .replace('[[N44]]', RMax.toFixed(1))
                 }
@@ -2601,14 +2606,19 @@ export async function objectTest(RC, options, callback = undefined) {
         console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
         await objectTestFinishFunction()
       } else {
+        const ipdpxRatio = Math.sqrt(
+          faceMeshSamplesPage3[0] / faceMeshSamplesPage4[0],
+        )
+        const newMin = min.toFixed(1) * ipdpxRatio
+        const newMax = max.toFixed(1) / ipdpxRatio
         let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-          .replace('[[N11]]', min.toFixed(1))
-          .replace('[[N22]]', max.toFixed(1))
+          .replace('[[N11]]', newMin.toFixed(1))
+          .replace('[[N22]]', newMax.toFixed(1))
         const reasonIsOutOfRange = message.includes('out of allowed range')
         if (reasonIsOutOfRange) {
           displayMessage = phrases.RC_viewingExceededRange[RC.L]
-            .replace('[[N11]]', min.toFixed(1))
-            .replace('[[N22]]', max.toFixed(1))
+            .replace('[[N11]]', newMin.toFixed(1))
+            .replace('[[N22]]', newMax.toFixed(1))
             .replace('[[N33]]', RMin.toFixed(1))
             .replace('[[N44]]', RMax.toFixed(1))
         }

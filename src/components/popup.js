@@ -483,7 +483,7 @@ export const showCameraSelectionPopup = async (
   )
 
   // Create title HTML with same styling as RC_distanceTrackingTitle
-  const titleHTML = `<div style="text-align: left; margin-bottom: 0; margin-top: 1rem;"><p class="heading1" style="font-size: 22pt; font-weight: bold; font-family: Verdana; margin: 0; padding: 0;">${phrases.RC_ChooseCameraTitle[RC.L]}</p></div>`
+  const titleHTML = `<div style="text-align: left; margin-bottom: 0; margin-top: 1rem;"><p class="heading1" style="font-size: 18pt; font-weight: bold; font-family: Verdana; margin: 0; padding: 0;">${phrases.RC_ChooseCameraTitle[RC.L]}</p></div>`
 
   // Calculate dynamic maxWidth based on number of cameras
   // Each camera preview is approximately 280px wide (272px + padding + margins)
