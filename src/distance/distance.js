@@ -945,9 +945,13 @@ export async function objectTest(RC, options, callback = undefined) {
   title.dir = RC.LD.toLowerCase()
   container.appendChild(title)
 
+    // Set max-width to avoid video overlap
+    const video = document.getElementById('webgazerVideoContainer')
+    const videoRect = video.getBoundingClientRect()
+    const videoLeftEdge = (screenWidth - videoRect.width) / 2
   // --- INSTRUCTIONS ---
   const instructions = document.createElement('div')
-  instructions.style.maxWidth = '45vw' // Decreased by 10% from 50vw
+  instructions.style.maxWidth = `${videoLeftEdge - 10}px` 
   instructions.style.paddingLeft = '3rem'
   instructions.style.marginTop = '-2rem'
   instructions.style.textAlign = 'left'
