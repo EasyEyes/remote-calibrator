@@ -45,6 +45,7 @@ RemoteCalibrator.prototype._CONST = Object.freeze({
     IN_D: 'inDecimal',
     IN_F: 'inFractional',
   },
+  IPD_CM: 6.3,
 })
 
 RemoteCalibrator.prototype._debuggerDefault = Object.freeze({

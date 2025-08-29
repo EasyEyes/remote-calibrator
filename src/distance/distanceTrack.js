@@ -27,7 +27,7 @@ const originalStyles = {
 }
 
 // Pre-calibration popup similar to equipment popup
-const showPreCalibrationPopup = async (RC) => {
+const showPreCalibrationPopup = async RC => {
   const html = `
     <p style="text-align: left; margin-top: 1rem; font-size: 1.4rem; line-height: 1.6;">
       ${phrases.RC_IsCameraTopCenter[RC.L].replace('\n', '<br />').replace('\n', '<br />')}
@@ -54,7 +54,9 @@ const showPreCalibrationPopup = async (RC) => {
     }),
     html,
     preConfirm: () => {
-      const selected = document.querySelector('input[name="calibration-method"]:checked')
+      const selected = document.querySelector(
+        'input[name="calibration-method"]:checked',
+      )
       if (!selected) {
         Swal.showValidationMessage(
           phrases.RC_PleaseSelectAnOption[RC.language.value],
@@ -64,7 +66,9 @@ const showPreCalibrationPopup = async (RC) => {
       return selected.value
     },
     didOpen: () => {
-      const customInputs = document.querySelectorAll('input[name="calibration-method"]')
+      const customInputs = document.querySelectorAll(
+        'input[name="calibration-method"]',
+      )
       const keydownListener = event => {
         if (event.key === 'Enter') {
           Swal.clickConfirm() // Simulate the "OK" button click
@@ -108,7 +112,7 @@ const showPreCalibrationPopup = async (RC) => {
   // Store the selected option for potential future use
   RC.preCalibrationChoice = result
   console.log('Selected pre-calibration option:', result)
-  
+
   return result
 }
 
@@ -444,7 +448,23 @@ const _tracking = async (
   trackingConfig,
 ) => {
   // const video = document.getElementById('webgazerVideoCanvas')
-
+  RC.improvedDistanceTrackingData = {
+    left: {
+      nearestXYPx: [0, 0],
+      nearestDistanceCm: 0,
+      distanceCm: 0,
+    },
+    right: {
+      nearestXYPx: [0, 0],
+      nearestDistanceCm: 0,
+      distanceCm: 0,
+    },
+    nearEye: 'left',
+    distanceCm: 0,
+    nearestXYPx: [0, 0],
+    nearestDistanceCm: 0,
+    oldDistanceCm: 0,
+  }
   const _ = async () => {
     // const canvas = RC.gazeTracker.webgazer.videoCanvas
     let faces
@@ -458,6 +478,7 @@ const _tracking = async (
 
     // Near point
     const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
+    const pxPerCm = ppi / 2.54
     if (!RC.screenPpi && trackingOptions.nearPoint)
       console.error(
         'Screen size measurement is required to get accurate near point tracking.',
@@ -544,13 +565,100 @@ const _tracking = async (
               timestamp - RC._trackingVideoFrameTimestamps.distance,
             )
 
-            // Calculate webcam-to-eye distance
             const webcamToEyeDistance = stdFactor / averageDist
+            const cameraPxPerCm = averageDist / RC._CONST.IPD_CM
+
+            const centerXYCameraPx = getCenterXYCameraPx(video)
+
+            // Mirror correction: Video is horizontally flipped, so flip X coordinates to match screen
+            const leftEyeX = video.width - mesh[362].x // Flip X coordinate
+            const leftEyeY = mesh[362].y // Y coordinate unchanged
+            const rightEyeX = video.width - mesh[133].x // Flip X coordinate
+            const rightEyeY = mesh[133].y // Y coordinate unchanged
+
+            const offsetXYCameraPx_left = [
+              leftEyeX - centerXYCameraPx[0],
+              leftEyeY - centerXYCameraPx[1],
+            ]
+            const offsetXYCameraPx_right = [
+              rightEyeX - centerXYCameraPx[0],
+              rightEyeY - centerXYCameraPx[1],
+            ]
+
+            const offsetXYCm_left = [
+              (offsetXYCameraPx_left[0] * RC._CONST.IPD_CM) / averageDist,
+              (offsetXYCameraPx_left[1] * RC._CONST.IPD_CM) / averageDist,
+            ]
+            const offsetXYCm_right = [
+              (offsetXYCameraPx_right[0] * RC._CONST.IPD_CM) / averageDist,
+              (offsetXYCameraPx_right[1] * RC._CONST.IPD_CM) / averageDist,
+            ]
+
+            const cameraXYPx = [window.innerWidth / 2, 0]
+
+            const nearestXYPx_left = [
+              cameraXYPx[0] + offsetXYCm_left[0] * pxPerCm,
+              cameraXYPx[1] + offsetXYCm_left[1] * pxPerCm,
+            ]
+            const nearestXYPx_right = [
+              cameraXYPx[0] + offsetXYCm_right[0] * pxPerCm,
+              cameraXYPx[1] + offsetXYCm_right[1] * pxPerCm,
+            ]
+
+            // Clamp coordinates to stay within viewport bounds
+            const clampedNearestLeft = [
+              Math.max(0, Math.min(nearestXYPx_left[0], window.innerWidth)),
+              Math.max(0, Math.min(nearestXYPx_left[1], window.innerHeight)),
+            ]
+            const clampedNearestRight = [
+              Math.max(0, Math.min(nearestXYPx_right[0], window.innerWidth)),
+              Math.max(0, Math.min(nearestXYPx_right[1], window.innerHeight)),
+            ]
+
+            // Debug calculations
+            const actualIPDPx = Math.hypot(
+              rightEyeX - leftEyeX,
+              rightEyeY - leftEyeY,
+            )
+            const calculatedIPDCm = actualIPDPx / cameraPxPerCm
+
+            // Debug: Draw nearest points on screen using clamped coordinates
+            if (trackingConfig.options.showNearestPointsBool)
+              _drawNearestPoints(clampedNearestLeft, clampedNearestRight)
 
             // Apply trigonometric adjustment to get screen-center-to-eye distance
             const screenCenterToEyeDistance = _adjustDistanceToScreenCenter(
               webcamToEyeDistance,
               ppi,
+            )
+
+            //calculate nearest distance cm left and right from webcamToEyeDistance and OffsetXYCm_left and OffsetXYCm_right
+            const norm_offsetXYCm_left = Math.hypot(
+              offsetXYCm_left[0],
+              offsetXYCm_left[1],
+            )
+            const norm_offsetXYCm_right = Math.hypot(
+              offsetXYCm_right[0],
+              offsetXYCm_right[1],
+            )
+            const nearestDistanceCm_left = Math.sqrt(
+              webcamToEyeDistance ** 2 - norm_offsetXYCm_left ** 2,
+            )
+            const nearestDistanceCm_right = Math.sqrt(
+              webcamToEyeDistance ** 2 - norm_offsetXYCm_right ** 2,
+            )
+
+            const eyeToScreenCenterDistance_left = getEyeToDesiredDistance(
+              nearestXYPx_left,
+              nearestDistanceCm_left,
+              [window.innerWidth / 2, window.innerHeight / 2],
+              pxPerCm,
+            )
+            const eyeToScreenCenterDistance_right = getEyeToDesiredDistance(
+              nearestXYPx_right,
+              nearestDistanceCm_right,
+              [window.innerWidth / 2, window.innerHeight / 2],
+              pxPerCm,
             )
 
             //print adjusted and adjusted
@@ -559,11 +667,54 @@ const _tracking = async (
               screenCenterToEyeDistance,
             )
             console.log('.....webcamToEyeDistance', webcamToEyeDistance)
+
+            //choose the nearest eye to screen center distance
+            const nearestEye =
+              eyeToScreenCenterDistance_left < eyeToScreenCenterDistance_right
+                ? 'left'
+                : 'right'
+            const nearestXYPx =
+              nearestEye === 'left' ? nearestXYPx_left : nearestXYPx_right
+            const nearestDistanceCm =
+              nearestEye === 'left'
+                ? nearestDistanceCm_left
+                : nearestDistanceCm_right
+            const distanceCm_left = getEyeToDesiredDistance(
+              nearestXYPx_left,
+              nearestDistanceCm_left,
+              [window.innerWidth / 2, window.innerHeight / 2],
+              pxPerCm,
+            )
+            const distanceCm_right = getEyeToDesiredDistance(
+              nearestXYPx_right,
+              nearestDistanceCm_right,
+              [window.innerWidth / 2, window.innerHeight / 2],
+              pxPerCm,
+            )
+
+            const distanceCm =
+              nearestEye === 'left' ? distanceCm_left : distanceCm_right
+
+            RC.improvedDistanceTrackingData = {
+              left: {
+                nearestXYPx: nearestXYPx_left,
+                nearestDistanceCm: nearestDistanceCm_left,
+                distanceCm: distanceCm_left,
+              },
+              right: {
+                nearestXYPx: nearestXYPx_right,
+                nearestDistanceCm: nearestDistanceCm_right,
+                distanceCm: distanceCm_right,
+              },
+              nearEye: nearestEye,
+              distanceCm: distanceCm,
+              nearestXYPx: nearestXYPx,
+              nearestDistanceCm: nearestDistanceCm,
+              oldDistanceCm: screenCenterToEyeDistance,
+            }
+
             const data = {
-              value: toFixedNumber(
-                screenCenterToEyeDistance,
-                trackingOptions.decimalPlace,
-              ),
+              value: toFixedNumber(distanceCm, trackingOptions.decimalPlace),
               timestamp: timestamp,
               method: RC._CONST.VIEW_METHOD.F,
               latencyMs: latency,
@@ -626,6 +777,90 @@ const _tracking = async (
   }
 
   sleep(1000).then(_)
+}
+
+const getEyeToDesiredDistance = (
+  nearestXYPx,
+  nearestDistanceCm,
+  desiredXYPx,
+  pxPerCm,
+) => {
+  const desiredOffsetCm =
+    Math.hypot(
+      nearestXYPx[0] - desiredXYPx[0],
+      nearestXYPx[1] - desiredXYPx[1],
+    ) / pxPerCm
+  return Math.sqrt(nearestDistanceCm ** 2 + desiredOffsetCm ** 2)
+}
+
+const getCenterXYCameraPx = video => {
+  if (!video) return [0, 0]
+  const videoWidth = video.width
+  const videoHeight = video.height
+  const centerX = videoWidth / 2
+  const centerY = videoHeight / 2
+  return [centerX, centerY]
+}
+
+// Debug function to draw nearest points on screen
+let nearestPointDots = { left: null, right: null }
+
+const _drawNearestPoints = (nearestLeft, nearestRight) => {
+  // Remove existing dots
+  if (nearestPointDots.left) {
+    document.body.removeChild(nearestPointDots.left)
+    nearestPointDots.left = null
+  }
+  if (nearestPointDots.right) {
+    document.body.removeChild(nearestPointDots.right)
+    nearestPointDots.right = null
+  }
+
+  // Create dot for left eye nearest point
+  if (
+    nearestLeft &&
+    nearestLeft[0] !== undefined &&
+    nearestLeft[1] !== undefined
+  ) {
+    nearestPointDots.left = document.createElement('div')
+    nearestPointDots.left.id = 'rc-nearest-point-left'
+    nearestPointDots.left.style.cssText = `
+      position: fixed;
+      width: 12px;
+      height: 12px;
+      background: red;
+      border: 2px solid white;
+      border-radius: 50%;
+      z-index: 99999999999999;
+      pointer-events: none;
+      left: ${nearestLeft[0] - 6}px;
+      top: ${nearestLeft[1] - 6}px;
+    `
+    document.body.appendChild(nearestPointDots.left)
+  }
+
+  // Create dot for right eye nearest point
+  if (
+    nearestRight &&
+    nearestRight[0] !== undefined &&
+    nearestRight[1] !== undefined
+  ) {
+    nearestPointDots.right = document.createElement('div')
+    nearestPointDots.right.id = 'rc-nearest-point-right'
+    nearestPointDots.right.style.cssText = `
+      position: fixed;
+      width: 12px;
+      height: 12px;
+      background: blue;
+      border: 2px solid white;
+      border-radius: 50%;
+      z-index: 99999999999999;
+      pointer-events: none;
+      left: ${nearestRight[0] - 6}px;
+      top: ${nearestRight[1] - 6}px;
+    `
+    document.body.appendChild(nearestPointDots.right)
+  }
 }
 
 const _getNearPoint = (
@@ -750,6 +985,16 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     if (nearPointDot) {
       document.body.removeChild(nearPointDot)
       nearPointDot = null
+    }
+
+    // Debug nearest points cleanup
+    if (nearestPointDots.left) {
+      document.body.removeChild(nearestPointDots.left)
+      nearestPointDots.left = null
+    }
+    if (nearestPointDots.right) {
+      document.body.removeChild(nearestPointDots.right)
+      nearestPointDots.right = null
     }
 
     // Nudger
