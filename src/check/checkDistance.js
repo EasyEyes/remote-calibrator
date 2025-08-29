@@ -69,6 +69,16 @@ const checkDistance = async (
       ),
     )
 
+    // Set max-width to avoid video overlap
+    const instructionElement = document.querySelector('.calibration-instruction')
+    const video = document.getElementById('webgazerVideoContainer')
+    if (instructionElement && video) {
+      const videoRect = video.getBoundingClientRect()
+      const screenWidth = window.innerWidth
+      const videoLeftEdge = (screenWidth - videoRect.width) / 2
+      instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
+    }
+
     const measureData = await takeInput(RC, null, null, {
       callback: () => {},
       content: 'Ruler is too short',
@@ -499,6 +509,16 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
           'left',
         )
         RC._replaceBackground(html)
+        
+        // Set max-width to avoid video overlap
+        const instructionElement = document.querySelector('.calibration-instruction')
+        const video = document.getElementById('webgazerVideoContainer')
+        if (instructionElement && video) {
+          const videoRect = video.getBoundingClientRect()
+          const screenWidth = window.innerWidth
+          const videoLeftEdge = (screenWidth - videoRect.width) / 2
+          instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
+        }
       } else {
         const titleElement = document.getElementById('instruction-title')
         const bodyElement = document.getElementById('instruction-body')
@@ -697,6 +717,16 @@ const trackDistanceCheck = async (
         'left',
       )
       RC._replaceBackground(html)
+
+      // Set max-width to avoid video overlap
+      const instructionElement = document.querySelector('.calibration-instruction')
+      const video = document.getElementById('webgazerVideoContainer')
+      if (instructionElement && video) {
+        const videoRect = video.getBoundingClientRect()
+        const screenWidth = window.innerWidth
+        const videoLeftEdge = (screenWidth - videoRect.width) / 2
+        instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
+      }
 
       //wait for return key press
       await new Promise(async resolve => {
