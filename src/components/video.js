@@ -111,7 +111,7 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
 export function setDefaultVideoPosition(RC, v) {
   // Check if we're on a page with progress bar (distance check pages)
   const hasProgressBar = document.getElementById('custom-progress-bar') !== null
-
+  v.style.zIndex = 999999999999
   if (RC.isMobile.value) {
     // Mobile
     v.style.left = 'unset'
