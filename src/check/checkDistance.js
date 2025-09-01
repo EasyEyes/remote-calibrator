@@ -121,8 +121,8 @@ const createYellowTapeRectangle = RC => {
   // The right vertical line starts at 2/3 of the screen width
   let rightLinePx = Math.round((screenWidth * 2) / 3)
 
-  // Calculate the vertical position for all elements (10% lower than center)
-  const screenCenterY = window.innerHeight * 0.6
+  // Calculate the vertical position for all elements (bottom of screen with margin)
+  const screenCenterY = window.innerHeight - 100 // 100px margin from bottom
 
   // Create the main container
   const container = document.createElement('div')
