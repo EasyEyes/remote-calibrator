@@ -70,7 +70,9 @@ const checkDistance = async (
     )
 
     // Set max-width to avoid video overlap
-    const instructionElement = document.querySelector('.calibration-instruction')
+    const instructionElement = document.querySelector(
+      '.calibration-instruction',
+    )
     const video = document.getElementById('webgazerVideoContainer')
     if (instructionElement && video) {
       const videoRect = video.getBoundingClientRect()
@@ -451,7 +453,6 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   // Use the already calculated values from screen calibration
   const pxPerCm = RC.screenPpi.value / 2.54 // pixels per cm from calibrated PPI (Note: 2.54 cm = 1 inch)
   const screenWidthCm = RC.screenWidthCm.value // already calculated during screen calibration
-  console.log('//.screenWidthCm', screenWidthCm)
   const rulerLengthCm = RC.equipment?.value?.length
   const maxLengthCm = Math.min(rulerLengthCm, screenWidthCm)
 
@@ -465,8 +466,6 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   processedLengthCm = processedLengthCm.filter(
     cm => cm > 0 && cm <= maxLengthCm,
   )
-
-  console.log('//.processedLengthCm', processedLengthCm)
 
   if (processedLengthCm.length === 0) {
     console.warn('No valid lengths to check.')
@@ -509,9 +508,11 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
           'left',
         )
         RC._replaceBackground(html)
-        
+
         // Set max-width to avoid video overlap
-        const instructionElement = document.querySelector('.calibration-instruction')
+        const instructionElement = document.querySelector(
+          '.calibration-instruction',
+        )
         const video = document.getElementById('webgazerVideoContainer')
         if (instructionElement && video) {
           const videoRect = video.getBoundingClientRect()
@@ -563,18 +564,6 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
           )
           RC.calibrateTrackDistancePxPerCm.push(
             (Number(measuredLength.toFixed(1)) / lengthInCm).toFixed(1),
-          )
-          console.log(
-            '//RC.calibrateTrackLengthMeasuredCm',
-            RC.calibrateTrackLengthMeasuredCm,
-          )
-          console.log(
-            '//RC.calibrateTrackLengthRequestedCm',
-            RC.calibrateTrackLengthRequestedCm,
-          )
-          console.log(
-            '//RC.calibrateTrackDistancePxPerCm',
-            RC.calibrateTrackDistancePxPerCm,
           )
 
           document.removeEventListener('keyup', keyupListener)
@@ -638,6 +627,43 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   removeLengthDisplayDiv()
 }
 
+const trimVideoFeedbackDisplay = (
+  videoId,
+  videoCanvasId,
+  cameraDownshiftFraction = 0,
+) => {
+  if (!videoId) {
+    console.warn('//.No videoId provided')
+    return
+  }
+
+  const video = document.getElementById(videoId)
+  if (!video) {
+    console.warn('//.Video element not found:', videoId)
+    return
+  }
+
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  if (!videoContainer) {
+    console.warn('//.Video container not found')
+    return
+  }
+
+  const webgazerFaceFeedbackBox = document.getElementById(
+    'webgazerFaceFeedbackBox',
+  )
+  if (webgazerFaceFeedbackBox) {
+    //display none'
+    webgazerFaceFeedbackBox.style.display = 'none'
+  }
+
+  // Calculate the trim amount as percentage of video height
+  const trimTopPercent = (2 * cameraDownshiftFraction * 100).toFixed(2)
+  // Apply CSS clipping to trim the top of the video
+  // clip-path: inset(top right bottom left)
+  videoContainer.style.clipPath = `inset(${trimTopPercent}% 0% 0% 0%)`
+}
+
 const trackDistanceCheck = async (
   RC,
   distanceCallback,
@@ -652,6 +678,7 @@ const trackDistanceCheck = async (
   const isTrack = measureName === 'trackDistance'
 
   const quit = () => {
+    stopVideoTrimming()
     RC._removeBackground()
     if (!isTrack) safeExecuteFunc(distanceCallback, distanceData, false)
     callbackStatic()
@@ -659,6 +686,79 @@ const trackDistanceCheck = async (
 
   // Start tracking right away
   if (isTrack) safeExecuteFunc(distanceCallback, distanceData, false)
+
+  // Set up continuous video trimming for screen center distance measurement
+  let videoTrimmingInterval = null
+  const startVideoTrimming = () => {
+    if (videoTrimmingInterval) return // Already running
+
+    videoTrimmingInterval = setInterval(async () => {
+      // Constants for calculation
+      const IPDCm = 6.3 // Assumed IPD in cm (average for adults)
+
+      // Get current IPD in pixels from WebGazer/FaceMesh
+      let IPDPx = null
+      try {
+        const videoCanvas = document.getElementById('webgazerVideoCanvas')
+        if (videoCanvas && RC.gazeTracker?.webgazer) {
+          const model = await RC.gazeTracker.webgazer.getTracker().model
+          const faces = await model.estimateFaces(videoCanvas)
+          if (faces.length > 0) {
+            const mesh = faces[0].keypoints || faces[0].scaledMesh
+            if (mesh && mesh[133] && mesh[362]) {
+              // Calculate IPD using the same method as in distanceTrack.js
+              const leftEyeX = mesh[362].x // Left eye outer corner
+              const leftEyeY = mesh[362].y
+              const rightEyeX = mesh[133].x // Right eye outer corner
+              const rightEyeY = mesh[133].y
+
+              IPDPx = Math.hypot(rightEyeX - leftEyeX, rightEyeY - leftEyeY)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error getting IPD:', error)
+        // Silently handle errors - face detection might not always work
+      }
+
+      if (IPDPx && RC.screenHeightCm?.value) {
+        // Get camera video dimensions
+        const videoCanvas = document.getElementById('webgazerVideoCanvas')
+
+        if (videoCanvas) {
+          const cameraHeightPx = videoCanvas.height
+          const screenHeightCm = RC.screenHeightCm.value
+
+          // Calculate camera downshift fraction
+          // cameraDownshiftFraction = (screenHeightCm/2) * (IPDPx/IPDCm) / cameraHeightPx
+          const cameraDownshiftFraction =
+            ((screenHeightCm / 2) * (IPDPx / IPDCm)) / cameraHeightPx
+
+          // Trim the video using the existing function
+          trimVideoFeedbackDisplay(
+            'webgazerVideoFeed',
+            'webgazerVideoCanvas',
+            cameraDownshiftFraction, // Use the actual calculated value
+          )
+        }
+      }
+    }, 100) // Update every 100ms for smooth trimming
+  }
+
+  const stopVideoTrimming = () => {
+    if (videoTrimmingInterval) {
+      clearInterval(videoTrimmingInterval)
+      videoTrimmingInterval = null
+    }
+
+    // Reset video styling
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+
+    if (videoContainer) {
+      videoContainer.style.clipPath = ''
+      console.log('//.Reset video container clipPath')
+    }
+  }
 
   //if participant has equipment
   //if the unit is inches, convert calibrateTrackDistanceCheckCm to inches and round to integer
@@ -668,6 +768,8 @@ const trackDistanceCheck = async (
     RC.pauseNudger()
     await checkSize(RC, calibrateTrackDistanceCheckLengthCm)
     RC.resumeNudger()
+    // Start video trimming for screen center distance measurement
+    startVideoTrimming()
 
     calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.map(cm =>
       RC.equipment?.value?.unit === 'inches'
@@ -719,7 +821,9 @@ const trackDistanceCheck = async (
       RC._replaceBackground(html)
 
       // Set max-width to avoid video overlap
-      const instructionElement = document.querySelector('.calibration-instruction')
+      const instructionElement = document.querySelector(
+        '.calibration-instruction',
+      )
       const video = document.getElementById('webgazerVideoContainer')
       if (instructionElement && video) {
         const videoRect = video.getBoundingClientRect()
