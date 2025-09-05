@@ -622,10 +622,6 @@ const _tracking = async (
             )
             const calculatedIPDCm = actualIPDPx / cameraPxPerCm
 
-            // Debug: Draw nearest points on screen using clamped coordinates
-            if (trackingConfig.options.showNearestPointsBool)
-              _drawNearestPoints(clampedNearestLeft, clampedNearestRight)
-
             // Apply trigonometric adjustment to get screen-center-to-eye distance
             const screenCenterToEyeDistance = _adjustDistanceToScreenCenter(
               webcamToEyeDistance,
@@ -723,6 +719,16 @@ const _tracking = async (
 
             RC.newViewingDistanceData = data
 
+            // Debug: Draw nearest points on screen using clamped coordinates
+            if (trackingConfig.options.showNearestPointsBool)
+              _drawNearestPoints(
+                clampedNearestLeft,
+                clampedNearestRight,
+                nearestDistanceCm_left,
+                nearestDistanceCm_right,
+                trackingOptions.decimalPlace,
+              )
+
             if (readyToGetFirstData || desiredDistanceMonitor) {
               // ! Check distance
               if (desiredDistanceCm) {
@@ -802,11 +808,58 @@ const getCenterXYCameraPx = video => {
   return [centerX, centerY]
 }
 
+// Helper function to calculate label position avoiding video overlap
+const _calculateLabelPosition = (dotX, dotY, eyeSide) => {
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  let labelLeft = dotX + 15
+  let labelTop = dotY - 12
+
+  if (videoContainer) {
+    const videoRect = videoContainer.getBoundingClientRect()
+    const labelWidth = 80
+    const labelHeight = 25
+
+    const labelRight = labelLeft + labelWidth
+    const labelBottom = labelTop + labelHeight
+
+    const overlapsHorizontally =
+      labelLeft < videoRect.right && labelRight > videoRect.left
+    const overlapsVertically =
+      labelTop < videoRect.bottom && labelBottom > videoRect.top
+
+    if (overlapsHorizontally && overlapsVertically) {
+      if (eyeSide === 'left') {
+        labelLeft = videoRect.left - labelWidth - 10
+
+        if (labelLeft < 0) {
+          labelLeft = 10
+        }
+      } else {
+        labelLeft = videoRect.right + 10
+
+        if (labelLeft + labelWidth > window.innerWidth) {
+          labelLeft = window.innerWidth - labelWidth - 10
+        }
+      }
+    }
+  }
+
+  labelLeft = Math.max(10, Math.min(labelLeft, window.innerWidth - 90))
+  labelTop = Math.max(0, Math.min(labelTop, window.innerHeight - 25))
+
+  return { left: labelLeft, top: labelTop }
+}
+
 // Debug function to draw nearest points on screen
 let nearestPointDots = { left: null, right: null }
-
-const _drawNearestPoints = (nearestLeft, nearestRight) => {
-  // Remove existing dots
+let nearestPointLabels = { left: null, right: null }
+const _drawNearestPoints = (
+  nearestLeft,
+  nearestRight,
+  distanceLeft,
+  distanceRight,
+  decimalPlace,
+) => {
   if (nearestPointDots.left) {
     document.body.removeChild(nearestPointDots.left)
     nearestPointDots.left = null
@@ -815,8 +868,15 @@ const _drawNearestPoints = (nearestLeft, nearestRight) => {
     document.body.removeChild(nearestPointDots.right)
     nearestPointDots.right = null
   }
+  if (nearestPointLabels.left) {
+    document.body.removeChild(nearestPointLabels.left)
+    nearestPointLabels.left = null
+  }
+  if (nearestPointLabels.right) {
+    document.body.removeChild(nearestPointLabels.right)
+    nearestPointLabels.right = null
+  }
 
-  // Create dot for left eye nearest point
   if (
     nearestLeft &&
     nearestLeft[0] !== undefined &&
@@ -837,9 +897,36 @@ const _drawNearestPoints = (nearestLeft, nearestRight) => {
       top: ${nearestLeft[1] - 6}px;
     `
     document.body.appendChild(nearestPointDots.left)
+
+    if (distanceLeft !== undefined) {
+      nearestPointLabels.left = document.createElement('div')
+      nearestPointLabels.left.id = 'rc-nearest-point-label-left'
+      nearestPointLabels.left.textContent = `${distanceLeft.toFixed(decimalPlace || 1)} cm`
+
+      const labelPosition = _calculateLabelPosition(
+        nearestLeft[0],
+        nearestLeft[1],
+        'left',
+      )
+
+      nearestPointLabels.left.style.cssText = `
+        position: fixed;
+        font-size: 18px;
+        color: red;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 2px 6px;
+        border-radius: 4px;
+        z-index: 99999999999999;
+        pointer-events: none;
+        left: ${labelPosition.left}px;
+        top: ${labelPosition.top}px;
+        font-family: Arial, sans-serif;
+        font-weight: bold;
+      `
+      document.body.appendChild(nearestPointLabels.left)
+    }
   }
 
-  // Create dot for right eye nearest point
   if (
     nearestRight &&
     nearestRight[0] !== undefined &&
@@ -860,6 +947,34 @@ const _drawNearestPoints = (nearestLeft, nearestRight) => {
       top: ${nearestRight[1] - 6}px;
     `
     document.body.appendChild(nearestPointDots.right)
+
+    if (distanceRight !== undefined) {
+      nearestPointLabels.right = document.createElement('div')
+      nearestPointLabels.right.id = 'rc-nearest-point-label-right'
+      nearestPointLabels.right.textContent = `${distanceRight.toFixed(decimalPlace || 1)} cm`
+
+      const labelPosition = _calculateLabelPosition(
+        nearestRight[0],
+        nearestRight[1],
+        'right',
+      )
+
+      nearestPointLabels.right.style.cssText = `
+        position: fixed;
+        font-size: 18px;
+        color: blue;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 2px 6px;
+        border-radius: 4px;
+        z-index: 99999999999999;
+        pointer-events: none;
+        left: ${labelPosition.left}px;
+        top: ${labelPosition.top}px;
+        font-family: Arial, sans-serif;
+        font-weight: bold;
+      `
+      document.body.appendChild(nearestPointLabels.right)
+    }
   }
 }
 
@@ -995,6 +1110,14 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     if (nearestPointDots.right) {
       document.body.removeChild(nearestPointDots.right)
       nearestPointDots.right = null
+    }
+    if (nearestPointLabels.left) {
+      document.body.removeChild(nearestPointLabels.left)
+      nearestPointLabels.left = null
+    }
+    if (nearestPointLabels.right) {
+      document.body.removeChild(nearestPointLabels.right)
+      nearestPointLabels.right = null
     }
 
     // Nudger
