@@ -688,6 +688,13 @@ const _tracking = async (
               pxPerCm,
             )
 
+            const nearestEyeToWebcamDistanceCM = getEyeToDesiredDistance(
+              nearestXYPx,
+              nearestDistanceCm,
+              cameraXYPx,
+              pxPerCm,
+            )
+
             const distanceCm =
               nearestEye === 'left' ? distanceCm_left : distanceCm_right
 
@@ -727,6 +734,7 @@ const _tracking = async (
                 nearestDistanceCm_left,
                 nearestDistanceCm_right,
                 trackingOptions.decimalPlace,
+                nearestEyeToWebcamDistanceCM,
               )
 
             if (readyToGetFirstData || desiredDistanceMonitor) {
@@ -853,12 +861,14 @@ const _calculateLabelPosition = (dotX, dotY, eyeSide) => {
 // Debug function to draw nearest points on screen
 let nearestPointDots = { left: null, right: null }
 let nearestPointLabels = { left: null, right: null }
+let webcamDistanceLabel = null
 const _drawNearestPoints = (
   nearestLeft,
   nearestRight,
   distanceLeft,
   distanceRight,
   decimalPlace,
+  nearestEyeToWebcamDistanceCM,
 ) => {
   if (nearestPointDots.left) {
     document.body.removeChild(nearestPointDots.left)
@@ -875,6 +885,10 @@ const _drawNearestPoints = (
   if (nearestPointLabels.right) {
     document.body.removeChild(nearestPointLabels.right)
     nearestPointLabels.right = null
+  }
+  if (webcamDistanceLabel) {
+    document.body.removeChild(webcamDistanceLabel)
+    webcamDistanceLabel = null
   }
 
   if (
@@ -975,6 +989,53 @@ const _drawNearestPoints = (
       `
       document.body.appendChild(nearestPointLabels.right)
     }
+  }
+
+  // Add webcam-to-eye distance label at top center, offset to avoid video
+  if (nearestEyeToWebcamDistanceCM !== undefined) {
+    webcamDistanceLabel = document.createElement('div')
+    webcamDistanceLabel.id = 'rc-webcam-distance-label'
+    webcamDistanceLabel.textContent = `${nearestEyeToWebcamDistanceCM.toFixed(decimalPlace || 1)} cm`
+
+    // Calculate position: top center, offset right to avoid video
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 20 // 20px from top
+
+    // If video container exists, offset to avoid overlap
+    if (videoContainer) {
+      const videoRect = videoContainer.getBoundingClientRect()
+      const labelWidth = 80 // Approximate label width
+
+      // Position to the right of the video with some padding
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+
+      // If that would push it off screen, position to the left of video
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+
+    // Ensure label stays within screen bounds
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+
+    webcamDistanceLabel.style.cssText = `
+      position: fixed;
+      font-size: 18px;
+      color: #333;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      z-index: 99999999999999;
+      pointer-events: none;
+      left: ${labelLeft}px;
+      top: ${labelTop}px;
+      font-family: Arial, sans-serif;
+      font-weight: bold;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    `
+    document.body.appendChild(webcamDistanceLabel)
   }
 }
 
@@ -1118,6 +1179,10 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     if (nearestPointLabels.right) {
       document.body.removeChild(nearestPointLabels.right)
       nearestPointLabels.right = null
+    }
+    if (webcamDistanceLabel) {
+      document.body.removeChild(webcamDistanceLabel)
+      webcamDistanceLabel = null
     }
 
     // Nudger
