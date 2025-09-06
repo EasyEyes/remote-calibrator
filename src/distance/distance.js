@@ -45,6 +45,43 @@ const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canv
 
 /* -------------------------------------------------------------------------- */
 
+// Helper function to save calibration attempts (both failed and successful)
+function saveCalibrationAttempt(RC, method, distance, calibrationFactor) {
+  // Initialize the calibration attempts object if it doesn't exist
+  if (!RC.calibrationAttempts) {
+    RC.calibrationAttempts = {}
+  }
+  
+  // Initialize method-specific data if it doesn't exist
+  if (!RC.calibrationAttempts[method]) {
+    RC.calibrationAttempts[method] = {
+      distances: [],
+      calibrationFactors: []
+    }
+  }
+  
+  // Trim values to 1 decimal place, handle NaN gracefully
+  const trimmedDistance = isNaN(distance) ? NaN : parseFloat(distance.toFixed(1))
+  const trimmedCalibrationFactor = isNaN(calibrationFactor) ? NaN : parseFloat(calibrationFactor.toFixed(1))
+  
+  // Add the new distance and calibration factor
+  RC.calibrationAttempts[method].distances.push(trimmedDistance)
+  RC.calibrationAttempts[method].calibrationFactors.push(trimmedCalibrationFactor)
+  
+  // Create the final array format: [method, distance1, distance2..., calibfactor1, calibfactor2...]
+  const finalArray = [
+    method,
+    ...RC.calibrationAttempts[method].distances,
+    ...RC.calibrationAttempts[method].calibrationFactors
+  ]
+  
+  // Store in the desired format
+  RC.calibrationAttempts[method + 'Array'] = finalArray
+  
+  console.log(`Saved ${method} calibration attempt:`, { distance: trimmedDistance, calibrationFactor: trimmedCalibrationFactor })
+  console.log(`Current ${method} array:`, finalArray)
+}
+
 // Helper to get intraocular distance in pixels (not cm) - moved to global scope
 async function measureIntraocularDistancePx(RC) {
   let video = document.getElementById('webgazerVideoCanvas')
@@ -336,6 +373,9 @@ export async function blindSpotTest(
         data.distance1FactorCmPx = distance1FactorCmPx
         data.distance2FactorCmPx = distance2FactorCmPx
 
+        // Save successful blindspot calibration attempt
+        saveCalibrationAttempt(RC, 'blindspot', data.value, calibrationFactor)
+
         RC.newViewingDistanceData = data
 
         // ! Break
@@ -374,6 +414,26 @@ export async function blindSpotTest(
             .replace('[[N33]]', RMin.toFixed(1))
             .replace('[[N44]]', RMax.toFixed(1))
         }
+
+        // Save failed blindspot calibration attempt
+        const distanceMeasured = toFixedNumber(
+          median(_getDistValues(dist)),
+          options.decimalPlace,
+        )
+        
+        // Calculate averageFaceMesh for failed attempt
+        const validLeft = faceMeshSamplesLeft.filter(s => !isNaN(s))
+        const validRight = faceMeshSamplesRight.filter(s => !isNaN(s))
+        const allValid = [...validLeft, ...validRight]
+        const averageFaceMesh = allValid.length
+          ? allValid.reduce((a, b) => a + b, 0) / allValid.length
+          : 0
+        
+        const calibrationFactor = averageFaceMesh * Math.sqrt(
+          distanceMeasured ** 2 - _calculateDistanceFromCenterToTop(ppi) ** 2
+        )
+        saveCalibrationAttempt(RC, 'blindspot', distanceMeasured, calibrationFactor)
+
         // ! Reset
         tested = 0
         // customButton.disabled = true
@@ -2427,6 +2487,20 @@ export async function objectTest(RC, options, callback = undefined) {
               if (pass) {
                 // Tolerance check passed - finish the test
                 console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
+                
+                // Save successful object test calibration attempt
+                const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
+                const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+                const page3Average = validPage3Samples.length
+                  ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+                  : 0
+                const page4Average = validPage4Samples.length
+                  ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+                  : 0
+                const averageFactorCmPx = ((page3Average * firstMeasurement) + (page4Average * firstMeasurement)) / 2
+
+                saveCalibrationAttempt(RC, 'object', firstMeasurement, averageFactorCmPx)
+                
                 await objectTestFinishFunction()
               } else {
                 const ipdpxRatio = Math.sqrt(
@@ -2451,6 +2525,19 @@ export async function objectTest(RC, options, callback = undefined) {
                 console.log(
                   '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
                 )
+
+                // Save failed object test calibration attempt
+                const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
+                const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+                const page3Average = validPage3Samples.length
+                  ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+                  : 0
+                const page4Average = validPage4Samples.length
+                  ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+                  : 0
+                const averageFactorCmPx = ((page3Average * firstMeasurement) + (page4Average * firstMeasurement)) / 2
+
+                saveCalibrationAttempt(RC, 'object', firstMeasurement, averageFactorCmPx)
 
                 // Clear both sample arrays to restart collection
                 faceMeshSamplesPage3.length = 0
@@ -2608,6 +2695,20 @@ export async function objectTest(RC, options, callback = undefined) {
 
       if (pass) {
         console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
+        
+        // Save successful object test calibration attempt (Proceed button case)
+        const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
+        const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+        const page3Average = validPage3Samples.length
+          ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+          : 0
+        const page4Average = validPage4Samples.length
+          ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+          : 0
+        const averageFactorCmPx = ((page3Average * firstMeasurement) + (page4Average * firstMeasurement)) / 2
+
+        saveCalibrationAttempt(RC, 'object', firstMeasurement, averageFactorCmPx)
+        
         await objectTestFinishFunction()
       } else {
         const ipdpxRatio = Math.sqrt(
@@ -2629,6 +2730,19 @@ export async function objectTest(RC, options, callback = undefined) {
         console.log(
           '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
         )
+
+        // Save failed object test calibration attempt (Proceed button case)
+        const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
+        const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+        const page3Average = validPage3Samples.length
+          ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+          : 0
+        const page4Average = validPage4Samples.length
+          ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+          : 0
+        const averageFactorCmPx = ((page3Average * firstMeasurement) + (page4Average * firstMeasurement)) / 2
+
+        saveCalibrationAttempt(RC, 'object', firstMeasurement, averageFactorCmPx)
 
         faceMeshSamplesPage3.length = 0
         faceMeshSamplesPage4.length = 0

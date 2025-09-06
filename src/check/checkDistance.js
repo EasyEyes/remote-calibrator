@@ -124,7 +124,7 @@ const createYellowTapeRectangle = RC => {
   let rightLinePx = Math.round((screenWidth * 2) / 3)
 
   // Calculate the vertical position for all elements (bottom of screen with margin)
-  const screenCenterY = window.innerHeight - 100 // 100px margin from bottom
+  const screenCenterY = window.innerHeight - 65 // 100px margin from bottom
 
   // Create the main container
   const container = document.createElement('div')
@@ -353,6 +353,9 @@ const createLengthDisplayDiv = () => {
   const lengthContainer = document.createElement('div')
   lengthContainer.id = 'calibration-checkSize-lengthDisplay-container'
   lengthContainer.className = 'calibration-checkSize-lengthDisplay-container'
+  lengthContainer.style.display = 'inline-flex'
+  lengthContainer.style.alignItems = 'center'
+  lengthContainer.style.justifyContent = 'center'
 
   // Create the input element for the length value
   const lengthDisplayInput = document.createElement('input')
@@ -363,13 +366,15 @@ const createLengthDisplayDiv = () => {
   lengthDisplayInput.style.border = 'none'
   lengthDisplayInput.style.background = 'transparent'
   lengthDisplayInput.style.textAlign = 'center'
-  lengthDisplayInput.style.width = '100%'
+  lengthDisplayInput.style.width = 'auto'
   lengthDisplayInput.style.outline = 'none'
+  lengthDisplayInput.style.marginRight = '5px'
 
-  // Create p for units
-  const units = document.createElement('p')
+  // Create span for units (changed from p to span for inline display)
+  const units = document.createElement('span')
   units.id = 'calibration-checkSize-lengthDisplay-units'
   units.className = 'calibration-checkSize-lengthDisplay-units'
+  units.style.margin = '0'
 
   // Append to the container
   lengthContainer.appendChild(lengthDisplayInput)
