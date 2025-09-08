@@ -2405,8 +2405,56 @@ export async function objectTest(RC, options, callback = undefined) {
                     <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
                    </div>`,
                 showCancelButton: false,
-                confirmButtonText: phrases.EE_ok[RC.L],
+                showConfirmButton: false,
                 allowEnterKey: true,
+                footer: `
+                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
+                    <button class="swal2-confirm swal2-styled" id="ok-button-page3" style="background-color: #3085d6; border: none; flex: 0 0 auto;">
+                      ${phrases.EE_ok[RC.L]}
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <div style="color: #666; font-size: 0.9em;">
+                        ${phrases.RC_LongerObjectHelps[RC.L]}
+                      </div>
+                      <button class="swal2-confirm swal2-styled" id="new-object-button-page3" style="background-color: #28a745; border: none; flex: 0 0 auto;">
+                        ${phrases.RC_NewObjectButton[RC.L]}
+                      </button>
+                    </div>
+                  </div>
+                `,
+                customClass: {
+                  footer: 'swal2-footer-no-border'
+                },
+                didOpen: () => {
+                  // Add CSS to remove footer border
+                  if (!document.getElementById('swal2-footer-no-border-style')) {
+                    const style = document.createElement('style')
+                    style.id = 'swal2-footer-no-border-style'
+                    style.textContent = '.swal2-footer-no-border { border-top: none !important; }'
+                    document.head.appendChild(style)
+                  }
+                  
+                  // Add click handlers for custom buttons
+                  document.getElementById('ok-button-page3').addEventListener('click', () => {
+                    Swal.close()
+                  })
+                  document.getElementById('new-object-button-page3').addEventListener('click', () => {
+                    // Use the same restart logic as tolerance failure (proven approach)
+                    console.log('New object button clicked - restarting from page 2')
+                    
+                    // Clear Face Mesh samples and measurement (same as tolerance failure)
+                    faceMeshSamplesPage3.length = 0
+                    faceMeshSamplesPage4.length = 0
+                    firstMeasurement = null
+                    
+                    // Reset to page 2 to restart object measurement (same as tolerance failure)
+                    currentPage = 1
+                    
+                    // Close popup and restart
+                    Swal.close()
+                    nextPage()
+                  })
+                }
               })
 
               // The user will press space again to collect new samples
@@ -2455,8 +2503,56 @@ export async function objectTest(RC, options, callback = undefined) {
                     <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
                    </div>`,
                 showCancelButton: false,
-                confirmButtonText: phrases.EE_ok[RC.L],
+                showConfirmButton: false,
                 allowEnterKey: true,
+                footer: `
+                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
+                    <button class="swal2-confirm swal2-styled" id="ok-button-page4" style="background-color: #3085d6; border: none; flex: 0 0 auto;">
+                      ${phrases.EE_ok[RC.L]}
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <div style="color: #666; font-size: 0.9em;">
+                        ${phrases.RC_LongerObjectHelps[RC.L]}
+                      </div>
+                      <button class="swal2-confirm swal2-styled" id="new-object-button-page4" style="background-color: #28a745; border: none; flex: 0 0 auto;">
+                        ${phrases.RC_NewObjectButton[RC.L]}
+                      </button>
+                    </div>
+                  </div>
+                `,
+                customClass: {
+                  footer: 'swal2-footer-no-border'
+                },
+                didOpen: () => {
+                  // Add CSS to remove footer border
+                  if (!document.getElementById('swal2-footer-no-border-style')) {
+                    const style = document.createElement('style')
+                    style.id = 'swal2-footer-no-border-style'
+                    style.textContent = '.swal2-footer-no-border { border-top: none !important; }'
+                    document.head.appendChild(style)
+                  }
+                  
+                  // Add click handlers for custom buttons
+                  document.getElementById('ok-button-page4').addEventListener('click', () => {
+                    Swal.close()
+                  })
+                  document.getElementById('new-object-button-page4').addEventListener('click', () => {
+                    // Use the same restart logic as tolerance failure (proven approach)
+                    console.log('New object button clicked - restarting from page 2')
+                    
+                    // Clear Face Mesh samples and measurement (same as tolerance failure)
+                    faceMeshSamplesPage3.length = 0
+                    faceMeshSamplesPage4.length = 0
+                    firstMeasurement = null
+                    
+                    // Reset to page 2 to restart object measurement (same as tolerance failure)
+                    currentPage = 1
+                    
+                    // Close popup and restart
+                    Swal.close()
+                    nextPage()
+                  })
+                }
               })
 
               // User must retry - stay on page 4 and collect new samples

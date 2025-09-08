@@ -300,6 +300,12 @@ function getSize(RC, parent, options, callback) {
     goButton.style.display = 'none'
   }
 
+  // Hide the restart calibration button (cancel button)
+  const cancelButton = addedButtons[2]
+  if (cancelButton) {
+    cancelButton.style.display = 'none'
+  }
+
   // Set to actual default object
   switchMatchingObj(currentMatchingObj, elements, setSizes)
 }
