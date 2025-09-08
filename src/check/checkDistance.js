@@ -354,31 +354,24 @@ const createLengthDisplayDiv = () => {
   lengthContainer.id = 'calibration-checkSize-lengthDisplay-container'
   lengthContainer.className = 'calibration-checkSize-lengthDisplay-container'
   lengthContainer.style.display = 'inline-flex'
-  lengthContainer.style.alignItems = 'center'
+  lengthContainer.style.alignItems = 'baseline'
   lengthContainer.style.justifyContent = 'center'
 
-  // Create the input element for the length value
+  // Create the input element for the length value (single string with unit)
   const lengthDisplayInput = document.createElement('input')
   lengthDisplayInput.id = 'length-display-input'
   lengthDisplayInput.className = 'calibration-checkSize-lengthDisplay'
-  lengthDisplayInput.type = 'number'
-  lengthDisplayInput.step = '1'
+  lengthDisplayInput.type = 'text'
   lengthDisplayInput.style.border = 'none'
   lengthDisplayInput.style.background = 'transparent'
   lengthDisplayInput.style.textAlign = 'center'
   lengthDisplayInput.style.width = 'auto'
   lengthDisplayInput.style.outline = 'none'
-  lengthDisplayInput.style.marginRight = '5px'
-
-  // Create span for units (changed from p to span for inline display)
-  const units = document.createElement('span')
-  units.id = 'calibration-checkSize-lengthDisplay-units'
-  units.className = 'calibration-checkSize-lengthDisplay-units'
-  units.style.margin = '0'
+  lengthDisplayInput.style.marginRight = '0'
+  lengthDisplayInput.style.padding = '0'
 
   // Append to the container
   lengthContainer.appendChild(lengthDisplayInput)
-  lengthContainer.appendChild(units)
   document.body.appendChild(lengthContainer)
 }
 
@@ -404,25 +397,26 @@ const removeLengthDisplayDiv = () => {
   }
 }
 
-const adjustLengthFontSize = (lengthDiv, unitsDiv) => {
+const adjustLengthFontSize = lengthDiv => {
   const container = lengthDiv.parentElement
   const containerWidth = container.offsetWidth
   const containerHeight = container.offsetHeight
 
-  let fontSize = containerWidth // Start with the width as a base for font size
+  // Start from CSS-defined size to avoid oversizing
+  const cssFontSizePx = parseFloat(
+    window.getComputedStyle(lengthDiv).fontSize || '16',
+  )
+  let fontSize = cssFontSizePx
   lengthDiv.style.fontSize = `${fontSize}px`
-  unitsDiv.style.fontSize = `${fontSize * 0.5}px`
 
   // Adjust dynamically to prevent overflow in width or height
   while (
     (lengthDiv.scrollWidth > containerWidth ||
-      unitsDiv.scrollWidth > containerWidth ||
-      lengthDiv.offsetHeight + unitsDiv.offsetHeight > containerHeight) &&
+      lengthDiv.offsetHeight > containerHeight) &&
     fontSize > 10
   ) {
     fontSize -= 1
     lengthDiv.style.fontSize = `${fontSize}px`
-    unitsDiv.style.fontSize = `${fontSize * 0.5}px`
   }
 }
 
@@ -436,22 +430,8 @@ const updateLengthDisplayDiv = (length, units) => {
     return
   }
 
-  lengthDisplayInput.value = length
-  lengthDisplayInput.min = 1
-  lengthDisplayInput.max = 100
-
-  const unitsDiv = document.getElementById(
-    'calibration-checkSize-lengthDisplay-units',
-  )
-
-  if (!unitsDiv) {
-    console.warn('Units div does not exist.')
-    return
-  }
-
-  unitsDiv.innerText = units
-
-  adjustLengthFontSize(lengthDisplayInput, unitsDiv)
+  lengthDisplayInput.value = `${length} ${units}`
+  adjustLengthFontSize(lengthDisplayInput)
 }
 
 const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
@@ -541,6 +521,11 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
     // Wait for space key press for each page
     await new Promise(resolve => {
       let register = true
+      function parseNumeric(valueStr) {
+        if (typeof valueStr !== 'string') return NaN
+        const match = valueStr.match(/-?\d+(?:\.\d+)?/)
+        return match ? Number(match[0]) : NaN
+      }
 
       function handleMeasurement() {
         if (register) {
@@ -548,7 +533,7 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
           const lengthDisplayInput = document.getElementById(
             'length-display-input',
           )
-          const editedLength = Number(lengthDisplayInput.value)
+          const editedLength = parseNumeric(lengthDisplayInput.value)
 
           // Store the requested length (and measured length from yellow tape)
           const measuredLength = yellowTape.getCurrentLengthPx()
@@ -601,27 +586,28 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
 
       const lengthDisplayInput = document.getElementById('length-display-input')
       lengthDisplayInput.addEventListener('input', e => {
-        if (e.target.value === '' || e.target.value === '-') {
-          return
-        }
-
-        const value = Number(e.target.value)
-        if (!isNaN(value)) {
-          if (value > 100) {
-            e.target.value = '100'
-            updateInstructionText(100)
-          } else {
-            updateInstructionText(value)
-          }
-        }
+        if (e.target.value === '' || e.target.value === '-') return
+        const raw = e.target.value
+        const numeric = parseNumeric(raw)
+        if (isNaN(numeric)) return
+        const clamped = Math.max(1, Math.min(100, numeric))
+        e.target.value = `${clamped} ${RC.equipment?.value?.unit || ''}`
+        updateInstructionText(clamped)
+        adjustLengthFontSize(lengthDisplayInput)
       })
 
       lengthDisplayInput.addEventListener('blur', e => {
-        const value = Number(e.target.value)
-        if (e.target.value === '' || isNaN(value) || value < 1) {
-          e.target.value = '1'
+        const raw = e.target.value
+        const numeric = parseNumeric(raw)
+        if (e.target.value === '' || isNaN(numeric) || numeric < 1) {
+          e.target.value = `1 ${RC.equipment?.value?.unit || ''}`
           updateInstructionText(1)
+        } else {
+          const clamped = Math.max(1, Math.min(100, numeric))
+          e.target.value = `${clamped} ${RC.equipment?.value?.unit || ''}`
+          updateInstructionText(clamped)
         }
+        adjustLengthFontSize(lengthDisplayInput)
       })
 
       document.addEventListener('keyup', keyupListener)

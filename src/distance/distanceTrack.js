@@ -735,6 +735,8 @@ const _tracking = async (
                 nearestDistanceCm_right,
                 trackingOptions.decimalPlace,
                 nearestEyeToWebcamDistanceCM,
+                stdFactor,
+                averageDist,
               )
 
             if (readyToGetFirstData || desiredDistanceMonitor) {
@@ -822,35 +824,35 @@ const _calculateLabelPosition = (dotX, dotY, eyeSide) => {
   let labelLeft = dotX + 15
   let labelTop = dotY - 12
 
-  if (videoContainer) {
-    const videoRect = videoContainer.getBoundingClientRect()
-    const labelWidth = 80
-    const labelHeight = 25
+  // if (videoContainer) {
+  //   const videoRect = videoContainer.getBoundingClientRect()
+  //   const labelWidth = 80
+  //   const labelHeight = 25
 
-    const labelRight = labelLeft + labelWidth
-    const labelBottom = labelTop + labelHeight
+  //   const labelRight = labelLeft + labelWidth
+  //   const labelBottom = labelTop + labelHeight
 
-    const overlapsHorizontally =
-      labelLeft < videoRect.right && labelRight > videoRect.left
-    const overlapsVertically =
-      labelTop < videoRect.bottom && labelBottom > videoRect.top
+  //   const overlapsHorizontally =
+  //     labelLeft < videoRect.right && labelRight > videoRect.left
+  //   const overlapsVertically =
+  //     labelTop < videoRect.bottom && labelBottom > videoRect.top
 
-    if (overlapsHorizontally && overlapsVertically) {
-      if (eyeSide === 'left') {
-        labelLeft = videoRect.left - labelWidth - 10
+  //   if (overlapsHorizontally && overlapsVertically) {
+  //     if (eyeSide === 'left') {
+  //       labelLeft = videoRect.left - labelWidth - 10
 
-        if (labelLeft < 0) {
-          labelLeft = 10
-        }
-      } else {
-        labelLeft = videoRect.right + 10
+  //       if (labelLeft < 0) {
+  //         labelLeft = 10
+  //       }
+  //     } else {
+  //       labelLeft = videoRect.right + 10
 
-        if (labelLeft + labelWidth > window.innerWidth) {
-          labelLeft = window.innerWidth - labelWidth - 10
-        }
-      }
-    }
-  }
+  //       if (labelLeft + labelWidth > window.innerWidth) {
+  //         labelLeft = window.innerWidth - labelWidth - 10
+  //       }
+  //     }
+  //   }
+  // }
 
   labelLeft = Math.max(10, Math.min(labelLeft, window.innerWidth - 90))
   labelTop = Math.max(0, Math.min(labelTop, window.innerHeight - 25))
@@ -862,6 +864,8 @@ const _calculateLabelPosition = (dotX, dotY, eyeSide) => {
 let nearestPointDots = { left: null, right: null }
 let nearestPointLabels = { left: null, right: null }
 let webcamDistanceLabel = null
+let factorLabel = null
+let ipdLabel = null
 const _drawNearestPoints = (
   nearestLeft,
   nearestRight,
@@ -869,6 +873,8 @@ const _drawNearestPoints = (
   distanceRight,
   decimalPlace,
   nearestEyeToWebcamDistanceCM,
+  factorCameraPxCm,
+  averageDist,
 ) => {
   if (nearestPointDots.left) {
     document.body.removeChild(nearestPointDots.left)
@@ -889,6 +895,14 @@ const _drawNearestPoints = (
   if (webcamDistanceLabel) {
     document.body.removeChild(webcamDistanceLabel)
     webcamDistanceLabel = null
+  }
+  if (factorLabel) {
+    document.body.removeChild(factorLabel)
+    factorLabel = null
+  }
+  if (ipdLabel) {
+    document.body.removeChild(ipdLabel)
+    ipdLabel = null
   }
 
   if (
@@ -930,7 +944,7 @@ const _drawNearestPoints = (
         background: rgba(255, 255, 255, 0.8);
         padding: 2px 6px;
         border-radius: 4px;
-        z-index: 99999999999999;
+        z-index: 9999999999999;
         pointer-events: none;
         left: ${labelPosition.left}px;
         top: ${labelPosition.top}px;
@@ -980,7 +994,7 @@ const _drawNearestPoints = (
         background: rgba(255, 255, 255, 0.8);
         padding: 2px 6px;
         border-radius: 4px;
-        z-index: 99999999999999;
+        z-index: 9999999999999;
         pointer-events: none;
         left: ${labelPosition.left}px;
         top: ${labelPosition.top}px;
@@ -1021,7 +1035,7 @@ const _drawNearestPoints = (
 
     webcamDistanceLabel.style.cssText = `
       position: fixed;
-      font-size: 18px;
+      font-size: 16px;
       color: #333;
       background: rgba(255, 255, 255, 0.9);
       padding: 4px 8px;
@@ -1034,8 +1048,102 @@ const _drawNearestPoints = (
       font-family: Arial, sans-serif;
       font-weight: bold;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    `
+     `
     document.body.appendChild(webcamDistanceLabel)
+  }
+
+  // Add factor label right below the webcam distance label
+  if (factorCameraPxCm !== undefined) {
+    factorLabel = document.createElement('div')
+    factorLabel.id = 'rc-factor-label'
+    factorLabel.textContent = `factorCameraPxCm: ${factorCameraPxCm.toFixed(0)}`
+
+    // Calculate position: same horizontal position as webcam label, but below it
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 50 // 50px from top (30px below the webcam label)
+
+    // If video container exists, offset to avoid overlap (same logic as webcam label)
+    if (videoContainer) {
+      const videoRect = videoContainer.getBoundingClientRect()
+      const labelWidth = 80 // Approximate label width
+
+      // Position to the right of the video with some padding
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+
+      // If that would push it off screen, position to the left of video
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+
+    // Ensure label stays within screen bounds
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+
+    factorLabel.style.cssText = `
+       position: fixed;
+       font-size: 16px;
+       color: #333;
+       background: rgba(255, 255, 255, 0.9);
+       padding: 4px 8px;
+       border-radius: 6px;
+       border: 1px solid #ddd;
+       z-index: 99999999999999;
+       pointer-events: none;
+       left: ${labelLeft}px;
+       top: ${labelTop}px;
+       font-family: Arial, sans-serif;
+       font-weight: bold;
+       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+     `
+    document.body.appendChild(factorLabel)
+  }
+
+  // Add IPD label right below the factor label
+  if (averageDist !== undefined) {
+    ipdLabel = document.createElement('div')
+    ipdLabel.id = 'rc-ipd-label'
+    ipdLabel.textContent = `ipdCameraPx: ${Math.round(averageDist)}`
+
+    // Calculate position: same horizontal position as factor label, but below it
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 80 // 80px from top (30px below the factor label)
+
+    // If video container exists, offset to avoid overlap (same logic as other labels)
+    if (videoContainer) {
+      const videoRect = videoContainer.getBoundingClientRect()
+      const labelWidth = 80 // Approximate label width
+
+      // Position to the right of the video with some padding
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+
+      // If that would push it off screen, position to the left of video
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+
+    // Ensure label stays within screen bounds
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+
+    ipdLabel.style.cssText = `
+       position: fixed;
+       font-size: 16px;
+       color: #333;
+       background: rgba(255, 255, 255, 0.9);
+       padding: 4px 8px;
+       border-radius: 6px;
+       border: 1px solid #ddd;
+       z-index: 99999999999999;
+       pointer-events: none;
+       left: ${labelLeft}px;
+       top: ${labelTop}px;
+       font-family: Arial, sans-serif;
+       font-weight: bold;
+       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+     `
+    document.body.appendChild(ipdLabel)
   }
 }
 
@@ -1183,6 +1291,14 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     if (webcamDistanceLabel) {
       document.body.removeChild(webcamDistanceLabel)
       webcamDistanceLabel = null
+    }
+    if (factorLabel) {
+      document.body.removeChild(factorLabel)
+      factorLabel = null
+    }
+    if (ipdLabel) {
+      document.body.removeChild(ipdLabel)
+      ipdLabel = null
     }
 
     // Nudger
