@@ -645,7 +645,7 @@ const trimVideoFeedbackDisplay = (
   )
   if (webgazerFaceFeedbackBox) {
     //display none'
-    webgazerFaceFeedbackBox.style.display = 'none'
+    // webgazerFaceFeedbackBox.style.display = 'none'
   }
 
   // Calculate the trim amount as percentage of video height
