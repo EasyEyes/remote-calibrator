@@ -1041,7 +1041,7 @@ const _drawNearestPoints = (
       padding: 4px 8px;
       border-radius: 6px;
       border: 1px solid #ddd;
-      z-index: 99999999999999;
+      z-index: 2147483646;
       pointer-events: none;
       left: ${labelLeft}px;
       top: ${labelTop}px;
@@ -1088,7 +1088,7 @@ const _drawNearestPoints = (
        padding: 4px 8px;
        border-radius: 6px;
        border: 1px solid #ddd;
-       z-index: 99999999999999;
+       z-index: 2147483646;
        pointer-events: none;
        left: ${labelLeft}px;
        top: ${labelTop}px;
@@ -1135,7 +1135,7 @@ const _drawNearestPoints = (
        padding: 4px 8px;
        border-radius: 6px;
        border: 1px solid #ddd;
-       z-index: 99999999999999;
+       z-index: 2147483646;
        pointer-events: none;
        left: ${labelLeft}px;
        top: ${labelTop}px;
