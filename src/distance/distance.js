@@ -51,34 +51,43 @@ function saveCalibrationAttempt(RC, method, distance, calibrationFactor) {
   if (!RC.calibrationAttempts) {
     RC.calibrationAttempts = {}
   }
-  
+
   // Initialize method-specific data if it doesn't exist
   if (!RC.calibrationAttempts[method]) {
     RC.calibrationAttempts[method] = {
       distances: [],
-      calibrationFactors: []
+      calibrationFactors: [],
     }
   }
-  
+
   // Trim values to 1 decimal place, handle NaN gracefully
-  const trimmedDistance = isNaN(distance) ? NaN : parseFloat(distance.toFixed(1))
-  const trimmedCalibrationFactor = isNaN(calibrationFactor) ? NaN : parseFloat(calibrationFactor.toFixed(1))
-  
+  const trimmedDistance = isNaN(distance)
+    ? NaN
+    : parseFloat(distance.toFixed(1))
+  const trimmedCalibrationFactor = isNaN(calibrationFactor)
+    ? NaN
+    : parseFloat(calibrationFactor.toFixed(1))
+
   // Add the new distance and calibration factor
   RC.calibrationAttempts[method].distances.push(trimmedDistance)
-  RC.calibrationAttempts[method].calibrationFactors.push(trimmedCalibrationFactor)
-  
+  RC.calibrationAttempts[method].calibrationFactors.push(
+    trimmedCalibrationFactor,
+  )
+
   // Create the final array format: [method, distance1, distance2..., calibfactor1, calibfactor2...]
   const finalArray = [
     method,
     ...RC.calibrationAttempts[method].distances,
-    ...RC.calibrationAttempts[method].calibrationFactors
+    ...RC.calibrationAttempts[method].calibrationFactors,
   ]
-  
+
   // Store in the desired format
   RC.calibrationAttempts[method + 'Array'] = finalArray
-  
-  console.log(`Saved ${method} calibration attempt:`, { distance: trimmedDistance, calibrationFactor: trimmedCalibrationFactor })
+
+  console.log(`Saved ${method} calibration attempt:`, {
+    distance: trimmedDistance,
+    calibrationFactor: trimmedCalibrationFactor,
+  })
   console.log(`Current ${method} array:`, finalArray)
 }
 
@@ -90,9 +99,22 @@ async function measureIntraocularDistancePx(RC) {
   const faces = await model.estimateFaces(video)
   if (!faces.length) return null
   const mesh = faces[0].keypoints
-  if (!mesh || !mesh[133] || !mesh[362]) return null
+  console.log('mesh points', mesh[133], mesh[362], mesh[263], mesh[33])
+  if (!mesh || !mesh[133] || !mesh[362] || !mesh[263] || !mesh[33]) return null
   const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
-  return eyeDist(mesh[133], mesh[362])
+  const leftEyeX = (mesh[362].x + mesh[263].x) / 2
+  const leftEyeY = (mesh[362].y + mesh[263].y) / 2
+  const rightEyeX = (mesh[133].x + mesh[33].x) / 2
+  const rightEyeY = (mesh[133].y + mesh[33].y) / 2
+  const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
+  const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
+  const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
+  const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
+  console.log(
+    'Eye distance measureIntraocularDistancePx',
+    eyeDist(leftEye, rightEye),
+  )
+  return eyeDist(leftEye, rightEye)
 }
 
 // Helper to capture current video frame as base64 image
@@ -420,7 +442,7 @@ export async function blindSpotTest(
           median(_getDistValues(dist)),
           options.decimalPlace,
         )
-        
+
         // Calculate averageFaceMesh for failed attempt
         const validLeft = faceMeshSamplesLeft.filter(s => !isNaN(s))
         const validRight = faceMeshSamplesRight.filter(s => !isNaN(s))
@@ -428,11 +450,18 @@ export async function blindSpotTest(
         const averageFaceMesh = allValid.length
           ? allValid.reduce((a, b) => a + b, 0) / allValid.length
           : 0
-        
-        const calibrationFactor = averageFaceMesh * Math.sqrt(
-          distanceMeasured ** 2 - _calculateDistanceFromCenterToTop(ppi) ** 2
+
+        const calibrationFactor =
+          averageFaceMesh *
+          Math.sqrt(
+            distanceMeasured ** 2 - _calculateDistanceFromCenterToTop(ppi) ** 2,
+          )
+        saveCalibrationAttempt(
+          RC,
+          'blindspot',
+          distanceMeasured,
+          calibrationFactor,
         )
-        saveCalibrationAttempt(RC, 'blindspot', distanceMeasured, calibrationFactor)
 
         // ! Reset
         tested = 0
@@ -1005,13 +1034,13 @@ export async function objectTest(RC, options, callback = undefined) {
   title.dir = RC.LD.toLowerCase()
   container.appendChild(title)
 
-    // Set max-width to avoid video overlap
-    const video = document.getElementById('webgazerVideoContainer')
-    const videoRect = video.getBoundingClientRect()
-    const videoLeftEdge = (screenWidth - videoRect.width) / 2
+  // Set max-width to avoid video overlap
+  const video = document.getElementById('webgazerVideoContainer')
+  const videoRect = video.getBoundingClientRect()
+  const videoLeftEdge = (screenWidth - videoRect.width) / 2
   // --- INSTRUCTIONS ---
   const instructions = document.createElement('div')
-  instructions.style.maxWidth = `${videoLeftEdge - 10}px` 
+  instructions.style.maxWidth = `${videoLeftEdge - 10}px`
   instructions.style.paddingLeft = '3rem'
   instructions.style.marginTop = '-2rem'
   instructions.style.textAlign = 'left'
@@ -2423,38 +2452,47 @@ export async function objectTest(RC, options, callback = undefined) {
                   </div>
                 `,
                 customClass: {
-                  footer: 'swal2-footer-no-border'
+                  footer: 'swal2-footer-no-border',
                 },
                 didOpen: () => {
                   // Add CSS to remove footer border
-                  if (!document.getElementById('swal2-footer-no-border-style')) {
+                  if (
+                    !document.getElementById('swal2-footer-no-border-style')
+                  ) {
                     const style = document.createElement('style')
                     style.id = 'swal2-footer-no-border-style'
-                    style.textContent = '.swal2-footer-no-border { border-top: none !important; }'
+                    style.textContent =
+                      '.swal2-footer-no-border { border-top: none !important; }'
                     document.head.appendChild(style)
                   }
-                  
+
                   // Add click handlers for custom buttons
-                  document.getElementById('ok-button-page3').addEventListener('click', () => {
-                    Swal.close()
-                  })
-                  document.getElementById('new-object-button-page3').addEventListener('click', () => {
-                    // Use the same restart logic as tolerance failure (proven approach)
-                    console.log('New object button clicked - restarting from page 2')
-                    
-                    // Clear Face Mesh samples and measurement (same as tolerance failure)
-                    faceMeshSamplesPage3.length = 0
-                    faceMeshSamplesPage4.length = 0
-                    firstMeasurement = null
-                    
-                    // Reset to page 2 to restart object measurement (same as tolerance failure)
-                    currentPage = 1
-                    
-                    // Close popup and restart
-                    Swal.close()
-                    nextPage()
-                  })
-                }
+                  document
+                    .getElementById('ok-button-page3')
+                    .addEventListener('click', () => {
+                      Swal.close()
+                    })
+                  document
+                    .getElementById('new-object-button-page3')
+                    .addEventListener('click', () => {
+                      // Use the same restart logic as tolerance failure (proven approach)
+                      console.log(
+                        'New object button clicked - restarting from page 2',
+                      )
+
+                      // Clear Face Mesh samples and measurement (same as tolerance failure)
+                      faceMeshSamplesPage3.length = 0
+                      faceMeshSamplesPage4.length = 0
+                      firstMeasurement = null
+
+                      // Reset to page 2 to restart object measurement (same as tolerance failure)
+                      currentPage = 1
+
+                      // Close popup and restart
+                      Swal.close()
+                      nextPage()
+                    })
+                },
               })
 
               // The user will press space again to collect new samples
@@ -2521,38 +2559,47 @@ export async function objectTest(RC, options, callback = undefined) {
                   </div>
                 `,
                 customClass: {
-                  footer: 'swal2-footer-no-border'
+                  footer: 'swal2-footer-no-border',
                 },
                 didOpen: () => {
                   // Add CSS to remove footer border
-                  if (!document.getElementById('swal2-footer-no-border-style')) {
+                  if (
+                    !document.getElementById('swal2-footer-no-border-style')
+                  ) {
                     const style = document.createElement('style')
                     style.id = 'swal2-footer-no-border-style'
-                    style.textContent = '.swal2-footer-no-border { border-top: none !important; }'
+                    style.textContent =
+                      '.swal2-footer-no-border { border-top: none !important; }'
                     document.head.appendChild(style)
                   }
-                  
+
                   // Add click handlers for custom buttons
-                  document.getElementById('ok-button-page4').addEventListener('click', () => {
-                    Swal.close()
-                  })
-                  document.getElementById('new-object-button-page4').addEventListener('click', () => {
-                    // Use the same restart logic as tolerance failure (proven approach)
-                    console.log('New object button clicked - restarting from page 2')
-                    
-                    // Clear Face Mesh samples and measurement (same as tolerance failure)
-                    faceMeshSamplesPage3.length = 0
-                    faceMeshSamplesPage4.length = 0
-                    firstMeasurement = null
-                    
-                    // Reset to page 2 to restart object measurement (same as tolerance failure)
-                    currentPage = 1
-                    
-                    // Close popup and restart
-                    Swal.close()
-                    nextPage()
-                  })
-                }
+                  document
+                    .getElementById('ok-button-page4')
+                    .addEventListener('click', () => {
+                      Swal.close()
+                    })
+                  document
+                    .getElementById('new-object-button-page4')
+                    .addEventListener('click', () => {
+                      // Use the same restart logic as tolerance failure (proven approach)
+                      console.log(
+                        'New object button clicked - restarting from page 2',
+                      )
+
+                      // Clear Face Mesh samples and measurement (same as tolerance failure)
+                      faceMeshSamplesPage3.length = 0
+                      faceMeshSamplesPage4.length = 0
+                      firstMeasurement = null
+
+                      // Reset to page 2 to restart object measurement (same as tolerance failure)
+                      currentPage = 1
+
+                      // Close popup and restart
+                      Swal.close()
+                      nextPage()
+                    })
+                },
               })
 
               // User must retry - stay on page 4 and collect new samples
@@ -2583,20 +2630,34 @@ export async function objectTest(RC, options, callback = undefined) {
               if (pass) {
                 // Tolerance check passed - finish the test
                 console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
-                
+
                 // Save successful object test calibration attempt
-                const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
-                const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+                const validPage3Samples = faceMeshSamplesPage3.filter(
+                  sample => !isNaN(sample),
+                )
+                const validPage4Samples = faceMeshSamplesPage4.filter(
+                  sample => !isNaN(sample),
+                )
                 const page3Average = validPage3Samples.length
-                  ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+                  ? validPage3Samples.reduce((a, b) => a + b, 0) /
+                    validPage3Samples.length
                   : 0
                 const page4Average = validPage4Samples.length
-                  ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+                  ? validPage4Samples.reduce((a, b) => a + b, 0) /
+                    validPage4Samples.length
                   : 0
-                const averageFactorCmPx = ((page3Average * firstMeasurement) + (page4Average * firstMeasurement)) / 2
+                const averageFactorCmPx =
+                  (page3Average * firstMeasurement +
+                    page4Average * firstMeasurement) /
+                  2
 
-                saveCalibrationAttempt(RC, 'object', firstMeasurement, averageFactorCmPx)
-                
+                saveCalibrationAttempt(
+                  RC,
+                  'object',
+                  firstMeasurement,
+                  averageFactorCmPx,
+                )
+
                 await objectTestFinishFunction()
               } else {
                 const ipdpxRatio = Math.sqrt(
@@ -2623,17 +2684,31 @@ export async function objectTest(RC, options, callback = undefined) {
                 )
 
                 // Save failed object test calibration attempt
-                const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
-                const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+                const validPage3Samples = faceMeshSamplesPage3.filter(
+                  sample => !isNaN(sample),
+                )
+                const validPage4Samples = faceMeshSamplesPage4.filter(
+                  sample => !isNaN(sample),
+                )
                 const page3Average = validPage3Samples.length
-                  ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+                  ? validPage3Samples.reduce((a, b) => a + b, 0) /
+                    validPage3Samples.length
                   : 0
                 const page4Average = validPage4Samples.length
-                  ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+                  ? validPage4Samples.reduce((a, b) => a + b, 0) /
+                    validPage4Samples.length
                   : 0
-                const averageFactorCmPx = ((page3Average * firstMeasurement) + (page4Average * firstMeasurement)) / 2
+                const averageFactorCmPx =
+                  (page3Average * firstMeasurement +
+                    page4Average * firstMeasurement) /
+                  2
 
-                saveCalibrationAttempt(RC, 'object', firstMeasurement, averageFactorCmPx)
+                saveCalibrationAttempt(
+                  RC,
+                  'object',
+                  firstMeasurement,
+                  averageFactorCmPx,
+                )
 
                 // Clear both sample arrays to restart collection
                 faceMeshSamplesPage3.length = 0
@@ -2791,20 +2866,33 @@ export async function objectTest(RC, options, callback = undefined) {
 
       if (pass) {
         console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
-        
+
         // Save successful object test calibration attempt (Proceed button case)
-        const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
-        const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+        const validPage3Samples = faceMeshSamplesPage3.filter(
+          sample => !isNaN(sample),
+        )
+        const validPage4Samples = faceMeshSamplesPage4.filter(
+          sample => !isNaN(sample),
+        )
         const page3Average = validPage3Samples.length
-          ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+          ? validPage3Samples.reduce((a, b) => a + b, 0) /
+            validPage3Samples.length
           : 0
         const page4Average = validPage4Samples.length
-          ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+          ? validPage4Samples.reduce((a, b) => a + b, 0) /
+            validPage4Samples.length
           : 0
-        const averageFactorCmPx = ((page3Average * firstMeasurement) + (page4Average * firstMeasurement)) / 2
+        const averageFactorCmPx =
+          (page3Average * firstMeasurement + page4Average * firstMeasurement) /
+          2
 
-        saveCalibrationAttempt(RC, 'object', firstMeasurement, averageFactorCmPx)
-        
+        saveCalibrationAttempt(
+          RC,
+          'object',
+          firstMeasurement,
+          averageFactorCmPx,
+        )
+
         await objectTestFinishFunction()
       } else {
         const ipdpxRatio = Math.sqrt(
@@ -2828,17 +2916,30 @@ export async function objectTest(RC, options, callback = undefined) {
         )
 
         // Save failed object test calibration attempt (Proceed button case)
-        const validPage3Samples = faceMeshSamplesPage3.filter(sample => !isNaN(sample))
-        const validPage4Samples = faceMeshSamplesPage4.filter(sample => !isNaN(sample))
+        const validPage3Samples = faceMeshSamplesPage3.filter(
+          sample => !isNaN(sample),
+        )
+        const validPage4Samples = faceMeshSamplesPage4.filter(
+          sample => !isNaN(sample),
+        )
         const page3Average = validPage3Samples.length
-          ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+          ? validPage3Samples.reduce((a, b) => a + b, 0) /
+            validPage3Samples.length
           : 0
         const page4Average = validPage4Samples.length
-          ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+          ? validPage4Samples.reduce((a, b) => a + b, 0) /
+            validPage4Samples.length
           : 0
-        const averageFactorCmPx = ((page3Average * firstMeasurement) + (page4Average * firstMeasurement)) / 2
+        const averageFactorCmPx =
+          (page3Average * firstMeasurement + page4Average * firstMeasurement) /
+          2
 
-        saveCalibrationAttempt(RC, 'object', firstMeasurement, averageFactorCmPx)
+        saveCalibrationAttempt(
+          RC,
+          'object',
+          firstMeasurement,
+          averageFactorCmPx,
+        )
 
         faceMeshSamplesPage3.length = 0
         faceMeshSamplesPage4.length = 0
@@ -3093,10 +3194,19 @@ async function measureIntraocularDistanceCm(RC, ppi) {
   if (!faces.length) return null
   // Use keypoints 133 (right eye outer) and 362 (left eye outer)
   const mesh = faces[0].keypoints || faces[0].scaledMesh
-  if (!mesh || !mesh[133] || !mesh[362]) return null
+  if (!mesh || !mesh[133] || !mesh[362] || !mesh[263] || !mesh[33]) return null
   // Use eyeDist from distanceTrack.js logic
   const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
-  const pxDist = eyeDist(mesh[133], mesh[362])
+  const leftEyeX = (mesh[362].x + mesh[263].x) / 2
+  const leftEyeY = (mesh[362].y + mesh[263].y) / 2
+  const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
+  const rightEyeX = (mesh[133].x + mesh[33].x) / 2
+  const rightEyeY = (mesh[133].y + mesh[33].y) / 2
+  const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
+  const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
+  const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
+  const pxDist = eyeDist(leftEye, rightEye)
+  console.log('Eye distance measureIntraocularDistanceCm..', pxDist)
   // Convert to mm, then cm
   const pxPerMm = ppi / 25.4
   const distMm = pxDist / pxPerMm

@@ -343,19 +343,29 @@ const createYellowTapeRectangle = RC => {
 }
 
 // Function to create the length display div (similar to viewing distance but for top half of right side)
-const createLengthDisplayDiv = () => {
+const createLengthDisplayDiv = RC => {
   // Check if the div already exists
   if (document.getElementById('length-display-div')) {
     console.warn('Length display div already exists.')
     return
   }
 
+  const ppi = RC.screenPpi.value
+  const threeQuarterInchesInPx = Math.round(0.75 * ppi)
   const lengthContainer = document.createElement('div')
   lengthContainer.id = 'calibration-checkSize-lengthDisplay-container'
   lengthContainer.className = 'calibration-checkSize-lengthDisplay-container'
   lengthContainer.style.display = 'inline-flex'
   lengthContainer.style.alignItems = 'baseline'
-  lengthContainer.style.justifyContent = 'center'
+  lengthContainer.style.justifyContent = 'flex-start'
+  lengthContainer.style.position = 'absolute'
+  //right above the yellow tape rectangle
+  const screenCenterY = window.innerHeight - 65 // Same as yellow tape positioning
+  lengthContainer.style.top = `${screenCenterY - threeQuarterInchesInPx / 2 - 375}px`
+  lengthContainer.style.transform = 'translate(-50%)'
+  lengthContainer.style.width = '100%'
+  lengthContainer.style.height = '350px'
+  lengthContainer.style.marginLeft = '25px'
 
   // Create the input element for the length value (single string with unit)
   const lengthDisplayInput = document.createElement('input')
@@ -364,10 +374,11 @@ const createLengthDisplayDiv = () => {
   lengthDisplayInput.type = 'text'
   lengthDisplayInput.style.border = 'none'
   lengthDisplayInput.style.background = 'transparent'
-  lengthDisplayInput.style.textAlign = 'center'
+  lengthDisplayInput.style.textAlign = 'left'
   lengthDisplayInput.style.width = 'auto'
   lengthDisplayInput.style.outline = 'none'
   lengthDisplayInput.style.marginRight = '0'
+  lengthDisplayInput.style.marginLeft = '0'
   lengthDisplayInput.style.padding = '0'
 
   // Append to the container
@@ -401,12 +412,7 @@ const adjustLengthFontSize = lengthDiv => {
   const container = lengthDiv.parentElement
   const containerWidth = container.offsetWidth
   const containerHeight = container.offsetHeight
-
-  // Start from CSS-defined size to avoid oversizing
-  const cssFontSizePx = parseFloat(
-    window.getComputedStyle(lengthDiv).fontSize || '16',
-  )
-  let fontSize = cssFontSizePx
+  let fontSize = containerWidth
   lengthDiv.style.fontSize = `${fontSize}px`
 
   // Adjust dynamically to prevent overflow in width or height
@@ -463,7 +469,7 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   RC.calibrateTrackDistancePxPerCm = []
 
   // Create the length display div
-  createLengthDisplayDiv()
+  createLengthDisplayDiv(RC)
 
   // Loop through each length value to create dynamic pages
   for (let i = 0; i < processedLengthCm.length; i++) {
@@ -622,6 +628,7 @@ const trimVideoFeedbackDisplay = (
   videoId,
   videoCanvasId,
   cameraDownshiftFraction = 0,
+  RC,
 ) => {
   if (!videoId) {
     console.warn('//.No videoId provided')
@@ -643,16 +650,54 @@ const trimVideoFeedbackDisplay = (
   const webgazerFaceFeedbackBox = document.getElementById(
     'webgazerFaceFeedbackBox',
   )
-  if (webgazerFaceFeedbackBox) {
-    //display none'
-    // webgazerFaceFeedbackBox.style.display = 'none'
-  }
 
   // Calculate the trim amount as percentage of video height
   const trimTopPercent = (2 * cameraDownshiftFraction * 100).toFixed(2)
   // Apply CSS clipping to trim the top of the video
   // clip-path: inset(top right bottom left)
   videoContainer.style.clipPath = `inset(${trimTopPercent}% 0% 0% 0%)`
+
+  // Center the cropped video container on the screen
+  // We need to adjust positioning to account for the clipped top portion
+  const containerRect = videoContainer.getBoundingClientRect()
+  const originalHeight = containerRect.height
+  const trimTopFraction = parseFloat(trimTopPercent) / 100
+  const clippedHeight = originalHeight * (1 - trimTopFraction)
+  const clippedTopOffset = originalHeight * trimTopFraction
+
+  videoContainer.style.position = 'fixed'
+  videoContainer.style.left = '50%'
+  // Adjust top position to center the visible clipped area
+  videoContainer.style.top = `calc(50% - ${clippedTopOffset / 2}px)`
+  videoContainer.style.transform = 'translate(-50%, -50%)'
+  // videoContainer.style.zIndex = '1000'
+
+  if (webgazerFaceFeedbackBox) {
+    // Get the original container dimensions
+    const containerRect = videoContainer.getBoundingClientRect()
+    const originalHeight = containerRect.height
+
+    // Calculate the effective height after clipping
+    const trimTopFraction = parseFloat(trimTopPercent) / 100
+    const effectiveHeight = originalHeight * (1 - trimTopFraction)
+
+    // Calculate the center position within the clipped area
+    // The clipped area starts at trimTopFraction of the original height
+    const clippedAreaTop = originalHeight * trimTopFraction
+    const centerYWithinClipped = clippedAreaTop + effectiveHeight / 2
+
+    // Convert to percentage of the original container height for positioning
+    const centerYPercent = (centerYWithinClipped / originalHeight) * 100
+
+    // Set the feedback box height to 60% of the trimmed height
+    const feedbackBoxHeight = effectiveHeight * 0.66
+
+    //center the feedback box inside the video container AFTER clip-path is applied
+    webgazerFaceFeedbackBox.style.left = '50%'
+    webgazerFaceFeedbackBox.style.top = `${centerYPercent}%`
+    webgazerFaceFeedbackBox.style.height = `${feedbackBoxHeight}px`
+    webgazerFaceFeedbackBox.style.transform = 'translate(-50%, -50%)'
+  }
 }
 
 const trackDistanceCheck = async (
@@ -696,14 +741,22 @@ const trackDistanceCheck = async (
           const faces = await model.estimateFaces(videoCanvas)
           if (faces.length > 0) {
             const mesh = faces[0].keypoints || faces[0].scaledMesh
-            if (mesh && mesh[133] && mesh[362]) {
+            if (mesh && mesh[133] && mesh[362] && mesh[263] && mesh[33]) {
               // Calculate IPD using the same method as in distanceTrack.js
-              const leftEyeX = mesh[362].x // Left eye outer corner
-              const leftEyeY = mesh[362].y
-              const rightEyeX = mesh[133].x // Right eye outer corner
-              const rightEyeY = mesh[133].y
+              //left eye: average of 362 and 263
+              //right eye: average of 133 and 33
+              const leftEyeX = (mesh[362].x + mesh[263].x) / 2
+              const leftEyeY = (mesh[362].y + mesh[263].y) / 2
+              const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
+              const rightEyeX = (mesh[133].x + mesh[33].x) / 2
+              const rightEyeY = (mesh[133].y + mesh[33].y) / 2
+              const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
 
-              IPDPx = Math.hypot(rightEyeX - leftEyeX, rightEyeY - leftEyeY)
+              IPDPx = Math.hypot(
+                rightEyeX - leftEyeX,
+                rightEyeY - leftEyeY,
+                rightEyeZ - leftEyeZ,
+              )
             }
           }
         }
@@ -730,6 +783,7 @@ const trackDistanceCheck = async (
             'webgazerVideoFeed',
             'webgazerVideoCanvas',
             cameraDownshiftFraction, // Use the actual calculated value
+            RC,
           )
         }
       }
@@ -747,7 +801,12 @@ const trackDistanceCheck = async (
 
     if (videoContainer) {
       videoContainer.style.clipPath = ''
-      console.log('//.Reset video container clipPath')
+      videoContainer.style.position = ''
+      videoContainer.style.left = ''
+      videoContainer.style.top = ''
+      videoContainer.style.transform = ''
+      videoContainer.style.zIndex = ''
+      console.log('//.Reset video container clipPath and positioning')
     }
   }
 

@@ -524,7 +524,17 @@ const _tracking = async (
         RC._trackingVideoFrameTimestamps.distance += videoTimestamp
         const mesh = faces[0].keypoints
         if (targetCount === distCount) {
-          averageDist += eyeDist(mesh[133], mesh[362])
+          //left eye: average of 362 and 263
+          //right eye: average of 133 and 33
+          const leftEyeX = (mesh[362].x + mesh[263].x) / 2
+          const leftEyeY = (mesh[362].y + mesh[263].y) / 2
+          const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
+          const rightEyeX = (mesh[133].x + mesh[33].x) / 2
+          const rightEyeY = (mesh[133].y + mesh[33].y) / 2
+          const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
+          const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
+          const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
+          averageDist += eyeDist(leftEye, rightEye)
           averageDist /= targetCount
           RC._trackingVideoFrameTimestamps.distance /= targetCount
 
@@ -571,10 +581,11 @@ const _tracking = async (
             const centerXYCameraPx = getCenterXYCameraPx(video)
 
             // Mirror correction: Video is horizontally flipped, so flip X coordinates to match screen
-            const leftEyeX = video.width - mesh[362].x // Flip X coordinate
-            const leftEyeY = mesh[362].y // Y coordinate unchanged
-            const rightEyeX = video.width - mesh[133].x // Flip X coordinate
-            const rightEyeY = mesh[133].y // Y coordinate unchanged
+            //left eye: average of 362 and 263
+            const leftEyeX = video.width - (mesh[362].x + mesh[263].x) / 2 // Flip X coordinate
+            const leftEyeY = (mesh[362].y + mesh[263].y) / 2 // Y coordinate unchanged
+            const rightEyeX = video.width - (mesh[133].x + mesh[33].x) / 2 // Flip X coordinate
+            const rightEyeY = (mesh[133].y + mesh[33].y) / 2 // Y coordinate unchanged
 
             const offsetXYCameraPx_left = [
               leftEyeX - centerXYCameraPx[0],
@@ -619,6 +630,7 @@ const _tracking = async (
             const actualIPDPx = Math.hypot(
               rightEyeX - leftEyeX,
               rightEyeY - leftEyeY,
+              rightEyeZ - leftEyeZ,
             )
             const calculatedIPDCm = actualIPDPx / cameraPxPerCm
 
@@ -737,6 +749,14 @@ const _tracking = async (
                 nearestEyeToWebcamDistanceCM,
                 stdFactor,
                 averageDist,
+                {
+                  x: (mesh[362].x + mesh[263].x) / 2,
+                  y: (mesh[362].y + mesh[263].y) / 2,
+                },
+                {
+                  x: (mesh[133].x + mesh[33].x) / 2,
+                  y: (mesh[133].y + mesh[33].y) / 2,
+                },
               )
 
             if (readyToGetFirstData || desiredDistanceMonitor) {
@@ -781,7 +801,18 @@ const _tracking = async (
 
           RC._trackingVideoFrameTimestamps.distance = 0
         } else {
-          averageDist += eyeDist(mesh[133], mesh[362])
+          averageDist += eyeDist(
+            {
+              x: (mesh[362].x + mesh[263].x) / 2,
+              y: (mesh[362].y + mesh[263].y) / 2,
+              z: (mesh[362].z + mesh[263].z) / 2,
+            },
+            {
+              x: (mesh[133].x + mesh[33].x) / 2,
+              y: (mesh[133].y + mesh[33].y) / 2,
+              z: (mesh[133].z + mesh[33].z) / 2,
+            },
+          )
           ++distCount
         }
       }
@@ -866,6 +897,7 @@ let nearestPointLabels = { left: null, right: null }
 let webcamDistanceLabel = null
 let factorLabel = null
 let ipdLabel = null
+let eyePointDots = { left: null, right: null }
 const _drawNearestPoints = (
   nearestLeft,
   nearestRight,
@@ -875,6 +907,8 @@ const _drawNearestPoints = (
   nearestEyeToWebcamDistanceCM,
   factorCameraPxCm,
   averageDist,
+  leftEyePoint,
+  rightEyePoint,
 ) => {
   if (nearestPointDots.left) {
     document.body.removeChild(nearestPointDots.left)
@@ -903,6 +937,15 @@ const _drawNearestPoints = (
   if (ipdLabel) {
     document.body.removeChild(ipdLabel)
     ipdLabel = null
+  }
+
+  if (eyePointDots.left) {
+    document.body.removeChild(eyePointDots.left)
+    eyePointDots.left = null
+  }
+  if (eyePointDots.right) {
+    document.body.removeChild(eyePointDots.right)
+    eyePointDots.right = null
   }
 
   if (
@@ -1002,6 +1045,79 @@ const _drawNearestPoints = (
         font-weight: bold;
       `
       document.body.appendChild(nearestPointLabels.right)
+    }
+  }
+  console.log('mesh points', leftEyePoint, rightEyePoint)
+
+  // Draw small red dots for the two eye points from facemesh over the video feed
+  if (leftEyePoint && rightEyePoint) {
+    // Try to find the actual video feed element first, then fall back to container
+    const videoFeed = document.getElementById('webgazerVideoFeed')
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+    const videoEl = videoFeed || videoContainer
+
+    if (videoEl && video) {
+      const rect = videoEl.getBoundingClientRect()
+
+      // Source coordinate space (facemesh/video canvas)
+      const srcW = video.width
+      const srcH = video.height
+
+      // Account for CSS object-fit by computing scale and crop/letterbox offsets
+      const containerW = rect.width
+      const containerH = rect.height
+      let scaleX, scaleY, offsetX, offsetY
+      // Maintain aspect ratio: cover/contain/scale-down
+      const scaleCover = Math.max(containerW / srcW, containerH / srcH)
+      const uniformScale = scaleCover
+      scaleX = uniformScale
+      scaleY = uniformScale
+      // For cover, displayed > container → positive offsets (crop). For contain, displayed < container → negative (letterbox)
+      offsetX = (srcW * uniformScale - containerW) / 2
+      offsetY = (srcH * uniformScale - containerH) / 2
+
+      // Apply horizontal flip since video is typically mirrored
+      const leftEyeXFlipped = srcW - leftEyePoint.x
+      const rightEyeXFlipped = srcW - rightEyePoint.x
+
+      const leftPx = {
+        x: rect.left + leftEyeXFlipped * scaleX - offsetX,
+        y: rect.top + leftEyePoint.y * scaleY - offsetY,
+      }
+      const rightPx = {
+        x: rect.left + rightEyeXFlipped * scaleX - offsetX,
+        y: rect.top + rightEyePoint.y * scaleY - offsetY,
+      }
+
+      eyePointDots.left = document.createElement('div')
+      eyePointDots.left.id = 'rc-eye-point-left'
+      eyePointDots.left.style.cssText = `
+        position: fixed;
+        width: 6px;
+        height: 6px;
+        background: red;
+        border-radius: 50%;
+        z-index: 2147483647;
+        pointer-events: none;
+        left: ${leftPx.x - 3}px;
+        top: ${leftPx.y - 3}px;
+      `
+      document.body.appendChild(eyePointDots.left)
+
+      eyePointDots.right = document.createElement('div')
+      eyePointDots.right.id = 'rc-eye-point-right'
+      eyePointDots.right.style.cssText = `
+        position: fixed;
+        width: 6px;
+        height: 6px;
+        background: red;
+        border-radius: 50%;
+        z-index: 2147483647;
+        pointer-events: none;
+        left: ${rightPx.x - 3}px;
+        top: ${rightPx.y - 3}px;
+      `
+      document.body.appendChild(eyePointDots.right)
     }
   }
 
@@ -1157,7 +1273,19 @@ const _getNearPoint = (
   ppi,
   latency,
 ) => {
-  const offsetToVideoCenter = cyclopean(video, mesh[133], mesh[362])
+  const offsetToVideoCenter = cyclopean(
+    video,
+    {
+      x: (mesh[362].x + mesh[263].x) / 2,
+      y: (mesh[362].y + mesh[263].y) / 2,
+      z: (mesh[362].z + mesh[263].z) / 2,
+    },
+    {
+      x: (mesh[133].x + mesh[33].x) / 2,
+      y: (mesh[133].y + mesh[33].y) / 2,
+      z: (mesh[133].z + mesh[33].z) / 2,
+    },
+  )
   offsetToVideoCenter.forEach((offset, i) => {
     // Average inter-pupillary distance - 6.4cm
     offsetToVideoCenter[i] =
@@ -1301,6 +1429,15 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
       ipdLabel = null
     }
 
+    if (eyePointDots && eyePointDots.left) {
+      document.body.removeChild(eyePointDots.left)
+      eyePointDots.left = null
+    }
+    if (eyePointDots && eyePointDots.right) {
+      document.body.removeChild(eyePointDots.right)
+      eyePointDots.right = null
+    }
+
     // Nudger
     this.endNudger()
 
@@ -1327,7 +1464,18 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
 
   if (f.length) {
     const mesh = f[0].scaledMesh
-    const dist = eyeDist(mesh[133], mesh[362])
+    const dist = eyeDist(
+      {
+        x: (mesh[362].x + mesh[263].x) / 2,
+        y: (mesh[362].y + mesh[263].y) / 2,
+        z: (mesh[362].z + mesh[263].z) / 2,
+      },
+      {
+        x: (mesh[133].x + mesh[33].x) / 2,
+        y: (mesh[133].y + mesh[33].y) / 2,
+        z: (mesh[133].z + mesh[33].z) / 2,
+      },
+    )
 
     const timestamp = performance.now()
     //
