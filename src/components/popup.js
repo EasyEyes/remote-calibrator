@@ -318,6 +318,7 @@ const updateCameraPreviews = async (
       container.addEventListener('mouseenter', async () => {
         const deviceId = container.getAttribute('data-device-id')
         const label = container.getAttribute('data-camera-label')
+        RC.highlightedCameraDeviceId = deviceId // Store highlighted camera
 
         // Unhighlight all containers first (including active ones)
         newCameras.forEach((otherCamera, otherIndex) => {
@@ -521,6 +522,7 @@ export const showCameraSelectionPopup = async (
       // Store initial cameras for comparison
       let currentCameras = [...cameras]
       let cameraPollingInterval = null
+      RC.highlightedCameraDeviceId = null // Track which camera is highlighted
       RC.cameraSelectionLoading = false // Store loading state on RC object for proper cleanup
 
       // Force set the popup width via inline styles to ensure it takes effect
@@ -654,19 +656,11 @@ export const showCameraSelectionPopup = async (
             return
           }
 
-          // Find the currently highlighted camera (the one being hovered)
+          // Find the currently highlighted camera using stored deviceId
           let hoveredCamera = null
-          cameras.forEach((camera, index) => {
-            const container = document.getElementById(
-              `camera-preview-container-${index}`,
-            )
-            if (
-              container &&
-              container.style.backgroundColor === 'rgb(232, 245, 232)'
-            ) {
-              hoveredCamera = camera
-            }
-          })
+          if (RC.highlightedCameraDeviceId) {
+            hoveredCamera = cameras.find(cam => cam.deviceId === RC.highlightedCameraDeviceId)
+          }
 
           // Store the hovered camera as selected
           if (hoveredCamera) {
@@ -810,6 +804,7 @@ export const showCameraSelectionPopup = async (
           container.addEventListener('mouseenter', async () => {
             const deviceId = container.getAttribute('data-device-id')
             const label = container.getAttribute('data-camera-label')
+            RC.highlightedCameraDeviceId = deviceId // Store highlighted camera
 
             // Unhighlight all containers first (including active ones)
             cameras.forEach((otherCamera, otherIndex) => {
