@@ -2442,7 +2442,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       ${phrases.EE_ok[RC.L]}
                     </button>
                     <div style="display: flex; align-items: center; gap: 10px;">
-                      <div style="color: #666; font-size: 0.9em;">
+                      <div style="color: #000; font-size: 1.6em;">
                         ${phrases.RC_LongerObjectHelps[RC.L]}
                       </div>
                       <button class="swal2-confirm swal2-styled" id="new-object-button-page3" style="background-color: #28a745; border: none; flex: 0 0 auto;">
@@ -2549,7 +2549,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       ${phrases.EE_ok[RC.L]}
                     </button>
                     <div style="display: flex; align-items: center; gap: 10px;">
-                      <div style="color: #666; font-size: 0.9em;">
+                      <div style="color: #000; font-size: 1.6em;">
                         ${phrases.RC_LongerObjectHelps[RC.L]}
                       </div>
                       <button class="swal2-confirm swal2-styled" id="new-object-button-page4" style="background-color: #28a745; border: none; flex: 0 0 auto;">
