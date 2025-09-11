@@ -1095,7 +1095,7 @@ const _drawNearestPoints = (
         position: fixed;
         width: 6px;
         height: 6px;
-        background: red;
+        background: #00ffe9;
         border-radius: 50%;
         z-index: 2147483647;
         pointer-events: none;
@@ -1110,7 +1110,7 @@ const _drawNearestPoints = (
         position: fixed;
         width: 6px;
         height: 6px;
-        background: red;
+        background: #00ffe9;
         border-radius: 50%;
         z-index: 2147483647;
         pointer-events: none;
