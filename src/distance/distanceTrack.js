@@ -111,7 +111,6 @@ const showPreCalibrationPopup = async RC => {
 
   // Store the selected option for potential future use
   RC.preCalibrationChoice = result
-  console.log('Selected pre-calibration option:', result)
 
   return result
 }
@@ -524,14 +523,14 @@ const _tracking = async (
         RC._trackingVideoFrameTimestamps.distance += videoTimestamp
         const mesh = faces[0].keypoints
         if (targetCount === distCount) {
-          //left eye: average of 362 and 263
-          //right eye: average of 133 and 33
-          const leftEyeX = (mesh[362].x + mesh[263].x) / 2
-          const leftEyeY = (mesh[362].y + mesh[263].y) / 2
-          const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
-          const rightEyeX = (mesh[133].x + mesh[33].x) / 2
-          const rightEyeY = (mesh[133].y + mesh[33].y) / 2
-          const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
+          //left eye: 468
+          //right eye: 473
+          const leftEyeX = mesh[468].x
+          const leftEyeY = mesh[468].y
+          const leftEyeZ = mesh[468].z
+          const rightEyeX = mesh[473].x
+          const rightEyeY = mesh[473].y
+          const rightEyeZ = mesh[473].z
           const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
           const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
           averageDist += eyeDist(leftEye, rightEye)
@@ -581,11 +580,12 @@ const _tracking = async (
             const centerXYCameraPx = getCenterXYCameraPx(video)
 
             // Mirror correction: Video is horizontally flipped, so flip X coordinates to match screen
-            //left eye: average of 362 and 263
-            const leftEyeX = video.width - (mesh[362].x + mesh[263].x) / 2 // Flip X coordinate
-            const leftEyeY = (mesh[362].y + mesh[263].y) / 2 // Y coordinate unchanged
-            const rightEyeX = video.width - (mesh[133].x + mesh[33].x) / 2 // Flip X coordinate
-            const rightEyeY = (mesh[133].y + mesh[33].y) / 2 // Y coordinate unchanged
+            //left eye: 468
+            //right eye: 473
+            const leftEyeX = video.width - mesh[468].x // Flip X coordinate
+            const leftEyeY = mesh[468].y // Y coordinate unchanged
+            const rightEyeX = video.width - mesh[473].x // Flip X coordinate
+            const rightEyeY = mesh[473].y // Y coordinate unchanged
 
             const offsetXYCameraPx_left = [
               leftEyeX - centerXYCameraPx[0],
@@ -668,14 +668,6 @@ const _tracking = async (
               [window.innerWidth / 2, window.innerHeight / 2],
               pxPerCm,
             )
-
-            //print adjusted and adjusted
-            console.log(
-              '.....screenCenterToEyeDistance',
-              screenCenterToEyeDistance,
-            )
-            console.log('.....webcamToEyeDistance', webcamToEyeDistance)
-
             //choose the nearest eye to screen center distance
             const nearestEye =
               eyeToScreenCenterDistance_left < eyeToScreenCenterDistance_right
@@ -750,12 +742,12 @@ const _tracking = async (
                 stdFactor,
                 averageDist,
                 {
-                  x: (mesh[362].x + mesh[263].x) / 2,
-                  y: (mesh[362].y + mesh[263].y) / 2,
+                  x: mesh[468].x,
+                  y: mesh[468].y,
                 },
                 {
-                  x: (mesh[133].x + mesh[33].x) / 2,
-                  y: (mesh[133].y + mesh[33].y) / 2,
+                  x: mesh[473].x,
+                  y: mesh[473].y,
                 },
               )
 
@@ -803,18 +795,20 @@ const _tracking = async (
         } else {
           averageDist += eyeDist(
             {
-              x: (mesh[362].x + mesh[263].x) / 2,
-              y: (mesh[362].y + mesh[263].y) / 2,
-              z: (mesh[362].z + mesh[263].z) / 2,
+              x: mesh[468].x,
+              y: mesh[468].y,
+              z: mesh[468].z,
             },
             {
-              x: (mesh[133].x + mesh[33].x) / 2,
-              y: (mesh[133].y + mesh[33].y) / 2,
-              z: (mesh[133].z + mesh[33].z) / 2,
+              x: mesh[473].x,
+              y: mesh[473].y,
+              z: mesh[473].z,
             },
           )
           ++distCount
         }
+      } else {
+        cleanUpEyePoints()
       }
     }
 
@@ -898,6 +892,7 @@ let webcamDistanceLabel = null
 let factorLabel = null
 let ipdLabel = null
 let eyePointDots = { left: null, right: null }
+let pupilDots = { left: null, right: null }
 const _drawNearestPoints = (
   nearestLeft,
   nearestRight,
@@ -946,6 +941,14 @@ const _drawNearestPoints = (
   if (eyePointDots.right) {
     document.body.removeChild(eyePointDots.right)
     eyePointDots.right = null
+  }
+  if (pupilDots.left) {
+    document.body.removeChild(pupilDots.left)
+    pupilDots.left = null
+  }
+  if (pupilDots.right) {
+    document.body.removeChild(pupilDots.right)
+    pupilDots.right = null
   }
 
   if (
@@ -1047,9 +1050,8 @@ const _drawNearestPoints = (
       document.body.appendChild(nearestPointLabels.right)
     }
   }
-  console.log('mesh points', leftEyePoint, rightEyePoint)
 
-  // Draw small red dots for the two eye points from facemesh over the video feed
+  // Draw realistic iris and pupil at the two eye points over the video feed
   if (leftEyePoint && rightEyePoint) {
     // Try to find the actual video feed element first, then fall back to container
     const videoFeed = document.getElementById('webgazerVideoFeed')
@@ -1089,35 +1091,84 @@ const _drawNearestPoints = (
         y: rect.top + rightEyePoint.y * scaleY - offsetY,
       }
 
+      // Compute iris diameter from IPD (19%) in source pixels, then scale to CSS
+      const ipdSrcPx =
+        averageDist ||
+        Math.hypot(
+          rightEyePoint.x - leftEyePoint.x,
+          rightEyePoint.y - leftEyePoint.y,
+          rightEyePoint.z - leftEyePoint.z,
+        )
+      const irisDiameterCss = Math.max(2, 0.19 * ipdSrcPx * uniformScale)
+      const pupilDiameterCss = Math.max(1, 0.4 * irisDiameterCss)
+      const irisRadiusCss = irisDiameterCss / 2
+      const pupilRadiusCss = pupilDiameterCss / 2
+
+      // Left iris
       eyePointDots.left = document.createElement('div')
-      eyePointDots.left.id = 'rc-eye-point-left'
+      eyePointDots.left.id = 'rc-eye-iris-left'
       eyePointDots.left.style.cssText = `
         position: fixed;
-        width: 6px;
-        height: 6px;
+        width: ${irisDiameterCss}px;
+        height: ${irisDiameterCss}px;
         background: #00ffe9;
         border-radius: 50%;
         z-index: 2147483647;
         pointer-events: none;
-        left: ${leftPx.x - 3}px;
-        top: ${leftPx.y - 3}px;
+        left: ${leftPx.x - irisRadiusCss}px;
+        top: ${leftPx.y - irisRadiusCss}px;
+        box-shadow: inset 0 0 4px rgba(0,0,0,0.35);
       `
       document.body.appendChild(eyePointDots.left)
 
+      // Left pupil
+      pupilDots.left = document.createElement('div')
+      pupilDots.left.id = 'rc-eye-pupil-left'
+      pupilDots.left.style.cssText = `
+        position: fixed;
+        width: ${pupilDiameterCss}px;
+        height: ${pupilDiameterCss}px;
+        background: #000;
+        border-radius: 50%;
+        z-index: 2147483647;
+        pointer-events: none;
+        left: ${leftPx.x - pupilRadiusCss}px;
+        top: ${leftPx.y - pupilRadiusCss}px;
+      `
+      document.body.appendChild(pupilDots.left)
+
+      // Right iris
       eyePointDots.right = document.createElement('div')
-      eyePointDots.right.id = 'rc-eye-point-right'
+      eyePointDots.right.id = 'rc-eye-iris-right'
       eyePointDots.right.style.cssText = `
         position: fixed;
-        width: 6px;
-        height: 6px;
+        width: ${irisDiameterCss}px;
+        height: ${irisDiameterCss}px;
         background: #00ffe9;
         border-radius: 50%;
         z-index: 2147483647;
         pointer-events: none;
-        left: ${rightPx.x - 3}px;
-        top: ${rightPx.y - 3}px;
+        left: ${rightPx.x - irisRadiusCss}px;
+        top: ${rightPx.y - irisRadiusCss}px;
+        box-shadow: inset 0 0 4px rgba(0,0,0,0.35);
       `
       document.body.appendChild(eyePointDots.right)
+
+      // Right pupil
+      pupilDots.right = document.createElement('div')
+      pupilDots.right.id = 'rc-eye-pupil-right'
+      pupilDots.right.style.cssText = `
+        position: fixed;
+        width: ${pupilDiameterCss}px;
+        height: ${pupilDiameterCss}px;
+        background: #000;
+        border-radius: 50%;
+        z-index: 2147483647;
+        pointer-events: none;
+        left: ${rightPx.x - pupilRadiusCss}px;
+        top: ${rightPx.y - pupilRadiusCss}px;
+      `
+      document.body.appendChild(pupilDots.right)
     }
   }
 
@@ -1263,6 +1314,54 @@ const _drawNearestPoints = (
   }
 }
 
+const cleanUpEyePoints = () => {
+  //clean up all points drawn in _drawNearestPoints
+  if (nearestPointDots.left) {
+    document.body.removeChild(nearestPointDots.left)
+    nearestPointDots.left = null
+  }
+  if (nearestPointDots.right) {
+    document.body.removeChild(nearestPointDots.right)
+    nearestPointDots.right = null
+  }
+  if (nearestPointLabels.left) {
+    document.body.removeChild(nearestPointLabels.left)
+    nearestPointLabels.left = null
+  }
+  if (nearestPointLabels.right) {
+    document.body.removeChild(nearestPointLabels.right)
+    nearestPointLabels.right = null
+  }
+  if (webcamDistanceLabel) {
+    document.body.removeChild(webcamDistanceLabel)
+    webcamDistanceLabel = null
+  }
+  if (factorLabel) {
+    document.body.removeChild(factorLabel)
+    factorLabel = null
+  }
+  if (ipdLabel) {
+    document.body.removeChild(ipdLabel)
+    ipdLabel = null
+  }
+  if (pupilDots.left) {
+    document.body.removeChild(pupilDots.left)
+    pupilDots.left = null
+  }
+  if (pupilDots.right) {
+    document.body.removeChild(pupilDots.right)
+    pupilDots.right = null
+  }
+  if (eyePointDots.left) {
+    document.body.removeChild(eyePointDots.left)
+    eyePointDots.left = null
+  }
+  if (eyePointDots.right) {
+    document.body.removeChild(eyePointDots.right)
+    eyePointDots.right = null
+  }
+}
+
 const _getNearPoint = (
   RC,
   trackingOptions,
@@ -1276,14 +1375,14 @@ const _getNearPoint = (
   const offsetToVideoCenter = cyclopean(
     video,
     {
-      x: (mesh[362].x + mesh[263].x) / 2,
-      y: (mesh[362].y + mesh[263].y) / 2,
-      z: (mesh[362].z + mesh[263].z) / 2,
+      x: mesh[468].x,
+      y: mesh[468].y,
+      z: mesh[468].z,
     },
     {
-      x: (mesh[133].x + mesh[33].x) / 2,
-      y: (mesh[133].y + mesh[33].y) / 2,
-      z: (mesh[133].z + mesh[33].z) / 2,
+      x: mesh[473].x,
+      y: mesh[473].y,
+      z: mesh[473].z,
     },
   )
   offsetToVideoCenter.forEach((offset, i) => {
@@ -1466,14 +1565,14 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
     const mesh = f[0].scaledMesh
     const dist = eyeDist(
       {
-        x: (mesh[362].x + mesh[263].x) / 2,
-        y: (mesh[362].y + mesh[263].y) / 2,
-        z: (mesh[362].z + mesh[263].z) / 2,
+        x: mesh[468].x,
+        y: mesh[468].y,
+        z: mesh[468].z,
       },
       {
-        x: (mesh[133].x + mesh[33].x) / 2,
-        y: (mesh[133].y + mesh[33].y) / 2,
-        z: (mesh[133].z + mesh[33].z) / 2,
+        x: mesh[473].x,
+        y: mesh[473].y,
+        z: mesh[473].z,
       },
     )
 
@@ -1544,7 +1643,6 @@ RemoteCalibrator.prototype.showNearPoint = function (show = true) {
 const _calculateDistanceFromCenterToTop = ppi => {
   // get the screen height in pixels
   const screenHeightPixels = window.screen.height
-  console.log('.....screenHeightPixels', ppi)
 
   // calculate half the screen height in pixels
   const halfScreenHeightPixels = screenHeightPixels / 2
@@ -1554,8 +1652,6 @@ const _calculateDistanceFromCenterToTop = ppi => {
 
   // convert inches to centimeters (1 inch = 2.54 cm)
   const halfScreenHeightCm = halfScreenHeightInches * 2.54
-
-  console.log('.....halfScreenHeightCm', halfScreenHeightCm)
 
   return halfScreenHeightCm
 }

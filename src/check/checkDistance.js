@@ -741,16 +741,16 @@ const trackDistanceCheck = async (
           const faces = await model.estimateFaces(videoCanvas)
           if (faces.length > 0) {
             const mesh = faces[0].keypoints || faces[0].scaledMesh
-            if (mesh && mesh[133] && mesh[362] && mesh[263] && mesh[33]) {
+            if (mesh && mesh[468] && mesh[473]) {
               // Calculate IPD using the same method as in distanceTrack.js
               //left eye: average of 362 and 263
               //right eye: average of 133 and 33
-              const leftEyeX = (mesh[362].x + mesh[263].x) / 2
-              const leftEyeY = (mesh[362].y + mesh[263].y) / 2
-              const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
-              const rightEyeX = (mesh[133].x + mesh[33].x) / 2
-              const rightEyeY = (mesh[133].y + mesh[33].y) / 2
-              const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
+              const leftEyeX = mesh[468].x
+              const leftEyeY = mesh[468].y
+              const leftEyeZ = mesh[468].z
+              const rightEyeX = mesh[473].x
+              const rightEyeY = mesh[473].y
+              const rightEyeZ = mesh[473].z
 
               IPDPx = Math.hypot(
                 rightEyeX - leftEyeX,
