@@ -4,6 +4,57 @@ import { swalInfoOptions } from './swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 
 /**
+ * Shows the camera selection title in the top right of the webpage
+ * @param {Object} RC - RemoteCalibrator instance
+ */
+export const showCameraTitleInTopRight = (RC) => {
+  // Remove any existing camera title
+  const existingTitle = document.getElementById('rc-camera-title-top-right')
+  if (existingTitle) {
+    existingTitle.remove()
+  }
+
+  // Create the title element
+  const titleElement = document.createElement('div')
+  titleElement.id = 'rc-camera-title-top-right'
+  titleElement.innerHTML = `<h1>${phrases.RC_ChooseCameraTitle[RC.L]}</h1>`
+  
+  // Add CSS styling - no background, high z-index to appear above popup, positioned on left
+  titleElement.style.cssText = `
+    position: fixed;
+    top: 2rem;
+    left: 3rem;
+    z-index: 9999999999;
+    color: #000;
+    margin: 0;
+    text-align: left;
+    pointer-events: none;
+  `
+  
+  // Style the inner h1
+  const titleH1 = titleElement.querySelector('h1')
+  if (titleH1) {
+    titleH1.style.cssText = `
+      margin: 0;
+      padding: 0;
+    `
+  }
+
+  // Add to the page
+  document.body.appendChild(titleElement)
+}
+
+/**
+ * Hides the camera selection title from the top right of the webpage
+ */
+export const hideCameraTitleFromTopRight = () => {
+  const titleElement = document.getElementById('rc-camera-title-top-right')
+  if (titleElement) {
+    titleElement.remove()
+  }
+}
+
+/**
  * Shows a simple popup with an OK button
  * @param {Object} RC - RemoteCalibrator instance
  * @param {string} title - Popup title
@@ -435,6 +486,9 @@ export const showCameraSelectionPopup = async (
   message,
   onClose = null,
 ) => {
+  // Show the camera title in the top right of the webpage
+  showCameraTitleInTopRight(RC)
+  
   // Store current video visibility state
   const originalVideoState = {
     showVideo: RC.gazeTracker?.webgazer?.params?.showVideo ?? true,
@@ -483,8 +537,7 @@ export const showCameraSelectionPopup = async (
     currentActiveCamera,
   )
 
-  // Create title HTML with same styling as RC_distanceTrackingTitle
-  const titleHTML = `<div style="text-align: left; margin-bottom: 0; margin-top: 1rem;"><p class="heading1" style="font-size: 18pt; font-weight: bold; font-family: Verdana; margin: 0; padding: 0;">${phrases.RC_ChooseCameraTitle[RC.L]}</p></div>`
+  // Title will be shown in top right of webpage instead of popup
 
   // Calculate dynamic maxWidth based on number of cameras
   // Each camera preview is approximately 280px wide (272px + padding + margins)
@@ -504,7 +557,7 @@ export const showCameraSelectionPopup = async (
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title: '', // Remove the default title since we're adding our own
-    html: `${titleHTML}${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${message}</div>`,
+    html: `${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${message}</div>`,
     showConfirmButton: false,
     allowEnterKey: false, // To be changed
     // Dynamic popup width based on number of cameras
@@ -1045,6 +1098,9 @@ export const showCameraSelectionPopup = async (
       }
     },
     willClose: () => {
+      // Hide the camera title from the top right
+      hideCameraTitleFromTopRight()
+      
       // Clear camera polling interval - clean up both local and global references
       if (RC.cameraPollingInterval) {
         clearInterval(RC.cameraPollingInterval)
@@ -1239,6 +1295,9 @@ export const showTestPopup = async (RC, onClose = null) => {
   // Handle different camera scenarios
   if (cameras.length === 0) {
     // No cameras detected - show retry popup
+    // Make sure no title is shown since we're not showing camera selection
+    hideCameraTitleFromTopRight()
+    
     const noCameraResult = await showNoCameraPopup(RC, mainVideoContainer, originalMainVideoDisplay)
     if (noCameraResult === 'retry') {
       // Recursively call showTestPopup to retry camera detection
@@ -1252,6 +1311,9 @@ export const showTestPopup = async (RC, onClose = null) => {
     }
   } else if (cameras.length === 1) {
     // Only one camera - skip popup and continue normally
+    // Make sure no title is shown since we're not showing the popup
+    hideCameraTitleFromTopRight()
+    
     if (mainVideoContainer) {
       mainVideoContainer.style.display = originalMainVideoDisplay
     }

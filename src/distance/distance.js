@@ -358,8 +358,8 @@ export async function blindSpotTest(
         const rightAvgFM = validRight.length
           ? validRight.reduce((a, b) => a + b, 0) / validRight.length
           : 0
-        const distance1FactorCmPx = leftAvgFM * leftMean
-        const distance2FactorCmPx = rightAvgFM * rightMean
+        const distance1FactorCmPx = Math.round(leftAvgFM * leftMean)
+        const distance2FactorCmPx = Math.round(rightAvgFM * rightMean)
 
         // Calibration factor used for tracking
         // Apply Pythagorean correction: blindspot gives eyeToScreenCm, but we need eyeToCameraCm for calibration
@@ -367,7 +367,7 @@ export async function blindSpotTest(
         const eyeToCameraCm = Math.sqrt(
           data.value ** 2 - halfScreenHeightCm ** 2,
         )
-        const calibrationFactor = averageFaceMesh * eyeToCameraCm
+        const calibrationFactor = Math.round(averageFaceMesh * eyeToCameraCm)
 
         console.log('=== Blindspot Test Calibration Factor ===')
         console.log('Blindspot distance (eyeToScreenCm):', data.value, 'cm')
@@ -1182,251 +1182,286 @@ export async function objectTest(RC, options, callback = undefined) {
   //   )
   // }
 
-  // ===================== DRAWING THE VERTICAL LINES =====================
+  // ===================== TAPE MEASUREMENT COMPONENT =====================
+  
+  // Create a cohesive tape component that groups all elements
+  const createTapeComponent = () => {
+    // Calculate dimensions
+    const threeQuarterInchesInPx = Math.round(0.75 * ppi) // 3/4 inch height
+    const lineThickness = 3 // px thickness for all lines
+    
+    // Create main tape container
+    const tapeContainer = document.createElement('div')
+    tapeContainer.id = 'tape-measurement-component'
+    tapeContainer.style.position = 'absolute'
+    tapeContainer.style.left = `${leftLinePx}px`
+    tapeContainer.style.top = `${screenCenterY - threeQuarterInchesInPx / 2}px`
+    tapeContainer.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+    tapeContainer.style.height = `${threeQuarterInchesInPx}px`
+    tapeContainer.style.pointerEvents = 'none' // Allow clicks to pass through to individual elements
+    tapeContainer.style.zIndex = '10'
 
-  // --- Style for both vertical lines (left and right) ---
-  // Both lines are the same color, thickness, and height
-  // Calculate 3/4 inch in pixels for shorter lines
-  const threeQuarterInchesInPx = Math.round(0.75 * ppi) // 3/4 inch * pixels per inch
-  const lineThickness = 3 // px, now set to 3px
-  const verticalLineStyle = `
-    position: absolute; 
-    top: ${screenCenterY}px; 
-    transform: translateY(-50%); 
-    height: ${threeQuarterInchesInPx}px; 
-    width: ${lineThickness}px; 
-    background: rgb(0, 0, 0); 
-    border-radius: 2px; 
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
-    z-index: 1;
-  `
+    // Yellow background rectangle (relative to container)
+    const rectangleBackground = document.createElement('div')
+    rectangleBackground.style.position = 'absolute'
+    rectangleBackground.style.left = '0px'
+    rectangleBackground.style.top = '0px'
+    rectangleBackground.style.width = '100%'
+    rectangleBackground.style.height = '100%'
+    rectangleBackground.style.background = 'rgba(255, 221, 51, 0.95)'
+    rectangleBackground.style.borderRadius = '2px'
+    rectangleBackground.style.zIndex = '1'
+    tapeContainer.appendChild(rectangleBackground)
 
-  // --- Left vertical line ---
-  // Fixed at 5mm from the left edge
-  const leftLine = document.createElement('div')
-  leftLine.style =
-    verticalLineStyle + `left: ${leftLinePx}px; cursor: ew-resize;`
-  container.appendChild(leftLine)
+    // Left vertical line (relative to container)
+    const leftLine = document.createElement('div')
+    leftLine.style.position = 'absolute'
+    leftLine.style.left = '0px'
+    leftLine.style.top = '0px'
+    leftLine.style.width = `${lineThickness}px`
+    leftLine.style.height = '100%'
+    leftLine.style.background = 'rgb(0, 0, 0)'
+    leftLine.style.borderRadius = '2px'
+    leftLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+    leftLine.style.cursor = 'ew-resize'
+    leftLine.style.pointerEvents = 'auto'
+    leftLine.style.zIndex = '3'
+    tapeContainer.appendChild(leftLine)
 
-  // --- Right vertical line ---
-  // Starts at 2/3 of the screen width, but is draggable and keyboard-movable
-  const rightLine = document.createElement('div')
-  rightLine.style =
-    verticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
-  container.appendChild(rightLine)
+    // Right vertical line (relative to container)
+    const rightLine = document.createElement('div')
+    rightLine.style.position = 'absolute'
+    rightLine.style.right = '0px'
+    rightLine.style.top = '0px'
+    rightLine.style.width = `${lineThickness}px`
+    rightLine.style.height = '100%'
+    rightLine.style.background = 'rgb(0, 0, 0)'
+    rightLine.style.borderRadius = '2px'
+    rightLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+    rightLine.style.cursor = 'ew-resize'
+    rightLine.style.pointerEvents = 'auto'
+    rightLine.style.zIndex = '3'
+    tapeContainer.appendChild(rightLine)
 
-  // ===================== DRAWING THE HORIZONTAL CONNECTOR LINES =====================
+    // Top horizontal line (relative to container)
+    const topHorizontalLine = document.createElement('div')
+    topHorizontalLine.style.position = 'absolute'
+    topHorizontalLine.style.left = '0px'
+    topHorizontalLine.style.top = '0px'
+    topHorizontalLine.style.width = '100%'
+    topHorizontalLine.style.height = `${lineThickness}px`
+    topHorizontalLine.style.background = 'rgb(0, 0, 0)'
+    topHorizontalLine.style.borderRadius = '2px'
+    topHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+    topHorizontalLine.style.zIndex = '2'
+    tapeContainer.appendChild(topHorizontalLine)
 
-  // --- Rectangle background fill ---
-  const rectangleBackground = document.createElement('div')
-  rectangleBackground.style.position = 'absolute'
-  rectangleBackground.style.left = `${leftLinePx}px`
-  rectangleBackground.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-  rectangleBackground.style.top = `calc(${screenCenterY}px - ${threeQuarterInchesInPx / 2}px)`
-  rectangleBackground.style.height = `${threeQuarterInchesInPx}px`
-  rectangleBackground.style.background = 'rgba(255, 221, 51, 0.95)' // (255, 221, 51)Bright tape measure yellow
-  rectangleBackground.style.borderRadius = '2px'
-  rectangleBackground.style.zIndex = '0' // Behind all lines
-  container.appendChild(rectangleBackground)
+    // Bottom horizontal line (relative to container)
+    const bottomHorizontalLine = document.createElement('div')
+    bottomHorizontalLine.style.position = 'absolute'
+    bottomHorizontalLine.style.left = '0px'
+    bottomHorizontalLine.style.bottom = '0px'
+    bottomHorizontalLine.style.width = '100%'
+    bottomHorizontalLine.style.height = `${lineThickness}px`
+    bottomHorizontalLine.style.background = 'rgb(0, 0, 0)'
+    bottomHorizontalLine.style.borderRadius = '2px'
+    bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+    bottomHorizontalLine.style.zIndex = '2'
+    tapeContainer.appendChild(bottomHorizontalLine)
 
-  // --- Top horizontal line connecting the vertical lines ---
-  const topHorizontalLine = document.createElement('div')
-  topHorizontalLine.style.position = 'absolute'
-  topHorizontalLine.style.left = `${leftLinePx}px`
-  topHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-  topHorizontalLine.style.top = `calc(${screenCenterY}px - ${threeQuarterInchesInPx / 2}px)`
-  topHorizontalLine.style.height = `${lineThickness}px`
-  topHorizontalLine.style.background = 'rgb(0, 0, 0)'
-  topHorizontalLine.style.borderRadius = '2px'
-  topHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-  topHorizontalLine.style.zIndex = '1'
-  container.appendChild(topHorizontalLine)
+    // Dynamic length label (centered on tape, above horizontal line)
+    const dynamicLengthLabel = document.createElement('div')
+    dynamicLengthLabel.style.position = 'absolute'
+    dynamicLengthLabel.style.left = '50%'
+    dynamicLengthLabel.style.top = '50%'
+    dynamicLengthLabel.style.transform = 'translate(-50%, -50%)'
+    dynamicLengthLabel.style.color = 'rgb(0, 0, 0)'
+    dynamicLengthLabel.style.fontWeight = 'bold'
+    dynamicLengthLabel.style.fontSize = '1.4rem'
+    dynamicLengthLabel.style.background = 'rgba(255, 221, 51, 1.0)' // Same as tape background
+    dynamicLengthLabel.style.padding = '2px 6px'
+    dynamicLengthLabel.style.borderRadius = '4px'
+    dynamicLengthLabel.style.whiteSpace = 'nowrap'
+    dynamicLengthLabel.style.zIndex = '20' // Above horizontal line (15) and arrows (16)
+    tapeContainer.appendChild(dynamicLengthLabel)
 
-  // --- Bottom horizontal line connecting the vertical lines ---
-  const bottomHorizontalLine = document.createElement('div')
-  bottomHorizontalLine.style.position = 'absolute'
-  bottomHorizontalLine.style.left = `${leftLinePx}px`
-  bottomHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-  bottomHorizontalLine.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px - ${lineThickness}px)`
-  bottomHorizontalLine.style.height = `${lineThickness}px`
-  bottomHorizontalLine.style.background = 'rgb(0, 0, 0)'
-  bottomHorizontalLine.style.borderRadius = '2px'
-  bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-  bottomHorizontalLine.style.zIndex = '1'
-  container.appendChild(bottomHorizontalLine)
+    return {
+      container: tapeContainer,
+      elements: {
+        rectangleBackground,
+        leftLine,
+        rightLine,
+        topHorizontalLine,
+        bottomHorizontalLine,
+        dynamicLengthLabel
+      },
+      dimensions: {
+        threeQuarterInchesInPx,
+        lineThickness
+      }
+    }
+  }
 
-  // ===================== LABELS FOR VERTICAL LINES =====================
+  // Create the tape component
+  const tape = createTapeComponent()
+  container.appendChild(tape.container)
 
-  // --- Label for the left vertical line ---
-  // Tells the user to align the left edge of their object here
+  // ===================== TAPE LABELS (POSITIONED OUTSIDE TAPE) =====================
+
+  // Left label (positioned relative to tape container)
   const leftLabel = document.createElement('div')
   leftLabel.innerText = phrases.RC_LeftEdge[RC.L]
   leftLabel.style.position = 'absolute'
-  leftLabel.style.left = `${leftLinePx + lineThickness}px` // Slightly right of the line
-  leftLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+  leftLabel.style.left = `${leftLinePx + tape.dimensions.lineThickness}px`
+  leftLabel.style.top = `${screenCenterY + tape.dimensions.threeQuarterInchesInPx / 2 + 20}px`
   leftLabel.style.color = 'rgb(0, 0, 0)'
   leftLabel.style.fontWeight = 'normal'
   leftLabel.style.fontSize = '1.4em'
-  leftLabel.style.width = '240px' // Fixed width for square shape
-  leftLabel.style.maxWidth = '240px' // Ensure it doesn't exceed the bounding box
-  leftLabel.style.overflowWrap = 'break-word' // Modern CSS property for word wrapping
-  leftLabel.style.wordWrap = 'break-word' // Enable word wrapping
-  leftLabel.style.textAlign = 'left' // Align text to the left
-  leftLabel.style.lineHeight = '1.2' // Tighter line height for better square appearance
+  leftLabel.style.width = '240px'
+  leftLabel.style.maxWidth = '240px'
+  leftLabel.style.overflowWrap = 'break-word'
+  leftLabel.style.wordWrap = 'break-word'
+  leftLabel.style.textAlign = 'left'
+  leftLabel.style.lineHeight = '1.2'
+  leftLabel.style.zIndex = '5'
   container.appendChild(leftLabel)
 
-  // --- Label for the right vertical line ---
-  // Tells the user to move this line to the right edge of their object
+  // Right label (positioned relative to tape container)
   const rightLabel = document.createElement('div')
   rightLabel.innerText = phrases.RC_RightEdge[RC.L]
   rightLabel.style.position = 'absolute'
-  rightLabel.style.left = `${rightLinePx + lineThickness}px` // Slightly right of the line
-  rightLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
+  rightLabel.style.left = `${rightLinePx + tape.dimensions.lineThickness}px`
+  rightLabel.style.top = `${screenCenterY + tape.dimensions.threeQuarterInchesInPx / 2 + 20}px`
   rightLabel.style.color = 'rgb(0, 0, 0)'
   rightLabel.style.fontWeight = 'normal'
   rightLabel.style.fontSize = '1.4em'
-  rightLabel.style.width = '240px' // Fixed width for square shape
-  rightLabel.style.maxWidth = '240px' // Ensure it doesn't exceed the bounding box
-  rightLabel.style.overflowWrap = 'break-word' // Modern CSS property for word wrapping
-  rightLabel.style.wordWrap = 'break-word' // Enable word wrapping
-  rightLabel.style.textAlign = 'left' // Align text to the left
-  rightLabel.style.lineHeight = '1.2' // Tighter line height for better square appearance
+  rightLabel.style.width = '240px'
+  rightLabel.style.maxWidth = '240px'
+  rightLabel.style.overflowWrap = 'break-word'
+  rightLabel.style.wordWrap = 'break-word'
+  rightLabel.style.textAlign = 'left'
+  rightLabel.style.lineHeight = '1.2'
   rightLabel.id = 'right-line-label'
+  rightLabel.style.zIndex = '5'
   container.appendChild(rightLabel)
 
-  // Function to update line colors based on distance - MOVED HERE after elements are created
+  // ===================== TAPE MANAGEMENT FUNCTIONS =====================
+
+  // Function to update tape size and position
+  const updateTapeComponent = () => {
+    const newWidth = rightLinePx - leftLinePx + tape.dimensions.lineThickness
+    tape.container.style.left = `${leftLinePx}px`
+    tape.container.style.width = `${newWidth}px`
+    
+    // Update dynamic length label
+    const objectLengthPx = rightLinePx - leftLinePx
+    const objectLengthMm = objectLengthPx / pxPerMm
+    const objectLengthCm = objectLengthMm / 10
+    tape.elements.dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
+    
+    // Auto-scale font if tape is too narrow
+    const estimatedLabelWidth = tape.elements.dynamicLengthLabel.innerText.length * 10 + 12
+    if (estimatedLabelWidth > newWidth * 0.85) {
+      const scaleFactor = (newWidth * 0.85) / estimatedLabelWidth
+      const newFontSize = Math.max(0.7, scaleFactor) * 1.4
+      tape.elements.dynamicLengthLabel.style.fontSize = `${newFontSize}rem`
+    } else {
+      tape.elements.dynamicLengthLabel.style.fontSize = '1.4rem'
+    }
+  }
+
+  // Function to update line colors based on distance
   const updateLineColors = () => {
     const objectLengthPx = rightLinePx - leftLinePx
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
-
-    // Get minimum distance threshold with default value of 10cm if not specified
     const minDistanceCm = options.calibrateTrackDistanceMinCm || 10
 
-    console.log('updateLineColors called:', {
-      objectLengthPx,
-      objectLengthMm,
-      objectLengthCm,
-      minDistanceCm,
-      shouldBeRed: objectLengthCm <= minDistanceCm,
-    })
+    const isShort = objectLengthCm <= minDistanceCm
+    const color = isShort ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 0)'
+    const shadow = isShort ? '0 0 8px rgba(255, 0, 0, 0.4)' : '0 0 8px rgba(0, 0, 0, 0.4)'
 
-    // If distance is less than or equal to minimum distance, change to red and update label text and position
-    if (objectLengthCm <= minDistanceCm) {
-      leftLine.style.background = 'rgb(255, 0, 0)'
-      leftLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
-      rightLine.style.background = 'rgb(255, 0, 0)'
-      rightLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
-      topHorizontalLine.style.background = 'rgb(255, 0, 0)'
-      topHorizontalLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
-      bottomHorizontalLine.style.background = 'rgb(255, 0, 0)'
-      bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(255, 0, 0, 0.4)'
-      rightLabel.style.color = 'rgb(255, 0, 0)'
-      rightLabel.innerText = phrases.RC_viewingDistanceObjectTooShort[RC.L]
-      rightLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
-      rightLabel.style.width = '440px' // Wider for red warning
-      rightLabel.style.maxWidth = '440px' // Ensure it doesn't exceed the bounding box
-      console.log('Changed to RED')
-    } else {
-      leftLine.style.background = 'rgb(0, 0, 0)'
-      leftLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-      rightLine.style.background = 'rgb(0, 0, 0)'
-      rightLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-      topHorizontalLine.style.background = 'rgb(0, 0, 0)'
-      topHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-      bottomHorizontalLine.style.background = 'rgb(0, 0, 0)'
-      bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-      rightLabel.style.color = 'rgb(0, 0, 0)'
-      rightLabel.innerText = phrases.RC_RightEdge[RC.L]
-      rightLabel.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px + 20px)` // Below the centered line with 20px gap
-      rightLabel.style.width = '240px' // Default width
-      rightLabel.style.maxWidth = '240px' // Ensure it doesn't exceed the bounding box
-      console.log('Changed to GREEN')
-    }
+    // Update all tape line elements
+    tape.elements.leftLine.style.background = color
+    tape.elements.leftLine.style.boxShadow = shadow
+    tape.elements.rightLine.style.background = color
+    tape.elements.rightLine.style.boxShadow = shadow
+    tape.elements.topHorizontalLine.style.background = color
+    tape.elements.topHorizontalLine.style.boxShadow = shadow
+    tape.elements.bottomHorizontalLine.style.background = color
+    tape.elements.bottomHorizontalLine.style.boxShadow = shadow
+
+    // Update right label
+    rightLabel.style.color = color
+    rightLabel.innerText = isShort ? phrases.RC_viewingDistanceObjectTooShort[RC.L] : phrases.RC_RightEdge[RC.L]
+    rightLabel.style.width = isShort ? '440px' : '240px'
+    rightLabel.style.maxWidth = isShort ? '440px' : '240px'
   }
 
-  // Add hover effects to both lines
-  ;[leftLine, rightLine].forEach(line => {
-    line.addEventListener('mouseenter', () => {
-      line.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
-      line.style.width = `${lineThickness}px`
-    })
-    line.addEventListener('mouseleave', () => {
-      line.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-      line.style.width = `${lineThickness}px`
-      updateLineColors() // Update colors after hover effect
-    })
+  // Add hover effects to tape lines
+  tape.elements.leftLine.addEventListener('mouseenter', () => {
+    tape.elements.leftLine.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
+  })
+  tape.elements.leftLine.addEventListener('mouseleave', () => {
+    updateLineColors() // This will restore correct shadow
+  })
+  
+  tape.elements.rightLine.addEventListener('mouseenter', () => {
+    tape.elements.rightLine.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
+  })
+  tape.elements.rightLine.addEventListener('mouseleave', () => {
+    updateLineColors() // This will restore correct shadow
   })
 
-  // Update right label position and line colors when rightLine moves (drag or keyboard)
-  function updateRightLabel() {
-    rightLabel.style.left = `${rightLinePx + lineThickness}px`
+  // Function to update labels when tape changes
+  function updateLabels() {
+    leftLabel.style.left = `${leftLinePx + tape.dimensions.lineThickness}px`
+    rightLabel.style.left = `${rightLinePx + tape.dimensions.lineThickness}px`
     updateLineColors() // Update colors when line moves
-    updateHorizontalLine() // Update horizontal line and dynamic length
-    updateRectangleLines() // Update rectangle connector lines
+    updateTapeComponent() // Update tape size and content
+    updateHorizontalMeasurementLine() // Update horizontal measurement line and arrows
   }
 
-  // Update left label position and line colors when leftLine moves (drag or keyboard)
-  function updateLeftLabel() {
-    leftLabel.style.left = `${leftLinePx + lineThickness}px`
-    updateLineColors() // Update colors when line moves
-    updateHorizontalLine() // Update horizontal line and dynamic length
-    updateRectangleLines() // Update rectangle connector lines
-  }
+  // ===================== TAPE INTERACTION HANDLERS =====================
 
-  // Function to update rectangle connector lines
-  function updateRectangleLines() {
-    rectangleBackground.style.left = `${leftLinePx}px`
-    rectangleBackground.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-    topHorizontalLine.style.left = `${leftLinePx}px`
-    topHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-    bottomHorizontalLine.style.left = `${leftLinePx}px`
-    bottomHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-
-    // Update dynamic length label position since rectangle changed
-    updateDynamicLength()
-  }
-
-  // --- Allow the user to drag the right vertical line horizontally ---
+  // Dragging functionality for right line
   let dragging = false
-  rightLine.addEventListener('mousedown', e => {
+  tape.elements.rightLine.addEventListener('mousedown', e => {
     dragging = true
     document.body.style.cursor = 'ew-resize'
     e.preventDefault()
   })
-  window.addEventListener('mousemove', e => {
-    if (!dragging) return
-    let x = e.clientX
-    // Clamp so it can't cross the left line or go off screen
-    x = Math.max(leftLinePx + 10, Math.min(x, screenWidth)) // Changed from screenWidth - 2 to screenWidth
-    rightLinePx = x
-    rightLine.style.left = `${rightLinePx}px`
-    updateRightLabel()
-  })
-  window.addEventListener('mouseup', () => {
-    dragging = false
-    document.body.style.cursor = ''
-  })
 
-  // --- Allow the user to drag the left vertical line horizontally ---
+  // Dragging functionality for left line  
   let leftDragging = false
-  leftLine.addEventListener('mousedown', e => {
+  tape.elements.leftLine.addEventListener('mousedown', e => {
     leftDragging = true
     document.body.style.cursor = 'ew-resize'
     e.preventDefault()
   })
+
+  // Combined mouse move handler for both lines
   window.addEventListener('mousemove', e => {
-    if (!leftDragging) return
-    let x = e.clientX
-    // Clamp so it can't cross the right line or go off screen
-    x = Math.max(0, Math.min(x, rightLinePx - 2)) // Changed from 2 to 0 to touch left edge
-    leftLinePx = x
-    leftLine.style.left = `${leftLinePx}px`
-    updateLeftLabel()
+    if (dragging) {
+      let x = e.clientX
+      x = Math.max(leftLinePx + 10, Math.min(x, screenWidth))
+      rightLinePx = x
+      updateLabels()
+    } else if (leftDragging) {
+      let x = e.clientX
+      x = Math.max(0, Math.min(x, rightLinePx - 2))
+      leftLinePx = x
+      updateLabels()
+    }
   })
+
+  // Combined mouse up handler
   window.addEventListener('mouseup', () => {
-    leftDragging = false
-    document.body.style.cursor = ''
+    if (dragging || leftDragging) {
+      dragging = false
+      leftDragging = false
+      document.body.style.cursor = ''
+    }
   })
 
   // ===================== KEYBOARD HANDLING FOR RIGHT LINE =====================
@@ -1492,14 +1527,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
   const helpMoveRightLine = () => {
     // Clamp the position so it can't cross the left line or go off screen
-    const minX = leftLinePx + 10 // Changed from 20px to 10px minimum gap from left line
-    const maxX = screenWidth // Changed from screenWidth - 10 to screenWidth to touch right edge
+    const minX = leftLinePx + 10
+    const maxX = screenWidth
 
     rightLinePx = Math.max(minX, Math.min(rightLinePx, maxX))
-
-    // Update the visual position
-    rightLine.style.left = `${rightLinePx}px`
-    updateRightLabel()
+    updateLabels()
   }
 
   // Add keyboard event listeners
@@ -1529,162 +1561,107 @@ export async function objectTest(RC, options, callback = undefined) {
   }
   window.addEventListener('beforeunload', cleanupKeyboard)
 
-  // ===================== DRAWING THE HORIZONTAL LINE AND ARROWHEADS =====================
-  // --- Calculate the vertical position for the horizontal line (center of screen) ---
-  const lineColor = 'rgb(0, 0, 0)'
-
-  // --- Horizontal line ---
+  // ===================== HORIZONTAL MEASUREMENT LINE WITH ARROWS =====================
+  
+  // Create horizontal measurement line that spans between the tape edges
   const horizontalLine = document.createElement('div')
   horizontalLine.style.position = 'absolute'
-  horizontalLine.style.left = `${leftLinePx + lineThickness}px` // Start at inside edge of left vertical line
-  horizontalLine.style.right = `${window.innerWidth - rightLinePx}px` // End at inner edge of right line
-  horizontalLine.style.top = `${screenCenterY}px` // Center vertically
-  horizontalLine.style.height = `${lineThickness}px`
-  horizontalLine.style.background = lineColor // Solid line
+  horizontalLine.style.left = `${leftLinePx + tape.dimensions.lineThickness}px`
+  horizontalLine.style.right = `${screenWidth - rightLinePx}px`
+  horizontalLine.style.top = `${screenCenterY}px`
+  horizontalLine.style.height = `${tape.dimensions.lineThickness}px`
+  horizontalLine.style.background = 'rgb(0, 0, 0)'
   horizontalLine.style.borderRadius = '2px'
   horizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-  horizontalLine.style.zIndex = '2'
+  horizontalLine.style.zIndex = '15'
   container.appendChild(horizontalLine)
 
-  // --- Left arrow line (45 degrees down) ---
-  const leftArrowLine = document.createElement('div')
-  leftArrowLine.style.position = 'absolute'
-  leftArrowLine.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
-  leftArrowLine.style.top = `${screenCenterY}px` // Closer to horizontal line
-  leftArrowLine.style.width = `${lineThickness * 9}px` // Length for proper arrow tip (3x longer)
-  leftArrowLine.style.height = `${lineThickness}px`
-  leftArrowLine.style.background = lineColor
-  leftArrowLine.style.borderRadius = '2px'
-  leftArrowLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-  leftArrowLine.style.zIndex = '5' // Above all other elements
-  leftArrowLine.style.transform = 'rotate(45deg)'
-  leftArrowLine.style.transformOrigin = 'left center'
-  container.appendChild(leftArrowLine)
+  // Create arrow heads
+  const createArrowHead = (side, direction) => {
+    const arrow = document.createElement('div')
+    arrow.style.position = 'absolute'
+    arrow.style.width = `${tape.dimensions.lineThickness * 9}px`
+    arrow.style.height = `${tape.dimensions.lineThickness}px`
+    arrow.style.background = 'rgb(0, 0, 0)'
+    arrow.style.borderRadius = '2px'
+    arrow.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+    arrow.style.zIndex = '16'
+    arrow.style.top = `${screenCenterY}px`
+    
+    if (side === 'left') {
+      arrow.style.left = `${leftLinePx + tape.dimensions.lineThickness + tape.dimensions.lineThickness * 0.4}px`
+      arrow.style.transformOrigin = 'left center'
+    } else {
+      arrow.style.left = `${rightLinePx - tape.dimensions.lineThickness * 9 - tape.dimensions.lineThickness * 0.4}px`
+      arrow.style.transformOrigin = 'right center'
+    }
+    
+    arrow.style.transform = `rotate(${direction === 'up' ? '-45deg' : '45deg'})`
+    return arrow
+  }
 
-  // --- Right arrow line (45 degrees down) ---
-  const rightArrowLine = document.createElement('div')
-  rightArrowLine.style.position = 'absolute'
-  rightArrowLine.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
-  rightArrowLine.style.top = `${screenCenterY}px` // Closer to horizontal line
-  rightArrowLine.style.width = `${lineThickness * 9}px` // Length for proper arrow tip (3x longer)
-  rightArrowLine.style.height = `${lineThickness}px`
-  rightArrowLine.style.background = lineColor
-  rightArrowLine.style.borderRadius = '2px'
-  rightArrowLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-  rightArrowLine.style.zIndex = '5' // Above all other elements
-  rightArrowLine.style.transform = 'rotate(-45deg)'
-  rightArrowLine.style.transformOrigin = 'right center'
-  container.appendChild(rightArrowLine)
+  const leftArrowUp = createArrowHead('left', 'up')
+  const leftArrowDown = createArrowHead('left', 'down')
+  const rightArrowUp = createArrowHead('right', 'up')
+  const rightArrowDown = createArrowHead('right', 'down')
 
-  // --- Left arrow line (45 degrees up) ---
-  const leftArrowLineUp = document.createElement('div')
-  leftArrowLineUp.style.position = 'absolute'
-  leftArrowLineUp.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
-  leftArrowLineUp.style.top = `${screenCenterY}px` // Closer to horizontal line
-  leftArrowLineUp.style.width = `${lineThickness * 9}px` // Length for proper arrow tip (3x longer)
-  leftArrowLineUp.style.height = `${lineThickness}px`
-  leftArrowLineUp.style.background = lineColor
-  leftArrowLineUp.style.borderRadius = '2px'
-  leftArrowLineUp.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-  leftArrowLineUp.style.zIndex = '5' // Above all other elements
-  leftArrowLineUp.style.transform = 'rotate(-45deg)'
-  leftArrowLineUp.style.transformOrigin = 'left center'
-  container.appendChild(leftArrowLineUp)
+  container.appendChild(leftArrowUp)
+  container.appendChild(leftArrowDown)
+  container.appendChild(rightArrowUp)
+  container.appendChild(rightArrowDown)
 
-  // --- Right arrow line (45 degrees up) ---
-  const rightArrowLineUp = document.createElement('div')
-  rightArrowLineUp.style.position = 'absolute'
-  rightArrowLineUp.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
-  rightArrowLineUp.style.top = `${screenCenterY}px` // Closer to horizontal line
-  rightArrowLineUp.style.width = `${lineThickness * 9}px` // Length for proper arrow tip (3x longer)
-  rightArrowLineUp.style.height = `${lineThickness}px`
-  rightArrowLineUp.style.background = lineColor
-  rightArrowLineUp.style.borderRadius = '2px'
-  rightArrowLineUp.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-  rightArrowLineUp.style.zIndex = '5' // Above all other elements
-  rightArrowLineUp.style.transform = 'rotate(45deg)'
-  rightArrowLineUp.style.transformOrigin = 'right center'
-  container.appendChild(rightArrowLineUp)
+  // Create dynamic length label on horizontal measurement line
+  const horizontalLengthLabel = document.createElement('div')
+  horizontalLengthLabel.style.position = 'absolute'
+  horizontalLengthLabel.style.left = `${(leftLinePx + rightLinePx) / 2}px` // Center between lines
+  horizontalLengthLabel.style.top = `${screenCenterY}px`
+  horizontalLengthLabel.style.transform = 'translate(-50%, -50%)'
+  horizontalLengthLabel.style.color = 'rgb(0, 0, 0)'
+  horizontalLengthLabel.style.fontWeight = 'bold'
+  horizontalLengthLabel.style.fontSize = '1.4rem'
+  horizontalLengthLabel.style.background = 'rgba(255, 221, 51, 1.0)' // Same yellow as tape
+  horizontalLengthLabel.style.padding = '2px 6px'
+  horizontalLengthLabel.style.borderRadius = '4px'
+  horizontalLengthLabel.style.whiteSpace = 'nowrap'
+  horizontalLengthLabel.style.zIndex = '17' // Above horizontal line and arrows
+  container.appendChild(horizontalLengthLabel)
 
-  // --- Dynamic length label ---
-  const dynamicLengthLabel = document.createElement('div')
-  dynamicLengthLabel.style.position = 'absolute'
-  dynamicLengthLabel.style.color = 'rgb(0, 0, 0)'
-  dynamicLengthLabel.style.fontWeight = 'bold'
-  dynamicLengthLabel.style.fontSize = '1.4rem' // Reduced from 1.8rem to ensure it fits
-  dynamicLengthLabel.style.zIndex = '4' // Above all lines
-  dynamicLengthLabel.style.textAlign = 'center'
-  dynamicLengthLabel.style.background = 'rgba(255, 221, 51, 1.0)' // Bright tape measure yellow, same as rectangle, 100% opacity
-  dynamicLengthLabel.style.padding = '2px 6px' // Reduced padding to fit better
-  dynamicLengthLabel.style.borderRadius = '4px'
-  dynamicLengthLabel.style.whiteSpace = 'nowrap' // Prevent text wrapping
-  dynamicLengthLabel.style.transform = 'translate(-50%, -50%)' // Center using transform
-  container.appendChild(dynamicLengthLabel)
-
-  // Function to update dynamic length display and position
-  const updateDynamicLength = () => {
+  // Update horizontal line and arrows when tape changes
+  const updateHorizontalMeasurementLine = () => {
+    // Update main line
+    horizontalLine.style.left = `${leftLinePx + tape.dimensions.lineThickness}px`
+    horizontalLine.style.right = `${screenWidth - rightLinePx}px`
+    
+    // Update arrows
+    leftArrowUp.style.left = `${leftLinePx + tape.dimensions.lineThickness + tape.dimensions.lineThickness * 0.4}px`
+    leftArrowDown.style.left = `${leftLinePx + tape.dimensions.lineThickness + tape.dimensions.lineThickness * 0.4}px`
+    rightArrowUp.style.left = `${rightLinePx - tape.dimensions.lineThickness * 9 - tape.dimensions.lineThickness * 0.4}px`
+    rightArrowDown.style.left = `${rightLinePx - tape.dimensions.lineThickness * 9 - tape.dimensions.lineThickness * 0.4}px`
+    
+    // Update horizontal length label position and content
     const objectLengthPx = rightLinePx - leftLinePx
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
-    dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
-
-    // Calculate the center of the rectangle
-    const rectangleCenterX = leftLinePx + (rightLinePx - leftLinePx) / 2
-    const rectangleCenterY = screenCenterY // This is the center of the rectangle vertically
-
-    // Position the label at the center of the rectangle
-    dynamicLengthLabel.style.left = `${rectangleCenterX}px`
-    dynamicLengthLabel.style.top = `${rectangleCenterY}px`
-
-    // Adjust font size if the rectangle is too small
-    const rectangleWidth = rightLinePx - leftLinePx
-
-    // More accurate estimation of label width based on text content
-    const textLength = dynamicLengthLabel.innerText.length
-    const baseCharWidth = 10 // Average character width in pixels
-    const padding = 12 // Horizontal padding
-    const estimatedLabelWidth = textLength * baseCharWidth + padding
-
-    // If label would be too wide for rectangle, reduce font size
-    const maxAllowedWidth = rectangleWidth * 0.85 // Leave 15% margin
-    if (estimatedLabelWidth > maxAllowedWidth) {
-      const scaleFactor = maxAllowedWidth / estimatedLabelWidth
-      const newFontSize = Math.max(0.7, scaleFactor) * 1.4 // Minimum 0.7rem
-      dynamicLengthLabel.style.fontSize = `${newFontSize}rem`
+    horizontalLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
+    horizontalLengthLabel.style.left = `${(leftLinePx + rightLinePx) / 2}px`
+    
+    // Auto-scale font if measurement is too small
+    const estimatedLabelWidth = horizontalLengthLabel.innerText.length * 10 + 12
+    const availableWidth = rightLinePx - leftLinePx
+    if (estimatedLabelWidth > availableWidth * 0.8) {
+      const scaleFactor = (availableWidth * 0.8) / estimatedLabelWidth
+      const newFontSize = Math.max(0.7, scaleFactor) * 1.4
+      horizontalLengthLabel.style.fontSize = `${newFontSize}rem`
     } else {
-      // Reset to default size if there's enough space
-      dynamicLengthLabel.style.fontSize = '1.4rem'
+      horizontalLengthLabel.style.fontSize = '1.4rem'
     }
   }
 
-  // Function to update horizontal line positions
-  const updateHorizontalLine = () => {
-    // Get current screenCenterY value (in case window was resized)
-    const currentScreenCenterY = window.innerHeight * 0.6
-
-    // Update horizontal line position to connect the vertical lines directly
-    horizontalLine.style.left = `${leftLinePx + lineThickness}px` // Start at inside edge of left vertical line
-    horizontalLine.style.right = `${window.innerWidth - rightLinePx}px` // End at inner edge of right line
-    //horizontalLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
-
-    // Update arrow line positions - account for rotation overlap
-    leftArrowLine.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
-    // //leftArrowLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
-    rightArrowLine.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
-    // //rightArrowLine.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
-    leftArrowLineUp.style.left = `${leftLinePx + lineThickness + lineThickness * 0.4}px` // Account for rotation overlap
-    // //leftArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
-    rightArrowLineUp.style.left = `${rightLinePx - lineThickness * 9 - lineThickness * 0.4}px` // Account for rotation overlap
-    // //rightArrowLineUp.style.top = `${currentScreenCenterY}px` // Use current 10% lower position
-
-    // Update dynamic length (this now handles positioning too)
-    updateDynamicLength()
-  }
-
-  // Update positions when window is resized
-  window.addEventListener('resize', () => {
-    //updateHorizontalLine() // This will update all horizontal line and arrow positions
-  })
+  // ===================== INITIALIZATION =====================
+  
+  // Initialize tape with current values
+  updateLabels()
+  updateHorizontalMeasurementLine()
 
   // ===================== END DRAWING =====================
 
@@ -1706,20 +1683,16 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
       console.log('=== SHOWING PAGE 0: INSTRUCTIONS ONLY ===')
 
-      // Hide all lines and labels
-      horizontalLine.style.display = 'none'
-      leftArrowLine.style.display = 'none'
-      rightArrowLine.style.display = 'none'
-      leftArrowLineUp.style.display = 'none'
-      rightArrowLineUp.style.display = 'none'
-      dynamicLengthLabel.style.display = 'none'
-      leftLine.style.display = 'none'
-      rightLine.style.display = 'none'
+      // Hide tape component, labels, and measurement line
+      tape.container.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
-      topHorizontalLine.style.display = 'none'
-      bottomHorizontalLine.style.display = 'none'
-      rectangleBackground.style.display = 'none'
+      horizontalLine.style.display = 'none'
+      horizontalLengthLabel.style.display = 'none'
+      leftArrowUp.style.display = 'none'
+      leftArrowDown.style.display = 'none'
+      rightArrowUp.style.display = 'none'
+      rightArrowDown.style.display = 'none'
 
       // // Show radio buttons on page 0
       // radioContainer.style.display = 'block'
@@ -1744,20 +1717,16 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
 
-      // Hide all lines and labels
-      horizontalLine.style.display = 'none'
-      leftArrowLine.style.display = 'none'
-      rightArrowLine.style.display = 'none'
-      leftArrowLineUp.style.display = 'none'
-      rightArrowLineUp.style.display = 'none'
-      dynamicLengthLabel.style.display = 'none'
-      leftLine.style.display = 'none'
-      rightLine.style.display = 'none'
+      // Hide tape component, labels, and measurement line
+      tape.container.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
-      topHorizontalLine.style.display = 'none'
-      bottomHorizontalLine.style.display = 'none'
-      rectangleBackground.style.display = 'none'
+      horizontalLine.style.display = 'none'
+      horizontalLengthLabel.style.display = 'none'
+      leftArrowUp.style.display = 'none'
+      leftArrowDown.style.display = 'none'
+      rightArrowUp.style.display = 'none'
+      rightArrowDown.style.display = 'none'
 
       // // Hide radio buttons on page 1
       // radioContainer.style.display = 'none'
@@ -1782,20 +1751,16 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 2: VERTICAL LINES + HORIZONTAL LINE =====================
       console.log('=== SHOWING PAGE 2: VERTICAL LINES + HORIZONTAL LINE ===')
 
-      // Show vertical lines and horizontal line
-      horizontalLine.style.display = 'block'
-      leftArrowLine.style.display = 'block'
-      rightArrowLine.style.display = 'block'
-      leftArrowLineUp.style.display = 'block'
-      rightArrowLineUp.style.display = 'block'
-      dynamicLengthLabel.style.display = 'block'
-      leftLine.style.display = 'block'
-      rightLine.style.display = 'block'
+      // Show tape component, labels, and measurement line
+      tape.container.style.display = 'block'
       leftLabel.style.display = 'block'
       rightLabel.style.display = 'block'
-      topHorizontalLine.style.display = 'block'
-      bottomHorizontalLine.style.display = 'block'
-      rectangleBackground.style.display = 'block'
+      horizontalLine.style.display = 'block'
+      horizontalLengthLabel.style.display = 'block'
+      leftArrowUp.style.display = 'block'
+      leftArrowDown.style.display = 'block'
+      rightArrowUp.style.display = 'block'
+      rightArrowDown.style.display = 'block'
 
       // // Hide radio buttons on page 2
       // radioContainer.style.display = 'none'
@@ -1831,11 +1796,7 @@ export async function objectTest(RC, options, callback = undefined) {
       }
 
       // Update all positions and colors after showing lines
-      updateRightLabel()
-      updateLeftLabel()
-      updateLineColors()
-      updateHorizontalLine() // Update horizontal line and dynamic length
-      updateRectangleLines() // Update rectangle connector lines
+      updateLabels()
 
       // Update instructions with combined phrase
       instructions.innerText =
@@ -1844,20 +1805,16 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
 
-      // Hide all lines and labels
-      horizontalLine.style.display = 'none'
-      leftArrowLine.style.display = 'none'
-      rightArrowLine.style.display = 'none'
-      leftArrowLineUp.style.display = 'none'
-      rightArrowLineUp.style.display = 'none'
-      dynamicLengthLabel.style.display = 'none'
-      leftLine.style.display = 'none'
-      rightLine.style.display = 'none'
+      // Hide tape component, labels, and measurement line
+      tape.container.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
-      topHorizontalLine.style.display = 'none'
-      bottomHorizontalLine.style.display = 'none'
-      rectangleBackground.style.display = 'none'
+      horizontalLine.style.display = 'none'
+      horizontalLengthLabel.style.display = 'none'
+      leftArrowUp.style.display = 'none'
+      leftArrowDown.style.display = 'none'
+      rightArrowUp.style.display = 'none'
+      rightArrowDown.style.display = 'none'
 
       // // Hide radio buttons on page 3
       // radioContainer.style.display = 'none'
@@ -1877,20 +1834,10 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
 
-      // Keep all lines and labels hidden
-      horizontalLine.style.display = 'none'
-      leftArrowLine.style.display = 'none'
-      rightArrowLine.style.display = 'none'
-      leftArrowLineUp.style.display = 'none'
-      rightArrowLineUp.style.display = 'none'
-      dynamicLengthLabel.style.display = 'none'
-      leftLine.style.display = 'none'
-      rightLine.style.display = 'none'
+      // Keep tape component and labels hidden
+      tape.container.style.display = 'none'
       leftLabel.style.display = 'none'
       rightLabel.style.display = 'none'
-      topHorizontalLine.style.display = 'none'
-      bottomHorizontalLine.style.display = 'none'
-      rectangleBackground.style.display = 'none'
 
       // // Hide radio buttons on page 4
       // radioContainer.style.display = 'none'
@@ -1942,8 +1889,8 @@ export async function objectTest(RC, options, callback = undefined) {
         timestamp: performance.now(),
         method: 'object',
         intraocularDistanceCm: null,
-        faceMeshSamplesPage3: [...faceMeshSamplesPage3],
-        faceMeshSamplesPage4: [...faceMeshSamplesPage4],
+        faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample => isNaN(sample) ? sample : Math.round(sample)),
+        faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample => isNaN(sample) ? sample : Math.round(sample)),
         // page0Option: selectedPage0Option, // Store the radio button answer
         raw: {
           leftPx: leftLinePx,
@@ -2083,8 +2030,8 @@ export async function objectTest(RC, options, callback = undefined) {
       intraocularDistanceCm: intraocularDistanceCm,
 
       // Pass the samples in the savedMeasurementData and final data object
-      faceMeshSamplesPage3: [...faceMeshSamplesPage3],
-      faceMeshSamplesPage4: [...faceMeshSamplesPage4],
+      faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample => isNaN(sample) ? sample : Math.round(sample)),
+      faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample => isNaN(sample) ? sample : Math.round(sample)),
     }
 
     // ===================== VISUAL FEEDBACK =====================
@@ -2105,11 +2052,11 @@ export async function objectTest(RC, options, callback = undefined) {
       : 0
 
     // Calculate separate calibration factors
-    const distance1FactorCmPx = page3Average * data.value
-    const distance2FactorCmPx = page4Average * data.value
+    const distance1FactorCmPx = Math.round(page3Average * data.value)
+    const distance2FactorCmPx = Math.round(page4Average * data.value)
 
     // Calculate average of the two factors
-    const averageFactorCmPx = (distance1FactorCmPx + distance2FactorCmPx) / 2
+    const averageFactorCmPx = Math.round((distance1FactorCmPx + distance2FactorCmPx) / 2)
 
     console.log('=== Object Test Calibration Factors ===')
     console.log('Object distance:', data.value, 'cm')
@@ -2150,11 +2097,11 @@ export async function objectTest(RC, options, callback = undefined) {
         <div style="margin-top: 10px;">Object distance calibration</div>
         <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
         <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
-        <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(1))).join(', ')}</div>
-        <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
-        <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(1))).join(', ')}</div>
-        <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
-        <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
+        <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
+        <div>distance1FactorCmPx = ${distance1FactorCmPx}</div>
+        <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
+        <div>distance2FactorCmPx = ${distance2FactorCmPx}</div>
+        <div>AverageFactorCmPx = ${averageFactorCmPx}</div>
       `
       document.body.appendChild(feedbackDiv)
     }
@@ -2226,11 +2173,11 @@ export async function objectTest(RC, options, callback = undefined) {
                       <div style="margin-top: 10px;">Object distance calibration</div>
                       <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
                       <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
-                      <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(1))).join(', ')}</div>
-                      <div>distance1FactorCmPx = ${distance1FactorCmPx.toFixed(1)}</div>
-                      <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(1))).join(', ')}</div>
-                      <div>distance2FactorCmPx = ${distance2FactorCmPx.toFixed(1)}</div>
-                      <div>AverageFactorCmPx = ${averageFactorCmPx.toFixed(1)}</div>
+                      <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
+                      <div>distance1FactorCmPx = ${distance1FactorCmPx}</div>
+                      <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
+                      <div>distance2FactorCmPx = ${distance2FactorCmPx}</div>
+                      <div>AverageFactorCmPx = ${averageFactorCmPx}</div>
                       <div>blindspotCalibrationFactor = ${blindspotCalibrationFactor.toFixed(1)}</div>
                       <div>AverageCombinedCalibrationFactor = ${medianCalibrationFactor.toFixed(1)}</div>
                   `

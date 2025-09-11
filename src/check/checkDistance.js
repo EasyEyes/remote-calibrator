@@ -12,6 +12,76 @@ import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setDefaultVideoPosition } from '../components/video'
 
+// Helper function to capture IPD from face mesh data
+const captureIPDFromFaceMesh = async (RC) => {
+  try {
+    const video = document.getElementById('webgazerVideoCanvas')
+    if (!video) {
+      console.warn('No video canvas found for IPD measurement')
+      return null
+    }
+
+    // Ensure model is loaded
+    const model = await RC.gazeTracker.webgazer.getTracker().model
+    const faces = await model.estimateFaces(video)
+    
+    if (!faces.length) {
+      console.warn('No faces detected for IPD measurement')
+      return null
+    }
+
+    // Get face mesh keypoints
+    const mesh = faces[0].keypoints || faces[0].scaledMesh
+    if (!mesh || !mesh[133] || !mesh[362] || !mesh[263] || !mesh[33]) {
+      console.warn('Required face mesh keypoints not available for IPD')
+      return null
+    }
+
+    // Calculate eye positions using same logic as distanceTrack.js
+    const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+    
+    // Left eye: average of keypoints 362 and 263
+    const leftEyeX = (mesh[362].x + mesh[263].x) / 2
+    const leftEyeY = (mesh[362].y + mesh[263].y) / 2
+    const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
+    
+    // Right eye: average of keypoints 133 and 33
+    const rightEyeX = (mesh[133].x + mesh[33].x) / 2
+    const rightEyeY = (mesh[133].y + mesh[33].y) / 2
+    const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
+    
+    const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
+    const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
+    
+    // Calculate IPD in pixels
+    const ipdPixels = eyeDist(leftEye, rightEye)
+    
+    // Convert to cm if we have screen PPI
+    let ipdCm = null
+    if (RC.screenPpi && RC.screenPpi.value) {
+      const pxPerCm = RC.screenPpi.value / 2.54
+      // Use the same conversion logic as in distance tracking
+      const cameraPxPerCm = ipdPixels / RC._CONST.IPD_CM
+      ipdCm = ipdPixels / cameraPxPerCm
+    }
+
+    console.log('IPD captured:', { ipdPixels, ipdCm, timestamp: performance.now() })
+    
+    return {
+      ipdPixels: Math.round(ipdPixels), // Round to integer
+      ipdCm: ipdCm ? Number(ipdCm.toFixed(2)) : null,
+      timestamp: performance.now(),
+      eyePositions: {
+        left: leftEye,
+        right: rightEye
+      }
+    }
+  } catch (error) {
+    console.error('Error capturing IPD from face mesh:', error)
+    return null
+  }
+}
+
 RemoteCalibrator.prototype._checkDistance = async function (
   distanceCallback,
   distanceData,
@@ -118,13 +188,13 @@ const createYellowTapeRectangle = RC => {
 
   // The left vertical line is always 5mm from the left edge of the screen
   let leftLinePx = Math.round(5 * pxPerMm) // 5mm from left
-  const screenWidth = window.innerWidth
+  let screenWidth = window.innerWidth
 
   // The right vertical line starts at 2/3 of the screen width
   let rightLinePx = Math.round((screenWidth * 2) / 3)
 
   // Calculate the vertical position for all elements (bottom of screen with margin)
-  const screenCenterY = window.innerHeight - 65 // 100px margin from bottom
+  let screenCenterY = window.innerHeight - 65 // 100px margin from bottom
 
   // Create the main container
   const container = document.createElement('div')
@@ -209,6 +279,56 @@ const createYellowTapeRectangle = RC => {
     topHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
     bottomHorizontalLine.style.left = `${leftLinePx}px`
     bottomHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+  }
+
+  // Function to update all positions when window is resized
+  function updatePositionsOnResize() {
+    const newScreenWidth = window.innerWidth
+    const newScreenCenterY = window.innerHeight - 65
+
+    // Update screen dimensions
+    screenWidth = newScreenWidth
+    screenCenterY = newScreenCenterY
+
+    // Recalculate right line position to maintain proportional distance
+    const proportion = rightLinePx / (screenWidth || 1) // Avoid division by zero
+    rightLinePx = Math.round(newScreenWidth * proportion)
+    
+    // Ensure right line doesn't go beyond screen bounds
+    const minX = leftLinePx + 10
+    const maxX = newScreenWidth
+    rightLinePx = Math.max(minX, Math.min(rightLinePx, maxX))
+
+    // Update all vertical positions
+    const newVerticalLineStyle = `
+      position: absolute; 
+      top: ${screenCenterY}px; 
+      transform: translateY(-50%); 
+      height: ${threeQuarterInchesInPx}px; 
+      width: ${lineThickness}px; 
+      background: rgb(0, 0, 0); 
+      border-radius: 2px; 
+      z-index: 1;
+    `
+
+    // Update line positions
+    leftLine.style = newVerticalLineStyle + `left: ${leftLinePx}px; cursor: ew-resize;`
+    rightLine.style = newVerticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
+
+    // Update rectangle background position and size
+    rectangleBackground.style.left = `${leftLinePx}px`
+    rectangleBackground.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+    rectangleBackground.style.top = `calc(${screenCenterY}px - ${threeQuarterInchesInPx / 2}px)`
+    rectangleBackground.style.height = `${threeQuarterInchesInPx}px`
+
+    // Update horizontal lines
+    topHorizontalLine.style.left = `${leftLinePx}px`
+    topHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+    topHorizontalLine.style.top = `calc(${screenCenterY}px - ${threeQuarterInchesInPx / 2}px)`
+
+    bottomHorizontalLine.style.left = `${leftLinePx}px`
+    bottomHorizontalLine.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
+    bottomHorizontalLine.style.top = `calc(${screenCenterY}px + ${threeQuarterInchesInPx / 2}px - ${lineThickness}px)`
   }
 
   // Dragging functionality for right line
@@ -313,12 +433,16 @@ const createYellowTapeRectangle = RC => {
   document.addEventListener('keydown', arrowDownFunction)
   document.addEventListener('keyup', arrowUpFunction)
 
+  // Add window resize event listener to handle fullscreen exit and window size changes
+  window.addEventListener('resize', updatePositionsOnResize)
+
   // Cleanup function
   const cleanup = () => {
     window.removeEventListener('mousemove', mouseMoveHandler)
     window.removeEventListener('mouseup', mouseUpHandler)
     window.removeEventListener('mousemove', leftMouseMoveHandler)
     window.removeEventListener('mouseup', leftMouseUpHandler)
+    window.removeEventListener('resize', updatePositionsOnResize)
     document.removeEventListener('keydown', arrowDownFunction)
     document.removeEventListener('keyup', arrowUpFunction)
     if (arrowIntervalFunction) {
@@ -360,7 +484,7 @@ const createLengthDisplayDiv = RC => {
   lengthContainer.style.justifyContent = 'flex-start'
   lengthContainer.style.position = 'absolute'
   //right above the yellow tape rectangle
-  const screenCenterY = window.innerHeight - 65 // Same as yellow tape positioning
+  let screenCenterY = window.innerHeight - 65 // Same as yellow tape positioning
   lengthContainer.style.top = `${screenCenterY - threeQuarterInchesInPx / 2 - 375}px`
   lengthContainer.style.transform = 'translate(-50%)'
   lengthContainer.style.width = '100%'
@@ -384,6 +508,15 @@ const createLengthDisplayDiv = RC => {
   // Append to the container
   lengthContainer.appendChild(lengthDisplayInput)
   document.body.appendChild(lengthContainer)
+
+  // Function to update position on window resize
+  window.updateLengthDisplayPosition = () => {
+    const newScreenCenterY = window.innerHeight - 65
+    lengthContainer.style.top = `${newScreenCenterY - threeQuarterInchesInPx / 2 - 375}px`
+  }
+
+  // Add resize listener for this specific element
+  window.addEventListener('resize', window.updateLengthDisplayPosition)
 }
 
 const removeLengthDisplayDiv = () => {
@@ -394,6 +527,12 @@ const removeLengthDisplayDiv = () => {
   const lengthContainer = document.getElementById(
     'calibration-checkSize-lengthDisplay-container',
   )
+
+  // Remove resize listener if it exists
+  if (window.updateLengthDisplayPosition) {
+    window.removeEventListener('resize', window.updateLengthDisplayPosition)
+    delete window.updateLengthDisplayPosition
+  }
 
   if (lengthDisplayInput) {
     lengthDisplayInput.remove()
@@ -843,6 +982,9 @@ const trackDistanceCheck = async (
     createViewingDistanceDiv()
     RC.calibrateTrackDistanceMeasuredCm = []
     RC.calibrateTrackDistanceRequestedCm = []
+    // Initialize IPD and requested distance arrays
+    RC.calibrateTrackDistanceIPDPixels = []
+    RC.calibrateTrackDistanceRequestedDistances = []
     let skippedDistancesCount = 0
 
     for (let i = 0; i < calibrateTrackDistanceCheckCm.length; i++) {
@@ -888,10 +1030,14 @@ const trackDistanceCheck = async (
           calibrateTrackDistanceCheckSecs = 0
 
         setTimeout(async () => {
-          function keyupListener(event) {
+          async function keyupListener(event) {
             if (event.key === ' ' && register) {
               register = false
               const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
+              
+              // Capture IPD data from face mesh
+              const ipdData = await captureIPDFromFaceMesh(RC)
+              
               RC.calibrateTrackDistanceMeasuredCm.push(Number(distanceFromRC))
               RC.calibrateTrackDistanceRequestedCm.push(
                 Number(
@@ -900,6 +1046,17 @@ const trackDistanceCheck = async (
                     : cm.toFixed(1),
                 ),
               )
+              
+              // Store just the IPD pixels (rounded integer) and requested distance
+              RC.calibrateTrackDistanceIPDPixels.push(ipdData ? ipdData.ipdPixels : null)
+              RC.calibrateTrackDistanceRequestedDistances.push(
+                Number(
+                  RC.equipment?.value?.unit === 'inches'
+                    ? (cm * 2.54).toFixed(1)
+                    : cm.toFixed(1),
+                )
+              )
+              
               document.removeEventListener('keydown', keyupListener)
               removeKeypadHandler()
               resolve()
@@ -919,15 +1076,30 @@ const trackDistanceCheck = async (
           const removeKeypadHandler = setUpEasyEyesKeypadHandler(
             null,
             RC.keypadHandler,
-            value => {
+            async value => {
               if (value === 'space') {
                 const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
+                
+                // Capture IPD data from face mesh
+                const ipdData = await captureIPDFromFaceMesh(RC)
+                
                 RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
                 RC.calibrateTrackDistanceRequestedCm.push(
                   RC.equipment?.value?.unit === 'inches'
                     ? (cm * 2.54).toFixed(1)
                     : cm.toFixed(1),
                 )
+                
+                // Store just the IPD pixels (rounded integer) and requested distance
+                RC.calibrateTrackDistanceIPDPixels.push(ipdData ? ipdData.ipdPixels : null)
+                RC.calibrateTrackDistanceRequestedDistances.push(
+                  Number(
+                    RC.equipment?.value?.unit === 'inches'
+                      ? (cm * 2.54).toFixed(1)
+                      : cm.toFixed(1),
+                  )
+                )
+                
                 removeKeypadHandler()
                 document.removeEventListener('keyup', keyupListener)
                 resolve()
@@ -956,6 +1128,15 @@ const trackDistanceCheck = async (
 
     removeProgressBar(RC)
     removeViewingDistanceDiv()
+    
+    // Log the captured IPD data for debugging
+    console.log('=== IPD Data Captured During Distance Checking ===')
+    console.log('Total measurements:', RC.calibrateTrackDistanceIPDPixels.length)
+    console.log('IPD Pixels Array:', RC.calibrateTrackDistanceIPDPixels)
+    console.log('Requested Distances Array (cm):', RC.calibrateTrackDistanceRequestedDistances)
+    console.log('Measured Distances Array (cm):', RC.calibrateTrackDistanceMeasuredCm)
+    console.log('=================================================')    
+    
     //join the arrays into a string
     //show thank you message
     await Swal.fire({
