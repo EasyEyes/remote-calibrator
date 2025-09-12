@@ -101,10 +101,13 @@ RemoteCalibrator.prototype.panel = async function (
       color: '#3490de',
       debug: false,
       i18n: true,
+      fullscreen: true,
       _demoActivateAll: false, // ! Private
     },
     panelOptions,
   )
+
+  this.getFullscreen(options.fullscreen)
 
   // Set theme color
   const darkerColor = tinycolor(options.color).darken(20).toString()
