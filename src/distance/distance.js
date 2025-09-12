@@ -1956,7 +1956,12 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== SAVE MEASUREMENT DATA FROM PAGE 2 =====================
       console.log('=== SAVING MEASUREMENT DATA FROM PAGE 2 ===')
 
-      const objectLengthPx = rightLinePx - leftLinePx
+      const objectLengthPx = tape.helpers.getDistance(
+        startX,
+        startY,
+        endX,
+        endY,
+      )
       const objectLengthMm = objectLengthPx / pxPerMm
       const objectLengthCm = objectLengthMm / 10
 
@@ -1973,8 +1978,10 @@ export async function objectTest(RC, options, callback = undefined) {
         ),
         // page0Option: selectedPage0Option, // Store the radio button answer
         raw: {
-          leftPx: leftLinePx,
-          rightPx: rightLinePx,
+          startX,
+          startY,
+          endX,
+          endY,
           screenWidth,
           objectLengthPx,
           objectLengthMm,
@@ -2067,7 +2074,7 @@ export async function objectTest(RC, options, callback = undefined) {
     // ===================== CALCULATE PHYSICAL DISTANCE =====================
     // Calculate the length of the object in pixels by finding the difference
     // between the right and left line positions
-    const objectLengthPx = rightLinePx - leftLinePx
+    const objectLengthPx = tape.helpers.getDistance(startX, startY, endX, endY)
 
     // Convert the pixel length to millimeters using the screen's PPI
     // pxPerMm was calculated earlier as ppi/25.4 (pixels per inch / mm per inch)
@@ -2097,8 +2104,10 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Store all raw measurement data for potential future use
       raw: {
-        leftPx: leftLinePx, // Position of left line in pixels
-        rightPx: rightLinePx, // Position of right line in pixels
+        startX, // Position of left tip in pixels
+        startY,
+        endX, // Position of right tip in pixels
+        endY,
         screenWidth, // Total screen width in pixels
         objectLengthPx, // Object length in pixels
         objectLengthMm, // Object length in millimeters
