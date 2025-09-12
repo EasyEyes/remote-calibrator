@@ -1004,15 +1004,38 @@ export async function objectTest(RC, options, callback = undefined) {
   const ppi = RC.screenPpi ? RC.screenPpi.value : 96 / 25.4 // fallback: 96dpi/25.4mm
   const pxPerMm = ppi / 25.4
 
-  // The left vertical line is always 5mm from the left edge of the screen
-  let leftLinePx = Math.round(5 * pxPerMm) // 5mm from left
   const screenWidth = window.innerWidth
+  const screenHeight = window.innerHeight
 
-  // The right vertical line starts at 2/3 of the screen width, but is adjustable
-  let rightLinePx = Math.round((screenWidth * 2) / 3)
+  // For diagonal tape aligned with screen diagonal
+  // Calculate screen diagonal endpoints
+  const screenDiagonalStartX = 0 // Bottom-left corner (x)
+  const screenDiagonalStartY = screenHeight // Bottom-left corner (y)
+  const screenDiagonalEndX = screenWidth // Top-right corner (x)
+  const screenDiagonalEndY = 0 // Top-right corner (y)
 
-  // --- Calculate the vertical position for all elements (10% lower than center) ---
-  const screenCenterY = window.innerHeight * 0.6 // Move 10% lower from center (was 0.5)
+  // Calculate the direction vector of the screen diagonal
+  const diagonalDx = screenDiagonalEndX - screenDiagonalStartX
+  const diagonalDy = screenDiagonalEndY - screenDiagonalStartY
+  const diagonalLength = Math.sqrt(
+    diagonalDx * diagonalDx + diagonalDy * diagonalDy,
+  )
+  const diagonalUnitX = diagonalDx / diagonalLength
+  const diagonalUnitY = diagonalDy / diagonalLength
+
+  // Initial ruler length (can be adjusted)
+  let rulerLength = Math.min(screenWidth, screenHeight) * 0.6
+
+  // Set initial left endpoint near bottom-left with a small margin along the diagonal
+  const initialInsetPx = 200
+  // Left tip at: diagonal start + inset along diagonal
+  let startX = screenDiagonalStartX + initialInsetPx * diagonalUnitX
+  let startY = screenDiagonalStartY + initialInsetPx * diagonalUnitY
+
+  // Set initial right endpoint to 2/3 of the screen diagonal from the diagonal start
+  const twoThirdsAlong = (2 / 3) * diagonalLength
+  let endX = screenDiagonalStartX + twoThirdsAlong * diagonalUnitX
+  let endY = screenDiagonalStartY + twoThirdsAlong * diagonalUnitY
 
   // --- Create the main overlay container ---
   const container = document.createElement('div')
@@ -1184,99 +1207,74 @@ export async function objectTest(RC, options, callback = undefined) {
   //   )
   // }
 
-  // ===================== TAPE MEASUREMENT COMPONENT =====================
-  
-  // Create a cohesive tape component that groups all elements
-  const createTapeComponent = () => {
+  // ===================== DIAGONAL TAPE MEASUREMENT COMPONENT =====================
+
+  // Create a diagonal tape component that groups all elements
+  const createDiagonalTapeComponent = () => {
     // Calculate dimensions
-    const threeQuarterInchesInPx = Math.round(0.75 * ppi) // 3/4 inch height
+    const tapeWidth = Math.round(0.75 * ppi) // 3/4 inch width for diagonal tape
     const lineThickness = 3 // px thickness for all lines
-    
-    // Create main tape container
+
+    // Helper function to calculate distance between two points
+    const getDistance = (x1, y1, x2, y2) =>
+      Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+    // Helper function to calculate angle between two points
+    const getAngle = (x1, y1, x2, y2) =>
+      Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI)
+
+    // Create main tape container (covers the diagonal area)
     const tapeContainer = document.createElement('div')
-    tapeContainer.id = 'tape-measurement-component'
+    tapeContainer.id = 'diagonal-tape-measurement-component'
     tapeContainer.style.position = 'absolute'
-    tapeContainer.style.left = `${leftLinePx}px`
-    tapeContainer.style.top = `${screenCenterY - threeQuarterInchesInPx / 2}px`
-    tapeContainer.style.width = `${rightLinePx - leftLinePx + lineThickness}px`
-    tapeContainer.style.height = `${threeQuarterInchesInPx}px`
+    tapeContainer.style.left = '0px'
+    tapeContainer.style.top = '0px'
+    tapeContainer.style.width = '100vw'
+    tapeContainer.style.height = '100vh'
     tapeContainer.style.pointerEvents = 'none' // Allow clicks to pass through to individual elements
     tapeContainer.style.zIndex = '10'
 
-    // Yellow background rectangle (relative to container)
-    const rectangleBackground = document.createElement('div')
-    rectangleBackground.style.position = 'absolute'
-    rectangleBackground.style.left = '0px'
-    rectangleBackground.style.top = '0px'
-    rectangleBackground.style.width = '100%'
-    rectangleBackground.style.height = '100%'
-    rectangleBackground.style.background = 'rgba(255, 221, 51, 0.95)'
-    rectangleBackground.style.borderRadius = '2px'
-    rectangleBackground.style.zIndex = '1'
-    tapeContainer.appendChild(rectangleBackground)
+    // Main diagonal tape (yellow background with black border)
+    const diagonalTape = document.createElement('div')
+    diagonalTape.style.position = 'absolute'
+    diagonalTape.style.background = 'rgba(255, 221, 51, 0.95)'
+    diagonalTape.style.border = '2px solid rgb(0, 0, 0)'
+    diagonalTape.style.borderRadius = '2px'
+    diagonalTape.style.zIndex = '1'
+    diagonalTape.style.transformOrigin = 'left center'
+    tapeContainer.appendChild(diagonalTape)
 
-    // Left vertical line (relative to container)
-    const leftLine = document.createElement('div')
-    leftLine.style.position = 'absolute'
-    leftLine.style.left = '0px'
-    leftLine.style.top = '0px'
-    leftLine.style.width = `${lineThickness}px`
-    leftLine.style.height = '100%'
-    leftLine.style.background = 'rgb(0, 0, 0)'
-    leftLine.style.borderRadius = '2px'
-    leftLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-    leftLine.style.cursor = 'ew-resize'
-    leftLine.style.pointerEvents = 'auto'
-    leftLine.style.zIndex = '3'
-    tapeContainer.appendChild(leftLine)
+    // Left handle (circular)
+    const leftHandle = document.createElement('div')
+    leftHandle.style.position = 'absolute'
+    leftHandle.style.width = '20px'
+    leftHandle.style.height = '20px'
+    leftHandle.style.background = 'rgb(0, 0, 0)'
+    leftHandle.style.borderRadius = '50%'
+    leftHandle.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+    leftHandle.style.cursor = 'move'
+    leftHandle.style.pointerEvents = 'auto'
+    leftHandle.style.zIndex = '3'
+    leftHandle.style.transform = 'translate(-50%, -50%)'
+    tapeContainer.appendChild(leftHandle)
 
-    // Right vertical line (relative to container)
-    const rightLine = document.createElement('div')
-    rightLine.style.position = 'absolute'
-    rightLine.style.right = '0px'
-    rightLine.style.top = '0px'
-    rightLine.style.width = `${lineThickness}px`
-    rightLine.style.height = '100%'
-    rightLine.style.background = 'rgb(0, 0, 0)'
-    rightLine.style.borderRadius = '2px'
-    rightLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-    rightLine.style.cursor = 'ew-resize'
-    rightLine.style.pointerEvents = 'auto'
-    rightLine.style.zIndex = '3'
-    tapeContainer.appendChild(rightLine)
+    // Right handle (circular)
+    const rightHandle = document.createElement('div')
+    rightHandle.style.position = 'absolute'
+    rightHandle.style.width = '20px'
+    rightHandle.style.height = '20px'
+    rightHandle.style.background = 'rgb(0, 0, 0)'
+    rightHandle.style.borderRadius = '50%'
+    rightHandle.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+    rightHandle.style.cursor = 'move'
+    rightHandle.style.pointerEvents = 'auto'
+    rightHandle.style.zIndex = '3'
+    rightHandle.style.transform = 'translate(-50%, -50%)'
+    tapeContainer.appendChild(rightHandle)
 
-    // Top horizontal line (relative to container)
-    const topHorizontalLine = document.createElement('div')
-    topHorizontalLine.style.position = 'absolute'
-    topHorizontalLine.style.left = '0px'
-    topHorizontalLine.style.top = '0px'
-    topHorizontalLine.style.width = '100%'
-    topHorizontalLine.style.height = `${lineThickness}px`
-    topHorizontalLine.style.background = 'rgb(0, 0, 0)'
-    topHorizontalLine.style.borderRadius = '2px'
-    topHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-    topHorizontalLine.style.zIndex = '2'
-    tapeContainer.appendChild(topHorizontalLine)
-
-    // Bottom horizontal line (relative to container)
-    const bottomHorizontalLine = document.createElement('div')
-    bottomHorizontalLine.style.position = 'absolute'
-    bottomHorizontalLine.style.left = '0px'
-    bottomHorizontalLine.style.bottom = '0px'
-    bottomHorizontalLine.style.width = '100%'
-    bottomHorizontalLine.style.height = `${lineThickness}px`
-    bottomHorizontalLine.style.background = 'rgb(0, 0, 0)'
-    bottomHorizontalLine.style.borderRadius = '2px'
-    bottomHorizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-    bottomHorizontalLine.style.zIndex = '2'
-    tapeContainer.appendChild(bottomHorizontalLine)
-
-    // Dynamic length label (centered on tape, above horizontal line)
+    // Dynamic length label (centered on tape)
     const dynamicLengthLabel = document.createElement('div')
     dynamicLengthLabel.style.position = 'absolute'
-    dynamicLengthLabel.style.left = '50%'
-    dynamicLengthLabel.style.top = '50%'
-    dynamicLengthLabel.style.transform = 'translate(-50%, -50%)'
     dynamicLengthLabel.style.color = 'rgb(0, 0, 0)'
     dynamicLengthLabel.style.fontWeight = 'bold'
     dynamicLengthLabel.style.fontSize = '1.4rem'
@@ -1284,189 +1282,387 @@ export async function objectTest(RC, options, callback = undefined) {
     dynamicLengthLabel.style.padding = '2px 6px'
     dynamicLengthLabel.style.borderRadius = '4px'
     dynamicLengthLabel.style.whiteSpace = 'nowrap'
-    dynamicLengthLabel.style.zIndex = '20' // Above horizontal line (15) and arrows (16)
+    dynamicLengthLabel.style.zIndex = '20'
+    dynamicLengthLabel.style.transform = 'translate(-50%, -50%)'
     tapeContainer.appendChild(dynamicLengthLabel)
+
+    // Double-sided arrow connecting the ruler edges
+    const arrowContainer = document.createElement('div')
+    arrowContainer.style.position = 'absolute'
+    arrowContainer.style.zIndex = '18'
+    arrowContainer.style.pointerEvents = 'none'
+    tapeContainer.appendChild(arrowContainer)
+
+    // Main arrow line
+    const arrowLine = document.createElement('div')
+    arrowLine.style.position = 'absolute'
+    arrowLine.style.background = 'rgb(0, 0, 0)'
+    arrowLine.style.transformOrigin = 'left center'
+    arrowLine.style.height = '2px'
+    arrowContainer.appendChild(arrowLine)
+
+    // Left arrowhead (two lines forming a V pointing toward left edge)
+    const leftArrowLine1 = document.createElement('div')
+    leftArrowLine1.style.position = 'absolute'
+    leftArrowLine1.style.background = 'rgb(0, 0, 0)'
+    leftArrowLine1.style.width = '24px'
+    leftArrowLine1.style.height = '2px'
+    leftArrowLine1.style.transformOrigin = 'left center' // pivot at tip
+    arrowContainer.appendChild(leftArrowLine1)
+
+    const leftArrowLine2 = document.createElement('div')
+    leftArrowLine2.style.position = 'absolute'
+    leftArrowLine2.style.background = 'rgb(0, 0, 0)'
+    leftArrowLine2.style.width = '24px'
+    leftArrowLine2.style.height = '2px'
+    leftArrowLine2.style.transformOrigin = 'left center' // pivot at tip
+    arrowContainer.appendChild(leftArrowLine2)
+
+    // Right arrowhead (two lines forming a V pointing toward right edge)
+    const rightArrowLine1 = document.createElement('div')
+    rightArrowLine1.style.position = 'absolute'
+    rightArrowLine1.style.background = 'rgb(0, 0, 0)'
+    rightArrowLine1.style.width = '24px'
+    rightArrowLine1.style.height = '2px'
+    rightArrowLine1.style.transformOrigin = 'left center' // pivot at tip
+    arrowContainer.appendChild(rightArrowLine1)
+
+    const rightArrowLine2 = document.createElement('div')
+    rightArrowLine2.style.position = 'absolute'
+    rightArrowLine2.style.background = 'rgb(0, 0, 0)'
+    rightArrowLine2.style.width = '24px'
+    rightArrowLine2.style.height = '2px'
+    rightArrowLine2.style.transformOrigin = 'left center' // pivot at tip
+    arrowContainer.appendChild(rightArrowLine2)
 
     return {
       container: tapeContainer,
       elements: {
-        rectangleBackground,
-        leftLine,
-        rightLine,
-        topHorizontalLine,
-        bottomHorizontalLine,
-        dynamicLengthLabel
+        diagonalTape,
+        leftHandle,
+        rightHandle,
+        dynamicLengthLabel,
+        arrowContainer,
+        arrowLine,
+        leftArrowLine1,
+        leftArrowLine2,
+        rightArrowLine1,
+        rightArrowLine2,
       },
       dimensions: {
-        threeQuarterInchesInPx,
-        lineThickness
-      }
+        tapeWidth,
+        lineThickness,
+      },
+      helpers: {
+        getDistance,
+        getAngle,
+      },
     }
   }
 
-  // Create the tape component
-  const tape = createTapeComponent()
+  // Create the diagonal tape component
+  const tape = createDiagonalTapeComponent()
   container.appendChild(tape.container)
 
-  // ===================== TAPE LABELS (POSITIONED OUTSIDE TAPE) =====================
+  // ===================== TRIANGULAR TEXT BOXES FOR TAPE ENDS =====================
 
-  // Left label (positioned relative to tape container)
-  const leftLabel = document.createElement('div')
-  leftLabel.innerText = phrases.RC_LeftEdge[RC.L]
-  leftLabel.style.position = 'absolute'
-  leftLabel.style.left = `${leftLinePx + tape.dimensions.lineThickness}px`
-  leftLabel.style.top = `${screenCenterY + tape.dimensions.threeQuarterInchesInPx / 2 + 20}px`
-  leftLabel.style.color = 'rgb(0, 0, 0)'
-  leftLabel.style.fontWeight = 'normal'
-  leftLabel.style.fontSize = '1.4em'
-  leftLabel.style.width = '240px'
-  leftLabel.style.maxWidth = '240px'
-  leftLabel.style.overflowWrap = 'break-word'
-  leftLabel.style.wordWrap = 'break-word'
-  leftLabel.style.textAlign = 'left'
-  leftLabel.style.lineHeight = '1.2'
-  leftLabel.style.zIndex = '5'
-  container.appendChild(leftLabel)
+  // Create triangular text box function
+  const createSimpleTextBox = (text, isLeft = true) => {
+    // Container for the text box
+    const textContainer = document.createElement('div')
+    textContainer.style.position = 'absolute'
+    textContainer.style.zIndex = '15'
 
-  // Right label (positioned relative to tape container)
-  const rightLabel = document.createElement('div')
-  rightLabel.innerText = phrases.RC_RightEdge[RC.L]
-  rightLabel.style.position = 'absolute'
-  rightLabel.style.left = `${rightLinePx + tape.dimensions.lineThickness}px`
-  rightLabel.style.top = `${screenCenterY + tape.dimensions.threeQuarterInchesInPx / 2 + 20}px`
-  rightLabel.style.color = 'rgb(0, 0, 0)'
-  rightLabel.style.fontWeight = 'normal'
-  rightLabel.style.fontSize = '1.4em'
-  rightLabel.style.width = '240px'
-  rightLabel.style.maxWidth = '240px'
-  rightLabel.style.overflowWrap = 'break-word'
-  rightLabel.style.wordWrap = 'break-word'
-  rightLabel.style.textAlign = 'left'
-  rightLabel.style.lineHeight = '1.2'
-  rightLabel.id = 'right-line-label'
-  rightLabel.style.zIndex = '5'
-  container.appendChild(rightLabel)
+    // Calculate text width
+    const textLength = text.length
+    const estimatedWidth = Math.max(textLength * 12, 120) // At least 120px wide
+    const textHeight = 30
 
-  // ===================== TAPE MANAGEMENT FUNCTIONS =====================
+    // Create simple rectangular container
+    const textBox = document.createElement('div')
+    textBox.style.position = 'relative'
+    textBox.style.width = `${estimatedWidth}px`
+    textBox.style.height = `${textHeight}px`
+    textBox.style.background = 'transparent'
+    textBox.style.border = 'none'
+    textBox.style.display = 'flex'
+    textBox.style.alignItems = 'center'
+    textBox.style.justifyContent = 'center'
 
-  // Function to update tape size and position
-  const updateTapeComponent = () => {
-    const newWidth = rightLinePx - leftLinePx + tape.dimensions.lineThickness
-    tape.container.style.left = `${leftLinePx}px`
-    tape.container.style.width = `${newWidth}px`
-    
-    // Update dynamic length label
-    const objectLengthPx = rightLinePx - leftLinePx
+    // Text element
+    const textElement = document.createElement('div')
+    textElement.innerText = text
+    textElement.style.color = 'rgb(0, 0, 0)'
+    textElement.style.fontWeight = 'bold'
+    textElement.style.fontSize = '1.2em'
+    textElement.style.textAlign = 'center'
+    textElement.style.lineHeight = '1.2'
+    textElement.style.whiteSpace = 'nowrap'
+    textElement.style.textShadow = '1px 1px 2px rgba(255, 255, 255, 0.8)'
+    textBox.appendChild(textElement)
+
+    textContainer.appendChild(textBox)
+
+    // Function to update text and resize container
+    const updateText = newText => {
+      const newTextLength = newText.length
+      const newEstimatedWidth = Math.max(newTextLength * 12, 120)
+
+      // Update container size
+      textBox.style.width = `${newEstimatedWidth}px`
+
+      // Update text
+      textElement.innerText = newText
+
+      // Update dimensions for positioning
+      textContainer.dimensions = {
+        width: newEstimatedWidth,
+        height: textHeight,
+      }
+
+      return newEstimatedWidth
+    }
+
+    return {
+      container: textContainer,
+      textElement: textElement,
+      updateText: updateText,
+      dimensions: { width: estimatedWidth, height: textHeight },
+    }
+  }
+
+  // Left simple text box
+  const leftLabel = createSimpleTextBox(phrases.RC_LeftEdge[RC.L], true)
+  container.appendChild(leftLabel.container)
+
+  // Right simple text box
+  const rightLabel = createSimpleTextBox(phrases.RC_RightEdge[RC.L], false)
+  rightLabel.container.id = 'right-line-label'
+  container.appendChild(rightLabel.container)
+
+  // ===================== DIAGONAL TAPE MANAGEMENT FUNCTIONS =====================
+
+  // Function to update diagonal tape size and position
+  const updateDiagonalTapeComponent = () => {
+    // Calculate distance and angle
+    const distance = tape.helpers.getDistance(startX, startY, endX, endY)
+    const angle = tape.helpers.getAngle(startX, startY, endX, endY)
+
+    // Update diagonal tape
+    tape.elements.diagonalTape.style.left = `${startX}px`
+    tape.elements.diagonalTape.style.top = `${startY - tape.dimensions.tapeWidth / 2}px`
+    tape.elements.diagonalTape.style.width = `${distance}px`
+    tape.elements.diagonalTape.style.height = `${tape.dimensions.tapeWidth}px`
+    tape.elements.diagonalTape.style.transform = `rotate(${angle}deg)`
+
+    // Update handle positions
+    tape.elements.leftHandle.style.left = `${startX}px`
+    tape.elements.leftHandle.style.top = `${startY}px`
+    tape.elements.rightHandle.style.left = `${endX}px`
+    tape.elements.rightHandle.style.top = `${endY}px`
+
+    // Update dynamic length label (centered on tape)
+    const centerX = (startX + endX) / 2
+    const centerY = (startY + endY) / 2
+    const objectLengthPx = distance
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
+
+    tape.elements.dynamicLengthLabel.style.left = `${centerX}px`
+    tape.elements.dynamicLengthLabel.style.top = `${centerY}px`
     tape.elements.dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
-    
-    // Auto-scale font if tape is too narrow
-    const estimatedLabelWidth = tape.elements.dynamicLengthLabel.innerText.length * 10 + 12
-    if (estimatedLabelWidth > newWidth * 0.85) {
-      const scaleFactor = (newWidth * 0.85) / estimatedLabelWidth
+
+    // Auto-scale font if needed
+    const estimatedLabelWidth =
+      tape.elements.dynamicLengthLabel.innerText.length * 10 + 12
+    if (estimatedLabelWidth > distance * 0.4) {
+      const scaleFactor = (distance * 0.4) / estimatedLabelWidth
       const newFontSize = Math.max(0.7, scaleFactor) * 1.4
       tape.elements.dynamicLengthLabel.style.fontSize = `${newFontSize}rem`
     } else {
       tape.elements.dynamicLengthLabel.style.fontSize = '1.4rem'
     }
+
+    // Update double-sided arrow (spans full ruler length)
+    const arrowLength = distance // Arrow spans the full ruler length
+    const arrowStartX = startX
+    const arrowStartY = startY
+
+    // Position and rotate main arrow line
+    tape.elements.arrowLine.style.left = `${arrowStartX}px`
+    tape.elements.arrowLine.style.top = `${arrowStartY}px`
+    tape.elements.arrowLine.style.width = `${arrowLength}px`
+    tape.elements.arrowLine.style.transform = `rotate(${angle}deg)`
+
+    // Left arrowhead tip anchored at left edge (outward pointing to left edge)
+    const leftTipX = startX
+    const leftTipY = startY
+    tape.elements.leftArrowLine1.style.left = `${leftTipX}px`
+    tape.elements.leftArrowLine1.style.top = `${leftTipY}px`
+    tape.elements.leftArrowLine1.style.transform = `rotate(${angle - 30}deg)` // inside, upper leg
+
+    tape.elements.leftArrowLine2.style.left = `${leftTipX}px`
+    tape.elements.leftArrowLine2.style.top = `${leftTipY}px`
+    tape.elements.leftArrowLine2.style.transform = `rotate(${angle + 30}deg)` // inside, lower leg
+
+    // Right arrowhead tip anchored at right edge (outward pointing to right edge)
+    const rightTipX = endX
+    const rightTipY = endY
+    tape.elements.rightArrowLine1.style.left = `${rightTipX}px`
+    tape.elements.rightArrowLine1.style.top = `${rightTipY}px`
+    tape.elements.rightArrowLine1.style.transform = `rotate(${angle + 150}deg)`
+    tape.elements.rightArrowLine2.style.left = `${rightTipX}px`
+    tape.elements.rightArrowLine2.style.top = `${rightTipY}px`
+    tape.elements.rightArrowLine2.style.transform = `rotate(${angle - 150}deg)`
   }
 
-  // Function to update line colors based on distance
-  const updateLineColors = () => {
-    const objectLengthPx = rightLinePx - leftLinePx
-    const objectLengthMm = objectLengthPx / pxPerMm
+  // Function to update colors based on distance
+  const updateDiagonalColors = () => {
+    const distance = tape.helpers.getDistance(startX, startY, endX, endY)
+    const objectLengthMm = distance / pxPerMm
     const objectLengthCm = objectLengthMm / 10
     const minDistanceCm = options.calibrateTrackDistanceMinCm || 10
 
     const isShort = objectLengthCm <= minDistanceCm
     const color = isShort ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 0)'
-    const shadow = isShort ? '0 0 8px rgba(255, 0, 0, 0.4)' : '0 0 8px rgba(0, 0, 0, 0.4)'
+    const shadow = isShort
+      ? '0 0 8px rgba(255, 0, 0, 0.4)'
+      : '0 0 8px rgba(0, 0, 0, 0.4)'
 
-    // Update all tape line elements
-    tape.elements.leftLine.style.background = color
-    tape.elements.leftLine.style.boxShadow = shadow
-    tape.elements.rightLine.style.background = color
-    tape.elements.rightLine.style.boxShadow = shadow
-    tape.elements.topHorizontalLine.style.background = color
-    tape.elements.topHorizontalLine.style.boxShadow = shadow
-    tape.elements.bottomHorizontalLine.style.background = color
-    tape.elements.bottomHorizontalLine.style.boxShadow = shadow
+    // Update handle colors
+    tape.elements.leftHandle.style.background = color
+    tape.elements.leftHandle.style.boxShadow = shadow
+    tape.elements.rightHandle.style.background = color
+    tape.elements.rightHandle.style.boxShadow = shadow
 
-    // Update right label
-    rightLabel.style.color = color
-    rightLabel.innerText = isShort ? phrases.RC_viewingDistanceObjectTooShort[RC.L] : phrases.RC_RightEdge[RC.L]
-    rightLabel.style.width = isShort ? '440px' : '240px'
-    rightLabel.style.maxWidth = isShort ? '440px' : '240px'
+    // Update tape border color as well
+    tape.elements.diagonalTape.style.borderColor = color
+
+    // Update right label text and color (with dynamic resizing)
+    rightLabel.textElement.style.color = color
+    const newText = isShort
+      ? phrases.RC_viewingDistanceObjectTooShort[RC.L]
+      : phrases.RC_RightEdge[RC.L]
+    rightLabel.updateText(newText)
   }
 
-  // Add hover effects to tape lines
-  tape.elements.leftLine.addEventListener('mouseenter', () => {
-    tape.elements.leftLine.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
+  // Add hover effects to diagonal tape handles
+  tape.elements.leftHandle.addEventListener('mouseenter', () => {
+    tape.elements.leftHandle.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
   })
-  tape.elements.leftLine.addEventListener('mouseleave', () => {
-    updateLineColors() // This will restore correct shadow
-  })
-  
-  tape.elements.rightLine.addEventListener('mouseenter', () => {
-    tape.elements.rightLine.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
-  })
-  tape.elements.rightLine.addEventListener('mouseleave', () => {
-    updateLineColors() // This will restore correct shadow
+  tape.elements.leftHandle.addEventListener('mouseleave', () => {
+    updateDiagonalColors() // This will restore correct shadow
   })
 
-  // Function to update labels when tape changes
-  function updateLabels() {
-    leftLabel.style.left = `${leftLinePx + tape.dimensions.lineThickness}px`
-    rightLabel.style.left = `${rightLinePx + tape.dimensions.lineThickness}px`
-    updateLineColors() // Update colors when line moves
-    updateTapeComponent() // Update tape size and content
-    updateHorizontalMeasurementLine() // Update horizontal measurement line and arrows
+  tape.elements.rightHandle.addEventListener('mouseenter', () => {
+    tape.elements.rightHandle.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
+  })
+  tape.elements.rightHandle.addEventListener('mouseleave', () => {
+    updateDiagonalColors() // This will restore correct shadow
+  })
+
+  // Function to update triangular labels when tape changes
+  function updateDiagonalLabels() {
+    // Position left label above left handle
+    leftLabel.container.style.left = `${startX - leftLabel.dimensions.width / 2}px`
+    leftLabel.container.style.top = `${startY - leftLabel.dimensions.height - 10}px`
+
+    // Position right label above right handle
+    rightLabel.container.style.left = `${endX - rightLabel.dimensions.width / 2}px`
+    rightLabel.container.style.top = `${endY - rightLabel.dimensions.height - 10}px`
+
+    updateDiagonalColors() // Update colors when handles move
+    updateDiagonalTapeComponent() // Update tape size and content
   }
 
-  // ===================== TAPE INTERACTION HANDLERS =====================
+  // ===================== DIAGONAL TAPE INTERACTION HANDLERS =====================
 
-  // Dragging functionality for right line
-  let dragging = false
-  tape.elements.rightLine.addEventListener('mousedown', e => {
-    dragging = true
-    document.body.style.cursor = 'ew-resize'
-    e.preventDefault()
-  })
-
-  // Dragging functionality for left line  
+  // Dragging functionality for handles
   let leftDragging = false
-  tape.elements.leftLine.addEventListener('mousedown', e => {
+  let rightDragging = false
+
+  tape.elements.leftHandle.addEventListener('mousedown', e => {
     leftDragging = true
-    document.body.style.cursor = 'ew-resize'
+    document.body.style.cursor = 'move'
     e.preventDefault()
   })
 
-  // Combined mouse move handler for both lines
+  tape.elements.rightHandle.addEventListener('mousedown', e => {
+    rightDragging = true
+    document.body.style.cursor = 'move'
+    e.preventDefault()
+  })
+
+  // Helper function to update ruler endpoints while maintaining diagonal alignment
+  const updateRulerEndpoints = (newStartX, newStartY, newEndX, newEndY) => {
+    // Project endpoints onto the diagonal line to maintain alignment
+    const projectPointOnDiagonal = (x, y) => {
+      const toPointX = x - screenDiagonalStartX
+      const toPointY = y - screenDiagonalStartY
+      const projection = toPointX * diagonalUnitX + toPointY * diagonalUnitY
+      const projectedX = screenDiagonalStartX + projection * diagonalUnitX
+      const projectedY = screenDiagonalStartY + projection * diagonalUnitY
+      return { x: projectedX, y: projectedY }
+    }
+
+    // Project both points onto diagonal
+    const projectedStart = projectPointOnDiagonal(newStartX, newStartY)
+    const projectedEnd = projectPointOnDiagonal(newEndX, newEndY)
+
+    // Constrain to screen bounds with margins
+    const constrainToScreen = point => {
+      return {
+        x: Math.max(10, Math.min(screenWidth - 10, point.x)),
+        y: Math.max(10, Math.min(screenHeight - 10, point.y)),
+      }
+    }
+
+    const constrainedStart = constrainToScreen(projectedStart)
+    const constrainedEnd = constrainToScreen(projectedEnd)
+
+    // Ensure minimum distance
+    const distance = Math.sqrt(
+      (constrainedEnd.x - constrainedStart.x) ** 2 +
+        (constrainedEnd.y - constrainedStart.y) ** 2,
+    )
+    if (distance < 50) {
+      // If too short, maintain current positions
+      return
+    }
+
+    startX = constrainedStart.x
+    startY = constrainedStart.y
+    endX = constrainedEnd.x
+    endY = constrainedEnd.y
+
+    updateDiagonalLabels()
+  }
+
+  // Mouse move handler for diagonal handles
   window.addEventListener('mousemove', e => {
-    if (dragging) {
-      let x = e.clientX
-      x = Math.max(leftLinePx + 10, Math.min(x, screenWidth))
-      rightLinePx = x
-      updateLabels()
-    } else if (leftDragging) {
-      let x = e.clientX
-      x = Math.max(0, Math.min(x, rightLinePx - 2))
-      leftLinePx = x
-      updateLabels()
+    if (leftDragging) {
+      // Move left handle independently
+      const mouseX = e.clientX
+      const mouseY = e.clientY
+      updateRulerEndpoints(mouseX, mouseY, endX, endY)
+    } else if (rightDragging) {
+      // Move right handle independently
+      const mouseX = e.clientX
+      const mouseY = e.clientY
+      updateRulerEndpoints(startX, startY, mouseX, mouseY)
     }
   })
 
-  // Combined mouse up handler
+  // Mouse up handler
   window.addEventListener('mouseup', () => {
-    if (dragging || leftDragging) {
-      dragging = false
+    if (leftDragging || rightDragging) {
       leftDragging = false
+      rightDragging = false
       document.body.style.cursor = ''
     }
   })
 
-  // ===================== KEYBOARD HANDLING FOR RIGHT LINE =====================
+  // ===================== KEYBOARD HANDLING FOR DIAGONAL TAPE =====================
   let arrowKeyDown = false
   let arrowIntervalFunction = null
   let currentArrowKey = null
@@ -1478,29 +1674,37 @@ export async function objectTest(RC, options, callback = undefined) {
     // Prevent default behavior
     e.preventDefault()
 
-    // Only handle left and right arrow keys
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    // Handle all four arrow keys for diagonal movement
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key))
+      return
 
     // If already handling a key, ignore
     if (arrowKeyDown) return
 
     arrowKeyDown = true
     currentArrowKey = e.key
-    // Removed orange color change for active movement
 
     // Clear any existing interval
     if (arrowIntervalFunction) {
       clearInterval(arrowIntervalFunction)
     }
 
-    // Start continuous movement
+    // Start continuous movement (only affects right side)
     arrowIntervalFunction = setInterval(() => {
-      if (currentArrowKey === 'ArrowLeft') {
-        rightLinePx -= 5 // Move left by 5px
-        helpMoveRightLine()
-      } else if (currentArrowKey === 'ArrowRight') {
-        rightLinePx += 5 // Move right by 5px
-        helpMoveRightLine()
+      const moveAmount = 5
+      if (currentArrowKey === 'ArrowLeft' || currentArrowKey === 'ArrowUp') {
+        // Move right side closer to left (shrink from right)
+        const newEndX = endX - moveAmount * diagonalUnitX
+        const newEndY = endY - moveAmount * diagonalUnitY
+        updateRulerEndpoints(startX, startY, newEndX, newEndY)
+      } else if (
+        currentArrowKey === 'ArrowRight' ||
+        currentArrowKey === 'ArrowDown'
+      ) {
+        // Move right side away from left (extend from right)
+        const newEndX = endX + moveAmount * diagonalUnitX
+        const newEndY = endY + moveAmount * diagonalUnitY
+        updateRulerEndpoints(startX, startY, newEndX, newEndY)
       }
     }, 50) // Update every 50ms for smooth movement
   }
@@ -1509,8 +1713,9 @@ export async function objectTest(RC, options, callback = undefined) {
     // Only handle arrow keys on page 2
     if (currentPage !== 2) return
 
-    // Only handle left and right arrow keys
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    // Handle all four arrow keys
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key))
+      return
 
     // Only stop if this is the key we're currently handling
     if (currentArrowKey !== e.key) return
@@ -1518,22 +1723,11 @@ export async function objectTest(RC, options, callback = undefined) {
     arrowKeyDown = false
     currentArrowKey = null
 
-    // Removed color restoration since we're not changing colors anymore
-
     // Clear the interval
     if (arrowIntervalFunction) {
       clearInterval(arrowIntervalFunction)
       arrowIntervalFunction = null
     }
-  }
-
-  const helpMoveRightLine = () => {
-    // Clamp the position so it can't cross the left line or go off screen
-    const minX = leftLinePx + 10
-    const maxX = screenWidth
-
-    rightLinePx = Math.max(minX, Math.min(rightLinePx, maxX))
-    updateLabels()
   }
 
   // Add keyboard event listeners
@@ -1563,107 +1757,10 @@ export async function objectTest(RC, options, callback = undefined) {
   }
   window.addEventListener('beforeunload', cleanupKeyboard)
 
-  // ===================== HORIZONTAL MEASUREMENT LINE WITH ARROWS =====================
-  
-  // Create horizontal measurement line that spans between the tape edges
-  const horizontalLine = document.createElement('div')
-  horizontalLine.style.position = 'absolute'
-  horizontalLine.style.left = `${leftLinePx + tape.dimensions.lineThickness}px`
-  horizontalLine.style.right = `${screenWidth - rightLinePx}px`
-  horizontalLine.style.top = `${screenCenterY}px`
-  horizontalLine.style.height = `${tape.dimensions.lineThickness}px`
-  horizontalLine.style.background = 'rgb(0, 0, 0)'
-  horizontalLine.style.borderRadius = '2px'
-  horizontalLine.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-  horizontalLine.style.zIndex = '15'
-  container.appendChild(horizontalLine)
-
-  // Create arrow heads
-  const createArrowHead = (side, direction) => {
-    const arrow = document.createElement('div')
-    arrow.style.position = 'absolute'
-    arrow.style.width = `${tape.dimensions.lineThickness * 9}px`
-    arrow.style.height = `${tape.dimensions.lineThickness}px`
-    arrow.style.background = 'rgb(0, 0, 0)'
-    arrow.style.borderRadius = '2px'
-    arrow.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
-    arrow.style.zIndex = '16'
-    arrow.style.top = `${screenCenterY}px`
-    
-    if (side === 'left') {
-      arrow.style.left = `${leftLinePx + tape.dimensions.lineThickness + tape.dimensions.lineThickness * 0.4}px`
-      arrow.style.transformOrigin = 'left center'
-    } else {
-      arrow.style.left = `${rightLinePx - tape.dimensions.lineThickness * 9 - tape.dimensions.lineThickness * 0.4}px`
-      arrow.style.transformOrigin = 'right center'
-    }
-    
-    arrow.style.transform = `rotate(${direction === 'up' ? '-45deg' : '45deg'})`
-    return arrow
-  }
-
-  const leftArrowUp = createArrowHead('left', 'up')
-  const leftArrowDown = createArrowHead('left', 'down')
-  const rightArrowUp = createArrowHead('right', 'up')
-  const rightArrowDown = createArrowHead('right', 'down')
-
-  container.appendChild(leftArrowUp)
-  container.appendChild(leftArrowDown)
-  container.appendChild(rightArrowUp)
-  container.appendChild(rightArrowDown)
-
-  // Create dynamic length label on horizontal measurement line
-  const horizontalLengthLabel = document.createElement('div')
-  horizontalLengthLabel.style.position = 'absolute'
-  horizontalLengthLabel.style.left = `${(leftLinePx + rightLinePx) / 2}px` // Center between lines
-  horizontalLengthLabel.style.top = `${screenCenterY}px`
-  horizontalLengthLabel.style.transform = 'translate(-50%, -50%)'
-  horizontalLengthLabel.style.color = 'rgb(0, 0, 0)'
-  horizontalLengthLabel.style.fontWeight = 'bold'
-  horizontalLengthLabel.style.fontSize = '1.4rem'
-  horizontalLengthLabel.style.background = 'rgba(255, 221, 51, 1.0)' // Same yellow as tape
-  horizontalLengthLabel.style.padding = '2px 6px'
-  horizontalLengthLabel.style.borderRadius = '4px'
-  horizontalLengthLabel.style.whiteSpace = 'nowrap'
-  horizontalLengthLabel.style.zIndex = '17' // Above horizontal line and arrows
-  container.appendChild(horizontalLengthLabel)
-
-  // Update horizontal line and arrows when tape changes
-  const updateHorizontalMeasurementLine = () => {
-    // Update main line
-    horizontalLine.style.left = `${leftLinePx + tape.dimensions.lineThickness}px`
-    horizontalLine.style.right = `${screenWidth - rightLinePx}px`
-    
-    // Update arrows
-    leftArrowUp.style.left = `${leftLinePx + tape.dimensions.lineThickness + tape.dimensions.lineThickness * 0.4}px`
-    leftArrowDown.style.left = `${leftLinePx + tape.dimensions.lineThickness + tape.dimensions.lineThickness * 0.4}px`
-    rightArrowUp.style.left = `${rightLinePx - tape.dimensions.lineThickness * 9 - tape.dimensions.lineThickness * 0.4}px`
-    rightArrowDown.style.left = `${rightLinePx - tape.dimensions.lineThickness * 9 - tape.dimensions.lineThickness * 0.4}px`
-    
-    // Update horizontal length label position and content
-    const objectLengthPx = rightLinePx - leftLinePx
-    const objectLengthMm = objectLengthPx / pxPerMm
-    const objectLengthCm = objectLengthMm / 10
-    horizontalLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
-    horizontalLengthLabel.style.left = `${(leftLinePx + rightLinePx) / 2}px`
-    
-    // Auto-scale font if measurement is too small
-    const estimatedLabelWidth = horizontalLengthLabel.innerText.length * 10 + 12
-    const availableWidth = rightLinePx - leftLinePx
-    if (estimatedLabelWidth > availableWidth * 0.8) {
-      const scaleFactor = (availableWidth * 0.8) / estimatedLabelWidth
-      const newFontSize = Math.max(0.7, scaleFactor) * 1.4
-      horizontalLengthLabel.style.fontSize = `${newFontSize}rem`
-    } else {
-      horizontalLengthLabel.style.fontSize = '1.4rem'
-    }
-  }
-
   // ===================== INITIALIZATION =====================
-  
-  // Initialize tape with current values
-  updateLabels()
-  updateHorizontalMeasurementLine()
+
+  // Initialize diagonal tape with current values
+  updateDiagonalLabels()
 
   // ===================== END DRAWING =====================
 
@@ -1685,16 +1782,10 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
       console.log('=== SHOWING PAGE 0: INSTRUCTIONS ONLY ===')
 
-      // Hide tape component, labels, and measurement line
+      // Hide diagonal tape component and labels
       tape.container.style.display = 'none'
-      leftLabel.style.display = 'none'
-      rightLabel.style.display = 'none'
-      horizontalLine.style.display = 'none'
-      horizontalLengthLabel.style.display = 'none'
-      leftArrowUp.style.display = 'none'
-      leftArrowDown.style.display = 'none'
-      rightArrowUp.style.display = 'none'
-      rightArrowDown.style.display = 'none'
+      leftLabel.container.style.display = 'none'
+      rightLabel.container.style.display = 'none'
 
       // // Show radio buttons on page 0
       // radioContainer.style.display = 'block'
@@ -1719,16 +1810,10 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
 
-      // Hide tape component, labels, and measurement line
+      // Hide diagonal tape component and labels
       tape.container.style.display = 'none'
-      leftLabel.style.display = 'none'
-      rightLabel.style.display = 'none'
-      horizontalLine.style.display = 'none'
-      horizontalLengthLabel.style.display = 'none'
-      leftArrowUp.style.display = 'none'
-      leftArrowDown.style.display = 'none'
-      rightArrowUp.style.display = 'none'
-      rightArrowDown.style.display = 'none'
+      leftLabel.container.style.display = 'none'
+      rightLabel.container.style.display = 'none'
 
       // // Hide radio buttons on page 1
       // radioContainer.style.display = 'none'
@@ -1750,19 +1835,13 @@ export async function objectTest(RC, options, callback = undefined) {
       instructions.innerText =
         phrases.RC_UseObjectToSetViewingDistancePage1[RC.L]
     } else if (pageNumber === 2) {
-      // ===================== PAGE 2: VERTICAL LINES + HORIZONTAL LINE =====================
-      console.log('=== SHOWING PAGE 2: VERTICAL LINES + HORIZONTAL LINE ===')
+      // ===================== PAGE 2: DIAGONAL TAPE =====================
+      console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
 
-      // Show tape component, labels, and measurement line
+      // Show diagonal tape component and labels
       tape.container.style.display = 'block'
-      leftLabel.style.display = 'block'
-      rightLabel.style.display = 'block'
-      horizontalLine.style.display = 'block'
-      horizontalLengthLabel.style.display = 'block'
-      leftArrowUp.style.display = 'block'
-      leftArrowDown.style.display = 'block'
-      rightArrowUp.style.display = 'block'
-      rightArrowDown.style.display = 'block'
+      leftLabel.container.style.display = 'block'
+      rightLabel.container.style.display = 'block'
 
       // // Hide radio buttons on page 2
       // radioContainer.style.display = 'none'
@@ -1775,8 +1854,8 @@ export async function objectTest(RC, options, callback = undefined) {
         const dontUseRuler = document.createElement('div')
         dontUseRuler.innerText = phrases.RC_DontUseYourRulerYet[RC.L]
         dontUseRuler.style.position = 'fixed'
-        dontUseRuler.style.top = '0'
-        dontUseRuler.style.marginTop = '2rem'
+        dontUseRuler.style.top = '60%' // A bit lower than halfway down the page
+        dontUseRuler.style.transform = 'translateY(-50%)' // Center vertically
         dontUseRuler.style.right = '3rem'
         dontUseRuler.style.color = '#8B0000' // Dark red ink
         dontUseRuler.style.fontSize = '16pt'
@@ -1793,12 +1872,13 @@ export async function objectTest(RC, options, callback = undefined) {
         if (RC.LD === RC._CONST.RTL) {
           dontUseRuler.style.textAlign = 'left'
           dontUseRuler.style.left = '3rem'
+          dontUseRuler.style.right = 'auto'
         }
         container.appendChild(dontUseRuler)
       }
 
       // Update all positions and colors after showing lines
-      updateLabels()
+      updateDiagonalLabels()
 
       // Update instructions with combined phrase
       instructions.innerText =
@@ -1807,16 +1887,10 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
 
-      // Hide tape component, labels, and measurement line
+      // Hide diagonal tape component and labels
       tape.container.style.display = 'none'
-      leftLabel.style.display = 'none'
-      rightLabel.style.display = 'none'
-      horizontalLine.style.display = 'none'
-      horizontalLengthLabel.style.display = 'none'
-      leftArrowUp.style.display = 'none'
-      leftArrowDown.style.display = 'none'
-      rightArrowUp.style.display = 'none'
-      rightArrowDown.style.display = 'none'
+      leftLabel.container.style.display = 'none'
+      rightLabel.container.style.display = 'none'
 
       // // Hide radio buttons on page 3
       // radioContainer.style.display = 'none'
@@ -1836,10 +1910,10 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
 
-      // Keep tape component and labels hidden
+      // Keep diagonal tape component and labels hidden
       tape.container.style.display = 'none'
-      leftLabel.style.display = 'none'
-      rightLabel.style.display = 'none'
+      leftLabel.container.style.display = 'none'
+      rightLabel.container.style.display = 'none'
 
       // // Hide radio buttons on page 4
       // radioContainer.style.display = 'none'
@@ -1891,8 +1965,12 @@ export async function objectTest(RC, options, callback = undefined) {
         timestamp: performance.now(),
         method: 'object',
         intraocularDistanceCm: null,
-        faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample => isNaN(sample) ? sample : Math.round(sample)),
-        faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample => isNaN(sample) ? sample : Math.round(sample)),
+        faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+          isNaN(sample) ? sample : Math.round(sample),
+        ),
+        faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
+          isNaN(sample) ? sample : Math.round(sample),
+        ),
         // page0Option: selectedPage0Option, // Store the radio button answer
         raw: {
           leftPx: leftLinePx,
@@ -2032,8 +2110,12 @@ export async function objectTest(RC, options, callback = undefined) {
       intraocularDistanceCm: intraocularDistanceCm,
 
       // Pass the samples in the savedMeasurementData and final data object
-      faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample => isNaN(sample) ? sample : Math.round(sample)),
-      faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample => isNaN(sample) ? sample : Math.round(sample)),
+      faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+        isNaN(sample) ? sample : Math.round(sample),
+      ),
+      faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
+        isNaN(sample) ? sample : Math.round(sample),
+      ),
     }
 
     // ===================== VISUAL FEEDBACK =====================
@@ -2058,7 +2140,9 @@ export async function objectTest(RC, options, callback = undefined) {
     const distance2FactorCmPx = Math.round(page4Average * data.value)
 
     // Calculate average of the two factors
-    const averageFactorCmPx = Math.round((distance1FactorCmPx + distance2FactorCmPx) / 2)
+    const averageFactorCmPx = Math.round(
+      (distance1FactorCmPx + distance2FactorCmPx) / 2,
+    )
 
     console.log('=== Object Test Calibration Factors ===')
     console.log('Object distance:', data.value, 'cm')
@@ -2324,16 +2408,24 @@ export async function objectTest(RC, options, callback = undefined) {
         if (currentPage === 2) {
           // Do exactly what the PROCEED button does on page 2
           ;(async () => {
-            // Record first measurement - just store the distance value
-            firstMeasurement = (rightLinePx - leftLinePx) / pxPerMm / 10
+            // Record first measurement - calculate diagonal distance
+            const diagonalDistancePx = tape.helpers.getDistance(
+              startX,
+              startY,
+              endX,
+              endY,
+            )
+            firstMeasurement = diagonalDistancePx / pxPerMm / 10
             console.log('First measurement:', firstMeasurement)
 
             // Store original measurement data before resetting lines
             const originalMeasurementData = {
-              leftPx: leftLinePx,
-              rightPx: rightLinePx,
-              objectLengthPx: rightLinePx - leftLinePx,
-              objectLengthMm: (rightLinePx - leftLinePx) / pxPerMm,
+              startX: startX,
+              startY: startY,
+              endX: endX,
+              endY: endY,
+              objectLengthPx: diagonalDistancePx,
+              objectLengthMm: diagonalDistancePx / pxPerMm,
               objectLengthCm: firstMeasurement,
             }
 
@@ -2738,16 +2830,24 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (currentPage === 1) {
       await nextPage()
     } else if (currentPage === 2) {
-      // Record first measurement - just store the distance value
-      firstMeasurement = (rightLinePx - leftLinePx) / pxPerMm / 10
+      // Record first measurement - calculate diagonal distance
+      const diagonalDistancePx = tape.helpers.getDistance(
+        startX,
+        startY,
+        endX,
+        endY,
+      )
+      firstMeasurement = diagonalDistancePx / pxPerMm / 10
       console.log('First measurement:', firstMeasurement)
 
       // Store original measurement data before resetting lines
       const originalMeasurementData = {
-        leftPx: leftLinePx,
-        rightPx: rightLinePx,
-        objectLengthPx: rightLinePx - leftLinePx,
-        objectLengthMm: (rightLinePx - leftLinePx) / pxPerMm,
+        startX: startX,
+        startY: startY,
+        endX: endX,
+        endY: endY,
+        objectLengthPx: diagonalDistancePx,
+        objectLengthMm: diagonalDistancePx / pxPerMm,
         objectLengthCm: firstMeasurement,
       }
 
