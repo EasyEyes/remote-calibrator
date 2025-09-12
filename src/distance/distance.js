@@ -817,6 +817,7 @@ RemoteCalibrator.prototype.measureDistance = async function (
   blurAll()
   ////
 
+  // FIX this is pointless. Either we are accidentally calling the same phrase twice, or the conditional should be removed - gus
   let description
   if (measureDistanceOptions.control === false)
     description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
@@ -3036,31 +3037,6 @@ export async function objectTest(RC, options, callback = undefined) {
   }
   buttonContainer.appendChild(proceedButton)
 
-  // Add Explanation button last
-  const explanationButton = document.createElement('button')
-  explanationButton.className = 'rc-button'
-  explanationButton.textContent = phrases.RC_viewingDistanceIntroTitle[RC.L]
-  explanationButton.style.border = '2px solid #999'
-  explanationButton.style.backgroundColor = '#999'
-  explanationButton.style.color = 'white'
-  explanationButton.style.fontSize = '0.9rem'
-  explanationButton.style.padding = '8px 16px'
-  explanationButton.style.borderRadius = '4px'
-  explanationButton.style.cursor = 'pointer'
-  explanationButton.onclick = () => {
-    // Insert a <br> before each numbered step (e.g., 1., 2., 3., 4.)
-    const explanationHtml = phrases.RC_viewingDistanceIntroPelliMethod[RC.L]
-      .replace(/(\d\.)/g, '<br>$1')
-      .replace(/^<br>/, '')
-    Swal.fire({
-      ...swalInfoOptions(RC, { showIcon: false }),
-      icon: undefined,
-      html: explanationHtml,
-      allowEnterKey: true,
-      confirmButtonText: phrases.T_ok ? phrases.T_ok[RC.L] : 'OK',
-    })
-  }
-  buttonContainer.appendChild(explanationButton)
 
   // ===================== SHOW POPUP BEFORE PAGE 0 =====================
   // Only show popup if camera selection hasn't been done already
