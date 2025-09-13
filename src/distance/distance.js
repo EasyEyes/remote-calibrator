@@ -1245,32 +1245,34 @@ export async function objectTest(RC, options, callback = undefined) {
     diagonalTape.style.transformOrigin = 'left center'
     tapeContainer.appendChild(diagonalTape)
 
-    // Left handle (circular)
+    // Left handle (invisible diagonal line)
     const leftHandle = document.createElement('div')
     leftHandle.style.position = 'absolute'
-    leftHandle.style.width = '20px'
-    leftHandle.style.height = '20px'
-    leftHandle.style.background = 'rgb(0, 0, 0)'
-    leftHandle.style.borderRadius = '50%'
-    leftHandle.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+    leftHandle.style.width = `${lineThickness}px`
+    leftHandle.style.height = `${tapeWidth}px`
+    leftHandle.style.background = 'transparent'
+    leftHandle.style.borderRadius = '1px'
+    leftHandle.style.boxShadow = 'none'
     leftHandle.style.cursor = 'move'
     leftHandle.style.pointerEvents = 'auto'
     leftHandle.style.zIndex = '3'
     leftHandle.style.transform = 'translate(-50%, -50%)'
+    leftHandle.style.transformOrigin = 'center center'
     tapeContainer.appendChild(leftHandle)
 
-    // Right handle (circular)
+    // Right handle (invisible diagonal line)
     const rightHandle = document.createElement('div')
     rightHandle.style.position = 'absolute'
-    rightHandle.style.width = '20px'
-    rightHandle.style.height = '20px'
-    rightHandle.style.background = 'rgb(0, 0, 0)'
-    rightHandle.style.borderRadius = '50%'
-    rightHandle.style.boxShadow = '0 0 8px rgba(0, 0, 0, 0.4)'
+    rightHandle.style.width = `${lineThickness}px`
+    rightHandle.style.height = `${tapeWidth}px`
+    rightHandle.style.background = 'transparent'
+    rightHandle.style.borderRadius = '1px'
+    rightHandle.style.boxShadow = 'none'
     rightHandle.style.cursor = 'move'
     rightHandle.style.pointerEvents = 'auto'
     rightHandle.style.zIndex = '3'
     rightHandle.style.transform = 'translate(-50%, -50%)'
+    rightHandle.style.transformOrigin = 'center center'
     tapeContainer.appendChild(rightHandle)
 
     // Dynamic length label (centered on tape)
@@ -1456,11 +1458,13 @@ export async function objectTest(RC, options, callback = undefined) {
     tape.elements.diagonalTape.style.height = `${tape.dimensions.tapeWidth}px`
     tape.elements.diagonalTape.style.transform = `rotate(${angle}deg)`
 
-    // Update handle positions
+    // Update handle positions and rotation to match tape angle
     tape.elements.leftHandle.style.left = `${startX}px`
     tape.elements.leftHandle.style.top = `${startY}px`
+    tape.elements.leftHandle.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`
     tape.elements.rightHandle.style.left = `${endX}px`
     tape.elements.rightHandle.style.top = `${endY}px`
+    tape.elements.rightHandle.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`
 
     // Update dynamic length label (centered on tape)
     const centerX = (startX + endX) / 2
@@ -3037,6 +3041,31 @@ export async function objectTest(RC, options, callback = undefined) {
   }
   buttonContainer.appendChild(proceedButton)
 
+  // Add Explanation button last
+  const explanationButton = document.createElement('button')
+  explanationButton.className = 'rc-button'
+  explanationButton.textContent = phrases.RC_viewingDistanceIntroTitle[RC.L]
+  explanationButton.style.border = '2px solid #999'
+  explanationButton.style.backgroundColor = '#999'
+  explanationButton.style.color = 'white'
+  explanationButton.style.fontSize = '0.9rem'
+  explanationButton.style.padding = '8px 16px'
+  explanationButton.style.borderRadius = '4px'
+  explanationButton.style.cursor = 'pointer'
+  explanationButton.onclick = () => {
+    // Insert a <br> before each numbered step (e.g., 1., 2., 3., 4.)
+    const explanationHtml = phrases.RC_viewingDistanceIntroPelliMethod[RC.L]
+      .replace(/(\d\.)/g, '<br>$1')
+      .replace(/^<br>/, '')
+    Swal.fire({
+      ...swalInfoOptions(RC, { showIcon: false }),
+      icon: undefined,
+      html: explanationHtml,
+      allowEnterKey: true,
+      confirmButtonText: phrases.T_ok ? phrases.T_ok[RC.L] : 'OK',
+    })
+  }
+  buttonContainer.appendChild(explanationButton)
 
   // ===================== SHOW POPUP BEFORE PAGE 0 =====================
   // Only show popup if camera selection hasn't been done already
