@@ -339,6 +339,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.framerate = options.framerate
   trackingOptions.nearPoint = options.nearPoint
   trackingOptions.showNearPoint = options.showNearPoint
+  trackingOptions.showIrisesBool = options.showIrisesBool
+  trackingOptions.showNearestPointsBool = options.showNearestPointsBool
 
   trackingOptions.desiredDistanceCm = options.desiredDistanceCm
   trackingOptions.desiredDistanceTolerance = options.desiredDistanceTolerance
@@ -487,6 +489,12 @@ const drawIrisAndPupil = () => {
   // Clear canvas
   irisCtx.clearRect(0, 0, irisCanvas.width, irisCanvas.height)
 
+  // Check if iris drawing should be enabled
+  if (!RC_instance || !trackingOptions.showIrisesBool) {
+    // Canvas is already cleared above, just return
+    return
+  }
+
   const { leftEye, rightEye, video, currentIPDDistance } = sharedFaceData
 
   if (!leftEye || !rightEye || !video || !currentIPDDistance) return
@@ -579,6 +587,13 @@ const drawIrisAndPupil = () => {
 
 const startIrisDrawing = RC => {
   RC_instance = RC // Store RC instance for independent access
+
+  // Only create canvas and start drawing if iris drawing is enabled
+  if (!trackingOptions.showIrisesBool) {
+    console.log('Iris drawing disabled - showIrisesBool is false')
+    return
+  }
+
   if (!irisCanvas) createIrisCanvas()
 
   // Start independent iris drawing loop that uses shared mesh data
@@ -619,6 +634,12 @@ const updateSharedFaceData = (leftEye, rightEye, video, currentIPDDistance) => {
 // Start iris drawing with continuous mesh data tracking
 const startIrisDrawingWithMesh = async RC => {
   console.log('=== Starting iris drawing with continuous mesh tracking ===')
+
+  // Check if iris drawing is enabled
+  if (!trackingOptions.showIrisesBool) {
+    console.log('Iris drawing disabled - showIrisesBool is false')
+    return false
+  }
 
   // Start the iris drawing canvas first
   startIrisDrawing(RC)
@@ -1615,7 +1636,8 @@ RemoteCalibrator.prototype.resumeDistance = function (showIrisesBool = false) {
     this._trackingPaused.distance
   ) {
     iRepeatOptions.break = false
-    if (showIrisesBool) startIrisDrawing(this)
+    // Use the parameter or fall back to trackingOptions
+    if (showIrisesBool || trackingOptions.showIrisesBool) startIrisDrawing(this)
     if (nearPointDot) nearPointDot.style.display = 'block'
 
     this._trackingVideoFrameTimestamps.distance = 0
