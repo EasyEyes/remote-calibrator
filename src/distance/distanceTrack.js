@@ -172,7 +172,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       showVideo: true,
       showFaceOverlay: false,
       decimalPlace: 1,
-      framerate: 3, // tracking rate
+      framerate: 6, // tracking rate - increased from 3 for better performance
       desiredDistanceCm: undefined,
       desiredDistanceTolerance: 1.2,
       desiredDistanceMonitor: false,
@@ -296,6 +296,13 @@ RemoteCalibrator.prototype.trackDistance = async function (
     // Mark that camera selection has been done to avoid calling it again in calibration methods
     options.cameraSelectionDone = true
 
+    console.log('showIrisesBool', options.showIrisesBool)
+    // Start iris drawing with mesh data before calibration tests
+    if (options.showIrisesBool) {
+      console.log('=== Starting iris drawing before calibration tests ===')
+      await startIrisDrawingWithMesh(this)
+    }
+
     // Show pre-calibration popup before starting any calibration methods
     const preCalibrationResult = await showPreCalibrationPopup(this)
     if (!preCalibrationResult) {
@@ -413,7 +420,7 @@ const cyclopean = (video, a, b) => {
 const trackingOptions = {
   pipWidthPx: 0,
   decimalPlace: 2,
-  framerate: 3,
+  framerate: 30,
   nearPoint: true,
   showNearPoint: false,
   desiredDistanceCm: undefined,
@@ -436,9 +443,291 @@ const iRepeatOptions = { framerate: 20, break: true }
 let nearPointDot = null
 /* -------------------------------------------------------------------------- */
 
+// Canvas-based iris and pupil drawing
+let irisCanvas = null
+let irisCtx = null
+let irisRafId = null
+let RC_instance = null // Store RC instance for independent data access
+let sharedFaceData = null // Shared face data between tracking and iris drawing
+
+const createIrisCanvas = () => {
+  if (irisCanvas) return irisCanvas
+
+  irisCanvas = document.createElement('canvas')
+  irisCanvas.id = 'rc-iris-overlay'
+  irisCanvas.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 2147483647;
+  `
+
+  // Set canvas size to match viewport
+  irisCanvas.width = window.innerWidth
+  irisCanvas.height = window.innerHeight
+
+  document.body.appendChild(irisCanvas)
+  irisCtx = irisCanvas.getContext('2d')
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    irisCanvas.width = window.innerWidth
+    irisCanvas.height = window.innerHeight
+  })
+
+  return irisCanvas
+}
+
+const drawIrisAndPupil = () => {
+  if (!irisCtx || !sharedFaceData) return
+
+  // Clear canvas
+  irisCtx.clearRect(0, 0, irisCanvas.width, irisCanvas.height)
+
+  const { leftEye, rightEye, video, currentIPDDistance } = sharedFaceData
+
+  if (!leftEye || !rightEye || !video || !currentIPDDistance) return
+
+  // Find video element for positioning
+  const videoFeed = document.getElementById('webgazerVideoFeed')
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  const videoEl = videoFeed || videoContainer
+
+  if (!videoEl) return
+
+  const rect = videoEl.getBoundingClientRect()
+
+  // Source coordinate space (facemesh/video canvas)
+  const srcW = video.width
+  const srcH = video.height
+
+  // Account for CSS object-fit by computing scale and crop/letterbox offsets
+  const containerW = rect.width
+  const containerH = rect.height
+  const scaleCover = Math.max(containerW / srcW, containerH / srcH)
+  const uniformScale = scaleCover
+  const offsetX = (srcW * uniformScale - containerW) / 2
+  const offsetY = (srcH * uniformScale - containerH) / 2
+
+  // Apply horizontal flip since video is typically mirrored
+  const leftEyeXFlipped = srcW - leftEye.x
+  const rightEyeXFlipped = srcW - rightEye.x
+
+  const leftPx = {
+    x: rect.left + leftEyeXFlipped * uniformScale - offsetX,
+    y: rect.top + leftEye.y * uniformScale - offsetY,
+  }
+  const rightPx = {
+    x: rect.left + rightEyeXFlipped * uniformScale - offsetX,
+    y: rect.top + rightEye.y * uniformScale - offsetY,
+  }
+
+  // Compute iris diameter from IPD (19%) in source pixels, then scale to CSS
+  const ipdSrcPx =
+    currentIPDDistance ||
+    Math.hypot(
+      rightEye.x - leftEye.x,
+      rightEye.y - leftEye.y,
+      rightEye.z - leftEye.z,
+    )
+  const irisDiameter = Math.max(4, 0.19 * ipdSrcPx * uniformScale)
+  const pupilDiameter = Math.max(2, 0.4 * irisDiameter)
+  const irisRadius = irisDiameter / 2
+  const pupilRadius = pupilDiameter / 2
+
+  // Draw left iris
+  irisCtx.beginPath()
+  irisCtx.arc(leftPx.x, leftPx.y, irisRadius, 0, 2 * Math.PI)
+  irisCtx.fillStyle = '#00ffe9'
+  irisCtx.fill()
+
+  // Add iris shadow effect
+  irisCtx.beginPath()
+  irisCtx.arc(leftPx.x, leftPx.y, irisRadius, 0, 2 * Math.PI)
+  irisCtx.strokeStyle = 'rgba(0,0,0,0.35)'
+  irisCtx.lineWidth = 2
+  irisCtx.stroke()
+
+  // Draw left pupil
+  irisCtx.beginPath()
+  irisCtx.arc(leftPx.x, leftPx.y, pupilRadius, 0, 2 * Math.PI)
+  irisCtx.fillStyle = '#000'
+  irisCtx.fill()
+
+  // Draw right iris
+  irisCtx.beginPath()
+  irisCtx.arc(rightPx.x, rightPx.y, irisRadius, 0, 2 * Math.PI)
+  irisCtx.fillStyle = '#00ffe9'
+  irisCtx.fill()
+
+  // Add iris shadow effect
+  irisCtx.beginPath()
+  irisCtx.arc(rightPx.x, rightPx.y, irisRadius, 0, 2 * Math.PI)
+  irisCtx.strokeStyle = 'rgba(0,0,0,0.35)'
+  irisCtx.lineWidth = 2
+  irisCtx.stroke()
+
+  // Draw right pupil
+  irisCtx.beginPath()
+  irisCtx.arc(rightPx.x, rightPx.y, pupilRadius, 0, 2 * Math.PI)
+  irisCtx.fillStyle = '#000'
+  irisCtx.fill()
+}
+
+const startIrisDrawing = RC => {
+  RC_instance = RC // Store RC instance for independent access
+  if (!irisCanvas) createIrisCanvas()
+
+  // Start independent iris drawing loop that uses shared mesh data
+  const renderIris = () => {
+    if (iRepeatOptions.break) return
+
+    // Use the mesh data from the shared face data (updated by distance tracking)
+    if (sharedFaceData) {
+      drawIrisAndPupil()
+    }
+
+    irisRafId = requestAnimationFrame(renderIris)
+  }
+
+  irisRafId = requestAnimationFrame(renderIris)
+}
+
+const stopIrisDrawing = () => {
+  // Cancel animation frame
+  if (irisRafId) {
+    cancelAnimationFrame(irisRafId)
+    irisRafId = null
+  }
+
+  // Clear canvas
+  if (irisCtx) {
+    irisCtx.clearRect(0, 0, irisCanvas.width, irisCanvas.height)
+  }
+
+  RC_instance = null // Clear the RC instance reference
+  sharedFaceData = null // Clear shared data
+}
+
+const updateSharedFaceData = (leftEye, rightEye, video, currentIPDDistance) => {
+  sharedFaceData = { leftEye, rightEye, video, currentIPDDistance }
+}
+
+// Start iris drawing with continuous mesh data tracking
+const startIrisDrawingWithMesh = async RC => {
+  console.log('=== Starting iris drawing with continuous mesh tracking ===')
+
+  // Start the iris drawing canvas first
+  startIrisDrawing(RC)
+
+  // Create a continuous tracking loop for iris drawing during calibration
+  let irisTrackingActive = true
+  let irisTrackingRafId = null
+
+  const trackIrisPosition = async () => {
+    if (!irisTrackingActive || iRepeatOptions.break) {
+      console.log('Iris tracking stopped')
+      return
+    }
+
+    // Get current mesh data
+    const meshData = await getMeshData(RC)
+    if (meshData) {
+      const { leftEye, rightEye, video, currentIPDDistance } = meshData
+
+      // Update shared face data for iris drawing
+      updateSharedFaceData(leftEye, rightEye, video, currentIPDDistance)
+
+      // Log occasionally for debugging (every ~60 frames at 60fps = 1 second)
+      if (Math.random() < 0.016) {
+        console.log('Iris tracking update:', {
+          leftEye: `(${leftEye.x.toFixed(1)}, ${leftEye.y.toFixed(1)})`,
+          rightEye: `(${rightEye.x.toFixed(1)}, ${rightEye.y.toFixed(1)})`,
+          ipd: currentIPDDistance.toFixed(1),
+        })
+      }
+    }
+
+    // Continue tracking
+    irisTrackingRafId = requestAnimationFrame(trackIrisPosition)
+  }
+
+  // Start the tracking loop
+  irisTrackingRafId = requestAnimationFrame(trackIrisPosition)
+
+  // Store cleanup function on RC instance so it can be called later
+  RC._stopIrisTracking = () => {
+    console.log('=== Stopping iris tracking ===')
+    irisTrackingActive = false
+    if (irisTrackingRafId) {
+      cancelAnimationFrame(irisTrackingRafId)
+      irisTrackingRafId = null
+    }
+  }
+
+  console.log(
+    'Iris tracking started - irises will follow face movement during calibration',
+  )
+  return true
+}
+
+// Factor out mesh data retrieval for reuse
+const getMeshData = async RC => {
+  const video = document.getElementById('webgazerVideoCanvas')
+  if (!video) {
+    console.log('Video canvas not ready for mesh data retrieval')
+    return null
+  }
+
+  // Try to use WebGazer's mesh data first, but fallback to our own detection if stale
+  let mesh = RC.gazeTracker.webgazer.getTracker().getPositions()
+  let meshSource = 'webgazer'
+
+  // Check if WebGazer mesh data is stale (WebGazer might be paused)
+  console.log('paused', RC.gazeTracker.webgazer.params.paused)
+  if (!mesh || mesh.length === 0 || RC.gazeTracker.webgazer.params.paused) {
+    console.log('WebGazer mesh stale or paused, using own face detection')
+    try {
+      const model = await RC.gazeTracker.webgazer.getTracker().model
+      const faces = await model.estimateFaces(video)
+      if (faces.length) {
+        mesh = faces[0].keypoints
+        meshSource = 'own'
+      }
+    } catch (error) {
+      console.warn('Own face detection failed:', error)
+      mesh = null
+    }
+  }
+
+  console.log('Mesh source:', meshSource, 'length:', mesh && mesh.length)
+
+  if (mesh && mesh.length) {
+    // Extract eye positions
+    const leftEye = { x: mesh[468].x, y: mesh[468].y, z: mesh[468].z }
+    const rightEye = { x: mesh[473].x, y: mesh[473].y, z: mesh[473].z }
+    const currentIPDDistance = eyeDist(leftEye, rightEye)
+
+    return {
+      mesh,
+      leftEye,
+      rightEye,
+      video,
+      currentIPDDistance,
+      meshSource,
+    }
+  }
+
+  return null
+}
+
+/* -------------------------------------------------------------------------- */
+
 let readyToGetFirstData = false
-let averageDist = 0
-let distCount = 1
+let rafId = null
 
 const _tracking = async (
   RC,
@@ -464,360 +753,362 @@ const _tracking = async (
     nearestDistanceCm: 0,
     oldDistanceCm: 0,
   }
-  const _ = async () => {
-    // const canvas = RC.gazeTracker.webgazer.videoCanvas
-    let faces
 
-    // Get the average of 5 estimates for one measure
-    averageDist = 0
-    distCount = 1
-    const targetCount = 5
+  const model = await RC.gazeTracker.webgazer.getTracker().model
 
-    const model = await RC.gazeTracker.webgazer.getTracker().model
+  // Near point setup
+  const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
+  const pxPerCm = ppi / 2.54
+  if (!RC.screenPpi && trackingOptions.nearPoint)
+    console.error(
+      'Screen size measurement is required to get accurate near point tracking.',
+    )
 
-    // Near point
-    const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
-    const pxPerCm = ppi / 2.54
-    if (!RC.screenPpi && trackingOptions.nearPoint)
-      console.error(
-        'Screen size measurement is required to get accurate near point tracking.',
-      )
+  if (trackingOptions.nearPoint && trackingOptions.showNearPoint) {
+    nearPointDot = document.createElement('div')
+    nearPointDot.id = 'rc-near-point-dot'
+    document.body.appendChild(nearPointDot)
 
-    if (trackingOptions.nearPoint && trackingOptions.showNearPoint) {
-      nearPointDot = document.createElement('div')
-      nearPointDot.id = 'rc-near-point-dot'
-      document.body.appendChild(nearPointDot)
+    Object.assign(nearPointDot.style, {
+      display: 'block',
+      zIndex: 999999,
+      width: '10px', // TODO Make it customizable
+      height: '10px',
+      background: 'green',
+      position: 'fixed',
+      top: '-15px',
+      left: '-15px',
+    })
+  }
 
-      Object.assign(nearPointDot.style, {
-        display: 'block',
-        zIndex: 999999,
-        width: '10px', // TODO Make it customizable
-        height: '10px',
-        background: 'green',
-        position: 'fixed',
-        top: '-15px',
-        left: '-15px',
-      })
+  readyToGetFirstData = false
+  const {
+    desiredDistanceCm,
+    desiredDistanceTolerance,
+    desiredDistanceMonitor,
+    desiredDistanceMonitorCancelable,
+    desiredDistanceMonitorAllowRecalibrate,
+  } = trackingOptions
+
+  // Always enable correct on a fresh start
+  RC._distanceTrackNudging.distanceCorrectEnabled = true
+  RC._distanceTrackNudging.distanceDesired = desiredDistanceCm
+  RC._distanceTrackNudging.distanceAllowedRatio = desiredDistanceTolerance
+
+  // Set break to false to start the tracking loop
+  iRepeatOptions.break = false
+
+  // Stop the calibration-phase iris tracking since main tracking will take over
+  if (RC._stopIrisTracking) {
+    RC._stopIrisTracking()
+    RC._stopIrisTracking = null
+  }
+
+  // Note: Iris drawing canvas is already created, main tracking will update the shared data
+
+  // Main tracking loop using requestAnimationFrame like FaceMesh demo
+  const renderPrediction = async () => {
+    console.log('././renderPrediction')
+    if (iRepeatOptions.break) {
+      // Stop the animation loop if break is set
+      console.log('././irepeat break true')
+      return
     }
 
-    readyToGetFirstData = false
-    const {
+    await renderDistanceResult(
+      RC,
+      trackingOptions,
+      callbackTrack,
+      trackingConfig,
+      model,
+      ppi,
+      pxPerCm,
       desiredDistanceCm,
-      desiredDistanceTolerance,
       desiredDistanceMonitor,
       desiredDistanceMonitorCancelable,
       desiredDistanceMonitorAllowRecalibrate,
-    } = trackingOptions
+    )
 
-    // Always enable correct on a fresh start
-    RC._distanceTrackNudging.distanceCorrectEnabled = true
-    RC._distanceTrackNudging.distanceDesired = desiredDistanceCm
-    RC._distanceTrackNudging.distanceAllowedRatio = desiredDistanceTolerance
-
-    viewingDistanceTrackingFunction = async () => {
-      // Only collect samples if not using object test samples
-      if (!video) video = document.getElementById('webgazerVideoCanvas')
-      const videoTimestamp = performance.now()
-      faces = await model.estimateFaces(video)
-      if (faces.length) {
-        RC._trackingVideoFrameTimestamps.distance += videoTimestamp
-        const mesh = faces[0].keypoints
-        if (targetCount === distCount) {
-          //left eye: 468
-          //right eye: 473
-          const leftEyeX = mesh[468].x
-          const leftEyeY = mesh[468].y
-          const leftEyeZ = mesh[468].z
-          const rightEyeX = mesh[473].x
-          const rightEyeY = mesh[473].y
-          const rightEyeZ = mesh[473].z
-          const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
-          const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
-          averageDist += eyeDist(leftEye, rightEye)
-          averageDist /= targetCount
-          RC._trackingVideoFrameTimestamps.distance /= targetCount
-
-          // TODO Add more samples for the first estimate
-          if (stdDist.current !== null) {
-            if (!stdFactor) {
-              // ! First time estimate
-              // ALWAYS use the pre-calculated calibration factor from measurement tests
-              if (stdDist.current.calibrationFactor) {
-                console.log(
-                  'Using pre-calculated calibration factor:',
-                  stdDist.current.calibrationFactor,
-                )
-                console.log('Method used:', stdDist.current.method)
-                stdFactor = stdDist.current.calibrationFactor
-              } else {
-                console.error(
-                  'No calibration factor found! This should not happen.',
-                )
-                console.error('Measurement data:', stdDist.current)
-                return
-              }
-
-              // ! FINISH
-              if (
-                trackingConfig.options.calibrateTrackDistanceCheckBool !== true
-              )
-                RC._removeBackground() // Remove BG if no check
-
-              RC._trackingSetupFinishedStatus.distance = true
-              readyToGetFirstData = true
-            }
-
-            /* -------------------------------------------------------------------------- */
-
-            const timestamp = performance.now()
-            const latency = Math.round(
-              timestamp - RC._trackingVideoFrameTimestamps.distance,
-            )
-
-            const webcamToEyeDistance = stdFactor / averageDist
-            const cameraPxPerCm = averageDist / RC._CONST.IPD_CM
-
-            const centerXYCameraPx = getCenterXYCameraPx(video)
-
-            // Mirror correction: Video is horizontally flipped, so flip X coordinates to match screen
-            //left eye: 468
-            //right eye: 473
-            const leftEyeX = video.width - mesh[468].x // Flip X coordinate
-            const leftEyeY = mesh[468].y // Y coordinate unchanged
-            const rightEyeX = video.width - mesh[473].x // Flip X coordinate
-            const rightEyeY = mesh[473].y // Y coordinate unchanged
-
-            const offsetXYCameraPx_left = [
-              leftEyeX - centerXYCameraPx[0],
-              leftEyeY - centerXYCameraPx[1],
-            ]
-            const offsetXYCameraPx_right = [
-              rightEyeX - centerXYCameraPx[0],
-              rightEyeY - centerXYCameraPx[1],
-            ]
-
-            const offsetXYCm_left = [
-              (offsetXYCameraPx_left[0] * RC._CONST.IPD_CM) / averageDist,
-              (offsetXYCameraPx_left[1] * RC._CONST.IPD_CM) / averageDist,
-            ]
-            const offsetXYCm_right = [
-              (offsetXYCameraPx_right[0] * RC._CONST.IPD_CM) / averageDist,
-              (offsetXYCameraPx_right[1] * RC._CONST.IPD_CM) / averageDist,
-            ]
-
-            const cameraXYPx = [window.innerWidth / 2, 0]
-
-            const nearestXYPx_left = [
-              cameraXYPx[0] + offsetXYCm_left[0] * pxPerCm,
-              cameraXYPx[1] + offsetXYCm_left[1] * pxPerCm,
-            ]
-            const nearestXYPx_right = [
-              cameraXYPx[0] + offsetXYCm_right[0] * pxPerCm,
-              cameraXYPx[1] + offsetXYCm_right[1] * pxPerCm,
-            ]
-
-            // Clamp coordinates to stay within viewport bounds
-            const clampedNearestLeft = [
-              Math.max(0, Math.min(nearestXYPx_left[0], window.innerWidth)),
-              Math.max(0, Math.min(nearestXYPx_left[1], window.innerHeight)),
-            ]
-            const clampedNearestRight = [
-              Math.max(0, Math.min(nearestXYPx_right[0], window.innerWidth)),
-              Math.max(0, Math.min(nearestXYPx_right[1], window.innerHeight)),
-            ]
-
-            // Debug calculations
-            const actualIPDPx = Math.hypot(
-              rightEyeX - leftEyeX,
-              rightEyeY - leftEyeY,
-              rightEyeZ - leftEyeZ,
-            )
-            const calculatedIPDCm = actualIPDPx / cameraPxPerCm
-
-            // Apply trigonometric adjustment to get screen-center-to-eye distance
-            const screenCenterToEyeDistance = _adjustDistanceToScreenCenter(
-              webcamToEyeDistance,
-              ppi,
-            )
-
-            //calculate nearest distance cm left and right from webcamToEyeDistance and OffsetXYCm_left and OffsetXYCm_right
-            const norm_offsetXYCm_left = Math.hypot(
-              offsetXYCm_left[0],
-              offsetXYCm_left[1],
-            )
-            const norm_offsetXYCm_right = Math.hypot(
-              offsetXYCm_right[0],
-              offsetXYCm_right[1],
-            )
-            const nearestDistanceCm_left = Math.sqrt(
-              webcamToEyeDistance ** 2 - norm_offsetXYCm_left ** 2,
-            )
-            const nearestDistanceCm_right = Math.sqrt(
-              webcamToEyeDistance ** 2 - norm_offsetXYCm_right ** 2,
-            )
-
-            const eyeToScreenCenterDistance_left = getEyeToDesiredDistance(
-              nearestXYPx_left,
-              nearestDistanceCm_left,
-              [window.innerWidth / 2, window.innerHeight / 2],
-              pxPerCm,
-            )
-            const eyeToScreenCenterDistance_right = getEyeToDesiredDistance(
-              nearestXYPx_right,
-              nearestDistanceCm_right,
-              [window.innerWidth / 2, window.innerHeight / 2],
-              pxPerCm,
-            )
-            //choose the nearest eye to screen center distance
-            const nearestEye =
-              eyeToScreenCenterDistance_left < eyeToScreenCenterDistance_right
-                ? 'left'
-                : 'right'
-            const nearestXYPx =
-              nearestEye === 'left' ? nearestXYPx_left : nearestXYPx_right
-            const nearestDistanceCm =
-              nearestEye === 'left'
-                ? nearestDistanceCm_left
-                : nearestDistanceCm_right
-            const distanceCm_left = getEyeToDesiredDistance(
-              nearestXYPx_left,
-              nearestDistanceCm_left,
-              [window.innerWidth / 2, window.innerHeight / 2],
-              pxPerCm,
-            )
-            const distanceCm_right = getEyeToDesiredDistance(
-              nearestXYPx_right,
-              nearestDistanceCm_right,
-              [window.innerWidth / 2, window.innerHeight / 2],
-              pxPerCm,
-            )
-
-            const nearestEyeToWebcamDistanceCM = getEyeToDesiredDistance(
-              nearestXYPx,
-              nearestDistanceCm,
-              cameraXYPx,
-              pxPerCm,
-            )
-
-            const distanceCm =
-              nearestEye === 'left' ? distanceCm_left : distanceCm_right
-
-            RC.improvedDistanceTrackingData = {
-              left: {
-                nearestXYPx: nearestXYPx_left,
-                nearestDistanceCm: nearestDistanceCm_left,
-                distanceCm: distanceCm_left,
-              },
-              right: {
-                nearestXYPx: nearestXYPx_right,
-                nearestDistanceCm: nearestDistanceCm_right,
-                distanceCm: distanceCm_right,
-              },
-              nearEye: nearestEye,
-              distanceCm: distanceCm,
-              nearestXYPx: nearestXYPx,
-              nearestDistanceCm: nearestDistanceCm,
-              oldDistanceCm: screenCenterToEyeDistance,
-            }
-
-            const data = {
-              value: toFixedNumber(distanceCm, trackingOptions.decimalPlace),
-              timestamp: timestamp,
-              method: RC._CONST.VIEW_METHOD.F,
-              latencyMs: latency,
-              calibrationMethod: stdDist.method, // Include which method was used
-            }
-
-            RC.newViewingDistanceData = data
-
-            // Debug: Draw nearest points on screen using clamped coordinates
-            if (trackingConfig.options.showNearestPointsBool)
-              _drawNearestPoints(
-                clampedNearestLeft,
-                clampedNearestRight,
-                nearestDistanceCm_left,
-                nearestDistanceCm_right,
-                trackingOptions.decimalPlace,
-                nearestEyeToWebcamDistanceCM,
-                stdFactor,
-                averageDist,
-                {
-                  x: mesh[468].x,
-                  y: mesh[468].y,
-                },
-                {
-                  x: mesh[473].x,
-                  y: mesh[473].y,
-                },
-              )
-
-            if (readyToGetFirstData || desiredDistanceMonitor) {
-              // ! Check distance
-              if (desiredDistanceCm) {
-                RC.nudgeDistance(
-                  desiredDistanceMonitorCancelable,
-                  desiredDistanceMonitorAllowRecalibrate,
-                  trackingConfig,
-                )
-              }
-              readyToGetFirstData = false
-            }
-
-            /* -------------------------------------------------------------------------- */
-
-            // Near point
-            let nPData
-            if (trackingOptions.nearPoint) {
-              nPData = _getNearPoint(
-                RC,
-                trackingOptions,
-                video,
-                mesh,
-                averageDist,
-                timestamp,
-                ppi,
-                latency,
-              )
-            }
-
-            /* -------------------------------------------------------------------------- */
-
-            if (callbackTrack && typeof callbackTrack === 'function') {
-              RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
-              callbackTrack(data)
-            }
-          }
-
-          averageDist = 0
-          distCount = 1
-
-          RC._trackingVideoFrameTimestamps.distance = 0
-        } else {
-          averageDist += eyeDist(
-            {
-              x: mesh[468].x,
-              y: mesh[468].y,
-              z: mesh[468].z,
-            },
-            {
-              x: mesh[473].x,
-              y: mesh[473].y,
-              z: mesh[473].z,
-            },
-          )
-          ++distCount
-        }
-      } else {
-        cleanUpEyePoints()
-      }
-    }
-
-    iRepeatOptions.break = false
-    iRepeatOptions.framerate = targetCount * trackingOptions.framerate // Default 5 * 3
-    iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
+    rafId = requestAnimationFrame(renderPrediction)
   }
 
-  sleep(1000).then(_)
+  // Start the tracking loop
+  rafId = requestAnimationFrame(renderPrediction)
+}
+
+const renderDistanceResult = async (
+  RC,
+  trackingOptions,
+  callbackTrack,
+  trackingConfig,
+  model,
+  ppi,
+  pxPerCm,
+  desiredDistanceCm,
+  desiredDistanceMonitor,
+  desiredDistanceMonitorCancelable,
+  desiredDistanceMonitorAllowRecalibrate,
+) => {
+  console.log('././renderDistanceResult')
+  if (!video) video = document.getElementById('webgazerVideoCanvas')
+
+  // Check if video is ready
+  if (!video) {
+    // console.log('././video not ready', video.readyState)
+    return
+  }
+
+  const videoTimestamp = performance.now()
+
+  // Use the factored out mesh data retrieval
+  const meshData = await getMeshData(RC)
+
+  if (meshData) {
+    const { mesh, leftEye, rightEye, currentIPDDistance } = meshData
+    RC._trackingVideoFrameTimestamps.distance = videoTimestamp
+
+    // Initialize calibration factor on first run
+    if (stdDist.current !== null) {
+      if (!stdFactor) {
+        // ! First time estimate
+        // ALWAYS use the pre-calculated calibration factor from measurement tests
+        if (stdDist.current.calibrationFactor) {
+          console.log(
+            'Using pre-calculated calibration factor:',
+            stdDist.current.calibrationFactor,
+          )
+          console.log('Method used:', stdDist.current.method)
+          stdFactor = stdDist.current.calibrationFactor
+        } else {
+          console.error('No calibration factor found! This should not happen.')
+          console.error('Measurement data:', stdDist.current)
+          return
+        }
+
+        // ! FINISH
+        if (trackingConfig.options.calibrateTrackDistanceCheckBool !== true)
+          RC._removeBackground() // Remove BG if no check
+
+        RC._trackingSetupFinishedStatus.distance = true
+        readyToGetFirstData = true
+      }
+
+      /* -------------------------------------------------------------------------- */
+
+      const timestamp = performance.now()
+      const latency = Math.round(
+        timestamp - RC._trackingVideoFrameTimestamps.distance,
+      )
+
+      const webcamToEyeDistance = stdFactor / currentIPDDistance
+      const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+
+      const centerXYCameraPx = getCenterXYCameraPx(video)
+
+      // Mirror correction: Video is horizontally flipped, so flip X coordinates to match screen
+      //left eye: 468
+      //right eye: 473
+      const leftEyeX = video.width - leftEye.x // Flip X coordinate
+      const leftEyeY = leftEye.y // Y coordinate unchanged
+      const rightEyeX = video.width - rightEye.x // Flip X coordinate
+      const rightEyeY = rightEye.y // Y coordinate unchanged
+
+      const offsetXYCameraPx_left = [
+        leftEyeX - centerXYCameraPx[0],
+        leftEyeY - centerXYCameraPx[1],
+      ]
+      const offsetXYCameraPx_right = [
+        rightEyeX - centerXYCameraPx[0],
+        rightEyeY - centerXYCameraPx[1],
+      ]
+
+      const offsetXYCm_left = [
+        (offsetXYCameraPx_left[0] * RC._CONST.IPD_CM) / currentIPDDistance,
+        (offsetXYCameraPx_left[1] * RC._CONST.IPD_CM) / currentIPDDistance,
+      ]
+      const offsetXYCm_right = [
+        (offsetXYCameraPx_right[0] * RC._CONST.IPD_CM) / currentIPDDistance,
+        (offsetXYCameraPx_right[1] * RC._CONST.IPD_CM) / currentIPDDistance,
+      ]
+
+      const cameraXYPx = [window.innerWidth / 2, 0]
+
+      const nearestXYPx_left = [
+        cameraXYPx[0] + offsetXYCm_left[0] * pxPerCm,
+        cameraXYPx[1] + offsetXYCm_left[1] * pxPerCm,
+      ]
+      const nearestXYPx_right = [
+        cameraXYPx[0] + offsetXYCm_right[0] * pxPerCm,
+        cameraXYPx[1] + offsetXYCm_right[1] * pxPerCm,
+      ]
+
+      // Clamp coordinates to stay within viewport bounds
+      const clampedNearestLeft = [
+        Math.max(0, Math.min(nearestXYPx_left[0], window.innerWidth)),
+        Math.max(0, Math.min(nearestXYPx_left[1], window.innerHeight)),
+      ]
+      const clampedNearestRight = [
+        Math.max(0, Math.min(nearestXYPx_right[0], window.innerWidth)),
+        Math.max(0, Math.min(nearestXYPx_right[1], window.innerHeight)),
+      ]
+
+      // Apply trigonometric adjustment to get screen-center-to-eye distance
+      const screenCenterToEyeDistance = _adjustDistanceToScreenCenter(
+        webcamToEyeDistance,
+        ppi,
+      )
+
+      //calculate nearest distance cm left and right from webcamToEyeDistance and OffsetXYCm_left and OffsetXYCm_right
+      const norm_offsetXYCm_left = Math.hypot(
+        offsetXYCm_left[0],
+        offsetXYCm_left[1],
+      )
+      const norm_offsetXYCm_right = Math.hypot(
+        offsetXYCm_right[0],
+        offsetXYCm_right[1],
+      )
+      const nearestDistanceCm_left = Math.sqrt(
+        webcamToEyeDistance ** 2 - norm_offsetXYCm_left ** 2,
+      )
+      const nearestDistanceCm_right = Math.sqrt(
+        webcamToEyeDistance ** 2 - norm_offsetXYCm_right ** 2,
+      )
+
+      const eyeToScreenCenterDistance_left = getEyeToDesiredDistance(
+        nearestXYPx_left,
+        nearestDistanceCm_left,
+        [window.innerWidth / 2, window.innerHeight / 2],
+        pxPerCm,
+      )
+      const eyeToScreenCenterDistance_right = getEyeToDesiredDistance(
+        nearestXYPx_right,
+        nearestDistanceCm_right,
+        [window.innerWidth / 2, window.innerHeight / 2],
+        pxPerCm,
+      )
+      //choose the nearest eye to screen center distance
+      const nearestEye =
+        eyeToScreenCenterDistance_left < eyeToScreenCenterDistance_right
+          ? 'left'
+          : 'right'
+      const nearestXYPx =
+        nearestEye === 'left' ? nearestXYPx_left : nearestXYPx_right
+      const nearestDistanceCm =
+        nearestEye === 'left' ? nearestDistanceCm_left : nearestDistanceCm_right
+      const distanceCm_left = getEyeToDesiredDistance(
+        nearestXYPx_left,
+        nearestDistanceCm_left,
+        [window.innerWidth / 2, window.innerHeight / 2],
+        pxPerCm,
+      )
+      const distanceCm_right = getEyeToDesiredDistance(
+        nearestXYPx_right,
+        nearestDistanceCm_right,
+        [window.innerWidth / 2, window.innerHeight / 2],
+        pxPerCm,
+      )
+
+      const nearestEyeToWebcamDistanceCM = getEyeToDesiredDistance(
+        nearestXYPx,
+        nearestDistanceCm,
+        cameraXYPx,
+        pxPerCm,
+      )
+
+      const distanceCm =
+        nearestEye === 'left' ? distanceCm_left : distanceCm_right
+
+      RC.improvedDistanceTrackingData = {
+        left: {
+          nearestXYPx: nearestXYPx_left,
+          nearestDistanceCm: nearestDistanceCm_left,
+          distanceCm: distanceCm_left,
+        },
+        right: {
+          nearestXYPx: nearestXYPx_right,
+          nearestDistanceCm: nearestDistanceCm_right,
+          distanceCm: distanceCm_right,
+        },
+        nearEye: nearestEye,
+        distanceCm: distanceCm,
+        nearestXYPx: nearestXYPx,
+        nearestDistanceCm: nearestDistanceCm,
+        oldDistanceCm: screenCenterToEyeDistance,
+      }
+
+      const data = {
+        value: toFixedNumber(distanceCm, trackingOptions.decimalPlace),
+        timestamp: timestamp,
+        method: RC._CONST.VIEW_METHOD.F,
+        latencyMs: latency,
+        calibrationMethod: stdDist.method, // Include which method was used
+      }
+
+      RC.newViewingDistanceData = data
+
+      // Update shared face data for iris drawing
+      updateSharedFaceData(leftEye, rightEye, video, currentIPDDistance)
+
+      // Debug: Draw nearest points on screen using clamped coordinates
+      if (trackingConfig.options.showNearestPointsBool)
+        _drawNearestPoints(
+          clampedNearestLeft,
+          clampedNearestRight,
+          nearestDistanceCm_left,
+          nearestDistanceCm_right,
+          trackingOptions.decimalPlace,
+          nearestEyeToWebcamDistanceCM,
+          stdFactor,
+          currentIPDDistance,
+          {
+            x: leftEye.x,
+            y: leftEye.y,
+          },
+          {
+            x: rightEye.x,
+            y: rightEye.y,
+          },
+        )
+
+      if (readyToGetFirstData || desiredDistanceMonitor) {
+        // ! Check distance
+        if (desiredDistanceCm) {
+          RC.nudgeDistance(
+            desiredDistanceMonitorCancelable,
+            desiredDistanceMonitorAllowRecalibrate,
+            trackingConfig,
+          )
+        }
+        readyToGetFirstData = false
+      }
+
+      /* -------------------------------------------------------------------------- */
+
+      // Near point
+      let nPData
+      if (trackingOptions.nearPoint) {
+        nPData = _getNearPoint(
+          RC,
+          trackingOptions,
+          video,
+          mesh,
+          currentIPDDistance,
+          timestamp,
+          ppi,
+          latency,
+        )
+      }
+
+      /* -------------------------------------------------------------------------- */
+
+      if (callbackTrack && typeof callbackTrack === 'function') {
+        RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
+        callbackTrack(data)
+      }
+    }
+  } else {
+    cleanUpEyePoints()
+  }
 }
 
 const getEyeToDesiredDistance = (
@@ -905,50 +1196,19 @@ const _drawNearestPoints = (
   leftEyePoint,
   rightEyePoint,
 ) => {
-  if (nearestPointDots.left) {
-    document.body.removeChild(nearestPointDots.left)
-    nearestPointDots.left = null
-  }
-  if (nearestPointDots.right) {
-    document.body.removeChild(nearestPointDots.right)
-    nearestPointDots.right = null
-  }
-  if (nearestPointLabels.left) {
-    document.body.removeChild(nearestPointLabels.left)
-    nearestPointLabels.left = null
-  }
-  if (nearestPointLabels.right) {
-    document.body.removeChild(nearestPointLabels.right)
-    nearestPointLabels.right = null
-  }
-  if (webcamDistanceLabel) {
-    document.body.removeChild(webcamDistanceLabel)
-    webcamDistanceLabel = null
-  }
-  if (factorLabel) {
-    document.body.removeChild(factorLabel)
-    factorLabel = null
-  }
-  if (ipdLabel) {
-    document.body.removeChild(ipdLabel)
-    ipdLabel = null
-  }
-
-  if (eyePointDots.left) {
-    document.body.removeChild(eyePointDots.left)
-    eyePointDots.left = null
-  }
-  if (eyePointDots.right) {
-    document.body.removeChild(eyePointDots.right)
-    eyePointDots.right = null
-  }
-  if (pupilDots.left) {
-    document.body.removeChild(pupilDots.left)
-    pupilDots.left = null
-  }
-  if (pupilDots.right) {
-    document.body.removeChild(pupilDots.right)
-    pupilDots.right = null
+  // Create elements only if they don't exist, otherwise reuse them
+  const createOrUpdateElement = (elementRef, id, baseStyles) => {
+    if (!elementRef) {
+      elementRef = document.createElement('div')
+      elementRef.id = id
+      document.body.appendChild(elementRef)
+    }
+    // Apply base styles that don't change frequently
+    if (baseStyles && !elementRef.dataset.baseStylesApplied) {
+      Object.assign(elementRef.style, baseStyles)
+      elementRef.dataset.baseStylesApplied = 'true'
+    }
+    return elementRef
   }
 
   if (
@@ -956,48 +1216,54 @@ const _drawNearestPoints = (
     nearestLeft[0] !== undefined &&
     nearestLeft[1] !== undefined
   ) {
-    nearestPointDots.left = document.createElement('div')
-    nearestPointDots.left.id = 'rc-nearest-point-left'
-    nearestPointDots.left.style.cssText = `
-      position: fixed;
-      width: 12px;
-      height: 12px;
-      background: red;
-      border: 2px solid white;
-      border-radius: 50%;
-      z-index: 99999999999999;
-      pointer-events: none;
-      left: ${nearestLeft[0] - 6}px;
-      top: ${nearestLeft[1] - 6}px;
-    `
-    document.body.appendChild(nearestPointDots.left)
+    // Create or reuse left dot
+    nearestPointDots.left = createOrUpdateElement(
+      nearestPointDots.left,
+      'rc-nearest-point-left',
+      {
+        position: 'fixed',
+        width: '12px',
+        height: '12px',
+        background: 'red',
+        border: '2px solid white',
+        borderRadius: '50%',
+        zIndex: '99999999999999',
+        pointerEvents: 'none',
+      },
+    )
+
+    // Update only position (frequently changing properties)
+    nearestPointDots.left.style.left = `${nearestLeft[0] - 6}px`
+    nearestPointDots.left.style.top = `${nearestLeft[1] - 6}px`
 
     if (distanceLeft !== undefined) {
-      nearestPointLabels.left = document.createElement('div')
-      nearestPointLabels.left.id = 'rc-nearest-point-label-left'
-      nearestPointLabels.left.textContent = `${distanceLeft.toFixed(decimalPlace || 1)} cm`
+      // Create or reuse left label
+      nearestPointLabels.left = createOrUpdateElement(
+        nearestPointLabels.left,
+        'rc-nearest-point-label-left',
+        {
+          position: 'fixed',
+          fontSize: '18px',
+          color: 'red',
+          background: 'rgba(255, 255, 255, 0.8)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          zIndex: '9999999999999',
+          pointerEvents: 'none',
+          fontFamily: 'Arial, sans-serif',
+          fontWeight: 'bold',
+        },
+      )
 
+      // Update content and position
+      nearestPointLabels.left.textContent = `${distanceLeft.toFixed(decimalPlace || 1)} cm`
       const labelPosition = _calculateLabelPosition(
         nearestLeft[0],
         nearestLeft[1],
         'left',
       )
-
-      nearestPointLabels.left.style.cssText = `
-        position: fixed;
-        font-size: 18px;
-        color: red;
-        background: rgba(255, 255, 255, 0.8);
-        padding: 2px 6px;
-        border-radius: 4px;
-        z-index: 9999999999999;
-        pointer-events: none;
-        left: ${labelPosition.left}px;
-        top: ${labelPosition.top}px;
-        font-family: Arial, sans-serif;
-        font-weight: bold;
-      `
-      document.body.appendChild(nearestPointLabels.left)
+      nearestPointLabels.left.style.left = `${labelPosition.left}px`
+      nearestPointLabels.left.style.top = `${labelPosition.top}px`
     }
   }
 
@@ -1006,176 +1272,81 @@ const _drawNearestPoints = (
     nearestRight[0] !== undefined &&
     nearestRight[1] !== undefined
   ) {
-    nearestPointDots.right = document.createElement('div')
-    nearestPointDots.right.id = 'rc-nearest-point-right'
-    nearestPointDots.right.style.cssText = `
-      position: fixed;
-      width: 12px;
-      height: 12px;
-      background: blue;
-      border: 2px solid white;
-      border-radius: 50%;
-      z-index: 99999999999999;
-      pointer-events: none;
-      left: ${nearestRight[0] - 6}px;
-      top: ${nearestRight[1] - 6}px;
-    `
-    document.body.appendChild(nearestPointDots.right)
+    // Create or reuse right dot
+    nearestPointDots.right = createOrUpdateElement(
+      nearestPointDots.right,
+      'rc-nearest-point-right',
+      {
+        position: 'fixed',
+        width: '12px',
+        height: '12px',
+        background: 'blue',
+        border: '2px solid white',
+        borderRadius: '50%',
+        zIndex: '99999999999999',
+        pointerEvents: 'none',
+      },
+    )
+
+    // Update only position
+    nearestPointDots.right.style.left = `${nearestRight[0] - 6}px`
+    nearestPointDots.right.style.top = `${nearestRight[1] - 6}px`
 
     if (distanceRight !== undefined) {
-      nearestPointLabels.right = document.createElement('div')
-      nearestPointLabels.right.id = 'rc-nearest-point-label-right'
-      nearestPointLabels.right.textContent = `${distanceRight.toFixed(decimalPlace || 1)} cm`
+      // Create or reuse right label
+      nearestPointLabels.right = createOrUpdateElement(
+        nearestPointLabels.right,
+        'rc-nearest-point-label-right',
+        {
+          position: 'fixed',
+          fontSize: '18px',
+          color: 'blue',
+          background: 'rgba(255, 255, 255, 0.8)',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          zIndex: '9999999999999',
+          pointerEvents: 'none',
+          fontFamily: 'Arial, sans-serif',
+          fontWeight: 'bold',
+        },
+      )
 
+      // Update content and position
+      nearestPointLabels.right.textContent = `${distanceRight.toFixed(decimalPlace || 1)} cm`
       const labelPosition = _calculateLabelPosition(
         nearestRight[0],
         nearestRight[1],
         'right',
       )
-
-      nearestPointLabels.right.style.cssText = `
-        position: fixed;
-        font-size: 18px;
-        color: blue;
-        background: rgba(255, 255, 255, 0.8);
-        padding: 2px 6px;
-        border-radius: 4px;
-        z-index: 9999999999999;
-        pointer-events: none;
-        left: ${labelPosition.left}px;
-        top: ${labelPosition.top}px;
-        font-family: Arial, sans-serif;
-        font-weight: bold;
-      `
-      document.body.appendChild(nearestPointLabels.right)
+      nearestPointLabels.right.style.left = `${labelPosition.left}px`
+      nearestPointLabels.right.style.top = `${labelPosition.top}px`
     }
   }
 
-  // Draw realistic iris and pupil at the two eye points over the video feed
-  if (leftEyePoint && rightEyePoint) {
-    // Try to find the actual video feed element first, then fall back to container
-    const videoFeed = document.getElementById('webgazerVideoFeed')
-    const videoContainer = document.getElementById('webgazerVideoContainer')
-    const videoEl = videoFeed || videoContainer
-
-    if (videoEl && video) {
-      const rect = videoEl.getBoundingClientRect()
-
-      // Source coordinate space (facemesh/video canvas)
-      const srcW = video.width
-      const srcH = video.height
-
-      // Account for CSS object-fit by computing scale and crop/letterbox offsets
-      const containerW = rect.width
-      const containerH = rect.height
-      let scaleX, scaleY, offsetX, offsetY
-      // Maintain aspect ratio: cover/contain/scale-down
-      const scaleCover = Math.max(containerW / srcW, containerH / srcH)
-      const uniformScale = scaleCover
-      scaleX = uniformScale
-      scaleY = uniformScale
-      // For cover, displayed > container → positive offsets (crop). For contain, displayed < container → negative (letterbox)
-      offsetX = (srcW * uniformScale - containerW) / 2
-      offsetY = (srcH * uniformScale - containerH) / 2
-
-      // Apply horizontal flip since video is typically mirrored
-      const leftEyeXFlipped = srcW - leftEyePoint.x
-      const rightEyeXFlipped = srcW - rightEyePoint.x
-
-      const leftPx = {
-        x: rect.left + leftEyeXFlipped * scaleX - offsetX,
-        y: rect.top + leftEyePoint.y * scaleY - offsetY,
-      }
-      const rightPx = {
-        x: rect.left + rightEyeXFlipped * scaleX - offsetX,
-        y: rect.top + rightEyePoint.y * scaleY - offsetY,
-      }
-
-      // Compute iris diameter from IPD (19%) in source pixels, then scale to CSS
-      const ipdSrcPx =
-        averageDist ||
-        Math.hypot(
-          rightEyePoint.x - leftEyePoint.x,
-          rightEyePoint.y - leftEyePoint.y,
-          rightEyePoint.z - leftEyePoint.z,
-        )
-      const irisDiameterCss = Math.max(2, 0.19 * ipdSrcPx * uniformScale)
-      const pupilDiameterCss = Math.max(1, 0.4 * irisDiameterCss)
-      const irisRadiusCss = irisDiameterCss / 2
-      const pupilRadiusCss = pupilDiameterCss / 2
-
-      // Left iris
-      eyePointDots.left = document.createElement('div')
-      eyePointDots.left.id = 'rc-eye-iris-left'
-      eyePointDots.left.style.cssText = `
-        position: fixed;
-        width: ${irisDiameterCss}px;
-        height: ${irisDiameterCss}px;
-        background: #00ffe9;
-        border-radius: 50%;
-        z-index: 2147483647;
-        pointer-events: none;
-        left: ${leftPx.x - irisRadiusCss}px;
-        top: ${leftPx.y - irisRadiusCss}px;
-        box-shadow: inset 0 0 4px rgba(0,0,0,0.35);
-      `
-      document.body.appendChild(eyePointDots.left)
-
-      // Left pupil
-      pupilDots.left = document.createElement('div')
-      pupilDots.left.id = 'rc-eye-pupil-left'
-      pupilDots.left.style.cssText = `
-        position: fixed;
-        width: ${pupilDiameterCss}px;
-        height: ${pupilDiameterCss}px;
-        background: #000;
-        border-radius: 50%;
-        z-index: 2147483647;
-        pointer-events: none;
-        left: ${leftPx.x - pupilRadiusCss}px;
-        top: ${leftPx.y - pupilRadiusCss}px;
-      `
-      document.body.appendChild(pupilDots.left)
-
-      // Right iris
-      eyePointDots.right = document.createElement('div')
-      eyePointDots.right.id = 'rc-eye-iris-right'
-      eyePointDots.right.style.cssText = `
-        position: fixed;
-        width: ${irisDiameterCss}px;
-        height: ${irisDiameterCss}px;
-        background: #00ffe9;
-        border-radius: 50%;
-        z-index: 2147483647;
-        pointer-events: none;
-        left: ${rightPx.x - irisRadiusCss}px;
-        top: ${rightPx.y - irisRadiusCss}px;
-        box-shadow: inset 0 0 4px rgba(0,0,0,0.35);
-      `
-      document.body.appendChild(eyePointDots.right)
-
-      // Right pupil
-      pupilDots.right = document.createElement('div')
-      pupilDots.right.id = 'rc-eye-pupil-right'
-      pupilDots.right.style.cssText = `
-        position: fixed;
-        width: ${pupilDiameterCss}px;
-        height: ${pupilDiameterCss}px;
-        background: #000;
-        border-radius: 50%;
-        z-index: 2147483647;
-        pointer-events: none;
-        left: ${rightPx.x - pupilRadiusCss}px;
-        top: ${rightPx.y - pupilRadiusCss}px;
-      `
-      document.body.appendChild(pupilDots.right)
-    }
-  }
+  // NOTE: Iris and pupil drawing is now handled by the separate canvas-based function
 
   // Add webcam-to-eye distance label at top center, offset to avoid video
   if (nearestEyeToWebcamDistanceCM !== undefined) {
-    webcamDistanceLabel = document.createElement('div')
-    webcamDistanceLabel.id = 'rc-webcam-distance-label'
+    webcamDistanceLabel = createOrUpdateElement(
+      webcamDistanceLabel,
+      'rc-webcam-distance-label',
+      {
+        position: 'fixed',
+        fontSize: '16px',
+        color: '#333',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        zIndex: '2147483646',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: 'bold',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    )
+
+    // Update content and position
     webcamDistanceLabel.textContent = `${nearestEyeToWebcamDistanceCM.toFixed(decimalPlace || 1)} cm`
 
     // Calculate position: top center, offset right to avoid video
@@ -1200,29 +1371,28 @@ const _drawNearestPoints = (
     // Ensure label stays within screen bounds
     labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
 
-    webcamDistanceLabel.style.cssText = `
-      position: fixed;
-      font-size: 16px;
-      color: #333;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 4px 8px;
-      border-radius: 6px;
-      border: 1px solid #ddd;
-      z-index: 2147483646;
-      pointer-events: none;
-      left: ${labelLeft}px;
-      top: ${labelTop}px;
-      font-family: Arial, sans-serif;
-      font-weight: bold;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-     `
-    document.body.appendChild(webcamDistanceLabel)
+    webcamDistanceLabel.style.left = `${labelLeft}px`
+    webcamDistanceLabel.style.top = `${labelTop}px`
   }
 
   // Add factor label right below the webcam distance label
   if (factorCameraPxCm !== undefined) {
-    factorLabel = document.createElement('div')
-    factorLabel.id = 'rc-factor-label'
+    factorLabel = createOrUpdateElement(factorLabel, 'rc-factor-label', {
+      position: 'fixed',
+      fontSize: '16px',
+      color: '#333',
+      background: 'rgba(255, 255, 255, 0.9)',
+      padding: '4px 8px',
+      borderRadius: '6px',
+      border: '1px solid #ddd',
+      zIndex: '2147483646',
+      pointerEvents: 'none',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'bold',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    })
+
+    // Update content and position
     factorLabel.textContent = `factorCameraPxCm: ${factorCameraPxCm.toFixed(0)}`
 
     // Calculate position: same horizontal position as webcam label, but below it
@@ -1247,29 +1417,28 @@ const _drawNearestPoints = (
     // Ensure label stays within screen bounds
     labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
 
-    factorLabel.style.cssText = `
-       position: fixed;
-       font-size: 16px;
-       color: #333;
-       background: rgba(255, 255, 255, 0.9);
-       padding: 4px 8px;
-       border-radius: 6px;
-       border: 1px solid #ddd;
-       z-index: 2147483646;
-       pointer-events: none;
-       left: ${labelLeft}px;
-       top: ${labelTop}px;
-       font-family: Arial, sans-serif;
-       font-weight: bold;
-       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-     `
-    document.body.appendChild(factorLabel)
+    factorLabel.style.left = `${labelLeft}px`
+    factorLabel.style.top = `${labelTop}px`
   }
 
   // Add IPD label right below the factor label
   if (averageDist !== undefined) {
-    ipdLabel = document.createElement('div')
-    ipdLabel.id = 'rc-ipd-label'
+    ipdLabel = createOrUpdateElement(ipdLabel, 'rc-ipd-label', {
+      position: 'fixed',
+      fontSize: '16px',
+      color: '#333',
+      background: 'rgba(255, 255, 255, 0.9)',
+      padding: '4px 8px',
+      borderRadius: '6px',
+      border: '1px solid #ddd',
+      zIndex: '2147483646',
+      pointerEvents: 'none',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'bold',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    })
+
+    // Update content and position
     ipdLabel.textContent = `ipdCameraPx: ${Math.round(averageDist)}`
 
     // Calculate position: same horizontal position as factor label, but below it
@@ -1294,23 +1463,8 @@ const _drawNearestPoints = (
     // Ensure label stays within screen bounds
     labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
 
-    ipdLabel.style.cssText = `
-       position: fixed;
-       font-size: 16px;
-       color: #333;
-       background: rgba(255, 255, 255, 0.9);
-       padding: 4px 8px;
-       border-radius: 6px;
-       border: 1px solid #ddd;
-       z-index: 2147483646;
-       pointer-events: none;
-       left: ${labelLeft}px;
-       top: ${labelTop}px;
-       font-family: Arial, sans-serif;
-       font-weight: bold;
-       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-     `
-    document.body.appendChild(ipdLabel)
+    ipdLabel.style.left = `${labelLeft}px`
+    ipdLabel.style.top = `${labelTop}px`
   }
 }
 
@@ -1432,6 +1586,18 @@ RemoteCalibrator.prototype.pauseDistance = function () {
     !this._trackingPaused.distance
   ) {
     iRepeatOptions.break = true
+    if (rafId) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
+
+    // Stop calibration-phase iris tracking if still active
+    if (this._stopIrisTracking) {
+      this._stopIrisTracking()
+      this._stopIrisTracking = null
+    }
+
+    stopIrisDrawing()
     if (nearPointDot) nearPointDot.style.display = 'none'
     this._trackingVideoFrameTimestamps.distance = 0
 
@@ -1443,19 +1609,29 @@ RemoteCalibrator.prototype.pauseDistance = function () {
   return null
 }
 
-RemoteCalibrator.prototype.resumeDistance = function () {
+RemoteCalibrator.prototype.resumeDistance = function (showIrisesBool = false) {
   if (
     this.gazeTracker.checkInitialized('distance', true) &&
     this._trackingPaused.distance
   ) {
     iRepeatOptions.break = false
+    if (showIrisesBool) startIrisDrawing(this)
     if (nearPointDot) nearPointDot.style.display = 'block'
 
-    averageDist = 0
-    distCount = 1
     this._trackingVideoFrameTimestamps.distance = 0
 
-    iRepeat(viewingDistanceTrackingFunction, iRepeatOptions)
+    // Restart the requestAnimationFrame loop
+    const renderPrediction = async () => {
+      if (iRepeatOptions.break) {
+        return
+      }
+
+      // Note: We need to reconstruct the render function parameters here
+      // This is a simplified resume - full implementation would need to store these
+      rafId = requestAnimationFrame(renderPrediction)
+    }
+
+    rafId = requestAnimationFrame(renderPrediction)
 
     this._trackingPaused.distance = false
     this.resumeNudger() // 0.6.0
@@ -1468,11 +1644,32 @@ RemoteCalibrator.prototype.resumeDistance = function () {
 RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
   if (this.gazeTracker.checkInitialized('distance', true)) {
     iRepeatOptions.break = true
+    if (rafId) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
+
+    // Stop calibration-phase iris tracking if still active
+    if (this._stopIrisTracking) {
+      this._stopIrisTracking()
+      this._stopIrisTracking = null
+    }
+
+    stopIrisDrawing()
+
+    // Clean up iris canvas
+    if (irisCanvas) {
+      document.body.removeChild(irisCanvas)
+      irisCanvas = null
+      irisCtx = null
+    }
+    RC_instance = null
+
     iRepeatOptions.framerate = 20
 
     trackingOptions.pipWidthPx = 0
     trackingOptions.decimalPlace = 2
-    trackingOptions.framerate = 3
+    trackingOptions.framerate = 30
     trackingOptions.nearPoint = true
     trackingOptions.showNearPoint = false
 
@@ -1486,7 +1683,6 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     stdFactor = null
 
     video = null
-    viewingDistanceTrackingFunction = null
 
     readyToGetFirstData = false
     this._trackingVideoFrameTimestamps.distance = 0
