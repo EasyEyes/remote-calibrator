@@ -699,7 +699,7 @@ const startIrisDrawingWithMesh = async RC => {
 }
 
 // Factor out mesh data retrieval for reuse
-const getMeshData = async RC => {
+export const getMeshData = async RC => {
   const video = document.getElementById('webgazerVideoCanvas')
   if (!video) {
     console.log('Video canvas not ready for mesh data retrieval')
@@ -860,6 +860,142 @@ const _tracking = async (
   rafId = requestAnimationFrame(renderPrediction)
 }
 
+// Function to calculate nearest points for both eyes
+export const calculateNearestPoints = (
+  video,
+  leftEye,
+  rightEye,
+  currentIPDDistance,
+  webcamToEyeDistance,
+  pxPerCm,
+  ppi,
+  RC,
+) => {
+  const centerXYCameraPx = getCenterXYCameraPx(video)
+
+  // Mirror correction: Video is horizontally flipped, so flip X coordinates to match screen
+  //left eye: 468
+  //right eye: 473
+  const leftEyeX = video.width - leftEye.x // Flip X coordinate
+  const leftEyeY = leftEye.y // Y coordinate unchanged
+  const rightEyeX = video.width - rightEye.x // Flip X coordinate
+  const rightEyeY = rightEye.y // Y coordinate unchanged
+
+  const offsetXYCameraPx_left = [
+    leftEyeX - centerXYCameraPx[0],
+    leftEyeY - centerXYCameraPx[1],
+  ]
+  const offsetXYCameraPx_right = [
+    rightEyeX - centerXYCameraPx[0],
+    rightEyeY - centerXYCameraPx[1],
+  ]
+
+  const offsetXYCm_left = [
+    (offsetXYCameraPx_left[0] * RC._CONST.IPD_CM) / currentIPDDistance,
+    (offsetXYCameraPx_left[1] * RC._CONST.IPD_CM) / currentIPDDistance,
+  ]
+  const offsetXYCm_right = [
+    (offsetXYCameraPx_right[0] * RC._CONST.IPD_CM) / currentIPDDistance,
+    (offsetXYCameraPx_right[1] * RC._CONST.IPD_CM) / currentIPDDistance,
+  ]
+
+  const cameraXYPx = [window.innerWidth / 2, 0]
+
+  const nearestXYPx_left = [
+    cameraXYPx[0] + offsetXYCm_left[0] * pxPerCm,
+    cameraXYPx[1] + offsetXYCm_left[1] * pxPerCm,
+  ]
+  const nearestXYPx_right = [
+    cameraXYPx[0] + offsetXYCm_right[0] * pxPerCm,
+    cameraXYPx[1] + offsetXYCm_right[1] * pxPerCm,
+  ]
+
+  // Clamp coordinates to stay within viewport bounds
+  const clampedNearestLeft = [
+    Math.max(0, Math.min(nearestXYPx_left[0], window.innerWidth)),
+    Math.max(0, Math.min(nearestXYPx_left[1], window.innerHeight)),
+  ]
+  const clampedNearestRight = [
+    Math.max(0, Math.min(nearestXYPx_right[0], window.innerWidth)),
+    Math.max(0, Math.min(nearestXYPx_right[1], window.innerHeight)),
+  ]
+
+  //calculate nearest distance cm left and right from webcamToEyeDistance and OffsetXYCm_left and OffsetXYCm_right
+  const norm_offsetXYCm_left = Math.hypot(
+    offsetXYCm_left[0],
+    offsetXYCm_left[1],
+  )
+  const norm_offsetXYCm_right = Math.hypot(
+    offsetXYCm_right[0],
+    offsetXYCm_right[1],
+  )
+  const nearestDistanceCm_left = Math.sqrt(
+    webcamToEyeDistance ** 2 - norm_offsetXYCm_left ** 2,
+  )
+  const nearestDistanceCm_right = Math.sqrt(
+    webcamToEyeDistance ** 2 - norm_offsetXYCm_right ** 2,
+  )
+
+  const eyeToScreenCenterDistance_left = getEyeToDesiredDistance(
+    nearestXYPx_left,
+    nearestDistanceCm_left,
+    [window.innerWidth / 2, window.innerHeight / 2],
+    pxPerCm,
+  )
+  const eyeToScreenCenterDistance_right = getEyeToDesiredDistance(
+    nearestXYPx_right,
+    nearestDistanceCm_right,
+    [window.innerWidth / 2, window.innerHeight / 2],
+    pxPerCm,
+  )
+  //choose the nearest eye to screen center distance
+  const nearestEye =
+    eyeToScreenCenterDistance_left < eyeToScreenCenterDistance_right
+      ? 'left'
+      : 'right'
+  const nearestXYPx =
+    nearestEye === 'left' ? nearestXYPx_left : nearestXYPx_right
+  const nearestDistanceCm =
+    nearestEye === 'left' ? nearestDistanceCm_left : nearestDistanceCm_right
+  const distanceCm_left = getEyeToDesiredDistance(
+    nearestXYPx_left,
+    nearestDistanceCm_left,
+    [window.innerWidth / 2, window.innerHeight / 2],
+    pxPerCm,
+  )
+  const distanceCm_right = getEyeToDesiredDistance(
+    nearestXYPx_right,
+    nearestDistanceCm_right,
+    [window.innerWidth / 2, window.innerHeight / 2],
+    pxPerCm,
+  )
+
+  const nearestEyeToWebcamDistanceCM = getEyeToDesiredDistance(
+    nearestXYPx,
+    nearestDistanceCm,
+    cameraXYPx,
+    pxPerCm,
+  )
+
+  const distanceCm = nearestEye === 'left' ? distanceCm_left : distanceCm_right
+
+  return {
+    nearestXYPx_left,
+    nearestXYPx_right,
+    clampedNearestLeft,
+    clampedNearestRight,
+    nearestDistanceCm_left,
+    nearestDistanceCm_right,
+    nearestEyeToWebcamDistanceCM,
+    nearestEye,
+    nearestXYPx,
+    nearestDistanceCm,
+    distanceCm_left,
+    distanceCm_right,
+    distanceCm,
+  }
+}
+
 const renderDistanceResult = async (
   RC,
   trackingOptions,
@@ -927,120 +1063,39 @@ const renderDistanceResult = async (
       const webcamToEyeDistance = stdFactor / currentIPDDistance
       const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
 
-      const centerXYCameraPx = getCenterXYCameraPx(video)
+      // Calculate nearest points using the factored function
+      const nearestPointsData = calculateNearestPoints(
+        video,
+        leftEye,
+        rightEye,
+        currentIPDDistance,
+        webcamToEyeDistance,
+        pxPerCm,
+        ppi,
+        RC,
+      )
 
-      // Mirror correction: Video is horizontally flipped, so flip X coordinates to match screen
-      //left eye: 468
-      //right eye: 473
-      const leftEyeX = video.width - leftEye.x // Flip X coordinate
-      const leftEyeY = leftEye.y // Y coordinate unchanged
-      const rightEyeX = video.width - rightEye.x // Flip X coordinate
-      const rightEyeY = rightEye.y // Y coordinate unchanged
-
-      const offsetXYCameraPx_left = [
-        leftEyeX - centerXYCameraPx[0],
-        leftEyeY - centerXYCameraPx[1],
-      ]
-      const offsetXYCameraPx_right = [
-        rightEyeX - centerXYCameraPx[0],
-        rightEyeY - centerXYCameraPx[1],
-      ]
-
-      const offsetXYCm_left = [
-        (offsetXYCameraPx_left[0] * RC._CONST.IPD_CM) / currentIPDDistance,
-        (offsetXYCameraPx_left[1] * RC._CONST.IPD_CM) / currentIPDDistance,
-      ]
-      const offsetXYCm_right = [
-        (offsetXYCameraPx_right[0] * RC._CONST.IPD_CM) / currentIPDDistance,
-        (offsetXYCameraPx_right[1] * RC._CONST.IPD_CM) / currentIPDDistance,
-      ]
-
-      const cameraXYPx = [window.innerWidth / 2, 0]
-
-      const nearestXYPx_left = [
-        cameraXYPx[0] + offsetXYCm_left[0] * pxPerCm,
-        cameraXYPx[1] + offsetXYCm_left[1] * pxPerCm,
-      ]
-      const nearestXYPx_right = [
-        cameraXYPx[0] + offsetXYCm_right[0] * pxPerCm,
-        cameraXYPx[1] + offsetXYCm_right[1] * pxPerCm,
-      ]
-
-      // Clamp coordinates to stay within viewport bounds
-      const clampedNearestLeft = [
-        Math.max(0, Math.min(nearestXYPx_left[0], window.innerWidth)),
-        Math.max(0, Math.min(nearestXYPx_left[1], window.innerHeight)),
-      ]
-      const clampedNearestRight = [
-        Math.max(0, Math.min(nearestXYPx_right[0], window.innerWidth)),
-        Math.max(0, Math.min(nearestXYPx_right[1], window.innerHeight)),
-      ]
+      const {
+        nearestXYPx_left,
+        nearestXYPx_right,
+        clampedNearestLeft,
+        clampedNearestRight,
+        nearestDistanceCm_left,
+        nearestDistanceCm_right,
+        nearestEyeToWebcamDistanceCM,
+        nearestEye,
+        nearestXYPx,
+        nearestDistanceCm,
+        distanceCm_left,
+        distanceCm_right,
+        distanceCm,
+      } = nearestPointsData
 
       // Apply trigonometric adjustment to get screen-center-to-eye distance
       const screenCenterToEyeDistance = _adjustDistanceToScreenCenter(
         webcamToEyeDistance,
         ppi,
       )
-
-      //calculate nearest distance cm left and right from webcamToEyeDistance and OffsetXYCm_left and OffsetXYCm_right
-      const norm_offsetXYCm_left = Math.hypot(
-        offsetXYCm_left[0],
-        offsetXYCm_left[1],
-      )
-      const norm_offsetXYCm_right = Math.hypot(
-        offsetXYCm_right[0],
-        offsetXYCm_right[1],
-      )
-      const nearestDistanceCm_left = Math.sqrt(
-        webcamToEyeDistance ** 2 - norm_offsetXYCm_left ** 2,
-      )
-      const nearestDistanceCm_right = Math.sqrt(
-        webcamToEyeDistance ** 2 - norm_offsetXYCm_right ** 2,
-      )
-
-      const eyeToScreenCenterDistance_left = getEyeToDesiredDistance(
-        nearestXYPx_left,
-        nearestDistanceCm_left,
-        [window.innerWidth / 2, window.innerHeight / 2],
-        pxPerCm,
-      )
-      const eyeToScreenCenterDistance_right = getEyeToDesiredDistance(
-        nearestXYPx_right,
-        nearestDistanceCm_right,
-        [window.innerWidth / 2, window.innerHeight / 2],
-        pxPerCm,
-      )
-      //choose the nearest eye to screen center distance
-      const nearestEye =
-        eyeToScreenCenterDistance_left < eyeToScreenCenterDistance_right
-          ? 'left'
-          : 'right'
-      const nearestXYPx =
-        nearestEye === 'left' ? nearestXYPx_left : nearestXYPx_right
-      const nearestDistanceCm =
-        nearestEye === 'left' ? nearestDistanceCm_left : nearestDistanceCm_right
-      const distanceCm_left = getEyeToDesiredDistance(
-        nearestXYPx_left,
-        nearestDistanceCm_left,
-        [window.innerWidth / 2, window.innerHeight / 2],
-        pxPerCm,
-      )
-      const distanceCm_right = getEyeToDesiredDistance(
-        nearestXYPx_right,
-        nearestDistanceCm_right,
-        [window.innerWidth / 2, window.innerHeight / 2],
-        pxPerCm,
-      )
-
-      const nearestEyeToWebcamDistanceCM = getEyeToDesiredDistance(
-        nearestXYPx,
-        nearestDistanceCm,
-        cameraXYPx,
-        pxPerCm,
-      )
-
-      const distanceCm =
-        nearestEye === 'left' ? distanceCm_left : distanceCm_right
 
       RC.improvedDistanceTrackingData = {
         left: {

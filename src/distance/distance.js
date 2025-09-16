@@ -31,6 +31,7 @@ import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { setDefaultVideoPosition } from '../components/video'
 import { showTestPopup } from '../components/popup'
 import { ppiToPxPerCm } from '../components/converters'
+import { calculateNearestPoints, getMeshData } from './distanceTrack'
 
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
@@ -46,49 +47,65 @@ const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canv
 /* -------------------------------------------------------------------------- */
 
 // Helper function to save calibration attempts (both failed and successful)
-function saveCalibrationAttempt(RC, method, distance, calibrationFactor) {
+function saveCalibrationAttempt(
+  RC,
+  method,
+  distance,
+  calibrationFactor,
+  currentIPDDistance,
+  nearestEyeToWebcamDistanceCM,
+  nearestEye,
+  nearestXYPx,
+  nearestDistanceCm,
+  distanceCm_left,
+  distanceCm_right,
+  distanceCm,
+  nearestXYPx_left,
+  nearestXYPx_right,
+  nearestDistanceCm_right,
+  nearestDistanceCm_left,
+) {
   // Initialize the calibration attempts object if it doesn't exist
   if (!RC.calibrationAttempts) {
     RC.calibrationAttempts = {}
   }
 
-  // Initialize method-specific data if it doesn't exist
-  if (!RC.calibrationAttempts[method]) {
-    RC.calibrationAttempts[method] = {
-      distances: [],
-      calibrationFactors: [],
-    }
-  }
-
   // Trim values to 1 decimal place, handle NaN gracefully
-  const trimmedDistance = isNaN(distance)
+  const trimmedDistance = isNaN(distanceCm)
     ? NaN
-    : parseFloat(distance.toFixed(1))
+    : parseFloat(distanceCm.toFixed(1))
   const trimmedCalibrationFactor = isNaN(calibrationFactor)
     ? NaN
     : parseFloat(calibrationFactor.toFixed(1))
 
-  // Add the new distance and calibration factor
-  RC.calibrationAttempts[method].distances.push(trimmedDistance)
-  RC.calibrationAttempts[method].calibrationFactors.push(
-    trimmedCalibrationFactor,
-  )
+  // Find the next available calibration number
+  let calibrationNumber = 1
+  while (RC.calibrationAttempts[`calibration${calibrationNumber}`]) {
+    calibrationNumber++
+  }
 
-  // Create the final array format: [method, distance1, distance2..., calibfactor1, calibfactor2...]
-  const finalArray = [
-    method,
-    ...RC.calibrationAttempts[method].distances,
-    ...RC.calibrationAttempts[method].calibrationFactors,
-  ]
+  // Create the calibration object
+  const calibrationObject = {
+    method: method,
+    viewingDistanceCm: trimmedDistance,
+    calibrationFactorCmPx: trimmedCalibrationFactor,
+    ipdCameraPx: currentIPDDistance,
+    nearestEyeToWebcamDistanceCm: nearestEyeToWebcamDistanceCM,
+    nearestEye: nearestEye,
+    nearestXYPx: nearestXYPx,
+    nearestDistanceCm: nearestDistanceCm,
+    leftDistanceCm: distanceCm_left,
+    rightDistanceCm: distanceCm_right,
+    leftNearestXYPx: nearestXYPx_left,
+    rightNearestXYPx: nearestXYPx_right,
+    rightNearestDistanceCm: nearestDistanceCm_right,
+    leftNearestDistanceCm: nearestDistanceCm_left,
+  }
 
-  // Store in the desired format
-  RC.calibrationAttempts[method + 'Array'] = finalArray
+  // Store in the new JSON format
+  RC.calibrationAttempts[`calibration${calibrationNumber}`] = calibrationObject
 
-  console.log(`Saved ${method} calibration attempt:`, {
-    distance: trimmedDistance,
-    calibrationFactor: trimmedCalibrationFactor,
-  })
-  console.log(`Current ${method} array:`, finalArray)
+  console.log(`Saved calibration${calibrationNumber}:`, calibrationObject)
 }
 
 // Helper to get intraocular distance in pixels (not cm) - moved to global scope
@@ -408,8 +425,58 @@ export async function blindSpotTest(
         data.distance1FactorCmPx = distance1FactorCmPx
         data.distance2FactorCmPx = distance2FactorCmPx
 
-        // Save successful blindspot calibration attempt
-        saveCalibrationAttempt(RC, 'blindspot', data.value, calibrationFactor)
+        const mesh = await getMeshData(RC)
+        if (mesh) {
+          const { leftEye, rightEye, video, currentIPDDistance } = mesh
+          const webcamToEyeDistance = calibrationFactor / currentIPDDistance
+          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+          const nearestPointsData = calculateNearestPoints(
+            video,
+            leftEye,
+            rightEye,
+            currentIPDDistance,
+            webcamToEyeDistance,
+            cameraPxPerCm,
+            ppi,
+            RC,
+          )
+
+          const {
+            nearestXYPx_left,
+            nearestXYPx_right,
+            clampedNearestLeft,
+            clampedNearestRight,
+            nearestDistanceCm_left,
+            nearestDistanceCm_right,
+            nearestEyeToWebcamDistanceCM,
+            nearestEye,
+            nearestXYPx,
+            nearestDistanceCm,
+            distanceCm_left,
+            distanceCm_right,
+            distanceCm,
+          } = nearestPointsData
+
+          // Save successful blindspot calibration attempt
+          saveCalibrationAttempt(
+            RC,
+            'blindspot',
+            data.value,
+            calibrationFactor,
+            currentIPDDistance,
+            nearestEyeToWebcamDistanceCM,
+            nearestEye,
+            nearestXYPx,
+            nearestDistanceCm,
+            distanceCm_left,
+            distanceCm_right,
+            distanceCm,
+            nearestXYPx_left,
+            nearestXYPx_right,
+            nearestDistanceCm_right,
+            nearestDistanceCm_left,
+          )
+        }
 
         RC.newViewingDistanceData = data
 
@@ -470,12 +537,55 @@ export async function blindSpotTest(
           Math.sqrt(
             distanceMeasured ** 2 - _calculateDistanceFromCenterToTop(ppi) ** 2,
           )
-        saveCalibrationAttempt(
-          RC,
-          'blindspot',
-          distanceMeasured,
-          calibrationFactor,
-        )
+        const mesh = await getMeshData(RC)
+        if (mesh) {
+          const { leftEye, rightEye, video, currentIPDDistance } = mesh
+          const webcamToEyeDistance = calibrationFactor / currentIPDDistance
+          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+          const nearestPointsData = calculateNearestPoints(
+            video,
+            leftEye,
+            rightEye,
+            currentIPDDistance,
+            webcamToEyeDistance,
+            cameraPxPerCm,
+            ppi,
+            RC,
+          )
+          const {
+            nearestXYPx_left,
+            nearestXYPx_right,
+            clampedNearestLeft,
+            clampedNearestRight,
+            nearestDistanceCm_left,
+            nearestDistanceCm_right,
+            nearestEyeToWebcamDistanceCM,
+            nearestEye,
+            nearestXYPx,
+            nearestDistanceCm,
+            distanceCm_left,
+            distanceCm_right,
+            distanceCm,
+          } = nearestPointsData
+          saveCalibrationAttempt(
+            RC,
+            'blindspot',
+            distanceMeasured,
+            calibrationFactor,
+            currentIPDDistance,
+            nearestEyeToWebcamDistanceCM,
+            nearestEye,
+            nearestXYPx,
+            nearestDistanceCm,
+            distanceCm_left,
+            distanceCm_right,
+            distanceCm,
+            nearestXYPx_left,
+            nearestXYPx_right,
+            nearestDistanceCm_right,
+            nearestDistanceCm_left,
+          )
+        }
 
         // ! Reset
         tested = 0
@@ -2720,12 +2830,57 @@ export async function objectTest(RC, options, callback = undefined) {
                     page4Average * firstMeasurement) /
                   2
 
-                saveCalibrationAttempt(
-                  RC,
-                  'object',
-                  firstMeasurement,
-                  averageFactorCmPx,
-                )
+                const mesh = await getMeshData(RC)
+                if (mesh) {
+                  const { leftEye, rightEye, video, currentIPDDistance } = mesh
+                  const webcamToEyeDistance =
+                    averageFactorCmPx / currentIPDDistance
+                  const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+                  const nearestPointsData = calculateNearestPoints(
+                    video,
+                    leftEye,
+                    rightEye,
+                    currentIPDDistance,
+                    webcamToEyeDistance,
+                    cameraPxPerCm,
+                    ppi,
+                    RC,
+                  )
+
+                  const {
+                    nearestXYPx_left,
+                    nearestXYPx_right,
+                    clampedNearestLeft,
+                    clampedNearestRight,
+                    nearestDistanceCm_left,
+                    nearestDistanceCm_right,
+                    nearestEyeToWebcamDistanceCM,
+                    nearestEye,
+                    nearestXYPx,
+                    nearestDistanceCm,
+                    distanceCm_left,
+                    distanceCm_right,
+                    distanceCm,
+                  } = nearestPointsData
+                  saveCalibrationAttempt(
+                    RC,
+                    'object',
+                    firstMeasurement,
+                    averageFactorCmPx,
+                    currentIPDDistance,
+                    nearestEyeToWebcamDistanceCM,
+                    nearestEye,
+                    nearestXYPx,
+                    nearestDistanceCm,
+                    distanceCm_left,
+                    distanceCm_right,
+                    distanceCm,
+                    nearestXYPx_left,
+                    nearestXYPx_right,
+                    nearestDistanceCm_right,
+                    nearestDistanceCm_left,
+                  )
+                }
 
                 await objectTestFinishFunction()
               } else {
@@ -2772,12 +2927,56 @@ export async function objectTest(RC, options, callback = undefined) {
                     page4Average * firstMeasurement) /
                   2
 
-                saveCalibrationAttempt(
-                  RC,
-                  'object',
-                  firstMeasurement,
-                  averageFactorCmPx,
-                )
+                const mesh = await getMeshData(RC)
+                if (mesh) {
+                  const { leftEye, rightEye, video, currentIPDDistance } = mesh
+                  const webcamToEyeDistance =
+                    averageFactorCmPx / currentIPDDistance
+                  const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+                  const nearestPointsData = calculateNearestPoints(
+                    video,
+                    leftEye,
+                    rightEye,
+                    currentIPDDistance,
+                    webcamToEyeDistance,
+                    cameraPxPerCm,
+                    ppi,
+                    RC,
+                  )
+                  const {
+                    nearestXYPx_left,
+                    nearestXYPx_right,
+                    clampedNearestLeft,
+                    clampedNearestRight,
+                    nearestDistanceCm_left,
+                    nearestDistanceCm_right,
+                    nearestEyeToWebcamDistanceCM,
+                    nearestEye,
+                    nearestXYPx,
+                    nearestDistanceCm,
+                    distanceCm_left,
+                    distanceCm_right,
+                    distanceCm,
+                  } = nearestPointsData
+                  saveCalibrationAttempt(
+                    RC,
+                    'object',
+                    firstMeasurement,
+                    averageFactorCmPx,
+                    currentIPDDistance,
+                    nearestEyeToWebcamDistanceCM,
+                    nearestEye,
+                    nearestXYPx,
+                    nearestDistanceCm,
+                    distanceCm_left,
+                    distanceCm_right,
+                    distanceCm,
+                    nearestXYPx_left,
+                    nearestXYPx_right,
+                    nearestDistanceCm_right,
+                    nearestDistanceCm_left,
+                  )
+                }
 
                 // Clear both sample arrays to restart collection
                 faceMeshSamplesPage3.length = 0
@@ -2963,12 +3162,55 @@ export async function objectTest(RC, options, callback = undefined) {
           (page3Average * firstMeasurement + page4Average * firstMeasurement) /
           2
 
-        saveCalibrationAttempt(
-          RC,
-          'object',
-          firstMeasurement,
-          averageFactorCmPx,
-        )
+        const mesh = await getMeshData(RC)
+        if (mesh) {
+          const { leftEye, rightEye, video, currentIPDDistance } = mesh
+          const webcamToEyeDistance = averageFactorCmPx / currentIPDDistance
+          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+          const nearestPointsData = calculateNearestPoints(
+            video,
+            leftEye,
+            rightEye,
+            currentIPDDistance,
+            webcamToEyeDistance,
+            cameraPxPerCm,
+            ppi,
+            RC,
+          )
+          const {
+            nearestXYPx_left,
+            nearestXYPx_right,
+            clampedNearestLeft,
+            clampedNearestRight,
+            nearestDistanceCm_left,
+            nearestDistanceCm_right,
+            nearestEyeToWebcamDistanceCM,
+            nearestEye,
+            nearestXYPx,
+            nearestDistanceCm,
+            distanceCm_left,
+            distanceCm_right,
+            distanceCm,
+          } = nearestPointsData
+          saveCalibrationAttempt(
+            RC,
+            'object',
+            firstMeasurement,
+            averageFactorCmPx,
+            currentIPDDistance,
+            nearestEyeToWebcamDistanceCM,
+            nearestEye,
+            nearestXYPx,
+            nearestDistanceCm,
+            distanceCm_left,
+            distanceCm_right,
+            distanceCm,
+            nearestXYPx_left,
+            nearestXYPx_right,
+            nearestDistanceCm_right,
+            nearestDistanceCm_left,
+          )
+        }
 
         await objectTestFinishFunction()
       } else {
@@ -3011,12 +3253,55 @@ export async function objectTest(RC, options, callback = undefined) {
           (page3Average * firstMeasurement + page4Average * firstMeasurement) /
           2
 
-        saveCalibrationAttempt(
-          RC,
-          'object',
-          firstMeasurement,
-          averageFactorCmPx,
-        )
+        const mesh = await getMeshData(RC)
+        if (mesh) {
+          const { leftEye, rightEye, video, currentIPDDistance } = mesh
+          const webcamToEyeDistance = averageFactorCmPx / currentIPDDistance
+          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+          const nearestPointsData = calculateNearestPoints(
+            video,
+            leftEye,
+            rightEye,
+            currentIPDDistance,
+            webcamToEyeDistance,
+            cameraPxPerCm,
+            ppi,
+            RC,
+          )
+          const {
+            nearestXYPx_left,
+            nearestXYPx_right,
+            clampedNearestLeft,
+            clampedNearestRight,
+            nearestDistanceCm_left,
+            nearestDistanceCm_right,
+            nearestEyeToWebcamDistanceCM,
+            nearestEye,
+            nearestXYPx,
+            nearestDistanceCm,
+            distanceCm_left,
+            distanceCm_right,
+            distanceCm,
+          } = nearestPointsData
+          saveCalibrationAttempt(
+            RC,
+            'object',
+            firstMeasurement,
+            averageFactorCmPx,
+            currentIPDDistance,
+            nearestEyeToWebcamDistanceCM,
+            nearestEye,
+            nearestXYPx,
+            nearestDistanceCm,
+            distanceCm_left,
+            distanceCm_right,
+            distanceCm,
+            nearestXYPx_left,
+            nearestXYPx_right,
+            nearestDistanceCm_right,
+            nearestDistanceCm_left,
+          )
+        }
 
         faceMeshSamplesPage3.length = 0
         faceMeshSamplesPage4.length = 0
