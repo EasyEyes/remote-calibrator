@@ -22,7 +22,7 @@ try {
 }
 
 // Helper function to capture current video frame as base64 image
-const captureVideoFrame = (RC) => {
+const captureVideoFrame = RC => {
   try {
     const video = document.getElementById('webgazerVideoCanvas')
     if (!video) return null
@@ -47,9 +47,9 @@ const captureVideoFrame = (RC) => {
 }
 
 // Helper function to validate face mesh data (5 valid samples required)
-const validateFaceMeshSamples = async (RC) => {
+const validateFaceMeshSamples = async RC => {
   const samples = []
-  
+
   // Collect exactly 5 samples, using NaN for failed measurements
   for (let i = 0; i < 5; i++) {
     try {
@@ -64,22 +64,25 @@ const validateFaceMeshSamples = async (RC) => {
       samples.push(NaN)
       console.warn(`Face Mesh measurement ${i + 1} error:`, error)
     }
-    
+
     // Wait 100ms between samples
     await new Promise(res => setTimeout(res, 100))
   }
-  
+
   // Check if we have at least 3 valid samples
   const validSamples = samples.filter(sample => !isNaN(sample))
   const isValid = validSamples.length >= 3
-  
+
   console.log(`Face Mesh validation: ${validSamples.length}/5 valid samples`)
-  console.log('All samples:', samples.map(sample => isNaN(sample) ? 'NaN' : Math.round(sample)))
-  
+  console.log(
+    'All samples:',
+    samples.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))),
+  )
+
   return {
     isValid,
     samples,
-    validCount: validSamples.length
+    validCount: validSamples.length,
   }
 }
 
@@ -105,17 +108,17 @@ const showFaceBlockedPopup = async (RC, capturedImage) => {
     confirmButtonText: phrases.EE_ok[RC.language.value],
     allowEnterKey: true,
   })
-  
+
   // Show video container again when popup closes
   if (videoContainer) {
     videoContainer.style.display = originalVideoDisplay || ''
   }
-  
+
   return result
 }
 
 // Helper function to capture IPD from face mesh data
-const captureIPDFromFaceMesh = async (RC) => {
+const captureIPDFromFaceMesh = async RC => {
   try {
     const video = document.getElementById('webgazerVideoCanvas')
     if (!video) {
@@ -126,7 +129,7 @@ const captureIPDFromFaceMesh = async (RC) => {
     // Ensure model is loaded
     const model = await RC.gazeTracker.webgazer.getTracker().model
     const faces = await model.estimateFaces(video)
-    
+
     if (!faces.length) {
       console.warn('No faces detected for IPD measurement')
       return null
@@ -141,23 +144,23 @@ const captureIPDFromFaceMesh = async (RC) => {
 
     // Calculate eye positions using same logic as distanceTrack.js
     const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
-    
+
     // Left eye: average of keypoints 362 and 263
     const leftEyeX = (mesh[362].x + mesh[263].x) / 2
     const leftEyeY = (mesh[362].y + mesh[263].y) / 2
     const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
-    
+
     // Right eye: average of keypoints 133 and 33
     const rightEyeX = (mesh[133].x + mesh[33].x) / 2
     const rightEyeY = (mesh[133].y + mesh[33].y) / 2
     const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
-    
+
     const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
     const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
-    
+
     // Calculate IPD in pixels
     const ipdPixels = eyeDist(leftEye, rightEye)
-    
+
     // Convert to cm if we have screen PPI
     let ipdCm = null
     if (RC.screenPpi && RC.screenPpi.value) {
@@ -167,16 +170,20 @@ const captureIPDFromFaceMesh = async (RC) => {
       ipdCm = ipdPixels / cameraPxPerCm
     }
 
-    console.log('IPD captured:', { ipdPixels, ipdCm, timestamp: performance.now() })
-    
+    console.log('IPD captured:', {
+      ipdPixels,
+      ipdCm,
+      timestamp: performance.now(),
+    })
+
     return {
       ipdPixels: Math.round(ipdPixels), // Round to integer
       ipdCm: ipdCm ? Number(ipdCm.toFixed(2)) : null,
       timestamp: performance.now(),
       eyePositions: {
         left: leftEye,
-        right: rightEye
-      }
+        right: rightEye,
+      },
     }
   } catch (error) {
     console.error('Error capturing IPD from face mesh:', error)
@@ -193,6 +200,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   callbackStatic = () => {},
   calibrateTrackDistanceCheckSecs = 0,
   calibrateTrackDistanceCheckLengthCm = [],
+  calibrateTrackDistanceCenterYourEyesBool = true,
 ) {
   await this.getEquipment(
     async () => {
@@ -206,6 +214,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         callbackStatic,
         calibrateTrackDistanceCheckSecs,
         calibrateTrackDistanceCheckLengthCm,
+        calibrateTrackDistanceCenterYourEyesBool,
       )
     },
     false,
@@ -395,7 +404,7 @@ const createYellowTapeRectangle = RC => {
     // Recalculate right line position to maintain proportional distance
     const proportion = rightLinePx / (screenWidth || 1) // Avoid division by zero
     rightLinePx = Math.round(newScreenWidth * proportion)
-    
+
     // Ensure right line doesn't go beyond screen bounds
     const minX = leftLinePx + 10
     const maxX = newScreenWidth
@@ -414,8 +423,10 @@ const createYellowTapeRectangle = RC => {
     `
 
     // Update line positions
-    leftLine.style = newVerticalLineStyle + `left: ${leftLinePx}px; cursor: ew-resize;`
-    rightLine.style = newVerticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
+    leftLine.style =
+      newVerticalLineStyle + `left: ${leftLinePx}px; cursor: ew-resize;`
+    rightLine.style =
+      newVerticalLineStyle + `left: ${rightLinePx}px; cursor: ew-resize;`
 
     // Update rectangle background position and size
     rectangleBackground.style.left = `${leftLinePx}px`
@@ -951,6 +962,7 @@ const trackDistanceCheck = async (
   callbackStatic,
   calibrateTrackDistanceCheckSecs = 0,
   calibrateTrackDistanceCheckLengthCm = [], // list of lengths to check
+  calibrateTrackDistanceCenterYourEyesBool = true,
 ) => {
   const isTrack = measureName === 'trackDistance'
 
@@ -1060,7 +1072,8 @@ const trackDistanceCheck = async (
     await checkSize(RC, calibrateTrackDistanceCheckLengthCm)
     RC.resumeNudger()
     // Start video trimming for screen center distance measurement
-    startVideoTrimming()
+    // only trim video if calibrateTrackDistanceCenterYourEyesBool is true
+    if (calibrateTrackDistanceCenterYourEyesBool) startVideoTrimming()
 
     calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.map(cm =>
       RC.equipment?.value?.unit === 'inches'
@@ -1134,45 +1147,55 @@ const trackDistanceCheck = async (
         setTimeout(async () => {
           // Store the last captured face image
           let lastCapturedFaceImage = null
-          
+
           async function keyupListener(event) {
             if (event.key === ' ' && register) {
               // Play camera shutter sound
               if (cameraShutterSound) {
                 cameraShutterSound()
               }
-              
+
               // Capture the video frame immediately on space press
               lastCapturedFaceImage = captureVideoFrame(RC)
-              
+
               // Validate face mesh data with retry mechanism
               const faceValidation = await validateFaceMeshSamples(RC)
-              
+
               if (!faceValidation.isValid) {
-                console.log('=== FACE MESH VALIDATION FAILED - SHOWING RETRY POPUP ===')
-                
+                console.log(
+                  '=== FACE MESH VALIDATION FAILED - SHOWING RETRY POPUP ===',
+                )
+
                 // Show face blocked popup
                 await showFaceBlockedPopup(RC, lastCapturedFaceImage)
-                
+
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
-                
+
                 // Don't resolve - let user try again
                 console.log('=== RETRYING FACE MESH VALIDATION ===')
                 return
               }
-              
+
               // Face mesh validation passed - proceed with measurement
-              console.log('=== FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===')
+              console.log(
+                '=== FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===',
+              )
               register = false
               const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
-              
+
               // Use the validated face mesh samples for IPD data (average of valid samples)
-              const validSamples = faceValidation.samples.filter(sample => !isNaN(sample))
-              const averageIPD = validSamples.length > 0 
-                ? Math.round(validSamples.reduce((a, b) => a + b, 0) / validSamples.length)
-                : null
-              
+              const validSamples = faceValidation.samples.filter(
+                sample => !isNaN(sample),
+              )
+              const averageIPD =
+                validSamples.length > 0
+                  ? Math.round(
+                      validSamples.reduce((a, b) => a + b, 0) /
+                        validSamples.length,
+                    )
+                  : null
+
               RC.calibrateTrackDistanceMeasuredCm.push(Number(distanceFromRC))
               RC.calibrateTrackDistanceRequestedCm.push(
                 Number(
@@ -1181,7 +1204,7 @@ const trackDistanceCheck = async (
                     : cm.toFixed(1),
                 ),
               )
-              
+
               // Store the averaged IPD pixels from validation test
               RC.calibrateTrackDistanceIPDPixels.push(averageIPD)
               RC.calibrateTrackDistanceRequestedDistances.push(
@@ -1189,12 +1212,12 @@ const trackDistanceCheck = async (
                   RC.equipment?.value?.unit === 'inches'
                     ? (cm * 2.54).toFixed(1)
                     : cm.toFixed(1),
-                )
+                ),
               )
-              
+
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
-              
+
               document.removeEventListener('keydown', keyupListener)
               removeKeypadHandler()
               resolve()
@@ -1220,44 +1243,54 @@ const trackDistanceCheck = async (
                 if (cameraShutterSound) {
                   cameraShutterSound()
                 }
-                
+
                 // Capture the video frame immediately on space press
                 lastCapturedFaceImage = captureVideoFrame(RC)
-                
+
                 // Validate face mesh data with retry mechanism
                 const faceValidation = await validateFaceMeshSamples(RC)
-                
+
                 if (!faceValidation.isValid) {
-                  console.log('=== KEYPAD: FACE MESH VALIDATION FAILED - SHOWING RETRY POPUP ===')
-                  
+                  console.log(
+                    '=== KEYPAD: FACE MESH VALIDATION FAILED - SHOWING RETRY POPUP ===',
+                  )
+
                   // Show face blocked popup
                   await showFaceBlockedPopup(RC, lastCapturedFaceImage)
-                  
+
                   // Clean up the captured image for privacy
                   lastCapturedFaceImage = null
-                  
+
                   // Don't resolve - let user try again
                   console.log('=== KEYPAD: RETRYING FACE MESH VALIDATION ===')
                   return
                 }
-                
+
                 // Face mesh validation passed - proceed with measurement
-                console.log('=== KEYPAD: FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===')
+                console.log(
+                  '=== KEYPAD: FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===',
+                )
                 const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
-                
+
                 // Use the validated face mesh samples for IPD data (average of valid samples)
-                const validSamples = faceValidation.samples.filter(sample => !isNaN(sample))
-                const averageIPD = validSamples.length > 0 
-                  ? Math.round(validSamples.reduce((a, b) => a + b, 0) / validSamples.length)
-                  : null
-                
+                const validSamples = faceValidation.samples.filter(
+                  sample => !isNaN(sample),
+                )
+                const averageIPD =
+                  validSamples.length > 0
+                    ? Math.round(
+                        validSamples.reduce((a, b) => a + b, 0) /
+                          validSamples.length,
+                      )
+                    : null
+
                 RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
                 RC.calibrateTrackDistanceRequestedCm.push(
                   RC.equipment?.value?.unit === 'inches'
                     ? (cm * 2.54).toFixed(1)
                     : cm.toFixed(1),
                 )
-                
+
                 // Store the averaged IPD pixels from validation test
                 RC.calibrateTrackDistanceIPDPixels.push(averageIPD)
                 RC.calibrateTrackDistanceRequestedDistances.push(
@@ -1265,12 +1298,12 @@ const trackDistanceCheck = async (
                     RC.equipment?.value?.unit === 'inches'
                       ? (cm * 2.54).toFixed(1)
                       : cm.toFixed(1),
-                  )
+                  ),
                 )
-                
+
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
-                
+
                 removeKeypadHandler()
                 document.removeEventListener('keyup', keyupListener)
                 resolve()
@@ -1299,21 +1332,30 @@ const trackDistanceCheck = async (
 
     removeProgressBar(RC)
     removeViewingDistanceDiv()
-    
+
     // Hide video container after all measurements are complete
     const videoContainer = document.getElementById('webgazerVideoContainer')
     if (videoContainer) {
       videoContainer.style.display = 'none'
     }
-    
+
     // Log the captured IPD data for debugging
     console.log('=== IPD Data Captured During Distance Checking ===')
-    console.log('Total measurements:', RC.calibrateTrackDistanceIPDPixels.length)
+    console.log(
+      'Total measurements:',
+      RC.calibrateTrackDistanceIPDPixels.length,
+    )
     console.log('IPD Pixels Array:', RC.calibrateTrackDistanceIPDPixels)
-    console.log('Requested Distances Array (cm):', RC.calibrateTrackDistanceRequestedDistances)
-    console.log('Measured Distances Array (cm):', RC.calibrateTrackDistanceMeasuredCm)
-    console.log('=================================================')    
-    
+    console.log(
+      'Requested Distances Array (cm):',
+      RC.calibrateTrackDistanceRequestedDistances,
+    )
+    console.log(
+      'Measured Distances Array (cm):',
+      RC.calibrateTrackDistanceMeasuredCm,
+    )
+    console.log('=================================================')
+
     //join the arrays into a string
     //show thank you message
     await Swal.fire({

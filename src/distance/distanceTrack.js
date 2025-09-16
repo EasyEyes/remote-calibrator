@@ -304,11 +304,14 @@ RemoteCalibrator.prototype.trackDistance = async function (
     }
 
     // Show pre-calibration popup before starting any calibration methods
-    const preCalibrationResult = await showPreCalibrationPopup(this)
-    if (!preCalibrationResult) {
-      // User cancelled or didn't select anything, exit gracefully
-      console.log('Pre-calibration popup cancelled by user')
-      return
+    //only show if calibrateTrackDistanceIsCameraTopCenterBool is true
+    if (options.calibrateTrackDistanceIsCameraTopCenterBool) {
+      const preCalibrationResult = await showPreCalibrationPopup(this)
+      if (!preCalibrationResult) {
+        // User cancelled or didn't select anything, exit gracefully
+        console.log('Pre-calibration popup cancelled by user')
+        return
+      }
     }
 
     // Check if we should use object test data

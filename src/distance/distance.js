@@ -171,6 +171,17 @@ export async function blindSpotTest(
 ) {
   const control = options.control // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
 
+  // hide webgazerFaceFeedbackBox if calibrateTrackDistanceCenterYourEyesBool is false
+  const webgazerFaceFeedbackBox = document.getElementById(
+    'webgazerFaceFeedbackBox',
+  )
+  if (
+    !options.calibrateTrackDistanceCenterYourEyesBool &&
+    webgazerFaceFeedbackBox
+  ) {
+    webgazerFaceFeedbackBox.style.display = 'none'
+  }
+
   let ppi = RC._CONST.N.PPI_DONT_USE // Dangerous! Arbitrary value
   if (RC.screenPpi) ppi = RC.screenPpi.value
   else
@@ -424,6 +435,7 @@ export async function blindSpotTest(
             options.callbackStatic,
             options.calibrateTrackDistanceCheckSecs,
             options.calibrateTrackDistanceCheckLengthCm,
+            options.calibrateTrackDistanceCenterYourEyesBool,
           )
         else safeExecuteFunc(callback, data)
       } else {
@@ -2299,6 +2311,7 @@ export async function objectTest(RC, options, callback = undefined) {
               options.callbackStatic,
               options.calibrateTrackDistanceCheckSecs,
               options.calibrateTrackDistanceCheckLengthCm,
+              options.calibrateTrackDistanceCenterYourEyesBool,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -2323,6 +2336,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.callbackStatic,
           options.calibrateTrackDistanceCheckSecs,
           options.calibrateTrackDistanceCheckLengthCm,
+          options.calibrateTrackDistanceCenterYourEyesBool,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
@@ -3074,7 +3088,17 @@ export async function objectTest(RC, options, callback = undefined) {
   }
 
   // ===================== INITIALIZE PAGE 0 =====================
-  showPage(0)
+  //hide webgazerFaceFeedbackBox if calibrateTrackDistanceCenterYourEyesBool is false
+  const webgazerFaceFeedbackBox = document.getElementById(
+    'webgazerFaceFeedbackBox',
+  )
+  if (
+    !options.calibrateTrackDistanceCenterYourEyesBool &&
+    webgazerFaceFeedbackBox
+  )
+    webgazerFaceFeedbackBox.style.display = 'none'
+  if (options.calibrateTrackDistanceCenterYourEyesBool) showPage(0)
+  else showPage(2)
 }
 // ===================== DISTANCE DATA VALIDATION =====================
 // This function validates the distance measurement data before it's used for Face Mesh calibration
