@@ -46,6 +46,42 @@ const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canv
 
 /* -------------------------------------------------------------------------- */
 
+// Helper function to save multiple calibration measurements separately
+function saveCalibrationMeasurements(
+  RC,
+  method,
+  measurements, // Array of measurement objects
+  sharedData, // Data common to all measurements (like currentIPDDistance, etc.)
+) {
+  // Initialize the calibration attempts object if it doesn't exist
+  if (!RC.calibrationAttempts) {
+    RC.calibrationAttempts = {}
+  }
+
+  // Save each measurement separately
+  measurements.forEach((measurement, index) => {
+    const measurementType = measurement.type || (index === 0 ? 'part1' : 'part2');
+    saveCalibrationAttempt(
+      RC,
+      `${method}-${measurementType}`,
+      measurement.distance,
+      measurement.calibrationFactor,
+      sharedData.currentIPDDistance,
+      sharedData.nearestEyeToWebcamDistanceCM,
+      sharedData.nearestEye,
+      sharedData.nearestXYPx,
+      measurement.nearestDistanceCm,
+      measurement.distanceCm_left,
+      measurement.distanceCm_right,
+      measurement.distanceCm,
+      sharedData.nearestXYPx_left,
+      sharedData.nearestXYPx_right,
+      measurement.nearestDistanceCm_right,
+      measurement.nearestDistanceCm_left,
+    );
+  });
+}
+
 // Helper function to save calibration attempts (both failed and successful)
 function saveCalibrationAttempt(
   RC,
@@ -84,22 +120,63 @@ function saveCalibrationAttempt(
     calibrationNumber++
   }
 
+  // Helper function to safely round centimeter values (1 decimal place)
+  const safeRoundCm = (value) => {
+    if (value == null || isNaN(value)) return null;
+    return Math.round(value * 10) / 10;
+  };
+
+  // Helper function to safely round pixel values (integer)
+  const safeRoundPx = (value) => {
+    if (value == null || isNaN(value)) return null;
+    return Math.round(value);
+  };
+
+  // Helper function to safely round XY pixel coordinates
+  const safeRoundXYPx = (xyArray) => {
+    if (!xyArray || !Array.isArray(xyArray) || xyArray.length < 2) return null;
+    const x = safeRoundPx(xyArray[0]);
+    const y = safeRoundPx(xyArray[1]);
+    if (x === null || y === null) return null;
+    return [x, y];
+  };
+
+  // Calculate missing values
+  const ppi = RC.screenPpi.value
+  const pxPerCmValue = ppi / 2.54; // Convert PPI to pixels per cm
+  const cameraXYPxValue = [window.innerWidth / 2, 0]; // Top center of screen
+  const centerXYPxValue = [window.innerWidth / 2, window.innerHeight / 2]; // Screen center
+  const ipdCmValue = RC._CONST.IPD_CM; // Standard IPD in cm (6.3cm)
+  
+  // Calculate eye-to-center distances using trigonometry
+  // Use Pythagorean theorem: distance to center = sqrt(distance to nearest² + (nearest to center)²)
+  const halfScreenHeightCm = _calculateDistanceFromCenterToTop(ppi);
+  
+  // Calculate distances from nearest points to screen center for each eye
+  const leftEyeToCenterCmValue = nearestDistanceCm_left != null && !isNaN(nearestDistanceCm_left) 
+    ? Math.sqrt(nearestDistanceCm_left ** 2 + halfScreenHeightCm ** 2)
+    : null;
+    
+  const rightEyeToCenterCmValue = nearestDistanceCm_right != null && !isNaN(nearestDistanceCm_right)
+    ? Math.sqrt(nearestDistanceCm_right ** 2 + halfScreenHeightCm ** 2) 
+    : null;
+
   // Create the calibration object
   const calibrationObject = {
     method: method,
-    viewingDistanceCm: trimmedDistance,
-    calibrationFactorCmPx: trimmedCalibrationFactor,
-    ipdCameraPx: currentIPDDistance,
-    nearestEyeToWebcamDistanceCm: nearestEyeToWebcamDistanceCM,
-    nearestEye: nearestEye,
-    nearestXYPx: nearestXYPx,
-    nearestDistanceCm: nearestDistanceCm,
-    leftDistanceCm: distanceCm_left,
-    rightDistanceCm: distanceCm_right,
-    leftNearestXYPx: nearestXYPx_left,
-    rightNearestXYPx: nearestXYPx_right,
-    rightNearestDistanceCm: nearestDistanceCm_right,
-    leftNearestDistanceCm: nearestDistanceCm_left,
+    pxPerCm: safeRoundCm(pxPerCmValue), //measured in size phase of rc
+    cameraXYPx: safeRoundXYPx(cameraXYPxValue), //top center of the screen
+    eyesToCameraCm: safeRoundCm(nearestEyeToWebcamDistanceCM),
+    ipdCameraPx: safeRoundPx(currentIPDDistance),
+    factorCameraPxCm: safeRoundPx(trimmedCalibrationFactor),
+    ipdCm: safeRoundCm(ipdCmValue), //calculated from age 
+    leftEyeNearestXYPx: safeRoundXYPx(nearestXYPx_left),
+    rightEyeNearestXYPx: safeRoundXYPx(nearestXYPx_right),
+    rightEyeToNearestCm: safeRoundCm(nearestDistanceCm_right),
+    leftEyeToNearestCm: safeRoundCm(nearestDistanceCm_left),
+    centerXYPx: safeRoundXYPx(centerXYPxValue), // screen center
+    rightEyeToCenterCm: safeRoundCm(rightEyeToCenterCmValue), //calcualted by trignometry from above 
+    leftEyeToCenterCm: safeRoundCm(leftEyeToCenterCmValue), //calcualted by trignometry from above
   }
 
   // Store in the new JSON format
@@ -429,7 +506,7 @@ export async function blindSpotTest(
         if (mesh) {
           const { leftEye, rightEye, video, currentIPDDistance } = mesh
           const webcamToEyeDistance = calibrationFactor / currentIPDDistance
-          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM;
           const nearestPointsData = calculateNearestPoints(
             video,
             leftEye,
@@ -457,25 +534,45 @@ export async function blindSpotTest(
             distanceCm,
           } = nearestPointsData
 
-          // Save successful blindspot calibration attempt
-          saveCalibrationAttempt(
-            RC,
-            'blindspot',
-            data.value,
-            calibrationFactor,
+          // Save blindspot measurements separately (left and right)
+          const leftCalibrationFactor = distance1FactorCmPx;
+          const rightCalibrationFactor = distance2FactorCmPx;
+          
+          const measurements = [
+            {
+              type: 'left',
+              distance: leftMean,
+              calibrationFactor: leftCalibrationFactor,
+              nearestDistanceCm: nearestDistanceCm,
+              distanceCm_left: distanceCm_left,
+              distanceCm_right: distanceCm_right,
+              distanceCm: leftMean, // Use left measurement for this entry
+              nearestDistanceCm_right: nearestDistanceCm_right,
+              nearestDistanceCm_left: nearestDistanceCm_left,
+            },
+            {
+              type: 'right', 
+              distance: rightMean,
+              calibrationFactor: rightCalibrationFactor,
+              nearestDistanceCm: nearestDistanceCm,
+              distanceCm_left: distanceCm_left,
+              distanceCm_right: distanceCm_right,
+              distanceCm: rightMean, // Use right measurement for this entry
+              nearestDistanceCm_right: nearestDistanceCm_right,
+              nearestDistanceCm_left: nearestDistanceCm_left,
+            }
+          ];
+
+          const sharedData = {
             currentIPDDistance,
             nearestEyeToWebcamDistanceCM,
             nearestEye,
             nearestXYPx,
-            nearestDistanceCm,
-            distanceCm_left,
-            distanceCm_right,
-            distanceCm,
             nearestXYPx_left,
             nearestXYPx_right,
-            nearestDistanceCm_right,
-            nearestDistanceCm_left,
-          )
+          };
+
+          saveCalibrationMeasurements(RC, 'blindspot', measurements, sharedData);
         }
 
         RC.newViewingDistanceData = data
@@ -541,7 +638,7 @@ export async function blindSpotTest(
         if (mesh) {
           const { leftEye, rightEye, video, currentIPDDistance } = mesh
           const webcamToEyeDistance = calibrationFactor / currentIPDDistance
-          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM;
           const nearestPointsData = calculateNearestPoints(
             video,
             leftEye,
@@ -2378,6 +2475,12 @@ export async function objectTest(RC, options, callback = undefined) {
             method: 'both',
             calibrationFactor: medianCalibrationFactor, // Use median calibration factor
             averageFaceMesh: data.averageFaceMesh, // Keep object test Face Mesh data
+            faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+              isNaN(sample) ? sample : Math.round(sample),
+            ),
+            faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
+              isNaN(sample) ? sample : Math.round(sample),
+            ),
 
             raw: {
               object: data,
@@ -2825,23 +2928,24 @@ export async function objectTest(RC, options, callback = undefined) {
                   ? validPage4Samples.reduce((a, b) => a + b, 0) /
                     validPage4Samples.length
                   : 0
-                const averageFactorCmPx =
-                  (page3Average * firstMeasurement +
-                    page4Average * firstMeasurement) /
-                  2
+                // Calculate separate calibration factors for page3 and page4
+                const page3FactorCmPx = page3Average * firstMeasurement;
+                const page4FactorCmPx = page4Average * firstMeasurement;
+                const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2;
 
                 const mesh = await getMeshData(RC)
                 if (mesh) {
                   const { leftEye, rightEye, video, currentIPDDistance } = mesh
-                  const webcamToEyeDistance =
-                    averageFactorCmPx / currentIPDDistance
-                  const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+                  
+                  // Calculate nearest points data for both page measurements
+                  const webcamToEyeDistance_avg = averageFactorCmPx / currentIPDDistance;
+                  const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM;
                   const nearestPointsData = calculateNearestPoints(
                     video,
                     leftEye,
                     rightEye,
                     currentIPDDistance,
-                    webcamToEyeDistance,
+                    webcamToEyeDistance_avg,
                     cameraPxPerCm,
                     ppi,
                     RC,
@@ -2862,24 +2966,43 @@ export async function objectTest(RC, options, callback = undefined) {
                     distanceCm_right,
                     distanceCm,
                   } = nearestPointsData
-                  saveCalibrationAttempt(
-                    RC,
-                    'object',
-                    firstMeasurement,
-                    averageFactorCmPx,
+
+                  // Save object measurements separately (page3 and page4)
+                  const measurements = [
+                    {
+                      type: 'firstMeasurement',
+                      distance: firstMeasurement,
+                      calibrationFactor: page3FactorCmPx,
+                      nearestDistanceCm: nearestDistanceCm,
+                      distanceCm_left: distanceCm_left,
+                      distanceCm_right: distanceCm_right,
+                      distanceCm: distanceCm,
+                      nearestDistanceCm_right: nearestDistanceCm_right,
+                      nearestDistanceCm_left: nearestDistanceCm_left,
+                    },
+                    {
+                      type: 'secondMeasurement',
+                      distance: firstMeasurement,
+                      calibrationFactor: page4FactorCmPx,
+                      nearestDistanceCm: nearestDistanceCm,
+                      distanceCm_left: distanceCm_left,
+                      distanceCm_right: distanceCm_right,
+                      distanceCm: distanceCm,
+                      nearestDistanceCm_right: nearestDistanceCm_right,
+                      nearestDistanceCm_left: nearestDistanceCm_left,
+                    }
+                  ];
+
+                  const sharedData = {
                     currentIPDDistance,
                     nearestEyeToWebcamDistanceCM,
                     nearestEye,
                     nearestXYPx,
-                    nearestDistanceCm,
-                    distanceCm_left,
-                    distanceCm_right,
-                    distanceCm,
                     nearestXYPx_left,
                     nearestXYPx_right,
-                    nearestDistanceCm_right,
-                    nearestDistanceCm_left,
-                  )
+                  };
+
+                  saveCalibrationMeasurements(RC, 'object', measurements, sharedData);
                 }
 
                 await objectTestFinishFunction()
@@ -2922,23 +3045,24 @@ export async function objectTest(RC, options, callback = undefined) {
                   ? validPage4Samples.reduce((a, b) => a + b, 0) /
                     validPage4Samples.length
                   : 0
-                const averageFactorCmPx =
-                  (page3Average * firstMeasurement +
-                    page4Average * firstMeasurement) /
-                  2
+                // Calculate separate calibration factors for page3 and page4
+                const page3FactorCmPx = page3Average * firstMeasurement;
+                const page4FactorCmPx = page4Average * firstMeasurement;
+                const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2;
 
                 const mesh = await getMeshData(RC)
                 if (mesh) {
                   const { leftEye, rightEye, video, currentIPDDistance } = mesh
-                  const webcamToEyeDistance =
-                    averageFactorCmPx / currentIPDDistance
-                  const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+                  
+                  // Calculate nearest points data for both page measurements
+                  const webcamToEyeDistance_avg = averageFactorCmPx / currentIPDDistance;
+                  const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM;
                   const nearestPointsData = calculateNearestPoints(
                     video,
                     leftEye,
                     rightEye,
                     currentIPDDistance,
-                    webcamToEyeDistance,
+                    webcamToEyeDistance_avg,
                     cameraPxPerCm,
                     ppi,
                     RC,
@@ -2958,24 +3082,43 @@ export async function objectTest(RC, options, callback = undefined) {
                     distanceCm_right,
                     distanceCm,
                   } = nearestPointsData
-                  saveCalibrationAttempt(
-                    RC,
-                    'object',
-                    firstMeasurement,
-                    averageFactorCmPx,
+
+                  // Save object measurements separately (page3 and page4)
+                  const measurements = [
+                    {
+                      type: 'firstMeasurement',
+                      distance: firstMeasurement,
+                      calibrationFactor: page3FactorCmPx,
+                      nearestDistanceCm: nearestDistanceCm,
+                      distanceCm_left: distanceCm_left,
+                      distanceCm_right: distanceCm_right,
+                      distanceCm: distanceCm,
+                      nearestDistanceCm_right: nearestDistanceCm_right,
+                      nearestDistanceCm_left: nearestDistanceCm_left,
+                    },
+                    {
+                      type: 'secondMeasurement',
+                      distance: firstMeasurement,
+                      calibrationFactor: page4FactorCmPx,
+                      nearestDistanceCm: nearestDistanceCm,
+                      distanceCm_left: distanceCm_left,
+                      distanceCm_right: distanceCm_right,
+                      distanceCm: distanceCm,
+                      nearestDistanceCm_right: nearestDistanceCm_right,
+                      nearestDistanceCm_left: nearestDistanceCm_left,
+                    }
+                  ];
+
+                  const sharedData = {
                     currentIPDDistance,
                     nearestEyeToWebcamDistanceCM,
                     nearestEye,
                     nearestXYPx,
-                    nearestDistanceCm,
-                    distanceCm_left,
-                    distanceCm_right,
-                    distanceCm,
                     nearestXYPx_left,
                     nearestXYPx_right,
-                    nearestDistanceCm_right,
-                    nearestDistanceCm_left,
-                  )
+                  };
+
+                  saveCalibrationMeasurements(RC, 'object', measurements, sharedData);
                 }
 
                 // Clear both sample arrays to restart collection
@@ -3158,21 +3301,23 @@ export async function objectTest(RC, options, callback = undefined) {
           ? validPage4Samples.reduce((a, b) => a + b, 0) /
             validPage4Samples.length
           : 0
-        const averageFactorCmPx =
-          (page3Average * firstMeasurement + page4Average * firstMeasurement) /
-          2
+        // Calculate separate calibration factors for page3 and page4
+        const page3FactorCmPx = page3Average * firstMeasurement;
+        const page4FactorCmPx = page4Average * firstMeasurement;
+        const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2;
 
         const mesh = await getMeshData(RC)
         if (mesh) {
           const { leftEye, rightEye, video, currentIPDDistance } = mesh
-          const webcamToEyeDistance = averageFactorCmPx / currentIPDDistance
-          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+          // Calculate nearest points data for both page measurements
+          const webcamToEyeDistance_avg = averageFactorCmPx / currentIPDDistance;
+          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM;
           const nearestPointsData = calculateNearestPoints(
             video,
             leftEye,
             rightEye,
             currentIPDDistance,
-            webcamToEyeDistance,
+            webcamToEyeDistance_avg,
             cameraPxPerCm,
             ppi,
             RC,
@@ -3192,24 +3337,42 @@ export async function objectTest(RC, options, callback = undefined) {
             distanceCm_right,
             distanceCm,
           } = nearestPointsData
-          saveCalibrationAttempt(
-            RC,
-            'object',
-            firstMeasurement,
-            averageFactorCmPx,
+          // Save object measurements separately (page3 and page4)
+          const measurements = [
+            {
+              type: 'firstMeasurement',
+              distance: firstMeasurement,
+              calibrationFactor: page3FactorCmPx,
+              nearestDistanceCm: nearestDistanceCm,
+              distanceCm_left: distanceCm_left,
+              distanceCm_right: distanceCm_right,
+              distanceCm: distanceCm,
+              nearestDistanceCm_right: nearestDistanceCm_right,
+              nearestDistanceCm_left: nearestDistanceCm_left,
+            },
+            {
+              type: 'secondMeasurement',
+              distance: firstMeasurement,
+              calibrationFactor: page4FactorCmPx,
+              nearestDistanceCm: nearestDistanceCm,
+              distanceCm_left: distanceCm_left,
+              distanceCm_right: distanceCm_right,
+              distanceCm: distanceCm,
+              nearestDistanceCm_right: nearestDistanceCm_right,
+              nearestDistanceCm_left: nearestDistanceCm_left,
+            }
+          ];
+
+          const sharedData = {
             currentIPDDistance,
             nearestEyeToWebcamDistanceCM,
             nearestEye,
             nearestXYPx,
-            nearestDistanceCm,
-            distanceCm_left,
-            distanceCm_right,
-            distanceCm,
             nearestXYPx_left,
             nearestXYPx_right,
-            nearestDistanceCm_right,
-            nearestDistanceCm_left,
-          )
+          };
+
+          saveCalibrationMeasurements(RC, 'object', measurements, sharedData);
         }
 
         await objectTestFinishFunction()
@@ -3249,21 +3412,23 @@ export async function objectTest(RC, options, callback = undefined) {
           ? validPage4Samples.reduce((a, b) => a + b, 0) /
             validPage4Samples.length
           : 0
-        const averageFactorCmPx =
-          (page3Average * firstMeasurement + page4Average * firstMeasurement) /
-          2
+        // Calculate separate calibration factors for page3 and page4
+        const page3FactorCmPx = page3Average * firstMeasurement;
+        const page4FactorCmPx = page4Average * firstMeasurement;
+        const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2;
 
         const mesh = await getMeshData(RC)
         if (mesh) {
           const { leftEye, rightEye, video, currentIPDDistance } = mesh
-          const webcamToEyeDistance = averageFactorCmPx / currentIPDDistance
-          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+          // Calculate nearest points data for both page measurements
+          const webcamToEyeDistance_avg = averageFactorCmPx / currentIPDDistance;
+          const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM;
           const nearestPointsData = calculateNearestPoints(
             video,
             leftEye,
             rightEye,
             currentIPDDistance,
-            webcamToEyeDistance,
+            webcamToEyeDistance_avg,
             cameraPxPerCm,
             ppi,
             RC,
@@ -3283,24 +3448,42 @@ export async function objectTest(RC, options, callback = undefined) {
             distanceCm_right,
             distanceCm,
           } = nearestPointsData
-          saveCalibrationAttempt(
-            RC,
-            'object',
-            firstMeasurement,
-            averageFactorCmPx,
+          // Save object measurements separately (page3 and page4)
+          const measurements = [
+            {
+              type: 'firstMeasurement',
+              distance: firstMeasurement,
+              calibrationFactor: page3FactorCmPx,
+              nearestDistanceCm: nearestDistanceCm,
+              distanceCm_left: distanceCm_left,
+              distanceCm_right: distanceCm_right,
+              distanceCm: distanceCm,
+              nearestDistanceCm_right: nearestDistanceCm_right,
+              nearestDistanceCm_left: nearestDistanceCm_left,
+            },
+            {
+              type: 'secondMeasurement',
+              distance: firstMeasurement,
+              calibrationFactor: page4FactorCmPx,
+              nearestDistanceCm: nearestDistanceCm,
+              distanceCm_left: distanceCm_left,
+              distanceCm_right: distanceCm_right,
+              distanceCm: distanceCm,
+              nearestDistanceCm_right: nearestDistanceCm_right,
+              nearestDistanceCm_left: nearestDistanceCm_left,
+            }
+          ];
+
+          const sharedData = {
             currentIPDDistance,
             nearestEyeToWebcamDistanceCM,
             nearestEye,
             nearestXYPx,
-            nearestDistanceCm,
-            distanceCm_left,
-            distanceCm_right,
-            distanceCm,
             nearestXYPx_left,
             nearestXYPx_right,
-            nearestDistanceCm_right,
-            nearestDistanceCm_left,
-          )
+          };
+
+          saveCalibrationMeasurements(RC, 'object', measurements, sharedData);
         }
 
         faceMeshSamplesPage3.length = 0
