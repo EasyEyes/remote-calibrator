@@ -170,10 +170,10 @@ function saveCalibrationAttempt(
     ipdCameraPx: safeRoundPx(currentIPDDistance),
     factorCameraPxCm: safeRoundPx(trimmedCalibrationFactor),
     ipdCm: safeRoundCm(ipdCmValue), //calculated from age 
-    leftEyeNearestXYPx: safeRoundXYPx(nearestXYPx_left),
-    rightEyeNearestXYPx: safeRoundXYPx(nearestXYPx_right),
-    rightEyeToNearestCm: safeRoundCm(nearestDistanceCm_right),
-    leftEyeToNearestCm: safeRoundCm(nearestDistanceCm_left),
+    leftEyeFootXYPx: safeRoundXYPx(nearestXYPx_left),
+    rightEyeFootXYPx: safeRoundXYPx(nearestXYPx_right),
+    rightEyeToFootCm: safeRoundCm(nearestDistanceCm_right),
+    leftEyeToFootCm: safeRoundCm(nearestDistanceCm_left),
     centerXYPx: safeRoundXYPx(centerXYPxValue), // screen center
     rightEyeToCenterCm: safeRoundCm(rightEyeToCenterCmValue), //calcualted by trignometry from above 
     leftEyeToCenterCm: safeRoundCm(leftEyeToCenterCmValue), //calcualted by trignometry from above
@@ -2017,6 +2017,9 @@ export async function objectTest(RC, options, callback = undefined) {
       // Show PROCEED button on page 0
       proceedButton.style.display = 'block'
 
+      // Hide explanation button on page 0 
+      explanationButton.style.display = 'none'
+
       // Hide don't use ruler text if it exists
       if (options.calibrateTrackDistanceCheckBool) {
         const dontUseRuler = document.querySelector(
@@ -2038,6 +2041,9 @@ export async function objectTest(RC, options, callback = undefined) {
       tape.container.style.display = 'none'
       leftLabel.container.style.display = 'none'
       rightLabel.container.style.display = 'none'
+
+      // Hide explanation button on page 1
+      explanationButton.style.display = 'block' //show explanation button on page 1
 
       // // Hide radio buttons on page 1
       // radioContainer.style.display = 'none'
@@ -2072,6 +2078,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Hide PROCEED button on page 2 - only allow space key
       proceedButton.style.display = 'none'
+
+      // Hide explanation button on page 2
+      explanationButton.style.display = 'block' //show explanation button on page 2
 
       // Create placeholder text for page 2 only if calibrateTrackDistanceCheckBool is true
       if (options.calibrateTrackDistanceCheckBool) {
@@ -2122,6 +2131,9 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide PROCEED button on page 3 - only allow space key
       proceedButton.style.display = 'none'
 
+      // Hide explanation button on page 3
+      explanationButton.style.display = 'block' //show explanation button on page 3
+
       // Update instructions
       instructions.innerText =
         phrases.RC_UseObjectToSetViewingDistancePage3[RC.L]
@@ -2144,6 +2156,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Hide PROCEED button on page 4 - only allow space key
       proceedButton.style.display = 'none'
+
+      // Hide explanation button on page 4
+      explanationButton.style.display = 'block' //show explanation button on page 4
 
       // Update instructions
       instructions.innerText =
