@@ -479,8 +479,10 @@ const createIrisCanvas = () => {
 
   // Handle window resize
   window.addEventListener('resize', () => {
-    irisCanvas.width = window.innerWidth
-    irisCanvas.height = window.innerHeight
+    if (irisCanvas) {
+      irisCanvas.width = window.innerWidth
+      irisCanvas.height = window.innerHeight
+    }
   })
 
   return irisCanvas
@@ -1113,6 +1115,7 @@ const renderDistanceResult = async (
         nearestXYPx: nearestXYPx,
         nearestDistanceCm: nearestDistanceCm,
         oldDistanceCm: screenCenterToEyeDistance,
+        ipdDistancePx: currentIPDDistance,
       }
 
       const data = {

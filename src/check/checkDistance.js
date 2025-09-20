@@ -11,6 +11,7 @@ import { phrases } from '../i18n/schema'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setDefaultVideoPosition } from '../components/video'
+import { getMeshData } from '../distance/distanceTrack'
 
 // Import sound feedback
 let cameraShutterSound
@@ -49,6 +50,8 @@ const captureVideoFrame = RC => {
 // Helper function to validate face mesh data (5 valid samples required)
 const validateFaceMeshSamples = async RC => {
   const samples = []
+  let nearestXYPx_left = null
+  let nearestXYPx_right = null
 
   // Collect exactly 5 samples, using NaN for failed measurements
   for (let i = 0; i < 5; i++) {
@@ -56,6 +59,22 @@ const validateFaceMeshSamples = async RC => {
       const ipdData = await captureIPDFromFaceMesh(RC)
       if (ipdData && ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
         samples.push(ipdData.ipdPixels)
+        if (
+          ipdData.nearestXYPx_left &&
+          ipdData.nearestXYPx_left.length > 0 &&
+          !isNaN(ipdData.nearestXYPx_left[0]) &&
+          !isNaN(ipdData.nearestXYPx_left[1])
+        ) {
+          nearestXYPx_left = ipdData.nearestXYPx_left
+        }
+        if (
+          ipdData.nearestXYPx_right &&
+          ipdData.nearestXYPx_right.length > 0 &&
+          !isNaN(ipdData.nearestXYPx_right[0]) &&
+          !isNaN(ipdData.nearestXYPx_right[1])
+        ) {
+          nearestXYPx_right = ipdData.nearestXYPx_right
+        }
       } else {
         samples.push(NaN)
         console.warn(`Face Mesh measurement ${i + 1} failed, storing NaN`)
@@ -83,6 +102,8 @@ const validateFaceMeshSamples = async RC => {
     isValid,
     samples,
     validCount: validSamples.length,
+    nearestXYPx_left,
+    nearestXYPx_right,
   }
 }
 
@@ -120,70 +141,38 @@ const showFaceBlockedPopup = async (RC, capturedImage) => {
 // Helper function to capture IPD from face mesh data
 const captureIPDFromFaceMesh = async RC => {
   try {
-    const video = document.getElementById('webgazerVideoCanvas')
-    if (!video) {
-      console.warn('No video canvas found for IPD measurement')
-      return null
-    }
-
-    // Ensure model is loaded
-    const model = await RC.gazeTracker.webgazer.getTracker().model
-    const faces = await model.estimateFaces(video)
-
-    if (!faces.length) {
-      console.warn('No faces detected for IPD measurement')
-      return null
-    }
-
-    // Get face mesh keypoints
-    const mesh = faces[0].keypoints || faces[0].scaledMesh
-    if (!mesh || !mesh[133] || !mesh[362] || !mesh[263] || !mesh[33]) {
-      console.warn('Required face mesh keypoints not available for IPD')
-      return null
-    }
-
-    // Calculate eye positions using same logic as distanceTrack.js
-    const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
-
-    // Left eye: average of keypoints 362 and 263
-    const leftEyeX = (mesh[362].x + mesh[263].x) / 2
-    const leftEyeY = (mesh[362].y + mesh[263].y) / 2
-    const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
-
-    // Right eye: average of keypoints 133 and 33
-    const rightEyeX = (mesh[133].x + mesh[33].x) / 2
-    const rightEyeY = (mesh[133].y + mesh[33].y) / 2
-    const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
-
-    const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
-    const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
-
-    // Calculate IPD in pixels
-    const ipdPixels = eyeDist(leftEye, rightEye)
+    const meshData = await getMeshData(RC)
+    const { leftEye, rightEye, currentIPDDistance } = meshData
 
     // Convert to cm if we have screen PPI
     let ipdCm = null
     if (RC.screenPpi && RC.screenPpi.value) {
-      const pxPerCm = RC.screenPpi.value / 2.54
       // Use the same conversion logic as in distance tracking
-      const cameraPxPerCm = ipdPixels / RC._CONST.IPD_CM
-      ipdCm = ipdPixels / cameraPxPerCm
+      const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+      ipdCm = currentIPDDistance / cameraPxPerCm
     }
 
-    console.log('IPD captured:', {
-      ipdPixels,
-      ipdCm,
-      timestamp: performance.now(),
-    })
+    let nearestXYPx_left = null
+    let nearestXYPx_right = null
+    if (
+      RC.improvedDistanceTrackingData &&
+      RC.improvedDistanceTrackingData.left &&
+      RC.improvedDistanceTrackingData.right
+    ) {
+      nearestXYPx_left = RC.improvedDistanceTrackingData.left.nearestXYPx
+      nearestXYPx_right = RC.improvedDistanceTrackingData.right.nearestXYPx
+    }
 
     return {
-      ipdPixels: Math.round(ipdPixels), // Round to integer
+      ipdPixels: Math.round(currentIPDDistance), // Round to integer
       ipdCm: ipdCm ? Number(ipdCm.toFixed(2)) : null,
       timestamp: performance.now(),
       eyePositions: {
         left: leftEye,
         right: rightEye,
       },
+      nearestXYPx_left,
+      nearestXYPx_right,
     }
   } catch (error) {
     console.error('Error capturing IPD from face mesh:', error)
@@ -1100,6 +1089,7 @@ const trackDistanceCheck = async (
     // Initialize IPD and requested distance arrays
     RC.calibrateTrackDistanceIPDPixels = []
     RC.calibrateTrackDistanceRequestedDistances = []
+    RC.calibrateTrackDistanceEyeFeetXYPx = []
     let skippedDistancesCount = 0
 
     for (let i = 0; i < calibrateTrackDistanceCheckCm.length; i++) {
@@ -1204,9 +1194,15 @@ const trackDistanceCheck = async (
                     : cm.toFixed(1),
                 ),
               )
+              const EyeFeetXYPxLeft = faceValidation.nearestXYPx_left
+              const EyeFeetXYPxRight = faceValidation.nearestXYPx_right
 
               // Store the averaged IPD pixels from validation test
               RC.calibrateTrackDistanceIPDPixels.push(averageIPD)
+              RC.calibrateTrackDistanceEyeFeetXYPx.push(
+                EyeFeetXYPxLeft,
+                EyeFeetXYPxRight,
+              )
               RC.calibrateTrackDistanceRequestedDistances.push(
                 Number(
                   RC.equipment?.value?.unit === 'inches'
@@ -1289,6 +1285,13 @@ const trackDistanceCheck = async (
                   RC.equipment?.value?.unit === 'inches'
                     ? (cm * 2.54).toFixed(1)
                     : cm.toFixed(1),
+                )
+
+                const EyeFeetXYPxLeft = faceValidation.nearestXYPx_left
+                const EyeFeetXYPxRight = faceValidation.nearestXYPx_right
+                RC.calibrateTrackDistanceEyeFeetXYPx.push(
+                  EyeFeetXYPxLeft,
+                  EyeFeetXYPxRight,
                 )
 
                 // Store the averaged IPD pixels from validation test
