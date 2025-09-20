@@ -435,7 +435,7 @@ const trackingOptions = {
   desiredDistanceMonitorAllowRecalibrate: true,
 }
 
-const stdDist = {
+export const stdDist = {
   current: null,
   method: null, // Track which method was used
 }
