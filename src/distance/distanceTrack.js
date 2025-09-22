@@ -455,6 +455,13 @@ let irisRafId = null
 let RC_instance = null // Store RC instance for independent data access
 let sharedFaceData = null // Shared face data between tracking and iris drawing
 
+// FPS throttling variables
+const targetFPS = 30
+const frameInterval = 1000 / targetFPS
+let lastFrameTime = 0
+let lastIrisFrameTime = 0
+let lastIrisTrackingTime = 0
+
 const createIrisCanvas = () => {
   if (irisCanvas) return irisCanvas
 
@@ -602,12 +609,16 @@ const startIrisDrawing = RC => {
   if (!irisCanvas) createIrisCanvas()
 
   // Start independent iris drawing loop that uses shared mesh data
-  const renderIris = () => {
+  const renderIris = currentTime => {
     if (iRepeatOptions.break) return
 
-    // Use the mesh data from the shared face data (updated by distance tracking)
-    if (sharedFaceData) {
-      drawIrisAndPupil()
+    // Throttle to 30fps
+    if (currentTime - lastIrisFrameTime >= frameInterval) {
+      // Use the mesh data from the shared face data (updated by distance tracking)
+      if (sharedFaceData) {
+        drawIrisAndPupil()
+      }
+      lastIrisFrameTime = currentTime
     }
 
     irisRafId = requestAnimationFrame(renderIris)
@@ -653,28 +664,32 @@ const startIrisDrawingWithMesh = async RC => {
   let irisTrackingActive = true
   let irisTrackingRafId = null
 
-  const trackIrisPosition = async () => {
+  const trackIrisPosition = async currentTime => {
     if (!irisTrackingActive || iRepeatOptions.break) {
       console.log('Iris tracking stopped')
       return
     }
 
-    // Get current mesh data
-    const meshData = await getMeshData(RC)
-    if (meshData) {
-      const { leftEye, rightEye, video, currentIPDDistance } = meshData
+    // Throttle to 30fps
+    if (currentTime - lastIrisTrackingTime >= frameInterval) {
+      // Get current mesh data
+      const meshData = await getMeshData(RC)
+      if (meshData) {
+        const { leftEye, rightEye, video, currentIPDDistance } = meshData
 
-      // Update shared face data for iris drawing
-      updateSharedFaceData(leftEye, rightEye, video, currentIPDDistance)
+        // Update shared face data for iris drawing
+        updateSharedFaceData(leftEye, rightEye, video, currentIPDDistance)
 
-      // Log occasionally for debugging (every ~60 frames at 60fps = 1 second)
-      if (Math.random() < 0.016) {
-        console.log('Iris tracking update:', {
-          leftEye: `(${leftEye.x.toFixed(1)}, ${leftEye.y.toFixed(1)})`,
-          rightEye: `(${rightEye.x.toFixed(1)}, ${rightEye.y.toFixed(1)})`,
-          ipd: currentIPDDistance.toFixed(1),
-        })
+        // Log occasionally for debugging (every ~30 frames at 30fps = 1 second)
+        if (Math.random() < 0.033) {
+          console.log('Iris tracking update:', {
+            leftEye: `(${leftEye.x.toFixed(1)}, ${leftEye.y.toFixed(1)})`,
+            rightEye: `(${rightEye.x.toFixed(1)}, ${rightEye.y.toFixed(1)})`,
+            ipd: currentIPDDistance.toFixed(1),
+          })
+        }
       }
+      lastIrisTrackingTime = currentTime
     }
 
     // Continue tracking
@@ -833,27 +848,29 @@ const _tracking = async (
   // Note: Iris drawing canvas is already created, main tracking will update the shared data
 
   // Main tracking loop using requestAnimationFrame like FaceMesh demo
-  const renderPrediction = async () => {
-    console.log('././renderPrediction')
+  const renderPrediction = async currentTime => {
     if (iRepeatOptions.break) {
       // Stop the animation loop if break is set
-      console.log('././irepeat break true')
       return
     }
 
-    await renderDistanceResult(
-      RC,
-      trackingOptions,
-      callbackTrack,
-      trackingConfig,
-      model,
-      ppi,
-      pxPerCm,
-      desiredDistanceCm,
-      desiredDistanceMonitor,
-      desiredDistanceMonitorCancelable,
-      desiredDistanceMonitorAllowRecalibrate,
-    )
+    // Throttle to 30fps
+    if (currentTime - lastFrameTime >= frameInterval) {
+      await renderDistanceResult(
+        RC,
+        trackingOptions,
+        callbackTrack,
+        trackingConfig,
+        model,
+        ppi,
+        pxPerCm,
+        desiredDistanceCm,
+        desiredDistanceMonitor,
+        desiredDistanceMonitorCancelable,
+        desiredDistanceMonitorAllowRecalibrate,
+      )
+      lastFrameTime = currentTime
+    }
 
     rafId = requestAnimationFrame(renderPrediction)
   }
@@ -1704,13 +1721,17 @@ RemoteCalibrator.prototype.resumeDistance = function (showIrisesBool = false) {
     this._trackingVideoFrameTimestamps.distance = 0
 
     // Restart the requestAnimationFrame loop
-    const renderPrediction = async () => {
+    const renderPrediction = async currentTime => {
       if (iRepeatOptions.break) {
         return
       }
 
-      // Note: We need to reconstruct the render function parameters here
-      // This is a simplified resume - full implementation would need to store these
+      // Throttle to 30fps
+      if (currentTime - lastFrameTime >= frameInterval) {
+        // Note: We need to reconstruct the render function parameters here
+        // This is a simplified resume - full implementation would need to store these
+        lastFrameTime = currentTime
+      }
       rafId = requestAnimationFrame(renderPrediction)
     }
 
