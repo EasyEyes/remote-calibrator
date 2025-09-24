@@ -189,26 +189,23 @@ function saveCalibrationAttempt(
 }
 
 // Helper to get intraocular distance in pixels (not cm) - moved to global scope
-async function measureIntraocularDistancePx(RC) {
+async function measureIntraocularDistancePx(
+  RC,
+  calibrateTrackDistancePupil = 'iris',
+) {
   let video = document.getElementById('webgazerVideoCanvas')
   if (!video) return null
   const model = await RC.gazeTracker.webgazer.getTracker().model
   const faces = await model.estimateFaces(video)
   if (!faces.length) return null
   const mesh = faces[0].keypoints
-  if (!mesh || !mesh[468] || !mesh[473]) return null
+  const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
+    mesh,
+    calibrateTrackDistancePupil,
+  )
+  if (!leftEye || !rightEye) return null
   const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
 
-  const leftEyeX = mesh[468].x
-  const leftEyeY = mesh[468].y
-  const leftEyeZ = mesh[468].z
-
-  const rightEyeX = mesh[473].x
-  const rightEyeY = mesh[473].y
-  const rightEyeZ = mesh[473].z
-
-  const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
-  const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
   console.log(
     'Eye distance measureIntraocularDistancePx',
     eyeDist(leftEye, rightEye),
@@ -405,7 +402,10 @@ export async function blindSpotTest(
     const collectFiveSamples = async targetArray => {
       for (let i = 0; i < 5; i++) {
         try {
-          const pxDist = await measureIntraocularDistancePx(RC)
+          const pxDist = await measureIntraocularDistancePx(
+            RC,
+            options.calibrateTrackDistancePupil,
+          )
           targetArray.push(pxDist && !isNaN(pxDist) ? pxDist : NaN)
         } catch (e) {
           targetArray.push(NaN)
@@ -506,7 +506,10 @@ export async function blindSpotTest(
         data.distance2FactorCmPx = distance2FactorCmPx
 
         try {
-          const mesh = await getMeshData(RC)
+          const mesh = await getMeshData(
+            RC,
+            options.calibrateTrackDistancePupil,
+          )
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
             const webcamToEyeDistance = calibrationFactor / currentIPDDistance
@@ -612,6 +615,7 @@ export async function blindSpotTest(
             options.calibrateTrackDistanceCheckSecs,
             options.calibrateTrackDistanceCheckLengthCm,
             options.calibrateTrackDistanceCenterYourEyesBool,
+            options.calibrateTrackDistancePupil,
           )
         else safeExecuteFunc(callback, data)
       } else {
@@ -647,7 +651,10 @@ export async function blindSpotTest(
             distanceMeasured ** 2 - _calculateDistanceFromCenterToTop(ppi) ** 2,
           )
         try {
-          const mesh = await getMeshData(RC)
+          const mesh = await getMeshData(
+            RC,
+            options.calibrateTrackDistancePupil,
+          )
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
             const webcamToEyeDistance = calibrationFactor / currentIPDDistance
@@ -1192,7 +1199,10 @@ export async function objectTest(RC, options, callback = undefined) {
     // Always collect exactly 5 samples, using NaN for failed measurements
     for (let i = 0; i < 5; i++) {
       try {
-        const pxDist = await measureIntraocularDistancePx(RC) // Get raw pixel distance
+        const pxDist = await measureIntraocularDistancePx(
+          RC,
+          options.calibrateTrackDistancePupil,
+        ) // Get raw pixel distance
         if (pxDist && !isNaN(pxDist)) {
           arr.push(pxDist)
         } else {
@@ -2257,7 +2267,11 @@ export async function objectTest(RC, options, callback = undefined) {
         console.log('Using saved measurement data:', savedMeasurementData)
 
         // Measure intraocular distance using Face Mesh
-        measureIntraocularDistanceCm(RC, ppi).then(intraocularDistanceCm => {
+        measureIntraocularDistanceCm(
+          RC,
+          ppi,
+          options.calibrateTrackDistancePupil,
+        ).then(intraocularDistanceCm => {
           if (intraocularDistanceCm) {
             console.log(
               'Measured intraocular distance (cm):',
@@ -2556,6 +2570,7 @@ export async function objectTest(RC, options, callback = undefined) {
               options.calibrateTrackDistanceCheckSecs,
               options.calibrateTrackDistanceCheckLengthCm,
               options.calibrateTrackDistanceCenterYourEyesBool,
+              options.calibrateTrackDistancePupil,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -2581,6 +2596,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateTrackDistanceCheckSecs,
           options.calibrateTrackDistanceCheckLengthCm,
           options.calibrateTrackDistanceCenterYourEyesBool,
+          options.calibrateTrackDistancePupil,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
@@ -2966,7 +2982,10 @@ export async function objectTest(RC, options, callback = undefined) {
                   (page3FactorCmPx + page4FactorCmPx) / 2
 
                 try {
-                  const mesh = await getMeshData(RC)
+                  const mesh = await getMeshData(
+                    RC,
+                    options.calibrateTrackDistancePupil,
+                  )
                   if (mesh) {
                     const { leftEye, rightEye, video, currentIPDDistance } =
                       mesh
@@ -3095,7 +3114,10 @@ export async function objectTest(RC, options, callback = undefined) {
                   (page3FactorCmPx + page4FactorCmPx) / 2
 
                 try {
-                  const mesh = await getMeshData(RC)
+                  const mesh = await getMeshData(
+                    RC,
+                    options.calibrateTrackDistancePupil,
+                  )
                   if (mesh) {
                     const { leftEye, rightEye, video, currentIPDDistance } =
                       mesh
@@ -3362,7 +3384,10 @@ export async function objectTest(RC, options, callback = undefined) {
         const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
 
         try {
-          const mesh = await getMeshData(RC)
+          const mesh = await getMeshData(
+            RC,
+            options.calibrateTrackDistancePupil,
+          )
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
             // Calculate nearest points data for both page measurements
@@ -3478,7 +3503,10 @@ export async function objectTest(RC, options, callback = undefined) {
         const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
 
         try {
-          const mesh = await getMeshData(RC)
+          const mesh = await getMeshData(
+            RC,
+            options.calibrateTrackDistancePupil,
+          )
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
             // Calculate nearest points data for both page measurements
@@ -3804,7 +3832,11 @@ RemoteCalibrator.prototype.trackDistanceObject = function (
 }
 
 // Utility to measure intraocular distance using Face Mesh
-async function measureIntraocularDistanceCm(RC, ppi) {
+async function measureIntraocularDistanceCm(
+  RC,
+  ppi,
+  calibrateTrackDistancePupil = 'iris',
+) {
   // Get the video element (use canvas only)
   let video = document.getElementById('webgazerVideoCanvas')
   if (!video) return null
@@ -3814,19 +3846,14 @@ async function measureIntraocularDistanceCm(RC, ppi) {
   if (!faces.length) return null
   // Use keypoints 133 (right eye outer) and 362 (left eye outer)
   const mesh = faces[0].keypoints || faces[0].scaledMesh
-  if (!mesh || !mesh[468] || !mesh[473]) return null
   // Use eyeDist from distanceTrack.js logic
   const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
-  const leftEyeX = mesh[468].x
-  const leftEyeY = mesh[468].y
-  const leftEyeZ = mesh[468].z
+  const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
+    mesh,
+    calibrateTrackDistancePupil,
+  )
+  if (!leftEye || !rightEye) return null
 
-  const rightEyeX = mesh[473].x
-  const rightEyeY = mesh[473].y
-  const rightEyeZ = mesh[473].z
-
-  const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
-  const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
   const pxDist = eyeDist(leftEye, rightEye)
   console.log('Eye distance measureIntraocularDistanceCm..', pxDist)
   // Convert to mm, then cm
@@ -4047,4 +4074,43 @@ function checkBlindspotTolerance(
     RMin,
     RMax,
   ]
+}
+
+export const getLeftAndRightEyePointsFromMeshData = (
+  mesh,
+  calibrateTrackDistancePupil = 'iris',
+) => {
+  if (calibrateTrackDistancePupil === 'iris') {
+    if (mesh[468] && mesh[473]) {
+      return {
+        leftEye: { x: mesh[468].x, y: mesh[468].y, z: mesh[468].z },
+        rightEye: { x: mesh[473].x, y: mesh[473].y, z: mesh[473].z },
+      }
+    }
+    return {
+      leftEye: null,
+      rightEye: null,
+    }
+  }
+
+  //return the average of the eye corners
+  // points 33 and 133 (right eye) and points 362 and 263 (left eye).
+  if (mesh[362] && mesh[263] && mesh[33] && mesh[133]) {
+    return {
+      leftEye: {
+        x: (mesh[362].x + mesh[263].x) / 2,
+        y: (mesh[362].y + mesh[263].y) / 2,
+        z: (mesh[362].z + mesh[263].z) / 2,
+      },
+      rightEye: {
+        x: (mesh[33].x + mesh[133].x) / 2,
+        y: (mesh[33].y + mesh[133].y) / 2,
+        z: (mesh[33].z + mesh[133].z) / 2,
+      },
+    }
+  }
+  return {
+    leftEye: null,
+    rightEye: null,
+  }
 }

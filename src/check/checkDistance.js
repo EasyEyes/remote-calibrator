@@ -16,6 +16,7 @@ import {
   getMeshData,
   stdDist,
 } from '../distance/distanceTrack'
+import { getLeftAndRightEyePointsFromMeshData } from '../distance/distance'
 
 // Import sound feedback
 let cameraShutterSound
@@ -52,7 +53,10 @@ const captureVideoFrame = RC => {
 }
 
 // Helper function to validate face mesh data (5 valid samples required)
-const validateFaceMeshSamples = async RC => {
+const validateFaceMeshSamples = async (
+  RC,
+  calibrateTrackDistancePupil = 'iris',
+) => {
   const samples = []
   let nearestXYPx_left = null
   let nearestXYPx_right = null
@@ -60,7 +64,10 @@ const validateFaceMeshSamples = async RC => {
   // Collect exactly 5 samples, using NaN for failed measurements
   for (let i = 0; i < 5; i++) {
     try {
-      const ipdData = await captureIPDFromFaceMesh(RC)
+      const ipdData = await captureIPDFromFaceMesh(
+        RC,
+        calibrateTrackDistancePupil,
+      )
       if (ipdData && ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
         samples.push(ipdData.ipdPixels)
         if (
@@ -143,7 +150,10 @@ const showFaceBlockedPopup = async (RC, capturedImage) => {
 }
 
 // Helper function to capture IPD from face mesh data
-const captureIPDFromFaceMesh = async RC => {
+const captureIPDFromFaceMesh = async (
+  RC,
+  calibrateTrackDistancePupil = 'iris',
+) => {
   try {
     const video = document.getElementById('webgazerVideoCanvas')
     if (!video) {
@@ -161,25 +171,12 @@ const captureIPDFromFaceMesh = async RC => {
 
     // Get face mesh keypoints
     const mesh = faces[0].keypoints || faces[0].scaledMesh
-    if (!mesh || !mesh[133] || !mesh[362] || !mesh[263] || !mesh[33]) {
-      console.warn('Required face mesh keypoints not available for IPD')
-      return null
-    }
     // Calculate eye positions using same logic as distanceTrack.js
     const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
-
-    // Left eye: average of keypoints 362 and 263
-    const leftEyeX = (mesh[362].x + mesh[263].x) / 2
-    const leftEyeY = (mesh[362].y + mesh[263].y) / 2
-    const leftEyeZ = (mesh[362].z + mesh[263].z) / 2
-
-    // Right eye: average of keypoints 133 and 33
-    const rightEyeX = (mesh[133].x + mesh[33].x) / 2
-    const rightEyeY = (mesh[133].y + mesh[33].y) / 2
-    const rightEyeZ = (mesh[133].z + mesh[33].z) / 2
-
-    const leftEye = { x: leftEyeX, y: leftEyeY, z: leftEyeZ }
-    const rightEye = { x: rightEyeX, y: rightEyeY, z: rightEyeZ }
+    const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
+      mesh,
+      calibrateTrackDistancePupil,
+    )
 
     // Calculate IPD in pixels
     const ipdPixels = eyeDist(leftEye, rightEye)
@@ -232,6 +229,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateTrackDistanceCheckSecs = 0,
   calibrateTrackDistanceCheckLengthCm = [],
   calibrateTrackDistanceCenterYourEyesBool = true,
+  calibrateTrackDistancePupil = 'iris',
 ) {
   await this.getEquipment(
     async () => {
@@ -246,6 +244,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateTrackDistanceCheckSecs,
         calibrateTrackDistanceCheckLengthCm,
         calibrateTrackDistanceCenterYourEyesBool,
+        calibrateTrackDistancePupil,
       )
     },
     false,
@@ -994,6 +993,7 @@ const trackDistanceCheck = async (
   calibrateTrackDistanceCheckSecs = 0,
   calibrateTrackDistanceCheckLengthCm = [], // list of lengths to check
   calibrateTrackDistanceCenterYourEyesBool = true,
+  calibrateTrackDistancePupil = 'iris',
 ) => {
   const isTrack = measureName === 'trackDistance'
 
@@ -1025,16 +1025,20 @@ const trackDistanceCheck = async (
           const faces = await model.estimateFaces(videoCanvas)
           if (faces.length > 0) {
             const mesh = faces[0].keypoints || faces[0].scaledMesh
-            if (mesh && mesh[468] && mesh[473]) {
+            const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
+              mesh,
+              calibrateTrackDistancePupil,
+            )
+            if (leftEye && rightEye) {
               // Calculate IPD using the same method as in distanceTrack.js
               //left eye: average of 362 and 263
               //right eye: average of 133 and 33
-              const leftEyeX = mesh[468].x
-              const leftEyeY = mesh[468].y
-              const leftEyeZ = mesh[468].z
-              const rightEyeX = mesh[473].x
-              const rightEyeY = mesh[473].y
-              const rightEyeZ = mesh[473].z
+              const leftEyeX = leftEye.x
+              const leftEyeY = leftEye.y
+              const leftEyeZ = leftEye.z
+              const rightEyeX = rightEye.x
+              const rightEyeY = rightEye.y
+              const rightEyeZ = rightEye.z
 
               IPDPx = Math.hypot(
                 rightEyeX - leftEyeX,
@@ -1191,7 +1195,10 @@ const trackDistanceCheck = async (
               lastCapturedFaceImage = captureVideoFrame(RC)
 
               // Validate face mesh data with retry mechanism
-              const faceValidation = await validateFaceMeshSamples(RC)
+              const faceValidation = await validateFaceMeshSamples(
+                RC,
+                calibrateTrackDistancePupil,
+              )
 
               if (!faceValidation.isValid) {
                 console.log(
@@ -1286,7 +1293,10 @@ const trackDistanceCheck = async (
                 lastCapturedFaceImage = captureVideoFrame(RC)
 
                 // Validate face mesh data with retry mechanism
-                const faceValidation = await validateFaceMeshSamples(RC)
+                const faceValidation = await validateFaceMeshSamples(
+                  RC,
+                  calibrateTrackDistancePupil,
+                )
 
                 if (!faceValidation.isValid) {
                   console.log(

@@ -1,6 +1,10 @@
 import RemoteCalibrator from '../core'
 
-import { blindSpotTest, objectTest } from './distance'
+import {
+  blindSpotTest,
+  getLeftAndRightEyePointsFromMeshData,
+  objectTest,
+} from './distance'
 import {
   toFixedNumber,
   constructInstructions,
@@ -297,6 +301,13 @@ RemoteCalibrator.prototype.trackDistance = async function (
     options.cameraSelectionDone = true
 
     console.log('showIrisesBool', options.showIrisesBool)
+    //calibrateTrackDistancePupil = iris, eyeCorners
+    if (options.calibrateTrackDistancePupil === 'eyeCorners') {
+      // set the gaze tracker to TFFacemesh_unrefined_landmarks
+      await this.gazeTracker.webgazer.setTracker(
+        'TFFacemesh_unrefined_landmarks',
+      )
+    }
     // Start iris drawing with mesh data before calibration tests
     if (options.showIrisesBool) {
       console.log('=== Starting iris drawing before calibration tests ===')
@@ -344,6 +355,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.showNearPoint = options.showNearPoint
   trackingOptions.showIrisesBool = options.showIrisesBool
   trackingOptions.showNearestPointsBool = options.showNearestPointsBool
+  trackingOptions.calibrateTrackDistancePupil =
+    options.calibrateTrackDistancePupil
 
   trackingOptions.desiredDistanceCm = options.desiredDistanceCm
   trackingOptions.desiredDistanceTolerance = options.desiredDistanceTolerance
@@ -673,7 +686,10 @@ const startIrisDrawingWithMesh = async RC => {
     // Throttle to 30fps
     if (currentTime - lastIrisTrackingTime >= frameInterval) {
       // Get current mesh data
-      const meshData = await getMeshData(RC)
+      const meshData = await getMeshData(
+        RC,
+        trackingOptions.calibrateTrackDistancePupil,
+      )
       if (meshData) {
         const { leftEye, rightEye, video, currentIPDDistance } = meshData
 
@@ -716,7 +732,7 @@ const startIrisDrawingWithMesh = async RC => {
 }
 
 // Factor out mesh data retrieval for reuse
-export const getMeshData = async RC => {
+export const getMeshData = async (RC, calibrateTrackDistancePupil = 'iris') => {
   const video = document.getElementById('webgazerVideoCanvas')
   if (!video) {
     console.log('Video canvas not ready for mesh data retrieval')
@@ -747,18 +763,21 @@ export const getMeshData = async RC => {
   console.log('Mesh source:', meshSource, 'length:', mesh && mesh.length)
 
   if (mesh && mesh.length) {
-    // Extract eye positions
-    const leftEye = { x: mesh[468].x, y: mesh[468].y, z: mesh[468].z }
-    const rightEye = { x: mesh[473].x, y: mesh[473].y, z: mesh[473].z }
-    const currentIPDDistance = eyeDist(leftEye, rightEye)
-
-    return {
+    const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
       mesh,
-      leftEye,
-      rightEye,
-      video,
-      currentIPDDistance,
-      meshSource,
+      calibrateTrackDistancePupil,
+    )
+    if (leftEye && rightEye) {
+      const currentIPDDistance = eyeDist(leftEye, rightEye)
+
+      return {
+        mesh,
+        leftEye,
+        rightEye,
+        video,
+        currentIPDDistance,
+        meshSource,
+      }
     }
   }
 
@@ -1040,7 +1059,10 @@ const renderDistanceResult = async (
   const videoTimestamp = performance.now()
 
   // Use the factored out mesh data retrieval
-  const meshData = await getMeshData(RC)
+  const meshData = await getMeshData(
+    RC,
+    trackingOptions.calibrateTrackDistancePupil,
+  )
 
   if (meshData) {
     const { mesh, leftEye, rightEye, currentIPDDistance } = meshData
@@ -1182,21 +1204,6 @@ const renderDistanceResult = async (
       }
 
       /* -------------------------------------------------------------------------- */
-
-      // Near point
-      let nPData
-      if (trackingOptions.nearPoint) {
-        nPData = _getNearPoint(
-          RC,
-          trackingOptions,
-          video,
-          mesh,
-          currentIPDDistance,
-          timestamp,
-          ppi,
-          latency,
-        )
-      }
 
       /* -------------------------------------------------------------------------- */
 
