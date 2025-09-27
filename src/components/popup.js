@@ -179,6 +179,155 @@ const getAvailableCameras = async () => {
 }
 
 /**
+ * Applies ideal resolution constraints to the specified camera device only
+ * @param {Object} RC - RemoteCalibrator instance
+ * @param {string} deviceId - Camera device ID to apply constraints to
+ * @returns {Promise<boolean>} - True if successful, false otherwise
+ */
+const applyIdealResolutionConstraints = async (RC, deviceId) => {
+  if (!RC.gazeTracker?.webgazer) {
+    return false
+  }
+
+  try {
+    console.log(`Applying ideal resolution constraints to device ${deviceId}...`)
+    
+    // Use webgazer constraints with explicit deviceId to prevent camera switching
+    const idealConstraints = {
+      video: {
+        deviceId: { exact: deviceId },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        aspectRatio: { ideal: 1.77778 }, // 16:9 ratio
+        frameRate: { ideal: 30 },
+        facingMode: "user"
+      }
+    }
+
+    // Apply constraints through webgazer
+    await RC.gazeTracker.webgazer.setCameraConstraints(idealConstraints)
+    
+    // Give time for constraints to take effect
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    
+    // Check what resolution we actually got
+    const videoParams = RC.gazeTracker.webgazer.videoParamsToReport
+    if (videoParams && videoParams.width && videoParams.height) {
+      console.log(`Resolution constraint result: ${videoParams.width}x${videoParams.height}`)
+      
+      // Consider it successful if we got at least 1280x720 or higher
+      return videoParams.width >= 1280 && videoParams.height >= 720
+    }
+    
+    return false
+  } catch (error) {
+    console.warn('Failed to apply ideal resolution constraints:', error)
+    return false
+  }
+}
+
+/**
+ * Checks camera resolution and shows popup if needed
+ * @param {Object} RC - RemoteCalibrator instance
+ * @param {Object} options - Options object with resolutionWarningThreshold
+ * @returns {Promise<boolean>} - True to continue, 'retry' to restart camera selection
+ */
+const checkResolutionAfterSelection = async (RC, options = {}) => {
+  // Give some time for camera to initialize after selection
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  
+  // Check current resolution
+  let videoParams = RC.gazeTracker?.webgazer?.videoParamsToReport
+  if (videoParams && videoParams.width && videoParams.height) {
+    let { width, height } = videoParams
+    console.log(`Selected camera resolution: ${width}x${height}`)
+    
+    // Get threshold from options (if undefined, don't show popup)
+    const threshold = options.resolutionWarningThreshold
+    
+    // If threshold is defined and resolution is low, try to improve it automatically first
+    if (threshold !== undefined && width < threshold && !RC.resolutionWarningShown) {
+      console.log(`Resolution ${width}x${height} is below threshold ${threshold}. Attempting automatic improvement...`)
+      
+      // Get current camera info for improvement attempt
+      const activeCamera = RC.gazeTracker?.webgazer?.params?.activeCamera
+      if (activeCamera?.id) {
+        const improved = await applyIdealResolutionConstraints(RC, activeCamera.id)
+        
+        if (improved) {
+          // Re-check resolution after improvement
+          videoParams = RC.gazeTracker?.webgazer?.videoParamsToReport
+          if (videoParams && videoParams.width && videoParams.height) {
+            width = videoParams.width
+            height = videoParams.height
+            console.log(`After automatic improvement: ${width}x${height}`)
+            
+            // If we now meet the threshold, no need to show popup
+            if (width >= threshold) {
+              console.log('Automatic improvement successful, no popup needed')
+              return true
+            }
+          }
+        }
+      }
+    }
+    
+    // Show popup if threshold is defined AND width < threshold AND we haven't shown it before
+    if (threshold !== undefined && width < threshold && !RC.resolutionWarningShown) {
+      console.log(`Low resolution detected: ${width}x${height}. Showing popup.`)
+      
+      // Mark that we've shown the warning
+      RC.resolutionWarningShown = true
+      
+        await Swal.fire({
+          ...swalInfoOptions(RC, { showIcon: false }),
+          title: phrases.RC_ImprovingCameraResolutionTitle[RC.L],
+          html: `
+            <div style="text-align: left; margin: 1rem 0; padding: 0;">
+              <p style="margin: 0; padding: 0; text-align: left;"> ${phrases.RC_ImprovingCameraResolution[RC.L].replace('𝟙𝟙𝟙', width).replace('𝟚𝟚𝟚', height)}</p>
+            </div>
+          `,
+          showCancelButton: false,
+          confirmButtonText: phrases.RC_OK[RC.L],
+          customClass: {
+            popup: 'my__swal2__container',
+            title: 'my__swal2__title',
+            htmlContainer: `my__swal2__html rc-lang-${RC.LD.toLowerCase()}`,
+            confirmButton: 'rc-button rc-go-button'
+          },
+          didOpen: () => {
+            // Force left alignment for title and content while keeping vertical margins
+            const titleElement = document.querySelector('.swal2-title')
+            const htmlContainer = document.querySelector('.swal2-html-container')
+            if (titleElement) {
+              titleElement.style.textAlign = 'left'
+              // Keep original vertical margins for title
+              titleElement.style.marginLeft = '0'
+              titleElement.style.marginRight = '0'
+              titleElement.style.padding = '0'
+            }
+            if (htmlContainer) {
+              htmlContainer.style.textAlign = 'left'
+              // Keep original vertical margins for content
+              htmlContainer.style.marginLeft = '0'
+              htmlContainer.style.marginRight = '0'
+              htmlContainer.style.padding = '0'
+            }
+          },
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        })
+
+      // After user clicks OK, restart the process
+      console.log('User clicked OK, restarting camera selection')
+      return 'retry'
+    }
+  }
+  
+  return true // Continue normally
+}
+
+/**
  * Gets the currently active camera from webgazer
  * @param {Object} RC - RemoteCalibrator instance
  * @returns {Object|null} - Current active camera or null
@@ -195,7 +344,7 @@ const getCurrentActiveCamera = RC => {
 }
 
 /**
- * Attempts to switch to a new camera with error handling
+ * Attempts to switch to a new camera with error handling and ideal resolution optimization
  * @param {Object} RC - RemoteCalibrator instance
  * @param {Object} selectedCamera - Camera to switch to
  * @returns {Promise<boolean>} - True if successful, false otherwise
@@ -206,17 +355,26 @@ const switchToCamera = async (RC, selectedCamera) => {
   }
 
   try {
+    console.log(`Switching to camera: ${selectedCamera.label} with ideal resolution optimization`)
+    
     // Update webgazer camera parameters
     RC.gazeTracker.webgazer.params.activeCamera.label = selectedCamera.label
     RC.gazeTracker.webgazer.params.activeCamera.id = selectedCamera.deviceId
 
     // Update camera constraints if webgazer is already running
     if (RC.gazeTracker.webgazer.params.videoIsOn) {
-      await RC.gazeTracker.webgazer.setCameraConstraints({
-        video: {
-          deviceId: { exact: selectedCamera.deviceId },
-        },
-      })
+      // Apply ideal resolution constraints to get 1920x1080 and prevent zooming/cropping
+      const constraintsApplied = await applyIdealResolutionConstraints(RC, selectedCamera.deviceId)
+      
+      if (!constraintsApplied) {
+        // Fallback to basic constraints if ideal constraints failed
+        console.log('Ideal constraints failed, applying basic constraints...')
+        await RC.gazeTracker.webgazer.setCameraConstraints({
+          video: {
+            deviceId: { exact: selectedCamera.deviceId },
+          },
+        })
+      }
     }
 
     return true
@@ -1279,9 +1437,16 @@ const showNoCameraPopup = async (RC, mainVideoContainer, originalMainVideoDispla
  * Shows a unified popup for all tests with camera selection
  * @param {Object} RC - RemoteCalibrator instance
  * @param {Function} onClose - Callback function when popup is closed
+ * @param {Object} options - Options object with configuration settings
  * @returns {Promise} - Promise that resolves when popup is closed with selected camera
  */
-export const showTestPopup = async (RC, onClose = null) => {
+export const showTestPopup = async (RC, onClose = null, options = {}) => {
+  // Initialize the flag only if it doesn't exist yet (first time)
+  if (RC.resolutionWarningShown === undefined) {
+    RC.resolutionWarningShown = false
+  }
+  // Don't reset it on retries - this prevents the loop
+  
   // Hide the main video preview immediately to prevent flash
   const mainVideoContainer = document.getElementById('webgazerVideoContainer')
   const originalMainVideoDisplay = mainVideoContainer?.style?.display || 'block'
@@ -1291,6 +1456,7 @@ export const showTestPopup = async (RC, onClose = null) => {
 
   // Check if there are cameras available
   const cameras = await getAvailableCameras()
+
 
   // Handle different camera scenarios
   if (cameras.length === 0) {
@@ -1310,12 +1476,21 @@ export const showTestPopup = async (RC, onClose = null) => {
       return { selectedCamera: null, experimentEnded: true }
     }
   } else if (cameras.length === 1) {
-    // Only one camera - skip popup and continue normally
+    // Only one camera - skip popup but check resolution
     // Make sure no title is shown since we're not showing the popup
     hideCameraTitleFromTopRight()
     
     if (mainVideoContainer) {
       mainVideoContainer.style.display = originalMainVideoDisplay
+    }
+
+    // Check resolution for the single auto-selected camera
+    const resolutionCheckResult = await checkResolutionAfterSelection(RC, options)
+    
+    if (resolutionCheckResult === 'retry') {
+      // User wants to restart - recursively call showTestPopup
+      console.log('User chose to retry after resolution check')
+      return await showTestPopup(RC, onClose, options)
     }
 
     // Call onClose callback if provided
@@ -1332,6 +1507,22 @@ export const showTestPopup = async (RC, onClose = null) => {
     phrases.RC_ChooseCamera[RC.L],
     onClose,
   )
+
+  // After camera selection, check resolution if a camera was selected
+  if (result.selectedCamera) {
+    const resolutionCheckResult = await checkResolutionAfterSelection(RC, options)
+    
+    if (resolutionCheckResult === 'retry') {
+      // User wants to restart - recursively call showTestPopup
+      console.log('User chose to retry after camera selection and resolution check')
+      // Final safety cleanup before retry
+      if (RC.cameraPollingInterval) {
+        clearInterval(RC.cameraPollingInterval)
+        RC.cameraPollingInterval = null
+      }
+      return await showTestPopup(RC, onClose, options)
+    }
+  }
 
   // Final safety cleanup - ensure camera polling is stopped
   if (RC.cameraPollingInterval) {

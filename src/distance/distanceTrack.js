@@ -200,6 +200,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       objecttestdebug: false, // New option to show debug feedback div in object test
       calibrateTrackDistanceAllowedRatio: 1.1,
       calibrateTrackDistanceAllowedRangeCm: [30, 70],
+      resolutionWarningThreshold: undefined,
     },
     trackDistanceOptions,
   )
@@ -290,7 +291,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
 
     // Show camera selection popup first (if multiple cameras available)
     console.log('=== Checking for camera selection ===')
-    const cameraResult = await showTestPopup(this)
+    const cameraResult = await showTestPopup(this, null, options)
 
     // Check if experiment was ended due to no cameras
     if (cameraResult?.experimentEnded) {

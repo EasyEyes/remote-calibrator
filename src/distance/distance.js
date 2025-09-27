@@ -294,7 +294,7 @@ export async function blindSpotTest(
   // ===================== SHOW POPUP BEFORE CALIBRATION STARTS =====================
   // Only show popup if not running as part of "both" methods and camera selection hasn't been done
   if (options.useObjectTestData !== 'both' && !options.cameraSelectionDone) {
-    await showTestPopup(RC)
+    await showTestPopup(RC, null, options)
   }
 
   // Add HTML
@@ -3645,7 +3645,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // ===================== SHOW POPUP BEFORE PAGE 0 =====================
   // Only show popup if camera selection hasn't been done already
   if (!options.cameraSelectionDone) {
-    await showTestPopup(RC)
+    await showTestPopup(RC, null, options)
   }
 
   // ===================== INITIALIZE PAGE 0 =====================
