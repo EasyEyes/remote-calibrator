@@ -198,10 +198,10 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
     const idealConstraints = {
       video: {
         deviceId: { exact: deviceId },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        width: { ideal: 1920, max: 1920 },
+        height: { ideal: 1080, max: 1080 },
         aspectRatio: { ideal: 1.77778 }, // 16:9 ratio
-        frameRate: { ideal: 30 },
+        frameRate: { ideal: 30, max: 30 },
         facingMode: 'user',
       },
     }
