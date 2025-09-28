@@ -290,7 +290,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
         constructInstructions(options.headline, null, true, ''),
       )
 
-      if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
+      if (this.gazeTracker.checkInitialized('gaze', false))
+        this.showGazer(false)
     }
 
     // Show camera selection popup first (if multiple cameras available)

@@ -350,7 +350,8 @@ const createYellowTapeRectangle = RC => {
 
   // Calculate 3/4 inch in pixels for line height
   const threeQuarterInchesInPx = Math.round(0.75 * ppi)
-  const lineThickness = 3
+  const lineThickness = 3 // Original thickness for horizontal lines
+  const verticalLineThickness = 6 // Thicker vertical lines only
 
   // Style for both vertical lines
   const verticalLineStyle = `
@@ -358,7 +359,7 @@ const createYellowTapeRectangle = RC => {
     top: ${screenCenterY}px; 
     transform: translateY(-50%); 
     height: ${threeQuarterInchesInPx}px; 
-    width: ${lineThickness}px; 
+    width: ${verticalLineThickness}px; 
     background: rgb(0, 0, 0); 
     border-radius: 2px; 
     z-index: 1;
@@ -446,7 +447,7 @@ const createYellowTapeRectangle = RC => {
       top: ${screenCenterY}px; 
       transform: translateY(-50%); 
       height: ${threeQuarterInchesInPx}px; 
-      width: ${lineThickness}px; 
+      width: ${verticalLineThickness}px; 
       background: rgb(0, 0, 0); 
       border-radius: 2px; 
       z-index: 1;
