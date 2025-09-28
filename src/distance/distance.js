@@ -1247,27 +1247,27 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // --- Calculate screen and layout measurements ---
   // Get the screen's pixels per millimeter (for accurate physical placement)
-  const ppi = RC.screenPpi ? RC.screenPpi.value : 96 / 25.4 // fallback: 96dpi/25.4mm
-  const pxPerMm = ppi / 25.4
+  let ppi = RC.screenPpi ? RC.screenPpi.value : 96 / 25.4 // fallback: 96dpi/25.4mm
+  let pxPerMm = ppi / 25.4
 
-  const screenWidth = window.innerWidth
-  const screenHeight = window.innerHeight
+  let screenWidth = window.innerWidth
+  let screenHeight = window.innerHeight
 
   // For diagonal tape aligned with screen diagonal
   // Calculate screen diagonal endpoints
-  const screenDiagonalStartX = 0 // Bottom-left corner (x)
-  const screenDiagonalStartY = screenHeight // Bottom-left corner (y)
-  const screenDiagonalEndX = screenWidth // Top-right corner (x)
-  const screenDiagonalEndY = 0 // Top-right corner (y)
+  let screenDiagonalStartX = 0 // Bottom-left corner (x)
+  let screenDiagonalStartY = screenHeight // Bottom-left corner (y)
+  let screenDiagonalEndX = screenWidth // Top-right corner (x)
+  let screenDiagonalEndY = 0 // Top-right corner (y)
 
   // Calculate the direction vector of the screen diagonal
-  const diagonalDx = screenDiagonalEndX - screenDiagonalStartX
-  const diagonalDy = screenDiagonalEndY - screenDiagonalStartY
-  const diagonalLength = Math.sqrt(
+  let diagonalDx = screenDiagonalEndX - screenDiagonalStartX
+  let diagonalDy = screenDiagonalEndY - screenDiagonalStartY
+  let diagonalLength = Math.sqrt(
     diagonalDx * diagonalDx + diagonalDy * diagonalDy,
   )
-  const diagonalUnitX = diagonalDx / diagonalLength
-  const diagonalUnitY = diagonalDy / diagonalLength
+  let diagonalUnitX = diagonalDx / diagonalLength
+  let diagonalUnitY = diagonalDy / diagonalLength
 
   // Initial ruler length (can be adjusted)
   let rulerLength = Math.min(screenWidth, screenHeight) * 0.6
@@ -1611,6 +1611,44 @@ export async function objectTest(RC, options, callback = undefined) {
   // Create the diagonal tape component
   const tape = createDiagonalTapeComponent()
   container.appendChild(tape.container)
+
+  // Function to update diagonal tape on window resize (same pattern as checkDistance.js)
+  function updateDiagonalTapeOnResize() {
+    // Store proportional positions
+    const currentStartProportion = diagonalLength > 0 ? 
+      Math.sqrt((startX - screenDiagonalStartX) ** 2 + (startY - screenDiagonalStartY) ** 2) / diagonalLength : 0
+    const currentEndProportion = diagonalLength > 0 ? 
+      Math.sqrt((endX - screenDiagonalStartX) ** 2 + (endY - screenDiagonalStartY) ** 2) / diagonalLength : 0
+
+    // Update screen dimensions
+    screenWidth = window.innerWidth
+    screenHeight = window.innerHeight
+
+    // Recalculate diagonal
+    screenDiagonalStartX = 0
+    screenDiagonalStartY = screenHeight
+    screenDiagonalEndX = screenWidth
+    screenDiagonalEndY = 0
+    diagonalDx = screenDiagonalEndX - screenDiagonalStartX
+    diagonalDy = screenDiagonalEndY - screenDiagonalStartY
+    diagonalLength = Math.sqrt(diagonalDx * diagonalDx + diagonalDy * diagonalDy)
+    diagonalUnitX = diagonalDx / diagonalLength
+    diagonalUnitY = diagonalDy / diagonalLength
+
+    // Maintain proportional positions
+    const newStartDistance = currentStartProportion * diagonalLength
+    const newEndDistance = currentEndProportion * diagonalLength
+    startX = screenDiagonalStartX + newStartDistance * diagonalUnitX
+    startY = screenDiagonalStartY + newStartDistance * diagonalUnitY
+    endX = screenDiagonalStartX + newEndDistance * diagonalUnitX
+    endY = screenDiagonalStartY + newEndDistance * diagonalUnitY
+
+    // Update tape
+    updateDiagonalLabels()
+  }
+
+  // Add window resize event listener (same as checkDistance.js)
+  window.addEventListener('resize', updateDiagonalTapeOnResize)
 
   // ===================== TRIANGULAR TEXT BOXES FOR TAPE ENDS =====================
 
@@ -2636,6 +2674,9 @@ export async function objectTest(RC, options, callback = undefined) {
       removeKeypadHandler()
     }
 
+    // Clean up resize event listener (same as checkDistance.js)
+    window.removeEventListener('resize', updateDiagonalTapeOnResize)
+
     // Clean up any remaining DOM elements
     if (container && container.parentNode) {
       container.parentNode.removeChild(container)
@@ -2656,6 +2697,9 @@ export async function objectTest(RC, options, callback = undefined) {
     //     input.removeEventListener('keyup', keydownListener)
     //   })
     // }
+
+    // Clean up resize event listener (same as checkDistance.js)
+    window.removeEventListener('resize', updateDiagonalTapeOnResize)
 
     // Restart: reset right line to initial position
     objectTest(RC, options, callback)
