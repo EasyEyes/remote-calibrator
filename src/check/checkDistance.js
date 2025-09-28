@@ -41,8 +41,12 @@ const captureVideoFrame = RC => {
     canvas.width = video.videoWidth || video.width
     canvas.height = video.videoHeight || video.height
 
-    // Draw the current video frame to canvas
+    // Mirror the image to match the video display (since video is mirrored by default)
+    ctx.save()
+    ctx.translate(canvas.width, 0)
+    ctx.scale(-1, 1)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    ctx.restore()
 
     // Convert to base64 data URL
     return canvas.toDataURL('image/jpeg', 0.8)

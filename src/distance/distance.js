@@ -227,8 +227,12 @@ function captureVideoFrame(RC) {
     canvas.width = video.videoWidth || video.width
     canvas.height = video.videoHeight || video.height
 
-    // Draw the current video frame to canvas
+    // Mirror the image to match the video display (since video is mirrored by default)
+    ctx.save()
+    ctx.translate(canvas.width, 0)
+    ctx.scale(-1, 1)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    ctx.restore()
 
     // Convert to base64 data URL
     return canvas.toDataURL('image/jpeg', 0.8)
@@ -1615,10 +1619,20 @@ export async function objectTest(RC, options, callback = undefined) {
   // Function to update diagonal tape on window resize (same pattern as checkDistance.js)
   function updateDiagonalTapeOnResize() {
     // Store proportional positions
-    const currentStartProportion = diagonalLength > 0 ? 
-      Math.sqrt((startX - screenDiagonalStartX) ** 2 + (startY - screenDiagonalStartY) ** 2) / diagonalLength : 0
-    const currentEndProportion = diagonalLength > 0 ? 
-      Math.sqrt((endX - screenDiagonalStartX) ** 2 + (endY - screenDiagonalStartY) ** 2) / diagonalLength : 0
+    const currentStartProportion =
+      diagonalLength > 0
+        ? Math.sqrt(
+            (startX - screenDiagonalStartX) ** 2 +
+              (startY - screenDiagonalStartY) ** 2,
+          ) / diagonalLength
+        : 0
+    const currentEndProportion =
+      diagonalLength > 0
+        ? Math.sqrt(
+            (endX - screenDiagonalStartX) ** 2 +
+              (endY - screenDiagonalStartY) ** 2,
+          ) / diagonalLength
+        : 0
 
     // Update screen dimensions
     screenWidth = window.innerWidth
@@ -1631,7 +1645,9 @@ export async function objectTest(RC, options, callback = undefined) {
     screenDiagonalEndY = 0
     diagonalDx = screenDiagonalEndX - screenDiagonalStartX
     diagonalDy = screenDiagonalEndY - screenDiagonalStartY
-    diagonalLength = Math.sqrt(diagonalDx * diagonalDx + diagonalDy * diagonalDy)
+    diagonalLength = Math.sqrt(
+      diagonalDx * diagonalDx + diagonalDy * diagonalDy,
+    )
     diagonalUnitX = diagonalDx / diagonalLength
     diagonalUnitY = diagonalDy / diagonalLength
 
