@@ -281,13 +281,17 @@ RemoteCalibrator.prototype.trackDistance = async function (
   // STEP 1 - Calibrate for live estimate
   const originalGazer = this.gazeTracker.webgazer.params.showGazeDot
   const _ = async () => {
-    this._addBackground()
+    // Only show blindspot instruction screen if we're using blindspot test only
+    // For object test only or 'both' mode, skip the instruction screen and go directly to the test
+    if (!options.useObjectTestData) {
+      this._addBackground()
 
-    this._replaceBackground(
-      constructInstructions(options.headline, null, true, ''),
-    )
+      this._replaceBackground(
+        constructInstructions(options.headline, null, true, ''),
+      )
 
-    if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
+      if (this.gazeTracker.checkInitialized('gaze', false)) this.showGazer(false)
+    }
 
     // Show camera selection popup first (if multiple cameras available)
     console.log('=== Checking for camera selection ===')

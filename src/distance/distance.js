@@ -2489,6 +2489,16 @@ export async function objectTest(RC, options, callback = undefined) {
         // Add background back for blindspot test
         RC._addBackground()
 
+        // Show blindspot instruction screen before starting blindspot test
+        RC._replaceBackground(
+          constructInstructions(
+            `📏 ${phrases.RC_distanceTrackingTitle[RC.L]}`,
+            null,
+            true,
+            '',
+          ),
+        )
+
         // Start blindspot test immediately
         blindSpotTest(RC, options, true, async blindspotData => {
           // Calculate median of calibration factors instead of distances
