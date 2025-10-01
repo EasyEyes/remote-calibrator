@@ -193,6 +193,9 @@ const captureIPDFromFaceMesh = async (
     }
     const webcamToEyeDistance = stdDist.current.calibrationFactor
     const cameraPxPerCm = ipdPixels / RC._CONST.IPD_CM
+    const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
+
+    const pxPerCm = ppi / 2.54
 
     const nearestPoints = calculateNearestPoints(
       video,
@@ -200,7 +203,7 @@ const captureIPDFromFaceMesh = async (
       rightEye,
       ipdPixels,
       webcamToEyeDistance,
-      cameraPxPerCm,
+      pxPerCm,
       RC.screenPpi.value,
       RC,
     )

@@ -1296,6 +1296,7 @@ let factorLabel = null
 let ipdLabel = null
 let eyePointDots = { left: null, right: null }
 let pupilDots = { left: null, right: null }
+let nearestPointCoordsLabels = { left: null, right: null }
 const _drawNearestPoints = (
   nearestLeft,
   nearestRight,
@@ -1377,6 +1378,29 @@ const _drawNearestPoints = (
       nearestPointLabels.left.style.left = `${labelPosition.left}px`
       nearestPointLabels.left.style.top = `${labelPosition.top}px`
     }
+
+    // Create or reuse left coordinates label (positioned right below the dot)
+    nearestPointCoordsLabels.left = createOrUpdateElement(
+      nearestPointCoordsLabels.left,
+      'rc-nearest-point-coords-left',
+      {
+        position: 'fixed',
+        fontSize: '12px',
+        color: '#111',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '1px 4px',
+        borderRadius: '3px',
+        zIndex: '9999999999999',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        transform: 'translate(-50%, 0)',
+      },
+    )
+
+    // Update content and position centered below the dot
+    nearestPointCoordsLabels.left.textContent = `${Math.round(nearestLeft[0])}, ${Math.round(nearestLeft[1])}`
+    nearestPointCoordsLabels.left.style.left = `${nearestLeft[0]}px`
+    nearestPointCoordsLabels.left.style.top = `${nearestLeft[1] + 15}px`
   }
 
   if (
@@ -1433,6 +1457,29 @@ const _drawNearestPoints = (
       nearestPointLabels.right.style.left = `${labelPosition.left}px`
       nearestPointLabels.right.style.top = `${labelPosition.top}px`
     }
+
+    // Create or reuse right coordinates label (positioned right below the dot)
+    nearestPointCoordsLabels.right = createOrUpdateElement(
+      nearestPointCoordsLabels.right,
+      'rc-nearest-point-coords-right',
+      {
+        position: 'fixed',
+        fontSize: '12px',
+        color: '#111',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '1px 4px',
+        borderRadius: '3px',
+        zIndex: '9999999999999',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        transform: 'translate(-50%, 0)',
+      },
+    )
+
+    // Update content and position centered below the dot
+    nearestPointCoordsLabels.right.textContent = `${Math.round(nearestRight[0])}, ${Math.round(nearestRight[1])}`
+    nearestPointCoordsLabels.right.style.left = `${nearestRight[0]}px`
+    nearestPointCoordsLabels.right.style.top = `${nearestRight[1] + 15}px`
   }
 
   // NOTE: Iris and pupil drawing is now handled by the separate canvas-based function
@@ -1609,6 +1656,14 @@ const cleanUpEyePoints = () => {
   if (ipdLabel) {
     document.body.removeChild(ipdLabel)
     ipdLabel = null
+  }
+  if (nearestPointCoordsLabels.left) {
+    document.body.removeChild(nearestPointCoordsLabels.left)
+    nearestPointCoordsLabels.left = null
+  }
+  if (nearestPointCoordsLabels.right) {
+    document.body.removeChild(nearestPointCoordsLabels.right)
+    nearestPointCoordsLabels.right = null
   }
   if (pupilDots.left) {
     document.body.removeChild(pupilDots.left)
@@ -1839,6 +1894,14 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     if (ipdLabel) {
       document.body.removeChild(ipdLabel)
       ipdLabel = null
+    }
+    if (nearestPointCoordsLabels.left) {
+      document.body.removeChild(nearestPointCoordsLabels.left)
+      nearestPointCoordsLabels.left = null
+    }
+    if (nearestPointCoordsLabels.right) {
+      document.body.removeChild(nearestPointCoordsLabels.right)
+      nearestPointCoordsLabels.right = null
     }
 
     if (eyePointDots && eyePointDots.left) {
