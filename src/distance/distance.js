@@ -182,6 +182,8 @@ function saveCalibrationAttempt(
     leftEyeToCenterCm: safeRoundCm(leftEyeToCenterCmValue), //calcualted by trignometry from above
   }
 
+  console.log('factorCameraPxCm', calibrationObject.factorCameraPxCm)
+
   // Store in the new JSON format
   RC.calibrationAttempts[`calibration${calibrationNumber}`] = calibrationObject
 
@@ -2468,8 +2470,8 @@ export async function objectTest(RC, options, callback = undefined) {
       : 0
 
     // Calculate separate calibration factors
-    const distance1FactorCmPx = Math.round(page3Average * data.value)
-    const distance2FactorCmPx = Math.round(page4Average * data.value)
+    const distance1FactorCmPx = RC.page3FactorCmPx
+    const distance2FactorCmPx = RC.page4FactorCmPx
 
     // Calculate average of the two factors
     const averageFactorCmPx = Math.round(
@@ -2484,7 +2486,7 @@ export async function objectTest(RC, options, callback = undefined) {
     console.log('Page 4 average Face Mesh:', page4Average, 'px')
     console.log('Page 3 calibration factor:', distance1FactorCmPx)
     console.log('Page 4 calibration factor:', distance2FactorCmPx)
-    console.log('Average calibration factor:', averageFactorCmPx)
+    //console.log('Average calibration factor:', averageFactorCmPx)
     console.log('======================================')
 
     // Store calibration factors in data object for later use
@@ -2519,7 +2521,6 @@ export async function objectTest(RC, options, callback = undefined) {
         <div>distance1FactorCmPx = ${distance1FactorCmPx}</div>
         <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
         <div>distance2FactorCmPx = ${distance2FactorCmPx}</div>
-        <div>AverageFactorCmPx = ${averageFactorCmPx}</div>
       `
       document.body.appendChild(feedbackDiv)
     }
@@ -2611,7 +2612,6 @@ export async function objectTest(RC, options, callback = undefined) {
                       <div>distance1FactorCmPx = ${distance1FactorCmPx}</div>
                       <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
                       <div>distance2FactorCmPx = ${distance2FactorCmPx}</div>
-                      <div>AverageFactorCmPx = ${averageFactorCmPx}</div>
                       <div>blindspotCalibrationFactor = ${blindspotCalibrationFactor.toFixed(1)}</div>
                       <div>AverageCombinedCalibrationFactor = ${medianCalibrationFactor.toFixed(1)}</div>
                   `
@@ -3047,9 +3047,12 @@ export async function objectTest(RC, options, callback = undefined) {
                   : 0
                 // Calculate separate calibration factors for page3 and page4
                 const page3FactorCmPx = page3Average * firstMeasurement
+                RC.page3FactorCmPx = page3FactorCmPx
                 const page4FactorCmPx = page4Average * firstMeasurement
+                RC.page4FactorCmPx = page4FactorCmPx
                 const averageFactorCmPx =
                   (page3FactorCmPx + page4FactorCmPx) / 2
+                RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
 
                 try {
                   const mesh = await getMeshData(
@@ -3179,9 +3182,11 @@ export async function objectTest(RC, options, callback = undefined) {
                   : 0
                 // Calculate separate calibration factors for page3 and page4
                 const page3FactorCmPx = page3Average * firstMeasurement
+                RC.page3FactorCmPx = page3FactorCmPx
                 const page4FactorCmPx = page4Average * firstMeasurement
-                const averageFactorCmPx =
-                  (page3FactorCmPx + page4FactorCmPx) / 2
+                RC.page4FactorCmPx = page4FactorCmPx
+                const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
+                //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
 
                 try {
                   const mesh = await getMeshData(
@@ -3449,9 +3454,10 @@ export async function objectTest(RC, options, callback = undefined) {
             validPage4Samples.length
           : 0
         // Calculate separate calibration factors for page3 and page4
-        const page3FactorCmPx = page3Average * firstMeasurement
+        const page3FactorCmPx = RC.page3FactorCmPx  
         const page4FactorCmPx = page4Average * firstMeasurement
         const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
+        //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
 
         try {
           const mesh = await getMeshData(
@@ -3568,10 +3574,10 @@ export async function objectTest(RC, options, callback = undefined) {
             validPage4Samples.length
           : 0
         // Calculate separate calibration factors for page3 and page4
-        const page3FactorCmPx = page3Average * firstMeasurement
-        const page4FactorCmPx = page4Average * firstMeasurement
+        const page3FactorCmPx = RC.page3FactorCmPx
+        const page4FactorCmPx = RC.page4FactorCmPx
         const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
-
+       //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
         try {
           const mesh = await getMeshData(
             RC,
