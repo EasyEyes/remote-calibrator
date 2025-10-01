@@ -157,6 +157,29 @@ export function isFullscreen() {
   )
 }
 
+// Exit fullscreen
+export async function exitFullscreen() {
+  if (!isFullscreen()) {
+    return true
+  }
+  
+  try {
+    if (document.exitFullscreen) {
+      await document.exitFullscreen()
+    } else if (document.webkitExitFullscreen) {
+      await document.webkitExitFullscreen()
+    } else if (document.mozCancelFullScreen) {
+      await document.mozCancelFullScreen()
+    } else if (document.msExitFullscreen) {
+      await document.msExitFullscreen()
+    }
+    return true
+  } catch (e) {
+    console.error('Error exiting fullscreen:', e)
+    return false
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 
 export function constructInstructions(

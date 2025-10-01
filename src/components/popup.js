@@ -2,6 +2,7 @@ import Swal from 'sweetalert2'
 import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from './swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
+import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
 
 /**
  * Shows the camera selection title in the top right of the webpage
@@ -210,7 +211,7 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
     await RC.gazeTracker.webgazer.setCameraConstraints(idealConstraints)
 
     // Give time for constraints to take effect
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    await new Promise(resolve => setTimeout(resolve, 800))
 
     // Check what resolution we actually got
     const videoParams = RC.gazeTracker.webgazer.videoParamsToReport
@@ -237,8 +238,8 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
  * @returns {Promise<boolean>} - True to continue
  */
 const checkResolutionAfterSelection = async (RC, options = {}) => {
-  // Give some time for camera to initialize after selection
-  await new Promise(resolve => setTimeout(resolve, 1000))
+  // Give minimal time for camera to initialize after selection
+  await new Promise(resolve => setTimeout(resolve, 300))
 
   // Check current resolution
   let videoParams = RC.gazeTracker?.webgazer?.videoParamsToReport
@@ -296,6 +297,15 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
       // Mark that we've shown the warning
       RC.resolutionWarningShown = true
 
+      // Store fullscreen state and exit fullscreen before showing popup
+      const wasInFullscreen = isFullscreen()
+      if (wasInFullscreen) {
+        console.log('Exiting fullscreen before showing resolution popup')
+        await exitFullscreen()
+        // Minimal wait for fullscreen to exit
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+
       await Swal.fire({
         ...swalInfoOptions(RC, { showIcon: false }),
         title: phrases.RC_ImprovingCameraResolutionTitle[RC.L],
@@ -335,12 +345,36 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
         allowEscapeKey: false,
       })
 
-      // After user clicks OK, attempt to get higher resolution again
-      console.log('User clicked OK, attempting to get higher resolution again')
+      // After user clicks OK, prioritize fullscreen re-entry and run resolution improvement in parallel
+      console.log('User clicked OK, processing...')
+      
+      // Start both operations in parallel for better performance
+      const operations = []
+      
+      // Priority 1: Re-enter fullscreen immediately if needed
+      if (wasInFullscreen) {
+        console.log('Re-entering fullscreen after resolution popup')
+        operations.push(
+          getFullscreen(RC.L, RC)
+            .then(() => console.log('Successfully re-entered fullscreen'))
+            .catch(error => console.error('Failed to re-enter fullscreen:', error))
+        )
+      }
+      
+      // Priority 2: Attempt resolution improvement in parallel
       const activeCamera = RC.gazeTracker?.webgazer?.params?.activeCamera
       if (activeCamera?.id) {
         console.log('Attempting to apply ideal resolution constraints again...')
-        await applyIdealResolutionConstraints(RC, activeCamera.id)
+        operations.push(
+          applyIdealResolutionConstraints(RC, activeCamera.id)
+            .then(() => console.log('Resolution improvement completed'))
+            .catch(error => console.error('Resolution improvement failed:', error))
+        )
+      }
+      
+      // Wait for all operations to complete (but don't block on resolution improvement)
+      if (operations.length > 0) {
+        await Promise.allSettled(operations)
       }
     }
   }
@@ -638,8 +672,8 @@ const updateCameraPreviews = async (
         // Call the same function that OK button would call
         await window.selectCamera(deviceId, label)
 
-        // Add 1500ms delay to account for video switching time
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        // Add delay to account for video switching time
+        await new Promise(resolve => setTimeout(resolve, 800))
 
         // Remove loading text
         const loadingTextElement = document.getElementById(
@@ -1132,8 +1166,8 @@ export const showCameraSelectionPopup = async (
             // Call the same function that OK button would call
             await window.selectCamera(deviceId, label)
 
-            // Add 1500ms delay to account for video switching time
-            await new Promise(resolve => setTimeout(resolve, 1500))
+            // Add delay to account for video switching time
+            await new Promise(resolve => setTimeout(resolve, 800))
 
             // Remove loading text
             const loadingTextElement = document.getElementById(
@@ -1235,8 +1269,8 @@ export const showCameraSelectionPopup = async (
               // Store the selected camera for return
               RC.selectedCamera = selectedCamera
 
-              // Add 1500ms delay to account for video switching time
-              await new Promise(resolve => setTimeout(resolve, 1500))
+              // Add delay to account for video switching time
+              await new Promise(resolve => setTimeout(resolve, 800))
 
               // Remove loading text
               const loadingTextElement = document.getElementById(
