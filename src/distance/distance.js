@@ -3051,8 +3051,9 @@ export async function objectTest(RC, options, callback = undefined) {
                 const page4FactorCmPx = page4Average * firstMeasurement
                 RC.page4FactorCmPx = page4FactorCmPx
                 const averageFactorCmPx =
-                  (page3FactorCmPx + page4FactorCmPx) / 2
-                RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
+                  (page3FactorCmPx + page4FactorCmPx) / 2           
+                RC.averageObjectTestCalibrationFactor =
+                  Math.round(Math.sqrt(page3FactorCmPx * page4FactorCmPx))
 
                 try {
                   const mesh = await getMeshData(
@@ -3185,7 +3186,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 RC.page3FactorCmPx = page3FactorCmPx
                 const page4FactorCmPx = page4Average * firstMeasurement
                 RC.page4FactorCmPx = page4FactorCmPx
-                const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
+                const averageFactorCmPx =
+                  (page3FactorCmPx + page4FactorCmPx) / 2
                 //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
 
                 try {
@@ -3454,7 +3456,7 @@ export async function objectTest(RC, options, callback = undefined) {
             validPage4Samples.length
           : 0
         // Calculate separate calibration factors for page3 and page4
-        const page3FactorCmPx = RC.page3FactorCmPx  
+        const page3FactorCmPx = RC.page3FactorCmPx
         const page4FactorCmPx = page4Average * firstMeasurement
         const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
         //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
@@ -3577,7 +3579,7 @@ export async function objectTest(RC, options, callback = undefined) {
         const page3FactorCmPx = RC.page3FactorCmPx
         const page4FactorCmPx = RC.page4FactorCmPx
         const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
-       //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
+        //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
         try {
           const mesh = await getMeshData(
             RC,
