@@ -3051,9 +3051,10 @@ export async function objectTest(RC, options, callback = undefined) {
                 const page4FactorCmPx = page4Average * firstMeasurement
                 RC.page4FactorCmPx = page4FactorCmPx
                 const averageFactorCmPx =
-                  (page3FactorCmPx + page4FactorCmPx) / 2           
-                RC.averageObjectTestCalibrationFactor =
-                  Math.round(Math.sqrt(page3FactorCmPx * page4FactorCmPx))
+                  (page3FactorCmPx + page4FactorCmPx) / 2
+                RC.averageObjectTestCalibrationFactor = Math.round(
+                  Math.sqrt(page3FactorCmPx * page4FactorCmPx),
+                )
 
                 try {
                   const mesh = await getMeshData(
