@@ -6,6 +6,7 @@ import { safeExecuteFunc } from '../components/utils'
 import { phrases } from '../i18n/schema'
 import { remoteCalibratorPhrases } from '../i18n/phrases'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
+import { setDefaultVideoPosition } from '../components/video'
 
 RemoteCalibrator.prototype.getEquipment = async function (
   afterResultCallback,
@@ -64,6 +65,9 @@ RemoteCalibrator.prototype.getEquipment = async function (
       </div>
     `
   }
+
+  // Hide video during equipment units popup
+  this.showVideo(false)
 
   const { value: result } = await Swal.fire({
     ...swalInfoOptions(this, {
@@ -144,12 +148,17 @@ RemoteCalibrator.prototype.getEquipment = async function (
     await getEquipmentDetails(this, data)
   } else {
     this.newEquipmentData = data
+    // Show video again if no equipment (no second popup)
+    this.showVideo(true)
   }
 
   return safeExecuteFunc(afterResultCallback)
 }
 
 const getEquipmentDetails = async (RC, data) => {
+  // Hide video during equipment length popup
+  RC.showVideo(false)
+
   const { value: result } = await Swal.fire({
     ...swalInfoOptions(RC, {
       showIcon: false,
@@ -217,6 +226,15 @@ const getEquipmentDetails = async (RC, data) => {
       }
     },
   })
+
+  // Show video again after equipment length popup completes
+  RC.showVideo(true)
+  
+  // Position video properly
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  if (videoContainer) {
+    setDefaultVideoPosition(RC, videoContainer)
+  }
 
   return result
 }

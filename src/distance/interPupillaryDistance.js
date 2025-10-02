@@ -248,7 +248,15 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
   originalStyles.gaze = RC.gazeTracker.webgazer.params.showGazeDot
   originalStyles.faceOverlay = RC.gazeTracker.webgazer.params.showFaceOverlay
 
-  if (!originalStyles.video) RC.showVideo(true)
+  if (!originalStyles.video) {
+    RC.showVideo(true)
+    
+    // Position video properly
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+    if (videoContainer) {
+      setDefaultVideoPosition(RC, videoContainer)
+    }
+  }
   if (originalStyles.gaze) RC.showGazer(false)
   if (originalStyles.faceOverlay) RC.showFaceOverlay(false)
   RC.gazeTracker.webgazer.showFaceFeedbackBox(false)

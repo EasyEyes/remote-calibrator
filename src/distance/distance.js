@@ -13,6 +13,7 @@ import {
   randn_bm,
   replaceNewlinesWithBreaks,
 } from '../components/utils'
+import { setDefaultVideoPosition } from '../components/video' 
 import {
   _getCrossX,
   _cross,
@@ -28,7 +29,6 @@ import { addButtons } from '../components/buttons'
 import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
-import { setDefaultVideoPosition } from '../components/video'
 import { showTestPopup } from '../components/popup'
 import { ppiToPxPerCm } from '../components/converters'
 import { calculateNearestPoints, getMeshData } from './distanceTrack'
@@ -2088,6 +2088,15 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
       console.log('=== SHOWING PAGE 0: INSTRUCTIONS ONLY ===')
 
+      // Show video on page 0
+      RC.showVideo(true)
+      
+      // Position video properly
+      const videoContainer = document.getElementById('webgazerVideoContainer')
+      if (videoContainer) {
+        setDefaultVideoPosition(RC, videoContainer)
+      }
+
       // Hide diagonal tape component and labels
       tape.container.style.display = 'none'
       leftLabel.container.style.display = 'none'
@@ -2119,6 +2128,15 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
 
+      // Show video on page 1
+      RC.showVideo(true)
+      
+      // Position video properly
+      const videoContainer = document.getElementById('webgazerVideoContainer')
+      if (videoContainer) {
+        setDefaultVideoPosition(RC, videoContainer)
+      }
+
       // Hide diagonal tape component and labels
       tape.container.style.display = 'none'
       leftLabel.container.style.display = 'none'
@@ -2149,6 +2167,9 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 2) {
       // ===================== PAGE 2: DIAGONAL TAPE =====================
       console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
+
+      // Hide video on page 2 (tape measurement)
+      RC.showVideo(false)
 
       // Show diagonal tape component and labels
       tape.container.style.display = 'block'
@@ -2202,6 +2223,15 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
 
+      // Show video on page 3
+      RC.showVideo(true)
+      
+      // Position video properly
+      const videoContainer = document.getElementById('webgazerVideoContainer')
+      if (videoContainer) {
+        setDefaultVideoPosition(RC, videoContainer)
+      }
+
       // Hide diagonal tape component and labels
       tape.container.style.display = 'none'
       leftLabel.container.style.display = 'none'
@@ -2227,6 +2257,15 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
+
+      // Show video on page 4
+      RC.showVideo(true)
+      
+      // Position video properly
+      const videoContainer = document.getElementById('webgazerVideoContainer')
+      if (videoContainer) {
+        setDefaultVideoPosition(RC, videoContainer)
+      }
 
       // Keep diagonal tape component and labels hidden
       tape.container.style.display = 'none'

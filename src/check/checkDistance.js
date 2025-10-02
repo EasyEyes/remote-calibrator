@@ -731,6 +731,9 @@ const updateLengthDisplayDiv = (length, units) => {
 }
 
 const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
+  // Hide video during checkSize (yellow tape measurement)
+  RC.showVideo(false)
+
   // Use the already calculated values from screen calibration
   const pxPerCm = RC.screenPpi.value / 2.54 // pixels per cm from calibrated PPI (Note: 2.54 cm = 1 inch)
   const screenWidthCm = RC.screenWidthCm.value // already calculated during screen calibration
@@ -912,6 +915,15 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
 
   // Clean up the length display div when done
   removeLengthDisplayDiv()
+
+  // Show video again after checkSize completes
+  RC.showVideo(true)
+  
+  // Position video properly
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  if (videoContainer) {
+    setDefaultVideoPosition(RC, videoContainer)
+  }
 }
 
 const trimVideoFeedbackDisplay = (
