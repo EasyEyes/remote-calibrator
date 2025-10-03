@@ -19,10 +19,10 @@ export function _cross(ctx, cX, mY) {
 const circleR = 30
 export const circleDeltaX = 5
 
-export function _getCircleBounds(side, crossX, cW) {
+export function _getCircleBounds(side, crossX, cW, radius = circleR >> 1) {
   return side === 'left'
-    ? [crossX + (crossLW + circleR) / 2, cW - (circleR >> 1)]
-    : [circleR >> 1, crossX - (crossLW + circleR) / 2]
+    ? [crossX + (crossLW + radius * 2) / 2, cW - radius]
+    : [radius, crossX - (crossLW + radius * 2) / 2]
 }
 
 export function _circle(
@@ -33,9 +33,10 @@ export function _circle(
   frameTimestampDelta,
   fill,
   sparkle = true,
+  radius = circleR >> 1,
 ) {
   ctx.beginPath()
-  ctx.arc(x, y, circleR >> 1, 0, Math.PI * 2)
+  ctx.arc(x, y, radius, 0, Math.PI * 2)
   ctx.closePath()
 
   if (!sparkle) ctx.fillStyle = fill
@@ -50,9 +51,10 @@ export function _circle(
 
 /* ---------------------------------- Drag ---------------------------------- */
 
-export function clickOnCircle(x, y, mouseX, mouseY) {
-  return dist2d(x, y, mouseX, mouseY) < circleR >> 1
+export function clickOnCircle(x, y, mouseX, mouseY, radius = circleR >> 1) {
+  return dist2d(x, y, mouseX, mouseY) < radius
 }
+
 
 export function bindMousedown(canvasId, callback) {
   document.getElementById(canvasId).addEventListener('mousedown', callback)

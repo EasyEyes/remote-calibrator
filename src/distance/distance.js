@@ -42,7 +42,82 @@ if (env !== 'mocha') {
   cameraShutterSound = soundModule.cameraShutterSound
 }
 
-const blindSpotHTML = `<canvas id="blind-spot-canvas" class="cursor-grab"></canvas>`
+const blindSpotHTML = `
+  <style>
+    #rc-buttons {
+      z-index: 999999994 !important;
+    }
+    #blindspot-size-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      /* width: 100px; */
+      /* height: 100px; */
+      transform: rotate(-90deg);
+      transform-origin: center;
+    }
+    #blindspot-size-slider::-webkit-slider-track {
+      background: #ddd;
+      height: 6px;
+      border-radius: 3px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+    #blindspot-size-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #8B0000;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    #blindspot-size-slider::-moz-range-track {
+      background: #ddd;
+      height: 6px;
+      border-radius: 3px;
+      border: none;
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+    #blindspot-size-slider::-moz-range-thumb {
+      background: #8B0000;
+      height: 20px;
+      width: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+    #blindspot-size-slider:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #blindspot-size-slider:disabled::-webkit-slider-thumb {
+      background: #666;
+      cursor: not-allowed;
+    }
+    #blindspot-size-slider:disabled::-moz-range-thumb {
+      background: #666;
+      cursor: not-allowed;
+    }
+  </style>
+  <canvas id="blind-spot-canvas" class="cursor-grab" style="z-index: 999999992;"></canvas>
+  <div id="blindspot-slider-container" style="position: fixed; right: 20px; bottom: 15%; z-index: 999999993; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    <div style="position: relative; height: 120px; display: flex; align-items: center;">
+      <div style="position: relative; height: 120px; width: 6px; background: #ddd; border-radius: 3px; margin-right: 15px; display: flex; align-items: center; justify-content: center;">
+        <input type="range" id="blindspot-size-slider" min="0" max="100" value="100" step="25">
+      </div>
+      <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100px; font-size: 10px; color: #888; line-height: 0.2; margin-left: 10px;">
+        <span>16cm</span>
+        <span>8cm</span>
+        <span>4cm</span>
+        <span>2cm</span>
+        <span>1cm</span>
+      </div>
+    </div>
+  </div>
+`
 
 /* -------------------------------------------------------------------------- */
 
@@ -289,6 +364,13 @@ export async function blindSpotTest(
       'Screen size measurement is required to get accurate viewing distance measurement.',
     )
 
+  // Dynamic blindspot spot diameter in cm - comes from options
+  //set the maximum to be 16cm
+  if (options.calibrateTrackDistanceSpotCm > 16) {
+    options.calibrateTrackDistanceSpotCm = 16
+  }
+  let calibrateTrackDistanceSpotCm = options.calibrateTrackDistanceSpotCm
+
   let inTest = true // Used to break animation
   let dist = [] // Take the MEDIAN after all tests finished
   let tested = 0 // options.repeatedTesting times
@@ -318,6 +400,44 @@ export async function blindSpotTest(
   const ctx = c.getContext('2d')
 
   const eyeSideEle = document.getElementById('blind-spot-instruction')
+  
+  // Setup slider for dynamic spot size with discrete logarithmic positioning
+  const slider = document.getElementById('blindspot-size-slider')
+  if (slider) {
+    const cmValues = [1, 2, 4, 8, 16] // Discrete cm values
+    
+    // Find closest value to the options value and set slider position
+    const findClosestIndex = (targetValue) => {
+      let closestIndex = 0
+      let minDiff = Math.abs(targetValue - cmValues[0])
+      
+      for (let i = 1; i < cmValues.length; i++) {
+        const diff = Math.abs(targetValue - cmValues[i])
+        if (diff < minDiff) {
+          minDiff = diff
+          closestIndex = i
+        }
+      }
+      return closestIndex
+    }
+    
+    const closestIndex = findClosestIndex(calibrateTrackDistanceSpotCm)
+    slider.value = closestIndex * 25 // Set slider position (0→0, 1→25, 2→50, 3→75, 4→100)
+    
+    slider.addEventListener('input', (e) => {
+      const sliderValue = parseInt(e.target.value)
+      // Map 0-100 range to 0-4 index: 0→0, 25→1, 50→2, 75→3, 100→4
+      const index = Math.round(sliderValue / 25)
+      calibrateTrackDistanceSpotCm = cmValues[index]
+      
+      // Recalculate circle bounds and reposition dot
+      const spotRadiusPx = (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi)
+      circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx)
+      
+      // Reposition dot to the appropriate starting position
+      circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
+    })
+  }
   // let eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
   let eyeSide = 'left'
   RC._setFloatInstructionElementPos(eyeSide, 16)
@@ -333,7 +453,8 @@ export async function blindSpotTest(
     c.style.height = `${c.height}px`
 
     crossX = _getCrossX(eyeSide, c.width)
-    circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
+    const spotRadiusPx = (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi)
+    circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx)
   }
   const resizeObserver = new ResizeObserver(() => {
     _resetCanvasSize()
@@ -364,6 +485,13 @@ export async function blindSpotTest(
     inTest = false
     if (control) unbindMousedown('blind-spot-canvas', dragStart)
     resizeObserver.unobserve(RC.background)
+    
+    // Remove slider
+    const sliderContainer = document.getElementById('blindspot-slider-container')
+    if (sliderContainer) {
+      sliderContainer.remove()
+    }
+    
     RC._removeBackground()
 
     if (!RC._trackingSetupFinishedStatus.distance && toBreakTracking) {
@@ -377,6 +505,14 @@ export async function blindSpotTest(
 
   // SPACE
   const finishFunction = async () => {
+    // Disable slider when finishing (Space/Enter pressed)
+    const slider = document.getElementById('blindspot-size-slider')
+    if (slider) {
+      slider.disabled = true
+      slider.style.opacity = '0.5'
+      slider.style.cursor = 'not-allowed'
+    }
+    
     // customButton.disabled = false
     if (env !== 'mocha') soundFeedback()
 
@@ -820,6 +956,14 @@ export async function blindSpotTest(
   const arrowDownFunction = e => {
     if (arrowKeyDown) return
 
+    // Disable slider once arrow keys are used
+    const slider = document.getElementById('blindspot-size-slider')
+    if (slider) {
+      slider.disabled = true
+      slider.style.opacity = '0.5'
+      slider.style.cursor = 'not-allowed'
+    }
+
     arrowUpFunction()
     arrowKeyDown = true
     circleFill = RC._CONST.COLOR.RED
@@ -878,7 +1022,8 @@ export async function blindSpotTest(
     v = nextV
     eyeSide = nextEyeSide
     crossX = nextCrossX
-    circleBounds = _getCircleBounds(eyeSide, crossX, c.width)
+    const spotRadiusPx = (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi)
+    circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx)
 
     if (shiftFloatingElement) {
       if (eyeSide === 'left')
@@ -975,9 +1120,10 @@ export async function blindSpotTest(
         else currentX = eMove.clientX
 
         circleX = _dragStartPosition.circleX + currentX - _dragStartPosition.x
+        const spotRadiusPx = (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi)
         circleX = constrain(
           circleX,
-          ..._getCircleBounds(eyeSide, crossX, c.width),
+          ..._getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx),
         )
       }
       if (isTouch) document.addEventListener('touchmove', dragMove)
@@ -1016,6 +1162,7 @@ export async function blindSpotTest(
     _cross(ctx, crossX, c.height / 2)
 
     frameTimestamp = performance.now()
+    const spotRadiusPx = (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi) // Convert diameter to radius
     _circle(
       RC,
       ctx,
@@ -1024,6 +1171,7 @@ export async function blindSpotTest(
       Math.round(frameTimestamp - frameTimestampInitial),
       circleFill,
       options.sparkle,
+      spotRadiusPx,
     )
     if (!control) {
       circleX += v * circleDeltaX

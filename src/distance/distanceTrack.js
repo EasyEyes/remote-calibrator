@@ -201,6 +201,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateTrackDistanceAllowedRatio: 1.1,
       calibrateTrackDistanceAllowedRangeCm: [30, 70],
       resolutionWarningThreshold: undefined,
+      calibrateTrackDistanceSpotCm: 0.5,
     },
     trackDistanceOptions,
   )
