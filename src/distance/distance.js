@@ -102,14 +102,13 @@ const blindSpotHTML = `
   <div id="blindspot-slider-container" style="position: fixed; right: 20px; bottom: 15%; z-index: 99999999999; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
     <div style="position: relative; height: 120px; display: flex; align-items: center;">
       <div style="position: relative; height: 120px; width: 6px; background: #ddd; border-radius: 3px; margin-right: 15px; display: flex; align-items: center; justify-content: center;">
-        <input type="range" id="blindspot-size-slider" min="0" max="100" value="100" step="25">
+        <input type="range" id="blindspot-size-slider" min="0" max="1" value="0.5" step="0.001">
       </div>
       <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100px; font-size: 10px; color: #888; line-height: 0.2; margin-left: 10px;">
-        <span>16cm</span>
-        <span>8cm</span>
-        <span>4cm</span>
-        <span>2cm</span>
-        <span>1cm</span>
+        <span>8 deg</span>
+        <span>4 deg</span>
+        <span>2 deg</span>
+        <span>1 deg</span>
       </div>
     </div>
   </div>
@@ -123,6 +122,7 @@ function saveCalibrationMeasurements(
   method,
   measurements, // Array of measurement objects
   sharedData, // Data common to all measurements (like currentIPDDistance, etc.)
+  spotDeg = undefined, // Spot diameter in degrees for blindspot calibrations
 ) {
   // Initialize the calibration attempts object if it doesn't exist
   if (!RC.calibrationAttempts) {
@@ -150,6 +150,7 @@ function saveCalibrationMeasurements(
       sharedData.nearestXYPx_right,
       measurement.nearestDistanceCm_right,
       measurement.nearestDistanceCm_left,
+      spotDeg,
     )
   })
 }
@@ -172,6 +173,7 @@ function saveCalibrationAttempt(
   nearestXYPx_right,
   nearestDistanceCm_right,
   nearestDistanceCm_left,
+  spotDeg = undefined,
 ) {
   // Initialize the calibration attempts object if it doesn't exist
   if (!RC.calibrationAttempts) {
@@ -251,6 +253,7 @@ function saveCalibrationAttempt(
     centerXYPx: safeRoundXYPx(centerXYPxValue), // screen center
     rightEyeToCenterCm: safeRoundCm(rightEyeToCenterCmValue), //calcualted by trignometry from above
     leftEyeToCenterCm: safeRoundCm(leftEyeToCenterCmValue), //calcualted by trignometry from above
+    spotDeg: spotDeg, // Add spotDeg for blindspot calibrations
   }
 
   console.log('factorCameraPxCm', calibrationObject.factorCameraPxCm)
@@ -360,12 +363,17 @@ export async function blindSpotTest(
       'Screen size measurement is required to get accurate viewing distance measurement.',
     )
 
-  // Dynamic blindspot spot diameter in cm - comes from options
-  //set the maximum to be 16cm
-  if (options.calibrateTrackDistanceSpotCm > 16) {
-    options.calibrateTrackDistanceSpotCm = 16
+  // Dynamic blindspot spot diameter in degrees - comes from options
+  // Set the maximum to be 8 degrees
+  let calibrateTrackDistanceBlindspotDiameterDeg = options.calibrateTrackDistanceBlindspotDiameterDeg || 2
+  if (calibrateTrackDistanceBlindspotDiameterDeg > 8) {
+    calibrateTrackDistanceBlindspotDiameterDeg = 8
   }
-  let calibrateTrackDistanceSpotCm = options.calibrateTrackDistanceSpotCm
+  
+  // Blindspot eccentricity constants (in degrees)
+  // These define the anatomical position of the blindspot relative to fixation
+  const blindspotEccXDeg = 15.5    // Horizontal eccentricity: +15.5° (temporal/nasal direction)
+  const blindspotEccYDeg = -1.5     // Vertical eccentricity: -1.5° (below horizontal midline)
 
   let inTest = true // Used to break animation
   let dist = [] // Take the MEDIAN after all tests finished
@@ -397,42 +405,48 @@ export async function blindSpotTest(
 
   const eyeSideEle = document.getElementById('blind-spot-instruction')
 
-  // Setup slider for dynamic spot size with discrete logarithmic positioning
+  // Setup slider for dynamic spot size with continuous logarithmic positioning
   const slider = document.getElementById('blindspot-size-slider')
   if (slider) {
-    const cmValues = [1, 2, 4, 8, 16] // Discrete cm values
-
-    // Find closest value to the options value and set slider position
-    const findClosestIndex = targetValue => {
-      let closestIndex = 0
-      let minDiff = Math.abs(targetValue - cmValues[0])
-
-      for (let i = 1; i < cmValues.length; i++) {
-        const diff = Math.abs(targetValue - cmValues[i])
-        if (diff < minDiff) {
-          minDiff = diff
-          closestIndex = i
-        }
-      }
-      return closestIndex
-    }
-
-    const closestIndex = findClosestIndex(calibrateTrackDistanceSpotCm)
-    slider.value = closestIndex * 25 // Set slider position (0→0, 1→25, 2→50, 3→75, 4→100)
+    // SLIDER VARIABLE DEFINITIONS:
+    // 
+    // fractionHeight: Slider position as fraction of whole range (0.0 to 1.0)
+    //   - 0.0 = bottom of slider = 1° spot diameter
+    //   - 1.0 = top of slider = 8° spot diameter
+    //   - Continuous values between 0.0 and 1.0
+    //
+    // Logarithmic relationship: spotDeg = 2**(3*fractionHeight)
+    //   - fractionHeight = 0.0 → spotDeg = 2**(3*0) = 2**0 = 1°
+    //   - fractionHeight = 0.33 → spotDeg = 2**(3*0.33) = 2**1 = 2°
+    //   - fractionHeight = 0.67 → spotDeg = 2**(3*0.67) = 2**2 = 4°
+    //   - fractionHeight = 1.0 → spotDeg = 2**(3*1) = 2**3 = 8°
+    
+    // Convert initial spotDeg to fractionHeight for slider position
+    // spotDeg = 2**(3*fractionHeight), so fractionHeight = log2(spotDeg) / 3
+    const initialFractionHeight = Math.log2(calibrateTrackDistanceBlindspotDiameterDeg) / 3
+    slider.value = initialFractionHeight
 
     slider.addEventListener('input', e => {
-      const sliderValue = parseInt(e.target.value)
-      // Map 0-100 range to 0-4 index: 0→0, 25→1, 50→2, 75→3, 100→4
-      const index = Math.round(sliderValue / 25)
-      calibrateTrackDistanceSpotCm = cmValues[index]
+      const fractionHeight = parseFloat(e.target.value) // Range: 0.0 to 1.0
+      
+      // Calculate spotDeg from fractionHeight: spotDeg = 2**(3*fractionHeight)
+      calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(2, 3 * fractionHeight)
+      
+      // Limit to 8 degrees maximum (safety check)
+      if (calibrateTrackDistanceBlindspotDiameterDeg > 8) {
+        calibrateTrackDistanceBlindspotDiameterDeg = 8
+      }
 
-      // Recalculate circle bounds and reposition dot
-      const spotRadiusPx =
-        (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi)
-      circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx)
+      // Recalculate circle bounds and check if current position is still valid
+      const spotRadiusPx = calculateSpotRadiusPx(calibrateTrackDistanceBlindspotDiameterDeg, ppi, blindspotEccXDeg, circleX, crossX)
+      circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi)
 
-      // Reposition dot to the appropriate starting position
-      circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
+      // Check if current position is still within bounds, adjust if needed
+      if (circleX < circleBounds[0]) {
+        circleX = circleBounds[0] // Move to leftmost valid position
+      } else if (circleX > circleBounds[1]) {
+        circleX = circleBounds[1] // Move to rightmost valid position
+      }
     })
   }
   // let eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
@@ -450,8 +464,21 @@ export async function blindSpotTest(
     c.style.height = `${c.height}px`
 
     crossX = _getCrossX(eyeSide, c.width)
-    const spotRadiusPx = (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi)
-    circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx)
+    // Calculate initial spot radius using the actual spot size at 6cm eccentricity
+    const defaultSpotEccXCm = 6 // Use 6cm as default eccentricity for initial bounds calculation
+    const defaultSpotCm = Math.abs(defaultSpotEccXCm) * calibrateTrackDistanceBlindspotDiameterDeg / blindspotEccXDeg
+    const spotRadiusPx = (defaultSpotCm / 2) * ppiToPxPerCm(ppi)
+    circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi)
+    
+    // Ensure initial position is within bounds
+    const initialDistanceCm = 6
+    const initialDistancePx = (initialDistanceCm * ppi) / 2.54
+    const initialCircleX = eyeSide === 'left' 
+      ? crossX + initialDistancePx  // Left eye: start 6cm to the right of crosshair
+      : crossX - initialDistancePx  // Right eye: start 6cm to the left of crosshair
+    
+    // Constrain initial position to bounds
+    const constrainedInitialX = Math.max(circleBounds[0], Math.min(circleBounds[1], initialCircleX))
   }
   const resizeObserver = new ResizeObserver(() => {
     _resetCanvasSize()
@@ -459,7 +486,49 @@ export async function blindSpotTest(
   resizeObserver.observe(RC.background)
   _resetCanvasSize()
 
-  let circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
+  // Set initial position to 6cm from crosshair, constrained to bounds
+  const initialDistanceCm = 6
+  const initialDistancePx = (initialDistanceCm * ppi) / 2.54
+  const desiredInitialX = eyeSide === 'left' 
+    ? crossX + initialDistancePx  // Left eye: start 6cm to the right of crosshair
+    : crossX - initialDistancePx  // Right eye: start 6cm to the left of crosshair
+  
+  // Constrain to bounds to ensure spot doesn't go off screen
+  let circleX = Math.max(circleBounds[0], Math.min(circleBounds[1], desiredInitialX))
+
+  // Helper function to calculate spot radius in pixels from angular diameter
+  const calculateSpotRadiusPx = (spotDeg, ppi, blindspotEccXDeg, currentCircleX, currentCrossX) => {
+    // VARIABLE DEFINITIONS AND SIGNS:
+    // 
+    // spotDeg: Angular diameter of the spot in degrees (always positive, 1-8°)
+    // blindspotEccXDeg: Anatomical blindspot horizontal eccentricity (always positive, +15.5°)
+    // blindspotEccYDeg: Anatomical blindspot vertical eccentricity (always negative, -1.5°)
+    // 
+    // spotEccXCm: Horizontal eccentricity of spot center from fixation/crosshair (cm)
+    //   - Sign: Same as circleX position relative to crosshair
+    //   - Left of crosshair: negative (spotEccXCm < 0)
+    //   - Right of crosshair: positive (spotEccXCm > 0)
+    //   - At crosshair: zero (spotEccXCm = 0)
+    //
+    // spotEccYCm: Vertical eccentricity of spot center from fixation (cm)
+    //   - Always negative because blindspot is below midline
+    //   - Formula: spotEccYCm = spotEccXCm * blindspotEccYDeg / blindspotEccXDeg
+    //   - Since blindspotEccYDeg < 0 and blindspotEccXDeg > 0, spotEccYCm has same sign as spotEccXCm
+    //
+    // spotCm: Physical diameter of spot in centimeters (always positive)
+    //   - Formula: spotCm = |spotEccXCm| * spotDeg / blindspotEccXDeg
+    //   - Always positive because we use absolute value of spotEccXCm
+    
+    // Calculate spotEccXCm from current circle position relative to fixation/crosshair
+    const spotEccXCm = (currentCircleX - currentCrossX) / ppiToPxPerCm(ppi)
+    
+    // Calculate spotCm using the formula: spotCm = spotEccXCm * spotDeg / blindspotEccXDeg
+    // Note: We use Math.abs(spotEccXCm) to ensure spotCm is always positive
+    const spotCm = Math.abs(spotEccXCm) * spotDeg / blindspotEccXDeg
+    
+    // Convert diameter to radius in pixels
+    return (spotCm / 2) * ppiToPxPerCm(ppi)
+  }
   let tempX = circleX // Used to check touching bound
   let circleFill = RC._CONST.COLOR.DARK_RED
 
@@ -717,6 +786,7 @@ export async function blindSpotTest(
               'blindspot',
               measurements,
               sharedData,
+              calibrateTrackDistanceBlindspotDiameterDeg,
             )
           }
         } catch (error) {
@@ -972,17 +1042,12 @@ export async function blindSpotTest(
   }
 
   const helpMoveCircleX = () => {
-    tempX = constrain(circleX, ...circleBounds)
+    // Recalculate bounds with current spot size to ensure they're up to date
+    const spotRadiusPx = calculateSpotRadiusPx(calibrateTrackDistanceBlindspotDiameterDeg, ppi, blindspotEccXDeg, circleX, crossX)
+    const currentBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi)
+    
+    tempX = constrain(circleX, ...currentBounds)
     circleX = tempX
-    // WRAP
-    // if (circleX !== tempX) {
-    //   circleX = tempX
-    //   for (let b of circleBounds)
-    //     if (circleX !== b) {
-    //       circleX = b
-    //       break
-    //     }
-    // }
   }
 
   const _resetRandnCircleX = (eye, bounds) => {
@@ -1005,8 +1070,8 @@ export async function blindSpotTest(
     v = nextV
     eyeSide = nextEyeSide
     crossX = nextCrossX
-    const spotRadiusPx = (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi)
-    circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx)
+    const spotRadiusPx = calculateSpotRadiusPx(calibrateTrackDistanceBlindspotDiameterDeg, ppi, blindspotEccXDeg, circleX, crossX)
+    circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi)
 
     if (shiftFloatingElement) {
       if (eyeSide === 'left')
@@ -1021,9 +1086,15 @@ export async function blindSpotTest(
     }
 
     if (shiftCircle) {
-      // if (v > 0) circleX = circleBounds[0]
-      // else circleX = circleBounds[1]
-      circleX = circleBounds[eyeSide === 'left' ? 0 : 1]
+      // Set position to 6cm from crosshair when switching eyes, constrained to bounds
+      const initialDistanceCm = 6
+      const initialDistancePx = (initialDistanceCm * ppi) / 2.54
+      const desiredInitialX = eyeSide === 'left' 
+        ? crossX + initialDistancePx  // Left eye: start 6cm to the right of crosshair
+        : crossX - initialDistancePx  // Right eye: start 6cm to the left of crosshair
+      
+      // Constrain to bounds to ensure spot doesn't go off screen
+      circleX = Math.max(circleBounds[0], Math.min(circleBounds[1], desiredInitialX))
       _resetRandnCircleX(nextEyeSide, circleBounds)
     }
   }
@@ -1103,11 +1174,10 @@ export async function blindSpotTest(
         else currentX = eMove.clientX
 
         circleX = _dragStartPosition.circleX + currentX - _dragStartPosition.x
-        const spotRadiusPx =
-          (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi)
+        const spotRadiusPx = calculateSpotRadiusPx(calibrateTrackDistanceBlindspotDiameterDeg, ppi, blindspotEccXDeg, circleX, crossX)
         circleX = constrain(
           circleX,
-          ..._getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx),
+          ..._getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi),
         )
       }
       if (isTouch) document.addEventListener('touchmove', dragMove)
@@ -1146,7 +1216,7 @@ export async function blindSpotTest(
     _cross(ctx, crossX, c.height / 2)
 
     frameTimestamp = performance.now()
-    const spotRadiusPx = (calibrateTrackDistanceSpotCm / 2) * ppiToPxPerCm(ppi) // Convert diameter to radius
+    const spotRadiusPx = calculateSpotRadiusPx(calibrateTrackDistanceBlindspotDiameterDeg, ppi, blindspotEccXDeg, circleX, crossX)
     _circle(
       RC,
       ctx,

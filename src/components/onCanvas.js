@@ -19,10 +19,27 @@ export function _cross(ctx, cX, mY) {
 const circleR = 30
 export const circleDeltaX = 5
 
-export function _getCircleBounds(side, crossX, cW, radius = circleR >> 1) {
-  return side === 'left'
-    ? [crossX + (crossLW + radius * 2) / 2, cW - radius]
-    : [radius, crossX - (crossLW + radius * 2) / 2]
+export function _getCircleBounds(side, crossX, cW, radius = circleR >> 1, ppi = 96) {
+  // Convert distances to pixels
+  const minDistanceCm = 5  // Minimum 5cm from crosshair
+  const minDistancePx = (minDistanceCm * ppi) / 2.54
+  
+  // Calculate bounds based on spot size and screen constraints
+  if (side === 'left') {
+    // Left eye: spot moves from crosshair to right edge
+    const minFromCrosshair = crossX + minDistancePx  // 3cm from crosshair
+    const maxFromScreenEdge = cW - radius            // Spot edge at screen edge
+    const maxFromCrosshair = Math.min(maxFromScreenEdge, crossX + (cW - crossX - radius)) // Don't go off screen
+    
+    return [minFromCrosshair, maxFromCrosshair]
+  } else {
+    // Right eye: spot moves from left edge to crosshair
+    const minFromScreenEdge = radius                 // Spot edge at screen edge  
+    const maxFromCrosshair = crossX - minDistancePx  // 3cm from crosshair
+    const minFromCrosshair = Math.max(minFromScreenEdge, crossX - (crossX - radius)) // Don't go off screen
+    
+    return [minFromCrosshair, maxFromCrosshair]
+  }
 }
 
 export function _circle(
