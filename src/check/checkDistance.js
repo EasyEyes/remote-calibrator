@@ -918,7 +918,7 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
 
   // Show video again after checkSize completes
   RC.showVideo(true)
-  
+
   // Position video properly
   const videoContainer = document.getElementById('webgazerVideoContainer')
   if (videoContainer) {

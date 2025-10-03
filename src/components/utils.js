@@ -162,7 +162,7 @@ export async function exitFullscreen() {
   if (!isFullscreen()) {
     return true
   }
-  
+
   try {
     if (document.exitFullscreen) {
       await document.exitFullscreen()

@@ -347,20 +347,22 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
 
       // After user clicks OK, prioritize fullscreen re-entry and run resolution improvement in parallel
       console.log('User clicked OK, processing...')
-      
+
       // Start both operations in parallel for better performance
       const operations = []
-      
+
       // Priority 1: Re-enter fullscreen immediately if needed
       if (wasInFullscreen) {
         console.log('Re-entering fullscreen after resolution popup')
         operations.push(
           getFullscreen(RC.L, RC)
             .then(() => console.log('Successfully re-entered fullscreen'))
-            .catch(error => console.error('Failed to re-enter fullscreen:', error))
+            .catch(error =>
+              console.error('Failed to re-enter fullscreen:', error),
+            ),
         )
       }
-      
+
       // Priority 2: Attempt resolution improvement in parallel
       const activeCamera = RC.gazeTracker?.webgazer?.params?.activeCamera
       if (activeCamera?.id) {
@@ -368,10 +370,12 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
         operations.push(
           applyIdealResolutionConstraints(RC, activeCamera.id)
             .then(() => console.log('Resolution improvement completed'))
-            .catch(error => console.error('Resolution improvement failed:', error))
+            .catch(error =>
+              console.error('Resolution improvement failed:', error),
+            ),
         )
       }
-      
+
       // Wait for all operations to complete (but don't block on resolution improvement)
       if (operations.length > 0) {
         await Promise.allSettled(operations)

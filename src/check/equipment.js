@@ -229,7 +229,7 @@ const getEquipmentDetails = async (RC, data) => {
 
   // Show video again after equipment length popup completes
   RC.showVideo(true)
-  
+
   // Position video properly
   const videoContainer = document.getElementById('webgazerVideoContainer')
   if (videoContainer) {

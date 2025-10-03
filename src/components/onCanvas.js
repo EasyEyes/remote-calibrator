@@ -55,7 +55,6 @@ export function clickOnCircle(x, y, mouseX, mouseY, radius = circleR >> 1) {
   return dist2d(x, y, mouseX, mouseY) < radius
 }
 
-
 export function bindMousedown(canvasId, callback) {
   document.getElementById(canvasId).addEventListener('mousedown', callback)
   document.getElementById(canvasId).addEventListener('touchstart', callback)

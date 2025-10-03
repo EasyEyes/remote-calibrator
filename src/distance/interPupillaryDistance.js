@@ -250,7 +250,7 @@ const formatVideo = (RC, video, canvas, container, stream = null) => {
 
   if (!originalStyles.video) {
     RC.showVideo(true)
-    
+
     // Position video properly
     const videoContainer = document.getElementById('webgazerVideoContainer')
     if (videoContainer) {

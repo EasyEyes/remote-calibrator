@@ -149,7 +149,7 @@ export function setDefaultVideoPosition(RC, v) {
       v.style.bottom = 'unset'
     }
   }
-  
+
   // Add window resize listener to reposition video when window size changes
   // This ensures video stays centered even when console opens
   if (!v._hasResizeListener) {
@@ -158,7 +158,7 @@ export function setDefaultVideoPosition(RC, v) {
       setDefaultVideoPosition(RC, v)
     }
     window.addEventListener('resize', resizeHandler)
-    
+
     // Store the handler for cleanup
     v._resizeHandler = resizeHandler
   }
