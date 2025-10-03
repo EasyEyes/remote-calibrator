@@ -460,16 +460,71 @@ export async function blindSpotTest(
         circleX = circleBounds[1] // Move to rightmost valid position
       }
     })
+
+    // Add keyboard event listeners for up/down arrow keys to control slider
+    const handleKeyDown = (e) => {
+      // Only handle arrow keys when the slider is focused or when no other element is focused
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault() // Prevent page scrolling
+        
+        const currentValue = parseFloat(slider.value)
+        const step = 0.05 // Larger step for more responsive control (5% of slider range)
+        
+        let newValue
+        if (e.key === 'ArrowUp') {
+          newValue = Math.min(1.0, currentValue + step) // Increase spot size
+        } else {
+          newValue = Math.max(0.0, currentValue - step) // Decrease spot size
+        }
+        
+        // Update slider value
+        slider.value = newValue
+        
+        // Trigger the same logic as the slider input event
+        const fractionHeight = newValue
+        
+        // Calculate spotDeg from fractionHeight: spotDeg = 2**(3*fractionHeight)
+        calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(2, 3 * fractionHeight)
+        
+        // Limit to 8 degrees maximum (safety check)
+        if (calibrateTrackDistanceBlindspotDiameterDeg > 8) {
+          calibrateTrackDistanceBlindspotDiameterDeg = 8
+        }
+        
+        // Recalculate circle bounds and check if current position is still valid
+        const spotRadiusPx = calculateSpotRadiusPx(
+          calibrateTrackDistanceBlindspotDiameterDeg,
+          ppi,
+          blindspotEccXDeg,
+          circleX,
+          crossX,
+        )
+        circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi)
+        
+        // Check if current position is still within bounds, adjust if needed
+        if (circleX < circleBounds[0]) {
+          circleX = circleBounds[0] // Move to leftmost valid position
+        } else if (circleX > circleBounds[1]) {
+          circleX = circleBounds[1] // Move to rightmost valid position
+        }
+      }
+    }
+    
+    // Add event listener to document for global keyboard control
+    document.addEventListener('keydown', handleKeyDown)
+    
+    // Store reference for cleanup later
+    window.blindspotKeyHandler = handleKeyDown
   }
   // let eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
   let eyeSide = 'left'
-  
+
   // Blindspot eccentricity constants (in degrees)
   // These define the anatomical position of the blindspot relative to fixation
   // blindspotEccXDeg should have the same sign as spotEccXCm (negative for left eye, positive for right eye)
   let blindspotEccXDeg = eyeSide === 'left' ? -15.5 : 15.5 // Horizontal eccentricity: ±15.5° (negative for left eye, positive for right eye)
   const blindspotEccYDeg = -1.5 // Vertical eccentricity: -1.5° (below horizontal midline)
-  
+
   RC._setFloatInstructionElementPos(eyeSide, 16)
   let crossX = _getCrossX(eyeSide, c.width)
 
@@ -571,15 +626,22 @@ export async function blindSpotTest(
   }
 
   // Helper function to calculate spot Y position (vertical eccentricity)
-  const calculateSpotY = (currentCircleX, currentCrossX, currentCrossY, ppi, blindspotEccXDeg, blindspotEccYDeg) => {
+  const calculateSpotY = (
+    currentCircleX,
+    currentCrossX,
+    currentCrossY,
+    ppi,
+    blindspotEccXDeg,
+    blindspotEccYDeg,
+  ) => {
     // Calculate spotEccXCm from current circle position relative to fixation/crosshair
     const spotEccXCm = (currentCircleX - currentCrossX) / ppiToPxPerCm(ppi)
-    
+
     // Calculate spotEccYCm using the formula: spotEccYCm = spotEccXCm * blindspotEccYDeg / blindspotEccXDeg
     // This positions the spot 1.5° below the horizontal midline (fixation)
     // Since spotEccXCm and blindspotEccXDeg have the same sign, spotEccYCm will always be negative (below fixation)
-    const spotEccYCm = spotEccXCm * blindspotEccYDeg / blindspotEccXDeg
-    
+    const spotEccYCm = (spotEccXCm * blindspotEccYDeg) / blindspotEccXDeg
+
     // Convert to pixels and position relative to crosshair Y
     const spotEccYCmPx = spotEccYCm * ppiToPxPerCm(ppi)
     return currentCrossY + spotEccYCmPx
@@ -606,6 +668,12 @@ export async function blindSpotTest(
     inTest = false
     if (control) unbindMousedown('blind-spot-canvas', dragStart)
     resizeObserver.unobserve(RC.background)
+
+    // Remove keyboard event listener for slider control
+    if (window.blindspotKeyHandler) {
+      document.removeEventListener('keydown', window.blindspotKeyHandler)
+      window.blindspotKeyHandler = null
+    }
 
     // Remove slider
     const sliderContainer = document.getElementById(
@@ -1308,7 +1376,15 @@ export async function blindSpotTest(
       circleX,
       crossX,
     )
-    const spotY = calculateSpotY(circleX, crossX, c.height / 2, ppi, blindspotEccXDeg, blindspotEccYDeg)
+    const spotY = calculateSpotY(
+      circleX,
+      crossX,
+      c.height / 2,
+      ppi,
+      blindspotEccXDeg,
+      blindspotEccYDeg,
+    )
+    // Draw the outer flickering circle (donut outer ring)
     _circle(
       RC,
       ctx,
@@ -1319,6 +1395,15 @@ export async function blindSpotTest(
       options.sparkle,
       spotRadiusPx,
     )
+    
+    // Draw the inner background-colored circle (donut inner hole)
+    // This creates the donut effect by covering the center with background color
+    const innerRadiusPx = spotRadiusPx / 2 // Half the diameter = half the radius
+    ctx.beginPath()
+    ctx.arc(circleX, spotY, innerRadiusPx, 0, Math.PI * 2)
+    ctx.closePath()
+    ctx.fillStyle = '#eee' // Match the background color
+    ctx.fill()
     if (!control) {
       circleX += v * circleDeltaX
       helpMoveCircleX()
