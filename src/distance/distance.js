@@ -100,15 +100,14 @@ const blindSpotHTML = `
   </style>
   <canvas id="blind-spot-canvas" class="cursor-grab"></canvas>
   <div id="blindspot-slider-container" style="position: fixed; right: 20px; bottom: 15%; z-index: 99999999999; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-    <div style="position: relative; height: 120px; display: flex; align-items: center;">
-      <div style="position: relative; height: 120px; width: 6px; background: #ddd; border-radius: 3px; margin-right: 15px; display: flex; align-items: center; justify-content: center;">
+    <div style="position: relative; height: 105px; display: flex; align-items: center;">
+      <div style="position: relative; height: 105px; width: 6px; background: #ddd; border-radius: 3px; margin-right: 15px; display: flex; align-items: center; justify-content: center;">
         <input type="range" id="blindspot-size-slider" min="0" max="1" value="0.5" step="0.001">
       </div>
-      <div style="display: flex; flex-direction: column; justify-content: space-between; height: 100px; font-size: 10px; color: #888; line-height: 0.2; margin-left: 10px;">
+      <div style="display: flex; flex-direction: column; justify-content: space-between; height: 90px; font-size: 10px; color: #888; line-height: 0.2; margin-left: 10px;">
         <span>8 deg</span>
         <span>4 deg</span>
         <span>2 deg</span>
-        <span>1 deg</span>
       </div>
     </div>
   </div>
@@ -364,9 +363,12 @@ export async function blindSpotTest(
     )
 
   // Dynamic blindspot spot diameter in degrees - comes from options
-  // Set the maximum to be 8 degrees
+  // Set the range to be 2-8 degrees
   let calibrateTrackDistanceBlindspotDiameterDeg =
     options.calibrateTrackDistanceBlindspotDiameterDeg || 2
+  if (calibrateTrackDistanceBlindspotDiameterDeg < 2) {
+    calibrateTrackDistanceBlindspotDiameterDeg = 2
+  }
   if (calibrateTrackDistanceBlindspotDiameterDeg > 8) {
     calibrateTrackDistanceBlindspotDiameterDeg = 8
   }
@@ -407,29 +409,28 @@ export async function blindSpotTest(
     // SLIDER VARIABLE DEFINITIONS:
     //
     // fractionHeight: Slider position as fraction of whole range (0.0 to 1.0)
-    //   - 0.0 = bottom of slider = 1° spot diameter
+    //   - 0.0 = bottom of slider = 2° spot diameter
     //   - 1.0 = top of slider = 8° spot diameter
     //   - Continuous values between 0.0 and 1.0
     //
-    // Logarithmic relationship: spotDeg = 2**(3*fractionHeight)
-    //   - fractionHeight = 0.0 → spotDeg = 2**(3*0) = 2**0 = 1°
-    //   - fractionHeight = 0.33 → spotDeg = 2**(3*0.33) = 2**1 = 2°
-    //   - fractionHeight = 0.67 → spotDeg = 2**(3*0.67) = 2**2 = 4°
-    //   - fractionHeight = 1.0 → spotDeg = 2**(3*1) = 2**3 = 8°
+    // Logarithmic relationship: spotDeg = 2**(2*fractionHeight+1)
+    //   - fractionHeight = 0.0 → spotDeg = 2**(2*0+1) = 2**1 = 2°
+    //   - fractionHeight = 0.5 → spotDeg = 2**(2*0.5+1) = 2**2 = 4°
+    //   - fractionHeight = 1.0 → spotDeg = 2**(2*1+1) = 2**3 = 8°
 
     // Convert initial spotDeg to fractionHeight for slider position
-    // spotDeg = 2**(3*fractionHeight), so fractionHeight = log2(spotDeg) / 3
+    // spotDeg = 2**(2*fractionHeight+1), so fractionHeight = (log2(spotDeg) - 1) / 2
     const initialFractionHeight =
-      Math.log2(calibrateTrackDistanceBlindspotDiameterDeg) / 3
+      (Math.log2(calibrateTrackDistanceBlindspotDiameterDeg) - 1) / 2
     slider.value = initialFractionHeight
 
     slider.addEventListener('input', e => {
       const fractionHeight = parseFloat(e.target.value) // Range: 0.0 to 1.0
 
-      // Calculate spotDeg from fractionHeight: spotDeg = 2**(3*fractionHeight)
+      // Calculate spotDeg from fractionHeight: spotDeg = 2**(2*fractionHeight+1)
       calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
         2,
-        3 * fractionHeight,
+        2 * fractionHeight + 1,
       )
 
       // Limit to 8 degrees maximum (safety check)
@@ -462,35 +463,38 @@ export async function blindSpotTest(
     })
 
     // Add keyboard event listeners for up/down arrow keys to control slider
-    const handleKeyDown = (e) => {
+    const handleKeyDown = e => {
       // Only handle arrow keys when the slider is focused or when no other element is focused
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault() // Prevent page scrolling
-        
+
         const currentValue = parseFloat(slider.value)
         const step = 0.05 // Larger step for more responsive control (5% of slider range)
-        
+
         let newValue
         if (e.key === 'ArrowUp') {
           newValue = Math.min(1.0, currentValue + step) // Increase spot size
         } else {
           newValue = Math.max(0.0, currentValue - step) // Decrease spot size
         }
-        
+
         // Update slider value
         slider.value = newValue
-        
+
         // Trigger the same logic as the slider input event
         const fractionHeight = newValue
-        
-        // Calculate spotDeg from fractionHeight: spotDeg = 2**(3*fractionHeight)
-        calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(2, 3 * fractionHeight)
-        
+
+          // Calculate spotDeg from fractionHeight: spotDeg = 2**(2*fractionHeight+1)
+          calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
+            2,
+            2 * fractionHeight + 1,
+          )
+
         // Limit to 8 degrees maximum (safety check)
         if (calibrateTrackDistanceBlindspotDiameterDeg > 8) {
           calibrateTrackDistanceBlindspotDiameterDeg = 8
         }
-        
+
         // Recalculate circle bounds and check if current position is still valid
         const spotRadiusPx = calculateSpotRadiusPx(
           calibrateTrackDistanceBlindspotDiameterDeg,
@@ -499,8 +503,14 @@ export async function blindSpotTest(
           circleX,
           crossX,
         )
-        circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi)
-        
+        circleBounds = _getCircleBounds(
+          eyeSide,
+          crossX,
+          c.width,
+          spotRadiusPx,
+          ppi,
+        )
+
         // Check if current position is still within bounds, adjust if needed
         if (circleX < circleBounds[0]) {
           circleX = circleBounds[0] // Move to leftmost valid position
@@ -509,10 +519,10 @@ export async function blindSpotTest(
         }
       }
     }
-    
+
     // Add event listener to document for global keyboard control
     document.addEventListener('keydown', handleKeyDown)
-    
+
     // Store reference for cleanup later
     window.blindspotKeyHandler = handleKeyDown
   }
@@ -1395,7 +1405,7 @@ export async function blindSpotTest(
       options.sparkle,
       spotRadiusPx,
     )
-    
+
     // Draw the inner background-colored circle (donut inner hole)
     // This creates the donut effect by covering the center with background color
     const innerRadiusPx = spotRadiusPx / 2 // Half the diameter = half the radius
