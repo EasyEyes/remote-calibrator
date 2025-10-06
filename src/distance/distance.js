@@ -44,10 +44,23 @@ if (env !== 'mocha') {
 
 const blindSpotHTML = `
   <style>
+    #blindspot-wrapper {
+      position: fixed !important;
+      top: 0 !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      height: 100vh !important;
+      z-index: 99999999998 !important;
+      pointer-events: none;
+      isolation: isolate !important;
+    }
     #blind-spot-canvas {
       z-index: 99999999999 !important;
-      position: fixed !important;
+      position: absolute !important;
       pointer-events: none !important;
+      top: 0;
+      left: 0;
+      isolation: isolate !important;
     }
     #blind-spot-canvas.cursor-grab {
       pointer-events: auto !important;
@@ -60,8 +73,6 @@ const blindSpotHTML = `
       appearance: none;
       background: transparent;
       cursor: pointer;
-      /* width: 100px; */
-      /* height: 100px; */
       transform: rotate(-90deg);
       transform-origin: center;
     }
@@ -98,16 +109,18 @@ const blindSpotHTML = `
       border: none;
     }
   </style>
-  <canvas id="blind-spot-canvas" class="cursor-grab"></canvas>
-  <div id="blindspot-slider-container" style="position: fixed; right: 20px; bottom: 15%; z-index: 99999999999; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-    <div style="position: relative; height: 105px; display: flex; align-items: center;">
-      <div style="position: relative; height: 105px; width: 6px; background: #ddd; border-radius: 3px; margin-right: 15px; display: flex; align-items: center; justify-content: center;">
-        <input type="range" id="blindspot-size-slider" min="0" max="1" value="0.5" step="0.001">
-      </div>
-      <div style="display: flex; flex-direction: column; justify-content: space-between; height: 90px; font-size: 10px; color: #888; line-height: 0.2; margin-left: 10px;">
-        <span>8 deg</span>
-        <span>4 deg</span>
-        <span>2 deg</span>
+  <div id="blindspot-wrapper">
+    <canvas id="blind-spot-canvas" class="cursor-grab"></canvas>
+    <div id="blindspot-slider-container" style="position: absolute; right: 20px; bottom: 15%; z-index: 99999999999; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); pointer-events: auto;">
+      <div style="position: relative; height: 105px; display: flex; align-items: center;">
+        <div style="position: relative; height: 105px; width: 6px; background: #ddd; border-radius: 3px; margin-right: 15px; display: flex; align-items: center; justify-content: center;">
+          <input type="range" id="blindspot-size-slider" min="0" max="1" value="0.5" step="0.001">
+        </div>
+        <div style="display: flex; flex-direction: column; justify-content: space-between; height: 90px; font-size: 10px; color: #888; line-height: 0.2; margin-left: 10px;">
+          <span>8 deg</span>
+          <span>4 deg</span>
+          <span>2 deg</span>
+        </div>
       </div>
     </div>
   </div>
@@ -387,10 +400,10 @@ export async function blindSpotTest(
     await showTestPopup(RC, null, options)
   }
 
-  // Add HTML
+  // Add HTML (append to body to allow overlay above video independent of background)
   const blindSpotDiv = document.createElement('div')
   blindSpotDiv.innerHTML = blindSpotHTML
-  RC.background.appendChild(blindSpotDiv)
+  document.body.appendChild(blindSpotDiv)
   RC._constructFloatInstructionElement(
     'blind-spot-instruction',
     phrases.RC_distanceTrackingCloseL[RC.L],
@@ -398,10 +411,78 @@ export async function blindSpotTest(
   RC._addCreditOnBackground(phrases.RC_viewingBlindSpotCredit[RC.L])
 
   // Get HTML elements
+  const wrapper = document.querySelector('#blindspot-wrapper')
   const c = document.querySelector('#blind-spot-canvas')
   const ctx = c.getContext('2d')
 
+  // Ensure canvas sits above video and is interactive as needed
+  // Video is at z-index 999999997, so canvas must be higher
+  if (wrapper) wrapper.style.zIndex = '99999999998'
+  if (c) {
+    c.style.zIndex = '99999999999'
+    c.style.position = 'absolute'
+  }
+
   const eyeSideEle = document.getElementById('blind-spot-instruction')
+
+  // Helper: compute wrapper width (mapping) in pixels from screen width in cm
+  const _computeMappingWidthPx = () => {
+    const widthCm = RC.screenWidthCm ? RC.screenWidthCm.value : null
+    const pxPerCm = ppi / 2.54
+    if (!widthCm)
+      return Math.min(window.innerWidth, Math.round(0.6 * window.innerWidth))
+    const mappingCm = Math.min(
+      widthCm,
+      Math.max(0.45 * widthCm, 0.2 * widthCm + 18),
+    )
+    return Math.round(mappingCm * pxPerCm)
+  }
+
+  // Helper: place video immediately under the fixation crosshair
+  const _positionVideoBelowFixation = () => {
+    const v = document.getElementById('webgazerVideoContainer')
+    if (!v || !wrapper || !c.width || !c.height) return
+
+    // Save original style once
+    if (!RC._blindspotOriginalVideoStyle) {
+      RC._blindspotOriginalVideoStyle = {
+        left: v.style.left,
+        right: v.style.right,
+        top: v.style.top,
+        bottom: v.style.bottom,
+        transform: v.style.transform,
+        transition: v.style.transition,
+      }
+    }
+
+    const rect = wrapper.getBoundingClientRect()
+    const videoWidth = parseInt(v.style.width) || v.offsetWidth || 0
+    const videoHeight = parseInt(v.style.height) || v.offsetHeight || 0
+    // Align video at the very top of the screen, horizontally following fixation (crossX)
+    const fixationXViewport = rect.left + crossX
+    const leftPx = Math.max(0, Math.round(fixationXViewport - videoWidth / 2))
+    const topPx = 0 // top-aligned
+
+    // Disable transitions to avoid lag while moving and ensure stacking order
+    v.style.transition = 'none'
+    v.style.willChange = 'left, top'
+    v.style.zIndex = '999999997' // Keep video below canvas (99999999999)
+    v.style.pointerEvents = 'none'
+
+    if (_lastVideoLeftPx !== leftPx) {
+      v.style.left = `${leftPx}px`
+      v.style.right = 'unset'
+      v.style.top = `${topPx}px`
+      v.style.bottom = 'unset'
+      v.style.transform = 'none'
+      _lastVideoLeftPx = leftPx
+    }
+    // Make crossY the vertical center of the video within canvas coordinates
+    crossY = Math.max(0, Math.round(topPx - rect.top + videoHeight / 2))
+  }
+
+  // Auto-hide video when any Swal modal is present
+  let _lastVideoLeftPx = null
 
   // Setup slider for dynamic spot size with continuous logarithmic positioning
   const slider = document.getElementById('blindspot-size-slider')
@@ -446,13 +527,16 @@ export async function blindSpotTest(
         circleX,
         crossX,
       )
-      circleBounds = _getCircleBounds(
+      circleBounds = _getCameraLineBounds(
         eyeSide,
-        crossX,
+        centerX,
         c.width,
         spotRadiusPx,
         ppi,
       )
+      // keep fixation mirrored across camera line and video top-centered
+      crossX = 2 * centerX - circleX
+      _positionVideoBelowFixation()
 
       // Check if current position is still within bounds, adjust if needed
       if (circleX < circleBounds[0]) {
@@ -484,11 +568,11 @@ export async function blindSpotTest(
         // Trigger the same logic as the slider input event
         const fractionHeight = newValue
 
-          // Calculate spotDeg from fractionHeight: spotDeg = 2**(2*fractionHeight+1)
-          calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
-            2,
-            2 * fractionHeight + 1,
-          )
+        // Calculate spotDeg from fractionHeight: spotDeg = 2**(2*fractionHeight+1)
+        calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
+          2,
+          2 * fractionHeight + 1,
+        )
 
         // Limit to 8 degrees maximum (safety check)
         if (calibrateTrackDistanceBlindspotDiameterDeg > 8) {
@@ -503,9 +587,9 @@ export async function blindSpotTest(
           circleX,
           crossX,
         )
-        circleBounds = _getCircleBounds(
+        circleBounds = _getCameraLineBounds(
           eyeSide,
-          crossX,
+          centerX,
           c.width,
           spotRadiusPx,
           ppi,
@@ -517,6 +601,9 @@ export async function blindSpotTest(
         } else if (circleX > circleBounds[1]) {
           circleX = circleBounds[1] // Move to rightmost valid position
         }
+        // Mirror fixation across the camera line and keep video top-centered
+        crossX = 2 * centerX - circleX
+        _positionVideoBelowFixation()
       }
     }
 
@@ -536,18 +623,33 @@ export async function blindSpotTest(
   const blindspotEccYDeg = -1.5 // Vertical eccentricity: -1.5° (below horizontal midline)
 
   RC._setFloatInstructionElementPos(eyeSide, 16)
-  let crossX = _getCrossX(eyeSide, c.width)
+  // Camera line (vertical midline) and high placement configuration
+  let centerX = c.width / 2
+  let crossY = 60 // place cross/video near the top
+  // crossX will mirror the spot around the camera line; initialize at camera line
+  let crossX = centerX
 
   let circleBounds
+  // Declare circleX early so it is defined before any layout resets
+  let circleX
 
   // Window resize
   const _resetCanvasSize = () => {
-    c.width = window.innerWidth
+    const wrapperWidth = _computeMappingWidthPx()
+    if (wrapper) {
+      wrapper.style.width = `${wrapperWidth}px`
+      wrapper.style.pointerEvents = 'none'
+    }
+
+    c.width = wrapperWidth
     c.height = window.innerHeight
     c.style.width = `${c.width}px`
     c.style.height = `${c.height}px`
-
-    crossX = _getCrossX(eyeSide, c.width)
+    centerX = c.width / 2
+    // keep cross mirroring current circle if available, else center
+    crossX = typeof circleX === 'number' ? 2 * centerX - circleX : centerX
+    // keep cross high on the screen
+    crossY = 60
     // Calculate initial spot radius using the actual spot size at 6cm eccentricity
     const defaultSpotEccXCm = 6 // Use 6cm as default eccentricity for initial bounds calculation
     const defaultSpotCm =
@@ -555,7 +657,13 @@ export async function blindSpotTest(
         calibrateTrackDistanceBlindspotDiameterDeg) /
       blindspotEccXDeg
     const spotRadiusPx = (defaultSpotCm / 2) * ppiToPxPerCm(ppi)
-    circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi)
+    circleBounds = _getCameraLineBounds(
+      eyeSide,
+      centerX,
+      c.width,
+      spotRadiusPx,
+      ppi,
+    )
 
     // Ensure initial position is within bounds
     const initialDistanceCm = 6
@@ -570,6 +678,9 @@ export async function blindSpotTest(
       circleBounds[0],
       Math.min(circleBounds[1], initialCircleX),
     )
+
+    // Move video to top aligned with current fixation after dimensions update
+    _positionVideoBelowFixation()
   }
   const resizeObserver = new ResizeObserver(() => {
     _resetCanvasSize()
@@ -577,19 +688,23 @@ export async function blindSpotTest(
   resizeObserver.observe(RC.background)
   _resetCanvasSize()
 
-  // Set initial position to 6cm from crosshair, constrained to bounds
+  // Set initial position to 6cm separation (D) between spot and cross, symmetric about camera line
   const initialDistanceCm = 6
   const initialDistancePx = (initialDistanceCm * ppi) / 2.54
+  // For symmetric layout: |circleX - centerX| = D/2
   const desiredInitialX =
     eyeSide === 'left'
-      ? crossX + initialDistancePx // Left eye: start 6cm to the right of crosshair
-      : crossX - initialDistancePx // Right eye: start 6cm to the left of crosshair
+      ? centerX + initialDistancePx / 2
+      : centerX - initialDistancePx / 2
 
   // Constrain to bounds to ensure spot doesn't go off screen
-  let circleX = Math.max(
+  circleX = Math.max(
     circleBounds[0],
     Math.min(circleBounds[1], desiredInitialX),
   )
+  // Mirror fixation cross across camera line and position video at top
+  crossX = 2 * centerX - circleX
+  _positionVideoBelowFixation()
 
   // Helper function to calculate spot radius in pixels from angular diameter
   const calculateSpotRadiusPx = (
@@ -656,6 +771,28 @@ export async function blindSpotTest(
     const spotEccYCmPx = spotEccYCm * ppiToPxPerCm(ppi)
     return currentCrossY + spotEccYCmPx
   }
+
+  // Bounds symmetric around the camera line (vertical center). Enforce minimum
+  // horizontal separation (5 cm) between spot and fixation cross which equals
+  // twice the distance from the camera line.
+  function _getCameraLineBounds(side, cameraLineX, cW, radius = 15, ppi = 96) {
+    const minDistanceCm = 5
+    const minDistancePx = (minDistanceCm * ppi) / 2.54
+    const minHalfPx = minDistancePx / 2
+    const leftLimit = radius
+    const rightLimit = cW - radius
+    if (side === 'left') {
+      // Spot on the right side of camera line
+      const minX = Math.max(cameraLineX + minHalfPx, leftLimit)
+      const maxX = rightLimit
+      return [minX, maxX]
+    } else {
+      // Spot on the left side of camera line
+      const minX = leftLimit
+      const maxX = Math.min(cameraLineX - minHalfPx, rightLimit)
+      return [minX, maxX]
+    }
+  }
   let tempX = circleX // Used to check touching bound
   let circleFill = RC._CONST.COLOR.DARK_RED
 
@@ -693,6 +830,14 @@ export async function blindSpotTest(
       sliderContainer.remove()
     }
 
+    // Remove blindspot overlay from body
+    const blindOverlay = document.getElementById('blindspot-wrapper')
+    if (blindOverlay && blindOverlay.parentNode) {
+      try {
+        blindOverlay.parentNode.removeChild(blindOverlay)
+      } catch (e) {}
+    }
+
     RC._removeBackground()
 
     if (!RC._trackingSetupFinishedStatus.distance && toBreakTracking) {
@@ -702,6 +847,22 @@ export async function blindSpotTest(
 
     unbindKeys(bindKeysFunction)
     unbindKeys(bindKeyUpsFunction, 'keyup')
+
+    // Restore original video position when exiting test
+    const vCont = document.getElementById('webgazerVideoContainer')
+    if (vCont && RC._blindspotOriginalVideoStyle) {
+      const s = RC._blindspotOriginalVideoStyle
+      vCont.style.left = s.left
+      vCont.style.right = s.right
+      vCont.style.top = s.top
+      vCont.style.bottom = s.bottom
+      vCont.style.transform = s.transform
+      vCont.style.transition = s.transition
+      try {
+        setDefaultVideoPosition(RC, vCont)
+      } catch (e) {}
+      RC._blindspotOriginalVideoStyle = null
+    }
   }
 
   // SPACE
@@ -711,8 +872,24 @@ export async function blindSpotTest(
 
     tested += 1
     // Average
+    const pxPerCm = ppi / 2.54
+    // Calculate the spot's Y position
+    const spotY = calculateSpotY(
+      circleX,
+      crossX,
+      crossY,
+      ppi,
+      blindspotEccXDeg,
+      blindspotEccYDeg,
+    )
+    // Calculate distance between fixation cross and spot using Pythagorean theorem
+    const fixationToSpotPx = Math.sqrt(
+      (circleX - crossX) ** 2 + (spotY - crossY) ** 2,
+    )
+    const fixationToSpotCm = fixationToSpotPx / pxPerCm
+    const eyeToCameraCm = _getEyeToCameraCm(fixationToSpotCm)
     dist.push({
-      dist: toFixedNumber(_getDist(circleX, crossX, ppi), options.decimalPlace),
+      dist: toFixedNumber(eyeToCameraCm, options.decimalPlace),
       v: v,
       closedEyeSide: eyeSide,
       crossX: crossX,
@@ -724,12 +901,12 @@ export async function blindSpotTest(
     if (!RC.blindspotData) RC.blindspotData = {}
     if (eyeSide === 'left')
       RC.blindspotData.viewingDistanceByBlindSpot1Cm = toFixedNumber(
-        _getDist(circleX, crossX, ppi),
+        eyeToCameraCm,
         options.decimalPlace,
       )
     else
       RC.blindspotData.viewingDistanceByBlindSpot2Cm = toFixedNumber(
-        _getDist(circleX, crossX, ppi),
+        eyeToCameraCm,
         options.decimalPlace,
       )
 
@@ -808,15 +985,11 @@ export async function blindSpotTest(
 
         // Calibration factor used for tracking
         // Apply Pythagorean correction: blindspot gives eyeToScreenCm, but we need eyeToCameraCm for calibration
-        const halfScreenHeightCm = _calculateDistanceFromCenterToTop(ppi)
-        const eyeToCameraCm = Math.sqrt(
-          data.value ** 2 - halfScreenHeightCm ** 2,
-        )
+        const eyeToCameraCm = data.value
         const calibrationFactor = Math.round(averageFaceMesh * eyeToCameraCm)
 
         console.log('=== Blindspot Test Calibration Factor ===')
         console.log('Blindspot distance (eyeToScreenCm):', data.value, 'cm')
-        console.log('Half screen height:', halfScreenHeightCm.toFixed(2), 'cm')
         console.log(
           'Corrected distance (eyeToCameraCm):',
           eyeToCameraCm.toFixed(2),
@@ -848,14 +1021,14 @@ export async function blindSpotTest(
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
             const webcamToEyeDistance = calibrationFactor / currentIPDDistance
-            const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+            const pxPerCm = ppi / 2.54
             const nearestPointsData = calculateNearestPoints(
               video,
               leftEye,
               rightEye,
               currentIPDDistance,
               webcamToEyeDistance,
-              cameraPxPerCm,
+              pxPerCm,
               ppi,
               RC,
             )
@@ -994,14 +1167,14 @@ export async function blindSpotTest(
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
             const webcamToEyeDistance = calibrationFactor / currentIPDDistance
-            const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+            const pxPerCm = ppi / 2.54
             const nearestPointsData = calculateNearestPoints(
               video,
               leftEye,
               rightEye,
               currentIPDDistance,
               webcamToEyeDistance,
-              cameraPxPerCm,
+              pxPerCm,
               ppi,
               RC,
             )
@@ -1185,9 +1358,9 @@ export async function blindSpotTest(
       circleX,
       crossX,
     )
-    const currentBounds = _getCircleBounds(
+    const currentBounds = _getCameraLineBounds(
       eyeSide,
-      crossX,
+      centerX,
       c.width,
       spotRadiusPx,
       ppi,
@@ -1195,6 +1368,9 @@ export async function blindSpotTest(
 
     tempX = constrain(circleX, ...currentBounds)
     circleX = tempX
+    // keep fixation mirrored across camera line and video top-centered
+    crossX = 2 * centerX - circleX
+    _positionVideoBelowFixation()
   }
 
   const _resetRandnCircleX = (eye, bounds) => {
@@ -1217,6 +1393,8 @@ export async function blindSpotTest(
     v = nextV
     eyeSide = nextEyeSide
     crossX = nextCrossX
+    // Ensure blindspot horizontal eccentricity sign matches current eye side
+    blindspotEccXDeg = eyeSide === 'left' ? -15.5 : 15.5
     const spotRadiusPx = calculateSpotRadiusPx(
       calibrateTrackDistanceBlindspotDiameterDeg,
       ppi,
@@ -1224,7 +1402,13 @@ export async function blindSpotTest(
       circleX,
       crossX,
     )
-    circleBounds = _getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi)
+    circleBounds = _getCameraLineBounds(
+      eyeSide,
+      centerX,
+      c.width,
+      spotRadiusPx,
+      ppi,
+    )
 
     if (shiftFloatingElement) {
       if (eyeSide === 'left')
@@ -1244,16 +1428,21 @@ export async function blindSpotTest(
       const initialDistancePx = (initialDistanceCm * ppi) / 2.54
       const desiredInitialX =
         eyeSide === 'left'
-          ? crossX + initialDistancePx // Left eye: start 6cm to the right of crosshair
-          : crossX - initialDistancePx // Right eye: start 6cm to the left of crosshair
+          ? centerX + initialDistancePx / 2
+          : centerX - initialDistancePx / 2
 
       // Constrain to bounds to ensure spot doesn't go off screen
       circleX = Math.max(
         circleBounds[0],
         Math.min(circleBounds[1], desiredInitialX),
       )
+      // mirror fixation across camera line
+      crossX = 2 * centerX - circleX
       _resetRandnCircleX(nextEyeSide, circleBounds)
     }
+
+    // Keep video under the current fixation crosshair after side change
+    _positionVideoBelowFixation()
   }
 
   // Bind keys
@@ -1313,7 +1502,26 @@ export async function blindSpotTest(
       startY = e.clientY
     }
 
-    if (clickOnCircle(circleX, c.height / 2, startX, startY)) {
+    // compute current spot Y for accurate hit testing
+    const currentSpotRadiusPx = calculateSpotRadiusPx(
+      calibrateTrackDistanceBlindspotDiameterDeg,
+      ppi,
+      blindspotEccXDeg,
+      circleX,
+      crossX,
+    )
+    const currentSpotY = calculateSpotY(
+      circleX,
+      crossX,
+      crossY,
+      ppi,
+      blindspotEccXDeg,
+      blindspotEccYDeg,
+    )
+
+    if (
+      clickOnCircle(circleX, currentSpotY, startX, startY, currentSpotRadiusPx)
+    ) {
       _dragStartPosition.x = startX
       _dragStartPosition.circleX = circleX
 
@@ -1340,8 +1548,11 @@ export async function blindSpotTest(
         )
         circleX = constrain(
           circleX,
-          ..._getCircleBounds(eyeSide, crossX, c.width, spotRadiusPx, ppi),
+          ..._getCameraLineBounds(eyeSide, centerX, c.width, spotRadiusPx, ppi),
         )
+        // Mirror fixation across camera line and keep video at top
+        crossX = 2 * centerX - circleX
+        _positionVideoBelowFixation()
       }
       if (isTouch) document.addEventListener('touchmove', dragMove)
       else document.addEventListener('mousemove', dragMove)
@@ -1375,8 +1586,15 @@ export async function blindSpotTest(
     // ctx.fillRect(0, 0, c.width, c.height)
     ctx.clearRect(0, 0, c.width, c.height)
     // ctx.beginPath()
-
-    _cross(ctx, crossX, c.height / 2)
+    // draw the vertical midline
+    ctx.save()
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(centerX + 0.5, 0)
+    ctx.lineTo(centerX + 0.5, c.height)
+    ctx.stroke()
+    ctx.restore()
 
     frameTimestamp = performance.now()
     const spotRadiusPx = calculateSpotRadiusPx(
@@ -1386,10 +1604,19 @@ export async function blindSpotTest(
       circleX,
       crossX,
     )
+    // Ensure the circle stays within valid horizontal bounds after any layout changes/popups
+    const currentBounds = _getCameraLineBounds(
+      eyeSide,
+      centerX,
+      c.width,
+      spotRadiusPx,
+      ppi,
+    )
+    circleX = constrain(circleX, ...currentBounds)
     const spotY = calculateSpotY(
       circleX,
       crossX,
-      c.height / 2,
+      crossY,
       ppi,
       blindspotEccXDeg,
       blindspotEccYDeg,
@@ -1414,6 +1641,9 @@ export async function blindSpotTest(
     ctx.closePath()
     ctx.fillStyle = '#eee' // Match the background color
     ctx.fill()
+
+    // Draw cross last so it stays on top of the spot and video
+    _cross(ctx, crossX, crossY)
     if (!control) {
       circleX += v * circleDeltaX
       helpMoveCircleX()
@@ -1514,6 +1744,11 @@ RemoteCalibrator.prototype.measureDistanceObject = async function (
 function _getDist(x, crossX, ppi) {
   // .3937 - in to cm
   return Math.abs(crossX - x) / ppi / _getTanDeg(15) / 0.3937
+}
+
+function _getEyeToCameraCm(fixationToSpotCm) {
+  const eccDeg = Math.sqrt(15.2 ** 2 + 1.5 ** 2)
+  return (0.5 * fixationToSpotCm) / _getTanDeg(0.5 * eccDeg)
 }
 
 function _getTanDeg(deg) {
@@ -3496,14 +3731,14 @@ export async function objectTest(RC, options, callback = undefined) {
                     // Calculate nearest points data for both page measurements
                     const webcamToEyeDistance_avg =
                       averageFactorCmPx / currentIPDDistance
-                    const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+                    const pxPerCm = ppi / 2.54
                     const nearestPointsData = calculateNearestPoints(
                       video,
                       leftEye,
                       rightEye,
                       currentIPDDistance,
                       webcamToEyeDistance_avg,
-                      cameraPxPerCm,
+                      pxPerCm,
                       ppi,
                       RC,
                     )
@@ -3631,14 +3866,14 @@ export async function objectTest(RC, options, callback = undefined) {
                     // Calculate nearest points data for both page measurements
                     const webcamToEyeDistance_avg =
                       averageFactorCmPx / currentIPDDistance
-                    const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+                    const pxPerCm = ppi / 2.54
                     const nearestPointsData = calculateNearestPoints(
                       video,
                       leftEye,
                       rightEye,
                       currentIPDDistance,
                       webcamToEyeDistance_avg,
-                      cameraPxPerCm,
+                      pxPerCm,
                       ppi,
                       RC,
                     )
@@ -3900,14 +4135,14 @@ export async function objectTest(RC, options, callback = undefined) {
             // Calculate nearest points data for both page measurements
             const webcamToEyeDistance_avg =
               averageFactorCmPx / currentIPDDistance
-            const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+            const pxPerCm = ppi / 2.54
             const nearestPointsData = calculateNearestPoints(
               video,
               leftEye,
               rightEye,
               currentIPDDistance,
               webcamToEyeDistance_avg,
-              cameraPxPerCm,
+              pxPerCm,
               ppi,
               RC,
             )
@@ -4019,14 +4254,14 @@ export async function objectTest(RC, options, callback = undefined) {
             // Calculate nearest points data for both page measurements
             const webcamToEyeDistance_avg =
               averageFactorCmPx / currentIPDDistance
-            const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+            const pxPerCm = ppi / 2.54
             const nearestPointsData = calculateNearestPoints(
               video,
               leftEye,
               rightEye,
               currentIPDDistance,
               webcamToEyeDistance_avg,
-              cameraPxPerCm,
+              pxPerCm,
               ppi,
               RC,
             )
@@ -4509,12 +4744,8 @@ function checkBlindspotTolerance(
   }
   const leftAvgFM = validLeft.reduce((a, b) => a + b, 0) / validLeft.length
   const rightAvgFM = validRight.reduce((a, b) => a + b, 0) / validRight.length
-  // Apply Pythagorean correction for blindspot tolerance check
-  const halfScreenHeightCm = _calculateDistanceFromCenterToTop(ppi)
-  const leftEyeToCameraCm = Math.sqrt(leftMean ** 2 - halfScreenHeightCm ** 2)
-  const rightEyeToCameraCm = Math.sqrt(rightMean ** 2 - halfScreenHeightCm ** 2)
-  const F1 = leftAvgFM * leftEyeToCameraCm
-  const F2 = rightAvgFM * rightEyeToCameraCm
+  const F1 = leftAvgFM * leftMean
+  const F2 = rightAvgFM * rightMean
   const ratio1 = F1 / F2
   const ratio2 = F2 / F1
   const maxRatio = Math.max(ratio1, ratio2)

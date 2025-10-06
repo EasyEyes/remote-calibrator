@@ -927,6 +927,8 @@ export const calculateNearestPoints = (
   const rightEyeX = video.width - rightEye.x // Flip X coordinate
   const rightEyeY = rightEye.y // Y coordinate unchanged
 
+  const ipdCameraPx = eyeDist(leftEye, rightEye)
+
   const offsetXYCameraPx_left = [
     leftEyeX - centerXYCameraPx[0],
     leftEyeY - centerXYCameraPx[1],
@@ -1039,6 +1041,7 @@ export const calculateNearestPoints = (
     distanceCm_left,
     distanceCm_right,
     distanceCm,
+    ipdCameraPx,
   }
 }
 
