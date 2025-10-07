@@ -203,6 +203,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       resolutionWarningThreshold: undefined,
       calibrateTrackDistanceSpotCm: 0.5,
       calibrateTrackDistanceBlindspotDiameterDeg: 2,
+      viewingDistanceWhichEye: undefined,
+      viewingDistanceWhichPoint: undefined,
     },
     trackDistanceOptions,
   )
@@ -373,6 +375,9 @@ RemoteCalibrator.prototype.trackDistance = async function (
     options.desiredDistanceMonitorCancelable
   trackingOptions.desiredDistanceMonitorAllowRecalibrate =
     options.desiredDistanceMonitorAllowRecalibrate
+
+  trackingOptions.viewingDistanceWhichEye = options.viewingDistanceWhichEye
+  trackingOptions.viewingDistanceWhichPoint = options.viewingDistanceWhichPoint
 
   originalStyles.video = options.showVideo
 
@@ -916,6 +921,7 @@ export const calculateNearestPoints = (
   pxPerCm,
   ppi,
   RC,
+  options = {},
 ) => {
   const centerXYCameraPx = getCenterXYCameraPx(video)
 
@@ -1042,6 +1048,9 @@ export const calculateNearestPoints = (
     distanceCm_right,
     distanceCm,
     ipdCameraPx,
+    cameraXYPx,
+    viewingDistanceWhichEye: options.viewingDistanceWhichEye,
+    viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
   }
 }
 
@@ -1125,6 +1134,7 @@ const renderDistanceResult = async (
         pxPerCm,
         ppi,
         RC,
+        trackingOptions,
       )
 
       const {
@@ -1141,6 +1151,9 @@ const renderDistanceResult = async (
         distanceCm_left,
         distanceCm_right,
         distanceCm,
+        cameraXYPx,
+        viewingDistanceWhichEye,
+        viewingDistanceWhichPoint,
       } = nearestPointsData
 
       // Apply trigonometric adjustment to get screen-center-to-eye distance
@@ -1200,6 +1213,10 @@ const renderDistanceResult = async (
             x: rightEye.x,
             y: rightEye.y,
           },
+          cameraXYPx,
+          viewingDistanceWhichEye,
+          viewingDistanceWhichPoint,
+          nearestXYPx,
         )
 
       if (readyToGetFirstData || desiredDistanceMonitor) {
@@ -1299,6 +1316,9 @@ let nearestPointLabels = { left: null, right: null }
 let webcamDistanceLabel = null
 let factorLabel = null
 let ipdLabel = null
+let cameraXYPxLabel = null
+let viewingDistanceWhichEyeLabel = null
+let viewingDistanceWhichPointLabel = null
 let eyePointDots = { left: null, right: null }
 let pupilDots = { left: null, right: null }
 let nearestPointCoordsLabels = { left: null, right: null }
@@ -1313,6 +1333,10 @@ const _drawNearestPoints = (
   averageDist,
   leftEyePoint,
   rightEyePoint,
+  cameraXYPx,
+  viewingDistanceWhichEye,
+  viewingDistanceWhichPoint,
+  nearestXYPx,
 ) => {
   // Create elements only if they don't exist, otherwise reuse them
   const createOrUpdateElement = (elementRef, id, baseStyles) => {
@@ -1369,7 +1393,7 @@ const _drawNearestPoints = (
           zIndex: '9999999999999',
           pointerEvents: 'none',
           fontFamily: 'Arial, sans-serif',
-          fontWeight: 'bold',
+          fontWeight: 'normal',
         },
       )
 
@@ -1448,7 +1472,7 @@ const _drawNearestPoints = (
           zIndex: '9999999999999',
           pointerEvents: 'none',
           fontFamily: 'Arial, sans-serif',
-          fontWeight: 'bold',
+          fontWeight: 'normal',
         },
       )
 
@@ -1505,7 +1529,7 @@ const _drawNearestPoints = (
         zIndex: '2147483646',
         pointerEvents: 'none',
         fontFamily: 'Arial, sans-serif',
-        fontWeight: 'bold',
+        fontWeight: 'normal',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       },
     )
@@ -1552,7 +1576,7 @@ const _drawNearestPoints = (
       zIndex: '2147483646',
       pointerEvents: 'none',
       fontFamily: 'Arial, sans-serif',
-      fontWeight: 'bold',
+      fontWeight: 'normal',
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     })
 
@@ -1598,7 +1622,7 @@ const _drawNearestPoints = (
       zIndex: '2147483646',
       pointerEvents: 'none',
       fontFamily: 'Arial, sans-serif',
-      fontWeight: 'bold',
+      fontWeight: 'normal',
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     })
 
@@ -1629,6 +1653,168 @@ const _drawNearestPoints = (
 
     ipdLabel.style.left = `${labelLeft}px`
     ipdLabel.style.top = `${labelTop}px`
+  }
+
+  // Add cameraXYPx label right below the IPD label
+  if (cameraXYPx !== undefined) {
+    cameraXYPxLabel = createOrUpdateElement(cameraXYPxLabel, 'rc-camera-xy-px-label', {
+      position: 'fixed',
+      fontSize: '16px',
+      color: '#333',
+      background: 'rgba(255, 255, 255, 0.9)',
+      padding: '4px 8px',
+      borderRadius: '6px',
+      border: '1px solid #ddd',
+      zIndex: '2147483646',
+      pointerEvents: 'none',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'normal',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    })
+
+    // Update content and position
+    cameraXYPxLabel.textContent = `cameraXYPx: [${Math.round(cameraXYPx[0])}, ${Math.round(cameraXYPx[1])}]`
+
+    // Calculate position: same horizontal position as IPD label, but below it
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 110 // 110px from top (30px below the IPD label)
+
+    // If video container exists, offset to avoid overlap (same logic as other labels)
+    if (videoContainer) {
+      const videoRect = videoContainer.getBoundingClientRect()
+      const labelWidth = 80 // Approximate label width
+
+      // Position to the right of the video with some padding
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+
+      // If that would push it off screen, position to the left of video
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+
+    // Ensure label stays within screen bounds
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+
+    cameraXYPxLabel.style.left = `${labelLeft}px`
+    cameraXYPxLabel.style.top = `${labelTop}px`
+  }
+
+  // Add viewingDistanceWhichEye label right below the cameraXYPx label
+  if (viewingDistanceWhichEye !== undefined) {
+    viewingDistanceWhichEyeLabel = createOrUpdateElement(viewingDistanceWhichEyeLabel, 'rc-viewing-distance-which-eye-label', {
+      position: 'fixed',
+      fontSize: '16px',
+      color: '#333',
+      background: 'rgba(255, 255, 255, 0.9)',
+      padding: '4px 8px',
+      borderRadius: '6px',
+      border: '1px solid #ddd',
+      zIndex: '2147483646',
+      pointerEvents: 'none',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'normal',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    })
+
+    // Update content and position
+    viewingDistanceWhichEyeLabel.textContent = `viewingDistanceWhichEye: ${viewingDistanceWhichEye}`
+
+    // Calculate position: same horizontal position as cameraXYPx label, but below it
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 140 // 140px from top (30px below the cameraXYPx label)
+
+    // If video container exists, offset to avoid overlap (same logic as other labels)
+    if (videoContainer) {
+      const videoRect = videoContainer.getBoundingClientRect()
+      const labelWidth = 80 // Approximate label width
+
+      // Position to the right of the video with some padding
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+
+      // If that would push it off screen, position to the left of video
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+
+    // Ensure label stays within screen bounds
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+
+    viewingDistanceWhichEyeLabel.style.left = `${labelLeft}px`
+    viewingDistanceWhichEyeLabel.style.top = `${labelTop}px`
+  }
+
+  // Add viewingDistanceWhichPoint label right below the viewingDistanceWhichEye label
+  if (viewingDistanceWhichPoint !== undefined) {
+    viewingDistanceWhichPointLabel = createOrUpdateElement(viewingDistanceWhichPointLabel, 'rc-viewing-distance-which-point-label', {
+      position: 'fixed',
+      fontSize: '16px',
+      color: '#333',
+      background: 'rgba(255, 255, 255, 0.9)',
+      padding: '4px 8px',
+      borderRadius: '6px',
+      border: '1px solid #ddd',
+      zIndex: '2147483646',
+      pointerEvents: 'none',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'normal',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    })
+
+    // Interpret viewingDistanceWhichPoint based on category
+    const interpretViewingDistanceWhichPoint = (category, nearestXYPx, cameraXYPx, viewingDistanceWhichEye) => {
+      switch (category) {
+        case 'fixation':
+          return '(0,0) deg - Screen center'
+        case 'target':
+          return 'NaN' // TODO: targetEccentricityXDeg, targetEccentricityYDeg
+        case 'foot':
+          return `(${Math.round(nearestXYPx[0])}, ${Math.round(nearestXYPx[1])})`
+        case 'camera':
+          return `(${Math.round(cameraXYPx[0])}, ${Math.round(cameraXYPx[1])})`
+        case 'xyDeg':
+          return 'NaN' // TODO: viewingDistanceToXYDeg
+        default:
+          return `[${Math.round(viewingDistanceWhichPoint[0])}, ${Math.round(viewingDistanceWhichPoint[1])}]`
+      }
+    }
+
+    // Update content and position
+    const interpretedValue = interpretViewingDistanceWhichPoint(
+      viewingDistanceWhichPoint, 
+      nearestXYPx, 
+      cameraXYPx, 
+      viewingDistanceWhichEye
+    )
+    viewingDistanceWhichPointLabel.textContent = `viewingDistanceWhichPoint: ${interpretedValue}`
+
+    // Calculate position: same horizontal position as viewingDistanceWhichEye label, but below it
+    const videoContainer = document.getElementById('webgazerVideoContainer')
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 170 // 170px from top (30px below the viewingDistanceWhichEye label)
+
+    // If video container exists, offset to avoid overlap (same logic as other labels)
+    if (videoContainer) {
+      const videoRect = videoContainer.getBoundingClientRect()
+      const labelWidth = 80 // Approximate label width
+
+      // Position to the right of the video with some padding
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+
+      // If that would push it off screen, position to the left of video
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+
+    // Ensure label stays within screen bounds
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+
+    viewingDistanceWhichPointLabel.style.left = `${labelLeft}px`
+    viewingDistanceWhichPointLabel.style.top = `${labelTop}px`
   }
 }
 
@@ -1661,6 +1847,18 @@ const cleanUpEyePoints = () => {
   if (ipdLabel) {
     document.body.removeChild(ipdLabel)
     ipdLabel = null
+  }
+  if (cameraXYPxLabel) {
+    document.body.removeChild(cameraXYPxLabel)
+    cameraXYPxLabel = null
+  }
+  if (viewingDistanceWhichEyeLabel) {
+    document.body.removeChild(viewingDistanceWhichEyeLabel)
+    viewingDistanceWhichEyeLabel = null
+  }
+  if (viewingDistanceWhichPointLabel) {
+    document.body.removeChild(viewingDistanceWhichPointLabel)
+    viewingDistanceWhichPointLabel = null
   }
   if (nearestPointCoordsLabels.left) {
     document.body.removeChild(nearestPointCoordsLabels.left)
@@ -1899,6 +2097,18 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     if (ipdLabel) {
       document.body.removeChild(ipdLabel)
       ipdLabel = null
+    }
+    if (cameraXYPxLabel) {
+      document.body.removeChild(cameraXYPxLabel)
+      cameraXYPxLabel = null
+    }
+    if (viewingDistanceWhichEyeLabel) {
+      document.body.removeChild(viewingDistanceWhichEyeLabel)
+      viewingDistanceWhichEyeLabel = null
+    }
+    if (viewingDistanceWhichPointLabel) {
+      document.body.removeChild(viewingDistanceWhichPointLabel)
+      viewingDistanceWhichPointLabel = null
     }
     if (nearestPointCoordsLabels.left) {
       document.body.removeChild(nearestPointCoordsLabels.left)
