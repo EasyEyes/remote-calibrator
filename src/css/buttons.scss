@@ -1,5 +1,11 @@
 .rc-buttons {
-  z-index: 10;
+  z-index: 999999999999;
+}
+
+/* Ensure buttons are clickable in blindspot pages */
+#rc-buttons {
+  z-index: 999999999999 !important;
+  pointer-events: auto !important;
 }
 
 .rc-absolute-buttons {

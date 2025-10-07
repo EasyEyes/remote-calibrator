@@ -78,10 +78,55 @@ export function _circle(
   ctx.fill()
 }
 
+// DIAMOND
+export function _diamond(
+  RC,
+  ctx,
+  x,
+  y,
+  frameTimestampDelta,
+  fill,
+  sparkle = true,
+  width = circleR,
+) {
+  // Calculate diamond points (square rotated 45 degrees)
+  const halfWidth = width / 2
+  const points = [
+    { x: x, y: y - halfWidth },        // Top
+    { x: x + halfWidth, y: y },        // Right
+    { x: x, y: y + halfWidth },        // Bottom
+    { x: x - halfWidth, y: y }         // Left
+  ]
+
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y)
+  }
+  ctx.closePath()
+
+  if (!sparkle) ctx.fillStyle = fill
+  else {
+    // 8Hz
+    if (frameTimestampDelta % 125 < 63) ctx.fillStyle = fill
+    else ctx.fillStyle = '#fff'
+  }
+
+  ctx.fill()
+}
+
 /* ---------------------------------- Drag ---------------------------------- */
 
 export function clickOnCircle(x, y, mouseX, mouseY, radius = circleR >> 1) {
   return dist2d(x, y, mouseX, mouseY) < radius
+}
+
+export function clickOnDiamond(x, y, mouseX, mouseY, width = circleR) {
+  // Check if point is inside diamond (square rotated 45 degrees)
+  const halfWidth = width / 2
+  const dx = Math.abs(mouseX - x)
+  const dy = Math.abs(mouseY - y)
+  return dx + dy <= halfWidth
 }
 
 export function bindMousedown(canvasId, callback) {

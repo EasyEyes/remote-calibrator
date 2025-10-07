@@ -20,9 +20,11 @@ import {
   circleDeltaX,
   _getCircleBounds,
   _circle,
+  _diamond,
   bindMousedown,
   unbindMousedown,
   clickOnCircle,
+  clickOnDiamond,
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
@@ -49,7 +51,7 @@ const blindSpotHTML = `
       top: 0 !important;
       left: 50% !important;
       transform: translateX(-50%) !important;
-      height: 100vh !important;
+      height: 90vh !important;
       z-index: 99999999998 !important;
       pointer-events: none;
       isolation: isolate !important;
@@ -60,13 +62,22 @@ const blindSpotHTML = `
       pointer-events: none !important;
       top: 0;
       left: 0;
+      width: 100% !important;
+      height: 90vh !important;
       isolation: isolate !important;
     }
     #blind-spot-canvas.cursor-grab {
       pointer-events: auto !important;
     }
     #rc-buttons {
-      z-index: 99999999999 !important;
+      z-index: 999999999999 !important;
+      pointer-events: auto !important;
+      position: fixed !important;
+      bottom: 1.25rem !important;
+      right: 1.25rem !important;
+    }
+    .swal2-container {
+      z-index: 1000000000000 !important;
     }
     #blindspot-size-slider {
       -webkit-appearance: none;
@@ -111,7 +122,7 @@ const blindSpotHTML = `
   </style>
   <div id="blindspot-wrapper">
     <canvas id="blind-spot-canvas" class="cursor-grab"></canvas>
-    <div id="blindspot-slider-container" style="position: absolute; right: 20px; bottom: 15%; z-index: 99999999999; background: rgba(255,255,255,0.9); padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); pointer-events: auto;">
+    <div id="blindspot-slider-container" style="position: absolute; right: 20px; bottom: 15%; z-index: 99999999999; pointer-events: auto;">
       <div style="position: relative; height: 105px; display: flex; align-items: center;">
         <div style="position: relative; height: 105px; width: 6px; background: #ddd; border-radius: 3px; margin-right: 15px; display: flex; align-items: center; justify-content: center;">
           <input type="range" id="blindspot-size-slider" min="0" max="1" value="0.5" step="0.001">
@@ -408,6 +419,11 @@ export async function blindSpotTest(
     'blind-spot-instruction',
     phrases.RC_distanceTrackingBeforeClosingEye[RC.L],
   )
+  // Add blindspot-specific styling to remove white background
+  const blindspotInstruction = document.getElementById('blind-spot-instruction')
+  if (blindspotInstruction) {
+    blindspotInstruction.classList.add('blindspot-instruction')
+  }
   RC._addCreditOnBackground(phrases.RC_viewingBlindSpotCredit[RC.L])
 
   // Get HTML elements
@@ -534,11 +550,11 @@ export async function blindSpotTest(
         circleX,
         crossX,
       )
-      circleBounds = _getCameraLineBounds(
+      circleBounds = _getDiamondBounds(
         eyeSide,
         centerX,
         c.width,
-        spotRadiusPx,
+        spotRadiusPx * 2, // Convert radius to diamond width
         ppi,
       )
       // keep fixation mirrored across camera line and video top-centered
@@ -665,11 +681,11 @@ export async function blindSpotTest(
         calibrateTrackDistanceBlindspotDiameterDeg) /
       blindspotEccXDeg
     const spotRadiusPx = (defaultSpotCm / 2) * ppiToPxPerCm(ppi)
-    circleBounds = _getCameraLineBounds(
+    circleBounds = _getDiamondBounds(
       eyeSide,
       centerX,
       c.width,
-      spotRadiusPx,
+      spotRadiusPx * 2, // Convert radius to diamond width
       ppi,
     )
 
@@ -820,6 +836,59 @@ export async function blindSpotTest(
       return [minX, maxX]
     }
   }
+
+  // Diamond-specific bounds calculation
+  // For a diamond, we need to ensure the diamond edges don't go off screen
+  function _getDiamondBounds(side, cameraLineX, cW, diamondWidth, ppi = 96) {
+    const minDistanceCm = 5
+    const minDistancePx = (minDistanceCm * ppi) / 2.54
+    const minHalfPx = minDistancePx / 2
+
+    // Get video dimensions
+    const v = document.getElementById('webgazerVideoContainer')
+    const videoWidth = v ? parseInt(v.style.width) || v.offsetWidth || 0 : 0
+    const videoHalfWidth = videoWidth / 2
+
+    // For diamond bounds, we need to account for the diamond's width
+    // Diamond extends diamondWidth/2 in each direction from center
+    const diamondHalfWidth = diamondWidth / 2
+
+    if (side === 'left') {
+      // Left eye: spot on right (circleX > centerX), video/fixation on left (crossX < centerX)
+      // Ensure diamond doesn't go off right edge of screen
+      const minX = Math.max(
+        cameraLineX + minHalfPx,
+        cameraLineX + videoHalfWidth,
+      )
+      const maxX = Math.min(
+        2 * cameraLineX - videoHalfWidth,
+        cW - diamondHalfWidth // Don't let diamond go off right edge
+      )
+      return [minX, maxX]
+    } else {
+      // Right eye: spot on left (circleX < centerX), video/fixation on right (crossX > centerX)
+      // Ensure diamond doesn't go off left edge of screen
+      const minX = Math.max(
+        2 * cameraLineX - (window.innerWidth - videoHalfWidth),
+        diamondHalfWidth // Don't let diamond go off left edge
+      )
+      const maxX = Math.min(
+        cameraLineX - minHalfPx,
+        cameraLineX - videoHalfWidth,
+      )
+      return [minX, maxX]
+    }
+  }
+
+  // Diamond vertical bounds calculation
+  // Ensures diamond doesn't go off top or bottom of screen
+  function _getDiamondVerticalBounds(diamondWidth, cH) {
+    const diamondHalfWidth = diamondWidth / 2
+    const minY = diamondHalfWidth // Don't let diamond go off top edge
+    const maxY = cH - diamondHalfWidth // Don't let diamond go off bottom edge
+    return [minY, maxY]
+  }
+
   let tempX = circleX // Used to check touching bound
   let circleFill = RC._CONST.COLOR.DARK_RED
 
@@ -921,11 +990,11 @@ export async function blindSpotTest(
         circleX,
         crossX,
       )
-      circleBounds = _getCameraLineBounds(
+      circleBounds = _getDiamondBounds(
         eyeSide,
         centerX,
         c.width,
-        spotRadiusPx,
+        spotRadiusPx * 2, // Convert radius to diamond width
         ppi,
       )
 
@@ -1407,10 +1476,10 @@ export async function blindSpotTest(
 
     arrowIntervalFunction = setInterval(() => {
       if (e.key === 'ArrowLeft') {
-        circleX -= 10
+        circleX -= 2.5
         helpMoveCircleX()
       } else if (e.key === 'ArrowRight') {
-        circleX += 10
+        circleX += 2.5
         helpMoveCircleX()
       }
     }, 30)
@@ -1438,11 +1507,11 @@ export async function blindSpotTest(
       circleX,
       crossX,
     )
-    const currentBounds = _getCameraLineBounds(
+    const currentBounds = _getDiamondBounds(
       eyeSide,
       centerX,
       c.width,
-      spotRadiusPx,
+      spotRadiusPx * 2, // Convert radius to diamond width
       ppi,
     )
 
@@ -1482,11 +1551,11 @@ export async function blindSpotTest(
       circleX,
       crossX,
     )
-    circleBounds = _getCameraLineBounds(
+    circleBounds = _getDiamondBounds(
       eyeSide,
       centerX,
       c.width,
-      spotRadiusPx,
+      spotRadiusPx * 2, // Convert radius to diamond width
       ppi,
     )
 
@@ -1561,7 +1630,7 @@ export async function blindSpotTest(
     RC.L,
     RC.background,
     {
-      go: finishFunction,
+      //go: finishFunction,
       cancel: options.showCancelButton ? breakFunction : undefined,
       custom: {
         callback: () => {
@@ -1614,9 +1683,15 @@ export async function blindSpotTest(
       blindspotEccXDeg,
       blindspotEccYDeg,
     )
+    // Apply vertical bounds to click detection as well
+    const verticalBounds = _getDiamondVerticalBounds(
+      currentSpotRadiusPx * 2, // Convert radius to diamond width
+      c.height,
+    )
+    const constrainedCurrentSpotY = constrain(currentSpotY, ...verticalBounds)
 
     if (
-      clickOnCircle(circleX, currentSpotY, startX, startY, currentSpotRadiusPx)
+      clickOnDiamond(circleX, constrainedCurrentSpotY, startX, startY, currentSpotRadiusPx * 2)
     ) {
       _dragStartPosition.x = startX
       _dragStartPosition.circleX = circleX
@@ -1644,7 +1719,7 @@ export async function blindSpotTest(
         )
         circleX = constrain(
           circleX,
-          ..._getCameraLineBounds(eyeSide, centerX, c.width, spotRadiusPx, ppi),
+          ..._getDiamondBounds(eyeSide, centerX, c.width, spotRadiusPx * 2, ppi),
         )
         // Mirror fixation across camera line and keep video at top
         crossX = 2 * centerX - circleX
@@ -1691,12 +1766,12 @@ export async function blindSpotTest(
       circleX,
       crossX,
     )
-    // Ensure the circle stays within valid horizontal bounds after any layout changes/popups
-    const currentBounds = _getCameraLineBounds(
+    // Ensure the diamond stays within valid horizontal bounds after any layout changes/popups
+    const currentBounds = _getDiamondBounds(
       eyeSide,
       centerX,
       c.width,
-      spotRadiusPx,
+      spotRadiusPx * 2, // Convert radius to diamond width
       ppi,
     )
     circleX = constrain(circleX, ...currentBounds)
@@ -1708,27 +1783,24 @@ export async function blindSpotTest(
       blindspotEccXDeg,
       blindspotEccYDeg,
     )
-    // Draw the outer flickering circle (donut outer ring) - skip on intro page
+    // Ensure the diamond stays within valid vertical bounds
+    const verticalBounds = _getDiamondVerticalBounds(
+      spotRadiusPx * 2, // Convert radius to diamond width
+      c.height,
+    )
+    const constrainedSpotY = constrain(spotY, ...verticalBounds)
+    // Draw the flickering diamond - skip on intro page
     if (!introPage) {
-      _circle(
+      _diamond(
         RC,
         ctx,
         circleX,
-        spotY,
+        constrainedSpotY,
         Math.round(frameTimestamp - frameTimestampInitial),
         circleFill,
         options.sparkle,
-        spotRadiusPx,
+        spotRadiusPx * 2, // Convert radius to diameter for diamond width
       )
-
-      // Draw the inner background-colored circle (donut inner hole)
-      // This creates the donut effect by covering the center with background color
-      const innerRadiusPx = spotRadiusPx / 2 // Half the diameter = half the radius
-      ctx.beginPath()
-      ctx.arc(circleX, spotY, innerRadiusPx, 0, Math.PI * 2)
-      ctx.closePath()
-      ctx.fillStyle = '#eee' // Match the background color
-      ctx.fill()
     }
 
     // Draw cross last so it stays on top of the spot and video
@@ -3258,7 +3330,6 @@ export async function objectTest(RC, options, callback = undefined) {
       feedbackDiv.style.position = 'fixed'
       feedbackDiv.style.bottom = '20px'
       feedbackDiv.style.left = '20px'
-      feedbackDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
       feedbackDiv.style.color = 'black'
       feedbackDiv.style.padding = '10px'
       feedbackDiv.style.borderRadius = '5px'

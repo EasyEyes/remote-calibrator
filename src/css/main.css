@@ -230,6 +230,12 @@
   z-index: 999999991;
 }
 
+/* Blindspot-specific instruction styling - no white background */
+.float-instruction.blindspot-instruction {
+  background: none;
+  color: black;
+}
+
 /* -------------------------------------------------------------------------- */
 
 .swal2-container {
