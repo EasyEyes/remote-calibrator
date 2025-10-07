@@ -1217,6 +1217,8 @@ const renderDistanceResult = async (
           viewingDistanceWhichEye,
           viewingDistanceWhichPoint,
           nearestXYPx,
+          distanceCm_left,
+          distanceCm_right,
         )
 
       if (readyToGetFirstData || desiredDistanceMonitor) {
@@ -1337,6 +1339,8 @@ const _drawNearestPoints = (
   viewingDistanceWhichEye,
   viewingDistanceWhichPoint,
   nearestXYPx,
+  distanceCm_left,
+  distanceCm_right,
 ) => {
   // Create elements only if they don't exist, otherwise reuse them
   const createOrUpdateElement = (elementRef, id, baseStyles) => {
@@ -1657,20 +1661,24 @@ const _drawNearestPoints = (
 
   // Add cameraXYPx label right below the IPD label
   if (cameraXYPx !== undefined) {
-    cameraXYPxLabel = createOrUpdateElement(cameraXYPxLabel, 'rc-camera-xy-px-label', {
-      position: 'fixed',
-      fontSize: '16px',
-      color: '#333',
-      background: 'rgba(255, 255, 255, 0.9)',
-      padding: '4px 8px',
-      borderRadius: '6px',
-      border: '1px solid #ddd',
-      zIndex: '2147483646',
-      pointerEvents: 'none',
-      fontFamily: 'Arial, sans-serif',
-      fontWeight: 'normal',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    })
+    cameraXYPxLabel = createOrUpdateElement(
+      cameraXYPxLabel,
+      'rc-camera-xy-px-label',
+      {
+        position: 'fixed',
+        fontSize: '16px',
+        color: '#333',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        zIndex: '2147483646',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: 'normal',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    )
 
     // Update content and position
     cameraXYPxLabel.textContent = `cameraXYPx: [${Math.round(cameraXYPx[0])}, ${Math.round(cameraXYPx[1])}]`
@@ -1703,23 +1711,45 @@ const _drawNearestPoints = (
 
   // Add viewingDistanceWhichEye label right below the cameraXYPx label
   if (viewingDistanceWhichEye !== undefined) {
-    viewingDistanceWhichEyeLabel = createOrUpdateElement(viewingDistanceWhichEyeLabel, 'rc-viewing-distance-which-eye-label', {
-      position: 'fixed',
-      fontSize: '16px',
-      color: '#333',
-      background: 'rgba(255, 255, 255, 0.9)',
-      padding: '4px 8px',
-      borderRadius: '6px',
-      border: '1px solid #ddd',
-      zIndex: '2147483646',
-      pointerEvents: 'none',
-      fontFamily: 'Arial, sans-serif',
-      fontWeight: 'normal',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    })
+    viewingDistanceWhichEyeLabel = createOrUpdateElement(
+      viewingDistanceWhichEyeLabel,
+      'rc-viewing-distance-which-eye-label',
+      {
+        position: 'fixed',
+        fontSize: '16px',
+        color: '#333',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        zIndex: '2147483646',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: 'normal',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    )
 
+    // Calculate viewing distance based on eye selection
+    const calculateViewingDistanceCm = (eyeSelection, distanceCm_left, distanceCm_right) => {
+      switch (eyeSelection) {
+        case 'left':
+          return distanceCm_left
+        case 'right':
+          return distanceCm_right
+        case 'min':
+          return Math.min(distanceCm_left, distanceCm_right)
+        case 'geoMean':
+          return Math.sqrt(distanceCm_left * distanceCm_right)
+        default:
+          return 'NaN'
+      }
+    }
+
+    const viewingDistanceCm = calculateViewingDistanceCm(viewingDistanceWhichEye, distanceCm_left, distanceCm_right)
+    
     // Update content and position
-    viewingDistanceWhichEyeLabel.textContent = `viewingDistanceWhichEye: ${viewingDistanceWhichEye}`
+    viewingDistanceWhichEyeLabel.textContent = `viewingDistanceWhichEye: ${viewingDistanceWhichEye} (${viewingDistanceCm.toFixed(1)} cm)`
 
     // Calculate position: same horizontal position as cameraXYPx label, but below it
     const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -1749,47 +1779,72 @@ const _drawNearestPoints = (
 
   // Add viewingDistanceWhichPoint label right below the viewingDistanceWhichEye label
   if (viewingDistanceWhichPoint !== undefined) {
-    viewingDistanceWhichPointLabel = createOrUpdateElement(viewingDistanceWhichPointLabel, 'rc-viewing-distance-which-point-label', {
-      position: 'fixed',
-      fontSize: '16px',
-      color: '#333',
-      background: 'rgba(255, 255, 255, 0.9)',
-      padding: '4px 8px',
-      borderRadius: '6px',
-      border: '1px solid #ddd',
-      zIndex: '2147483646',
-      pointerEvents: 'none',
-      fontFamily: 'Arial, sans-serif',
-      fontWeight: 'normal',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    })
+    viewingDistanceWhichPointLabel = createOrUpdateElement(
+      viewingDistanceWhichPointLabel,
+      'rc-viewing-distance-which-point-label',
+      {
+        position: 'fixed',
+        fontSize: '16px',
+        color: '#333',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        zIndex: '2147483646',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: 'normal',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    )
 
     // Interpret viewingDistanceWhichPoint based on category
-    const interpretViewingDistanceWhichPoint = (category, nearestXYPx, cameraXYPx, viewingDistanceWhichEye) => {
+    const interpretViewingDistanceWhichPoint = (
+      category,
+      nearestXYPx,
+      cameraXYPx,
+      viewingDistanceWhichEye,
+    ) => {
+      let pointXYDeg;
       switch (category) {
         case 'fixation':
-          return '(0,0) deg - Screen center'
+          pointXYDeg = [0, 0];
+          break;
         case 'target':
-          return 'NaN' // TODO: targetEccentricityXDeg, targetEccentricityYDeg
-        case 'foot':
-          return `(${Math.round(nearestXYPx[0])}, ${Math.round(nearestXYPx[1])})`
+          pointXYDeg = NaN; // TODO
+          break;
+        case 'nearest':
+          pointXYDeg = NaN; // TODO nearestXYDeg
+          break;
         case 'camera':
-          return `(${Math.round(cameraXYPx[0])}, ${Math.round(cameraXYPx[1])})`
+          pointXYDeg = NaN; // TODO XYDegOfPx(cameraXYPx);
+          break;
         case 'xyDeg':
-          return 'NaN' // TODO: viewingDistanceToXYDeg
+          pointXYDeg = NaN; // TODO viewingDistanceToXYDeg;
+          break;
         default:
-          return `[${Math.round(viewingDistanceWhichPoint[0])}, ${Math.round(viewingDistanceWhichPoint[1])}]`
+          pointXYDeg = [viewingDistanceWhichPoint[0], viewingDistanceWhichPoint[1]];
       }
+      return pointXYDeg;
     }
 
     // Update content and position
     const interpretedValue = interpretViewingDistanceWhichPoint(
-      viewingDistanceWhichPoint, 
-      nearestXYPx, 
-      cameraXYPx, 
-      viewingDistanceWhichEye
+      viewingDistanceWhichPoint,
+      nearestXYPx,
+      cameraXYPx,
+      viewingDistanceWhichEye,
     )
-    viewingDistanceWhichPointLabel.textContent = `viewingDistanceWhichPoint: ${interpretedValue}`
+    
+    // Format the display value properly
+    let displayValue;
+    if (Array.isArray(interpretedValue)) {
+      displayValue = `[${interpretedValue.join(', ')}]`
+    } else {
+      displayValue = interpretedValue
+    }
+    
+    viewingDistanceWhichPointLabel.textContent = `viewingDistanceWhichPoint: ${displayValue}`
 
     // Calculate position: same horizontal position as viewingDistanceWhichEye label, but below it
     const videoContainer = document.getElementById('webgazerVideoContainer')
