@@ -185,7 +185,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       nearPoint: true,
       showNearPoint: false,
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
-      headline: `📏 ${phrases.RC_distanceTrackingTitle[this.L]}`,
+      headline: `${phrases.RC_distanceTrackingTitle[this.L]}`,
       description:
         phrases.RC_distanceTrackingIntroStart[this.L] +
         spaceForLanguage(this.L) +
@@ -1342,6 +1342,12 @@ const _drawNearestPoints = (
   distanceCm_left,
   distanceCm_right,
 ) => {
+  // Get video container and its bounding rect once for reuse
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  const videoRect = videoContainer
+    ? videoContainer.getBoundingClientRect()
+    : null
+
   // Create elements only if they don't exist, otherwise reuse them
   const createOrUpdateElement = (elementRef, id, baseStyles) => {
     if (!elementRef) {
@@ -1542,13 +1548,11 @@ const _drawNearestPoints = (
     webcamDistanceLabel.textContent = `${nearestEyeToWebcamDistanceCM.toFixed(decimalPlace || 1)} cm`
 
     // Calculate position: top center, offset right to avoid video
-    const videoContainer = document.getElementById('webgazerVideoContainer')
     let labelLeft = window.innerWidth / 2
     const labelTop = 20 // 20px from top
 
     // If video container exists, offset to avoid overlap
-    if (videoContainer) {
-      const videoRect = videoContainer.getBoundingClientRect()
+    if (videoRect) {
       const labelWidth = 80 // Approximate label width
 
       // Position to the right of the video with some padding
@@ -1588,13 +1592,11 @@ const _drawNearestPoints = (
     factorLabel.textContent = `factorCameraPxCm: ${factorCameraPxCm.toFixed(0)}`
 
     // Calculate position: same horizontal position as webcam label, but below it
-    const videoContainer = document.getElementById('webgazerVideoContainer')
     let labelLeft = window.innerWidth / 2
     const labelTop = 50 // 50px from top (30px below the webcam label)
 
     // If video container exists, offset to avoid overlap (same logic as webcam label)
-    if (videoContainer) {
-      const videoRect = videoContainer.getBoundingClientRect()
+    if (videoRect) {
       const labelWidth = 80 // Approximate label width
 
       // Position to the right of the video with some padding
@@ -1634,13 +1636,11 @@ const _drawNearestPoints = (
     ipdLabel.textContent = `ipdCameraPx: ${Math.round(averageDist)}`
 
     // Calculate position: same horizontal position as factor label, but below it
-    const videoContainer = document.getElementById('webgazerVideoContainer')
     let labelLeft = window.innerWidth / 2
     const labelTop = 80 // 80px from top (30px below the factor label)
 
     // If video container exists, offset to avoid overlap (same logic as other labels)
-    if (videoContainer) {
-      const videoRect = videoContainer.getBoundingClientRect()
+    if (videoRect) {
       const labelWidth = 80 // Approximate label width
 
       // Position to the right of the video with some padding
@@ -1684,13 +1684,11 @@ const _drawNearestPoints = (
     cameraXYPxLabel.textContent = `cameraXYPx: [${Math.round(cameraXYPx[0])}, ${Math.round(cameraXYPx[1])}]`
 
     // Calculate position: same horizontal position as IPD label, but below it
-    const videoContainer = document.getElementById('webgazerVideoContainer')
     let labelLeft = window.innerWidth / 2
     const labelTop = 110 // 110px from top (30px below the IPD label)
 
     // If video container exists, offset to avoid overlap (same logic as other labels)
-    if (videoContainer) {
-      const videoRect = videoContainer.getBoundingClientRect()
+    if (videoRect) {
       const labelWidth = 80 // Approximate label width
 
       // Position to the right of the video with some padding
@@ -1731,7 +1729,11 @@ const _drawNearestPoints = (
     )
 
     // Calculate viewing distance based on eye selection
-    const calculateViewingDistanceCm = (eyeSelection, distanceCm_left, distanceCm_right) => {
+    const calculateViewingDistanceCm = (
+      eyeSelection,
+      distanceCm_left,
+      distanceCm_right,
+    ) => {
       switch (eyeSelection) {
         case 'left':
           return distanceCm_left
@@ -1746,19 +1748,21 @@ const _drawNearestPoints = (
       }
     }
 
-    const viewingDistanceCm = calculateViewingDistanceCm(viewingDistanceWhichEye, distanceCm_left, distanceCm_right)
-    
+    const viewingDistanceCm = calculateViewingDistanceCm(
+      viewingDistanceWhichEye,
+      distanceCm_left,
+      distanceCm_right,
+    )
+
     // Update content and position
     viewingDistanceWhichEyeLabel.textContent = `viewingDistanceWhichEye: ${viewingDistanceWhichEye} (${viewingDistanceCm.toFixed(1)} cm)`
 
     // Calculate position: same horizontal position as cameraXYPx label, but below it
-    const videoContainer = document.getElementById('webgazerVideoContainer')
     let labelLeft = window.innerWidth / 2
     const labelTop = 140 // 140px from top (30px below the cameraXYPx label)
 
     // If video container exists, offset to avoid overlap (same logic as other labels)
-    if (videoContainer) {
-      const videoRect = videoContainer.getBoundingClientRect()
+    if (videoRect) {
       const labelWidth = 80 // Approximate label width
 
       // Position to the right of the video with some padding
@@ -1805,27 +1809,30 @@ const _drawNearestPoints = (
       cameraXYPx,
       viewingDistanceWhichEye,
     ) => {
-      let pointXYDeg;
+      let pointXYDeg
       switch (category) {
         case 'fixation':
-          pointXYDeg = [0, 0];
-          break;
+          pointXYDeg = [0, 0]
+          break
         case 'target':
-          pointXYDeg = NaN; // TODO
-          break;
+          pointXYDeg = NaN // TODO
+          break
         case 'nearest':
-          pointXYDeg = NaN; // TODO nearestXYDeg
-          break;
+          pointXYDeg = NaN // TODO nearestXYDeg
+          break
         case 'camera':
-          pointXYDeg = NaN; // TODO XYDegOfPx(cameraXYPx);
-          break;
+          pointXYDeg = NaN // TODO XYDegOfPx(cameraXYPx);
+          break
         case 'xyDeg':
-          pointXYDeg = NaN; // TODO viewingDistanceToXYDeg;
-          break;
+          pointXYDeg = NaN // TODO viewingDistanceToXYDeg;
+          break
         default:
-          pointXYDeg = [viewingDistanceWhichPoint[0], viewingDistanceWhichPoint[1]];
+          pointXYDeg = [
+            viewingDistanceWhichPoint[0],
+            viewingDistanceWhichPoint[1],
+          ]
       }
-      return pointXYDeg;
+      return pointXYDeg
     }
 
     // Update content and position
@@ -1835,25 +1842,23 @@ const _drawNearestPoints = (
       cameraXYPx,
       viewingDistanceWhichEye,
     )
-    
+
     // Format the display value properly
-    let displayValue;
+    let displayValue
     if (Array.isArray(interpretedValue)) {
       displayValue = `[${interpretedValue.join(', ')}]`
     } else {
       displayValue = interpretedValue
     }
-    
+
     viewingDistanceWhichPointLabel.textContent = `viewingDistanceWhichPoint: ${displayValue}`
 
     // Calculate position: same horizontal position as viewingDistanceWhichEye label, but below it
-    const videoContainer = document.getElementById('webgazerVideoContainer')
     let labelLeft = window.innerWidth / 2
     const labelTop = 170 // 170px from top (30px below the viewingDistanceWhichEye label)
 
     // If video container exists, offset to avoid overlap (same logic as other labels)
-    if (videoContainer) {
-      const videoRect = videoContainer.getBoundingClientRect()
+    if (videoRect) {
       const labelWidth = 80 // Approximate label width
 
       // Position to the right of the video with some padding

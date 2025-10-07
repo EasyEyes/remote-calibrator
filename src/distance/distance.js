@@ -406,7 +406,7 @@ export async function blindSpotTest(
   document.body.appendChild(blindSpotDiv)
   RC._constructFloatInstructionElement(
     'blind-spot-instruction',
-    phrases.RC_distanceTrackingCloseL[RC.L],
+    phrases.RC_distanceTrackingBeforeClosingEye[RC.L],
   )
   RC._addCreditOnBackground(phrases.RC_viewingBlindSpotCredit[RC.L])
 
@@ -425,6 +425,9 @@ export async function blindSpotTest(
 
   const eyeSideEle = document.getElementById('blind-spot-instruction')
 
+  // Track intro page state
+  let introPage = true
+
   // Helper: compute wrapper width (mapping) in pixels from screen width in cm
   const _computeMappingWidthPx = () => {
     const widthCm = RC.screenWidthCm ? RC.screenWidthCm.value : null
@@ -435,7 +438,8 @@ export async function blindSpotTest(
       widthCm,
       Math.max(0.45 * widthCm, 0.2 * widthCm + 18),
     )
-    return Math.round(mappingCm * pxPerCm)
+    // return Math.round(mappingCm * pxPerCm)
+    return Math.round(window.innerWidth)
   }
 
   // Helper: place video immediately under the fixation crosshair
@@ -486,6 +490,9 @@ export async function blindSpotTest(
 
   // Setup slider for dynamic spot size with continuous logarithmic positioning
   const slider = document.getElementById('blindspot-size-slider')
+  const sliderContainer = document.getElementById('blindspot-slider-container')
+  // Hide slider during intro page
+  if (sliderContainer) sliderContainer.style.display = 'none'
   if (slider) {
     // SLIDER VARIABLE DEFINITIONS:
     //
@@ -622,7 +629,8 @@ export async function blindSpotTest(
   let blindspotEccXDeg = eyeSide === 'left' ? -15.5 : 15.5 // Horizontal eccentricity: ±15.5° (negative for left eye, positive for right eye)
   const blindspotEccYDeg = -1.5 // Vertical eccentricity: -1.5° (below horizontal midline)
 
-  RC._setFloatInstructionElementPos(eyeSide, 16)
+  // On intro page, position instructions on left side
+  RC._setFloatInstructionElementPos('left', 16)
   // Camera line (vertical midline) and high placement configuration
   let centerX = c.width / 2
   let crossY = 60 // place cross/video near the top
@@ -772,24 +780,43 @@ export async function blindSpotTest(
     return currentCrossY + spotEccYCmPx
   }
 
-  // Bounds symmetric around the camera line (vertical center). Enforce minimum
-  // horizontal separation (5 cm) between spot and fixation cross which equals
-  // twice the distance from the camera line.
+  // Bounds based on video constraints (not spot radius).
+  // Video controls movement: video cannot cross midline or screen edges.
+  // Spot can extend beyond screen edges.
+  // circleX and crossX are mirrored: crossX = 2 * centerX - circleX
   function _getCameraLineBounds(side, cameraLineX, cW, radius = 15, ppi = 96) {
     const minDistanceCm = 5
     const minDistancePx = (minDistanceCm * ppi) / 2.54
     const minHalfPx = minDistancePx / 2
-    const leftLimit = radius
-    const rightLimit = cW - radius
+
+    // Get video dimensions
+    const v = document.getElementById('webgazerVideoContainer')
+    const videoWidth = v ? parseInt(v.style.width) || v.offsetWidth || 0 : 0
+    const videoHalfWidth = videoWidth / 2
+
     if (side === 'left') {
-      // Spot on the right side of camera line
-      const minX = Math.max(cameraLineX + minHalfPx, leftLimit)
-      const maxX = rightLimit
+      // Left eye: spot on right (circleX > centerX), video/fixation on left (crossX < centerX)
+      // Video constraints on crossX: videoHalfWidth <= crossX <= centerX - videoHalfWidth
+      // Convert to circleX: circleX = 2*centerX - crossX
+      // Min circleX when crossX is max: circleX = 2*centerX - (centerX - videoHalfWidth) = centerX + videoHalfWidth
+      // Max circleX when crossX is min: circleX = 2*centerX - videoHalfWidth
+      const minX = Math.max(
+        cameraLineX + minHalfPx,
+        cameraLineX + videoHalfWidth,
+      )
+      const maxX = 2 * cameraLineX - videoHalfWidth
       return [minX, maxX]
     } else {
-      // Spot on the left side of camera line
-      const minX = leftLimit
-      const maxX = Math.min(cameraLineX - minHalfPx, rightLimit)
+      // Right eye: spot on left (circleX < centerX), video/fixation on right (crossX > centerX)
+      // Video constraints on crossX: centerX + videoHalfWidth <= crossX <= window.innerWidth - videoHalfWidth
+      // Convert to circleX: circleX = 2*centerX - crossX
+      // Max circleX when crossX is min: circleX = 2*centerX - (centerX + videoHalfWidth) = centerX - videoHalfWidth
+      // Min circleX when crossX is max: circleX = 2*centerX - (window.innerWidth - videoHalfWidth)
+      const minX = 2 * cameraLineX - (window.innerWidth - videoHalfWidth)
+      const maxX = Math.min(
+        cameraLineX - minHalfPx,
+        cameraLineX - videoHalfWidth,
+      )
       return [minX, maxX]
     }
   }
@@ -869,6 +896,55 @@ export async function blindSpotTest(
   const finishFunction = async () => {
     // customButton.disabled = false
     if (env !== 'mocha') soundFeedback()
+
+    // If on intro page, transition to left eye test without recording
+    if (introPage) {
+      introPage = false
+
+      // Show slider now that test begins
+      if (sliderContainer) sliderContainer.style.display = 'block'
+
+      // Update instructions to left eye instructions
+      if (eyeSideEle) {
+        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
+          phrases.RC_distanceTrackingCloseL[RC.L],
+        )
+      }
+      // Keep instructions on left side (already positioned there)
+      RC._setFloatInstructionElementPos('left', 16)
+
+      // Initialize left eye geometry and bounds
+      const spotRadiusPx = calculateSpotRadiusPx(
+        calibrateTrackDistanceBlindspotDiameterDeg,
+        ppi,
+        blindspotEccXDeg,
+        circleX,
+        crossX,
+      )
+      circleBounds = _getCameraLineBounds(
+        eyeSide,
+        centerX,
+        c.width,
+        spotRadiusPx,
+        ppi,
+      )
+
+      // Reset position for actual test
+      const initialDistanceCm = 6
+      const initialDistancePx = (initialDistanceCm * ppi) / 2.54
+      const desiredInitialX =
+        eyeSide === 'left'
+          ? centerX + initialDistancePx / 2
+          : centerX - initialDistancePx / 2
+      circleX = Math.max(
+        circleBounds[0],
+        Math.min(circleBounds[1], desiredInitialX),
+      )
+      crossX = 2 * centerX - circleX
+      _positionVideoBelowFixation()
+
+      return
+    }
 
     tested += 1
     // Average
@@ -1350,6 +1426,10 @@ export async function blindSpotTest(
   }
 
   const helpMoveCircleX = () => {
+    if (introPage) {
+      // No movement on intro page
+      return
+    }
     // Recalculate bounds with current spot size to ensure they're up to date
     const spotRadiusPx = calculateSpotRadiusPx(
       calibrateTrackDistanceBlindspotDiameterDeg,
@@ -1445,18 +1525,34 @@ export async function blindSpotTest(
     _positionVideoBelowFixation()
   }
 
-  // Bind keys
+  // Bind keys - wrap arrow functions to check introPage at runtime
   const bindKeysFunction = bindKeys({
     Escape: options.showCancelButton ? breakFunction : undefined,
     Enter: finishFunction,
     ' ': finishFunction,
-    ArrowLeft: control ? arrowDownFunction : emptyFunc,
-    ArrowRight: control ? arrowDownFunction : emptyFunc,
+    ArrowLeft: control
+      ? e => {
+          if (!introPage) arrowDownFunction(e)
+        }
+      : emptyFunc,
+    ArrowRight: control
+      ? e => {
+          if (!introPage) arrowDownFunction(e)
+        }
+      : emptyFunc,
   })
   const bindKeyUpsFunction = bindKeys(
     {
-      ArrowLeft: control ? arrowUpFunction : emptyFunc,
-      ArrowRight: control ? arrowUpFunction : emptyFunc,
+      ArrowLeft: control
+        ? e => {
+            if (!introPage) arrowUpFunction(e)
+          }
+        : emptyFunc,
+      ArrowRight: control
+        ? e => {
+            if (!introPage) arrowUpFunction(e)
+          }
+        : emptyFunc,
     },
     'keyup',
   )
@@ -1586,15 +1682,6 @@ export async function blindSpotTest(
     // ctx.fillRect(0, 0, c.width, c.height)
     ctx.clearRect(0, 0, c.width, c.height)
     // ctx.beginPath()
-    // draw the vertical midline
-    ctx.save()
-    ctx.strokeStyle = 'rgba(0,0,0,0.2)'
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(centerX + 0.5, 0)
-    ctx.lineTo(centerX + 0.5, c.height)
-    ctx.stroke()
-    ctx.restore()
 
     frameTimestamp = performance.now()
     const spotRadiusPx = calculateSpotRadiusPx(
@@ -1621,30 +1708,32 @@ export async function blindSpotTest(
       blindspotEccXDeg,
       blindspotEccYDeg,
     )
-    // Draw the outer flickering circle (donut outer ring)
-    _circle(
-      RC,
-      ctx,
-      circleX,
-      spotY,
-      Math.round(frameTimestamp - frameTimestampInitial),
-      circleFill,
-      options.sparkle,
-      spotRadiusPx,
-    )
+    // Draw the outer flickering circle (donut outer ring) - skip on intro page
+    if (!introPage) {
+      _circle(
+        RC,
+        ctx,
+        circleX,
+        spotY,
+        Math.round(frameTimestamp - frameTimestampInitial),
+        circleFill,
+        options.sparkle,
+        spotRadiusPx,
+      )
 
-    // Draw the inner background-colored circle (donut inner hole)
-    // This creates the donut effect by covering the center with background color
-    const innerRadiusPx = spotRadiusPx / 2 // Half the diameter = half the radius
-    ctx.beginPath()
-    ctx.arc(circleX, spotY, innerRadiusPx, 0, Math.PI * 2)
-    ctx.closePath()
-    ctx.fillStyle = '#eee' // Match the background color
-    ctx.fill()
+      // Draw the inner background-colored circle (donut inner hole)
+      // This creates the donut effect by covering the center with background color
+      const innerRadiusPx = spotRadiusPx / 2 // Half the diameter = half the radius
+      ctx.beginPath()
+      ctx.arc(circleX, spotY, innerRadiusPx, 0, Math.PI * 2)
+      ctx.closePath()
+      ctx.fillStyle = '#eee' // Match the background color
+      ctx.fill()
+    }
 
     // Draw cross last so it stays on top of the spot and video
     _cross(ctx, crossX, crossY)
-    if (!control) {
+    if (!control && !introPage) {
       circleX += v * circleDeltaX
       helpMoveCircleX()
     }
@@ -1697,7 +1786,7 @@ RemoteCalibrator.prototype.measureDistance = async function (
       sparkle: true,
       decimalPlace: 1,
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
-      headline: `📏 ${phrases.RC_viewingDistanceTitle[this.L]}`,
+      headline: `${phrases.RC_viewingDistanceTitle[this.L]}`,
       description: description,
       check: false,
       checkCallback: false,
@@ -3210,7 +3299,7 @@ export async function objectTest(RC, options, callback = undefined) {
         // Show blindspot instruction screen before starting blindspot test
         RC._replaceBackground(
           constructInstructions(
-            `📏 ${phrases.RC_distanceTrackingTitle[RC.L]}`,
+            `${phrases.RC_distanceTrackingTitle[RC.L]}`,
             null,
             true,
             '',

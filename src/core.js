@@ -1158,25 +1158,30 @@ RemoteCalibrator.prototype._setFloatInstructionElementPos = function (
     return
   }
 
-  const r = this.instructionElement.getBoundingClientRect()
-  this.instructionElement.style.bottom = `calc(50% + ${yOffset + 10}px)`
-  this.instructionElement.style.textAlign = 'left'
-  // this.instructionElement.style.fontSize = '1.1em'
+  const el = this.instructionElement
+
+  // Place slightly lower than previous and align using top so both sides share the same top edge
+  el.style.top = `calc(15% + ${yOffset + 10}px)`
+  el.style.bottom = 'unset'
+
+  // Constrain to half-screen and avoid crossing midline
+  el.style.maxWidth = '50vw'
+  el.style.width = '50vw'
+  el.style.textAlign = 'left'
+  el.style.transform = 'translate(0, 0)'
+
   if (side === 'left') {
-    this.instructionElement.style.left = `max(10%, ${r.width / 2}px)`
-    this.instructionElement.style.right = 'unset'
-    this.instructionElement.style.transform = `translate(${-r.width / 2}px, 0)`
+    // Left half: from left edge to midline
+    el.style.left = '0'
+    el.style.right = '50vw'
   } else if (side === 'right') {
-    this.instructionElement.style.right = `max(10%, ${r.width / 2}px)`
-    this.instructionElement.style.left = 'unset'
-    this.instructionElement.style.transform = `translate(${r.width / 2}px, 0)`
+    // Right half: from midline to right edge
+    el.style.left = '50vw'
+    el.style.right = '0'
   } else {
-    // Reset to center
-    this.instructionElement.style.left = '50%'
-    this.instructionElement.style.right = 'unset'
-    this.instructionElement.style.top = 'unset'
-    this.instructionElement.style.transform = 'translate(-50%, 0)'
-    this.instructionElement.style.textAlign = 'center'
+    // Fallback: center but still constrained to half width
+    el.style.left = '25vw'
+    el.style.right = '25vw'
   }
 }
 

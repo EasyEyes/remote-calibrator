@@ -15,8 +15,10 @@
 }
 
 #blind-spot-instruction {
-  // max-width: min(32rem, 100%) !important;
-  max-width: unset !important;
+  // Limit instruction to half the screen and left-align text
+  max-width: 50vw !important;
+  width: 50vw !important;
+  text-align: left !important;
 }
 
 @media (min-width: 641px) {
