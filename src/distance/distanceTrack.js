@@ -927,6 +927,9 @@ export const calculateNearestPoints = (
   ppi,
   RC,
   options = {},
+  leftMean = 0,
+  rightMean = 0,
+  method = 'object',
 ) => {
   const centerXYCameraPx = getCenterXYCameraPx(video)
 
@@ -988,11 +991,15 @@ export const calculateNearestPoints = (
     offsetXYCm_right[0],
     offsetXYCm_right[1],
   )
+  const cameraToEyeDistance_left =
+    method === 'blindspot' ? leftMean : webcamToEyeDistance
+  const cameraToEyeDistance_right =
+    method === 'blindspot' ? rightMean : webcamToEyeDistance
   const nearestDistanceCm_left = Math.sqrt(
-    webcamToEyeDistance ** 2 - norm_offsetXYCm_left ** 2,
+    cameraToEyeDistance_left ** 2 - norm_offsetXYCm_left ** 2,
   )
   const nearestDistanceCm_right = Math.sqrt(
-    webcamToEyeDistance ** 2 - norm_offsetXYCm_right ** 2,
+    cameraToEyeDistance_right ** 2 - norm_offsetXYCm_right ** 2,
   )
 
   const eyeToScreenCenterDistance_left = getEyeToDesiredDistance(
@@ -1055,8 +1062,8 @@ export const calculateNearestPoints = (
     distanceCm,
     ipdCameraPx,
     cameraXYPx,
-    viewingDistanceWhichEye: options.viewingDistanceWhichEye,
-    viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+    viewingDistanceWhichEye: options?.viewingDistanceWhichEye,
+    viewingDistanceWhichPoint: options?.viewingDistanceWhichPoint,
   }
 }
 
