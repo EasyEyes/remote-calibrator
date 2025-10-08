@@ -202,7 +202,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateTrackDistanceAllowedRangeCm: [30, 70],
       resolutionWarningThreshold: undefined,
       calibrateTrackDistanceSpotCm: 0.5,
-      calibrateTrackDistanceBlindspotDiameterDeg: 2,
+      calibrateTrackDistanceBlindspotDiameterDeg: 2.0,
       viewingDistanceWhichEye: undefined,
       viewingDistanceWhichPoint: undefined,
     },
@@ -745,15 +745,20 @@ const startIrisDrawingWithMesh = async RC => {
 }
 
 // Factor out mesh data retrieval for reuse
-export const getMeshData = async (RC, calibrateTrackDistancePupil = 'iris') => {
+export const getMeshData = async (
+  RC,
+  calibrateTrackDistancePupil = 'iris',
+  meshSamples = [],
+) => {
   const video = document.getElementById('webgazerVideoCanvas')
   if (!video) {
     console.log('Video canvas not ready for mesh data retrieval')
     return null
   }
-
+  let mesh = meshSamples.length
+    ? meshSamples
+    : RC.gazeTracker.webgazer.getTracker().getPositions()
   // Try to use WebGazer's mesh data first, but fallback to our own detection if stale
-  let mesh = RC.gazeTracker.webgazer.getTracker().getPositions()
   let meshSource = 'webgazer'
 
   // Check if WebGazer mesh data is stale (WebGazer might be paused)
@@ -1024,12 +1029,13 @@ export const calculateNearestPoints = (
     pxPerCm,
   )
 
-  const nearestEyeToWebcamDistanceCM = getEyeToDesiredDistance(
-    nearestXYPx,
-    nearestDistanceCm,
-    cameraXYPx,
-    pxPerCm,
-  )
+  const nearestEyeToWebcamDistanceCM = webcamToEyeDistance
+  // getEyeToDesiredDistance(
+  //   nearestXYPx,
+  //   nearestDistanceCm,
+  //   cameraXYPx,
+  //   pxPerCm,
+  // )
 
   const distanceCm = nearestEye === 'left' ? distanceCm_left : distanceCm_right
 

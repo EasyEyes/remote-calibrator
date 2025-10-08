@@ -161,8 +161,12 @@ function saveCalibrationMeasurements(
       `${method}-${measurementType}`,
       measurement.distance,
       measurement.calibrationFactor,
-      sharedData.currentIPDDistance,
-      sharedData.nearestEyeToWebcamDistanceCM,
+      method === 'blindspot'
+        ? measurement.ipdCameraPx
+        : sharedData.currentIPDDistance,
+      method === 'blindspot'
+        ? measurement.distanceCm
+        : sharedData.nearestEyeToWebcamDistanceCM,
       sharedData.nearestEye,
       sharedData.nearestXYPx,
       measurement.nearestDistanceCm,
@@ -238,6 +242,11 @@ function saveCalibrationAttempt(
     return [x, y]
   }
 
+  const safeToFixed = value => {
+    if (value == null || isNaN(value)) return null
+    return parseFloat(value).toFixed(1)
+  }
+
   // Calculate missing values
   const ppi = RC.screenPpi.value
   const pxPerCmValue = ppi / 2.54 // Convert PPI to pixels per cm
@@ -276,7 +285,7 @@ function saveCalibrationAttempt(
     centerXYPx: safeRoundXYPx(centerXYPxValue), // screen center
     rightEyeToCenterCm: safeRoundCm(rightEyeToCenterCmValue), //calcualted by trignometry from above
     leftEyeToCenterCm: safeRoundCm(leftEyeToCenterCmValue), //calcualted by trignometry from above
-    spotDeg: spotDeg, // Add spotDeg for blindspot calibrations
+    spotDeg: safeToFixed(spotDeg), // Add spotDeg for blindspot calibrations
   }
 
   console.log('factorCameraPxCm', calibrationObject.factorCameraPxCm)
@@ -291,6 +300,7 @@ function saveCalibrationAttempt(
 async function measureIntraocularDistancePx(
   RC,
   calibrateTrackDistancePupil = 'iris',
+  meshSamples = [],
 ) {
   let video = document.getElementById('webgazerVideoCanvas')
   if (!video) return null
@@ -309,6 +319,8 @@ async function measureIntraocularDistancePx(
     'Eye distance measureIntraocularDistancePx',
     eyeDist(leftEye, rightEye),
   )
+  meshSamples.length = 0
+  meshSamples.push(...mesh)
   return eyeDist(leftEye, rightEye)
 }
 
@@ -389,12 +401,12 @@ export async function blindSpotTest(
   // Dynamic blindspot spot diameter in degrees - comes from options
   // Set the range to be 2-8 degrees
   let calibrateTrackDistanceBlindspotDiameterDeg =
-    options.calibrateTrackDistanceBlindspotDiameterDeg || 2
-  if (calibrateTrackDistanceBlindspotDiameterDeg < 2) {
-    calibrateTrackDistanceBlindspotDiameterDeg = 2
+    parseFloat(options.calibrateTrackDistanceBlindspotDiameterDeg) || 2.0
+  if (calibrateTrackDistanceBlindspotDiameterDeg < 2.0) {
+    calibrateTrackDistanceBlindspotDiameterDeg = 2.0
   }
-  if (calibrateTrackDistanceBlindspotDiameterDeg > 8) {
-    calibrateTrackDistanceBlindspotDiameterDeg = 8
+  if (calibrateTrackDistanceBlindspotDiameterDeg > 8.0) {
+    calibrateTrackDistanceBlindspotDiameterDeg = 8.0
   }
 
   let inTest = true // Used to break animation
@@ -404,6 +416,7 @@ export async function blindSpotTest(
   // Per-eye Face Mesh samples for calibration factor checks
   const faceMeshSamplesLeft = []
   const faceMeshSamplesRight = []
+  const meshSamples = []
 
   // ===================== SHOW POPUP BEFORE CALIBRATION STARTS =====================
   // Only show popup if not running as part of "both" methods and camera selection hasn't been done
@@ -532,14 +545,13 @@ export async function blindSpotTest(
       const fractionHeight = parseFloat(e.target.value) // Range: 0.0 to 1.0
 
       // Calculate spotDeg from fractionHeight: spotDeg = 2**(2*fractionHeight+1)
-      calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
-        2,
-        2 * fractionHeight + 1,
+      calibrateTrackDistanceBlindspotDiameterDeg = parseFloat(
+        Math.pow(2, 2 * fractionHeight + 1),
       )
 
       // Limit to 8 degrees maximum (safety check)
-      if (calibrateTrackDistanceBlindspotDiameterDeg > 8) {
-        calibrateTrackDistanceBlindspotDiameterDeg = 8
+      if (calibrateTrackDistanceBlindspotDiameterDeg > 8.0) {
+        calibrateTrackDistanceBlindspotDiameterDeg = 8.0
       }
 
       // Recalculate circle bounds and check if current position is still valid
@@ -592,14 +604,13 @@ export async function blindSpotTest(
         const fractionHeight = newValue
 
         // Calculate spotDeg from fractionHeight: spotDeg = 2**(2*fractionHeight+1)
-        calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
-          2,
-          2 * fractionHeight + 1,
+        calibrateTrackDistanceBlindspotDiameterDeg = parseFloat(
+          Math.pow(2, 2 * fractionHeight + 1),
         )
 
         // Limit to 8 degrees maximum (safety check)
-        if (calibrateTrackDistanceBlindspotDiameterDeg > 8) {
-          calibrateTrackDistanceBlindspotDiameterDeg = 8
+        if (calibrateTrackDistanceBlindspotDiameterDeg > 8.0) {
+          calibrateTrackDistanceBlindspotDiameterDeg = 8.0
         }
 
         // Recalculate circle bounds and check if current position is still valid
@@ -862,7 +873,7 @@ export async function blindSpotTest(
       )
       const maxX = Math.min(
         2 * cameraLineX - videoHalfWidth,
-        cW - diamondHalfWidth // Don't let diamond go off right edge
+        cW - diamondHalfWidth, // Don't let diamond go off right edge
       )
       return [minX, maxX]
     } else {
@@ -870,7 +881,7 @@ export async function blindSpotTest(
       // Ensure diamond doesn't go off left edge of screen
       const minX = Math.max(
         2 * cameraLineX - (window.innerWidth - videoHalfWidth),
-        diamondHalfWidth // Don't let diamond go off left edge
+        diamondHalfWidth, // Don't let diamond go off left edge
       )
       const maxX = Math.min(
         cameraLineX - minHalfPx,
@@ -1056,12 +1067,13 @@ export async function blindSpotTest(
       )
 
     // Collect per-eye Face Mesh samples for calibration factor checks
-    const collectFiveSamples = async targetArray => {
+    const collectFiveSamples = async (targetArray, meshSamples) => {
       for (let i = 0; i < 5; i++) {
         try {
           const pxDist = await measureIntraocularDistancePx(
             RC,
             options.calibrateTrackDistancePupil,
+            meshSamples,
           )
           targetArray.push(pxDist && !isNaN(pxDist) ? pxDist : NaN)
         } catch (e) {
@@ -1070,8 +1082,9 @@ export async function blindSpotTest(
         await new Promise(res => setTimeout(res, 100))
       }
     }
-    if (eyeSide === 'left') await collectFiveSamples(faceMeshSamplesLeft)
-    else await collectFiveSamples(faceMeshSamplesRight)
+    if (eyeSide === 'left')
+      await collectFiveSamples(faceMeshSamplesLeft, meshSamples)
+    else await collectFiveSamples(faceMeshSamplesRight, meshSamples)
 
     // Enough tests?
     if (Math.floor(tested / options.repeatTesting) === 2) {
@@ -1162,11 +1175,13 @@ export async function blindSpotTest(
           const mesh = await getMeshData(
             RC,
             options.calibrateTrackDistancePupil,
+            meshSamples,
           )
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
             const webcamToEyeDistance = calibrationFactor / currentIPDDistance
             const pxPerCm = ppi / 2.54
+            console
             const nearestPointsData = calculateNearestPoints(
               video,
               leftEye,
@@ -1200,7 +1215,7 @@ export async function blindSpotTest(
 
             const measurements = [
               {
-                type: 'left',
+                type: 'right-eye',
                 distance: leftMean,
                 calibrationFactor: leftCalibrationFactor,
                 nearestDistanceCm: nearestDistanceCm,
@@ -1209,9 +1224,10 @@ export async function blindSpotTest(
                 distanceCm: leftMean, // Use left measurement for this entry
                 nearestDistanceCm_right: nearestDistanceCm_right,
                 nearestDistanceCm_left: nearestDistanceCm_left,
+                ipdCameraPx: leftAvgFM,
               },
               {
-                type: 'right',
+                type: 'left-eye',
                 distance: rightMean,
                 calibrationFactor: rightCalibrationFactor,
                 nearestDistanceCm: nearestDistanceCm,
@@ -1220,6 +1236,7 @@ export async function blindSpotTest(
                 distanceCm: rightMean, // Use right measurement for this entry
                 nearestDistanceCm_right: nearestDistanceCm_right,
                 nearestDistanceCm_left: nearestDistanceCm_left,
+                ipdCameraPx: rightAvgFM,
               },
             ]
 
@@ -1304,10 +1321,29 @@ export async function blindSpotTest(
           Math.sqrt(
             distanceMeasured ** 2 - _calculateDistanceFromCenterToTop(ppi) ** 2,
           )
+
+        // Compute per-eye means for debug
+        const lefts = []
+        const rights = []
+        for (const d of dist) {
+          if (d.closedEyeSide === 'left') lefts.push(d.dist)
+          else rights.push(d.dist)
+        }
+        const leftMean = lefts.length ? average(lefts) : 0
+        const rightMean = rights.length ? average(rights) : 0
+        const leftAvgFM = validLeft.length
+          ? validLeft.reduce((a, b) => a + b, 0) / validLeft.length
+          : 0
+        const rightAvgFM = validRight.length
+          ? validRight.reduce((a, b) => a + b, 0) / validRight.length
+          : 0
+        const distance1FactorCmPx = Math.round(leftAvgFM * leftMean)
+        const distance2FactorCmPx = Math.round(rightAvgFM * rightMean)
         try {
           const mesh = await getMeshData(
             RC,
             options.calibrateTrackDistancePupil,
+            meshSamples,
           )
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
@@ -1338,23 +1374,53 @@ export async function blindSpotTest(
               distanceCm_right,
               distanceCm,
             } = nearestPointsData
-            saveCalibrationAttempt(
-              RC,
-              'blindspot',
-              distanceMeasured,
-              calibrationFactor,
+
+            // Save blindspot measurements separately (left and right)
+            const leftCalibrationFactor = distance1FactorCmPx
+            const rightCalibrationFactor = distance2FactorCmPx
+
+            const measurements = [
+              {
+                type: 'right-eye',
+                distance: leftMean,
+                calibrationFactor: leftCalibrationFactor,
+                nearestDistanceCm: nearestDistanceCm,
+                distanceCm_left: distanceCm_left,
+                distanceCm_right: distanceCm_right,
+                distanceCm: leftMean, // Use left measurement for this entry
+                nearestDistanceCm_right: nearestDistanceCm_right,
+                nearestDistanceCm_left: nearestDistanceCm_left,
+                ipdCameraPx: leftAvgFM,
+              },
+              {
+                type: 'left-eye',
+                distance: rightMean,
+                calibrationFactor: rightCalibrationFactor,
+                nearestDistanceCm: nearestDistanceCm,
+                distanceCm_left: distanceCm_left,
+                distanceCm_right: distanceCm_right,
+                distanceCm: rightMean, // Use right measurement for this entry
+                nearestDistanceCm_right: nearestDistanceCm_right,
+                nearestDistanceCm_left: nearestDistanceCm_left,
+                ipdCameraPx: rightAvgFM,
+              },
+            ]
+
+            const sharedData = {
               currentIPDDistance,
               nearestEyeToWebcamDistanceCM,
               nearestEye,
               nearestXYPx,
-              nearestDistanceCm,
-              distanceCm_left,
-              distanceCm_right,
-              distanceCm,
               nearestXYPx_left,
               nearestXYPx_right,
-              nearestDistanceCm_right,
-              nearestDistanceCm_left,
+            }
+
+            saveCalibrationMeasurements(
+              RC,
+              'blindspot',
+              measurements,
+              sharedData,
+              calibrateTrackDistanceBlindspotDiameterDeg,
             )
           }
         } catch (error) {
@@ -1691,7 +1757,13 @@ export async function blindSpotTest(
     const constrainedCurrentSpotY = constrain(currentSpotY, ...verticalBounds)
 
     if (
-      clickOnDiamond(circleX, constrainedCurrentSpotY, startX, startY, currentSpotRadiusPx * 2)
+      clickOnDiamond(
+        circleX,
+        constrainedCurrentSpotY,
+        startX,
+        startY,
+        currentSpotRadiusPx * 2,
+      )
     ) {
       _dragStartPosition.x = startX
       _dragStartPosition.circleX = circleX
@@ -1719,7 +1791,13 @@ export async function blindSpotTest(
         )
         circleX = constrain(
           circleX,
-          ..._getDiamondBounds(eyeSide, centerX, c.width, spotRadiusPx * 2, ppi),
+          ..._getDiamondBounds(
+            eyeSide,
+            centerX,
+            c.width,
+            spotRadiusPx * 2,
+            ppi,
+          ),
         )
         // Mirror fixation across camera line and keep video at top
         crossX = 2 * centerX - circleX
@@ -1982,6 +2060,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // Arrays to store 5 samples per page for calibration
   let faceMeshSamplesPage3 = []
   let faceMeshSamplesPage4 = []
+  let meshSamples = []
 
   // Helper to collect 5 samples of eye pixel distance using Face Mesh
   async function collectFaceMeshSamples(RC, arr, ppi) {
@@ -1993,6 +2072,7 @@ export async function objectTest(RC, options, callback = undefined) {
         const pxDist = await measureIntraocularDistancePx(
           RC,
           options.calibrateTrackDistancePupil,
+          meshSamples,
         ) // Get raw pixel distance
         if (pxDist && !isNaN(pxDist)) {
           arr.push(pxDist)
@@ -3631,7 +3711,12 @@ export async function objectTest(RC, options, callback = undefined) {
             console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
 
             // Collect 5 Face Mesh samples for calibration
-            await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi)
+            await collectFaceMeshSamples(
+              RC,
+              faceMeshSamplesPage3,
+              ppi,
+              meshSamples,
+            )
             console.log(
               'Face Mesh calibration samples (page 3):',
               faceMeshSamplesPage3,
@@ -3738,7 +3823,12 @@ export async function objectTest(RC, options, callback = undefined) {
             console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
 
             // Collect 5 Face Mesh samples for calibration
-            await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi)
+            await collectFaceMeshSamples(
+              RC,
+              faceMeshSamplesPage4,
+              ppi,
+              meshSamples,
+            )
             console.log(
               'Face Mesh calibration samples (page 4):',
               faceMeshSamplesPage4,
@@ -3883,6 +3973,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   const mesh = await getMeshData(
                     RC,
                     options.calibrateTrackDistancePupil,
+                    meshSamples,
                   )
                   if (mesh) {
                     const { leftEye, rightEye, video, currentIPDDistance } =
@@ -4018,6 +4109,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   const mesh = await getMeshData(
                     RC,
                     options.calibrateTrackDistancePupil,
+                    meshSamples,
                   )
                   if (mesh) {
                     const { leftEye, rightEye, video, currentIPDDistance } =
@@ -4223,7 +4315,7 @@ export async function objectTest(RC, options, callback = undefined) {
       console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
 
       // Collect 5 Face Mesh samples for calibration
-      await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi)
+      await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi, meshSamples)
       console.log(
         'Face Mesh calibration samples (page 3):',
         faceMeshSamplesPage3,
@@ -4241,7 +4333,7 @@ export async function objectTest(RC, options, callback = undefined) {
       console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
 
       // Collect 5 Face Mesh samples for calibration
-      await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi)
+      await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi, meshSamples)
       console.log(
         'Face Mesh calibration samples (page 4):',
         faceMeshSamplesPage4,
@@ -4289,6 +4381,7 @@ export async function objectTest(RC, options, callback = undefined) {
           const mesh = await getMeshData(
             RC,
             options.calibrateTrackDistancePupil,
+            meshSamples,
           )
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
@@ -4408,6 +4501,7 @@ export async function objectTest(RC, options, callback = undefined) {
           const mesh = await getMeshData(
             RC,
             options.calibrateTrackDistancePupil,
+            meshSamples,
           )
           if (mesh) {
             const { leftEye, rightEye, video, currentIPDDistance } = mesh
