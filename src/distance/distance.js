@@ -4083,6 +4083,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 } catch (error) {
                   console.error('Error getting mesh data:', error)
                 }
+                await objectTestFinishFunction()
               } else {
                 const ipdpxRatio = Math.sqrt(
                   faceMeshSamplesPage3[0] / faceMeshSamplesPage4[0],
@@ -4308,7 +4309,12 @@ export async function objectTest(RC, options, callback = undefined) {
       console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
 
       // Collect 5 Face Mesh samples for calibration
-      await collectFaceMeshSamples(RC, faceMeshSamplesPage3, ppi, meshSamples)
+      await collectFaceMeshSamples(
+        RC,
+        faceMeshSamplesPage3,
+        ppi,
+        meshSamplesDuringPage3,
+      )
       console.log(
         'Face Mesh calibration samples (page 3):',
         faceMeshSamplesPage3,
@@ -4326,7 +4332,12 @@ export async function objectTest(RC, options, callback = undefined) {
       console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
 
       // Collect 5 Face Mesh samples for calibration
-      await collectFaceMeshSamples(RC, faceMeshSamplesPage4, ppi, meshSamples)
+      await collectFaceMeshSamples(
+        RC,
+        faceMeshSamplesPage4,
+        ppi,
+        meshSamplesDuringPage4,
+      )
       console.log(
         'Face Mesh calibration samples (page 4):',
         faceMeshSamplesPage4,
