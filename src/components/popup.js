@@ -8,7 +8,7 @@ import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
  * Shows the camera selection title in the top right of the webpage
  * @param {Object} RC - RemoteCalibrator instance
  */
-export const showCameraTitleInTopRight = RC => {
+export const showCameraTitleInTopRight = (RC, titleKey = 'RC_ChooseCameraTitle') => {
   // Remove any existing camera title
   const existingTitle = document.getElementById('rc-camera-title-top-right')
   if (existingTitle) {
@@ -18,7 +18,7 @@ export const showCameraTitleInTopRight = RC => {
   // Create the title element
   const titleElement = document.createElement('div')
   titleElement.id = 'rc-camera-title-top-right'
-  titleElement.innerHTML = `<h1>${phrases.RC_ChooseCameraTitle[RC.L]}</h1>`
+  titleElement.innerHTML = `<h1>${phrases[titleKey][RC.L]}</h1>`
 
   // Add CSS styling - no background, high z-index to appear above popup, positioned on left
   titleElement.style.cssText = `
@@ -539,6 +539,25 @@ const createCameraPreviews = async (
 }
 
 /**
+ * Updates title and description based on camera count
+ * @param {Object} RC - RemoteCalibrator instance
+ * @param {number} cameraCount - Number of available cameras
+ */
+const updateTitleAndDescription = (RC, cameraCount) => {
+  // Update the title in top right
+  const titleKey = cameraCount === 1 ? 'RC_NeedCameraTitle' : 'RC_ChooseCameraTitle'
+  showCameraTitleInTopRight(RC, titleKey)
+
+  // Update the description in the popup
+  const messageKey = cameraCount === 1 ? 'RC_NeedCamera' : 'RC_ChooseCamera'
+  const messageDiv = document.querySelector('.camera-selection-popup .swal2-html-container div[style*="background: white"]')
+  if (messageDiv) {
+    const privacyText = phrases.RC_privacyCamera[RC.L]
+    messageDiv.innerHTML = `${phrases[messageKey][RC.L]}<br><br>${privacyText}`
+  }
+}
+
+/**
  * Updates camera previews when camera list changes
  * @param {Array} newCameras - Updated array of camera devices
  * @param {Object} RC - RemoteCalibrator instance
@@ -580,6 +599,9 @@ const updateCameraPreviews = async (
   if (oldPreviewsDiv) {
     oldPreviewsDiv.outerHTML = newPreviewsHTML
   }
+
+  // Update title and description based on camera count
+  updateTitleAndDescription(RC, newCameras.length)
 
   // Re-add event listeners for new previews
   newCameras.forEach((camera, index) => {
@@ -707,9 +729,10 @@ export const showCameraSelectionPopup = async (
   title,
   message,
   onClose = null,
+  titleKey = 'RC_ChooseCameraTitle',
 ) => {
   // Show the camera title in the top right of the webpage
-  showCameraTitleInTopRight(RC)
+  showCameraTitleInTopRight(RC, titleKey)
 
   // Store current video visibility state
   const originalVideoState = {
@@ -779,7 +802,7 @@ export const showCameraSelectionPopup = async (
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title: '', // Remove the default title since we're adding our own
-    html: `${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${message}</div>`,
+    html: `${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${message}<br><br>${phrases.RC_privacyCamera[RC.L]}</div>`,
     showConfirmButton: false,
     allowEnterKey: false, // To be changed
     // Dynamic popup width based on number of cameras
@@ -1549,30 +1572,36 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       return { selectedCamera: null, experimentEnded: true }
     }
   } else if (cameras.length === 1) {
-    // Only one camera - skip popup but check resolution
-    // Make sure no title is shown since we're not showing the popup
-    hideCameraTitleFromTopRight()
+    // Only one camera - show popup with different title and message
+    const result = await showCameraSelectionPopup(
+      RC,
+      '',
+      phrases.RC_NeedCamera[RC.L],
+      onClose,
+      'RC_NeedCameraTitle',
+    )
 
-    if (mainVideoContainer) {
-      mainVideoContainer.style.display = originalMainVideoDisplay
+    // After camera selection, check resolution if a camera was selected
+    if (result.selectedCamera) {
+      await checkResolutionAfterSelection(RC, options)
     }
 
-    // Check resolution for the single auto-selected camera
-    await checkResolutionAfterSelection(RC, options)
-
-    // Call onClose callback if provided
-    if (onClose && typeof onClose === 'function') {
-      onClose(null)
+    // Final safety cleanup - ensure camera polling is stopped
+    if (RC.cameraPollingInterval) {
+      clearInterval(RC.cameraPollingInterval)
+      RC.cameraPollingInterval = null
     }
-    return { selectedCamera: null }
+
+    return result
   }
 
-  // Show popup only if there are 2 or more cameras
+  // Show popup for 2 or more cameras
   const result = await showCameraSelectionPopup(
     RC,
     '',
     phrases.RC_ChooseCamera[RC.L],
     onClose,
+    'RC_ChooseCameraTitle',
   )
 
   // After camera selection, check resolution if a camera was selected

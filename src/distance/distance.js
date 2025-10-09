@@ -1367,14 +1367,14 @@ export async function blindSpotTest(
       } else {
         const reasonIsOutOfRange = message.includes('out of allowed range')
         let displayMessage = phrases.RC_viewingBlindSpotRejected[RC.L]
-          .replace('[[N11]]', min.toFixed(1))
-          .replace('[[N22]]', max.toFixed(1))
+          .replace('[[N11]]', Math.round(min))
+          .replace('[[N22]]', Math.round(max))
         if (reasonIsOutOfRange) {
           displayMessage = phrases.RC_viewingExceededRange[RC.L]
-            .replace('[[N11]]', min.toFixed(1))
-            .replace('[[N22]]', max.toFixed(1))
-            .replace('[[N33]]', RMin.toFixed(1))
-            .replace('[[N44]]', RMax.toFixed(1))
+            .replace('[[N11]]', Math.round(min))
+            .replace('[[N22]]', Math.round(max))
+            .replace('[[N33]]', Math.round(RMin))
+            .replace('[[N44]]', Math.round(RMax))
         }
 
         // Save failed blindspot calibration attempt
@@ -4084,17 +4084,17 @@ export async function objectTest(RC, options, callback = undefined) {
                 const newMin = min.toFixed(1) * ipdpxRatio
                 const newMax = max.toFixed(1) / ipdpxRatio
                 let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-                  .replace('[[N11]]', newMin.toFixed(1))
-                  .replace('[[N22]]', newMax.toFixed(1))
+                  .replace('[[N11]]', Math.round(newMin))
+                  .replace('[[N22]]', Math.round(newMax))
                 const reasonIsOutOfRange = message.includes(
                   'out of allowed range',
                 )
                 if (reasonIsOutOfRange) {
                   displayMessage = phrases.RC_viewingExceededRange[RC.L]
-                    .replace('[[N11]]', newMin.toFixed(1))
-                    .replace('[[N22]]', newMax.toFixed(1))
-                    .replace('[[N33]]', RMin.toFixed(1))
-                    .replace('[[N44]]', RMax.toFixed(1))
+                    .replace('[[N11]]', Math.round(newMin))
+                    .replace('[[N22]]', Math.round(newMax))
+                    .replace('[[N33]]', Math.round(RMin))
+                    .replace('[[N44]]', Math.round(RMax))
                 }
                 // Tolerance check failed - show error and restart Face Mesh collection
                 console.log(
@@ -4422,15 +4422,15 @@ export async function objectTest(RC, options, callback = undefined) {
         const newMin = min.toFixed(1) * ipdpxRatio
         const newMax = max.toFixed(1) / ipdpxRatio
         let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-          .replace('[[N11]]', newMin.toFixed(1))
-          .replace('[[N22]]', newMax.toFixed(1))
+          .replace('[[N11]]', Math.round(newMin))
+          .replace('[[N22]]', Math.round(newMax))
         const reasonIsOutOfRange = message.includes('out of allowed range')
         if (reasonIsOutOfRange) {
           displayMessage = phrases.RC_viewingExceededRange[RC.L]
-            .replace('[[N11]]', newMin.toFixed(1))
-            .replace('[[N22]]', newMax.toFixed(1))
-            .replace('[[N33]]', RMin.toFixed(1))
-            .replace('[[N44]]', RMax.toFixed(1))
+            .replace('[[N11]]', Math.round(newMin))
+            .replace('[[N22]]', Math.round(newMax))
+            .replace('[[N33]]', Math.round(RMin))
+            .replace('[[N44]]', Math.round(RMax))
         }
         console.log(
           '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
@@ -4876,10 +4876,10 @@ function checkObjectTestTolerance(
     return [
       false,
       `Object measurement out of allowed range
-        MinCm: ${minM.toFixed(1)};
-        MaxCm: ${maxM.toFixed(1)};
-        distance1Cm: ${distance1Cm.toFixed(2)};
-        distance2Cm: ${distance2Cm.toFixed(2)};
+        MinCm: ${Math.round(minM)};
+        MaxCm: ${Math.round(maxM)};
+        distance1Cm: ${Math.round(distance1Cm)};
+        distance2Cm: ${Math.round(distance2Cm)};
         distance1FactorCmPx: ${F1.toFixed(1)};
         distance2FactorCmPx: ${F2.toFixed(1)};
         `,
@@ -4899,8 +4899,8 @@ function checkObjectTestTolerance(
     pass
       ? 'Pass'
       : `Measurements not consistent
-      distance1Cm: ${distance1Cm.toFixed(2)};
-      distance2Cm: ${distance2Cm.toFixed(2)};
+      distance1Cm: ${Math.round(distance1Cm)};
+      distance2Cm: ${Math.round(distance2Cm)};
       distance1FactorCmPx: ${F1.toFixed(1)};
       distance2FactorCmPx: ${F2.toFixed(1)};
       `,
@@ -4994,8 +4994,8 @@ function checkBlindspotTolerance(
     return [
       false,
       `Blindspot measurements out of allowed range
-      MinCm: ${Math.min(leftMean, rightMean).toFixed(1)};
-      MaxCm: ${Math.max(leftMean, rightMean).toFixed(1)};
+      MinCm: ${Math.round(Math.min(leftMean, rightMean))};
+      MaxCm: ${Math.round(Math.max(leftMean, rightMean))};
       distance1FactorCmPx: ${F1.toFixed(1)};
       distance2FactorCmPx: ${F2.toFixed(1)};
       `,
@@ -5015,8 +5015,8 @@ function checkBlindspotTolerance(
     pass
       ? 'Pass'
       : `Measurements not consistent
-      distance1Cm: ${leftMean.toFixed(1)};
-      distance2Cm: ${rightMean.toFixed(1)};
+      distance1Cm: ${Math.round(leftMean)};
+      distance2Cm: ${Math.round(rightMean)};
       distance1FactorCmPx: ${F1.toFixed(1)};
       distance2FactorCmPx: ${F2.toFixed(1)};
       `,
