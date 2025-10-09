@@ -473,6 +473,7 @@ export async function blindSpotTest(
   const webgazerFaceFeedbackBox = document.getElementById(
     'webgazerFaceFeedbackBox',
   )
+
   if (
     !options.calibrateTrackDistanceCenterYourEyesBool &&
     webgazerFaceFeedbackBox
@@ -743,8 +744,11 @@ export async function blindSpotTest(
   // Blindspot eccentricity constants (in degrees)
   // These define the anatomical position of the blindspot relative to fixation
   // blindspotEccXDeg should have the same sign as spotEccXCm (negative for left eye, positive for right eye)
-  let blindspotEccXDeg = eyeSide === 'left' ? -15.5 : 15.5 // Horizontal eccentricity: ±15.5° (negative for left eye, positive for right eye)
-  const blindspotEccYDeg = -1.5 // Vertical eccentricity: -1.5° (below horizontal midline)
+  let blindspotEccXDeg =
+    eyeSide === 'left'
+      ? -options._calibrateTrackDistanceBlindspotXYDeg[0]
+      : options._calibrateTrackDistanceBlindspotXYDeg[0] // Horizontal eccentricity: ±15.5° (negative for left eye, positive for right eye)
+  const blindspotEccYDeg = options._calibrateTrackDistanceBlindspotXYDeg[1] // Vertical eccentricity: -1.5° (below horizontal midline)
 
   // On intro page, position instructions on left side
   RC._setFloatInstructionElementPos('left', 16)
@@ -1133,7 +1137,10 @@ export async function blindSpotTest(
       (circleX - crossX) ** 2 + (spotY - crossY) ** 2,
     )
     const fixationToSpotCm = fixationToSpotPx / pxPerCm
-    const eyeToCameraCm = _getEyeToCameraCm(fixationToSpotCm)
+    const eyeToCameraCm = _getEyeToCameraCm(
+      fixationToSpotCm,
+      options._calibrateTrackDistanceBlindspotXYDeg,
+    )
     dist.push({
       dist: toFixedNumber(eyeToCameraCm, options.decimalPlace),
       v: v,
@@ -1543,13 +1550,13 @@ export async function blindSpotTest(
       if (eyeSide === 'left') {
         // Change to RIGHT
         eyeSide = 'right'
-        blindspotEccXDeg = 15.5 // Positive for right eye
+        blindspotEccXDeg = options._calibrateTrackDistanceBlindspotXYDeg[0] // Positive for right eye
         eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
           phrases.RC_distanceTrackingCloseR[RC.L],
         )
       } else {
         eyeSide = 'left'
-        blindspotEccXDeg = -15.5 // Negative for left eye
+        blindspotEccXDeg = -options._calibrateTrackDistanceBlindspotXYDeg[0] // Negative for left eye
         eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
           phrases.RC_distanceTrackingCloseL[RC.L],
         )
@@ -1670,7 +1677,10 @@ export async function blindSpotTest(
     eyeSide = nextEyeSide
     crossX = nextCrossX
     // Ensure blindspot horizontal eccentricity sign matches current eye side
-    blindspotEccXDeg = eyeSide === 'left' ? -15.5 : 15.5
+    blindspotEccXDeg =
+      eyeSide === 'left'
+        ? -options._calibrateTrackDistanceBlindspotXYDeg[0]
+        : options._calibrateTrackDistanceBlindspotXYDeg[0]
     const spotRadiusPx = calculateSpotRadiusPx(
       calibrateTrackDistanceBlindspotDiameterDeg,
       ppi,
@@ -2046,8 +2056,14 @@ function _getDist(x, crossX, ppi) {
   return Math.abs(crossX - x) / ppi / _getTanDeg(15) / 0.3937
 }
 
-function _getEyeToCameraCm(fixationToSpotCm) {
-  const eccDeg = Math.sqrt(15.2 ** 2 + 1.5 ** 2)
+function _getEyeToCameraCm(
+  fixationToSpotCm,
+  _calibrateTrackDistanceBlindspotXYDeg,
+) {
+  const eccDeg = Math.sqrt(
+    _calibrateTrackDistanceBlindspotXYDeg[0] ** 2 +
+      _calibrateTrackDistanceBlindspotXYDeg[1] ** 2,
+  )
   return (0.5 * fixationToSpotCm) / _getTanDeg(0.5 * eccDeg)
 }
 
