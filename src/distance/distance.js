@@ -305,6 +305,7 @@ async function processMeshDataAndCalculateNearestPoints(
   leftMean = null,
   rightMean = null,
   method = 'blindspot',
+  order = 1,
 ) {
   const mesh = await getMeshData(
     RC,
@@ -327,6 +328,7 @@ async function processMeshDataAndCalculateNearestPoints(
     leftMean,
     rightMean,
     method,
+    order,
   )
 
   return {
@@ -1126,7 +1128,7 @@ export async function blindSpotTest(
       blindspotEccXDeg,
       blindspotEccYDeg,
     )
-    // Calculate distance between fixation cross and spot using Pythagorean theorem
+
     const fixationToSpotPx = Math.sqrt(
       (circleX - crossX) ** 2 + (spotY - crossY) ** 2,
     )
@@ -1284,6 +1286,7 @@ export async function blindSpotTest(
                   leftMean,
                   rightMean,
                   'blindspot',
+                  1,
                 )
 
               const leftCalibrationFactor = distance1FactorCmPx
@@ -1310,12 +1313,13 @@ export async function blindSpotTest(
                   leftMean,
                   rightMean,
                   'blindspot',
+                  2,
                 )
 
               const rightCalibrationFactor = distance2FactorCmPx
               measurements.push(
                 createMeasurementObject(
-                  'right-eye',
+                  'left-eye',
                   rightMean,
                   rightCalibrationFactor,
                   nearestPointsData,
@@ -1431,6 +1435,7 @@ export async function blindSpotTest(
                   leftMean,
                   rightMean,
                   'blindspot',
+                  1,
                 )
 
               const leftCalibrationFactor = distance1FactorCmPx
@@ -1456,12 +1461,13 @@ export async function blindSpotTest(
                   leftMean,
                   rightMean,
                   'blindspot',
+                  2,
                 )
 
               const rightCalibrationFactor = distance2FactorCmPx
               measurements.push(
                 createMeasurementObject(
-                  'right-eye',
+                  'left-eye',
                   rightMean,
                   rightCalibrationFactor,
                   nearestPointsData,

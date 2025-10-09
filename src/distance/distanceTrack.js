@@ -930,6 +930,7 @@ export const calculateNearestPoints = (
   leftMean = 0,
   rightMean = 0,
   method = 'object',
+  order = 1, // 1 for first measurement (left for blindspot, page3 for object), 2 for second measurement (right for blindspot, page4 for object)
 ) => {
   const centerXYCameraPx = getCenterXYCameraPx(video)
 
@@ -991,15 +992,18 @@ export const calculateNearestPoints = (
     offsetXYCm_right[0],
     offsetXYCm_right[1],
   )
-  const cameraToEyeDistance_left =
-    method === 'blindspot' ? leftMean : webcamToEyeDistance
-  const cameraToEyeDistance_right =
-    method === 'blindspot' ? rightMean : webcamToEyeDistance
+  const cameraToEyeDistance =
+    method === 'blindspot'
+      ? order === 1
+        ? leftMean
+        : rightMean
+      : webcamToEyeDistance
+
   const nearestDistanceCm_left = Math.sqrt(
-    cameraToEyeDistance_left ** 2 - norm_offsetXYCm_left ** 2,
+    cameraToEyeDistance ** 2 - norm_offsetXYCm_left ** 2,
   )
   const nearestDistanceCm_right = Math.sqrt(
-    cameraToEyeDistance_right ** 2 - norm_offsetXYCm_right ** 2,
+    cameraToEyeDistance ** 2 - norm_offsetXYCm_right ** 2,
   )
 
   const eyeToScreenCenterDistance_left = getEyeToDesiredDistance(
