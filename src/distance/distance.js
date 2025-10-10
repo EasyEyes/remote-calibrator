@@ -488,16 +488,24 @@ export async function blindSpotTest(
       'Screen size measurement is required to get accurate viewing distance measurement.',
     )
 
-  // Dynamic blindspot spot diameter in degrees - comes from options
-  // Set the range to be 2-8 degrees
-  let calibrateTrackDistanceBlindspotDiameterDeg =
-    parseFloat(options.calibrateTrackDistanceBlindspotDiameterDeg) || 2.0
-  if (calibrateTrackDistanceBlindspotDiameterDeg < 2.0) {
-    calibrateTrackDistanceBlindspotDiameterDeg = 2.0
-  }
-  if (calibrateTrackDistanceBlindspotDiameterDeg > 8.0) {
-    calibrateTrackDistanceBlindspotDiameterDeg = 8.0
-  }
+  // Dynamic blindspot spot diameter range in degrees - comes from options
+  // Define [minDeg, maxDeg] = options.calibrateTrackDistanceSpotMinMaxDeg
+  let minMaxDeg = options.calibrateTrackDistanceSpotMinMaxDeg
+  console.log('minMaxDeg', minMaxDeg)
+  if (typeof minMaxDeg === 'string')
+    minMaxDeg = minMaxDeg.split(',').map(Number)
+  if (!Array.isArray(minMaxDeg) || minMaxDeg.length < 2) minMaxDeg = [2.0, 8.0]
+  let minDeg = parseFloat(minMaxDeg[0])
+  let maxDeg = parseFloat(minMaxDeg[1])
+  if (!isFinite(minDeg) || minDeg <= 0) minDeg = 2.0
+  if (!isFinite(maxDeg) || maxDeg <= minDeg)
+    maxDeg = Math.max(minDeg * 2, minDeg + 0.1)
+
+  // Initial spot size at slider mid-height (h = 0.5): geometric mean of [minDeg, maxDeg]
+  let calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
+    10,
+    Math.log10(minDeg) + 0.5 * Math.log10(maxDeg / minDeg),
+  )
 
   let inTest = true // Used to break animation
   let dist = [] // Take the MEDIAN after all tests finished
@@ -541,6 +549,21 @@ export async function blindSpotTest(
   if (c) {
     c.style.zIndex = '99999999999'
     c.style.position = 'absolute'
+  }
+
+  // Update slider range labels to reflect [minDeg, maxDeg]
+  const labelSpans = document.querySelectorAll(
+    '#blindspot-slider-container span',
+  )
+  const formatDeg = v =>
+    Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(1)
+  if (labelSpans && labelSpans.length >= 3) {
+    const midDeg = Math.pow(10, (Math.log10(minDeg) + Math.log10(maxDeg)) / 2)
+    const midDegRounded = Math.round(midDeg)
+    // Order in DOM is top->bottom
+    labelSpans[0].textContent = `${formatDeg(maxDeg)} deg`
+    labelSpans[1].textContent = `${midDegRounded} deg`
+    labelSpans[2].textContent = `${formatDeg(minDeg)} deg`
   }
 
   const eyeSideEle = document.getElementById('blind-spot-instruction')
@@ -616,34 +639,31 @@ export async function blindSpotTest(
   if (slider) {
     // SLIDER VARIABLE DEFINITIONS:
     //
-    // fractionHeight: Slider position as fraction of whole range (0.0 to 1.0)
-    //   - 0.0 = bottom of slider = 2° spot diameter
-    //   - 1.0 = top of slider = 8° spot diameter
+    // fractionHeight (h): Slider position as fraction of whole range (0.0 to 1.0)
+    //   - 0.0 = bottom of slider = minDeg spot diameter
+    //   - 1.0 = top of slider = maxDeg spot diameter
     //   - Continuous values between 0.0 and 1.0
     //
-    // Logarithmic relationship: spotDeg = 2**(2*fractionHeight+1)
-    //   - fractionHeight = 0.0 → spotDeg = 2**(2*0+1) = 2**1 = 2°
-    //   - fractionHeight = 0.5 → spotDeg = 2**(2*0.5+1) = 2**2 = 4°
-    //   - fractionHeight = 1.0 → spotDeg = 2**(2*1+1) = 2**3 = 8°
-
+    // Logarithmic relationship:
+    //   spotDeg = 10**(log10(minDeg) + h*log10(maxDeg/minDeg))
+    //
     // Convert initial spotDeg to fractionHeight for slider position
-    // spotDeg = 2**(2*fractionHeight+1), so fractionHeight = (log2(spotDeg) - 1) / 2
     const initialFractionHeight =
-      (Math.log2(calibrateTrackDistanceBlindspotDiameterDeg) - 1) / 2
-    slider.value = initialFractionHeight
+      (Math.log10(calibrateTrackDistanceBlindspotDiameterDeg) -
+        Math.log10(minDeg)) /
+      Math.log10(maxDeg / minDeg)
+    slider.value = isFinite(initialFractionHeight)
+      ? String(Math.max(0, Math.min(1, initialFractionHeight)))
+      : '0.5'
 
     slider.addEventListener('input', e => {
       const fractionHeight = parseFloat(e.target.value) // Range: 0.0 to 1.0
 
-      // Calculate spotDeg from fractionHeight: spotDeg = 2**(2*fractionHeight+1)
-      calibrateTrackDistanceBlindspotDiameterDeg = parseFloat(
-        Math.pow(2, 2 * fractionHeight + 1),
+      // Calculate spotDeg from fractionHeight: spotDeg = 10**(log10(minDeg) + h*log10(maxDeg/minDeg))
+      calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
+        10,
+        Math.log10(minDeg) + fractionHeight * Math.log10(maxDeg / minDeg),
       )
-
-      // Limit to 8 degrees maximum (safety check)
-      if (calibrateTrackDistanceBlindspotDiameterDeg > 8.0) {
-        calibrateTrackDistanceBlindspotDiameterDeg = 8.0
-      }
 
       // Recalculate circle bounds and check if current position is still valid
       const spotRadiusPx = calculateSpotRadiusPx(
@@ -694,15 +714,11 @@ export async function blindSpotTest(
         // Trigger the same logic as the slider input event
         const fractionHeight = newValue
 
-        // Calculate spotDeg from fractionHeight: spotDeg = 2**(2*fractionHeight+1)
-        calibrateTrackDistanceBlindspotDiameterDeg = parseFloat(
-          Math.pow(2, 2 * fractionHeight + 1),
+        // Calculate spotDeg from fractionHeight using generalized logarithmic mapping
+        calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
+          10,
+          Math.log10(minDeg) + fractionHeight * Math.log10(maxDeg / minDeg),
         )
-
-        // Limit to 8 degrees maximum (safety check)
-        if (calibrateTrackDistanceBlindspotDiameterDeg > 8.0) {
-          calibrateTrackDistanceBlindspotDiameterDeg = 8.0
-        }
 
         // Recalculate circle bounds and check if current position is still valid
         const spotRadiusPx = calculateSpotRadiusPx(
@@ -746,9 +762,9 @@ export async function blindSpotTest(
   // blindspotEccXDeg should have the same sign as spotEccXCm (negative for left eye, positive for right eye)
   let blindspotEccXDeg =
     eyeSide === 'left'
-      ? -options._calibrateTrackDistanceBlindspotXYDeg[0]
-      : options._calibrateTrackDistanceBlindspotXYDeg[0] // Horizontal eccentricity: ±15.5° (negative for left eye, positive for right eye)
-  const blindspotEccYDeg = options._calibrateTrackDistanceBlindspotXYDeg[1] // Vertical eccentricity: -1.5° (below horizontal midline)
+      ? -options.calibrateTrackDistanceSpotXYDeg[0]
+      : options.calibrateTrackDistanceSpotXYDeg[0] // Horizontal eccentricity: ±15.5° (negative for left eye, positive for right eye)
+  const blindspotEccYDeg = options.calibrateTrackDistanceSpotXYDeg[1] // Vertical eccentricity: -1.5° (below horizontal midline)
 
   // On intro page, position instructions on left side
   RC._setFloatInstructionElementPos('left', 16)
@@ -1139,7 +1155,7 @@ export async function blindSpotTest(
     const fixationToSpotCm = fixationToSpotPx / pxPerCm
     const eyeToCameraCm = _getEyeToCameraCm(
       fixationToSpotCm,
-      options._calibrateTrackDistanceBlindspotXYDeg,
+      options.calibrateTrackDistanceSpotXYDeg,
     )
     dist.push({
       dist: toFixedNumber(eyeToCameraCm, options.decimalPlace),
@@ -1550,13 +1566,13 @@ export async function blindSpotTest(
       if (eyeSide === 'left') {
         // Change to RIGHT
         eyeSide = 'right'
-        blindspotEccXDeg = options._calibrateTrackDistanceBlindspotXYDeg[0] // Positive for right eye
+        blindspotEccXDeg = options.calibrateTrackDistanceSpotXYDeg[0] // Positive for right eye
         eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
           phrases.RC_distanceTrackingCloseR[RC.L],
         )
       } else {
         eyeSide = 'left'
-        blindspotEccXDeg = -options._calibrateTrackDistanceBlindspotXYDeg[0] // Negative for left eye
+        blindspotEccXDeg = -options.calibrateTrackDistanceSpotXYDeg[0] // Negative for left eye
         eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
           phrases.RC_distanceTrackingCloseL[RC.L],
         )
@@ -1679,8 +1695,8 @@ export async function blindSpotTest(
     // Ensure blindspot horizontal eccentricity sign matches current eye side
     blindspotEccXDeg =
       eyeSide === 'left'
-        ? -options._calibrateTrackDistanceBlindspotXYDeg[0]
-        : options._calibrateTrackDistanceBlindspotXYDeg[0]
+        ? -options.calibrateTrackDistanceSpotXYDeg[0]
+        : options.calibrateTrackDistanceSpotXYDeg[0]
     const spotRadiusPx = calculateSpotRadiusPx(
       calibrateTrackDistanceBlindspotDiameterDeg,
       ppi,
@@ -2056,13 +2072,10 @@ function _getDist(x, crossX, ppi) {
   return Math.abs(crossX - x) / ppi / _getTanDeg(15) / 0.3937
 }
 
-function _getEyeToCameraCm(
-  fixationToSpotCm,
-  _calibrateTrackDistanceBlindspotXYDeg,
-) {
+function _getEyeToCameraCm(fixationToSpotCm, calibrateTrackDistanceSpotXYDeg) {
   const eccDeg = Math.sqrt(
-    _calibrateTrackDistanceBlindspotXYDeg[0] ** 2 +
-      _calibrateTrackDistanceBlindspotXYDeg[1] ** 2,
+    calibrateTrackDistanceSpotXYDeg[0] ** 2 +
+      calibrateTrackDistanceSpotXYDeg[1] ** 2,
   )
   return (0.5 * fixationToSpotCm) / _getTanDeg(0.5 * eccDeg)
 }
