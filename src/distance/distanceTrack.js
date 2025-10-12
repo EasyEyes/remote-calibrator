@@ -1,7 +1,7 @@
 import RemoteCalibrator from '../core'
 
 import {
-  blindSpotTest,
+  blindSpotTestNew as blindSpotTest,
   getLeftAndRightEyePointsFromMeshData,
   objectTest,
 } from './distance'

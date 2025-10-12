@@ -9,8 +9,8 @@ export const crossLH = 3
 export const _getCrossX = (eyeSide, tX) => {
   return eyeSide === 'left' ? tX * 0.1 : tX * 0.9
 }
-export function _cross(ctx, cX, mY) {
-  ctx.fillStyle = '#000'
+export function _cross(ctx, cX, mY, fill = '#ac0d0d') {
+  ctx.fillStyle = fill
   ctx.fillRect(cX - (crossLW >> 1), mY - (crossLH >> 1), crossLW, crossLH)
   ctx.fillRect(cX - (crossLH >> 1), mY - (crossLW >> 1), crossLH, crossLW)
 }
@@ -92,10 +92,10 @@ export function _diamond(
   // Calculate diamond points (square rotated 45 degrees)
   const halfWidth = width / 2
   const points = [
-    { x: x, y: y - halfWidth },        // Top
-    { x: x + halfWidth, y: y },        // Right
-    { x: x, y: y + halfWidth },        // Bottom
-    { x: x - halfWidth, y: y }         // Left
+    { x: x, y: y - halfWidth }, // Top
+    { x: x + halfWidth, y: y }, // Right
+    { x: x, y: y + halfWidth }, // Bottom
+    { x: x - halfWidth, y: y }, // Left
   ]
 
   ctx.beginPath()
