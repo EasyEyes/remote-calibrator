@@ -4640,6 +4640,13 @@ export async function objectTest(RC, options, callback = undefined) {
           }
         }
 
+        //play stamp of approval sound on page 2
+        if (currentPage === 2) {
+          if (env !== 'mocha' && stampOfApprovalSound) {
+            stampOfApprovalSound()
+          }
+        }
+
         // Capture the video frame immediately on space press (for 3 and 4)
         if (currentPage === 3 || currentPage === 4) {
           lastCapturedFaceImage = captureVideoFrame(RC)

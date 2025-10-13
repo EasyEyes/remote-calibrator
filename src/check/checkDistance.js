@@ -1,4 +1,4 @@
-import RemoteCalibrator from '../core'
+import RemoteCalibrator, { env } from '../core'
 import { takeInput } from '../components/checkInput'
 import {
   constructInstructions,
@@ -730,6 +730,9 @@ const updateLengthDisplayDiv = (length, units) => {
   adjustLengthFontSize(lengthDisplayInput)
 }
 
+const soundModule = require('../components/sound')
+const stampOfApprovalSound = soundModule.stampOfApprovalSound
+
 const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   // Hide video during checkSize (yellow tape measurement)
   RC.showVideo(false)
@@ -828,6 +831,11 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
 
       function handleMeasurement() {
         if (register) {
+          //play stamp of approval sound
+          if (env !== 'mocha' && stampOfApprovalSound) {
+            stampOfApprovalSound()
+          }
+
           register = false
           const lengthDisplayInput = document.getElementById(
             'length-display-input',

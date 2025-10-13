@@ -252,6 +252,11 @@ function getSize(RC, parent, options, callback) {
   // Call when SPACE pressed
   // ! RETURN & BREAK
   const finishFunction = () => {
+    //play stamp of approval sound
+    const soundModule = require('./components/sound')
+    const stampOfApprovalSound = soundModule.stampOfApprovalSound
+    stampOfApprovalSound()
+
     const eleWidth =
       elements[currentMatchingObj].getBoundingClientRect().width ||
       Number.parseInt(elements[currentMatchingObj].style.width) // Pixel
