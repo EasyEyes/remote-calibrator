@@ -38,10 +38,12 @@ import { calculateNearestPoints, getMeshData } from './distanceTrack'
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
 let cameraShutterSound
+let stampOfApprovalSound
 if (env !== 'mocha') {
   const soundModule = require('../components/sound')
   soundFeedback = soundModule.soundFeedback
   cameraShutterSound = soundModule.cameraShutterSound
+  stampOfApprovalSound = soundModule.stampOfApprovalSound
 }
 
 const blindSpotHTML = `
@@ -127,7 +129,7 @@ const blindSpotHTML = `
         <div style="position: relative; height: 105px; width: 6px; background: #ddd; border-radius: 3px; margin-right: 15px; display: flex; align-items: center; justify-content: center;">
           <input type="range" id="blindspot-size-slider" min="0" max="1" value="0.5" step="0.001">
         </div>
-        <div style="display: flex; flex-direction: column; justify-content: space-between; height: 90px; font-size: 10px; color: #888; line-height: 0.2; margin-left: 10px;">
+        <div style="display: flex; flex-direction: column; justify-content: space-between; height: 105px; font-size: 10px; color: #888; line-height: 0.2; margin-left: 10px;">
           <span>8 deg</span>
           <span>4 deg</span>
           <span>2 deg</span>
@@ -2053,14 +2055,23 @@ export async function blindSpotTestNew(
     c.style.zIndex = '99999999999'
     c.style.position = 'absolute'
   }
-
-  // Remove slider elements if present (post-HTML insertion)
-  const sliderContainer = document.getElementById('blindspot-slider-container')
-  if (sliderContainer && sliderContainer.parentNode)
-    sliderContainer.parentNode.removeChild(sliderContainer)
-  const sliderInput = document.getElementById('blindspot-size-slider')
-  if (sliderInput && sliderInput.parentNode)
-    sliderInput.parentNode.removeChild(sliderInput)
+  // Update slider range labels to reflect [minDeg, maxDeg]
+  const labelSpans = document.querySelectorAll(
+    '#blindspot-slider-container span',
+  )
+  const formatDeg = v =>
+    Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(1)
+  if (labelSpans && labelSpans.length >= 3) {
+    const midDeg = Math.pow(
+      10,
+      Math.log10(minDeg) + 0.5 * Math.log10(maxDeg / minDeg),
+    )
+    const midDegRounded = Math.round(midDeg)
+    // Order in DOM is top->bottom
+    labelSpans[0].textContent = `${formatDeg(maxDeg)} deg`
+    labelSpans[1].textContent = `${midDegRounded} deg`
+    labelSpans[2].textContent = `${formatDeg(minDeg)} deg`
+  }
 
   // Geometry and movement
   let eyeSide = 'right' // start with right
@@ -2074,6 +2085,12 @@ export async function blindSpotTestNew(
   // Visibility and input flags
   let showDiamond = false
   let allowMove = false
+
+  const vCont = document.getElementById('webgazerVideoContainer')
+  if (vCont) {
+    const videoHeight = parseInt(vCont.style.height) || vCont.offsetHeight || 0
+    crossY = Math.max(0, Math.round(videoHeight / 2))
+  }
 
   const _computeCanvas = () => {
     const width = Math.round(window.innerWidth)
@@ -2090,7 +2107,13 @@ export async function blindSpotTestNew(
     if (allowMove)
       crossX = typeof circleX === 'number' ? 2 * centerX - circleX : centerX
     else crossX = crossX || centerX
-    crossY = 60
+    if (vCont) {
+      const videoHeight =
+        parseInt(vCont.style.height) || vCont.offsetHeight || 0
+      crossY = Math.max(0, Math.round(videoHeight / 2))
+    } else {
+      crossY = 60
+    }
   }
   _computeCanvas()
   const resizeObserver = new ResizeObserver(_computeCanvas)
@@ -2099,7 +2122,6 @@ export async function blindSpotTestNew(
   // Video positioning under the fixation cross, top-aligned
   let _lastVideoLeftPx = null
   const _positionVideoBelowFixation = () => {
-    const vCont = document.getElementById('webgazerVideoContainer')
     if (!vCont || !wrapper) return
     if (!RC._blindspotOriginalVideoStyle) {
       RC._blindspotOriginalVideoStyle = {
@@ -2129,7 +2151,9 @@ export async function blindSpotTestNew(
       vCont.style.transform = 'none'
       _lastVideoLeftPx = leftPx
     }
-    crossY = Math.max(0, Math.round(topPx - rect.top + videoHeight / 2))
+
+    crossY = Math.max(0, Math.round(topPx + videoHeight / 2))
+    console.log('topPx...', topPx, videoHeight, crossY)
   }
 
   // Align video fully to one side, keeping its center on the vertical midline boundary
@@ -2141,6 +2165,7 @@ export async function blindSpotTestNew(
     // side refers to the OPEN eye. Video must be on the opposite side.
     // If side is right (left eye closed), video goes LEFT; if side is left, video goes RIGHT.
     if (side === 'right') crossX = centerX - videoHalfWidth
+    else if (side === 'center') crossX = centerX
     else crossX = centerX + videoHalfWidth
     _positionVideoBelowFixation()
   }
@@ -2215,19 +2240,44 @@ export async function blindSpotTestNew(
   const radioContainer = document.createElement('div')
   radioContainer.style.position = 'fixed'
   radioContainer.style.zIndex = '1000000000000'
-  radioContainer.style.background = 'rgba(255,255,255,0.9)'
-  radioContainer.style.padding = '12px 16px'
+  radioContainer.style.padding = '0'
   radioContainer.style.borderRadius = '8px'
   radioContainer.style.display = 'none'
   RC.background.appendChild(radioContainer)
+
+  // Create hint text element
+  const hintTextElement = document.createElement('div')
+  hintTextElement.style.position = 'fixed'
+  hintTextElement.style.zIndex = '1000000000000'
+  hintTextElement.style.display = 'none'
+  RC.background.appendChild(hintTextElement)
 
   const positionRadioBelowInstruction = () => {
     const inst = document.getElementById('blind-spot-instruction')
     if (!inst) return
     const rect = inst.getBoundingClientRect()
+    const instCS = window.getComputedStyle(inst)
+    const lineHeight =
+      parseFloat(instCS.lineHeight) || parseFloat(instCS.fontSize) * 1.6
+
     radioContainer.style.left = `${rect.left}px`
-    radioContainer.style.top = `${rect.bottom + 12}px`
-    radioContainer.style.width = `${rect.width}px`
+    radioContainer.style.top = `${rect.bottom}px`
+    radioContainer.style.width = `auto`
+    radioContainer.style.paddingLeft = `${parseFloat(instCS.paddingLeft || 0) * 2 + 5}px`
+
+    // Position hint text below radio container
+    if (radioContainer.style.display !== 'none') {
+      const radioRect = radioContainer.getBoundingClientRect()
+      hintTextElement.style.left = `${rect.left}px`
+      hintTextElement.style.top = `${radioRect.bottom + lineHeight}px`
+      hintTextElement.style.width = `${rect.width}px`
+      hintTextElement.style.paddingLeft = instCS.paddingLeft
+      hintTextElement.style.fontFamily = instCS.fontFamily
+      hintTextElement.style.fontSize = instCS.fontSize
+      hintTextElement.style.fontWeight = instCS.fontWeight
+      hintTextElement.style.lineHeight = instCS.lineHeight
+      hintTextElement.style.color = instCS.color
+    }
   }
 
   const setInstructionContent = (html, side) => {
@@ -2263,33 +2313,63 @@ export async function blindSpotTestNew(
       label.style.display = 'flex'
       label.style.flexDirection = 'row'
       label.style.alignItems = 'center'
-      label.style.gap = '10px'
+      label.style.gap = '0.5em'
       label.style.cursor = 'pointer'
-      label.style.margin = '6px 0'
+      label.style.margin = '0'
       const input = document.createElement('input')
       input.type = 'radio'
       input.name = 'bs-radio'
       input.value = o.key
       input.style.margin = '0'
       input.style.transform = 'scale(1.1)'
-      input.style.flex = '0 0 auto'
+      input.style.flex = '0'
+      input.style.opacity = '1' // Always start with full opacity
+      input.checked = false // Ensure unchecked by default
       label.appendChild(input)
       const textSpan = document.createElement('span')
       textSpan.innerHTML = replaceNewlinesWithBreaks(o.label)
       if (instCS) {
         textSpan.style.fontFamily = instCS.fontFamily
         textSpan.style.fontSize = instCS.fontSize
-        textSpan.style.fontWeight = instCS.fontWeight
+        textSpan.style.fontWeight = 'normal' // Always start with normal weight
         textSpan.style.lineHeight = instCS.lineHeight
         textSpan.style.color = instCS.color
         textSpan.style.whiteSpace = 'normal'
       } else {
         textSpan.style.fontSize = '1.1rem'
+        textSpan.style.fontWeight = 'normal' // Always start with normal weight
       }
-      textSpan.style.flex = '0 0 auto'
+      textSpan.style.paddingLeft = '20px'
+      textSpan.style.flex = '1'
       label.appendChild(textSpan)
-      label.addEventListener('click', () => {
+      label.addEventListener('click', async () => {
         const v = input.value
+
+        // Make button dark and label bold
+        input.style.opacity = '0.3'
+        textSpan.style.fontWeight = 'bold'
+
+        // Play stamp of approval sound
+        if (env !== 'mocha' && stampOfApprovalSound) {
+          stampOfApprovalSound()
+        }
+
+        // Wait 0.2 seconds
+        await new Promise(resolve => setTimeout(resolve, 200))
+
+        // Reset all radio buttons and labels
+        const allRadios = radioContainer.querySelectorAll(
+          'input[name="bs-radio"]',
+        )
+        allRadios.forEach(radio => {
+          radio.checked = false
+          radio.style.opacity = '1'
+        })
+        const allLabels = radioContainer.querySelectorAll('span')
+        allLabels.forEach(labelSpan => {
+          labelSpan.style.fontWeight = 'normal'
+        })
+
         handleRadio(v)
       })
       radioContainer.appendChild(label)
@@ -2300,6 +2380,15 @@ export async function blindSpotTestNew(
   let blindspotEccXDeg = options.calibrateTrackDistanceSpotXYDeg[0]
   const blindspotEccYDeg = options.calibrateTrackDistanceSpotXYDeg[1]
   let spotDeg = minDeg
+  const slider = document.getElementById('blindspot-size-slider')
+  slider.value = 0
+  slider.addEventListener('input', e => {
+    const fractionHeight = parseFloat(e.target.value)
+    spotDeg = Math.pow(
+      10,
+      Math.log10(minDeg) + fractionHeight * Math.log10(maxDeg / minDeg),
+    )
+  })
   let circleBounds = [0, 0]
 
   const resetEyeSide = side => {
@@ -2383,6 +2472,19 @@ export async function blindSpotTestNew(
   }
   const adjustSpot = scale => {
     spotDeg = Math.max(minDeg, Math.min(maxDeg, spotDeg * scale))
+    console.log('slider.value...', slider.value)
+    console.log('Math.log10(scale)...', Math.log10(scale))
+    console.log('Math.log10(maxDeg / minDeg)...', Math.log10(maxDeg / minDeg))
+    const currentValue = parseFloat(slider.value)
+    const newValue = Math.max(
+      0,
+      Math.min(
+        1,
+        currentValue + Math.log10(scale) / Math.log10(maxDeg / minDeg),
+      ),
+    )
+    slider.value = newValue.toFixed(3)
+    console.log('slider.value...', slider.value)
   }
   const keyHandler = e => {
     if (!allowMove) return
@@ -2409,15 +2511,15 @@ export async function blindSpotTestNew(
   // Hide diamond and prevent movement; align video on right side initially
   showDiamond = false
   allowMove = false
-  _alignVideoToSide('right')
+  _alignVideoToSide('center')
   // Also update the instruction placement on the right for the prep page
   setInstructionContent(
     phrases.RC_distanceTrackingBlindspotGetReady[RC.L],
     'left',
   )
   // Re-align after layout settles
-  requestAnimationFrame(() => _alignVideoToSide('right'))
-  requestAnimationFrame(() => _alignVideoToSide('right'))
+  requestAnimationFrame(() => _alignVideoToSide('center'))
+  requestAnimationFrame(() => _alignVideoToSide('center'))
   positionRadioBelowInstruction()
   await new Promise(resolve => {
     const onSpace = e => {
@@ -2443,36 +2545,42 @@ export async function blindSpotTestNew(
     let i = 0
     makeRadioUI()
     radioContainer.style.display = 'block'
+    hintTextElement.style.display = 'block'
     const setInstruction = () => {
       if (side === 'right') {
         setInstructionContent(
-          (i === 0
+          i === 0
             ? phrases.RC_distanceTrackingRightEyeBlindspot1[RC.L]
-            : phrases.RC_distanceTrackingRightEyeBlindspot2[RC.L]) +
-            '<br/>' +
-            (i === 0
-              ? phrases['RC_Diamond-Hint1'][RC.L]
-              : phrases['RC_Diamond-Hint2'][RC.L]),
+            : phrases.RC_distanceTrackingRightEyeBlindspot2[RC.L],
           'left',
+        )
+        hintTextElement.innerHTML = replaceNewlinesWithBreaks(
+          i === 0
+            ? phrases['RC_Diamond-Hint1'][RC.L]
+            : phrases['RC_Diamond-Hint2'][RC.L],
         )
       } else {
         setInstructionContent(
-          (i === 0
+          i === 0
             ? phrases.RC_distanceTrackingLeftEyeBlindspot1[RC.L]
-            : phrases.RC_distanceTrackingLeftEyeBlindspot2[RC.L]) +
-            '<br/>' +
-            (i === 0
-              ? phrases['RC_Diamond-Hint1'][RC.L]
-              : phrases['RC_Diamond-Hint2'][RC.L]),
+            : phrases.RC_distanceTrackingLeftEyeBlindspot2[RC.L],
           'right',
         )
+        hintTextElement.innerHTML = replaceNewlinesWithBreaks(
+          i === 0
+            ? phrases['RC_Diamond-Hint1'][RC.L]
+            : phrases['RC_Diamond-Hint2'][RC.L],
+        )
       }
+      // Re-position after updating content
+      positionRadioBelowInstruction()
     }
     setInstruction()
     return await new Promise(resolve => {
       const proceedToSnapshot = async () => {
         // Snapshot page
         radioContainer.style.display = 'none'
+        hintTextElement.style.display = 'none'
         if (side === 'right')
           setInstructionContent(
             phrases.RC_distanceTrackingRightEyeBlindspot3[RC.L],
@@ -2591,8 +2699,26 @@ export async function blindSpotTestNew(
       const handleRadio = saw => {
         if (saw === 'none' || saw === 'oneTip') {
           spotDeg = Math.min(maxDeg, Math.max(minDeg, spotDeg * 1.6))
+          const currentValue = parseFloat(slider.value)
+          const newValue = Math.max(
+            0,
+            Math.min(
+              1,
+              currentValue + Math.log10(1.6) / Math.log10(maxDeg / minDeg),
+            ),
+          )
+          slider.value = newValue.toFixed(3)
         } else if (saw === 'wholeDiamond') {
           spotDeg = Math.min(maxDeg, Math.max(minDeg, spotDeg * 0.8))
+          const currentValue = parseFloat(slider.value)
+          const newValue = Math.max(
+            0,
+            Math.min(
+              1,
+              currentValue + Math.log10(0.8) / Math.log10(maxDeg / minDeg),
+            ),
+          )
+          slider.value = newValue.toFixed(3)
         } else if (saw === 'twoTips') {
           proceedToSnapshot()
           return
@@ -2716,6 +2842,8 @@ export async function blindSpotTestNew(
     document.removeEventListener('keydown', keyHandler)
     if (radioContainer && radioContainer.parentNode)
       radioContainer.parentNode.removeChild(radioContainer)
+    if (hintTextElement && hintTextElement.parentNode)
+      hintTextElement.parentNode.removeChild(hintTextElement)
     window.removeEventListener('resize', onResize)
     const blindOverlay = document.getElementById('blindspot-wrapper')
     if (blindOverlay && blindOverlay.parentNode) {
@@ -4309,7 +4437,7 @@ export async function objectTest(RC, options, callback = undefined) {
         )
 
         // Start blindspot test immediately
-        blindSpotTest(RC, options, true, async blindspotData => {
+        blindSpotTestNew(RC, options, true, async blindspotData => {
           // Calculate median of calibration factors instead of distances
           const objectCalibrationFactor = data.calibrationFactor
           const blindspotCalibrationFactor = blindspotData.calibrationFactor
