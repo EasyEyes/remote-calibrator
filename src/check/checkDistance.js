@@ -759,13 +759,25 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
       : Math.floor(Number(cm)),
   )
 
-  processedLengthCm = processedLengthCm.filter(
-    cm => cm > 0 && cm <= maxLengthCm,
-  )
+  // Filter out invalid values (non-positive)
+  processedLengthCm = processedLengthCm.filter(cm => cm > 0)
 
   if (processedLengthCm.length === 0) {
     console.warn('No valid lengths to check.')
     return
+  }
+
+  // If the largest requested size exceeds screen width, scale all sizes down
+  // so that the largest equals 90% of the screen width
+  const maxRequestedCm = Math.max(...processedLengthCm)
+  const targetMaxCm = screenWidthCm * 0.9 // 90% of screen width
+  
+  if (maxRequestedCm > screenWidthCm) {
+    const scaleFactor = targetMaxCm / maxRequestedCm
+    processedLengthCm = processedLengthCm.map(cm => 
+      Math.floor(cm * scaleFactor)
+    )
+    console.log(`Requested sizes scaled down by factor ${scaleFactor.toFixed(3)} to fit screen. Original max: ${maxRequestedCm} cm, New max: ${Math.max(...processedLengthCm)} cm`)
   }
 
   // Initialize arrays to store length data (similar to distance tracking)
