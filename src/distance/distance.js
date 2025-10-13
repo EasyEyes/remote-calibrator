@@ -33,7 +33,11 @@ import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { showTestPopup } from '../components/popup'
 import { ppiToPxPerCm } from '../components/converters'
-import { calculateNearestPoints, getMeshData } from './distanceTrack'
+import {
+  calculateFootXYPx,
+  calculateNearestPoints,
+  getMeshData,
+} from './distanceTrack'
 
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
@@ -308,6 +312,11 @@ async function processMeshDataAndCalculateNearestPoints(
   rightMean = null,
   method = 'blindspot',
   order = 1,
+  fixPoint = [window.innerWidth / 2, window.innerHeight / 2],
+  spotPoint = [window.innerWidth / 2, window.innerHeight / 2],
+  blindspotDeg = 0,
+  fixationToSpotCm = 0,
+  ipdCameraPx = 0,
 ) {
   const mesh = await getMeshData(
     RC,
@@ -326,11 +335,16 @@ async function processMeshDataAndCalculateNearestPoints(
     pxPerCm,
     ppi,
     RC,
-    {},
+    options,
     leftMean,
     rightMean,
     method,
     order,
+    fixPoint,
+    spotPoint,
+    blindspotDeg,
+    fixationToSpotCm,
+    ipdCameraPx,
   )
   console.log('nearestPointsData...', nearestPointsData)
   console.log('currentIPDDistance...', currentIPDDistance)
@@ -1988,6 +2002,74 @@ export async function blindSpotTest(
   requestAnimationFrame(runTest)
 }
 
+/**
+Solve for eye-to-screen distance (cm).
+Inputs:
+eyeFoot    : {x, y}  // projection of eye onto screen (pixels)
+fixPoint   : {x, y}  // fixation point on screen (pixels)
+spotPoint  : {x, y}  // spot centered on blindspot (pixels)
+blindspotDeg : number // included angle at the eye, in degrees (e.g.  sqrt(15.5^2 + 1.5^2) )
+pxPerCm    : number // pixels per centimeter for this screen (>= 0)
+Returns:
+{ d_cm, d_px } where d_px is distance in pixels and d_cm is in cm,
+or throws an Error if no valid solution.
+*/
+export const solveEyeToScreenCm = (
+  eyeFoot,
+  fixPoint,
+  spotPoint,
+  blindspotDeg,
+  pxPerCm,
+) => {
+  // vector u = fix - eyeFoot
+  const ux = fixPoint.x - eyeFoot.x
+  const uy = fixPoint.y - eyeFoot.y
+  // vector v = spot - eyeFoot
+  const vx = spotPoint.x - eyeFoot.x
+  const vy = spotPoint.y - eyeFoot.y
+  const a = ux * ux + uy * uy // |u|^2
+  const b = vx * vx + vy * vy // |v|^2
+  const c = ux * vx + uy * vy // u·v
+  // angle in radians
+  const theta = (Math.PI / 180) * blindspotDeg
+  const cos2 = Math.cos(theta) * Math.cos(theta)
+  const sin2 = Math.sin(theta) * Math.sin(theta)
+  // coefficients for quadratic in x = d^2:
+  // alpha * x^2 + beta * x + gamma = 0
+  const alpha = sin2
+  const beta = 2 * c - cos2 * (a + b)
+  const gamma = c * c - cos2 * a * b
+  // handle degenerate angle (theta == 0 or pi)
+  if (alpha === 0) {
+    throw new Error(
+      'Degenerate angle (sin^2 theta == 0). Cannot solve uniquely.',
+    )
+  }
+  const disc = beta * beta - 4 * alpha * gamma
+  if (disc < 0) {
+    throw new Error('No real solution (negative discriminant). Check inputs.')
+  }
+  // two roots for x = d^2
+  const sqrtDisc = Math.sqrt(disc)
+  const x1 = (-beta + sqrtDisc) / (2 * alpha)
+  const x2 = (-beta - sqrtDisc) / (2 * alpha)
+  // We need x > 0 (d^2 positive)
+  const candidates = [x1, x2].filter(x => isFinite(x) && x > 0)
+  if (candidates.length === 0) {
+    throw new Error('No positive solution for d^2. Check geometry/inputs.')
+  }
+  // choose the physically reasonable root.
+  // Usually the larger positive root corresponds to farther eye; pick the max.
+  const x = Math.max(...candidates)
+  const d_px = Math.sqrt(x)
+  if (!pxPerCm || pxPerCm <= 0) {
+    // return px if no conversion provided
+    return { d_px, d_cm: null }
+  }
+  const d_cm = d_px / pxPerCm
+  return { d_px, d_cm }
+}
+
 // New iterative blindspot mapping (7 pages) replacing the old scheme
 export async function blindSpotTestNew(
   RC,
@@ -2472,9 +2554,6 @@ export async function blindSpotTestNew(
   }
   const adjustSpot = scale => {
     spotDeg = Math.max(minDeg, Math.min(maxDeg, spotDeg * scale))
-    console.log('slider.value...', slider.value)
-    console.log('Math.log10(scale)...', Math.log10(scale))
-    console.log('Math.log10(maxDeg / minDeg)...', Math.log10(maxDeg / minDeg))
     const currentValue = parseFloat(slider.value)
     const newValue = Math.max(
       0,
@@ -2484,7 +2563,6 @@ export async function blindSpotTestNew(
       ),
     )
     slider.value = newValue.toFixed(3)
-    console.log('slider.value...', slider.value)
   }
   const keyHandler = e => {
     if (!allowMove) return
@@ -2607,13 +2685,6 @@ export async function blindSpotTestNew(
             blindspotEccXDeg,
             blindspotEccYDeg,
           )
-          const fixationToSpotPx = Math.hypot(circleX - crossX, spotY - crossY)
-          const fixationToSpotCm = fixationToSpotPx / pxPerCm
-          const eyeToCameraCm = _getEyeToCameraCm(
-            fixationToSpotCm,
-            options.calibrateTrackDistanceSpotXYDeg,
-          )
-
           // Collect Face Mesh samples (5)
           const samples = []
           const meshPoints = []
@@ -2656,42 +2727,58 @@ export async function blindSpotTestNew(
             return
           }
 
-          const calibrationFactor = Math.round(avgIPD * eyeToCameraCm)
+          const fixationToSpotPx = Math.hypot(circleX - crossX, spotY - crossY)
+          const fixationToSpotCm = fixationToSpotPx / pxPerCm
 
           try {
+            const eccDeg = Math.sqrt(
+              options.calibrateTrackDistanceSpotXYDeg[0] ** 2 +
+                options.calibrateTrackDistanceSpotXYDeg[1] ** 2,
+            )
             const { nearestPointsData, currentIPDDistance } =
               await processMeshDataAndCalculateNearestPoints(
                 RC,
                 options,
                 meshPoints,
-                calibrationFactor,
+                0,
                 ppi,
-                eyeToCameraCm,
-                eyeToCameraCm,
+                0,
+                0,
                 'blindspot',
                 1,
+                [crossX, crossY],
+                [circleX, spotY],
+                eccDeg,
+                fixationToSpotCm,
+                avgIPD,
               )
             const measurement = createMeasurementObject(
               side === 'right' ? 'right-eye' : 'left-eye',
-              eyeToCameraCm,
-              calibrationFactor,
+              nearestPointsData.distanceCm,
+              nearestPointsData.calibrationFactor,
               nearestPointsData,
               currentIPDDistance,
               avgIPD,
             )
             saveCalibrationMeasurements(RC, 'blindspot', [measurement], spotDeg)
+            const snapshot = {
+              eye: side,
+              distanceCm: nearestPointsData.distanceCm,
+              avgIPD,
+              calibrationFactor: nearestPointsData.calibrationFactor,
+              samples,
+            }
+            resolve(snapshot)
           } catch (e) {
             // ignore
+            resolve({
+              eye: side,
+              distanceCm: 0,
+              avgIPD: 0,
+              calibrationFactor: 0,
+              samples: [],
+            })
           }
-
-          const snapshot = {
-            eye: side,
-            distanceCm: eyeToCameraCm,
-            avgIPD,
-            calibrationFactor,
-            samples,
-          }
-          resolve(snapshot)
         }
         document.addEventListener('keydown', onSpaceSnap)
       }
@@ -2960,7 +3047,10 @@ function _getDist(x, crossX, ppi) {
   return Math.abs(crossX - x) / ppi / _getTanDeg(15) / 0.3937
 }
 
-function _getEyeToCameraCm(fixationToSpotCm, calibrateTrackDistanceSpotXYDeg) {
+export function _getEyeToCameraCm(
+  fixationToSpotCm,
+  calibrateTrackDistanceSpotXYDeg,
+) {
   const eccDeg = Math.sqrt(
     calibrateTrackDistanceSpotXYDeg[0] ** 2 +
       calibrateTrackDistanceSpotXYDeg[1] ** 2,

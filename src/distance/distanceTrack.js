@@ -1,9 +1,11 @@
 import RemoteCalibrator from '../core'
 
 import {
-  blindSpotTestNew as blindSpotTest,
+  _getEyeToCameraCm,
+  blindSpotTestNew,
   getLeftAndRightEyePointsFromMeshData,
   objectTest,
+  solveEyeToScreenCm,
 } from './distance'
 import {
   toFixedNumber,
@@ -355,7 +357,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
         'This will use blindspot test calibration factor for tracking',
       )
       // Use blindspot test for calibration
-      await blindSpotTest(this, options, true, getStdDist)
+      await blindSpotTestNew(this, options, true, getStdDist)
     }
   }
 
@@ -917,21 +919,13 @@ const _tracking = async (
   rafId = requestAnimationFrame(renderPrediction)
 }
 
-// Function to calculate nearest points for both eyes
-export const calculateNearestPoints = (
+export const calculateFootXYPx = (
+  RC,
   video,
   leftEye,
   rightEye,
-  currentIPDDistance,
-  webcamToEyeDistance,
   pxPerCm,
-  ppi,
-  RC,
-  options = {},
-  leftMean = 0,
-  rightMean = 0,
-  method = 'object',
-  order = 1, // 1 for first measurement (left for blindspot, page3 for object), 2 for second measurement (right for blindspot, page4 for object)
+  currentIPDDistance,
 ) => {
   const centerXYCameraPx = getCenterXYCameraPx(video)
 
@@ -974,6 +968,88 @@ export const calculateNearestPoints = (
     cameraXYPx[1] + offsetXYCm_right[1] * pxPerCm,
   ]
 
+  return {
+    nearestXYPx_left,
+    nearestXYPx_right,
+    ipdCameraPx,
+    offsetXYCm_left,
+    offsetXYCm_right,
+    cameraXYPx,
+    pxPerCm,
+  }
+}
+
+// Function to calculate nearest points for both eyes
+export const calculateNearestPoints = (
+  video,
+  leftEye,
+  rightEye,
+  currentIPDDistance,
+  webcamToEyeDistance,
+  pxPerCm,
+  ppi,
+  RC,
+  options = {},
+  leftMean = 0,
+  rightMean = 0,
+  method = 'object',
+  order = 1, // 1 for first measurement (right-eye for blindspot, page3 for object), 2 for second measurement (left-eye for blindspot, page4 for object)
+  fixPoint = [window.innerWidth / 2, window.innerHeight / 2],
+  spotPoint = [window.innerWidth / 2, window.innerHeight / 2],
+  blindspotDeg = 0,
+  fixationToSpotCm = 0,
+  ipdCameraPx = 0,
+) => {
+  const {
+    nearestXYPx_left,
+    nearestXYPx_right,
+    offsetXYCm_left,
+    offsetXYCm_right,
+    cameraXYPx,
+  } = calculateFootXYPx(
+    RC,
+    video,
+    leftEye,
+    rightEye,
+    pxPerCm,
+    currentIPDDistance,
+  )
+
+  let eyeToFootCm = 0
+  if (webcamToEyeDistance === 0) {
+    try {
+      // const { d_cm, d_px } = solveEyeToScreenCm(
+      //   order === 1 ? nearestXYPx_right : nearestXYPx_left,
+      //   fixPoint,
+      //   spotPoint,
+      //   blindspotDeg,
+      //   pxPerCm,
+      // )
+      // eyeToFootCm = d_cm
+      // TEMP: use _getEyeToCameraCm instead of solveEyeToScreenCm
+      eyeToFootCm = _getEyeToCameraCm(
+        fixationToSpotCm,
+        options.calibrateTrackDistanceSpotXYDeg,
+      )
+    } catch (e) {
+      eyeToFootCm = _getEyeToCameraCm(
+        fixationToSpotCm,
+        options.calibrateTrackDistanceSpotXYDeg,
+      )
+
+      console.error('Error solving eye to screen distance:', e)
+    }
+  } else {
+    eyeToFootCm = webcamToEyeDistance
+  }
+
+  const footXYPx = order === 1 ? nearestXYPx_right : nearestXYPx_left
+  const footToCameraCm =
+    Math.hypot(cameraXYPx[0] - footXYPx[0], cameraXYPx[1] - footXYPx[1]) /
+    pxPerCm
+  const eyeToCameraCm = Math.hypot(footToCameraCm, eyeToFootCm)
+  const calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
+
   // Clamp coordinates to stay within viewport bounds
   const clampedNearestLeft = [
     Math.max(0, Math.min(nearestXYPx_left[0], window.innerWidth)),
@@ -994,11 +1070,7 @@ export const calculateNearestPoints = (
     offsetXYCm_right[1],
   )
   const cameraToEyeDistance =
-    method === 'blindspot'
-      ? order === 1
-        ? leftMean
-        : rightMean
-      : webcamToEyeDistance
+    method === 'blindspot' ? eyeToCameraCm : webcamToEyeDistance
 
   const nearestDistanceCm_left = Math.sqrt(
     cameraToEyeDistance ** 2 - norm_offsetXYCm_left ** 2,
@@ -1041,15 +1113,11 @@ export const calculateNearestPoints = (
     pxPerCm,
   )
 
-  const nearestEyeToWebcamDistanceCM = webcamToEyeDistance
-  // getEyeToDesiredDistance(
-  //   nearestXYPx,
-  //   nearestDistanceCm,
-  //   cameraXYPx,
-  //   pxPerCm,
-  // )
+  const nearestEyeToWebcamDistanceCM =
+    method === 'blindspot' ? eyeToCameraCm : webcamToEyeDistance
 
-  const distanceCm = nearestEye === 'left' ? distanceCm_left : distanceCm_right
+  const distanceCm =
+    method === 'blindspot' ? eyeToCameraCm : webcamToEyeDistance
 
   return {
     nearestXYPx_left,
@@ -1069,6 +1137,7 @@ export const calculateNearestPoints = (
     cameraXYPx,
     viewingDistanceWhichEye: options?.viewingDistanceWhichEye,
     viewingDistanceWhichPoint: options?.viewingDistanceWhichPoint,
+    calibrationFactor,
   }
 }
 
@@ -1153,6 +1222,15 @@ const renderDistanceResult = async (
         ppi,
         RC,
         trackingOptions,
+        0,
+        0,
+        '',
+        1,
+        [],
+        [],
+        0,
+        0,
+        currentIPDDistance,
       )
 
       const {

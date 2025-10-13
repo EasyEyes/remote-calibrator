@@ -206,6 +206,15 @@ const captureIPDFromFaceMesh = async (
       pxPerCm,
       RC.screenPpi.value,
       RC,
+      0,
+      0,
+      '',
+      1,
+      [],
+      [],
+      0,
+      0,
+      ipdPixels,
     )
     const { nearestXYPx_left, nearestXYPx_right } = nearestPoints
 
