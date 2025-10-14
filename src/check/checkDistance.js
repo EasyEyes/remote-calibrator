@@ -369,11 +369,11 @@ const createYellowTapeRectangle = RC => {
   const lineThickness = 3 // Original thickness for horizontal lines
   const verticalLineThickness = 6 // Thicker vertical lines only
 
-  // Style for both vertical lines
+  // Style for both vertical lines - use translateX to center them at their position
   const verticalLineStyle = `
     position: absolute; 
     top: ${screenCenterY}px; 
-    transform: translateY(-50%); 
+    transform: translate(-50%, -50%); 
     height: ${threeQuarterInchesInPx}px; 
     width: ${verticalLineThickness}px; 
     background: rgb(0, 0, 0); 
@@ -452,7 +452,7 @@ const createYellowTapeRectangle = RC => {
     const proportion = rightLinePx / (screenWidth || 1) // Avoid division by zero
     rightLinePx = Math.round(newScreenWidth * proportion)
 
-    // Ensure right line doesn't go beyond screen bounds
+    // Ensure right line doesn't go beyond screen bounds (line is centered)
     const minX = leftLinePx + 10
     const maxX = newScreenWidth
     rightLinePx = Math.max(minX, Math.min(rightLinePx, maxX))
@@ -461,7 +461,7 @@ const createYellowTapeRectangle = RC => {
     const newVerticalLineStyle = `
       position: absolute; 
       top: ${screenCenterY}px; 
-      transform: translateY(-50%); 
+      transform: translate(-50%, -50%); 
       height: ${threeQuarterInchesInPx}px; 
       width: ${verticalLineThickness}px; 
       background: rgb(0, 0, 0); 
@@ -502,6 +502,7 @@ const createYellowTapeRectangle = RC => {
   const mouseMoveHandler = e => {
     if (!dragging) return
     let x = e.clientX
+    // Line is now centered at position, so can reach screenWidth
     x = Math.max(leftLinePx + 10, Math.min(x, screenWidth))
     rightLinePx = x
     rightLine.style.left = `${rightLinePx}px`
@@ -527,6 +528,7 @@ const createYellowTapeRectangle = RC => {
   const leftMouseMoveHandler = e => {
     if (!leftDragging) return
     let x = e.clientX
+    // Line is now centered at position, so can reach x=0
     x = Math.max(0, Math.min(x, rightLinePx - 2))
     leftLinePx = x
     leftLine.style.left = `${leftLinePx}px`
@@ -545,6 +547,9 @@ const createYellowTapeRectangle = RC => {
   let arrowKeyDown = false
   let arrowIntervalFunction = null
   let currentArrowKey = null
+  
+  // Dynamic step size variables
+  let intervalCount = 0 // Track how many intervals have fired
 
   const arrowDownFunction = e => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
@@ -553,17 +558,29 @@ const createYellowTapeRectangle = RC => {
 
     arrowKeyDown = true
     currentArrowKey = e.key
+    intervalCount = 0 // Reset counter for new key press
 
     if (arrowIntervalFunction) {
       clearInterval(arrowIntervalFunction)
     }
 
+    // Calculate dynamic step size based on whether key is being held
+    const calculateStepSize = () => {
+      // If held for more than 3 intervals (~150ms), switch to fast movement
+      if (intervalCount > 3) {
+        return 5 * pxPerMm // 5mm for held keys (fast approach)
+      }
+      return 0.5 * pxPerMm // 0.5mm for taps (precise adjustment)
+    }
+
     arrowIntervalFunction = setInterval(() => {
+      intervalCount++
+      const moveAmount = calculateStepSize()
       if (currentArrowKey === 'ArrowLeft') {
-        rightLinePx -= 5
+        rightLinePx -= moveAmount
         helpMoveRightLine()
       } else if (currentArrowKey === 'ArrowRight') {
-        rightLinePx += 5
+        rightLinePx += moveAmount
         helpMoveRightLine()
       }
     }, 50)

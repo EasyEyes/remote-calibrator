@@ -219,6 +219,66 @@ function getSize(RC, parent, options, callback) {
   })
   resizeObserver.observe(parent)
 
+  // Dynamic step size keyboard handling for arrow keys
+  let arrowKeyDown = false
+  let arrowIntervalFunction = null
+  let currentArrowKey = null
+  let intervalCount = 0 // Track how many intervals have fired
+
+  const arrowDownFunction = e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault() // Prevent default slider behavior
+    if (arrowKeyDown) return
+
+    arrowKeyDown = true
+    currentArrowKey = e.key
+    intervalCount = 0 // Reset counter for new key press
+
+    if (arrowIntervalFunction) {
+      clearInterval(arrowIntervalFunction)
+    }
+
+    // Calculate dynamic step size based on whether key is being held
+    const calculateStepSize = () => {
+      // If held for more than 3 intervals (~150ms), switch to fast movement
+      if (intervalCount > 3) {
+        return 1.0 // 1% for held keys (fast approach)
+      }
+      return 0.1 // 0.1% for taps (precise adjustment)
+    }
+
+    arrowIntervalFunction = setInterval(() => {
+      intervalCount++
+      const stepSize = calculateStepSize()
+      const currentValue = parseFloat(sliderElement.value)
+      
+      if (currentArrowKey === 'ArrowLeft') {
+        sliderElement.value = Math.max(0, currentValue - stepSize)
+      } else if (currentArrowKey === 'ArrowRight') {
+        sliderElement.value = Math.min(100, currentValue + stepSize)
+      }
+      
+      // Trigger slider update
+      onSliderInput()
+    }, 50)
+  }
+
+  const arrowUpFunction = e => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    if (currentArrowKey !== e.key) return
+
+    arrowKeyDown = false
+    currentArrowKey = null
+
+    if (arrowIntervalFunction) {
+      clearInterval(arrowIntervalFunction)
+      arrowIntervalFunction = null
+    }
+  }
+
+  document.addEventListener('keydown', arrowDownFunction)
+  document.addEventListener('keyup', arrowUpFunction)
+
   const removeKeypadHandler = setUpEasyEyesKeypadHandler(
     null,
     RC.keypadHandler,
@@ -235,6 +295,11 @@ function getSize(RC, parent, options, callback) {
     document.removeEventListener('mousedown', onMouseDown, false)
     document.removeEventListener('touchstart', onTouchStart, false)
     document.removeEventListener('input', onSliderInput, false)
+    document.removeEventListener('keydown', arrowDownFunction)
+    document.removeEventListener('keyup', arrowUpFunction)
+    if (arrowIntervalFunction) {
+      clearInterval(arrowIntervalFunction)
+    }
     resizeObserver.unobserve(parent)
     RC._removeBackground()
     removeKeypadHandler()

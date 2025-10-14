@@ -3849,11 +3849,11 @@ export async function objectTest(RC, options, callback = undefined) {
     const projectedStart = projectPointOnDiagonal(newStartX, newStartY)
     const projectedEnd = projectPointOnDiagonal(newEndX, newEndY)
 
-    // Constrain to screen bounds with margins
+    // Constrain to screen bounds (no margins - allow reaching exact corners)
     const constrainToScreen = point => {
       return {
-        x: Math.max(10, Math.min(screenWidth - 10, point.x)),
-        y: Math.max(10, Math.min(screenHeight - 10, point.y)),
+        x: Math.max(0, Math.min(screenWidth, point.x)),
+        y: Math.max(0, Math.min(screenHeight, point.y)),
       }
     }
 
@@ -3906,6 +3906,9 @@ export async function objectTest(RC, options, callback = undefined) {
   let arrowKeyDown = false
   let arrowIntervalFunction = null
   let currentArrowKey = null
+  
+  // Dynamic step size variables
+  let intervalCount = 0 // Track how many intervals have fired
 
   const arrowDownFunction = e => {
     // Only handle arrow keys on page 2
@@ -3923,15 +3926,26 @@ export async function objectTest(RC, options, callback = undefined) {
 
     arrowKeyDown = true
     currentArrowKey = e.key
+    intervalCount = 0 // Reset counter for new key press
 
     // Clear any existing interval
     if (arrowIntervalFunction) {
       clearInterval(arrowIntervalFunction)
     }
 
+    // Calculate dynamic step size based on whether key is being held
+    const calculateStepSize = () => {
+      // If held for more than 3 intervals (~150ms), switch to fast movement
+      if (intervalCount > 3) {
+        return 5 * pxPerMm // 5mm for held keys (fast approach)
+      }
+      return 0.5 * pxPerMm // 0.5mm for taps (precise adjustment)
+    }
+
     // Start continuous movement (only affects right side)
     arrowIntervalFunction = setInterval(() => {
-      const moveAmount = 5
+      intervalCount++
+      const moveAmount = calculateStepSize()
       if (currentArrowKey === 'ArrowLeft' || currentArrowKey === 'ArrowUp') {
         // Move right side closer to left (shrink from right)
         const newEndX = endX - moveAmount * diagonalUnitX
