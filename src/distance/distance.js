@@ -1965,12 +1965,8 @@ export async function blindSpotTest(
       blindspotEccXDeg,
       blindspotEccYDeg,
     )
-    // Ensure the diamond stays within valid vertical bounds
-    const verticalBounds = _getDiamondVerticalBounds(
-      spotRadiusPx * 2, // Convert radius to diamond width
-      c.height,
-    )
-    const constrainedSpotY = constrain(spotY, ...verticalBounds)
+    // Remove bounds constraints to let diamond follow anatomical line exactly
+    const constrainedSpotY = spotY
     // Draw the flickering diamond - skip on intro page
     if (!introPage) {
       _diamond(
@@ -1987,6 +1983,9 @@ export async function blindSpotTest(
 
     // Draw cross last so it stays on top of the spot and video
     _cross(ctx, crossX, crossY)
+    
+    // TEST: Draw anatomical line through fixation cross
+    drawAnatomicalLine(ctx, crossX, crossY, blindspotEccXDeg, blindspotEccYDeg, c.width, c.height, circleX, constrainedSpotY, options.calibrateTrackDistanceBlindspotDebugging)
     if (!control && !introPage) {
       circleX += v * circleDeltaX
       helpMoveCircleX()
@@ -2171,7 +2170,7 @@ export async function blindSpotTestNew(
   const vCont = document.getElementById('webgazerVideoContainer')
   if (vCont) {
     const videoHeight = parseInt(vCont.style.height) || vCont.offsetHeight || 0
-    crossY = Math.max(0, Math.round(videoHeight / 2))
+    crossY = Math.max(0, Math.round(videoHeight / 1.8))
   }
 
   const _computeCanvas = () => {
@@ -2192,7 +2191,7 @@ export async function blindSpotTestNew(
     if (vCont) {
       const videoHeight =
         parseInt(vCont.style.height) || vCont.offsetHeight || 0
-      crossY = Math.max(0, Math.round(videoHeight / 2))
+      crossY = Math.max(0, Math.round(videoHeight / 1.8))
     } else {
       crossY = 60
     }
@@ -2234,7 +2233,7 @@ export async function blindSpotTestNew(
       _lastVideoLeftPx = leftPx
     }
 
-    crossY = Math.max(0, Math.round(topPx + videoHeight / 2))
+    crossY = Math.max(0, Math.round(videoHeight / 1.8))
     console.log('topPx...', topPx, videoHeight, crossY)
   }
 
@@ -2351,7 +2350,7 @@ export async function blindSpotTestNew(
     if (radioContainer.style.display !== 'none') {
       const radioRect = radioContainer.getBoundingClientRect()
       hintTextElement.style.left = `${rect.left}px`
-      hintTextElement.style.top = `${radioRect.bottom + lineHeight}px`
+      hintTextElement.style.top = `${radioRect.bottom + lineHeight * 0.1}px`
       hintTextElement.style.width = `${rect.width}px`
       hintTextElement.style.paddingLeft = instCS.paddingLeft
       hintTextElement.style.fontFamily = instCS.fontFamily
@@ -2473,6 +2472,50 @@ export async function blindSpotTestNew(
   })
   let circleBounds = [0, 0]
 
+  // TEST FUNCTION: Draw anatomical line through fixation cross
+  const drawAnatomicalLine = (ctx, crossX, crossY, blindspotEccXDeg, blindspotEccYDeg, canvasWidth, canvasHeight, diamondX, diamondY, debugging) => {
+    if (!debugging) return
+    
+    // Calculate the grade/slope: blindspotEccYDeg / blindspotEccXDeg (mirrored)
+    const grade = -blindspotEccYDeg / blindspotEccXDeg
+    
+    console.log('Drawing anatomical line:', { crossX, crossY, grade, blindspotEccXDeg, blindspotEccYDeg })
+    
+    // Calculate line endpoints
+    // Start from left edge of canvas
+    const startX = 0
+    const startY = crossY + grade * (startX - crossX)
+    
+    // End at right edge of canvas  
+    const endX = canvasWidth
+    const endY = crossY + grade * (endX - crossX)
+    
+    console.log('Line endpoints:', { startX, startY, endX, endY })
+    
+    // Draw the line with dark blue color
+    ctx.strokeStyle = '#000080' // Dark blue
+    ctx.lineWidth = 2 // Thinner line
+    ctx.beginPath()
+    ctx.moveTo(startX, startY)
+    ctx.lineTo(endX, endY)
+    ctx.stroke()
+    
+    // Draw green circle at diamond center to show it follows the line
+    if (diamondX !== undefined && diamondY !== undefined) {
+      ctx.fillStyle = '#00FF00' // Green
+      ctx.beginPath()
+      ctx.arc(diamondX, diamondY, 5, 0, 2 * Math.PI)
+      ctx.fill()
+    }
+    
+    // Draw grade info as text without background
+    ctx.fillStyle = '#FF0000' // Bright red text
+    ctx.font = '12px Arial' // Smaller font
+    ctx.fillText(`Grade: ${grade.toFixed(3)}`, 10, 20)
+    ctx.fillText(`X: ${blindspotEccXDeg}°, Y: ${blindspotEccYDeg}°`, 10, 35)
+    ctx.fillText(`Cross: (${crossX}, ${crossY})`, 10, 50)
+  }
+
   const resetEyeSide = side => {
     eyeSide = side
     blindspotEccXDeg =
@@ -2505,6 +2548,7 @@ export async function blindSpotTestNew(
   const frameTimestampInitial = performance.now()
   let inTest = true
   const run = () => {
+    console.log('Drawing frame - crossY:', crossY, 'crossX:', crossX)
     ctx.clearRect(0, 0, c.width, c.height)
     const rPx = calculateSpotRadiusPx(
       spotDeg,
@@ -2524,8 +2568,8 @@ export async function blindSpotTestNew(
       blindspotEccXDeg,
       blindspotEccYDeg,
     )
-    const vBounds = _getDiamondVerticalBounds(rPx * 2, c.height)
-    const constrainedSpotY = Math.max(vBounds[0], Math.min(vBounds[1], spotY))
+    // Remove bounds constraints to let diamond follow anatomical line exactly
+    const constrainedSpotY = spotY
     if (showDiamond) {
       if (showDiamond) {
         _diamond(
@@ -2541,6 +2585,10 @@ export async function blindSpotTestNew(
       }
     }
     _cross(ctx, crossX, crossY)
+    
+    // TEST: Draw anatomical line through fixation cross
+    drawAnatomicalLine(ctx, crossX, crossY, blindspotEccXDeg, blindspotEccYDeg, c.width, c.height, circleX, constrainedSpotY, options.calibrateTrackDistanceBlindspotDebugging)
+    
     if (inTest) requestAnimationFrame(run)
   }
   requestAnimationFrame(run)
@@ -2675,6 +2723,11 @@ export async function blindSpotTestNew(
           if (e.key !== ' ') return
           e.preventDefault()
           document.removeEventListener('keydown', onSpaceSnap)
+
+          // Play shutter sound
+          if (env !== 'mocha' && cameraShutterSound) {
+            cameraShutterSound()
+          }
 
           // Compute distance from current geometry
           const spotY = calculateSpotY(

@@ -190,7 +190,7 @@ export const stampOfApprovalSound = () => {
     try {
       // Reset audio to beginning and play
       stampAudio.currentTime = 0
-      stampAudio.volume = 0.25 // Reduced volume by factor of 4 (from 1.0 to 0.25)
+      stampAudio.volume = 0.0625 // Reduced volume by factor of 4 (from 1.0 to 0.25), then by another 1/4 factor (0.25/4 = 0.0625)
       stampAudio.play().catch(error => {
         console.warn('Failed to play stamp of approval sound:', error)
       })

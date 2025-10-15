@@ -208,6 +208,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateTrackDistanceSpotXYDeg: [15.5, -1.5],
       viewingDistanceWhichEye: undefined,
       viewingDistanceWhichPoint: undefined,
+      calibrateTrackDistanceBlindspotDebugging: false, // Debug option to show anatomical line and diamond center
     },
     trackDistanceOptions,
   )
