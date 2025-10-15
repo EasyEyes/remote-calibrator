@@ -2867,7 +2867,28 @@ export async function blindSpotTestNew(
                 ? `<div style="text-align:center"><img src="${captured}" style="max-width:300px;max-height:400px;border:2px solid #ccc;border-radius:8px;"/><p style="margin-top:10px;font-size:0.8em;color:#666;">${phrases.RC_FaceImageNotSaved ? phrases.RC_FaceImageNotSaved[RC.L] : ''}</p></div>`
                 : undefined,
               showConfirmButton: true,
+              allowEnterKey: false,
+              didOpen: () => {
+                // Handle keyboard events - only allow Enter/Return, prevent Space
+                const keydownListener = event => {
+                  if (event.key === ' ') {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    return
+                  }
+                  if (event.key === 'Enter' || event.key === 'Return') {
+                    Swal.clickConfirm()
+                  }
+                }
+                document.addEventListener('keydown', keydownListener, true)
+                RC.popupKeydownListener = keydownListener
+              },
               willClose: () => {
+                // Remove keyboard event listener
+                if (RC.popupKeydownListener) {
+                  document.removeEventListener('keydown', RC.popupKeydownListener, true)
+                  RC.popupKeydownListener = null
+                }
                 // Re-add the space key listener after popup closes
                 document.addEventListener('keydown', onSpaceSnap)
               },
@@ -4903,6 +4924,9 @@ export async function objectTest(RC, options, callback = undefined) {
           return
         }
 
+        // Remove the event listener immediately to prevent multiple rapid presses
+        document.removeEventListener('keydown', handleKeyPress)
+
         // Play camera shutter sound on pages 3 and 4
         if (currentPage === 3 || currentPage === 4) {
           if (env !== 'mocha' && cameraShutterSound) {
@@ -4960,6 +4984,9 @@ export async function objectTest(RC, options, callback = undefined) {
                 'distance',
               )
             }
+            
+            // Re-add the listener for page 3
+            document.addEventListener('keydown', handleKeyPress)
           })()
         } else if (currentPage === 3) {
           // Collect 5 Face Mesh samples for calibration on page 3
@@ -4989,9 +5016,6 @@ export async function objectTest(RC, options, callback = undefined) {
               // Use the image captured at space press
               const capturedImage = lastCapturedFaceImage
 
-              // Temporarily remove the space key listener to prevent interference
-              document.removeEventListener('keydown', handleKeyPress)
-
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
@@ -5001,7 +5025,7 @@ export async function objectTest(RC, options, callback = undefined) {
                    </div>`,
                 showCancelButton: false,
                 showConfirmButton: false,
-                allowEnterKey: true,
+                allowEnterKey: false,
                 footer: `
                   <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
                     <button class="swal2-confirm swal2-styled" id="ok-button-page3" style="background-color: #3085d6; border: none; flex: 0 0 auto;">
@@ -5031,6 +5055,20 @@ export async function objectTest(RC, options, callback = undefined) {
                       '.swal2-footer-no-border { border-top: none !important; }'
                     document.head.appendChild(style)
                   }
+                  
+                  // Handle keyboard events - only allow Enter/Return, prevent Space
+                  const keydownListener = event => {
+                    if (event.key === ' ') {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      return
+                    }
+                    if (event.key === 'Enter' || event.key === 'Return') {
+                      document.getElementById('ok-button-page3').click()
+                    }
+                  }
+                  document.addEventListener('keydown', keydownListener, true)
+                  RC.popupKeydownListener = keydownListener
 
                   // Add click handlers for custom buttons
                   document
@@ -5060,6 +5098,11 @@ export async function objectTest(RC, options, callback = undefined) {
                     })
                 },
                 willClose: () => {
+                  // Remove keyboard event listener
+                  if (RC.popupKeydownListener) {
+                    document.removeEventListener('keydown', RC.popupKeydownListener, true)
+                    RC.popupKeydownListener = null
+                  }
                   // Re-add the space key listener after popup closes
                   document.addEventListener('keydown', handleKeyPress)
                 },
@@ -5078,6 +5121,9 @@ export async function objectTest(RC, options, callback = undefined) {
               await nextPage()
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
+              
+              // Re-add the listener for page 4
+              document.addEventListener('keydown', handleKeyPress)
             }
           })()
         } else if (currentPage === 4) {
@@ -5117,7 +5163,7 @@ export async function objectTest(RC, options, callback = undefined) {
                    </div>`,
                 showCancelButton: false,
                 showConfirmButton: false,
-                allowEnterKey: true,
+                allowEnterKey: false,
                 footer: `
                   <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
                     <button class="swal2-confirm swal2-styled" id="ok-button-page4" style="background-color: #3085d6; border: none; flex: 0 0 auto;">
@@ -5147,6 +5193,20 @@ export async function objectTest(RC, options, callback = undefined) {
                       '.swal2-footer-no-border { border-top: none !important; }'
                     document.head.appendChild(style)
                   }
+                  
+                  // Handle keyboard events - only allow Enter/Return, prevent Space
+                  const keydownListener = event => {
+                    if (event.key === ' ') {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      return
+                    }
+                    if (event.key === 'Enter' || event.key === 'Return') {
+                      document.getElementById('ok-button-page4').click()
+                    }
+                  }
+                  document.addEventListener('keydown', keydownListener, true)
+                  RC.popupKeydownListener = keydownListener
 
                   // Add click handlers for custom buttons
                   document
@@ -5174,6 +5234,15 @@ export async function objectTest(RC, options, callback = undefined) {
                       Swal.close()
                       nextPage()
                     })
+                },
+                willClose: () => {
+                  // Remove keyboard event listener
+                  if (RC.popupKeydownListener) {
+                    document.removeEventListener('keydown', RC.popupKeydownListener, true)
+                    RC.popupKeydownListener = null
+                  }
+                  // Re-add the space key listener after popup closes
+                  document.addEventListener('keydown', handleKeyPress)
                 },
               })
 
@@ -5423,6 +5492,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
+              
+              // Remove the listener since the test is finishing
+              document.removeEventListener('keydown', handleKeyPress)
             }
           })()
         }

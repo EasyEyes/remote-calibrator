@@ -342,7 +342,29 @@ const showFaceBlockedPopup = async (RC, capturedImage) => {
     showCancelButton: false,
     showConfirmButton: true,
     confirmButtonText: phrases.EE_ok[RC.language.value],
-    allowEnterKey: true,
+    allowEnterKey: false,
+    didOpen: () => {
+      // Handle keyboard events - only allow Enter/Return, prevent Space
+      const keydownListener = event => {
+        if (event.key === ' ') {
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+        if (event.key === 'Enter' || event.key === 'Return') {
+          Swal.clickConfirm()
+        }
+      }
+      document.addEventListener('keydown', keydownListener, true)
+      RC.popupKeydownListener = keydownListener
+    },
+    willClose: () => {
+      // Remove keyboard event listener
+      if (RC.popupKeydownListener) {
+        document.removeEventListener('keydown', RC.popupKeydownListener, true)
+        RC.popupKeydownListener = null
+      }
+    },
   })
 
   // Show video container again when popup closes
@@ -962,6 +984,9 @@ const stampOfApprovalSound = soundModule.stampOfApprovalSound
 const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   // Hide video during checkSize (yellow tape measurement)
   RC.showVideo(false)
+  
+  // Track space bar listeners for proper cleanup
+  const checkSizeListeners = []
 
   // Use the already calculated values from screen calibration
   const pxPerCm = RC.screenPpi.value / 2.54 // pixels per cm from calibrated PPI (Note: 2.54 cm = 1 inch)
@@ -1107,6 +1132,9 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
           )
 
           document.removeEventListener('keyup', keyupListener)
+          // Remove from tracking
+          const index = checkSizeListeners.indexOf(keyupListener)
+          if (index > -1) checkSizeListeners.splice(index, 1)
           removeKeypadHandler()
           cleanupFontAdjustment() // Clean up font adjustment listeners
           yellowTape.cleanup() // Clean up the yellow tape
@@ -1162,6 +1190,8 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
       })
 
       document.addEventListener('keyup', keyupListener)
+      // Track this listener for cleanup
+      checkSizeListeners.push(keyupListener)
     })
   }
 
@@ -1176,6 +1206,15 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   if (videoContainer) {
     setDefaultVideoPosition(RC, videoContainer)
   }
+  
+  // Global cleanup: Remove any remaining space bar listeners from checkSize
+  // This ensures no space bar listeners are left active after checkSize completes
+  console.log('=== CLEANING UP CHECK SIZE SPACE BAR LISTENERS ===')
+  checkSizeListeners.forEach(listener => {
+    document.removeEventListener('keyup', listener)
+  })
+  checkSizeListeners.length = 0 // Clear the array
+  console.log('=== CHECK SIZE CLEANUP COMPLETE ===')
 }
 
 const trimVideoFeedbackDisplay = (
@@ -1268,6 +1307,9 @@ const trackDistanceCheck = async (
   calibrateTrackDistancePupil = 'iris',
 ) => {
   const isTrack = measureName === 'trackDistance'
+  
+  // Track all space bar listeners for proper cleanup
+  const activeListeners = []
 
   const quit = () => {
     stopVideoTrimming()
@@ -1414,6 +1456,9 @@ const trackDistanceCheck = async (
       let register = true
       const cm = calibrateTrackDistanceCheckCm[i]
       const index = i + 1
+      
+      // Track space bar listeners for this iteration
+      const iterationListeners = []
 
       updateProgressBar(
         (index / calibrateTrackDistanceCheckCm.length) * 100,
@@ -1467,6 +1512,12 @@ const trackDistanceCheck = async (
                 return
               }
 
+              // Remove the event listener immediately to prevent multiple rapid presses
+              document.removeEventListener('keyup', keyupListener)
+              // Remove from active listeners tracking
+              const index = iterationListeners.indexOf(keyupListener)
+              if (index > -1) iterationListeners.splice(index, 1)
+
               // Play camera shutter sound
               if (cameraShutterSound) {
                 cameraShutterSound()
@@ -1492,6 +1543,11 @@ const trackDistanceCheck = async (
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
 
+                // Re-add the space key listener after popup closes for retry
+                document.addEventListener('keyup', keyupListener)
+                // Track this listener for cleanup
+                iterationListeners.push(keyupListener)
+
                 // Don't resolve - let user try again
                 console.log('=== RETRYING FACE MESH VALIDATION ===')
                 return
@@ -1502,6 +1558,11 @@ const trackDistanceCheck = async (
                 '=== FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===',
               )
               register = false
+              
+              // Re-add the listener (though register=false will prevent processing)
+              document.addEventListener('keyup', keyupListener)
+              // Track this listener for cleanup
+              iterationListeners.push(keyupListener)
               const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
 
               // Use the validated face mesh samples for IPD data (average of valid samples)
@@ -1674,6 +1735,8 @@ const trackDistanceCheck = async (
           )
 
           document.addEventListener('keyup', keyupListener)
+          // Track this listener for cleanup
+          iterationListeners.push(keyupListener)
         }, calibrateTrackDistanceCheckSecs * 1000)
       })
     }
@@ -1912,4 +1975,8 @@ const removeProgressBar = RC => {
   } else {
     console.warn('Progress bar does not exist.')
   }
+  
+  // Global cleanup: Space bar listeners are cleaned up as each iteration completes
+  // Each iteration tracks its own listeners and removes them when done
+  console.log('=== CHECK DISTANCE CLEANUP COMPLETE ===')
 }
