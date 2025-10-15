@@ -11,6 +11,7 @@ import { phrases } from '../i18n/schema'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setDefaultVideoPosition } from '../components/video'
+import { irisTrackingIsActive } from '../distance/distanceTrack'
 import {
   calculateNearestPoints,
   getMeshData,
@@ -1453,6 +1454,12 @@ const trackDistanceCheck = async (
 
           async function keyupListener(event) {
             if (event.key === ' ' && register) {
+              // Check if iris tracking is active before proceeding
+              if (!irisTrackingIsActive) {
+                console.log('Iris tracking not active - ignoring space bar')
+                return
+              }
+              
               // Play camera shutter sound
               if (cameraShutterSound) {
                 cameraShutterSound()
@@ -1553,6 +1560,12 @@ const trackDistanceCheck = async (
             RC.keypadHandler,
             async value => {
               if (value === 'space') {
+                // Check if iris tracking is active before proceeding
+                if (!irisTrackingIsActive) {
+                  console.log('Iris tracking not active - ignoring space keypad')
+                  return
+                }
+                
                 // Play camera shutter sound
                 if (cameraShutterSound) {
                   cameraShutterSound()

@@ -14,6 +14,7 @@ import {
   replaceNewlinesWithBreaks,
 } from '../components/utils'
 import { setDefaultVideoPosition } from '../components/video'
+import { irisTrackingIsActive } from './distanceTrack'
 import {
   _getCrossX,
   _cross,
@@ -2458,6 +2459,8 @@ export async function blindSpotTestNew(
       input.style.flex = '0'
       input.style.opacity = '1' // Always start with full opacity
       input.checked = false // Ensure unchecked by default
+      input.style.outline = 'none' // Remove focus outline
+      input.style.boxShadow = 'none' // Remove any focus box shadow
       label.appendChild(input)
       const textSpan = document.createElement('span')
       textSpan.innerHTML = replaceNewlinesWithBreaks(o.label)
@@ -2801,6 +2804,13 @@ export async function blindSpotTestNew(
         const onSpaceSnap = async e => {
           if (e.key !== ' ') return
           e.preventDefault()
+          
+          // Check if iris tracking is active before proceeding
+          if (!irisTrackingIsActive) {
+            console.log('Iris tracking not active - ignoring space bar')
+            return
+          }
+          
           document.removeEventListener('keydown', onSpaceSnap)
 
           // Play shutter sound
@@ -2846,6 +2856,10 @@ export async function blindSpotTestNew(
           if (!faceOk) {
             // Retry same page
             const captured = captureVideoFrame(RC)
+            
+            // Temporarily remove the space key listener to prevent interference
+            document.removeEventListener('keydown', onSpaceSnap)
+            
             await Swal.fire({
               ...swalInfoOptions(RC, { showIcon: false }),
               title: phrases.RC_FaceBlocked ? phrases.RC_FaceBlocked[RC.L] : '',
@@ -2853,9 +2867,11 @@ export async function blindSpotTestNew(
                 ? `<div style="text-align:center"><img src="${captured}" style="max-width:300px;max-height:400px;border:2px solid #ccc;border-radius:8px;"/><p style="margin-top:10px;font-size:0.8em;color:#666;">${phrases.RC_FaceImageNotSaved ? phrases.RC_FaceImageNotSaved[RC.L] : ''}</p></div>`
                 : undefined,
               showConfirmButton: true,
+              willClose: () => {
+                // Re-add the space key listener after popup closes
+                document.addEventListener('keydown', onSpaceSnap)
+              },
             })
-            // Re-enter snapshot page
-            document.addEventListener('keydown', onSpaceSnap)
             return
           }
 
@@ -3010,9 +3026,10 @@ export async function blindSpotTestNew(
     cleanup(false)
     return await blindSpotTestNew(RC, options, toTrackDistance, callback)
   } else if (maxRatio > maxAllowedRatio) {
+    const ratioText = maxRatio.toFixed(2)
     const displayMessage = phrases.RC_viewingBlindSpotRejected[RC.L]
-      .replace('[[N11]]', Math.round(min))
-      .replace('[[N22]]', Math.round(max))
+      .replace('[[N11]]', ratioText)
+      .replace('[[N22]]', '')
     await Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
       html: displayMessage
@@ -4879,6 +4896,12 @@ export async function objectTest(RC, options, callback = undefined) {
       // Space key - allow on pages 2, 3 and 4
       if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
         e.preventDefault()
+        
+        // Check if iris tracking is active before proceeding (for pages 3 and 4)
+        if ((currentPage === 3 || currentPage === 4) && !irisTrackingIsActive) {
+          console.log('Iris tracking not active - ignoring space bar')
+          return
+        }
 
         // Play camera shutter sound on pages 3 and 4
         if (currentPage === 3 || currentPage === 4) {
@@ -4966,6 +4989,9 @@ export async function objectTest(RC, options, callback = undefined) {
               // Use the image captured at space press
               const capturedImage = lastCapturedFaceImage
 
+              // Temporarily remove the space key listener to prevent interference
+              document.removeEventListener('keydown', handleKeyPress)
+              
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
@@ -5032,6 +5058,10 @@ export async function objectTest(RC, options, callback = undefined) {
                       Swal.close()
                       nextPage()
                     })
+                },
+                willClose: () => {
+                  // Re-add the space key listener after popup closes
+                  document.addEventListener('keydown', handleKeyPress)
                 },
               })
 
@@ -5159,7 +5189,7 @@ export async function objectTest(RC, options, callback = undefined) {
               )
 
               // Check if the two sets of Face Mesh samples are consistent
-              const [pass, message, min, max, RMin, RMax] =
+              const [pass, message, min, max, RMin, RMax, maxRatio] =
                 checkObjectTestTolerance(
                   RC,
                   faceMeshSamplesPage3,
@@ -5261,9 +5291,10 @@ export async function objectTest(RC, options, callback = undefined) {
                 )
                 const newMin = min.toFixed(1) * ipdpxRatio
                 const newMax = max.toFixed(1) / ipdpxRatio
+                const ratioText = maxRatio.toFixed(2)
                 let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-                  .replace('[[N11]]', Math.round(newMin))
-                  .replace('[[N22]]', Math.round(newMax))
+                  .replace('[[N11]]', ratioText)
+                  .replace('[[N22]]', '')
                 const reasonIsOutOfRange = message.includes(
                   'out of allowed range',
                 )
@@ -5516,7 +5547,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
       console.log('=== CHECKING TOLERANCE BEFORE FINISHING ===')
 
-      const [pass, message, min, max, RMin, RMax] = checkObjectTestTolerance(
+      const [pass, message, min, max, RMin, RMax, maxRatio] = checkObjectTestTolerance(
         RC,
         faceMeshSamplesPage3,
         faceMeshSamplesPage4,
@@ -5609,9 +5640,10 @@ export async function objectTest(RC, options, callback = undefined) {
         )
         const newMin = min.toFixed(1) * ipdpxRatio
         const newMax = max.toFixed(1) / ipdpxRatio
+        const ratioText = maxRatio.toFixed(2)
         let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-          .replace('[[N11]]', Math.round(newMin))
-          .replace('[[N22]]', Math.round(newMax))
+          .replace('[[N11]]', ratioText)
+          .replace('[[N22]]', '')
         const reasonIsOutOfRange = message.includes('out of allowed range')
         if (reasonIsOutOfRange) {
           displayMessage = phrases.RC_viewingExceededRange[RC.L]
@@ -5804,6 +5836,30 @@ export async function objectTest(RC, options, callback = undefined) {
   if (options.calibrateTrackDistanceCenterYourEyesBool) showPage(0)
   else showPage(2)
 }
+// ===================== FACE TRACKING VALIDATION =====================
+// This function checks if face tracking can return valid eye positions
+// Returns true if face mesh data is available and eye positions are valid
+async function isFaceTrackingActive(RC) {
+  try {
+    // Import getMeshData from distanceTrack.js
+    const { getMeshData } = await import('./distanceTrack.js')
+    
+    // Try to get mesh data with eye positions
+    const meshData = await getMeshData(RC, 'iris')
+    
+    if (meshData && meshData.leftEye && meshData.rightEye) {
+      console.log('Face tracking validation: Active and ready')
+      return true
+    } else {
+      console.log('Face tracking validation: No valid eye positions')
+      return false
+    }
+  } catch (error) {
+    console.log('Face tracking validation: Error checking tracking status:', error)
+    return false
+  }
+}
+
 // ===================== DISTANCE DATA VALIDATION =====================
 // This function validates the distance measurement data before it's used for Face Mesh calibration
 // It's crucial because Face Mesh needs accurate reference points to track distance changes
@@ -6096,6 +6152,7 @@ function checkObjectTestTolerance(
     maxM,
     RMin,
     RMax,
+    maxRatio,
   ]
 }
 

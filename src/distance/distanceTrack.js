@@ -484,6 +484,9 @@ let irisCtx = null
 let irisRafId = null
 let RC_instance = null // Store RC instance for independent data access
 let sharedFaceData = null // Shared face data between tracking and iris drawing
+export let irisTrackingIsActive = false // Reflects whether tracking is currently active
+let lastIrisValidTime = 0 // Timestamp of last valid face mesh
+const IRIS_VALIDITY_WINDOW_MS = 200 // Consider tracking active if we saw valid mesh within this shorter window
 
 // FPS throttling variables
 const targetFPS = 30
@@ -588,10 +591,13 @@ const drawIrisAndPupil = () => {
   const irisRadius = irisDiameter / 2
   const pupilRadius = pupilDiameter / 2
 
+  // Choose iris color based on tracking status
+  const irisFillColor = irisTrackingIsActive ? '#00ffe9' : '#ff3b30'
+
   // Draw left iris
   irisCtx.beginPath()
   irisCtx.arc(leftPx.x, leftPx.y, irisRadius, 0, 2 * Math.PI)
-  irisCtx.fillStyle = '#00ffe9'
+  irisCtx.fillStyle = irisFillColor
   irisCtx.fill()
 
   // Add iris shadow effect
@@ -610,7 +616,7 @@ const drawIrisAndPupil = () => {
   // Draw right iris
   irisCtx.beginPath()
   irisCtx.arc(rightPx.x, rightPx.y, irisRadius, 0, 2 * Math.PI)
-  irisCtx.fillStyle = '#00ffe9'
+  irisCtx.fillStyle = irisFillColor
   irisCtx.fill()
 
   // Add iris shadow effect
@@ -700,14 +706,16 @@ const startIrisDrawingWithMesh = async RC => {
       return
     }
 
-    // Throttle to 30fps
+    // Throttle to 30fps for drawing, but we use a freshness window to avoid flicker
     if (currentTime - lastIrisTrackingTime >= frameInterval) {
       // Get current mesh data
       const meshData = await getMeshData(
         RC,
         trackingOptions.calibrateTrackDistancePupil,
       )
-      if (meshData) {
+    if (meshData && meshData.leftEye && meshData.rightEye) {
+      // Update last time we saw a valid mesh
+      lastIrisValidTime = currentTime
         const { leftEye, rightEye, video, currentIPDDistance } = meshData
 
         // Update shared face data for iris drawing
@@ -722,6 +730,8 @@ const startIrisDrawingWithMesh = async RC => {
           })
         }
       }
+      // Compute active status based on freshness window (no motion required)
+      irisTrackingIsActive = currentTime - lastIrisValidTime <= IRIS_VALIDITY_WINDOW_MS
       lastIrisTrackingTime = currentTime
     }
 
@@ -760,7 +770,7 @@ export const getMeshData = async (
     return null
   }
   let mesh = meshSamples.length
-    ? meshSamples
+      ? meshSamples
     : RC.gazeTracker.webgazer.getTracker().getPositions()
   // Try to use WebGazer's mesh data first, but fallback to our own detection if stale
   let meshSource = 'webgazer'
