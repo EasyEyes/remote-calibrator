@@ -2722,6 +2722,10 @@ export async function blindSpotTestNew(
   await new Promise(resolve => {
     const onSpace = e => {
       if (e.key === ' ') {
+        //play stamp of approval sound
+        if (env !== 'mocha' && stampOfApprovalSound) {
+          stampOfApprovalSound()
+        }
         e.preventDefault()
         document.removeEventListener('keydown', onSpace)
         resolve()
