@@ -1983,9 +1983,20 @@ export async function blindSpotTest(
 
     // Draw cross last so it stays on top of the spot and video
     _cross(ctx, crossX, crossY)
-    
+
     // TEST: Draw anatomical line through fixation cross
-    drawAnatomicalLine(ctx, crossX, crossY, blindspotEccXDeg, blindspotEccYDeg, c.width, c.height, circleX, constrainedSpotY, options.calibrateTrackDistanceBlindspotDebugging)
+    drawAnatomicalLine(
+      ctx,
+      crossX,
+      crossY,
+      blindspotEccXDeg,
+      blindspotEccYDeg,
+      c.width,
+      c.height,
+      circleX,
+      constrainedSpotY,
+      options.calibrateTrackDistanceBlindspotDebugging,
+    )
     if (!control && !introPage) {
       circleX += v * circleDeltaX
       helpMoveCircleX()
@@ -2020,12 +2031,22 @@ export const solveEyeToScreenCm = (
   blindspotDeg,
   pxPerCm,
 ) => {
+  // values to report in the error message.
+  //Round to integer for: EyeFoot, FixPoint, SpotPoint
+  // 1 decimal place for: BlindspotDeg, PxPerCm
+  const valuesToReport = {
+    eyeFoot: [Math.round(eyeFoot[0]), Math.round(eyeFoot[1])],
+    fixPoint: [Math.round(fixPoint[0]), Math.round(fixPoint[1])],
+    spotPoint: [Math.round(spotPoint[0]), Math.round(spotPoint[1])],
+    blindspotDeg: blindspotDeg.toFixed(1),
+    pxPerCm: pxPerCm.toFixed(1),
+  }
   // vector u = fix - eyeFoot
-  const ux = fixPoint.x - eyeFoot.x
-  const uy = fixPoint.y - eyeFoot.y
+  const ux = fixPoint[0] - eyeFoot[0]
+  const uy = fixPoint[1] - eyeFoot[1]
   // vector v = spot - eyeFoot
-  const vx = spotPoint.x - eyeFoot.x
-  const vy = spotPoint.y - eyeFoot.y
+  const vx = spotPoint[0] - eyeFoot[0]
+  const vy = spotPoint[1] - eyeFoot[1]
   const a = ux * ux + uy * uy // |u|^2
   const b = vx * vx + vy * vy // |v|^2
   const c = ux * vx + uy * vy // u·v
@@ -2041,12 +2062,32 @@ export const solveEyeToScreenCm = (
   // handle degenerate angle (theta == 0 or pi)
   if (alpha === 0) {
     throw new Error(
-      'Degenerate angle (sin^2 theta == 0). Cannot solve uniquely.',
+      'Degenerate angle (sin^2 theta == 0). Cannot solve uniquely\nEyeFoot: ' +
+        JSON.stringify(valuesToReport.eyeFoot) +
+        ', FixPoint: ' +
+        JSON.stringify(valuesToReport.fixPoint) +
+        ', SpotPoint: ' +
+        JSON.stringify(valuesToReport.spotPoint) +
+        ', BlindspotDeg: ' +
+        valuesToReport.blindspotDeg +
+        ', PxPerCm: ' +
+        valuesToReport.pxPerCm,
     )
   }
   const disc = beta * beta - 4 * alpha * gamma
   if (disc < 0) {
-    throw new Error('No real solution (negative discriminant). Check inputs.')
+    throw new Error(
+      'No real solution (negative discriminant). Check inputs\nEyeFoot: ' +
+        JSON.stringify(valuesToReport.eyeFoot) +
+        ', FixPoint: ' +
+        JSON.stringify(valuesToReport.fixPoint) +
+        ', SpotPoint: ' +
+        JSON.stringify(valuesToReport.spotPoint) +
+        ', BlindspotDeg: ' +
+        valuesToReport.blindspotDeg +
+        ', PxPerCm: ' +
+        valuesToReport.pxPerCm,
+    )
   }
   // two roots for x = d^2
   const sqrtDisc = Math.sqrt(disc)
@@ -2055,7 +2096,18 @@ export const solveEyeToScreenCm = (
   // We need x > 0 (d^2 positive)
   const candidates = [x1, x2].filter(x => isFinite(x) && x > 0)
   if (candidates.length === 0) {
-    throw new Error('No positive solution for d^2. Check geometry/inputs.')
+    throw new Error(
+      'No positive solution for d^2. Check geometry/inputs\nEyeFoot: ' +
+        JSON.stringify(valuesToReport.eyeFoot) +
+        ', FixPoint: ' +
+        JSON.stringify(valuesToReport.fixPoint) +
+        ', SpotPoint: ' +
+        JSON.stringify(valuesToReport.spotPoint) +
+        ', BlindspotDeg: ' +
+        valuesToReport.blindspotDeg +
+        ', PxPerCm: ' +
+        valuesToReport.pxPerCm,
+    )
   }
   // choose the physically reasonable root.
   // Usually the larger positive root corresponds to farther eye; pick the max.
@@ -2473,25 +2525,34 @@ export async function blindSpotTestNew(
   let circleBounds = [0, 0]
 
   // TEST FUNCTION: Draw anatomical line through fixation cross
-  const drawAnatomicalLine = (ctx, crossX, crossY, blindspotEccXDeg, blindspotEccYDeg, canvasWidth, canvasHeight, diamondX, diamondY, debugging) => {
+  const drawAnatomicalLine = (
+    ctx,
+    crossX,
+    crossY,
+    blindspotEccXDeg,
+    blindspotEccYDeg,
+    canvasWidth,
+    canvasHeight,
+    diamondX,
+    diamondY,
+    debugging,
+  ) => {
     if (!debugging) return
-    
+
     // Calculate the grade/slope: blindspotEccYDeg / blindspotEccXDeg (mirrored)
     const grade = -blindspotEccYDeg / blindspotEccXDeg
-    
-    console.log('Drawing anatomical line:', { crossX, crossY, grade, blindspotEccXDeg, blindspotEccYDeg })
-    
+
     // Calculate line endpoints
     // Start from left edge of canvas
     const startX = 0
     const startY = crossY + grade * (startX - crossX)
-    
-    // End at right edge of canvas  
+
+    // End at right edge of canvas
     const endX = canvasWidth
     const endY = crossY + grade * (endX - crossX)
-    
+
     console.log('Line endpoints:', { startX, startY, endX, endY })
-    
+
     // Draw the line with dark blue color
     ctx.strokeStyle = '#000080' // Dark blue
     ctx.lineWidth = 2 // Thinner line
@@ -2499,7 +2560,7 @@ export async function blindSpotTestNew(
     ctx.moveTo(startX, startY)
     ctx.lineTo(endX, endY)
     ctx.stroke()
-    
+
     // Draw green circle at diamond center to show it follows the line
     if (diamondX !== undefined && diamondY !== undefined) {
       ctx.fillStyle = '#00FF00' // Green
@@ -2507,7 +2568,7 @@ export async function blindSpotTestNew(
       ctx.arc(diamondX, diamondY, 5, 0, 2 * Math.PI)
       ctx.fill()
     }
-    
+
     // Draw grade info as text without background
     ctx.fillStyle = '#FF0000' // Bright red text
     ctx.font = '12px Arial' // Smaller font
@@ -2585,10 +2646,21 @@ export async function blindSpotTestNew(
       }
     }
     _cross(ctx, crossX, crossY)
-    
+
     // TEST: Draw anatomical line through fixation cross
-    drawAnatomicalLine(ctx, crossX, crossY, blindspotEccXDeg, blindspotEccYDeg, c.width, c.height, circleX, constrainedSpotY, options.calibrateTrackDistanceBlindspotDebugging)
-    
+    drawAnatomicalLine(
+      ctx,
+      crossX,
+      crossY,
+      blindspotEccXDeg,
+      blindspotEccYDeg,
+      c.width,
+      c.height,
+      circleX,
+      constrainedSpotY,
+      options.calibrateTrackDistanceBlindspotDebugging,
+    )
+
     if (inTest) requestAnimationFrame(run)
   }
   requestAnimationFrame(run)
@@ -2702,8 +2774,11 @@ export async function blindSpotTestNew(
       positionRadioBelowInstruction()
     }
     setInstruction()
-    return await new Promise(resolve => {
+    return await new Promise((resolve, reject) => {
+      let hasEnteredSnapshotPage = false
       const proceedToSnapshot = async () => {
+        if (hasEnteredSnapshotPage) return
+        hasEnteredSnapshotPage = true
         // Snapshot page
         radioContainer.style.display = 'none'
         hintTextElement.style.display = 'none'
@@ -2823,14 +2898,18 @@ export async function blindSpotTestNew(
             }
             resolve(snapshot)
           } catch (e) {
-            // ignore
-            resolve({
-              eye: side,
-              distanceCm: 0,
-              avgIPD: 0,
-              calibrationFactor: 0,
-              samples: [],
-            })
+            try {
+              await Swal.fire({
+                ...swalInfoOptions(RC, { showIcon: false }),
+                icon: undefined,
+                title: '',
+                html:
+                  (e && e.message ? e.message : String(e || 'Unknown error')) +
+                  '<br/><small>Please try again. The calibration will restart from the first eye.</small>',
+                allowEnterKey: true,
+              })
+            } catch (_) {}
+            reject(e)
           }
         }
         document.addEventListener('keydown', onSpaceSnap)
@@ -2881,9 +2960,17 @@ export async function blindSpotTestNew(
   const onResize = () => positionRadioBelowInstruction()
   window.addEventListener('resize', onResize)
 
-  // Right then Left
-  rightSnapshot = await doCenteringAndSnapshotForEye('right')
-  leftSnapshot = await doCenteringAndSnapshotForEye('left')
+  // Right then Left with restart on failure
+  while (true) {
+    try {
+      rightSnapshot = await doCenteringAndSnapshotForEye('right')
+      leftSnapshot = await doCenteringAndSnapshotForEye('left')
+      break
+    } catch (e) {
+      // Restart sequence from the first eye
+      continue
+    }
+  }
 
   // Tolerance between factors from two eyes
   const F1 = rightSnapshot.calibrationFactor
@@ -3959,7 +4046,6 @@ export async function objectTest(RC, options, callback = undefined) {
   let arrowKeyDown = false
   let arrowIntervalFunction = null
   let currentArrowKey = null
-  
   // Dynamic step size variables
   let intervalCount = 0 // Track how many intervals have fired
 

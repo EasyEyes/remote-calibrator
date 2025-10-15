@@ -1019,26 +1019,25 @@ export const calculateNearestPoints = (
   let eyeToFootCm = 0
   if (webcamToEyeDistance === 0) {
     try {
-      // const { d_cm, d_px } = solveEyeToScreenCm(
-      //   order === 1 ? nearestXYPx_right : nearestXYPx_left,
-      //   fixPoint,
-      //   spotPoint,
-      //   blindspotDeg,
-      //   pxPerCm,
-      // )
-      // eyeToFootCm = d_cm
+      const { d_cm, d_px } = solveEyeToScreenCm(
+        order === 1 ? nearestXYPx_right : nearestXYPx_left,
+        fixPoint,
+        spotPoint,
+        blindspotDeg,
+        pxPerCm,
+      )
+      eyeToFootCm = d_cm
       // TEMP: use _getEyeToCameraCm instead of solveEyeToScreenCm
-      eyeToFootCm = _getEyeToCameraCm(
-        fixationToSpotCm,
-        options.calibrateTrackDistanceSpotXYDeg,
-      )
+      // eyeToFootCm = _getEyeToCameraCm(
+      //   fixationToSpotCm,
+      //   options.calibrateTrackDistanceSpotXYDeg,
+      // )
     } catch (e) {
-      eyeToFootCm = _getEyeToCameraCm(
-        fixationToSpotCm,
-        options.calibrateTrackDistanceSpotXYDeg,
-      )
-
-      console.error('Error solving eye to screen distance:', e)
+      // eyeToFootCm = _getEyeToCameraCm(
+      //   fixationToSpotCm,
+      //   options.calibrateTrackDistanceSpotXYDeg,
+      // )
+      throw new Error(e)
     }
   } else {
     eyeToFootCm = webcamToEyeDistance
