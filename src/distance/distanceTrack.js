@@ -713,9 +713,9 @@ const startIrisDrawingWithMesh = async RC => {
         RC,
         trackingOptions.calibrateTrackDistancePupil,
       )
-    if (meshData && meshData.leftEye && meshData.rightEye) {
-      // Update last time we saw a valid mesh
-      lastIrisValidTime = currentTime
+      if (meshData && meshData.leftEye && meshData.rightEye) {
+        // Update last time we saw a valid mesh
+        lastIrisValidTime = currentTime
         const { leftEye, rightEye, video, currentIPDDistance } = meshData
 
         // Update shared face data for iris drawing
@@ -731,7 +731,8 @@ const startIrisDrawingWithMesh = async RC => {
         }
       }
       // Compute active status based on freshness window (no motion required)
-      irisTrackingIsActive = currentTime - lastIrisValidTime <= IRIS_VALIDITY_WINDOW_MS
+      irisTrackingIsActive =
+        currentTime - lastIrisValidTime <= IRIS_VALIDITY_WINDOW_MS
       lastIrisTrackingTime = currentTime
     }
 
@@ -770,7 +771,7 @@ export const getMeshData = async (
     return null
   }
   let mesh = meshSamples.length
-      ? meshSamples
+    ? meshSamples
     : RC.gazeTracker.webgazer.getTracker().getPositions()
   // Try to use WebGazer's mesh data first, but fallback to our own detection if stale
   let meshSource = 'webgazer'

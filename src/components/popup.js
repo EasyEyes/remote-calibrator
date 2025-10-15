@@ -8,7 +8,10 @@ import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
  * Shows the camera selection title in the top right of the webpage
  * @param {Object} RC - RemoteCalibrator instance
  */
-export const showCameraTitleInTopRight = (RC, titleKey = 'RC_ChooseCameraTitle') => {
+export const showCameraTitleInTopRight = (
+  RC,
+  titleKey = 'RC_ChooseCameraTitle',
+) => {
   // Remove any existing camera title
   const existingTitle = document.getElementById('rc-camera-title-top-right')
   if (existingTitle) {
@@ -545,12 +548,15 @@ const createCameraPreviews = async (
  */
 const updateTitleAndDescription = (RC, cameraCount) => {
   // Update the title in top right
-  const titleKey = cameraCount === 1 ? 'RC_NeedCameraTitle' : 'RC_ChooseCameraTitle'
+  const titleKey =
+    cameraCount === 1 ? 'RC_NeedCameraTitle' : 'RC_ChooseCameraTitle'
   showCameraTitleInTopRight(RC, titleKey)
 
   // Update the description in the popup
   const messageKey = cameraCount === 1 ? 'RC_NeedCamera' : 'RC_ChooseCamera'
-  const messageDiv = document.querySelector('.camera-selection-popup .swal2-html-container div[style*="background: white"]')
+  const messageDiv = document.querySelector(
+    '.camera-selection-popup .swal2-html-container div[style*="background: white"]',
+  )
   if (messageDiv) {
     const privacyText = phrases.RC_privacyCamera[RC.L]
     messageDiv.innerHTML = `${phrases[messageKey][RC.L]}<br><br>${privacyText}`

@@ -38,7 +38,7 @@ const adjustDistanceCheckFontSize = () => {
 
   const titleElement = document.getElementById('instruction-title')
   const bodyElement = document.getElementById('instruction-body')
-  
+
   if (!titleElement && !bodyElement) {
     console.log('No title or body elements found')
     return
@@ -47,14 +47,14 @@ const adjustDistanceCheckFontSize = () => {
   // Get current window size
   const windowWidth = window.innerWidth
   const windowHeight = window.innerHeight
-  
+
   console.log(`Window resized to: ${windowWidth}x${windowHeight}`)
-  
+
   // Distance check: start with 1.1rem for body and scale down only
   const baseFontSize = 16
   const baseBodySize = 1.1 * baseFontSize // 17.6px (1.1rem)
   const baseTitleSize = 2.5 * baseFontSize // 40px (2.5rem)
-  
+
   // Calculate scale factor based on window width
   // For screens 1200px and above, use full size (1.1rem for body)
   // For smaller screens, scale down proportionally
@@ -62,13 +62,15 @@ const adjustDistanceCheckFontSize = () => {
   if (windowWidth < 1200) {
     scaleFactor = Math.max(0.05, windowWidth / 1200) // Scale down from 1200px, minimum 5%
   }
-  
+
   // Calculate font sizes
   const titleFontSize = Math.round(baseTitleSize * scaleFactor)
   const bodyFontSize = Math.round(baseBodySize * scaleFactor)
-  
-  console.log(`Scale factor: ${scaleFactor.toFixed(2)}, Title: ${titleFontSize}px, Body: ${bodyFontSize}px`)
-  
+
+  console.log(
+    `Scale factor: ${scaleFactor.toFixed(2)}, Title: ${titleFontSize}px, Body: ${bodyFontSize}px`,
+  )
+
   // Apply font sizes
   if (titleElement) {
     titleElement.style.fontSize = `${titleFontSize}px`
@@ -85,43 +87,45 @@ const adjustDistanceCheckFontSize = () => {
   // Check for overflow and reduce font size if needed (only for distance check)
   let attempts = 0
   const maxAttempts = 20 // Allow more attempts since we can go down to 5%
-  
+
   while (attempts < maxAttempts) {
     const instructionRect = instructionElement.getBoundingClientRect()
     const video = document.getElementById('webgazerVideoContainer')
-    
+
     // Calculate available space
     let availableWidth = windowWidth
     let availableHeight = windowHeight - 100 // Account for progress bar
-    
+
     if (video) {
       const videoRect = video.getBoundingClientRect()
       const videoLeftEdge = (windowWidth - videoRect.width) / 2
       availableWidth = videoLeftEdge - 20 // Leave margin
     }
-    
+
     const overflowsWidth = instructionRect.width > availableWidth
     const overflowsHeight = instructionRect.height > availableHeight
-    
+
     if (!overflowsWidth && !overflowsHeight) {
       break // Text fits within available space
     }
-    
+
     // Reduce font size by 5% and try again
     const newTitleFontSize = Math.max(1, Math.round(titleFontSize * 0.95)) // Minimum 1px
-    const newBodyFontSize = Math.max(1, Math.round(bodyFontSize * 0.95))   // Minimum 1px
-    
+    const newBodyFontSize = Math.max(1, Math.round(bodyFontSize * 0.95)) // Minimum 1px
+
     if (titleElement) {
       titleElement.style.fontSize = `${newTitleFontSize}px`
     }
     if (bodyElement) {
       bodyElement.style.fontSize = `${newBodyFontSize}px`
     }
-    
+
     attempts++
   }
-  
-  console.log(`Distance check - Final font sizes after overflow check: Title: ${titleElement?.style.fontSize}, Body: ${bodyElement?.style.fontSize}, Attempts: ${attempts}`)
+
+  console.log(
+    `Distance check - Final font sizes after overflow check: Title: ${titleElement?.style.fontSize}, Body: ${bodyElement?.style.fontSize}, Attempts: ${attempts}`,
+  )
 }
 
 // Helper function to adjust instruction font size for size check (RC_SetLength)
@@ -134,7 +138,7 @@ const adjustSizeCheckFontSize = () => {
 
   const titleElement = document.getElementById('instruction-title')
   const bodyElement = document.getElementById('instruction-body')
-  
+
   if (!titleElement && !bodyElement) {
     console.log('No title or body elements found')
     return
@@ -143,26 +147,28 @@ const adjustSizeCheckFontSize = () => {
   // Get current window size
   const windowWidth = window.innerWidth
   const windowHeight = window.innerHeight
-  
+
   console.log(`Size check - Window resized to: ${windowWidth}x${windowHeight}`)
-  
+
   // Size check: start with 1.4rem for body and scale down only
   const baseFontSize = 16
   const baseBodySize = 1.4 * baseFontSize // 22.4px (1.4rem)
   const baseTitleSize = 2.5 * baseFontSize // 40px (2.5rem)
-  
+
   // Calculate scale factor based on window width
   let scaleFactor = 1.0
   if (windowWidth < 1200) {
     scaleFactor = Math.max(0.05, windowWidth / 1200) // Scale down from 1200px, minimum 5%
   }
-  
+
   // Calculate font sizes
   const titleFontSize = Math.round(baseTitleSize * scaleFactor)
   const bodyFontSize = Math.round(baseBodySize * scaleFactor)
-  
-  console.log(`Size check - Scale factor: ${scaleFactor.toFixed(2)}, Title: ${titleFontSize}px, Body: ${bodyFontSize}px`)
-  
+
+  console.log(
+    `Size check - Scale factor: ${scaleFactor.toFixed(2)}, Title: ${titleFontSize}px, Body: ${bodyFontSize}px`,
+  )
+
   // Apply font sizes
   if (titleElement) {
     titleElement.style.fontSize = `${titleFontSize}px`
@@ -178,19 +184,19 @@ const adjustSizeCheckFontSize = () => {
 // Helper function to set up distance check font size adjustment
 const setupDistanceCheckFontAdjustment = () => {
   console.log('Setting up distance check font adjustment')
-  
+
   // Initial adjustment
   adjustDistanceCheckFontSize()
-  
+
   // Set up resize listener with immediate execution (no debounce for testing)
   const resizeHandler = () => {
     console.log('Resize event detected')
     adjustDistanceCheckFontSize()
   }
-  
+
   window.addEventListener('resize', resizeHandler)
   console.log('Resize listener added')
-  
+
   // Return cleanup function
   return () => {
     console.log('Cleaning up distance check font adjustment')
@@ -201,19 +207,19 @@ const setupDistanceCheckFontAdjustment = () => {
 // Helper function to set up size check font size adjustment
 const setupSizeCheckFontAdjustment = () => {
   console.log('Setting up size check font adjustment')
-  
+
   // Initial adjustment
   adjustSizeCheckFontSize()
-  
+
   // Set up resize listener with immediate execution (no debounce for testing)
   const resizeHandler = () => {
     console.log('Resize event detected')
     adjustSizeCheckFontSize()
   }
-  
+
   window.addEventListener('resize', resizeHandler)
   console.log('Resize listener added')
-  
+
   // Return cleanup function
   return () => {
     console.log('Cleaning up size check font adjustment')
@@ -741,7 +747,7 @@ const createYellowTapeRectangle = RC => {
   let arrowKeyDown = false
   let arrowIntervalFunction = null
   let currentArrowKey = null
-  
+
   // Dynamic step size variables
   let intervalCount = 0 // Track how many intervals have fired
 
@@ -982,13 +988,15 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   // so that the largest equals 90% of the screen width
   const maxRequestedCm = Math.max(...processedLengthCm)
   const targetMaxCm = screenWidthCm * 0.9 // 90% of screen width
-  
+
   if (maxRequestedCm > screenWidthCm) {
     const scaleFactor = targetMaxCm / maxRequestedCm
-    processedLengthCm = processedLengthCm.map(cm => 
-      Math.floor(cm * scaleFactor)
+    processedLengthCm = processedLengthCm.map(cm =>
+      Math.floor(cm * scaleFactor),
     )
-    console.log(`Requested sizes scaled down by factor ${scaleFactor.toFixed(3)} to fit screen. Original max: ${maxRequestedCm} cm, New max: ${Math.max(...processedLengthCm)} cm`)
+    console.log(
+      `Requested sizes scaled down by factor ${scaleFactor.toFixed(3)} to fit screen. Original max: ${maxRequestedCm} cm, New max: ${Math.max(...processedLengthCm)} cm`,
+    )
   }
 
   // Initialize arrays to store length data (similar to distance tracking)
@@ -1039,7 +1047,6 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
           const videoLeftEdge = (screenWidth - videoRect.width) / 2
           instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
         }
-
       } else {
         const titleElement = document.getElementById('instruction-title')
         const bodyElement = document.getElementById('instruction-body')
@@ -1459,7 +1466,7 @@ const trackDistanceCheck = async (
                 console.log('Iris tracking not active - ignoring space bar')
                 return
               }
-              
+
               // Play camera shutter sound
               if (cameraShutterSound) {
                 cameraShutterSound()
@@ -1562,10 +1569,12 @@ const trackDistanceCheck = async (
               if (value === 'space') {
                 // Check if iris tracking is active before proceeding
                 if (!irisTrackingIsActive) {
-                  console.log('Iris tracking not active - ignoring space keypad')
+                  console.log(
+                    'Iris tracking not active - ignoring space keypad',
+                  )
                   return
                 }
-                
+
                 // Play camera shutter sound
                 if (cameraShutterSound) {
                   cameraShutterSound()

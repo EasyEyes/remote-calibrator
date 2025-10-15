@@ -2804,13 +2804,13 @@ export async function blindSpotTestNew(
         const onSpaceSnap = async e => {
           if (e.key !== ' ') return
           e.preventDefault()
-          
+
           // Check if iris tracking is active before proceeding
           if (!irisTrackingIsActive) {
             console.log('Iris tracking not active - ignoring space bar')
             return
           }
-          
+
           document.removeEventListener('keydown', onSpaceSnap)
 
           // Play shutter sound
@@ -2856,10 +2856,10 @@ export async function blindSpotTestNew(
           if (!faceOk) {
             // Retry same page
             const captured = captureVideoFrame(RC)
-            
+
             // Temporarily remove the space key listener to prevent interference
             document.removeEventListener('keydown', onSpaceSnap)
-            
+
             await Swal.fire({
               ...swalInfoOptions(RC, { showIcon: false }),
               title: phrases.RC_FaceBlocked ? phrases.RC_FaceBlocked[RC.L] : '',
@@ -4896,7 +4896,7 @@ export async function objectTest(RC, options, callback = undefined) {
       // Space key - allow on pages 2, 3 and 4
       if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
         e.preventDefault()
-        
+
         // Check if iris tracking is active before proceeding (for pages 3 and 4)
         if ((currentPage === 3 || currentPage === 4) && !irisTrackingIsActive) {
           console.log('Iris tracking not active - ignoring space bar')
@@ -4991,7 +4991,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
               // Temporarily remove the space key listener to prevent interference
               document.removeEventListener('keydown', handleKeyPress)
-              
+
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
@@ -5547,14 +5547,15 @@ export async function objectTest(RC, options, callback = undefined) {
 
       console.log('=== CHECKING TOLERANCE BEFORE FINISHING ===')
 
-      const [pass, message, min, max, RMin, RMax, maxRatio] = checkObjectTestTolerance(
-        RC,
-        faceMeshSamplesPage3,
-        faceMeshSamplesPage4,
-        options.calibrateTrackDistanceAllowedRatio,
-        options.calibrateTrackDistanceAllowedRangeCm,
-        firstMeasurement,
-      )
+      const [pass, message, min, max, RMin, RMax, maxRatio] =
+        checkObjectTestTolerance(
+          RC,
+          faceMeshSamplesPage3,
+          faceMeshSamplesPage4,
+          options.calibrateTrackDistanceAllowedRatio,
+          options.calibrateTrackDistanceAllowedRangeCm,
+          firstMeasurement,
+        )
       if (RC.measurementHistory && message !== 'Pass')
         RC.measurementHistory.push(message)
       else if (message !== 'Pass') RC.measurementHistory = [message]
@@ -5843,10 +5844,10 @@ async function isFaceTrackingActive(RC) {
   try {
     // Import getMeshData from distanceTrack.js
     const { getMeshData } = await import('./distanceTrack.js')
-    
+
     // Try to get mesh data with eye positions
     const meshData = await getMeshData(RC, 'iris')
-    
+
     if (meshData && meshData.leftEye && meshData.rightEye) {
       console.log('Face tracking validation: Active and ready')
       return true
@@ -5855,7 +5856,10 @@ async function isFaceTrackingActive(RC) {
       return false
     }
   } catch (error) {
-    console.log('Face tracking validation: Error checking tracking status:', error)
+    console.log(
+      'Face tracking validation: Error checking tracking status:',
+      error,
+    )
     return false
   }
 }

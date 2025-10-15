@@ -251,13 +251,13 @@ function getSize(RC, parent, options, callback) {
       intervalCount++
       const stepSize = calculateStepSize()
       const currentValue = parseFloat(sliderElement.value)
-      
+
       if (currentArrowKey === 'ArrowLeft') {
         sliderElement.value = Math.max(0, currentValue - stepSize)
       } else if (currentArrowKey === 'ArrowRight') {
         sliderElement.value = Math.min(100, currentValue + stepSize)
       }
-      
+
       // Trigger slider update
       onSliderInput()
     }, 50)
