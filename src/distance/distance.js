@@ -2216,61 +2216,71 @@ export async function blindSpotTestNew(
   let circleFill = RC._CONST.COLOR.DARK_RED
   let v = -1 // direction for auto movement (unused in new scheme)
   const pxPerCm = ppi / 2.54
-  
-  // Calculate maximum eccentricity possible with spotDeg=2
+
+  // Calculate maximum eccentricity possible with minimum spotDeg
   const calculateMaxEccentricity = () => {
     const vCont = document.getElementById('webgazerVideoContainer')
-    const videoWidth = vCont ? parseInt(vCont.style.width) || vCont.offsetWidth || 0 : 0
-    
-    // Calculate diamond width at 2 degrees
-    const spotDeg2 = 2
+    const videoWidth = vCont
+      ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
+      : 0
+
+    // Use minimum spotDeg from calibrateTrackDistanceSpotMinMaxDeg for max eccentricity calculation
+    const spotDegForMaxEcc = minDeg
     const tempCircleX = circleX || c.width / 2
     const tempCrossX = crossX || c.width / 2
-    const rPx2 = calculateSpotRadiusPx(spotDeg2, ppi, blindspotEccXDeg, tempCircleX, tempCrossX)
-    const diamondWidth2 = rPx2 * 2
-    
-    // Max eccentricity = screen width - video width - diamond width
-    const maxEcc = c.width - videoWidth - diamondWidth2
+    const rPxAtMin = calculateSpotRadiusPx(
+      spotDegForMaxEcc,
+      ppi,
+      blindspotEccXDeg,
+      tempCircleX,
+      tempCrossX,
+    )
+    const diamondWidthAtMin = rPxAtMin * 2
+
+    // Max eccentricity = screen width - video width - diamond width (at min size)
+    const maxEcc = c.width - videoWidth - diamondWidthAtMin
     return Math.max(0, maxEcc)
   }
-  
+
   // Center the stimulus at screen midline
-  const centerStimulus = (diamondWidth) => {
+  const centerStimulus = diamondWidth => {
     const vCont = document.getElementById('webgazerVideoContainer')
-    const videoWidth = vCont ? parseInt(vCont.style.width) || vCont.offsetWidth || 0 : 0
+    const videoWidth = vCont
+      ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
+      : 0
     const videoHalfWidth = videoWidth / 2
     const diamondHalfWidth = diamondWidth / 2
-    
+
     // Calculate outer edges based on which side diamond is on
     let outerVideoX, outerDiamondX
-    
+
     if (circleX < crossX) {
       // Diamond is LEFT of fixation
-      outerVideoX = crossX + videoHalfWidth  // Right edge of video
-      outerDiamondX = circleX - diamondHalfWidth  // Left edge of diamond
+      outerVideoX = crossX + videoHalfWidth // Right edge of video
+      outerDiamondX = circleX - diamondHalfWidth // Left edge of diamond
     } else {
       // Diamond is RIGHT of fixation
-      outerVideoX = crossX - videoHalfWidth  // Left edge of video
-      outerDiamondX = circleX + diamondHalfWidth  // Right edge of diamond
+      outerVideoX = crossX - videoHalfWidth // Left edge of video
+      outerDiamondX = circleX + diamondHalfWidth // Right edge of diamond
     }
-    
+
     // Calculate middle of stimulus
     const middlePx = (outerVideoX + outerDiamondX) / 2
-    
+
     // Calculate offset to center at screen midline
     const screenMidline = c.width / 2
     const offsetXPx = screenMidline - middlePx
-    
+
     // Apply offset to both fixation and diamond (preserves eccentricity)
     crossX += offsetXPx
     circleX += offsetXPx
   }
-  
+
   // Help message element
   let helpMessageElement = null
   const createHelpMessage = () => {
     if (helpMessageElement) return helpMessageElement
-    
+
     helpMessageElement = document.createElement('div')
     helpMessageElement.id = 'blindspot-help-message'
     helpMessageElement.style.position = 'fixed'
@@ -2284,41 +2294,55 @@ export async function blindSpotTestNew(
     helpMessageElement.style.zIndex = '999999998'
     helpMessageElement.style.pointerEvents = 'none'
     helpMessageElement.style.display = 'none'
-    helpMessageElement.textContent = phrases.RC_MovingCloserWillHelp?.[RC.L] || 'RC_MovingCloserWillHelp'
+    helpMessageElement.textContent =
+      phrases.RC_MovingCloserWillHelp?.[RC.L] || 'RC_MovingCloserWillHelp'
     document.body.appendChild(helpMessageElement)
     return helpMessageElement
   }
-  
-  const showHelpMessage = (show) => {
+
+  const showHelpMessage = show => {
     const msg = createHelpMessage()
     msg.style.display = show ? 'block' : 'none'
   }
-  
+
   // Check if we should show help message (per spec: when eccentricity OR spotDeg is limited)
   const checkAndShowHelpMessage = () => {
     const currentEccentricity = Math.abs(circleX - crossX)
     const maxEccentricity = calculateMaxEccentricity()
     const atMaxEccentricity = currentEccentricity >= maxEccentricity
     const atMaxSpotDeg = spotDeg >= maxDeg
-    
+
     // Check if video is at screen bounds (use threshold since centering might offset slightly)
     const edgeThreshold = 5 // pixels
     const vCont = document.getElementById('webgazerVideoContainer')
-    const videoWidth = vCont ? parseInt(vCont.style.width) || vCont.offsetWidth || 0 : 0
+    const videoWidth = vCont
+      ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
+      : 0
     const videoHalfWidth = videoWidth / 2
     const videoLeftEdge = crossX - videoHalfWidth
     const videoRightEdge = crossX + videoHalfWidth
-    const videoAtEdge = videoLeftEdge <= edgeThreshold || videoRightEdge >= (c.width - edgeThreshold)
-    
+    const videoAtEdge =
+      videoLeftEdge <= edgeThreshold ||
+      videoRightEdge >= c.width - edgeThreshold
+
     // Check if diamond is at screen bounds (use threshold since centering might offset slightly)
-    const rPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, circleX, crossX)
+    const rPx = calculateSpotRadiusPx(
+      spotDeg,
+      ppi,
+      blindspotEccXDeg,
+      circleX,
+      crossX,
+    )
     const diamondHalfWidth = rPx
     const diamondLeftEdge = circleX - diamondHalfWidth
     const diamondRightEdge = circleX + diamondHalfWidth
-    const diamondAtEdge = diamondLeftEdge <= edgeThreshold || diamondRightEdge >= (c.width - edgeThreshold)
-    
-    const shouldShow = atMaxEccentricity || atMaxSpotDeg || videoAtEdge || diamondAtEdge
-    
+    const diamondAtEdge =
+      diamondLeftEdge <= edgeThreshold ||
+      diamondRightEdge >= c.width - edgeThreshold
+
+    const shouldShow =
+      atMaxEccentricity || atMaxSpotDeg || videoAtEdge || diamondAtEdge
+
     // DEBUG: Always log to see what's happening with actual values
     console.log('MESSAGE CHECK:', {
       shouldShow,
@@ -2330,9 +2354,9 @@ export async function blindSpotTestNew(
       videoRight: videoRightEdge.toFixed(1),
       diamondLeft: diamondLeftEdge.toFixed(1),
       diamondRight: diamondRightEdge.toFixed(1),
-      screenWidth: c.width
+      screenWidth: c.width,
     })
-    
+
     // Per spec: "display RC_MovingCloserWillHelp solely while either spotDeg or spotXYPx is limited by screen size"
     // Show message if ANY limit is hit:
     // - Eccentricity is at max (limited by screen size with spotDeg=2), OR
@@ -2341,7 +2365,7 @@ export async function blindSpotTestNew(
     // - Diamond at screen edge (can't grow or move further)
     showHelpMessage(shouldShow)
   }
-  
+
   // Visibility and input flags
   let showDiamond = false
   let allowMove = false
@@ -2749,17 +2773,17 @@ export async function blindSpotTestNew(
     )
     const boundsSide = eyeSide === 'right' ? 'left' : 'right'
     circleBounds = _getDiamondBounds(boundsSide, centerX, c.width, rPx * 2, ppi)
-    
+
     // Instead of constraining circleX (which changes eccentricity),
     // check if diamond would go off screen and shift BOTH circleX and crossX together
     // BUT only if we're not at maxDeg (otherwise shift would happen even when size can't increase)
     const diamondHalfWidth = rPx
     const diamondLeftEdge = circleX - diamondHalfWidth
     const diamondRightEdge = circleX + diamondHalfWidth
-    
+
     let shift = 0
     const isAtMaxSize = spotDeg >= maxDeg
-    
+
     if (!isAtMaxSize) {
       // Only shift if diamond is not at maximum size
       if (diamondLeftEdge < 0) {
@@ -2769,18 +2793,20 @@ export async function blindSpotTestNew(
         // Diamond would go off right edge, shift everything left
         shift = c.width - diamondRightEdge
       }
-      
+
       // Check if shift would push video off screen
       if (shift !== 0) {
         const vCont = document.getElementById('webgazerVideoContainer')
-        const videoWidth = vCont ? parseInt(vCont.style.width) || vCont.offsetWidth || 0 : 0
+        const videoWidth = vCont
+          ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
+          : 0
         const videoHalfWidth = videoWidth / 2
-        
+
         // Calculate video edges after proposed shift
         const newCrossX = crossX + shift
         const videoLeftEdge = newCrossX - videoHalfWidth
         const videoRightEdge = newCrossX + videoHalfWidth
-        
+
         // Only apply shift if video stays within screen bounds
         if (videoLeftEdge >= 0 && videoRightEdge <= c.width) {
           // Safe to shift, video stays on screen
@@ -2805,17 +2831,17 @@ export async function blindSpotTestNew(
         circleX = c.width - diamondHalfWidth
       }
     }
-    
+
     // Only center and check message when diamond is visible
     if (showDiamond) {
       // Center the stimulus at screen midline (if it fits)
       centerStimulus(rPx * 2)
       _positionVideoBelowFixation()
-      
+
       // Check if we should show help message
       checkAndShowHelpMessage()
     }
-    
+
     const spotY = calculateSpotY(
       circleX,
       crossX,
@@ -2865,36 +2891,45 @@ export async function blindSpotTestNew(
     // Calculate current and max eccentricity
     const currentEccentricity = Math.abs(circleX - crossX)
     const maxEccentricity = calculateMaxEccentricity()
-    
+
     // Check if trying to increase eccentricity beyond max
     const newCircleX = circleX + dx
     const newEccentricity = Math.abs(newCircleX - crossX)
-    
-    if (newEccentricity > currentEccentricity && currentEccentricity >= maxEccentricity) {
+
+    if (
+      newEccentricity > currentEccentricity &&
+      currentEccentricity >= maxEccentricity
+    ) {
       // At max eccentricity, trying to increase further - block
       return
     }
-    
+
     // Calculate diamond size
-    const rPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, circleX, crossX)
+    const rPx = calculateSpotRadiusPx(
+      spotDeg,
+      ppi,
+      blindspotEccXDeg,
+      circleX,
+      crossX,
+    )
     const diamondHalfWidth = rPx
-    
+
     // Calculate new diamond edges
     const newDiamondLeftEdge = newCircleX - diamondHalfWidth
     const newDiamondRightEdge = newCircleX + diamondHalfWidth
-    
+
     // Check if new position would be within screen bounds
     if (newDiamondLeftEdge >= 0 && newDiamondRightEdge <= c.width) {
       // Only move if diamond stays within screen bounds
       circleX = newCircleX
       _positionVideoBelowFixation()
-      
+
       // Message will be checked in animation loop
     } else {
       console.log('BLOCKED by diamond screen edge:', {
         newDiamondLeftEdge: newDiamondLeftEdge.toFixed(1),
         newDiamondRightEdge: newDiamondRightEdge.toFixed(1),
-        screenWidth: c.width
+        screenWidth: c.width,
       })
     }
   }
@@ -2903,18 +2938,25 @@ export async function blindSpotTestNew(
     if (scale > 1) {
       // Calculate what the new size would be
       const newSpotDeg = Math.max(minDeg, Math.min(maxDeg, spotDeg * scale))
-      
+
       // If size would actually increase
       if (newSpotDeg > spotDeg) {
         // Calculate new diamond size
-        const newRPx = calculateSpotRadiusPx(newSpotDeg, ppi, blindspotEccXDeg, circleX, crossX)
+        const newRPx = calculateSpotRadiusPx(
+          newSpotDeg,
+          ppi,
+          blindspotEccXDeg,
+          circleX,
+          crossX,
+        )
         const newDiamondHalfWidth = newRPx
         const newDiamondLeftEdge = circleX - newDiamondHalfWidth
         const newDiamondRightEdge = circleX + newDiamondHalfWidth
-        
+
         // Check if diamond would go off screen with new size
-        const diamondNeedsShift = newDiamondLeftEdge < 0 || newDiamondRightEdge > c.width
-        
+        const diamondNeedsShift =
+          newDiamondLeftEdge < 0 || newDiamondRightEdge > c.width
+
         if (diamondNeedsShift) {
           // Calculate required shift
           let requiredShift = 0
@@ -2923,15 +2965,17 @@ export async function blindSpotTestNew(
           } else if (newDiamondRightEdge > c.width) {
             requiredShift = c.width - newDiamondRightEdge
           }
-          
+
           // Check if video can shift
           const vCont = document.getElementById('webgazerVideoContainer')
-          const videoWidth = vCont ? parseInt(vCont.style.width) || vCont.offsetWidth || 0 : 0
+          const videoWidth = vCont
+            ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
+            : 0
           const videoHalfWidth = videoWidth / 2
           const newCrossX = crossX + requiredShift
           const videoLeftEdge = newCrossX - videoHalfWidth
           const videoRightEdge = newCrossX + videoHalfWidth
-          
+
           // If video would go off screen, block the size increase
           if (videoLeftEdge < 0 || videoRightEdge > c.width) {
             // Can't increase size while maintaining eccentricity
@@ -2941,7 +2985,7 @@ export async function blindSpotTestNew(
         }
       }
     }
-    
+
     // Safe to adjust size
     spotDeg = Math.max(minDeg, Math.min(maxDeg, spotDeg * scale))
     const currentValue = parseFloat(slider.value)
@@ -2953,7 +2997,7 @@ export async function blindSpotTestNew(
       ),
     )
     slider.value = newValue.toFixed(3)
-    
+
     // Message will be checked in animation loop
   }
   const keyHandler = e => {
@@ -3155,7 +3199,11 @@ export async function blindSpotTestNew(
               willClose: () => {
                 // Remove keyboard event listener
                 if (RC.popupKeydownListener) {
-                  document.removeEventListener('keydown', RC.popupKeydownListener, true)
+                  document.removeEventListener(
+                    'keydown',
+                    RC.popupKeydownListener,
+                    true,
+                  )
                   RC.popupKeydownListener = null
                 }
                 // Re-add the space key listener after popup closes
@@ -3389,7 +3437,7 @@ export async function blindSpotTestNew(
         blindOverlay.parentNode.removeChild(blindOverlay)
       } catch (e) {}
     }
-    
+
     // Clean up help message
     if (helpMessageElement && helpMessageElement.parentNode) {
       try {
@@ -3397,7 +3445,7 @@ export async function blindSpotTestNew(
       } catch (e) {}
       helpMessageElement = null
     }
-    
+
     RC._removeBackground()
     const vCont = document.getElementById('webgazerVideoContainer')
     if (vCont && RC._blindspotOriginalVideoStyle) {
@@ -5262,7 +5310,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 'distance',
               )
             }
-            
+
             // Re-add the listener for page 3
             document.addEventListener('keydown', handleKeyPress)
           })()
@@ -5333,7 +5381,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       '.swal2-footer-no-border { border-top: none !important; }'
                     document.head.appendChild(style)
                   }
-                  
+
                   // Handle keyboard events - only allow Enter/Return, prevent Space
                   const keydownListener = event => {
                     if (event.key === ' ') {
@@ -5378,7 +5426,11 @@ export async function objectTest(RC, options, callback = undefined) {
                 willClose: () => {
                   // Remove keyboard event listener
                   if (RC.popupKeydownListener) {
-                    document.removeEventListener('keydown', RC.popupKeydownListener, true)
+                    document.removeEventListener(
+                      'keydown',
+                      RC.popupKeydownListener,
+                      true,
+                    )
                     RC.popupKeydownListener = null
                   }
                   // Re-add the space key listener after popup closes
@@ -5399,7 +5451,7 @@ export async function objectTest(RC, options, callback = undefined) {
               await nextPage()
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
-              
+
               // Re-add the listener for page 4
               document.addEventListener('keydown', handleKeyPress)
             }
@@ -5471,7 +5523,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       '.swal2-footer-no-border { border-top: none !important; }'
                     document.head.appendChild(style)
                   }
-                  
+
                   // Handle keyboard events - only allow Enter/Return, prevent Space
                   const keydownListener = event => {
                     if (event.key === ' ') {
@@ -5516,7 +5568,11 @@ export async function objectTest(RC, options, callback = undefined) {
                 willClose: () => {
                   // Remove keyboard event listener
                   if (RC.popupKeydownListener) {
-                    document.removeEventListener('keydown', RC.popupKeydownListener, true)
+                    document.removeEventListener(
+                      'keydown',
+                      RC.popupKeydownListener,
+                      true,
+                    )
                     RC.popupKeydownListener = null
                   }
                   // Re-add the space key listener after popup closes
@@ -5770,7 +5826,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
-              
+
               // Remove the listener since the test is finishing
               document.removeEventListener('keydown', handleKeyPress)
             }
