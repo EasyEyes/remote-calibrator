@@ -2606,6 +2606,23 @@ export async function blindSpotTestNew(
       label.style.gap = '0.5em'
       label.style.cursor = 'pointer'
       label.style.margin = '0'
+      
+      // Disable keyboard navigation on labels as well
+      label.tabIndex = -1 // Remove from tab order
+      label.addEventListener('keydown', (e) => {
+        // Block Tab, Space, and Return keys
+        if (e.key === 'Tab' || e.key === ' ' || e.key === 'Enter' || e.key === 'Return') {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      })
+      label.addEventListener('keyup', (e) => {
+        // Block Tab, Space, and Return keys
+        if (e.key === 'Tab' || e.key === ' ' || e.key === 'Enter' || e.key === 'Return') {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      })
       const input = document.createElement('input')
       input.type = 'radio'
       input.name = 'bs-radio'
@@ -2617,6 +2634,24 @@ export async function blindSpotTestNew(
       input.checked = false // Ensure unchecked by default
       input.style.outline = 'none' // Remove focus outline
       input.style.boxShadow = 'none' // Remove any focus box shadow
+      
+      // Disable keyboard navigation for blindspot radio buttons
+      input.tabIndex = -1 // Remove from tab order
+      input.addEventListener('keydown', (e) => {
+        // Block Tab, Space, and Return keys
+        if (e.key === 'Tab' || e.key === ' ' || e.key === 'Enter' || e.key === 'Return') {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      })
+      input.addEventListener('keyup', (e) => {
+        // Block Tab, Space, and Return keys
+        if (e.key === 'Tab' || e.key === ' ' || e.key === 'Enter' || e.key === 'Return') {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      })
+      
       label.appendChild(input)
       const textSpan = document.createElement('span')
       textSpan.innerHTML = replaceNewlinesWithBreaks(o.label)
@@ -3280,32 +3315,83 @@ export async function blindSpotTestNew(
       }
 
       const handleRadio = saw => {
-        if (saw === 'none' || saw === 'oneTip') {
-          spotDeg = Math.min(maxDeg, Math.max(minDeg, spotDeg * 1.6))
-          const currentValue = parseFloat(slider.value)
-          const newValue = Math.max(
-            0,
-            Math.min(
-              1,
-              currentValue + Math.log10(1.6) / Math.log10(maxDeg / minDeg),
-            ),
-          )
-          slider.value = newValue.toFixed(3)
-        } else if (saw === 'wholeDiamond') {
-          spotDeg = Math.min(maxDeg, Math.max(minDeg, spotDeg * 0.8))
-          const currentValue = parseFloat(slider.value)
-          const newValue = Math.max(
-            0,
-            Math.min(
-              1,
-              currentValue + Math.log10(0.8) / Math.log10(maxDeg / minDeg),
-            ),
-          )
-          slider.value = newValue.toFixed(3)
-        } else if (saw === 'twoTips') {
+        if (saw === 'twoTips') {
           proceedToSnapshot()
           return
         }
+
+        let scale = 1
+        if (saw === 'none' || saw === 'oneTip') {
+          scale = 1.6
+        } else if (saw === 'wholeDiamond') {
+          scale = 0.8
+        } else {
+          return // Unknown option
+        }
+
+        // Apply same bounds checking as arrow keys (but don't shift here - let animation loop handle it)
+        if (scale > 1) {
+          // Calculate what the new size would be
+          const newSpotDeg = Math.max(minDeg, Math.min(maxDeg, spotDeg * scale))
+
+          // If size would actually increase
+          if (newSpotDeg > spotDeg) {
+            // Calculate new diamond size
+            const newRPx = calculateSpotRadiusPx(
+              newSpotDeg,
+              ppi,
+              blindspotEccXDeg,
+              circleX,
+              crossX,
+            )
+            const newDiamondHalfWidth = newRPx
+            const newDiamondLeftEdge = circleX - newDiamondHalfWidth
+            const newDiamondRightEdge = circleX + newDiamondHalfWidth
+
+            // Check if diamond would go off screen with new size
+            const diamondNeedsShift =
+              newDiamondLeftEdge < 0 || newDiamondRightEdge > c.width
+
+            if (diamondNeedsShift) {
+              // Calculate required shift
+              let requiredShift = 0
+              if (newDiamondLeftEdge < 0) {
+                requiredShift = -newDiamondLeftEdge
+              } else if (newDiamondRightEdge > c.width) {
+                requiredShift = c.width - newDiamondRightEdge
+              }
+
+              // Check if video can shift
+              const vCont = document.getElementById('webgazerVideoContainer')
+              const videoWidth = vCont
+                ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
+                : 0
+              const videoHalfWidth = videoWidth / 2
+              const newCrossX = crossX + requiredShift
+              const videoLeftEdge = newCrossX - videoHalfWidth
+              const videoRightEdge = newCrossX + videoHalfWidth
+
+              // If video would go off screen, block the size increase
+              if (videoLeftEdge < 0 || videoRightEdge > c.width) {
+                // Can't increase size while maintaining eccentricity
+                return
+              }
+            }
+          }
+        }
+
+        // Safe to adjust size (same as adjustSpot)
+        spotDeg = Math.max(minDeg, Math.min(maxDeg, spotDeg * scale))
+        const currentValue = parseFloat(slider.value)
+        const newValue = Math.max(
+          0,
+          Math.min(
+            1,
+            currentValue + Math.log10(scale) / Math.log10(maxDeg / minDeg),
+          ),
+        )
+        slider.value = newValue.toFixed(3)
+        
         i += 1
         setInstruction()
       }
