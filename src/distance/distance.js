@@ -2138,6 +2138,12 @@ export async function blindSpotTestNew(
       'Screen size measurement is required to get accurate viewing distance measurement.',
     )
 
+  // Hide webgazerFaceFeedbackBox (small grey/red square on video)
+  const webgazerFaceFeedbackBox = document.getElementById('webgazerFaceFeedbackBox')
+  if (webgazerFaceFeedbackBox) {
+    webgazerFaceFeedbackBox.style.display = 'none'
+  }
+
   // Camera selection if needed
   if (!options.cameraSelectionDone) {
     await showTestPopup(RC, null, options)
