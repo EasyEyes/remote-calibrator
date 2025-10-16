@@ -191,6 +191,14 @@ RemoteCalibrator.prototype.panel = async function (
   this._panelStatus.hasPanel = true
   this._panelStatus.panelFinished = false
 
+  // Simple space key blocking - just add event listener to the panel element itself
+  panel.addEventListener('keydown', (e) => {
+    if (e.key === ' ') {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  })
+
   if (options.i18n)
     _setLanguagePicker(
       this,

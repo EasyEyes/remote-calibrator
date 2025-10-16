@@ -2224,29 +2224,30 @@ export async function blindSpotTestNew(
   const pxPerCm = ppi / 2.54
 
   // Calculate maximum eccentricity possible with minimum spotDeg
-  const calculateMaxEccentricity = () => {
-    const vCont = document.getElementById('webgazerVideoContainer')
-    const videoWidth = vCont
-      ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
-      : 0
+  // COMMENTED OUT: No longer enforcing max eccentricity constraint
+  // const calculateMaxEccentricity = () => {
+  //   const vCont = document.getElementById('webgazerVideoContainer')
+  //   const videoWidth = vCont
+  //     ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
+  //     : 0
 
-    // Use minimum spotDeg from calibrateTrackDistanceSpotMinMaxDeg for max eccentricity calculation
-    const spotDegForMaxEcc = minDeg
-    const tempCircleX = circleX || c.width / 2
-    const tempCrossX = crossX || c.width / 2
-    const rPxAtMin = calculateSpotRadiusPx(
-      spotDegForMaxEcc,
-      ppi,
-      blindspotEccXDeg,
-      tempCircleX,
-      tempCrossX,
-    )
-    const diamondWidthAtMin = rPxAtMin * 2
+  //   // Use minimum spotDeg from calibrateTrackDistanceSpotMinMaxDeg for max eccentricity calculation
+  //   const spotDegForMaxEcc = minDeg
+  //   const tempCircleX = circleX || c.width / 2
+  //   const tempCrossX = crossX || c.width / 2
+  //   const rPxAtMin = calculateSpotRadiusPx(
+  //     spotDegForMaxEcc,
+  //     ppi,
+  //     blindspotEccXDeg,
+  //     tempCircleX,
+  //     tempCrossX,
+  //   )
+  //   const diamondWidthAtMin = rPxAtMin * 2
 
-    // Max eccentricity = screen width - video width - diamond width (at min size)
-    const maxEcc = c.width - videoWidth - diamondWidthAtMin
-    return Math.max(0, maxEcc)
-  }
+  //   // Max eccentricity = screen width - video width - diamond width (at min size)
+  //   const maxEcc = c.width - videoWidth - diamondWidthAtMin
+  //   return Math.max(0, maxEcc)
+  // }
 
   // Center the stimulus at screen midline
   const centerStimulus = diamondWidth => {
@@ -2314,8 +2315,8 @@ export async function blindSpotTestNew(
   // Check if we should show help message (per spec: when eccentricity OR spotDeg is limited)
   const checkAndShowHelpMessage = () => {
     const currentEccentricity = Math.abs(circleX - crossX)
-    const maxEccentricity = calculateMaxEccentricity()
-    const atMaxEccentricity = currentEccentricity >= maxEccentricity
+    // const maxEccentricity = calculateMaxEccentricity()
+    // const atMaxEccentricity = currentEccentricity >= maxEccentricity
     const atMaxSpotDeg = spotDeg >= maxDeg
 
     // Check if video is at screen bounds (use threshold since centering might offset slightly)
@@ -2347,12 +2348,12 @@ export async function blindSpotTestNew(
       diamondRightEdge >= c.width - edgeThreshold
 
     const shouldShow =
-      atMaxEccentricity || atMaxSpotDeg || videoAtEdge || diamondAtEdge
+      /* atMaxEccentricity || */ atMaxSpotDeg || videoAtEdge || diamondAtEdge
 
     // DEBUG: Always log to see what's happening with actual values
     console.log('MESSAGE CHECK:', {
       shouldShow,
-      atMaxEccentricity,
+      // atMaxEccentricity,
       atMaxSpotDeg,
       videoAtEdge,
       diamondAtEdge,
@@ -2931,17 +2932,29 @@ export async function blindSpotTestNew(
   const adjustHorizontal = dx => {
     // Calculate current and max eccentricity
     const currentEccentricity = Math.abs(circleX - crossX)
-    const maxEccentricity = calculateMaxEccentricity()
+    // const maxEccentricity = calculateMaxEccentricity()
 
     // Check if trying to increase eccentricity beyond max
     const newCircleX = circleX + dx
     const newEccentricity = Math.abs(newCircleX - crossX)
 
+    // if (
+    //   newEccentricity > currentEccentricity &&
+    //   currentEccentricity >= maxEccentricity
+    // ) {
+    //   // At max eccentricity, trying to increase further - block
+    //   return
+    // }
+
+    // Check if trying to decrease eccentricity below minimum (5cm)
+    const minDistanceCm = 5
+    const minDistancePx = (minDistanceCm * ppi) / 2.54
+    
     if (
-      newEccentricity > currentEccentricity &&
-      currentEccentricity >= maxEccentricity
+      newEccentricity < currentEccentricity &&
+      newEccentricity < minDistancePx
     ) {
-      // At max eccentricity, trying to increase further - block
+      // Trying to move closer than minimum distance - block
       return
     }
 
