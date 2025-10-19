@@ -22,10 +22,12 @@ import {
   _getCircleBounds,
   _circle,
   _diamond,
+  _redGreenSquares,
   bindMousedown,
   unbindMousedown,
   clickOnCircle,
   clickOnDiamond,
+  clickOnRedGreenSquares,
 } from '../components/onCanvas'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
@@ -184,6 +186,13 @@ function saveCalibrationMeasurements(
       measurement.nearestDistanceCm_right,
       measurement.nearestDistanceCm_left,
       spotDeg,
+      // NEW FIELDS for edge-based blindspot test
+      measurement.spotXYPx,
+      measurement.fixationXYPx,
+      measurement.spotToFixationCm,
+      measurement.eyesToFixationCm,
+      measurement.eyesToSpotCm,
+      measurement.calibrateTrackDistanceBlindspotXYDeg,
     )
   })
 }
@@ -207,6 +216,13 @@ function saveCalibrationAttempt(
   nearestDistanceCm_right,
   nearestDistanceCm_left,
   spotDeg = undefined,
+  // NEW FIELDS for edge-based blindspot test
+  spotXYPx = undefined,
+  fixationXYPx = undefined,
+  spotToFixationCm = undefined,
+  eyesToFixationCm = undefined,
+  eyesToSpotCm = undefined,
+  calibrateTrackDistanceBlindspotXYDeg = undefined,
 ) {
   // Initialize the calibration attempts object if it doesn't exist
   if (!RC.calibrationAttempts) {
@@ -292,6 +308,15 @@ function saveCalibrationAttempt(
     rightEyeToCenterCm: safeRoundCm(rightEyeToCenterCmValue), //calcualted by trignometry from above
     leftEyeToCenterCm: safeRoundCm(leftEyeToCenterCmValue), //calcualted by trignometry from above
     spotDeg: safeToFixed(spotDeg), // Add spotDeg for blindspot calibrations
+    // NEW FIELDS for edge-based blindspot test
+    _calibrateTrackDistanceBlindspotXYDeg: calibrateTrackDistanceBlindspotXYDeg 
+      ? [safeToFixed(calibrateTrackDistanceBlindspotXYDeg[0]), safeToFixed(calibrateTrackDistanceBlindspotXYDeg[1])]
+      : undefined,
+    spotXYPx: safeRoundXYPx(spotXYPx), // Middle of red-green edge
+    fixationXYPx: safeRoundXYPx(fixationXYPx), // Position of fixation cross
+    spotToFixationCm: safeRoundCm(spotToFixationCm), // Distance between spot and fixation
+    eyesToFixationCm: safeRoundCm(eyesToFixationCm), // Distance from participant to fixation
+    eyesToSpotCm: safeRoundCm(eyesToSpotCm), // Distance from participant to spot
   }
 
   console.log('factorCameraPxCm', calibrationObject.factorCameraPxCm)
@@ -401,6 +426,23 @@ function createMeasurementObject(
   }
 
   return measurement
+}
+
+// Helper to calculate the shared border position (spotXYPx) between red and green squares
+function calculateSpotXYPx(circleX, circleY, greenSide, fixationX, squareSize) {
+  // Determine green square offset
+  let greenOffsetX = 0
+  if (greenSide === 'near') {
+    // Green square toward fixation
+    greenOffsetX = fixationX < circleX ? -squareSize : squareSize
+  } else {
+    // Green square away from fixation
+    greenOffsetX = fixationX < circleX ? squareSize : -squareSize
+  }
+  
+  // Shared border is at the midpoint between red and green centers
+  const sharedBorderX = circleX + greenOffsetX / 2
+  return [sharedBorderX, circleY]
 }
 
 // Helper to get intraocular distance in pixels (not cm) - moved to global scope
@@ -1862,12 +1904,14 @@ export async function blindSpotTest(
     const constrainedCurrentSpotY = constrain(currentSpotY, ...verticalBounds)
 
     if (
-      clickOnDiamond(
+      clickOnRedGreenSquares(
         circleX,
         constrainedCurrentSpotY,
         startX,
         startY,
         currentSpotRadiusPx * 2,
+        currentEdge, // Dynamic: 'near' or 'far' based on which edge we're testing
+        crossX,
       )
     ) {
       _dragStartPosition.x = startX
@@ -2172,7 +2216,9 @@ export async function blindSpotTestNew(
   document.body.appendChild(blindSpotDiv)
   RC._constructFloatInstructionElement(
     'blind-spot-instruction',
-    phrases.RC_distanceTrackingBlindspotGetReady[RC.L],
+    phrases.RC_distanceTrackingBlindspotGetReadyTiltAndSwivel?.[RC.L] || 
+    phrases.RC_distanceTrackingBlindspotGetReady?.[RC.L] || 
+    'Get ready. When you press SPACE, we will measure your viewing distance.',
   )
   // Position instruction like old flow
   RC._setFloatInstructionElementPos('left', 16)
@@ -2182,6 +2228,10 @@ export async function blindSpotTestNew(
     blindspotInstruction.classList.add('blindspot-instruction')
   }
   RC._addCreditOnBackground(phrases.RC_viewingBlindSpotCredit[RC.L])
+  
+  // Hide slider on prep page (will show when measurement pages start)
+  const sliderContainer = document.getElementById('blindspot-slider-container')
+  if (sliderContainer) sliderContainer.style.display = 'none'
   const wrapper = document.querySelector('#blindspot-wrapper')
   const c = document.querySelector('#blind-spot-canvas')
   const ctx = c.getContext('2d')
@@ -2376,6 +2426,7 @@ export async function blindSpotTestNew(
   // Visibility and input flags
   let showDiamond = false
   let allowMove = false
+  let currentEdge = 'near' // Track which edge we're testing: 'near' or 'far'
 
   const vCont = document.getElementById('webgazerVideoContainer')
   if (vCont) {
@@ -2527,49 +2578,7 @@ export async function blindSpotTestNew(
     return [minY, maxY]
   }
 
-  // State for pages
-  const radioContainer = document.createElement('div')
-  radioContainer.style.position = 'fixed'
-  radioContainer.style.zIndex = '1000000000000'
-  radioContainer.style.padding = '0'
-  radioContainer.style.borderRadius = '8px'
-  radioContainer.style.display = 'none'
-  RC.background.appendChild(radioContainer)
-
-  // Create hint text element
-  const hintTextElement = document.createElement('div')
-  hintTextElement.style.position = 'fixed'
-  hintTextElement.style.zIndex = '1000000000000'
-  hintTextElement.style.display = 'none'
-  RC.background.appendChild(hintTextElement)
-
-  const positionRadioBelowInstruction = () => {
-    const inst = document.getElementById('blind-spot-instruction')
-    if (!inst) return
-    const rect = inst.getBoundingClientRect()
-    const instCS = window.getComputedStyle(inst)
-    const lineHeight =
-      parseFloat(instCS.lineHeight) || parseFloat(instCS.fontSize) * 1.6
-
-    radioContainer.style.left = `${rect.left}px`
-    radioContainer.style.top = `${rect.bottom}px`
-    radioContainer.style.width = `auto`
-    radioContainer.style.paddingLeft = `${parseFloat(instCS.paddingLeft || 0) * 2 + 5}px`
-
-    // Position hint text below radio container
-    if (radioContainer.style.display !== 'none') {
-      const radioRect = radioContainer.getBoundingClientRect()
-      hintTextElement.style.left = `${rect.left}px`
-      hintTextElement.style.top = `${radioRect.bottom + lineHeight * 0.1}px`
-      hintTextElement.style.width = `${rect.width}px`
-      hintTextElement.style.paddingLeft = instCS.paddingLeft
-      hintTextElement.style.fontFamily = instCS.fontFamily
-      hintTextElement.style.fontSize = instCS.fontSize
-      hintTextElement.style.fontWeight = instCS.fontWeight
-      hintTextElement.style.lineHeight = instCS.lineHeight
-      hintTextElement.style.color = instCS.color
-    }
-  }
+  // No radio buttons or hint text in new flow - removed UI elements
 
   const setInstructionContent = (html, side) => {
     const inst = document.getElementById('blind-spot-instruction')
@@ -2582,127 +2591,6 @@ export async function blindSpotTestNew(
       )
     }
     RC._setFloatInstructionElementPos(side, 16)
-    positionRadioBelowInstruction()
-  }
-
-  const makeRadioUI = () => {
-    radioContainer.innerHTML = ''
-    const opts = [
-      { key: 'none', label: phrases['RC_Diamond-None'][RC.L] },
-      { key: 'oneTip', label: phrases['RC_Diamond-JustOneTip'][RC.L] },
-      { key: 'twoTips', label: phrases['RC_Diamond-TipsOnBothSides'][RC.L] },
-      {
-        key: 'wholeDiamond',
-        label: phrases['RC_Diamond-TheWholeDiamond'][RC.L],
-      },
-    ]
-    // Read instruction styles to apply to radio text for visual consistency
-    const inst = document.getElementById('blind-spot-instruction')
-    const instCS = inst ? window.getComputedStyle(inst) : null
-    opts.forEach(o => {
-      const label = document.createElement('label')
-      label.style.display = 'flex'
-      label.style.flexDirection = 'row'
-      label.style.alignItems = 'center'
-      label.style.gap = '0.5em'
-      label.style.cursor = 'pointer'
-      label.style.margin = '0'
-      
-      // Disable keyboard navigation on labels as well
-      label.tabIndex = -1 // Remove from tab order
-      label.addEventListener('keydown', (e) => {
-        // Block Tab, Space, and Return keys
-        if (e.key === 'Tab' || e.key === ' ' || e.key === 'Enter' || e.key === 'Return') {
-          e.preventDefault()
-          e.stopPropagation()
-        }
-      })
-      label.addEventListener('keyup', (e) => {
-        // Block Tab, Space, and Return keys
-        if (e.key === 'Tab' || e.key === ' ' || e.key === 'Enter' || e.key === 'Return') {
-          e.preventDefault()
-          e.stopPropagation()
-        }
-      })
-      const input = document.createElement('input')
-      input.type = 'radio'
-      input.name = 'bs-radio'
-      input.value = o.key
-      input.style.margin = '0'
-      input.style.transform = 'scale(1.1)'
-      input.style.flex = '0'
-      input.style.opacity = '1' // Always start with full opacity
-      input.checked = false // Ensure unchecked by default
-      input.style.outline = 'none' // Remove focus outline
-      input.style.boxShadow = 'none' // Remove any focus box shadow
-      
-      // Disable keyboard navigation for blindspot radio buttons
-      input.tabIndex = -1 // Remove from tab order
-      input.addEventListener('keydown', (e) => {
-        // Block Tab, Space, and Return keys
-        if (e.key === 'Tab' || e.key === ' ' || e.key === 'Enter' || e.key === 'Return') {
-          e.preventDefault()
-          e.stopPropagation()
-        }
-      })
-      input.addEventListener('keyup', (e) => {
-        // Block Tab, Space, and Return keys
-        if (e.key === 'Tab' || e.key === ' ' || e.key === 'Enter' || e.key === 'Return') {
-          e.preventDefault()
-          e.stopPropagation()
-        }
-      })
-      
-      label.appendChild(input)
-      const textSpan = document.createElement('span')
-      textSpan.innerHTML = replaceNewlinesWithBreaks(o.label)
-      if (instCS) {
-        textSpan.style.fontFamily = instCS.fontFamily
-        textSpan.style.fontSize = instCS.fontSize
-        textSpan.style.fontWeight = 'normal' // Always start with normal weight
-        textSpan.style.lineHeight = instCS.lineHeight
-        textSpan.style.color = instCS.color
-        textSpan.style.whiteSpace = 'normal'
-      } else {
-        textSpan.style.fontSize = '1.1rem'
-        textSpan.style.fontWeight = 'normal' // Always start with normal weight
-      }
-      textSpan.style.paddingLeft = '20px'
-      textSpan.style.flex = '1'
-      label.appendChild(textSpan)
-      label.addEventListener('click', async () => {
-        const v = input.value
-
-        // Make button dark and label bold
-        input.style.opacity = '0.3'
-        textSpan.style.fontWeight = 'bold'
-
-        // Play stamp of approval sound
-        if (env !== 'mocha' && stampOfApprovalSound) {
-          stampOfApprovalSound()
-        }
-
-        // Wait 0.2 seconds
-        await new Promise(resolve => setTimeout(resolve, 200))
-
-        // Reset all radio buttons and labels
-        const allRadios = radioContainer.querySelectorAll(
-          'input[name="bs-radio"]',
-        )
-        allRadios.forEach(radio => {
-          radio.checked = false
-          radio.style.opacity = '1'
-        })
-        const allLabels = radioContainer.querySelectorAll('span')
-        allLabels.forEach(labelSpan => {
-          labelSpan.style.fontWeight = 'normal'
-        })
-
-        handleRadio(v)
-      })
-      radioContainer.appendChild(label)
-    })
-    positionRadioBelowInstruction()
   }
 
   let blindspotEccXDeg = options.calibrateTrackDistanceSpotXYDeg[0]
@@ -2895,18 +2783,19 @@ export async function blindSpotTestNew(
     // Remove bounds constraints to let diamond follow anatomical line exactly
     const constrainedSpotY = spotY
     if (showDiamond) {
-      if (showDiamond) {
-        _diamond(
-          RC,
-          ctx,
-          circleX,
-          constrainedSpotY,
-          Math.round(performance.now() - frameTimestampInitial),
-          circleFill,
-          options.sparkle,
-          rPx * 2,
-        )
-      }
+      // Use red-green squares for edge-based blindspot test
+      // greenSide is 'near' (toward fixation) or 'far' (away from fixation)
+      _redGreenSquares(
+        RC,
+        ctx,
+        circleX,
+        constrainedSpotY,
+        Math.round(performance.now() - frameTimestampInitial),
+        options.sparkle,
+        rPx * 2,
+        currentEdge, // Dynamic: 'near' or 'far' based on which edge we're testing
+        crossX,
+      )
     }
     _cross(ctx, crossX, crossY)
 
@@ -3088,7 +2977,6 @@ export async function blindSpotTestNew(
   // Re-align after layout settles
   requestAnimationFrame(() => _alignVideoToSide('center'))
   requestAnimationFrame(() => _alignVideoToSide('center'))
-  positionRadioBelowInstruction()
   await new Promise(resolve => {
     const onSpace = e => {
       if (e.key === ' ') {
@@ -3104,68 +2992,51 @@ export async function blindSpotTestNew(
     document.addEventListener('keydown', onSpace)
   })
 
-  // Per-eye snapshot storage
-  let rightSnapshot = null
-  let leftSnapshot = null
+  // Per-eye, per-edge snapshot storage
+  let rightNearSnapshot = null
+  let rightFarSnapshot = null
+  let leftNearSnapshot = null
+  let leftFarSnapshot = null
 
-  const doCenteringAndSnapshotForEye = async side => {
+  // Simplified function: one snapshot per edge (no centering loop, no radio buttons)
+  const doEdgeSnapshot = async (side, edge) => {
     resetEyeSide(side)
-    // Enable movement and show diamond from centering pages onwards
+    // Enable movement and show squares
     allowMove = true
     showDiamond = true
-    // Centering loop with radios
-    let i = 0
-    makeRadioUI()
-    radioContainer.style.display = 'block'
-    hintTextElement.style.display = 'block'
-    const setInstruction = () => {
-      if (side === 'right') {
-        setInstructionContent(
-          i === 0
-            ? phrases.RC_distanceTrackingRightEyeBlindspot1[RC.L]
-            : phrases.RC_distanceTrackingRightEyeBlindspot2[RC.L],
-          'left',
-        )
-        hintTextElement.innerHTML = replaceNewlinesWithBreaks(
-          i === 0
-            ? phrases['RC_Diamond-Hint1'][RC.L]
-            : phrases['RC_Diamond-Hint2'][RC.L],
-        )
-      } else {
-        setInstructionContent(
-          i === 0
-            ? phrases.RC_distanceTrackingLeftEyeBlindspot1[RC.L]
-            : phrases.RC_distanceTrackingLeftEyeBlindspot2[RC.L],
-          'right',
-        )
-        hintTextElement.innerHTML = replaceNewlinesWithBreaks(
-          i === 0
-            ? phrases['RC_Diamond-Hint1'][RC.L]
-            : phrases['RC_Diamond-Hint2'][RC.L],
-        )
-      }
-      // Re-position after updating content
-      positionRadioBelowInstruction()
+    // Set which edge we're testing
+    currentEdge = edge
+    
+    // Show slider for size adjustment during measurement pages
+    const sliderContainer = document.getElementById('blindspot-slider-container')
+    if (sliderContainer) sliderContainer.style.display = 'block'
+    
+    // Set instruction based on side and edge
+    // Placeholder phrases - actual phrases come from parent app
+    const instructionSide = side === 'right' ? 'left' : 'right'
+    if (side === 'right' && edge === 'near') {
+      setInstructionContent(
+        phrases.RC_distanceTrackingRightEyeBlindspotSquare1?.[RC.L] || 'RIGHT EYE: FIND NEAR EDGE OF BLINDSPOT',
+        instructionSide,
+      )
+    } else if (side === 'right' && edge === 'far') {
+      setInstructionContent(
+        phrases.RC_distanceTrackingRightEyeBlindspotSquare2?.[RC.L] || 'RIGHT EYE: FIND FAR EDGE OF BLINDSPOT',
+        instructionSide,
+      )
+    } else if (side === 'left' && edge === 'near') {
+      setInstructionContent(
+        phrases.RC_distanceTrackingLeftEyeBlindspotSquare1?.[RC.L] || 'LEFT EYE: FIND NEAR EDGE OF BLINDSPOT',
+        instructionSide,
+      )
+    } else if (side === 'left' && edge === 'far') {
+      setInstructionContent(
+        phrases.RC_distanceTrackingLeftEyeBlindspotSquare2?.[RC.L] || 'LEFT EYE: FIND FAR EDGE OF BLINDSPOT',
+        instructionSide,
+      )
     }
-    setInstruction()
+    
     return await new Promise((resolve, reject) => {
-      let hasEnteredSnapshotPage = false
-      const proceedToSnapshot = async () => {
-        if (hasEnteredSnapshotPage) return
-        hasEnteredSnapshotPage = true
-        // Snapshot page
-        radioContainer.style.display = 'none'
-        hintTextElement.style.display = 'none'
-        if (side === 'right')
-          setInstructionContent(
-            phrases.RC_distanceTrackingRightEyeBlindspot3[RC.L],
-            'left',
-          )
-        else
-          setInstructionContent(
-            phrases.RC_distanceTrackingLeftEyeBlindspot3[RC.L],
-            'right',
-          )
 
         // Wait for SPACE to take snapshot
         const onSpaceSnap = async e => {
@@ -3194,6 +3065,28 @@ export async function blindSpotTestNew(
             blindspotEccXDeg,
             blindspotEccYDeg,
           )
+          
+          // Calculate the actual spot position (shared border between red and green squares)
+          // This is the position we'll save in calibration JSON as spotXYPx
+          const rPx = calculateSpotRadiusPx(
+            spotDeg,
+            ppi,
+            blindspotEccXDeg,
+            circleX,
+            crossX,
+          )
+          const spotXYPx = calculateSpotXYPx(
+            circleX,
+            spotY,
+            currentEdge,
+            crossX,
+            rPx * 2,
+          )
+          
+          // IMPORTANT: Calculate fixationToSpot using the shared border (spotXYPx), not red center (circleX)
+          const fixationToSpotPx = Math.hypot(spotXYPx[0] - crossX, spotXYPx[1] - crossY)
+          const fixationToSpotCm = fixationToSpotPx / pxPerCm
+          
           // Collect Face Mesh samples (5)
           const samples = []
           const meshPoints = []
@@ -3267,9 +3160,6 @@ export async function blindSpotTestNew(
             return
           }
 
-          const fixationToSpotPx = Math.hypot(circleX - crossX, spotY - crossY)
-          const fixationToSpotCm = fixationToSpotPx / pxPerCm
-
           try {
             const eccDeg = Math.sqrt(
               options.calibrateTrackDistanceSpotXYDeg[0] ** 2 +
@@ -3286,27 +3176,66 @@ export async function blindSpotTestNew(
                 0,
                 'blindspot',
                 1,
-                [crossX, crossY],
-                [circleX, spotY],
+                [crossX, crossY], // fixPoint - fixation cross position
+                spotXYPx, // spotPoint - MUST be shared border, not red center
                 eccDeg,
                 fixationToSpotCm,
                 avgIPD,
               )
+            
+            // Calculate additional distances for new JSON fields
+            // These are 3D distances from eye to points on screen (using Pythagorean theorem)
+            // nearestXYPx = foot of perpendicular from eye to screen (2D on-screen position)
+            // nearestDistanceCm = perpendicular distance from eye to screen
+            
+            // Distance on screen from eye foot to fixation (2D)
+            const footToFixationPx = Math.hypot(
+              nearestPointsData.nearestXYPx[0] - crossX,
+              nearestPointsData.nearestXYPx[1] - crossY
+            )
+            const footToFixationCm = footToFixationPx / pxPerCm
+            // 3D distance from eye to fixation = √(perpendicular² + on-screen²)
+            const eyesToFixationCm = Math.sqrt(
+              nearestPointsData.nearestDistanceCm ** 2 + footToFixationCm ** 2
+            )
+            
+            // Distance on screen from eye foot to spot (2D)
+            const footToSpotPx = Math.hypot(
+              nearestPointsData.nearestXYPx[0] - spotXYPx[0],
+              nearestPointsData.nearestXYPx[1] - spotXYPx[1]
+            )
+            const footToSpotCm = footToSpotPx / pxPerCm
+            // 3D distance from eye to spot = √(perpendicular² + on-screen²)
+            const eyesToSpotCm = Math.sqrt(
+              nearestPointsData.nearestDistanceCm ** 2 + footToSpotCm ** 2
+            )
+            
             const measurement = createMeasurementObject(
-              side === 'right' ? 'right-eye' : 'left-eye',
+              `${side}-eye-${edge}-edge`, // e.g., 'right-eye-near-edge'
               nearestPointsData.distanceCm,
               nearestPointsData.calibrationFactor,
               nearestPointsData,
               currentIPDDistance,
               avgIPD,
             )
+            
+            // Add new fields to measurement
+            measurement.spotXYPx = spotXYPx
+            measurement.fixationXYPx = [crossX, crossY]
+            measurement.spotToFixationCm = fixationToSpotCm
+            measurement.eyesToFixationCm = eyesToFixationCm
+            measurement.eyesToSpotCm = eyesToSpotCm
+            measurement.calibrateTrackDistanceBlindspotXYDeg = options.calibrateTrackDistanceSpotXYDeg
+            
             saveCalibrationMeasurements(RC, 'blindspot', [measurement], spotDeg)
             const snapshot = {
               eye: side,
+              edge: edge,
               distanceCm: nearestPointsData.distanceCm,
               avgIPD,
               calibrationFactor: nearestPointsData.calibrationFactor,
               samples,
+              spotXYPx, // Include the spot position (shared border)
             }
             resolve(snapshot)
           } catch (e) {
@@ -3325,127 +3254,60 @@ export async function blindSpotTestNew(
           }
         }
         document.addEventListener('keydown', onSpaceSnap)
-      }
-
-      const handleRadio = saw => {
-        if (saw === 'twoTips') {
-          proceedToSnapshot()
-          return
-        }
-
-        let scale = 1
-        if (saw === 'none' || saw === 'oneTip') {
-          scale = 1.6
-        } else if (saw === 'wholeDiamond') {
-          scale = 0.8
-        } else {
-          return // Unknown option
-        }
-
-        // Apply same bounds checking as arrow keys (but don't shift here - let animation loop handle it)
-        if (scale > 1) {
-          // Calculate what the new size would be
-          const newSpotDeg = Math.max(minDeg, Math.min(maxDeg, spotDeg * scale))
-
-          // If size would actually increase
-          if (newSpotDeg > spotDeg) {
-            // Calculate new diamond size
-            const newRPx = calculateSpotRadiusPx(
-              newSpotDeg,
-              ppi,
-              blindspotEccXDeg,
-              circleX,
-              crossX,
-            )
-            const newDiamondHalfWidth = newRPx
-            const newDiamondLeftEdge = circleX - newDiamondHalfWidth
-            const newDiamondRightEdge = circleX + newDiamondHalfWidth
-
-            // Check if diamond would go off screen with new size
-            const diamondNeedsShift =
-              newDiamondLeftEdge < 0 || newDiamondRightEdge > c.width
-
-            if (diamondNeedsShift) {
-              // Calculate required shift
-              let requiredShift = 0
-              if (newDiamondLeftEdge < 0) {
-                requiredShift = -newDiamondLeftEdge
-              } else if (newDiamondRightEdge > c.width) {
-                requiredShift = c.width - newDiamondRightEdge
-              }
-
-              // Check if video can shift
-              const vCont = document.getElementById('webgazerVideoContainer')
-              const videoWidth = vCont
-                ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
-                : 0
-              const videoHalfWidth = videoWidth / 2
-              const newCrossX = crossX + requiredShift
-              const videoLeftEdge = newCrossX - videoHalfWidth
-              const videoRightEdge = newCrossX + videoHalfWidth
-
-              // If video would go off screen, block the size increase
-              if (videoLeftEdge < 0 || videoRightEdge > c.width) {
-                // Can't increase size while maintaining eccentricity
-                return
-              }
-            }
-          }
-        }
-
-        // Safe to adjust size (same as adjustSpot)
-        spotDeg = Math.max(minDeg, Math.min(maxDeg, spotDeg * scale))
-        const currentValue = parseFloat(slider.value)
-        const newValue = Math.max(
-          0,
-          Math.min(
-            1,
-            currentValue + Math.log10(scale) / Math.log10(maxDeg / minDeg),
-          ),
-        )
-        slider.value = newValue.toFixed(3)
-        
-        i += 1
-        setInstruction()
-      }
-      // expose handler within scope
-      window.__bs_handleRadio = handleRadio
     })
   }
 
-  // Wire radio clicks to handler
-  const handleRadio = v => {
-    if (typeof window.__bs_handleRadio === 'function')
-      window.__bs_handleRadio(v)
-  }
-
-  // Reposition radios on resize
-  const onResize = () => positionRadioBelowInstruction()
-  window.addEventListener('resize', onResize)
-
-  // Right then Left with restart on failure
+  // 4-page sequence: right-near, right-far, left-near, left-far
+  // Restart from beginning if any page fails
   while (true) {
     try {
-      rightSnapshot = await doCenteringAndSnapshotForEye('right')
-      leftSnapshot = await doCenteringAndSnapshotForEye('left')
+      rightNearSnapshot = await doEdgeSnapshot('right', 'near')
+      rightFarSnapshot = await doEdgeSnapshot('right', 'far')
+      leftNearSnapshot = await doEdgeSnapshot('left', 'near')
+      leftFarSnapshot = await doEdgeSnapshot('left', 'far')
       break
     } catch (e) {
-      // Restart sequence from the first eye
+      // Restart sequence from the first page
+      console.log('Error during edge snapshot, restarting:', e)
       continue
     }
   }
 
-  // Tolerance between factors from two eyes
-  const F1 = rightSnapshot.calibrationFactor
-  const F2 = leftSnapshot.calibrationFactor
-  const maxRatio = Math.max(F1 / F2, F2 / F1)
+  // Calculate geometric mean factor for each eye (from near and far edges)
+  const rightEyeFactor = Math.sqrt(
+    rightNearSnapshot.calibrationFactor * rightFarSnapshot.calibrationFactor
+  )
+  const leftEyeFactor = Math.sqrt(
+    leftNearSnapshot.calibrationFactor * leftFarSnapshot.calibrationFactor
+  )
+  
+  console.log('=== Per-Eye Geometric Mean Factors ===')
+  console.log('Right near factor:', rightNearSnapshot.calibrationFactor)
+  console.log('Right far factor:', rightFarSnapshot.calibrationFactor)
+  console.log('Right eye geometric mean:', rightEyeFactor)
+  console.log('Left near factor:', leftNearSnapshot.calibrationFactor)
+  console.log('Left far factor:', leftFarSnapshot.calibrationFactor)
+  console.log('Left eye geometric mean:', leftEyeFactor)
+  
+  // Tolerance between factors from two eyes (using geometric means)
+  const maxRatio = Math.max(rightEyeFactor / leftEyeFactor, leftEyeFactor / rightEyeFactor)
   const maxAllowedRatio = Math.max(
     options.calibrateTrackDistanceAllowedRatio || 1.1,
     1 / (options.calibrateTrackDistanceAllowedRatio || 1.1),
   )
 
-  const min = Math.min(rightSnapshot.distanceCm, leftSnapshot.distanceCm)
-  const max = Math.max(rightSnapshot.distanceCm, leftSnapshot.distanceCm)
+  const min = Math.min(
+    rightNearSnapshot.distanceCm,
+    rightFarSnapshot.distanceCm,
+    leftNearSnapshot.distanceCm,
+    leftFarSnapshot.distanceCm
+  )
+  const max = Math.max(
+    rightNearSnapshot.distanceCm,
+    rightFarSnapshot.distanceCm,
+    leftNearSnapshot.distanceCm,
+    leftFarSnapshot.distanceCm
+  )
   const RMin = Array.isArray(options.calibrateTrackDistanceAllowedRangeCm)
     ? options.calibrateTrackDistanceAllowedRangeCm[0]
     : -Infinity
@@ -3486,17 +3348,22 @@ export async function blindSpotTestNew(
 
   // Success → finalize data
   const allValid = [
-    ...rightSnapshot.samples.filter(s => !isNaN(s)),
-    ...leftSnapshot.samples.filter(s => !isNaN(s)),
+    ...rightNearSnapshot.samples.filter(s => !isNaN(s)),
+    ...rightFarSnapshot.samples.filter(s => !isNaN(s)),
+    ...leftNearSnapshot.samples.filter(s => !isNaN(s)),
+    ...leftFarSnapshot.samples.filter(s => !isNaN(s)),
   ]
   const averageFaceMesh = allValid.length
     ? allValid.reduce((a, b) => a + b, 0) / allValid.length
     : 0
   const eyeToCameraCmMedian = median([
-    rightSnapshot.distanceCm,
-    leftSnapshot.distanceCm,
+    rightNearSnapshot.distanceCm,
+    rightFarSnapshot.distanceCm,
+    leftNearSnapshot.distanceCm,
+    leftFarSnapshot.distanceCm,
   ])
-  const calibrationFactor = Math.round(averageFaceMesh * eyeToCameraCmMedian)
+  // Overall calibration factor: geometric mean of left and right eye factors
+  const calibrationFactor = Math.round(Math.sqrt(rightEyeFactor * leftEyeFactor))
 
   const data = {
     value: toFixedNumber(eyeToCameraCmMedian, options.decimalPlace || 1),
@@ -3504,8 +3371,14 @@ export async function blindSpotTestNew(
     method: RC._CONST.VIEW_METHOD.B,
     calibrationFactor,
     averageFaceMesh,
-    faceMeshSamplesLeft: leftSnapshot.samples,
-    faceMeshSamplesRight: rightSnapshot.samples,
+    // Store all 4 edge measurements
+    faceMeshSamplesRightNear: rightNearSnapshot.samples,
+    faceMeshSamplesRightFar: rightFarSnapshot.samples,
+    faceMeshSamplesLeftNear: leftNearSnapshot.samples,
+    faceMeshSamplesLeftFar: leftFarSnapshot.samples,
+    // Store per-eye geometric mean factors
+    rightEyeFactor,
+    leftEyeFactor,
   }
 
   RC.newViewingDistanceData = data
@@ -3531,11 +3404,6 @@ export async function blindSpotTestNew(
     inTest = false
     resizeObserver.unobserve(RC.background)
     document.removeEventListener('keydown', keyHandler)
-    if (radioContainer && radioContainer.parentNode)
-      radioContainer.parentNode.removeChild(radioContainer)
-    if (hintTextElement && hintTextElement.parentNode)
-      hintTextElement.parentNode.removeChild(hintTextElement)
-    window.removeEventListener('resize', onResize)
     const blindOverlay = document.getElementById('blindspot-wrapper')
     if (blindOverlay && blindOverlay.parentNode) {
       try {

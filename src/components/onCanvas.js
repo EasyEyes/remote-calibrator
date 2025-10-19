@@ -115,6 +115,60 @@ export function _diamond(
   ctx.fill()
 }
 
+// RED-GREEN SQUARES (for edge-based blindspot test)
+// x, y represent the center of the red square (NOT the shared border)
+// greenSide: 'near' (toward fixation) or 'far' (away from fixation)
+// fixationX: x position of fixation cross to determine near/far direction
+export function _redGreenSquares(
+  RC,
+  ctx,
+  x,
+  y,
+  frameTimestampDelta,
+  sparkle = true,
+  squareSize = circleR,
+  greenSide = 'near',
+  fixationX = 0,
+) {
+  const halfSize = squareSize / 2
+
+  // Determine green square offset direction
+  // 'near' means green is between red and fixation (toward fixation)
+  // 'far' means green is on opposite side from fixation (away from fixation)
+  let greenOffsetX = 0
+  if (greenSide === 'near') {
+    // Green square toward fixation
+    greenOffsetX = fixationX < x ? -squareSize : squareSize
+  } else {
+    // Green square away from fixation
+    greenOffsetX = fixationX < x ? squareSize : -squareSize
+  }
+
+  const greenX = x + greenOffsetX
+
+  // Draw green square (steady, no flickering)
+  ctx.fillStyle = '#00FF00' // Bright green
+  ctx.fillRect(greenX - halfSize, y - halfSize, squareSize, squareSize)
+
+  // Draw red square (flickering at 8Hz)
+  if (!sparkle) {
+    ctx.fillStyle = '#ac0d0d' // Dark red
+  } else {
+    // 8Hz flicker
+    if (frameTimestampDelta % 125 < 63) {
+      ctx.fillStyle = '#ac0d0d' // Dark red
+    } else {
+      ctx.fillStyle = '#ffffff' // White
+    }
+  }
+  ctx.fillRect(x - halfSize, y - halfSize, squareSize, squareSize)
+
+  // Return the position of the shared border (middle of red-green edge)
+  // This is the reported spotXYPx position
+  const sharedBorderX = x + greenOffsetX / 2
+  return { x: sharedBorderX, y: y }
+}
+
 /* ---------------------------------- Drag ---------------------------------- */
 
 export function clickOnCircle(x, y, mouseX, mouseY, radius = circleR >> 1) {
@@ -127,6 +181,45 @@ export function clickOnDiamond(x, y, mouseX, mouseY, width = circleR) {
   const dx = Math.abs(mouseX - x)
   const dy = Math.abs(mouseY - y)
   return dx + dy <= halfWidth
+}
+
+export function clickOnRedGreenSquares(
+  x,
+  y,
+  mouseX,
+  mouseY,
+  squareSize = circleR,
+  greenSide = 'near',
+  fixationX = 0,
+) {
+  // x, y is the center of the red square
+  const halfSize = squareSize / 2
+
+  // Determine green square offset
+  let greenOffsetX = 0
+  if (greenSide === 'near') {
+    greenOffsetX = fixationX < x ? -squareSize : squareSize
+  } else {
+    greenOffsetX = fixationX < x ? squareSize : -squareSize
+  }
+
+  const greenX = x + greenOffsetX
+
+  // Check if click is in red square
+  const inRedSquare =
+    mouseX >= x - halfSize &&
+    mouseX <= x + halfSize &&
+    mouseY >= y - halfSize &&
+    mouseY <= y + halfSize
+
+  // Check if click is in green square
+  const inGreenSquare =
+    mouseX >= greenX - halfSize &&
+    mouseX <= greenX + halfSize &&
+    mouseY >= y - halfSize &&
+    mouseY <= y + halfSize
+
+  return inRedSquare || inGreenSquare
 }
 
 export function bindMousedown(canvasId, callback) {
