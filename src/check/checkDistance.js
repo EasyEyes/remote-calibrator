@@ -298,27 +298,34 @@ const validateFaceMeshSamples = async (
         }
 
         if (ipdData.eyeToCameraCm && !isNaN(ipdData.eyeToCameraCm)) {
-          eyeToCameraCm = ipdData.eyeToCameraCm
+          eyeToCameraCm = ipdData.eyeToCameraCm.toFixed(1)
         }
 
         if (ipdData.eyeToCenterCm && !isNaN(ipdData.eyeToCenterCm)) {
-          eyeToCenterCm = ipdData.eyeToCenterCm
+          eyeToCenterCm = ipdData.eyeToCenterCm.toFixed(1)
         }
 
         if (ipdData.footToCameraCm && !isNaN(ipdData.footToCameraCm)) {
-          footToCameraCm = ipdData.footToCameraCm
+          footToCameraCm = ipdData.footToCameraCm.toFixed(1)
         }
 
         if (ipdData.footToCenterCm && !isNaN(ipdData.footToCenterCm)) {
-          footToCenterCm = ipdData.footToCenterCm
+          footToCenterCm = ipdData.footToCenterCm.toFixed(1)
         }
 
         if (ipdData.calibrationFactor && !isNaN(ipdData.calibrationFactor)) {
-          calibrationFactor = ipdData.calibrationFactor
+          calibrationFactor = ipdData.calibrationFactor.toFixed(0)
         }
 
-        if (ipdData.footXYPx && !isNaN(ipdData.footXYPx)) {
-          footXYPx = ipdData.footXYPx
+        if (
+          ipdData.footXYPx &&
+          !isNaN(ipdData.footXYPx[0]) &&
+          !isNaN(ipdData.footXYPx[1])
+        ) {
+          footXYPx = [
+            ipdData.footXYPx[0].toFixed(0),
+            ipdData.footXYPx[1].toFixed(0),
+          ]
         }
       } else {
         samples.push(NaN)
@@ -1778,8 +1785,14 @@ const trackDistanceCheck = async (
                 footToCameraCm: faceValidation.footToCameraCm,
                 footToCenterCm: faceValidation.footToCenterCm,
                 ipdCameraPx: faceValidation.ipdCameraPx,
-                rightEyeFeetXYPx: faceValidation.nearestXYPx_right,
-                leftEyeFeetXYPx: faceValidation.nearestXYPx_left,
+                rightEyeFeetXYPx: [
+                  faceValidation.nearestXYPx_right[0].toFixed(0),
+                  faceValidation.nearestXYPx_right[1].toFixed(0),
+                ],
+                leftEyeFeetXYPx: [
+                  faceValidation.nearestXYPx_left[0].toFixed(0),
+                  faceValidation.nearestXYPx_left[1].toFixed(0),
+                ],
                 footXYPx: faceValidation.footXYPx,
                 measuredFactorCameraPxCm: faceValidation.calibrationFactor,
               })
@@ -1931,8 +1944,14 @@ const trackDistanceCheck = async (
                   footToCameraCm: faceValidation.footToCameraCm,
                   footToCenterCm: faceValidation.footToCenterCm,
                   ipdCameraPx: faceValidation.ipdCameraPx,
-                  rightEyeFeetXYPx: faceValidation.nearestXYPx_right,
-                  leftEyeFeetXYPx: faceValidation.nearestXYPx_left,
+                  rightEyeFeetXYPx: [
+                    faceValidation.nearestXYPx_right[0].toFixed(0),
+                    faceValidation.nearestXYPx_right[1].toFixed(0),
+                  ],
+                  leftEyeFeetXYPx: [
+                    faceValidation.nearestXYPx_left[0].toFixed(0),
+                    faceValidation.nearestXYPx_left[1].toFixed(0),
+                  ],
                   footXYPx: faceValidation.footXYPx,
                   measuredFactorCameraPxCm: faceValidation.calibrationFactor,
                 })

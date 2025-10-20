@@ -1058,8 +1058,8 @@ export const calculateNearestPoints = (
 
   const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2]
   const avgFootXYPx = [
-    (nearestXYPx_right[0] + nearestXYPx_left) / 2,
-    (nearestXYPx_right[1] + nearestXYPx_left) / 2,
+    (nearestXYPx_right[0] + nearestXYPx_left[0]) / 2,
+    (nearestXYPx_right[1] + nearestXYPx_left[1]) / 2,
   ]
   const footXYPx = distanceCheck
     ? avgFootXYPx
