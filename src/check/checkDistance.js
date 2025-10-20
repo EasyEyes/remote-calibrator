@@ -270,6 +270,7 @@ const validateFaceMeshSamples = async (
   let footToCenterCm = null
   let calibrationFactor = null
   let footXYPx = null
+  let ipdPixels = null
 
   // Collect exactly 5 samples, using NaN for failed measurements
   for (let i = 0; i < 5; i++) {
@@ -327,6 +328,10 @@ const validateFaceMeshSamples = async (
             ipdData.footXYPx[1].toFixed(0),
           ]
         }
+
+        if (ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
+          ipdPixels = ipdData.ipdPixels
+        }
       } else {
         samples.push(NaN)
         console.warn(`Face Mesh measurement ${i + 1} failed, storing NaN`)
@@ -362,6 +367,7 @@ const validateFaceMeshSamples = async (
     footToCenterCm,
     calibrationFactor,
     footXYPx,
+    ipdPixels,
   }
 }
 
@@ -491,6 +497,7 @@ const captureIPDFromFaceMesh = async (
       footToCameraCm,
       footToCenterCm,
       calibrationFactor,
+      footXYPx,
     } = nearestPoints
 
     return {
@@ -508,6 +515,7 @@ const captureIPDFromFaceMesh = async (
       footToCameraCm,
       footToCenterCm,
       calibrationFactor,
+      footXYPx,
     }
   } catch (error) {
     console.error('Error capturing IPD from face mesh:', error)
@@ -1556,6 +1564,8 @@ const trackDistanceCheck = async (
     const pxPerCm = ppi / 2.54
 
     RC.distanceCheckJSON = {
+      _calibrateTrackDistanceCheckPoint: 'camera',
+      pointXYPx: [window.innerWidth / 2, 0],
       cameraXYPx: [window.innerWidth / 2, 0],
       centerXYPx: [window.innerWidth / 2, window.innerHeight / 2],
       pxPerCm: pxPerCm,
@@ -1780,11 +1790,18 @@ const trackDistanceCheck = async (
                 ),
               )
               RC.distanceCheckJSON.distanceChecks.push({
+                requestedEyesToPointCm: Number(
+                  RC.equipment?.value?.unit === 'inches'
+                    ? (cm * 2.54).toFixed(1)
+                    : cm.toFixed(1),
+                ),
                 eyesToCameraCm: faceValidation.eyeToCameraCm,
+                eyesToPointCm: faceValidation.eyeToCameraCm,
                 eyesToCenterCm: faceValidation.eyeToCenterCm,
                 footToCameraCm: faceValidation.footToCameraCm,
                 footToCenterCm: faceValidation.footToCenterCm,
-                ipdCameraPx: faceValidation.ipdCameraPx,
+                footToPointCm: faceValidation.footToCameraCm,
+                ipdCameraPx: faceValidation.ipdPixels,
                 rightEyeFeetXYPx: [
                   faceValidation.nearestXYPx_right[0].toFixed(0),
                   faceValidation.nearestXYPx_right[1].toFixed(0),
@@ -1939,11 +1956,18 @@ const trackDistanceCheck = async (
                 )
 
                 RC.distanceCheckJSON.distanceChecks.push({
+                  requestedEyesToPointCm: Number(
+                    RC.equipment?.value?.unit === 'inches'
+                      ? (cm * 2.54).toFixed(1)
+                      : cm.toFixed(1),
+                  ),
                   eyesToCameraCm: faceValidation.eyeToCameraCm,
+                  eyesToPointCm: faceValidation.eyeToCameraCm,
                   eyesToCenterCm: faceValidation.eyeToCenterCm,
                   footToCameraCm: faceValidation.footToCameraCm,
                   footToCenterCm: faceValidation.footToCenterCm,
-                  ipdCameraPx: faceValidation.ipdCameraPx,
+                  footToPointCm: faceValidation.footToCameraCm,
+                  ipdCameraPx: faceValidation.ipdPixels,
                   rightEyeFeetXYPx: [
                     faceValidation.nearestXYPx_right[0].toFixed(0),
                     faceValidation.nearestXYPx_right[1].toFixed(0),

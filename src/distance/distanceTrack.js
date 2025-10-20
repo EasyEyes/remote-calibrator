@@ -1028,34 +1028,6 @@ export const calculateNearestPoints = (
     pxPerCm,
     currentIPDDistance,
   )
-
-  let eyeToFootCm = 0
-  if (webcamToEyeDistance === 0) {
-    try {
-      const { d_cm, d_px } = solveEyeToScreenCm(
-        order === 1 ? nearestXYPx_right : nearestXYPx_left,
-        fixPoint,
-        spotPoint,
-        blindspotDeg,
-        pxPerCm,
-      )
-      eyeToFootCm = d_cm
-      // TEMP: use _getEyeToCameraCm instead of solveEyeToScreenCm
-      // eyeToFootCm = _getEyeToCameraCm(
-      //   fixationToSpotCm,
-      //   options.calibrateTrackDistanceSpotXYDeg,
-      // )
-    } catch (e) {
-      // eyeToFootCm = _getEyeToCameraCm(
-      //   fixationToSpotCm,
-      //   options.calibrateTrackDistanceSpotXYDeg,
-      // )
-      throw new Error(e)
-    }
-  } else {
-    eyeToFootCm = webcamToEyeDistance
-  }
-
   const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2]
   const avgFootXYPx = [
     (nearestXYPx_right[0] + nearestXYPx_left[0]) / 2,
@@ -1077,12 +1049,48 @@ export const calculateNearestPoints = (
   const footToCameraCm =
     Math.hypot(cameraXYPx[0] - footXYPx[0], cameraXYPx[1] - footXYPx[1]) /
     pxPerCm
-  const eyeToCameraCm = Math.hypot(footToCameraCm, eyeToFootCm)
+
+  let eyeToFootCm = 0
+  let eyeToCameraCm = 0
+  let calibrationFactor = 0
+  if (webcamToEyeDistance === 0) {
+    try {
+      const { d_cm, d_px } = solveEyeToScreenCm(
+        order === 1 ? nearestXYPx_right : nearestXYPx_left,
+        fixPoint,
+        spotPoint,
+        blindspotDeg,
+        pxPerCm,
+      )
+      eyeToFootCm = d_cm
+      eyeToCameraCm = Math.hypot(footToCameraCm, eyeToFootCm)
+      calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
+      // TEMP: use _getEyeToCameraCm instead of solveEyeToScreenCm
+      // eyeToFootCm = _getEyeToCameraCm(
+      //   fixationToSpotCm,
+      //   options.calibrateTrackDistanceSpotXYDeg,
+      // )
+    } catch (e) {
+      // eyeToFootCm = _getEyeToCameraCm(
+      //   fixationToSpotCm,
+      //   options.calibrateTrackDistanceSpotXYDeg,
+      // )
+      throw new Error(e)
+    }
+  } else {
+    // eyeToFootCm = webcamToEyeDistance
+    eyeToCameraCm = webcamToEyeDistance // until _calibrateTrackDistanceCheckPoint is implemented?
+    eyeToFootCm = Math.sqrt(
+      eyeToCameraCm * eyeToCameraCm - footToCameraCm * footToCameraCm,
+    )
+    calibrationFactor
+  }
+
   const eyeToCenterCm = Math.sqrt(
-    eyeToFootCm * eyeToFootCm - footToCenterCm * footToCenterCm,
+    eyeToFootCm * eyeToFootCm + footToCenterCm * footToCenterCm,
   )
 
-  const calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
+  // const calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
 
   // Clamp coordinates to stay within viewport bounds
   const clampedNearestLeft = [
