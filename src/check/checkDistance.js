@@ -1789,6 +1789,23 @@ const trackDistanceCheck = async (
                     : cm.toFixed(1),
                 ),
               )
+              const requestedEyesToPointCm = Number(
+                RC.equipment?.value?.unit === 'inches'
+                  ? (cm * 2.54).toFixed(1)
+                  : cm.toFixed(1),
+              )
+              const requestedEyesToFootCm = Math.sqrt(
+                requestedEyesToPointCm * requestedEyesToPointCm -
+                  parseFloat(faceValidation.footToCameraCm) *
+                    parseFloat(faceValidation.footToCameraCm),
+              )
+              const requestedEyesToCameraCm = Math.sqrt(
+                requestedEyesToFootCm * requestedEyesToFootCm +
+                  parseFloat(faceValidation.footToCameraCm) *
+                    parseFloat(faceValidation.footToCameraCm),
+              )
+              const measuredFactorCameraPxCm =
+                requestedEyesToCameraCm * parseFloat(faceValidation.ipdPixels)
               RC.distanceCheckJSON.distanceChecks.push({
                 requestedEyesToPointCm: Number(
                   RC.equipment?.value?.unit === 'inches'
@@ -1811,7 +1828,7 @@ const trackDistanceCheck = async (
                   faceValidation.nearestXYPx_left[1].toFixed(0),
                 ],
                 footXYPx: faceValidation.footXYPx,
-                measuredFactorCameraPxCm: faceValidation.calibrationFactor,
+                measuredFactorCameraPxCm: measuredFactorCameraPxCm.toFixed(0),
               })
 
               // Clean up the captured image for privacy
@@ -1955,6 +1972,23 @@ const trackDistanceCheck = async (
                   ),
                 )
 
+                const requestedEyesToPointCm = Number(
+                  RC.equipment?.value?.unit === 'inches'
+                    ? (cm * 2.54).toFixed(1)
+                    : cm.toFixed(1),
+                )
+                const requestedEyesToFootCm = Math.sqrt(
+                  requestedEyesToPointCm * requestedEyesToPointCm -
+                    parseFloat(faceValidation.footToCameraCm) *
+                      parseFloat(faceValidation.footToCameraCm),
+                )
+                const requestedEyesToCameraCm = Math.sqrt(
+                  requestedEyesToFootCm * requestedEyesToFootCm +
+                    parseFloat(faceValidation.footToCameraCm) *
+                      parseFloat(faceValidation.footToCameraCm),
+                )
+                const measuredFactorCameraPxCm =
+                  requestedEyesToCameraCm * parseFloat(faceValidation.ipdPixels)
                 RC.distanceCheckJSON.distanceChecks.push({
                   requestedEyesToPointCm: Number(
                     RC.equipment?.value?.unit === 'inches'
@@ -1977,7 +2011,7 @@ const trackDistanceCheck = async (
                     faceValidation.nearestXYPx_left[1].toFixed(0),
                   ],
                   footXYPx: faceValidation.footXYPx,
-                  measuredFactorCameraPxCm: faceValidation.calibrationFactor,
+                  measuredFactorCameraPxCm: measuredFactorCameraPxCm.toFixed(0),
                 })
 
                 // Clean up the captured image for privacy

@@ -1052,7 +1052,6 @@ export const calculateNearestPoints = (
 
   let eyeToFootCm = 0
   let eyeToCameraCm = 0
-  let calibrationFactor = 0
   if (webcamToEyeDistance === 0) {
     try {
       const { d_cm, d_px } = solveEyeToScreenCm(
@@ -1064,7 +1063,6 @@ export const calculateNearestPoints = (
       )
       eyeToFootCm = d_cm
       eyeToCameraCm = Math.hypot(footToCameraCm, eyeToFootCm)
-      calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
       // TEMP: use _getEyeToCameraCm instead of solveEyeToScreenCm
       // eyeToFootCm = _getEyeToCameraCm(
       //   fixationToSpotCm,
@@ -1083,14 +1081,13 @@ export const calculateNearestPoints = (
     eyeToFootCm = Math.sqrt(
       eyeToCameraCm * eyeToCameraCm - footToCameraCm * footToCameraCm,
     )
-    calibrationFactor
   }
 
   const eyeToCenterCm = Math.sqrt(
     eyeToFootCm * eyeToFootCm + footToCenterCm * footToCenterCm,
   )
 
-  // const calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
+  const calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
 
   // Clamp coordinates to stay within viewport bounds
   const clampedNearestLeft = [
