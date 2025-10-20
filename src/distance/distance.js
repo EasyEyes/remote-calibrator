@@ -1449,6 +1449,7 @@ export async function blindSpotTest(
             options.calibrateTrackDistanceCheckLengthCm,
             options.calibrateTrackDistanceCenterYourEyesBool,
             options.calibrateTrackDistancePupil,
+            options.calibrateTrackDistanceChecking,
           )
         else safeExecuteFunc(callback, data)
       } else {
@@ -2214,11 +2215,22 @@ export async function blindSpotTestNew(
   const blindSpotDiv = document.createElement('div')
   blindSpotDiv.innerHTML = blindSpotHTML
   document.body.appendChild(blindSpotDiv)
+  
+  // Determine which instruction to show based on calibrateTrackDistanceChecking option
+  const checkingOptions = options.calibrateTrackDistanceChecking
+  const shouldShowTiltAndSwivel = checkingOptions && 
+    typeof checkingOptions === 'string' && 
+    checkingOptions.toLowerCase().split(',').map(s => s.trim()).includes('tiltandswivel')
+  
+  const instructionText = shouldShowTiltAndSwivel
+    ? (phrases.RC_distanceTrackingBlindspotGetReadyTiltAndSwivel?.[RC.L] || 
+       'Get ready. When you press SPACE, we will measure your viewing distance.')
+    : (phrases.RC_distanceTrackingBlindspotGetReady?.[RC.L] || 
+       'Get ready. When you press SPACE, we will measure your viewing distance.')
+  
   RC._constructFloatInstructionElement(
     'blind-spot-instruction',
-    phrases.RC_distanceTrackingBlindspotGetReadyTiltAndSwivel?.[RC.L] || 
-    phrases.RC_distanceTrackingBlindspotGetReady?.[RC.L] || 
-    'Get ready. When you press SPACE, we will measure your viewing distance.',
+    instructionText,
   )
   // Position instruction like old flow
   RC._setFloatInstructionElementPos('left', 16)
@@ -2970,8 +2982,13 @@ export async function blindSpotTestNew(
   allowMove = false
   _alignVideoToSide('center')
   // Also update the instruction placement on the right for the prep page
+  const prepInstructionText = shouldShowTiltAndSwivel
+    ? (phrases.RC_distanceTrackingBlindspotGetReadyTiltAndSwivel?.[RC.L] || 
+       'Get ready. When you press SPACE, we will measure your viewing distance.')
+    : (phrases.RC_distanceTrackingBlindspotGetReady?.[RC.L] || 
+       'Get ready. When you press SPACE, we will measure your viewing distance.')
   setInstructionContent(
-    phrases.RC_distanceTrackingBlindspotGetReady[RC.L],
+    prepInstructionText,
     'left',
   )
   // Re-align after layout settles
@@ -2999,8 +3016,62 @@ export async function blindSpotTestNew(
   let leftFarSnapshot = null
 
   // Simplified function: one snapshot per edge (no centering loop, no radio buttons)
-  const doEdgeSnapshot = async (side, edge) => {
+  const doEdgeSnapshot = async (side, edge, nearEdgeSpotXYPx = null, nearEdgeDistanceCm = null) => {
     resetEyeSide(side)
+    
+    // If this is a far edge and we have the near edge position, initialize 12° farther from fixation
+    if (edge === 'far' && nearEdgeSpotXYPx) {
+      // Calculate 12° offset in cm at current viewing distance
+      // Use actual measured distance from near edge if available, otherwise assume 60cm
+      const measuredDistanceCm = nearEdgeDistanceCm || 60
+      const offsetDeg = 12
+      const offsetCm = measuredDistanceCm * Math.tan((offsetDeg * Math.PI) / 180)
+      const offsetPx = offsetCm * pxPerCm
+      
+      // Move the shared border 12° farther from fixation
+      // Determine direction: away from fixation means away from crossX
+      const nearEdgeX = nearEdgeSpotXYPx[0]
+      const directionAwayFromFixation = nearEdgeX > crossX ? 1 : -1
+      const newSharedBorderX = nearEdgeX + directionAwayFromFixation * offsetPx
+      
+      // Back-calculate circleX from desired shared border position
+      // From calculateSpotXYPx: sharedBorderX = circleX + greenOffsetX / 2
+      // Therefore: circleX = sharedBorderX - greenOffsetX / 2
+      const rPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, centerX, crossX)
+      const squareSize = rPx * 2
+      
+      // For 'far' edge, green is AWAY from fixation
+      // If near edge is right of fixation (nearEdgeX > crossX):
+      //   - Far edge is even farther right
+      //   - fixationX < circleX will be TRUE
+      //   - greenOffsetX = squareSize (green RIGHT of red)
+      // If near edge is left of fixation (nearEdgeX < crossX):
+      //   - Far edge is even farther left  
+      //   - fixationX > circleX will be TRUE
+      //   - greenOffsetX = -squareSize (green LEFT of red)
+      const greenOffsetX = directionAwayFromFixation > 0 ? squareSize : -squareSize
+      const newCircleX = newSharedBorderX - greenOffsetX / 2
+      
+      // Constrain to bounds to ensure it stays on screen
+      const boundsSide = side === 'right' ? 'left' : 'right'
+      const bounds = _getDiamondBounds(boundsSide, centerX, c.width, squareSize, ppi)
+      circleX = Math.max(bounds[0], Math.min(bounds[1], newCircleX))
+      
+      // Update crossX to mirror across camera line
+      crossX = 2 * centerX - circleX
+      _positionVideoBelowFixation()
+      
+      console.log('=== Far Edge Initial Position (12° offset) ===')
+      console.log('Near edge position:', nearEdgeX.toFixed(1), 'px')
+      console.log('Measured distance:', measuredDistanceCm.toFixed(1), 'cm')
+      console.log('12° offset:', offsetCm.toFixed(1), 'cm =', offsetPx.toFixed(1), 'px')
+      console.log('Target shared border:', newSharedBorderX.toFixed(1), 'px')
+      console.log('Calculated red center:', circleX.toFixed(1), 'px')
+      console.log('Green offset:', greenOffsetX > 0 ? '+' : '', greenOffsetX.toFixed(1), 'px')
+      console.log('Fixation X:', crossX.toFixed(1), 'px')
+      console.log('===========================================')
+    }
+    
     // Enable movement and show squares
     allowMove = true
     showDiamond = true
@@ -3262,9 +3333,12 @@ export async function blindSpotTestNew(
   while (true) {
     try {
       rightNearSnapshot = await doEdgeSnapshot('right', 'near')
-      rightFarSnapshot = await doEdgeSnapshot('right', 'far')
+      // Initialize far edge 12° farther from fixation than near edge
+      // Pass both position and distance for accurate calculation
+      rightFarSnapshot = await doEdgeSnapshot('right', 'far', rightNearSnapshot.spotXYPx, rightNearSnapshot.distanceCm)
       leftNearSnapshot = await doEdgeSnapshot('left', 'near')
-      leftFarSnapshot = await doEdgeSnapshot('left', 'far')
+      // Initialize far edge 12° farther from fixation than near edge
+      leftFarSnapshot = await doEdgeSnapshot('left', 'far', leftNearSnapshot.spotXYPx, leftNearSnapshot.distanceCm)
       break
     } catch (e) {
       // Restart sequence from the first page
@@ -3397,6 +3471,7 @@ export async function blindSpotTestNew(
       options.calibrateTrackDistanceCheckLengthCm,
       options.calibrateTrackDistanceCenterYourEyesBool,
       options.calibrateTrackDistancePupil,
+      options.calibrateTrackDistanceChecking,
     )
   else safeExecuteFunc(callback, data)
 
@@ -5101,6 +5176,7 @@ export async function objectTest(RC, options, callback = undefined) {
               options.calibrateTrackDistanceCheckLengthCm,
               options.calibrateTrackDistanceCenterYourEyesBool,
               options.calibrateTrackDistancePupil,
+              options.calibrateTrackDistanceChecking,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -5127,6 +5203,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateTrackDistanceCheckLengthCm,
           options.calibrateTrackDistanceCenterYourEyesBool,
           options.calibrateTrackDistancePupil,
+          options.calibrateTrackDistanceChecking,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================

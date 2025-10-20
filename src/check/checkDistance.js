@@ -468,6 +468,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateTrackDistanceCheckLengthCm = [],
   calibrateTrackDistanceCenterYourEyesBool = true,
   calibrateTrackDistancePupil = 'iris',
+  calibrateTrackDistanceChecking = undefined,
 ) {
   await this.getEquipment(
     async () => {
@@ -483,6 +484,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateTrackDistanceCheckLengthCm,
         calibrateTrackDistanceCenterYourEyesBool,
         calibrateTrackDistancePupil,
+        calibrateTrackDistanceChecking,
       )
     },
     false,
@@ -981,7 +983,7 @@ const updateLengthDisplayDiv = (length, units) => {
 const soundModule = require('../components/sound')
 const stampOfApprovalSound = soundModule.stampOfApprovalSound
 
-const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
+const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = [], calibrateTrackDistanceChecking = undefined) => {
   // Hide video during checkSize (yellow tape measurement)
   RC.showVideo(false)
   
@@ -1201,10 +1203,24 @@ const checkSize = async (RC, calibrateTrackDistanceCheckLengthCm = []) => {
   // Show video again after checkSize completes
   RC.showVideo(true)
 
-  // Position video properly
+  // Position video properly based on calibrateTrackDistanceChecking option
   const videoContainer = document.getElementById('webgazerVideoContainer')
   if (videoContainer) {
-    setDefaultVideoPosition(RC, videoContainer)
+    // Check if option includes "camera" - if so, don't reposition (keep camera position)
+    const checkingOptions = calibrateTrackDistanceChecking
+    let shouldPositionAtCamera = false
+    
+    if (checkingOptions && typeof checkingOptions === 'string') {
+      const optionsArray = checkingOptions.toLowerCase().split(',').map(s => s.trim())
+      shouldPositionAtCamera = optionsArray.includes('camera')
+    }
+    
+    if (!shouldPositionAtCamera) {
+      // Only reposition to default if NOT using camera positioning
+      setDefaultVideoPosition(RC, videoContainer)
+    }
+    // If shouldPositionAtCamera is true, don't call setDefaultVideoPosition
+    // The video will stay at the camera position set by createProgressBar
   }
   
   // Global cleanup: Remove any remaining space bar listeners from checkSize
@@ -1305,6 +1321,7 @@ const trackDistanceCheck = async (
   calibrateTrackDistanceCheckLengthCm = [], // list of lengths to check
   calibrateTrackDistanceCenterYourEyesBool = true,
   calibrateTrackDistancePupil = 'iris',
+  calibrateTrackDistanceChecking = undefined,
 ) => {
   const isTrack = measureName === 'trackDistance'
   
@@ -1418,11 +1435,22 @@ const trackDistanceCheck = async (
   if (RC.equipment?.value?.has) {
     // Show dummy test page right after equipment is confirmed
     RC.pauseNudger()
-    await checkSize(RC, calibrateTrackDistanceCheckLengthCm)
+    await checkSize(RC, calibrateTrackDistanceCheckLengthCm, calibrateTrackDistanceChecking)
     RC.resumeNudger()
     // Start video trimming for screen center distance measurement
-    // only trim video if calibrateTrackDistanceCenterYourEyesBool is true
-    if (calibrateTrackDistanceCenterYourEyesBool) startVideoTrimming()
+    // only trim video if calibrateTrackDistanceCenterYourEyesBool is true AND not using camera positioning
+    // Video trimming centers the video, which conflicts with camera positioning
+    const checkingOptions = calibrateTrackDistanceChecking
+    let shouldPositionAtCamera = false
+    
+    if (checkingOptions && typeof checkingOptions === 'string') {
+      const optionsArray = checkingOptions.toLowerCase().split(',').map(s => s.trim())
+      shouldPositionAtCamera = optionsArray.includes('camera')
+    }
+    
+    if (calibrateTrackDistanceCenterYourEyesBool && !shouldPositionAtCamera) {
+      startVideoTrimming()
+    }
 
     calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.map(cm =>
       RC.equipment?.value?.unit === 'inches'
@@ -1442,7 +1470,7 @@ const trackDistanceCheck = async (
 
     RC._removeBackground()
     RC.pauseNudger()
-    createProgressBar(RC)
+    createProgressBar(RC, calibrateTrackDistanceChecking)
     createViewingDistanceDiv()
     RC.calibrateTrackDistanceMeasuredCm = []
     RC.calibrateTrackDistanceRequestedCm = []
@@ -1466,11 +1494,33 @@ const trackDistanceCheck = async (
         calibrateTrackDistanceCheckCm.length,
       )
       updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
+      
+      // Determine which instruction text to show based on calibrateTrackDistanceChecking option
+      const checkingOptions = calibrateTrackDistanceChecking
+      let instructionBodyPhrase = phrases.RC_produceDistance[RC.language.value]
+      
+      if (checkingOptions && typeof checkingOptions === 'string') {
+        const optionsArray = checkingOptions.toLowerCase().split(',').map(s => s.trim())
+        const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
+        const hasCamera = optionsArray.includes('camera')
+        
+        if (hasTiltAndSwivel && hasCamera) {
+          // Both tiltAndSwivel and camera
+          instructionBodyPhrase = phrases.RC_produceDistanceCameraTiltAndSwivel?.[RC.language.value] || phrases.RC_produceDistance[RC.language.value]
+        } else if (hasTiltAndSwivel) {
+          // Only tiltAndSwivel
+          instructionBodyPhrase = phrases.RC_produceDistanceTiltAndSwivel?.[RC.language.value] || phrases.RC_produceDistance[RC.language.value]
+        } else if (hasCamera) {
+          // Only camera
+          instructionBodyPhrase = phrases.RC_produceDistanceCamera?.[RC.language.value] || phrases.RC_produceDistance[RC.language.value]
+        }
+      }
+      
       const html = constructInstructions(
         phrases.RC_produceDistanceTitle[RC.language.value]
           .replace('[[N22]]', index)
           .replace('[[N33]]', calibrateTrackDistanceCheckCm.length),
-        phrases.RC_produceDistance[RC.language.value]
+        instructionBodyPhrase
           .replace('[[N11]]', cm)
           .replace('[[UUU]]', RC.equipment?.value?.unit)
           .replace(/(?:\r\n|\r|\n)/g, '<br><br>'),
@@ -1563,7 +1613,29 @@ const trackDistanceCheck = async (
               document.addEventListener('keyup', keyupListener)
               // Track this listener for cleanup
               iterationListeners.push(keyupListener)
-              const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
+              
+              // Determine which distance to save based on calibrateTrackDistanceChecking option
+              let measuredDistanceCm = RC.viewingDistanceCm.value // Default to eye-to-camera
+              
+              if (calibrateTrackDistanceChecking && typeof calibrateTrackDistanceChecking === 'string') {
+                const optionsArray = calibrateTrackDistanceChecking.toLowerCase().split(',').map(s => s.trim())
+                
+                // If includes "camera", use eye-to-camera distance (distanceCm)
+                if (optionsArray.includes('camera')) {
+                  measuredDistanceCm = RC.improvedDistanceTrackingData?.distanceCm || RC.viewingDistanceCm.value
+                }
+                // If includes "center", use eye-to-center distance (distanceCm_left or distanceCm_right based on nearEye)
+                if (optionsArray.includes('center')) {
+                  const nearEye = RC.improvedDistanceTrackingData?.nearEye || 'left'
+                  if (nearEye === 'left') {
+                    measuredDistanceCm = RC.improvedDistanceTrackingData?.left?.distanceCm || RC.viewingDistanceCm.value
+                  } else {
+                    measuredDistanceCm = RC.improvedDistanceTrackingData?.right?.distanceCm || RC.viewingDistanceCm.value
+                  }
+                }
+              }
+              
+              const distanceFromRC = Number(measuredDistanceCm.toFixed(1))
 
               // Use the validated face mesh samples for IPD data (average of valid samples)
               const validSamples = faceValidation.samples.filter(
@@ -1577,7 +1649,7 @@ const trackDistanceCheck = async (
                     )
                   : null
 
-              RC.calibrateTrackDistanceMeasuredCm.push(Number(distanceFromRC))
+              RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
               RC.calibrateTrackDistanceRequestedCm.push(
                 Number(
                   RC.equipment?.value?.unit === 'inches'
@@ -1670,7 +1742,29 @@ const trackDistanceCheck = async (
                 console.log(
                   '=== KEYPAD: FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===',
                 )
-                const distanceFromRC = RC.viewingDistanceCm.value.toFixed(1)
+                
+                // Determine which distance to save based on calibrateTrackDistanceChecking option
+                let measuredDistanceCm = RC.viewingDistanceCm.value // Default to eye-to-camera
+                
+                if (calibrateTrackDistanceChecking && typeof calibrateTrackDistanceChecking === 'string') {
+                  const optionsArray = calibrateTrackDistanceChecking.toLowerCase().split(',').map(s => s.trim())
+                  
+                  // If includes "camera", use eye-to-camera distance (distanceCm)
+                  if (optionsArray.includes('camera')) {
+                    measuredDistanceCm = RC.improvedDistanceTrackingData?.distanceCm || RC.viewingDistanceCm.value
+                  }
+                  // If includes "center", use eye-to-center distance (distanceCm_left or distanceCm_right based on nearEye)
+                  if (optionsArray.includes('center')) {
+                    const nearEye = RC.improvedDistanceTrackingData?.nearEye || 'left'
+                    if (nearEye === 'left') {
+                      measuredDistanceCm = RC.improvedDistanceTrackingData?.left?.distanceCm || RC.viewingDistanceCm.value
+                    } else {
+                      measuredDistanceCm = RC.improvedDistanceTrackingData?.right?.distanceCm || RC.viewingDistanceCm.value
+                    }
+                  }
+                }
+                
+                const distanceFromRC = Number(measuredDistanceCm.toFixed(1))
 
                 // Use the validated face mesh samples for IPD data (average of valid samples)
                 const validSamples = faceValidation.samples.filter(
@@ -1741,7 +1835,7 @@ const trackDistanceCheck = async (
       })
     }
 
-    removeProgressBar(RC)
+    removeProgressBar(RC, calibrateTrackDistanceChecking)
     removeViewingDistanceDiv()
 
     // Hide video container after all measurements are complete
@@ -1904,7 +1998,7 @@ const updateViewingDistanceDiv = (distance, units) => {
 }
 
 // Function to create the progress bar div
-const createProgressBar = RC => {
+const createProgressBar = (RC, calibrateTrackDistanceChecking = undefined) => {
   // Check if the progress bar already exists
   if (document.getElementById('custom-progress-bar')) {
     console.warn('Progress bar already exists.')
@@ -1931,10 +2025,49 @@ const createProgressBar = RC => {
   progressBarContainer.appendChild(progressBarText)
   document.body.appendChild(progressBarContainer)
 
-  // Reposition video to center when progress bar is created
+  // Reposition video based on calibrateTrackDistanceChecking option
   const videoContainer = document.getElementById('webgazerVideoContainer')
   if (videoContainer && RC) {
-    setDefaultVideoPosition(RC, videoContainer)
+    // Check if option includes "camera" - if so, position at cameraXYPx (top center)
+    const checkingOptions = calibrateTrackDistanceChecking
+    let shouldPositionAtCamera = false
+    
+    if (checkingOptions && typeof checkingOptions === 'string') {
+      const optionsArray = checkingOptions.toLowerCase().split(',').map(s => s.trim())
+      shouldPositionAtCamera = optionsArray.includes('camera')
+    }
+    
+    if (shouldPositionAtCamera) {
+      // Position video at cameraXYPx (top center of screen)
+      // cameraXYPx is defined as [window.innerWidth / 2, 0]
+      const cameraXYPx = [window.innerWidth / 2, 0]
+      
+      videoContainer.style.zIndex = '999999999999'
+      videoContainer.style.position = 'fixed'
+      
+      if (RC.isMobile.value) {
+        // Mobile - keep standard positioning
+        videoContainer.style.left = 'unset'
+        videoContainer.style.right = RC._CONST.N.VIDEO_MARGIN
+        videoContainer.style.top = '0px'
+        videoContainer.style.bottom = 'unset'
+      } else {
+        // Desktop - position at top center (cameraXYPx)
+        const videoWidth = parseInt(videoContainer.style.width) || videoContainer.offsetWidth || 0
+        
+        // Center horizontally at cameraXYPx[0]
+        videoContainer.style.left = `${cameraXYPx[0] - videoWidth / 2}px`
+        videoContainer.style.right = 'unset'
+        
+        // Position at top (cameraXYPx[1] = 0)
+        videoContainer.style.top = `${cameraXYPx[1]}px`
+        videoContainer.style.bottom = 'unset'
+        videoContainer.style.transform = 'none'
+      }
+    } else {
+      // Default positioning (centered on screen)
+      setDefaultVideoPosition(RC, videoContainer)
+    }
   }
 }
 
@@ -1962,15 +2095,29 @@ const updateProgressBar = (progress, current, total) => {
 }
 
 // Function to remove the progress bar
-const removeProgressBar = RC => {
+const removeProgressBar = (RC, calibrateTrackDistanceChecking = undefined) => {
   const progressBarContainer = document.getElementById('custom-progress-bar')
   if (progressBarContainer) {
     document.body.removeChild(progressBarContainer)
 
-    // Reposition video back to top when progress bar is removed
+    // Reposition video based on calibrateTrackDistanceChecking option
     const videoContainer = document.getElementById('webgazerVideoContainer')
     if (videoContainer && RC) {
-      setDefaultVideoPosition(RC, videoContainer)
+      // Check if option includes "camera" - if so, don't reposition (keep camera position)
+      const checkingOptions = calibrateTrackDistanceChecking
+      let shouldPositionAtCamera = false
+      
+      if (checkingOptions && typeof checkingOptions === 'string') {
+        const optionsArray = checkingOptions.toLowerCase().split(',').map(s => s.trim())
+        shouldPositionAtCamera = optionsArray.includes('camera')
+      }
+      
+      if (!shouldPositionAtCamera) {
+        // Only reposition to default if NOT using camera positioning
+        setDefaultVideoPosition(RC, videoContainer)
+      }
+      // If shouldPositionAtCamera is true, don't call setDefaultVideoPosition
+      // The video will stay at the camera position
     }
   } else {
     console.warn('Progress bar does not exist.')
