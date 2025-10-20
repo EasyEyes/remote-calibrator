@@ -1012,6 +1012,7 @@ export const calculateNearestPoints = (
   blindspotDeg = 0,
   fixationToSpotCm = 0,
   ipdCameraPx = 0,
+  distanceCheck = false,
 ) => {
   const {
     nearestXYPx_left,
@@ -1055,11 +1056,32 @@ export const calculateNearestPoints = (
     eyeToFootCm = webcamToEyeDistance
   }
 
-  const footXYPx = order === 1 ? nearestXYPx_right : nearestXYPx_left
+  const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2]
+  const avgFootXYPx = [
+    (nearestXYPx_right[0] + nearestXYPx_left) / 2,
+    (nearestXYPx_right[1] + nearestXYPx_left) / 2,
+  ]
+  const footXYPx = distanceCheck
+    ? avgFootXYPx
+    : order === 1
+      ? nearestXYPx_right
+      : nearestXYPx_left
+
+  const cameraToCenterCm =
+    Math.hypot(centerXYPx[0] - cameraXYPx[0], centerXYPx[1] - cameraXYPx[1]) /
+    pxPerCm
+  const footToCenterCm =
+    Math.hypot(centerXYPx[0] - footXYPx[0], centerXYPx[1] - footXYPx[1]) /
+    pxPerCm
+
   const footToCameraCm =
     Math.hypot(cameraXYPx[0] - footXYPx[0], cameraXYPx[1] - footXYPx[1]) /
     pxPerCm
   const eyeToCameraCm = Math.hypot(footToCameraCm, eyeToFootCm)
+  const eyeToCenterCm = Math.sqrt(
+    eyeToFootCm * eyeToFootCm - footToCenterCm * footToCenterCm,
+  )
+
   const calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
 
   // Clamp coordinates to stay within viewport bounds
@@ -1150,6 +1172,12 @@ export const calculateNearestPoints = (
     viewingDistanceWhichEye: options?.viewingDistanceWhichEye,
     viewingDistanceWhichPoint: options?.viewingDistanceWhichPoint,
     calibrationFactor,
+    eyeToCameraCm,
+    cameraToCenterCm,
+    footToCameraCm,
+    footToCenterCm,
+    eyeToCenterCm,
+    footXYPx,
   }
 }
 
