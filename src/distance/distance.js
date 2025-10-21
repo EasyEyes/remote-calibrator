@@ -2443,7 +2443,7 @@ export async function blindSpotTestNew(
   const vCont = document.getElementById('webgazerVideoContainer')
   if (vCont) {
     const videoHeight = parseInt(vCont.style.height) || vCont.offsetHeight || 0
-    crossY = Math.max(0, Math.round(videoHeight / 1.8))
+    crossY = Math.max(0, Math.round(videoHeight / 2))
   }
 
   const _computeCanvas = () => {
@@ -2457,15 +2457,62 @@ export async function blindSpotTestNew(
     c.height = Math.round(window.innerHeight * 0.9)
     c.style.width = `${c.width}px`
     c.style.height = `${c.height}px`
+    
+    const oldCenterX = centerX
     centerX = c.width / 2
-    // Only re-compute crossX from circleX during centering/snapshot pages
-    if (allowMove)
+    
+    // IMPORTANT: On resize, constrain circleX to prevent squares from going off screen
+    // or ending up on wrong side of centerX
+    if (allowMove && typeof circleX === 'number') {
+      // Determine which side the square should be on
+      const shouldBeOnRight = circleX > oldCenterX
+      
+      // Calculate current square size to determine bounds
+      const tempCrossX = 2 * centerX - circleX
+      const tempRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, circleX, tempCrossX)
+      const tempSquareSize = tempRPx * 2
+      
+      // Calculate safe bounds for this side
+      const minEdgeMargin = 2 // 2px from edge minimum
+      const greenOffset = currentEdge === 'far' 
+        ? (shouldBeOnRight ? tempSquareSize : -tempSquareSize)  // Green away from fixation
+        : (shouldBeOnRight ? -tempSquareSize : tempSquareSize)  // Green toward fixation
+      
+      // Determine bounds based on which side
+      let minCircleX, maxCircleX
+      if (shouldBeOnRight) {
+        // Square should be on right side (circleX > centerX)
+        minCircleX = centerX + 10  // At least 10px from center
+        // Max: green square right edge must be 2px from screen edge
+        const maxGreenRight = c.width - minEdgeMargin
+        maxCircleX = greenOffset > 0 
+          ? maxGreenRight - tempSquareSize  // Green is to the right
+          : maxGreenRight  // Green is to the left
+      } else {
+        // Square should be on left side (circleX < centerX)
+        maxCircleX = centerX - 10  // At least 10px from center
+        // Min: green square left edge must be 2px from screen edge
+        const minGreenLeft = minEdgeMargin
+        minCircleX = greenOffset < 0 
+          ? minGreenLeft + tempSquareSize  // Green is to the left
+          : minGreenLeft  // Green is to the right
+      }
+      
+      // Constrain circleX to valid bounds
+      circleX = Math.max(minCircleX, Math.min(maxCircleX, circleX))
+      
+      // Recalculate crossX with constrained circleX
+      crossX = 2 * centerX - circleX
+    } else if (allowMove) {
       crossX = typeof circleX === 'number' ? 2 * centerX - circleX : centerX
-    else crossX = crossX || centerX
+    } else {
+      crossX = crossX || centerX
+    }
+    
     if (vCont) {
       const videoHeight =
         parseInt(vCont.style.height) || vCont.offsetHeight || 0
-      crossY = Math.max(0, Math.round(videoHeight / 1.8))
+      crossY = Math.max(0, Math.round(videoHeight / 2))
     } else {
       crossY = 60
     }
@@ -2507,7 +2554,7 @@ export async function blindSpotTestNew(
       _lastVideoLeftPx = leftPx
     }
 
-    crossY = Math.max(0, Math.round(videoHeight / 1.8))
+    crossY = Math.max(0, Math.round(videoHeight / 2))
     //console.log('topPx...', topPx, videoHeight, crossY)
   }
 
@@ -2535,7 +2582,7 @@ export async function blindSpotTestNew(
     blindspotEccYDeg = -1.5, // Add vertical eccentricity parameter
   ) => {
     const spotEccXCm = (currentCircleX - currentCrossX) / ppiToPxPerCm(ppi)
-    
+
     // Use simple horizontal-based formula (original approach)
     const spotCm = (Math.abs(spotEccXCm) * spotDeg) / Math.abs(blindspotEccXDeg)
     const safeSpotCm = Math.max(spotCm, 0.1)
@@ -3285,7 +3332,7 @@ export async function blindSpotTestNew(
     // If this is a far edge and we have the near edge position, initialize based on near edge eccentricity
     if (edge === 'far' && nearEdgeSpotXYPx) {
       const nearEdgeX = nearEdgeSpotXYPx[0]
-      
+
       // Use ACTUAL fixation position from near edge measurement
       // If not provided, fall back to calculated value
       const nearEdgeCrossX = nearEdgeFixationXYPx ? nearEdgeFixationXYPx[0] : (2 * centerX - nearEdgeX)
@@ -3430,7 +3477,7 @@ export async function blindSpotTestNew(
       console.log('/////   Calculated far edge eccentricity:', calculatedEccentricityPx.toFixed(1), 'px =', calculatedEccentricityCm.toFixed(1), 'cm')
       console.log('/////   Target was:', targetEccentricityPx.toFixed(1), 'px =', targetEccentricityCm.toFixed(1), 'cm')
       console.log('/////   Match:', Math.abs(calculatedEccentricityPx - targetEccentricityPx) < 0.1 ? '✓ YES' : '✗ NO - DIFFERENCE: ' + (calculatedEccentricityPx - targetEccentricityPx).toFixed(1) + 'px')
-      
+
       // Check if green would be too close to screen edge
       let eccentricityWasReduced = false
 
@@ -3715,7 +3762,7 @@ export async function blindSpotTestNew(
       
       if (eccentricityWasReduced) {
         console.log('/////   ⚠️  ECCENTRICITY WAS REDUCED to keep green 2px from screen edge')
-      } else {
+        } else {
         console.log('/////   ✓ Target eccentricity achieved (green has sufficient clearance)')
       }
       console.log('///// ===== END DEBUGGING =====')
