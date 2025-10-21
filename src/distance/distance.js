@@ -2394,7 +2394,7 @@ export async function blindSpotTestNew(
       videoLeftEdge <= edgeThreshold ||
       videoRightEdge >= c.width - edgeThreshold
 
-    // Check if diamond is at screen bounds (use threshold since centering might offset slightly)
+    // Check if red-green squares are at screen bounds (use threshold since centering might offset slightly)
     const rPx = calculateSpotRadiusPx(
       spotDeg,
       ppi,
@@ -2402,15 +2402,28 @@ export async function blindSpotTestNew(
       circleX,
       crossX,
     )
-    const diamondHalfWidth = rPx
-    const diamondLeftEdge = circleX - diamondHalfWidth
-    const diamondRightEdge = circleX + diamondHalfWidth
-    const diamondAtEdge =
-      diamondLeftEdge <= edgeThreshold ||
-      diamondRightEdge >= c.width - edgeThreshold
+    const squareSize = rPx * 2
+    const spotYForCheck = calculateSpotY(
+      circleX,
+      crossX,
+      crossY,
+      ppi,
+      blindspotEccXDeg,
+      blindspotEccYDeg,
+    )
+    const boundsCheck = getRedGreenCombinedBounds(
+      circleX,
+      spotYForCheck,
+      squareSize,
+      currentEdge,
+      crossX,
+    )
+    const squaresAtEdge =
+      boundsCheck.left <= edgeThreshold ||
+      boundsCheck.right >= c.width - edgeThreshold
 
     const shouldShow =
-      /* atMaxEccentricity || */ atMaxSpotDeg || videoAtEdge || diamondAtEdge
+      /* atMaxEccentricity || */ atMaxSpotDeg || videoAtEdge || squaresAtEdge
 
     // DEBUG: Always log to see what's happening with actual values
     console.log('MESSAGE CHECK:', {
@@ -2418,11 +2431,13 @@ export async function blindSpotTestNew(
       // atMaxEccentricity,
       atMaxSpotDeg,
       videoAtEdge,
-      diamondAtEdge,
+      squaresAtEdge,
       videoLeft: videoLeftEdge.toFixed(1),
       videoRight: videoRightEdge.toFixed(1),
-      diamondLeft: diamondLeftEdge.toFixed(1),
-      diamondRight: diamondRightEdge.toFixed(1),
+      combinedLeft: boundsCheck.left.toFixed(1),
+      combinedRight: boundsCheck.right.toFixed(1),
+      redLeft: boundsCheck.redLeft.toFixed(1),
+      greenLeft: boundsCheck.greenLeft.toFixed(1),
       screenWidth: c.width,
     })
 
@@ -2560,21 +2575,29 @@ export async function blindSpotTestNew(
       ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
       : 0
     const videoHalfWidth = videoWidth / 2
-    const diamondHalfWidth = diamondWidth / 2
+    
+    // For red-green squares, we need to protect the combined extent
+    // Since green extends one full square width beyond red, use 1.5x the single square width
+    // This ensures both squares stay on screen with a safety margin
+    const singleSquareHalfWidth = diamondWidth / 2
+    const combinedExtent = diamondWidth * 1.5 // Red (full width) + Green (half width on far side) = 1.5x
+    
     if (side === 'left') {
+      // Left eye: spot on right side, might extend further right with green square
       const minX = Math.max(
         cameraLineX + minHalfPx,
         cameraLineX + videoHalfWidth,
       )
       const maxX = Math.min(
         2 * cameraLineX - videoHalfWidth,
-        cW - diamondHalfWidth,
+        cW - combinedExtent, // Use combined extent for safety
       )
       return [minX, maxX]
     } else {
+      // Right eye: spot on left side, might extend further left with green square
       const minX = Math.max(
         2 * cameraLineX - (window.innerWidth - videoHalfWidth),
-        diamondHalfWidth,
+        combinedExtent, // Use combined extent for safety
       )
       const maxX = Math.min(
         cameraLineX - minHalfPx,
@@ -2588,6 +2611,46 @@ export async function blindSpotTestNew(
     const minY = diamondHalfWidth
     const maxY = cH - diamondHalfWidth
     return [minY, maxY]
+  }
+
+  // Helper function to calculate combined red+green square bounds
+  // Returns the actual left/right edges when both squares are rendered
+  // This ensures we protect BOTH squares from going off-screen
+  function getRedGreenCombinedBounds(circleX, circleY, squareSize, greenSide, fixationX) {
+    const halfSize = squareSize / 2
+    
+    // Determine green square offset direction (same logic as in onCanvas.js)
+    let greenOffsetX = 0
+    if (greenSide === 'near') {
+      // Green square toward fixation
+      greenOffsetX = fixationX < circleX ? -squareSize : squareSize
+    } else {
+      // Green square away from fixation
+      greenOffsetX = fixationX < circleX ? squareSize : -squareSize
+    }
+    
+    const greenX = circleX + greenOffsetX
+    
+    // Calculate all edges
+    const redLeft = circleX - halfSize
+    const redRight = circleX + halfSize
+    const greenLeft = greenX - halfSize
+    const greenRight = greenX + halfSize
+    
+    // Return combined extent
+    return {
+      left: Math.min(redLeft, greenLeft),
+      right: Math.max(redRight, greenRight),
+      top: circleY - halfSize,
+      bottom: circleY + halfSize,
+      redCenter: circleX,
+      greenCenter: greenX,
+      redLeft,
+      redRight,
+      greenLeft,
+      greenRight,
+      width: Math.max(redRight, greenRight) - Math.min(redLeft, greenLeft),
+    }
   }
 
   // No radio buttons or hint text in new flow - removed UI elements
@@ -2716,24 +2779,93 @@ export async function blindSpotTestNew(
     const boundsSide = eyeSide === 'right' ? 'left' : 'right'
     circleBounds = _getDiamondBounds(boundsSide, centerX, c.width, rPx * 2, ppi)
 
-    // Instead of constraining circleX (which changes eccentricity),
-    // check if diamond would go off screen and shift BOTH circleX and crossX together
-    // BUT only if we're not at maxDeg (otherwise shift would happen even when size can't increase)
-    const diamondHalfWidth = rPx
-    const diamondLeftEdge = circleX - diamondHalfWidth
-    const diamondRightEdge = circleX + diamondHalfWidth
+    // Calculate combined red+green bounds to prevent either square from going off screen
+    const spotYForBounds = calculateSpotY(
+      circleX,
+      crossX,
+      crossY,
+      ppi,
+      blindspotEccXDeg,
+      blindspotEccYDeg,
+    )
+    const combinedBounds = getRedGreenCombinedBounds(
+      circleX,
+      spotYForBounds,
+      rPx * 2, // squareSize
+      currentEdge,
+      crossX,
+    )
+    
+    // Check if green or red square would overlap video (prevent occlusion)
+    const vCont = document.getElementById('webgazerVideoContainer')
+    const videoWidth = vCont
+      ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
+      : 0
+    const videoHalfWidth = videoWidth / 2
+    const videoLeftEdge = crossX - videoHalfWidth
+    const videoRightEdge = crossX + videoHalfWidth
+    
+    // Check for overlap: square overlaps video if squareLeft < videoRight AND squareRight > videoLeft
+    const greenOverlapsVideo =
+      combinedBounds.greenLeft < videoRightEdge && combinedBounds.greenRight > videoLeftEdge
+    const redOverlapsVideo =
+      combinedBounds.redLeft < videoRightEdge && combinedBounds.redRight > videoLeftEdge
+    
+    if (greenOverlapsVideo || redOverlapsVideo) {
+      // Push stimulus away from video to prevent occlusion
+      // Calculate how much to shift to clear the video
+      let videoShift = 0
+      
+      if (greenOverlapsVideo) {
+        // Green is overlapping - push away
+        if (combinedBounds.greenCenter < crossX) {
+          // Green is left of fixation, push further left
+          videoShift = videoLeftEdge - combinedBounds.greenRight
+        } else {
+          // Green is right of fixation, push further right
+          videoShift = videoRightEdge - combinedBounds.greenLeft
+        }
+      } else if (redOverlapsVideo) {
+        // Red is overlapping - push away
+        if (combinedBounds.redCenter < crossX) {
+          // Red is left of fixation, push further left
+          videoShift = videoLeftEdge - combinedBounds.redRight
+        } else {
+          // Red is right of fixation, push further right
+          videoShift = videoRightEdge - combinedBounds.redLeft
+        }
+      }
+      
+      // Apply video clearance shift
+      const newCircleX = circleX + videoShift
+      
+      // Make sure this doesn't push us off screen
+      const testBounds = getRedGreenCombinedBounds(
+        newCircleX,
+        spotYForBounds,
+        rPx * 2,
+        currentEdge,
+        crossX,
+      )
+      
+      if (testBounds.left >= 0 && testBounds.right <= c.width) {
+        // Safe to apply shift
+        circleX = newCircleX
+      }
+      // If can't shift without going off screen, we're stuck - user needs to adjust
+    }
 
     let shift = 0
     const isAtMaxSize = spotDeg >= maxDeg
 
     if (!isAtMaxSize) {
-      // Only shift if diamond is not at maximum size
-      if (diamondLeftEdge < 0) {
-        // Diamond would go off left edge, shift everything right
-        shift = -diamondLeftEdge
-      } else if (diamondRightEdge > c.width) {
-        // Diamond would go off right edge, shift everything left
-        shift = c.width - diamondRightEdge
+      // Only shift if squares are not at maximum size
+      if (combinedBounds.left < 0) {
+        // Combined stimulus would go off left edge, shift everything right
+        shift = -combinedBounds.left
+      } else if (combinedBounds.right > c.width) {
+        // Combined stimulus would go off right edge, shift everything left
+        shift = c.width - combinedBounds.right
       }
 
       // Check if shift would push video off screen
@@ -2757,20 +2889,22 @@ export async function blindSpotTestNew(
           _positionVideoBelowFixation()
         } else {
           // Can't shift because video would go off screen
-          // Constrain diamond to current position (may reduce eccentricity)
-          if (diamondLeftEdge < 0) {
-            circleX = diamondHalfWidth
-          } else if (diamondRightEdge > c.width) {
-            circleX = c.width - diamondHalfWidth
+          // Constrain red center to keep combined stimulus on screen
+          if (combinedBounds.left < 0) {
+            // Shift red center right by the overflow amount
+            circleX = circleX - combinedBounds.left
+          } else if (combinedBounds.right > c.width) {
+            // Shift red center left by the overflow amount
+            circleX = circleX - (combinedBounds.right - c.width)
           }
         }
       }
     } else {
       // At max size, just constrain to screen bounds (may reduce eccentricity)
-      if (diamondLeftEdge < 0) {
-        circleX = diamondHalfWidth
-      } else if (diamondRightEdge > c.width) {
-        circleX = c.width - diamondHalfWidth
+      if (combinedBounds.left < 0) {
+        circleX = circleX - combinedBounds.left
+      } else if (combinedBounds.right > c.width) {
+        circleX = circleX - (combinedBounds.right - c.width)
       }
     }
 
@@ -2859,7 +2993,7 @@ export async function blindSpotTestNew(
       return
     }
 
-    // Calculate diamond size
+    // Calculate square size
     const rPx = calculateSpotRadiusPx(
       spotDeg,
       ppi,
@@ -2867,23 +3001,40 @@ export async function blindSpotTestNew(
       circleX,
       crossX,
     )
-    const diamondHalfWidth = rPx
+    const squareSize = rPx * 2
 
-    // Calculate new diamond edges
-    const newDiamondLeftEdge = newCircleX - diamondHalfWidth
-    const newDiamondRightEdge = newCircleX + diamondHalfWidth
+    // Calculate combined bounds for new position
+    const newSpotY = calculateSpotY(
+      newCircleX,
+      crossX,
+      crossY,
+      ppi,
+      blindspotEccXDeg,
+      blindspotEccYDeg,
+    )
+    const newBounds = getRedGreenCombinedBounds(
+      newCircleX,
+      newSpotY,
+      squareSize,
+      currentEdge,
+      crossX,
+    )
 
-    // Check if new position would be within screen bounds
-    if (newDiamondLeftEdge >= 0 && newDiamondRightEdge <= c.width) {
-      // Only move if diamond stays within screen bounds
+    // Check if new position would keep both squares within screen bounds
+    if (newBounds.left >= 0 && newBounds.right <= c.width) {
+      // Only move if both squares stay within screen bounds
       circleX = newCircleX
       _positionVideoBelowFixation()
 
       // Message will be checked in animation loop
     } else {
-      console.log('BLOCKED by diamond screen edge:', {
-        newDiamondLeftEdge: newDiamondLeftEdge.toFixed(1),
-        newDiamondRightEdge: newDiamondRightEdge.toFixed(1),
+      console.log('BLOCKED by red-green squares screen edge:', {
+        combinedLeft: newBounds.left.toFixed(1),
+        combinedRight: newBounds.right.toFixed(1),
+        redLeft: newBounds.redLeft.toFixed(1),
+        redRight: newBounds.redRight.toFixed(1),
+        greenLeft: newBounds.greenLeft.toFixed(1),
+        greenRight: newBounds.greenRight.toFixed(1),
         screenWidth: c.width,
       })
     }
@@ -2896,7 +3047,7 @@ export async function blindSpotTestNew(
 
       // If size would actually increase
       if (newSpotDeg > spotDeg) {
-        // Calculate new diamond size
+        // Calculate new square size
         const newRPx = calculateSpotRadiusPx(
           newSpotDeg,
           ppi,
@@ -2904,22 +3055,91 @@ export async function blindSpotTestNew(
           circleX,
           crossX,
         )
-        const newDiamondHalfWidth = newRPx
-        const newDiamondLeftEdge = circleX - newDiamondHalfWidth
-        const newDiamondRightEdge = circleX + newDiamondHalfWidth
+        const newSquareSize = newRPx * 2
+        
+        // Calculate combined bounds with new size
+        const newSpotY = calculateSpotY(
+          circleX,
+          crossX,
+          crossY,
+          ppi,
+          blindspotEccXDeg,
+          blindspotEccYDeg,
+        )
+        const newBounds = getRedGreenCombinedBounds(
+          circleX,
+          newSpotY,
+          newSquareSize,
+          currentEdge,
+          crossX,
+        )
 
-        // Check if diamond would go off screen with new size
-        const diamondNeedsShift =
-          newDiamondLeftEdge < 0 || newDiamondRightEdge > c.width
+        // Check if combined squares would go off screen with new size
+        const squaresNeedShift =
+          newBounds.left < 0 || newBounds.right > c.width
+        
+        // NEW: Check if green square would occlude the video
+        // Video is centered at crossX
+        const vCont = document.getElementById('webgazerVideoContainer')
+        const videoWidth = vCont
+          ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
+          : 0
+        const videoHalfWidth = videoWidth / 2
+        const videoLeftEdge = crossX - videoHalfWidth
+        const videoRightEdge = crossX + videoHalfWidth
+        
+        // Check if green square would overlap video
+        // Green overlaps video if: greenLeft < videoRight AND greenRight > videoLeft
+        const greenWouldOverlapVideo =
+          newBounds.greenLeft < videoRightEdge && newBounds.greenRight > videoLeftEdge
+        
+        if (greenWouldOverlapVideo) {
+          console.log('❌ BLOCKED size increase: green would occlude video', {
+            greenLeft: newBounds.greenLeft.toFixed(1),
+            greenRight: newBounds.greenRight.toFixed(1),
+            videoLeft: videoLeftEdge.toFixed(1),
+            videoRight: videoRightEdge.toFixed(1),
+            crossX: crossX.toFixed(1),
+            overlap: 'Green square would cover the video feed',
+            message: 'Move stimulus away from fixation to increase size',
+          })
+          return
+        }
+        
+        // Also check if red square would overlap video (already exists but let's be explicit)
+        const redWouldOverlapVideo =
+          newBounds.redLeft < videoRightEdge && newBounds.redRight > videoLeftEdge
+        
+        if (redWouldOverlapVideo) {
+          console.log('❌ BLOCKED size increase: red would occlude video', {
+            redLeft: newBounds.redLeft.toFixed(1),
+            redRight: newBounds.redRight.toFixed(1),
+            videoLeft: videoLeftEdge.toFixed(1),
+            videoRight: videoRightEdge.toFixed(1),
+            crossX: crossX.toFixed(1),
+            overlap: 'Red square would cover the video feed',
+            message: 'Move stimulus away from fixation to increase size',
+          })
+          return
+        }
 
-        if (diamondNeedsShift) {
+        if (squaresNeedShift) {
           // Calculate required shift
           let requiredShift = 0
-          if (newDiamondLeftEdge < 0) {
-            requiredShift = -newDiamondLeftEdge
-          } else if (newDiamondRightEdge > c.width) {
-            requiredShift = c.width - newDiamondRightEdge
+          if (newBounds.left < 0) {
+            requiredShift = -newBounds.left
+          } else if (newBounds.right > c.width) {
+            requiredShift = c.width - newBounds.right
           }
+
+          console.log('🔍 Size increase would require shift:', {
+            currentBoundsLeft: getRedGreenCombinedBounds(circleX, calculateSpotY(circleX, crossX, crossY, ppi, blindspotEccXDeg, blindspotEccYDeg), rPx * 2, currentEdge, crossX).left.toFixed(1),
+            currentBoundsRight: getRedGreenCombinedBounds(circleX, calculateSpotY(circleX, crossX, crossY, ppi, blindspotEccXDeg, blindspotEccYDeg), rPx * 2, currentEdge, crossX).right.toFixed(1),
+            newBoundsLeft: newBounds.left.toFixed(1),
+            newBoundsRight: newBounds.right.toFixed(1),
+            requiredShift: requiredShift.toFixed(1),
+            screenWidth: c.width,
+          })
 
           // Check if video can shift
           const vCont = document.getElementById('webgazerVideoContainer')
@@ -2931,12 +3151,21 @@ export async function blindSpotTestNew(
           const videoLeftEdge = newCrossX - videoHalfWidth
           const videoRightEdge = newCrossX + videoHalfWidth
 
-          // If video would go off screen, block the size increase
-          if (videoLeftEdge < 0 || videoRightEdge > c.width) {
-            // Can't increase size while maintaining eccentricity
-            // Message will be checked in animation loop
+          // Block size increase if it would require shifting
+          // The animation loop will handle shifts dynamically, but we shouldn't
+          // proactively increase size beyond what fits
+          console.log('❌ BLOCKED size increase: would push squares off screen', {
+            requiredShift: requiredShift.toFixed(1),
+            newBoundsLeft: newBounds.left.toFixed(1),
+            newBoundsRight: newBounds.right.toFixed(1),
+            redLeft: newBounds.redLeft.toFixed(1),
+            redRight: newBounds.redRight.toFixed(1),
+            greenLeft: newBounds.greenLeft.toFixed(1),
+            greenRight: newBounds.greenRight.toFixed(1),
+            screenWidth: c.width,
+            message: 'Move stimulus away from edge to increase size',
+          })
             return
-          }
         }
       }
     }
@@ -3026,45 +3255,367 @@ export async function blindSpotTestNew(
       const measuredDistanceCm = nearEdgeDistanceCm || 60
       const offsetDeg = 12
       const offsetCm = measuredDistanceCm * Math.tan((offsetDeg * Math.PI) / 180)
-      const offsetPx = offsetCm * pxPerCm
+      let offsetPx = offsetCm * pxPerCm
       
       // Move the shared border 12° farther from fixation
       // Determine direction: away from fixation means away from crossX
       const nearEdgeX = nearEdgeSpotXYPx[0]
-      const directionAwayFromFixation = nearEdgeX > crossX ? 1 : -1
-      const newSharedBorderX = nearEdgeX + directionAwayFromFixation * offsetPx
       
-      // Back-calculate circleX from desired shared border position
-      // From calculateSpotXYPx: sharedBorderX = circleX + greenOffsetX / 2
-      // Therefore: circleX = sharedBorderX - greenOffsetX / 2
-      const rPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, centerX, crossX)
+      // CRITICAL: After resetEyeSide, crossX is reset to default position
+      // We need to determine directionAwayFromFixation based on near edge position
+      // relative to screen center, not the reset crossX
+      const directionAwayFromFixation = nearEdgeX > centerX ? 1 : -1
+      
+      // Calculate square size with CURRENT spotDeg (user may have adjusted size)
+      // Use a reference circleX to calculate the size - we'll use the near edge position
+      // Back-calculate what circleX was during near edge measurement
+      // This ensures we use the size the user actually set during near edge
+      const tempCircleXForSize = nearEdgeX  // Approximate for size calculation
+      const tempCrossXForSize = 2 * centerX - tempCircleXForSize
+      const rPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, tempCircleXForSize, tempCrossXForSize)
       const squareSize = rPx * 2
       
+      console.log('🔍 Initial calculations for 12° offset:', {
+        nearEdgeX: nearEdgeX.toFixed(1),
+        centerX: centerX.toFixed(1),
+        directionAwayFromFixation,
+        currentSpotDeg: spotDeg.toFixed(2),
+        calculatedSquareSize: squareSize.toFixed(1),
+      })
+      
       // For 'far' edge, green is AWAY from fixation
-      // If near edge is right of fixation (nearEdgeX > crossX):
-      //   - Far edge is even farther right
-      //   - fixationX < circleX will be TRUE
-      //   - greenOffsetX = squareSize (green RIGHT of red)
-      // If near edge is left of fixation (nearEdgeX < crossX):
-      //   - Far edge is even farther left  
-      //   - fixationX > circleX will be TRUE
-      //   - greenOffsetX = -squareSize (green LEFT of red)
       const greenOffsetX = directionAwayFromFixation > 0 ? squareSize : -squareSize
-      const newCircleX = newSharedBorderX - greenOffsetX / 2
       
-      // Constrain to bounds to ensure it stays on screen
-      const boundsSide = side === 'right' ? 'left' : 'right'
-      const bounds = _getDiamondBounds(boundsSide, centerX, c.width, squareSize, ppi)
-      circleX = Math.max(bounds[0], Math.min(bounds[1], newCircleX))
+      // Smart constraint: Scale down offset if green would go too close to edge
+      // Minimum distance from edge: 5cm
+      const minEdgeDistanceCm = 5
+      const minEdgeDistancePx = (minEdgeDistanceCm * ppi) / 2.54
       
-      // Update crossX to mirror across camera line
-      crossX = 2 * centerX - circleX
+      // Try full 12° offset first
+      let newSharedBorderX = nearEdgeX + directionAwayFromFixation * offsetPx
+      let newCircleX = newSharedBorderX - greenOffsetX / 2
+      
+      // Calculate where green would be with this position
+      const testSpotY = calculateSpotY(
+        newCircleX,
+        2 * centerX - newCircleX, // crossX would be this
+        crossY,
+        ppi,
+        blindspotEccXDeg,
+        blindspotEccYDeg,
+      )
+      const testBounds = getRedGreenCombinedBounds(
+        newCircleX,
+        testSpotY,
+        squareSize,
+        'far', // edge type
+        2 * centerX - newCircleX, // crossX
+      )
+      
+      // Check if green would be too close to screen edge
+      let offsetWasReduced = false
+      let actualOffsetPx = offsetPx
+      
+      console.log('🔍 DEBUG: Checking 12° offset constraints')
+      console.log('  Screen width:', c.width)
+      console.log('  Test bounds:', {
+        left: testBounds.left.toFixed(1),
+        right: testBounds.right.toFixed(1),
+        redLeft: testBounds.redLeft.toFixed(1),
+        redRight: testBounds.redRight.toFixed(1),
+        greenLeft: testBounds.greenLeft.toFixed(1),
+        greenRight: testBounds.greenRight.toFixed(1),
+      })
+      console.log('  Direction:', directionAwayFromFixation > 0 ? 'right' : 'left')
+      console.log('  Min edge distance:', minEdgeDistancePx.toFixed(1), 'px')
+      
+      if (directionAwayFromFixation > 0) {
+        // Moving right - check right edge
+        const distanceFromRightEdge = c.width - testBounds.right
+        console.log('  Distance from right edge:', distanceFromRightEdge.toFixed(1), 'px')
+        
+        if (distanceFromRightEdge < minEdgeDistancePx) {
+          // Green too close to right edge - scale down offset
+          // Calculate max offset that keeps green at minEdgeDistancePx from edge
+          const maxGreenRight = c.width - minEdgeDistancePx
+          const maxGreenLeft = maxGreenRight - squareSize
+          const maxGreenCenterX = maxGreenLeft + squareSize / 2
+          const maxCircleX = maxGreenCenterX - greenOffsetX
+          const maxSharedBorderX = maxCircleX + greenOffsetX / 2
+          actualOffsetPx = maxSharedBorderX - nearEdgeX
+          offsetWasReduced = true
+          
+          console.log('  ⚠️  TOO CLOSE! Reducing offset')
+          console.log('  Max green right:', maxGreenRight.toFixed(1))
+          console.log('  Max circle X:', maxCircleX.toFixed(1))
+          console.log('  Max shared border X:', maxSharedBorderX.toFixed(1))
+          console.log('  Actual offset px:', actualOffsetPx.toFixed(1))
+          
+          // Apply reduced offset
+          newSharedBorderX = nearEdgeX + actualOffsetPx
+          newCircleX = newSharedBorderX - greenOffsetX / 2
+        } else {
+          console.log('  ✓ Sufficient clearance from right edge')
+        }
+      } else {
+        // Moving left - check left edge
+        const distanceFromLeftEdge = testBounds.left
+        console.log('  Distance from left edge:', distanceFromLeftEdge.toFixed(1), 'px')
+        
+        if (distanceFromLeftEdge < minEdgeDistancePx) {
+          // Green too close to left edge - scale down offset
+          // Calculate max offset that keeps green at minEdgeDistancePx from edge
+          const maxGreenLeft = minEdgeDistancePx
+          const maxGreenRight = maxGreenLeft + squareSize
+          const maxGreenCenterX = maxGreenLeft + squareSize / 2
+          const maxCircleX = maxGreenCenterX - greenOffsetX
+          const maxSharedBorderX = maxCircleX + greenOffsetX / 2
+          actualOffsetPx = Math.abs(maxSharedBorderX - nearEdgeX)
+          offsetWasReduced = true
+          
+          console.log('  ⚠️  TOO CLOSE! Reducing offset')
+          console.log('  Max green left:', maxGreenLeft.toFixed(1))
+          console.log('  Max circle X:', maxCircleX.toFixed(1))
+          console.log('  Max shared border X:', maxSharedBorderX.toFixed(1))
+          console.log('  Actual offset px:', actualOffsetPx.toFixed(1))
+          
+          // Apply reduced offset
+          newSharedBorderX = nearEdgeX - actualOffsetPx
+          newCircleX = newSharedBorderX - greenOffsetX / 2
+        } else {
+          console.log('  ✓ Sufficient clearance from left edge')
+        }
+      }
+      
+      // CRITICAL: Validate final position against ALL constraints
+      // Recalculate with actual current state to ensure accuracy
+      const proposedCrossX = 2 * centerX - newCircleX
+      
+      // Recalculate square size with the proposed position to be absolutely certain
+      const finalRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, newCircleX, proposedCrossX)
+      const finalSquareSize = finalRPx * 2
+      
+      // Recalculate green offset with final square size
+      const finalGreenOffsetX = directionAwayFromFixation > 0 ? finalSquareSize : -finalSquareSize
+      
+      const finalTestBounds = getRedGreenCombinedBounds(
+        newCircleX,
+        testSpotY,
+        finalSquareSize,  // Use recalculated size
+        'far',
+        proposedCrossX,
+      )
+      
+      console.log('🔍 Final recalculation with proposed position:', {
+        proposedCircleX: newCircleX.toFixed(1),
+        proposedCrossX: proposedCrossX.toFixed(1),
+        recalculatedSquareSize: finalSquareSize.toFixed(1),
+        originalSquareSize: squareSize.toFixed(1),
+        sizeDifference: (finalSquareSize - squareSize).toFixed(1),
+      })
+      
+      // Constraint 1: Check screen bounds with 5cm margin
+      const leftClearance = finalTestBounds.left
+      const rightClearance = c.width - finalTestBounds.right
+      const hasScreenClearance = leftClearance >= minEdgeDistancePx && rightClearance >= minEdgeDistancePx
+      
+      // Constraint 2: Check video overlap
+      const vCont = document.getElementById('webgazerVideoContainer')
+      const videoWidth = vCont ? parseInt(vCont.style.width) || vCont.offsetWidth || 0 : 0
+      const videoHalfWidth = videoWidth / 2
+      const videoLeftEdge = proposedCrossX - videoHalfWidth
+      const videoRightEdge = proposedCrossX + videoHalfWidth
+      
+      const greenOverlapsVideo =
+        finalTestBounds.greenLeft < videoRightEdge && finalTestBounds.greenRight > videoLeftEdge
+      const redOverlapsVideo =
+        finalTestBounds.redLeft < videoRightEdge && finalTestBounds.redRight > videoLeftEdge
+      
+      const noVideoOverlap = !greenOverlapsVideo && !redOverlapsVideo
+      
+      console.log('  📋 Final validation:', {
+        leftClearance: leftClearance.toFixed(1),
+        rightClearance: rightClearance.toFixed(1),
+        hasScreenClearance,
+        greenOverlapsVideo,
+        redOverlapsVideo,
+        noVideoOverlap,
+        finalBounds: {
+          left: finalTestBounds.left.toFixed(1),
+          right: finalTestBounds.right.toFixed(1),
+          greenLeft: finalTestBounds.greenLeft.toFixed(1),
+          greenRight: finalTestBounds.greenRight.toFixed(1),
+        },
+      })
+      
+      // Only apply if ALL constraints are met
+      if (hasScreenClearance && noVideoOverlap) {
+        // Safe to apply
+        circleX = newCircleX
+        crossX = proposedCrossX
       _positionVideoBelowFixation()
+        console.log('  ✅ Position validated and applied')
+      } else {
+        // Fallback: Calculate a safer conservative position
+        console.log('  ⚠️  Validation failed, using conservative fallback')
+        
+        // Work backwards: place green exactly 5cm from the edge it's approaching
+        let safeGreenEdge, safeGreenCenter, safeCircleX
+        
+        if (directionAwayFromFixation > 0) {
+          // Moving right - place green 5cm from right edge
+          safeGreenEdge = c.width - minEdgeDistancePx // right edge of green
+          safeGreenCenter = safeGreenEdge - finalSquareSize / 2  // Use finalSquareSize
+          safeCircleX = safeGreenCenter - finalGreenOffsetX  // Use finalGreenOffsetX
+        } else {
+          // Moving left - place green 5cm from left edge
+          safeGreenEdge = minEdgeDistancePx // left edge of green
+          safeGreenCenter = safeGreenEdge + finalSquareSize / 2  // Use finalSquareSize
+          safeCircleX = safeGreenCenter - finalGreenOffsetX  // Use finalGreenOffsetX
+        }
+        
+        // Validate this position is actually safe
+        const safeCrossX = 2 * centerX - safeCircleX
+        
+        // Recalculate size for this fallback position
+        const safeRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, safeCircleX, safeCrossX)
+        const safeSquareSize = safeRPx * 2
+        
+        const safeBounds = getRedGreenCombinedBounds(
+          safeCircleX,
+          calculateSpotY(safeCircleX, safeCrossX, crossY, ppi, blindspotEccXDeg, blindspotEccYDeg),
+          safeSquareSize,  // Use recalculated size for fallback
+          'far',
+          safeCrossX,
+        )
+        
+        // Check ALL constraints for fallback position
+        const safeLeftClearance = safeBounds.left
+        const safeRightClearance = c.width - safeBounds.right
+        const safeHasScreenClearance = 
+          safeLeftClearance >= minEdgeDistancePx && safeRightClearance >= minEdgeDistancePx
+        
+        const safeGreenOverlaps =
+          safeBounds.greenLeft < (safeCrossX + videoHalfWidth) &&
+          safeBounds.greenRight > (safeCrossX - videoHalfWidth)
+        const safeRedOverlaps =
+          safeBounds.redLeft < (safeCrossX + videoHalfWidth) &&
+          safeBounds.redRight > (safeCrossX - videoHalfWidth)
+        const safeNoVideoOverlap = !safeGreenOverlaps && !safeRedOverlaps
+        
+        console.log('  🔍 Fallback validation:', {
+          safeLeftClearance: safeLeftClearance.toFixed(1),
+          safeRightClearance: safeRightClearance.toFixed(1),
+          safeHasScreenClearance,
+          safeGreenOverlaps,
+          safeRedOverlaps,
+          safeNoVideoOverlap,
+        })
+        
+        if (safeHasScreenClearance && safeNoVideoOverlap) {
+          circleX = safeCircleX
+          crossX = safeCrossX
+          _positionVideoBelowFixation()
+          console.log('  ✅ Conservative fallback position applied')
+          console.log('  Fallback bounds:', {
+            left: safeBounds.left.toFixed(1),
+            right: safeBounds.right.toFixed(1),
+            greenLeft: safeBounds.greenLeft.toFixed(1),
+            greenRight: safeBounds.greenRight.toFixed(1),
+            redLeft: safeBounds.redLeft.toFixed(1),
+            redRight: safeBounds.redRight.toFixed(1),
+          })
+        } else {
+          // Cannot find ANY safe position for far edge
+          // This happens when near edge was pushed to extreme and there's no room for 12° offset
+          console.log('  ❌ CANNOT APPLY ANY OFFSET - Screen too constrained')
+          console.log('  Near edge was at extreme position, no room for far edge offset')
+          console.log('  Will measure far edge at same ECCENTRICITY as near edge (0° offset)')
+          
+          // CRITICAL: Keep the same eccentricity as near edge, but configure for far edge
+          // The near edge measured at nearEdgeX with green TOWARD fixation
+          // We need to measure far edge at same eccentricity but with green AWAY from fixation
+          
+          // Calculate the eccentricity (distance from center) of the near edge
+          const nearEdgeEccentricityPx = Math.abs(nearEdgeX - centerX)
+          
+          // For far edge: place the shared border at the same eccentricity
+          // but this time green will be AWAY from fixation
+          const farEdgeSharedBorderX = centerX + directionAwayFromFixation * nearEdgeEccentricityPx
+          
+          // Back-calculate circleX for far edge configuration
+          // Need to recalculate greenOffsetX with current square size
+          const farEdgeTempCircleX = farEdgeSharedBorderX  // Temp for size calc
+          const farEdgeTempCrossX = 2 * centerX - farEdgeTempCircleX
+          const farEdgeRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, farEdgeTempCircleX, farEdgeTempCrossX)
+          const farEdgeSquareSize = farEdgeRPx * 2
+          const farEdgeGreenOffsetX = directionAwayFromFixation > 0 ? farEdgeSquareSize : -farEdgeSquareSize
+          
+          const farEdgeCircleX = farEdgeSharedBorderX - farEdgeGreenOffsetX / 2
+          const farEdgeCrossX = 2 * centerX - farEdgeCircleX
+          
+          // Recalculate size one more time with final position
+          const farEdgeFinalRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, farEdgeCircleX, farEdgeCrossX)
+          const farEdgeFinalSquareSize = farEdgeFinalRPx * 2
+          
+          // Validate this position
+          const farEdgeBounds = getRedGreenCombinedBounds(
+            farEdgeCircleX,
+            calculateSpotY(farEdgeCircleX, farEdgeCrossX, crossY, ppi, blindspotEccXDeg, blindspotEccYDeg),
+            farEdgeFinalSquareSize,  // Use final recalculated size
+            'far',
+            farEdgeCrossX,
+          )
+          
+          const farLeftClearance = farEdgeBounds.left
+          const farRightClearance = c.width - farEdgeBounds.right
+          const farHasScreenClearance = 
+            farLeftClearance >= 0 && farRightClearance >= 0  // Just need to be on screen, 5cm margin may not be possible
+          
+          console.log('  📍 Far edge at same eccentricity as near edge:', {
+            nearEdgeEccentricity: nearEdgeEccentricityPx.toFixed(1) + ' px',
+            farEdgeSharedBorderX: farEdgeSharedBorderX.toFixed(1),
+            farEdgeCircleX: farEdgeCircleX.toFixed(1),
+            farEdgeCrossX: farEdgeCrossX.toFixed(1),
+            bounds: {
+              left: farEdgeBounds.left.toFixed(1),
+              right: farEdgeBounds.right.toFixed(1),
+              greenLeft: farEdgeBounds.greenLeft.toFixed(1),
+              greenRight: farEdgeBounds.greenRight.toFixed(1),
+              redLeft: farEdgeBounds.redLeft.toFixed(1),
+              redRight: farEdgeBounds.redRight.toFixed(1),
+            },
+            farHasScreenClearance,
+          })
+          
+          if (farHasScreenClearance) {
+            // Apply far edge position at same eccentricity
+            circleX = farEdgeCircleX
+            crossX = farEdgeCrossX
+            _positionVideoBelowFixation()
+            console.log('  ✅ Far edge positioned at same eccentricity as near edge (0 deg separation)')
+          } else {
+            // Even same eccentricity does not fit - this should not happen but handle it
+            console.log('  ❌ CRITICAL: Even 0 deg offset does not fit on screen!')
+            console.log('  Using resetEyeSide default position as last resort')
+            // Keep the resetEyeSide position (6cm from center)
+          }
+        }
+      }
       
       console.log('=== Far Edge Initial Position (12° offset) ===')
       console.log('Near edge position:', nearEdgeX.toFixed(1), 'px')
       console.log('Measured distance:', measuredDistanceCm.toFixed(1), 'cm')
-      console.log('12° offset:', offsetCm.toFixed(1), 'cm =', offsetPx.toFixed(1), 'px')
+      console.log('Requested 12° offset:', offsetCm.toFixed(1), 'cm =', offsetPx.toFixed(1), 'px')
+      if (offsetWasReduced) {
+        const actualOffsetCm = actualOffsetPx / pxPerCm
+        const actualOffsetDeg = Math.atan(actualOffsetCm / measuredDistanceCm) * (180 / Math.PI)
+        console.log('⚠️  OFFSET REDUCED to keep green 5cm from edge')
+        console.log('Actual offset:', actualOffsetCm.toFixed(1), 'cm =', actualOffsetPx.toFixed(1), 'px')
+        console.log('Actual offset degrees:', actualOffsetDeg.toFixed(1), '°')
+      } else {
+        console.log('✓ Full 12° offset applied (green has sufficient clearance)')
+      }
       console.log('Target shared border:', newSharedBorderX.toFixed(1), 'px')
       console.log('Calculated red center:', circleX.toFixed(1), 'px')
       console.log('Green offset:', greenOffsetX > 0 ? '+' : '', greenOffsetX.toFixed(1), 'px')
