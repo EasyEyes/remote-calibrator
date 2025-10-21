@@ -723,13 +723,13 @@ const startIrisDrawingWithMesh = async RC => {
         updateSharedFaceData(leftEye, rightEye, video, currentIPDDistance)
 
         // Log occasionally for debugging (every ~30 frames at 30fps = 1 second)
-        if (Math.random() < 0.033) {
-          console.log('Iris tracking update:', {
-            leftEye: `(${leftEye.x.toFixed(1)}, ${leftEye.y.toFixed(1)})`,
-            rightEye: `(${rightEye.x.toFixed(1)}, ${rightEye.y.toFixed(1)})`,
-            ipd: currentIPDDistance.toFixed(1),
-          })
-        }
+        // if (Math.random() < 0.033) {
+        //   console.log('Iris tracking update:', {
+        //     leftEye: `(${leftEye.x.toFixed(1)}, ${leftEye.y.toFixed(1)})`,
+        //     rightEye: `(${rightEye.x.toFixed(1)}, ${rightEye.y.toFixed(1)})`,
+        //     ipd: currentIPDDistance.toFixed(1),
+        //   })
+        // }
       }
       // Compute active status based on freshness window (no motion required)
       irisTrackingIsActive =
@@ -778,9 +778,9 @@ export const getMeshData = async (
   let meshSource = 'webgazer'
 
   // Check if WebGazer mesh data is stale (WebGazer might be paused)
-  console.log('paused', RC.gazeTracker.webgazer.params.paused)
+  //console.log('paused', RC.gazeTracker.webgazer.params.paused)
   if (!mesh || mesh.length === 0 || RC.gazeTracker.webgazer.params.paused) {
-    console.log('WebGazer mesh stale or paused, using own face detection')
+    //console.log('WebGazer mesh stale or paused, using own face detection')
     try {
       const model = await RC.gazeTracker.webgazer.getTracker().model
       const faces = await model.estimateFaces(video)
@@ -794,7 +794,7 @@ export const getMeshData = async (
     }
   }
 
-  console.log('Mesh source:', meshSource, 'length:', mesh && mesh.length)
+  //console.log('Mesh source:', meshSource, 'length:', mesh && mesh.length)
 
   if (mesh && mesh.length) {
     const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
@@ -1199,7 +1199,7 @@ const renderDistanceResult = async (
   desiredDistanceMonitorCancelable,
   desiredDistanceMonitorAllowRecalibrate,
 ) => {
-  console.log('././renderDistanceResult')
+  //console.log('././renderDistanceResult')
   if (!video) video = document.getElementById('webgazerVideoCanvas')
 
   // Check if video is ready

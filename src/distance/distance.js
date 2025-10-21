@@ -2410,21 +2410,21 @@ export async function blindSpotTestNew(
     const shouldShow =
       /* atMaxEccentricity || */ atMaxSpotDeg || videoAtEdge || squaresAtEdge
 
-    // DEBUG: Always log to see what's happening with actual values
-    console.log('MESSAGE CHECK:', {
-      shouldShow,
-      // atMaxEccentricity,
-      atMaxSpotDeg,
-      videoAtEdge,
-      squaresAtEdge,
-      videoLeft: videoLeftEdge.toFixed(1),
-      videoRight: videoRightEdge.toFixed(1),
-      combinedLeft: boundsCheck.left.toFixed(1),
-      combinedRight: boundsCheck.right.toFixed(1),
-      redLeft: boundsCheck.redLeft.toFixed(1),
-      greenLeft: boundsCheck.greenLeft.toFixed(1),
-      screenWidth: c.width,
-    })
+    // // DEBUG: Always log to see what's happening with actual values
+    // console.log('MESSAGE CHECK:', {
+    //   shouldShow,
+    //   // atMaxEccentricity,
+    //   atMaxSpotDeg,
+    //   videoAtEdge,
+    //   squaresAtEdge,
+    //   videoLeft: videoLeftEdge.toFixed(1),
+    //   videoRight: videoRightEdge.toFixed(1),
+    //   combinedLeft: boundsCheck.left.toFixed(1),
+    //   combinedRight: boundsCheck.right.toFixed(1),
+    //   redLeft: boundsCheck.redLeft.toFixed(1),
+    //   greenLeft: boundsCheck.greenLeft.toFixed(1),
+    //   screenWidth: c.width,
+    // })
 
     // Per spec: "display RC_MovingCloserWillHelp solely while either spotDeg or spotXYPx is limited by screen size"
     // Show message if ANY limit is hit:
@@ -2508,7 +2508,7 @@ export async function blindSpotTestNew(
     }
 
     crossY = Math.max(0, Math.round(videoHeight / 1.8))
-    console.log('topPx...', topPx, videoHeight, crossY)
+    //console.log('topPx...', topPx, videoHeight, crossY)
   }
 
   // Align video fully to one side, keeping its center on the vertical midline boundary
@@ -2708,7 +2708,7 @@ export async function blindSpotTestNew(
     const endX = canvasWidth
     const endY = crossY + grade * (endX - crossX)
 
-    console.log('Line endpoints:', { startX, startY, endX, endY })
+    //console.log('Line endpoints:', { startX, startY, endX, endY })
 
     // Draw the line with dark blue color
     ctx.strokeStyle = '#000080' // Dark blue
@@ -2731,7 +2731,7 @@ export async function blindSpotTestNew(
     ctx.font = '12px Arial' // Smaller font
     ctx.fillText(`Grade: ${grade.toFixed(3)}`, 10, 20)
     ctx.fillText(`X: ${blindspotEccXDeg}°, Y: ${blindspotEccYDeg}°`, 10, 35)
-    ctx.fillText(`Cross: (${crossX}, ${crossY})`, 10, 50)
+    ctx.fillText(`Cross: (${Math.round(crossX)}, ${Math.round(crossY)})`, 10, 50)
   }
 
   const resetEyeSide = side => {
@@ -2766,7 +2766,7 @@ export async function blindSpotTestNew(
   const frameTimestampInitial = performance.now()
   let inTest = true
   const run = () => {
-    console.log('Drawing frame - crossY:', crossY, 'crossX:', crossX)
+    //console.log('Drawing frame - crossY:', crossY, 'crossX:', crossX)
     ctx.clearRect(0, 0, c.width, c.height)
     const rPx = calculateSpotRadiusPx(
       spotDeg,
@@ -3134,40 +3134,40 @@ export async function blindSpotTestNew(
             requiredShift = c.width - newBounds.right
           }
 
-          console.log('🔍 Size increase would require shift:', {
-            currentBoundsLeft: getRedGreenCombinedBounds(
-              circleX,
-              calculateSpotY(
-                circleX,
-                crossX,
-                crossY,
-                ppi,
-                blindspotEccXDeg,
-                blindspotEccYDeg,
-              ),
-              rPx * 2,
-              currentEdge,
-              crossX,
-            ).left.toFixed(1),
-            currentBoundsRight: getRedGreenCombinedBounds(
-              circleX,
-              calculateSpotY(
-                circleX,
-                crossX,
-                crossY,
-                ppi,
-                blindspotEccXDeg,
-                blindspotEccYDeg,
-              ),
-              rPx * 2,
-              currentEdge,
-              crossX,
-            ).right.toFixed(1),
-            newBoundsLeft: newBounds.left.toFixed(1),
-            newBoundsRight: newBounds.right.toFixed(1),
-            requiredShift: requiredShift.toFixed(1),
-            screenWidth: c.width,
-          })
+          // console.log('🔍 Size increase would require shift:', {
+          //   currentBoundsLeft: getRedGreenCombinedBounds(
+          //     circleX,
+          //     calculateSpotY(
+          //       circleX,
+          //       crossX,
+          //       crossY,
+          //       ppi,
+          //       blindspotEccXDeg,
+          //       blindspotEccYDeg,
+          //     ),
+          //     rPx * 2,
+          //     currentEdge,
+          //     crossX,
+          //   ).left.toFixed(1),
+          //   currentBoundsRight: getRedGreenCombinedBounds(
+          //     circleX,
+          //     calculateSpotY(
+          //       circleX,
+          //       crossX,
+          //       crossY,
+          //       ppi,
+          //       blindspotEccXDeg,
+          //       blindspotEccYDeg,
+          //     ),
+          //     rPx * 2,
+          //     currentEdge,
+          //     crossX,
+          //   ).right.toFixed(1),
+          //   newBoundsLeft: newBounds.left.toFixed(1),
+          //   newBoundsRight: newBounds.right.toFixed(1),
+          //   requiredShift: requiredShift.toFixed(1),
+          //   screenWidth: c.width,
+          // })
 
           // Check if video can shift
           const vCont = document.getElementById('webgazerVideoContainer')
@@ -3278,23 +3278,37 @@ export async function blindSpotTestNew(
     edge,
     nearEdgeSpotXYPx = null,
     nearEdgeDistanceCm = null,
+    nearEdgeFixationXYPx = null,  // ADDED: Actual fixation position from near edge
   ) => {
     resetEyeSide(side)
 
-    // If this is a far edge and we have the near edge position, initialize 12° farther from fixation
+    // If this is a far edge and we have the near edge position, initialize based on near edge eccentricity
     if (edge === 'far' && nearEdgeSpotXYPx) {
-      // Calculate 12° offset in cm at current viewing distance
-      // Use actual measured distance from near edge if available, otherwise assume 60cm
-      const measuredDistanceCm = nearEdgeDistanceCm || 60
-      const offsetDeg = 12
-      const offsetCm =
-        measuredDistanceCm * Math.tan((offsetDeg * Math.PI) / 180)
-      let offsetPx = offsetCm * pxPerCm
-
-      // Move the shared border 12° farther from fixation
-      // Determine direction: away from fixation means away from crossX
       const nearEdgeX = nearEdgeSpotXYPx[0]
+      
+      // Use ACTUAL fixation position from near edge measurement
+      // If not provided, fall back to calculated value
+      const nearEdgeCrossX = nearEdgeFixationXYPx ? nearEdgeFixationXYPx[0] : (2 * centerX - nearEdgeX)
+      const nearEdgeEccentricityPx = Math.abs(nearEdgeX - nearEdgeCrossX)
+      const nearEdgeEccentricityCm = nearEdgeEccentricityPx / pxPerCm
+      
+      console.log('///// ===== FAR EDGE ECCENTRICITY DEBUGGING =====')
+      console.log('///// STEP 1: NEAR EDGE ANALYSIS')
+      console.log('/////   Screen width:', c.width, 'px')
+      console.log('/////   Screen centerX:', centerX.toFixed(1), 'px')
+      console.log('/////   Near edge shared border was at:', nearEdgeX.toFixed(1), 'px')
+      console.log('/////   Near edge fixation (crossX) was at:', nearEdgeCrossX.toFixed(1), 'px', nearEdgeFixationXYPx ? '(ACTUAL from snapshot ✓)' : '(CALCULATED - may be inaccurate!)')
+      console.log('/////   Distance between them:', nearEdgeEccentricityPx.toFixed(1), 'px =', nearEdgeEccentricityCm.toFixed(1), 'cm')
+      console.log('/////   ↑ This is the near edge eccentricity we will use')
+      
+      // Multiplier for far edge eccentricity (configurable: 1x, 2x, 3x, etc.)
+      const eccentricityMultiplier = 2.0  // 2× the near edge eccentricity
+      
+      // Calculate target far edge eccentricity
+      const targetEccentricityPx = nearEdgeEccentricityPx * eccentricityMultiplier
+      const targetEccentricityCm = nearEdgeEccentricityCm * eccentricityMultiplier
 
+      // Determine direction: away from fixation means away from centerX
       // CRITICAL: After resetEyeSide, crossX is reset to default position
       // We need to determine directionAwayFromFixation based on near edge position
       // relative to screen center, not the reset crossX
@@ -3315,32 +3329,84 @@ export async function blindSpotTestNew(
       )
       const squareSize = rPx * 2
 
-      console.log('🔍 Initial calculations for 12° offset:', {
-        nearEdgeX: nearEdgeX.toFixed(1),
-        centerX: centerX.toFixed(1),
-        directionAwayFromFixation,
-        currentSpotDeg: spotDeg.toFixed(2),
-        calculatedSquareSize: squareSize.toFixed(1),
-      })
+      console.log('///// STEP 2: TARGET CALCULATION')
+      console.log('/////   Multiplier:', eccentricityMultiplier + '×')
+      console.log('/////   Near edge eccentricity:', nearEdgeEccentricityCm.toFixed(1), 'cm (', nearEdgeEccentricityPx.toFixed(1), 'px )')
+      console.log('/////   Target far edge eccentricity:', targetEccentricityCm.toFixed(1), 'cm (', targetEccentricityPx.toFixed(1), 'px )')
+      console.log('/////   Direction away from fixation:', directionAwayFromFixation > 0 ? 'right (+1)' : 'left (-1)')
+      console.log('/////   Current spot size (deg):', spotDeg.toFixed(2))
+      console.log('/////   Calculated square size:', squareSize.toFixed(1), 'px')
 
       // For 'far' edge, green is AWAY from fixation
       const greenOffsetX =
         directionAwayFromFixation > 0 ? squareSize : -squareSize
 
       // Smart constraint: Scale down offset if green would go too close to edge
-      // Minimum distance from edge: 5cm
-      const minEdgeDistanceCm = 5
-      const minEdgeDistancePx = (minEdgeDistanceCm * ppi) / 2.54
+      // Minimum distance from edge: 2px (very minimal constraint)
+      const minEdgeDistancePx = 2  // Just 2 pixels from edge
 
-      // Try full 12° offset first
-      // newCircleX is the new edge position (circleX represents the red-green edge)
-      let newSharedBorderX = nearEdgeX + directionAwayFromFixation * offsetPx
-      let newCircleX = newSharedBorderX // circleX is the edge position
+      // IMPORTANT: We want the NEAR SIDE OF RED SQUARE at 2× eccentricity, not the midline!
+      // For far edge: Red is toward fixation, Green is away
+      // Layout: [Red][SharedBorder][Green]
+      // Near side of red = the edge of red closer to fixation
+      //
+      // For right side: nearSideOfRed = sharedBorder - redSize
+      // For left side: nearSideOfRed = sharedBorder + redSize
+      // We want: |nearSideOfRed - crossX| = targetEccentricity
+      //
+      // Since redSize depends on sharedBorder position, we iterate to converge
+      
+      console.log('///// STEP 3: FAR EDGE POSITION CALCULATION (NEAR SIDE OF RED at 2×)')
+      console.log('/////   Target: Near side of red at', targetEccentricityCm.toFixed(1), 'cm (', targetEccentricityPx.toFixed(1), 'px )')
+      
+      // Start with initial guess: place midline at 2× eccentricity
+      let sharedBorderX = centerX + directionAwayFromFixation * targetEccentricityPx / 2
+      let iterations = 0
+      const maxIterations = 10
+      
+      while (iterations < maxIterations) {
+        const testCrossX = 2 * centerX - sharedBorderX
+        const testRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, sharedBorderX, testCrossX)
+        const redSize = testRPx * 2
+        
+        // Calculate where near side of red is
+        const nearSideOfRed = directionAwayFromFixation > 0 
+          ? sharedBorderX - redSize  // Right side: red is to the left of border
+          : sharedBorderX + redSize  // Left side: red is to the right of border
+        
+        // Calculate eccentricity of near side of red
+        const nearSideEccentricity = Math.abs(nearSideOfRed - testCrossX)
+        
+        console.log('/////   Iteration', iterations + 1 + ':', 'sharedBorder =', sharedBorderX.toFixed(1), 'redSize =', redSize.toFixed(1), 'nearSideEcc =', nearSideEccentricity.toFixed(1))
+        
+        // Check if we've converged
+        if (Math.abs(nearSideEccentricity - targetEccentricityPx) < 0.5) {
+          console.log('/////   ✓ Converged! Near side of red eccentricity:', nearSideEccentricity.toFixed(1), 'px')
+          break
+        }
+        
+        // Adjust: if nearSideEccentricity is too small, move sharedBorder farther from fixation
+        const error = targetEccentricityPx - nearSideEccentricity
+        sharedBorderX += directionAwayFromFixation * error / 2
+        iterations++
+      }
+      
+      let newSharedBorderX = sharedBorderX
+      let newCircleX = newSharedBorderX
+      
+      // IMPORTANT: Recalculate square size at the final converged position
+      // This accounts for square size changing with eccentricity
+      const finalIterCrossX = 2 * centerX - newSharedBorderX
+      const finalIterRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, newSharedBorderX, finalIterCrossX)
+      const finalIterSquareSize = finalIterRPx * 2
+      
+      console.log('/////   Final shared border X:', newSharedBorderX.toFixed(1), 'px (after', iterations + 1, 'iterations)')
+      console.log('/////   Final square size at this position:', finalIterSquareSize.toFixed(1), 'px (recalculated with current spotDeg)')
 
-      // Calculate where green would be with this position
+      // Calculate where green would be with this position using CURRENT square size
       const testSpotY = calculateSpotY(
         newCircleX,
-        2 * centerX - newCircleX, // crossX would be this
+        finalIterCrossX,
         crossY,
         ppi,
         blindspotEccXDeg,
@@ -3349,16 +3415,26 @@ export async function blindSpotTestNew(
       const testBounds = getRedGreenCombinedBounds(
         newCircleX,
         testSpotY,
-        squareSize,
-        'far', // edge type
-        2 * centerX - newCircleX, // crossX
+        finalIterSquareSize,  // Use the recalculated square size from converged position!
+        'far',
+        finalIterCrossX,
       )
 
+      // Verify the calculated eccentricity
+      const calculatedCrossX = 2 * centerX - newSharedBorderX
+      const calculatedEccentricityPx = Math.abs(newSharedBorderX - calculatedCrossX)
+      const calculatedEccentricityCm = calculatedEccentricityPx / pxPerCm
+      
+      console.log('///// STEP 4: VERIFICATION')
+      console.log('/////   Calculated far edge crossX:', calculatedCrossX.toFixed(1), 'px')
+      console.log('/////   Calculated far edge eccentricity:', calculatedEccentricityPx.toFixed(1), 'px =', calculatedEccentricityCm.toFixed(1), 'cm')
+      console.log('/////   Target was:', targetEccentricityPx.toFixed(1), 'px =', targetEccentricityCm.toFixed(1), 'cm')
+      console.log('/////   Match:', Math.abs(calculatedEccentricityPx - targetEccentricityPx) < 0.1 ? '✓ YES' : '✗ NO - DIFFERENCE: ' + (calculatedEccentricityPx - targetEccentricityPx).toFixed(1) + 'px')
+      
       // Check if green would be too close to screen edge
-      let offsetWasReduced = false
-      let actualOffsetPx = offsetPx
+      let eccentricityWasReduced = false
 
-      console.log('🔍 DEBUG: Checking 12° offset constraints')
+      console.log('🔍 DEBUG: Checking eccentricity constraints')
       console.log('  Screen width:', c.width)
       console.log('  Test bounds:', {
         left: testBounds.left.toFixed(1),
@@ -3384,25 +3460,61 @@ export async function blindSpotTestNew(
         )
 
         if (distanceFromRightEdge < minEdgeDistancePx) {
-          // Green too close to right edge - scale down offset
-          // Calculate max offset that keeps green at minEdgeDistancePx from edge
-          const maxGreenRight = c.width - minEdgeDistancePx
-          const maxGreenLeft = maxGreenRight - squareSize
-          const maxGreenCenterX = maxGreenLeft + squareSize / 2
-          // NEW: circleX is the edge, so edge = greenCenter - greenOffsetX/2
-          const maxSharedBorderX = maxGreenCenterX - greenOffsetX / 2
-          actualOffsetPx = maxSharedBorderX - nearEdgeX
-          offsetWasReduced = true
+          // Green too close to right edge - need to find max position iteratively
+          // because square size changes with eccentricity!
+          eccentricityWasReduced = true
+          console.log('  ⚠️  TOO CLOSE! Finding maximum position (accounting for changing square size)...')
+          
+          // Binary search for maximum position that fits
+          let lowX = centerX  // Safe position
+          let highX = newSharedBorderX  // Too far
+          let iterations = 0
+          const maxIterations = 20
+          
+          while (iterations < maxIterations && Math.abs(highX - lowX) > 1) {
+            const midX = (lowX + highX) / 2
+            const testCrossX = 2 * centerX - midX
+            
+            // Calculate square size at THIS position
+            const testRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, midX, testCrossX)
+            const testSquareSize = testRPx * 2
+            const testGreenOffsetX = directionAwayFromFixation > 0 ? testSquareSize : -testSquareSize
+            
+            // Calculate bounds with the actual square size at this position
+            const testY = calculateSpotY(midX, testCrossX, crossY, ppi, blindspotEccXDeg, blindspotEccYDeg)
+            const testBoundsAtMid = getRedGreenCombinedBounds(midX, testY, testSquareSize, 'far', testCrossX)
+            
+            const rightClearance = c.width - testBoundsAtMid.right
+            
+            if (rightClearance >= minEdgeDistancePx) {
+              // This position works - try going farther
+              lowX = midX
+            } else {
+              // Too far - reduce
+              highX = midX
+            }
+            iterations++
+          }
+          
+          // Use the safe position found
+          newSharedBorderX = lowX
+          newCircleX = newSharedBorderX
+          
+          const maxCrossX = 2 * centerX - newSharedBorderX
+          const maxEccentricityPx = Math.abs(newSharedBorderX - maxCrossX)
+          const maxEccentricityCm = maxEccentricityPx / pxPerCm
+          
+          // Also calculate near side of red eccentricity at max position
+          const maxTestRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, newSharedBorderX, maxCrossX)
+          const maxRedSize = maxTestRPx * 2
+          const maxNearSideOfRedX = newSharedBorderX - maxRedSize
+          const maxNearSideEccentricityPx = Math.abs(maxNearSideOfRedX - maxCrossX)
+          const maxNearSideEccentricityCm = maxNearSideEccentricityPx / pxPerCm
 
-          console.log('  ⚠️  TOO CLOSE! Reducing offset')
-          console.log('  Max green right:', maxGreenRight.toFixed(1))
-          console.log('  Max green center X:', maxGreenCenterX.toFixed(1))
-          console.log('  Max shared border X:', maxSharedBorderX.toFixed(1))
-          console.log('  Actual offset px:', actualOffsetPx.toFixed(1))
-
-          // Apply reduced offset
-          newSharedBorderX = nearEdgeX + actualOffsetPx
-          newCircleX = newSharedBorderX // circleX is the edge position
+          console.log('  Found maximum position after', iterations, 'iterations')
+          console.log('  Max shared border X:', newSharedBorderX.toFixed(1))
+          console.log('  Max midline eccentricity:', maxEccentricityCm.toFixed(1), 'cm')
+          console.log('  Max NEAR SIDE OF RED eccentricity:', maxNearSideEccentricityCm.toFixed(1), 'cm')
         } else {
           console.log('  ✓ Sufficient clearance from right edge')
         }
@@ -3416,25 +3528,61 @@ export async function blindSpotTestNew(
         )
 
         if (distanceFromLeftEdge < minEdgeDistancePx) {
-          // Green too close to left edge - scale down offset
-          // Calculate max offset that keeps green at minEdgeDistancePx from edge
-          const maxGreenLeft = minEdgeDistancePx
-          const maxGreenRight = maxGreenLeft + squareSize
-          const maxGreenCenterX = maxGreenLeft + squareSize / 2
-          // NEW: circleX is the edge, so edge = greenCenter - greenOffsetX/2
-          const maxSharedBorderX = maxGreenCenterX - greenOffsetX / 2
-          actualOffsetPx = Math.abs(maxSharedBorderX - nearEdgeX)
-          offsetWasReduced = true
+          // Green too close to left edge - need to find max position iteratively
+          // because square size changes with eccentricity!
+          eccentricityWasReduced = true
+          console.log('  ⚠️  TOO CLOSE! Finding maximum position (accounting for changing square size)...')
+          
+          // Binary search for maximum position that fits
+          let lowX = newSharedBorderX  // Too far (most negative)
+          let highX = centerX  // Safe position
+          let iterations = 0
+          const maxIterations = 20
+          
+          while (iterations < maxIterations && Math.abs(highX - lowX) > 1) {
+            const midX = (lowX + highX) / 2
+            const testCrossX = 2 * centerX - midX
+            
+            // Calculate square size at THIS position
+            const testRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, midX, testCrossX)
+            const testSquareSize = testRPx * 2
+            const testGreenOffsetX = directionAwayFromFixation > 0 ? testSquareSize : -testSquareSize
+            
+            // Calculate bounds with the actual square size at this position
+            const testY = calculateSpotY(midX, testCrossX, crossY, ppi, blindspotEccXDeg, blindspotEccYDeg)
+            const testBoundsAtMid = getRedGreenCombinedBounds(midX, testY, testSquareSize, 'far', testCrossX)
+            
+            const leftClearance = testBoundsAtMid.left
+            
+            if (leftClearance >= minEdgeDistancePx) {
+              // This position works - try going farther (more negative)
+              highX = midX
+            } else {
+              // Too far - reduce (less negative)
+              lowX = midX
+            }
+            iterations++
+          }
+          
+          // Use the safe position found
+          newSharedBorderX = highX
+          newCircleX = newSharedBorderX
+          
+          const maxCrossX = 2 * centerX - newSharedBorderX
+          const maxEccentricityPx = Math.abs(newSharedBorderX - maxCrossX)
+          const maxEccentricityCm = maxEccentricityPx / pxPerCm
+          
+          // Also calculate near side of red eccentricity at max position
+          const maxTestRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, newSharedBorderX, maxCrossX)
+          const maxRedSize = maxTestRPx * 2
+          const maxNearSideOfRedX = newSharedBorderX + maxRedSize
+          const maxNearSideEccentricityPx = Math.abs(maxNearSideOfRedX - maxCrossX)
+          const maxNearSideEccentricityCm = maxNearSideEccentricityPx / pxPerCm
 
-          console.log('  ⚠️  TOO CLOSE! Reducing offset')
-          console.log('  Max green left:', maxGreenLeft.toFixed(1))
-          console.log('  Max green center X:', maxGreenCenterX.toFixed(1))
-          console.log('  Max shared border X:', maxSharedBorderX.toFixed(1))
-          console.log('  Actual offset px:', actualOffsetPx.toFixed(1))
-
-          // Apply reduced offset
-          newSharedBorderX = nearEdgeX - actualOffsetPx
-          newCircleX = newSharedBorderX // circleX is the edge position
+          console.log('  Found maximum position after', iterations, 'iterations')
+          console.log('  Max shared border X:', newSharedBorderX.toFixed(1))
+          console.log('  Max midline eccentricity:', maxEccentricityCm.toFixed(1), 'cm')
+          console.log('  Max NEAR SIDE OF RED eccentricity:', maxNearSideEccentricityCm.toFixed(1), 'cm')
         } else {
           console.log('  ✓ Sufficient clearance from left edge')
         }
@@ -3474,12 +3622,13 @@ export async function blindSpotTestNew(
         sizeDifference: (finalSquareSize - squareSize).toFixed(1),
       })
 
-      // Constraint 1: Check screen bounds with 5cm margin
+      // Constraint 1: Check HORIZONTAL screen bounds only (left/right edges)
+      // Vertical (top/bottom) can go off screen - we don't care
       const leftClearance = finalTestBounds.left
       const rightClearance = c.width - finalTestBounds.right
       const hasScreenClearance =
         leftClearance >= minEdgeDistancePx &&
-        rightClearance >= minEdgeDistancePx
+        rightClearance >= minEdgeDistancePx  // Only checking horizontal edges
 
       // Constraint 2: Check video overlap
       const vCont = document.getElementById('webgazerVideoContainer')
@@ -3514,234 +3663,62 @@ export async function blindSpotTestNew(
         },
       })
 
-      // Only apply if ALL constraints are met
-      if (hasScreenClearance && noVideoOverlap) {
+      // Apply the position (Level 1 binary search already handled constraints)
+      // Just check video overlap as final validation
+      if (noVideoOverlap) {
         // Safe to apply
         circleX = newCircleX
         crossX = proposedCrossX
         _positionVideoBelowFixation()
-        console.log('  ✅ Position validated and applied')
+        console.log('  ✅ Position applied (no video overlap)')
       } else {
-        // Fallback: Calculate a safer conservative position
-        console.log('  ⚠️  Validation failed, using conservative fallback')
-
-        // Work backwards: place green exactly 5cm from the edge it's approaching
-        let safeGreenEdge, safeGreenCenter, safeCircleX
-
-        if (directionAwayFromFixation > 0) {
-          // Moving right - place green 5cm from right edge
-          safeGreenEdge = c.width - minEdgeDistancePx // right edge of green
-          safeGreenCenter = safeGreenEdge - finalSquareSize / 2 // Use finalSquareSize
-          safeCircleX = safeGreenCenter - finalGreenOffsetX // Use finalGreenOffsetX
-        } else {
-          // Moving left - place green 5cm from left edge
-          safeGreenEdge = minEdgeDistancePx // left edge of green
-          safeGreenCenter = safeGreenEdge + finalSquareSize / 2 // Use finalSquareSize
-          safeCircleX = safeGreenCenter - finalGreenOffsetX // Use finalGreenOffsetX
-        }
-
-        // Validate this position is actually safe
-        const safeCrossX = 2 * centerX - safeCircleX
-
-        // Recalculate size for this fallback position
-        const safeRPx = calculateSpotRadiusPx(
-          spotDeg,
-          ppi,
-          blindspotEccXDeg,
-          safeCircleX,
-          safeCrossX,
-        )
-        const safeSquareSize = safeRPx * 2
-
-        const safeBounds = getRedGreenCombinedBounds(
-          safeCircleX,
-          calculateSpotY(
-            safeCircleX,
-            safeCrossX,
-            crossY,
-            ppi,
-            blindspotEccXDeg,
-            blindspotEccYDeg,
-          ),
-          safeSquareSize, // Use recalculated size for fallback
-          'far',
-          safeCrossX,
-        )
-
-        // Check ALL constraints for fallback position
-        const safeLeftClearance = safeBounds.left
-        const safeRightClearance = c.width - safeBounds.right
-        const safeHasScreenClearance =
-          safeLeftClearance >= minEdgeDistancePx &&
-          safeRightClearance >= minEdgeDistancePx
-
-        const safeGreenOverlaps =
-          safeBounds.greenLeft < safeCrossX + videoHalfWidth &&
-          safeBounds.greenRight > safeCrossX - videoHalfWidth
-        const safeRedOverlaps =
-          safeBounds.redLeft < safeCrossX + videoHalfWidth &&
-          safeBounds.redRight > safeCrossX - videoHalfWidth
-        const safeNoVideoOverlap = !safeGreenOverlaps && !safeRedOverlaps
-
-        console.log('  🔍 Fallback validation:', {
-          safeLeftClearance: safeLeftClearance.toFixed(1),
-          safeRightClearance: safeRightClearance.toFixed(1),
-          safeHasScreenClearance,
-          safeGreenOverlaps,
-          safeRedOverlaps,
-          safeNoVideoOverlap,
-        })
-
-        if (safeHasScreenClearance && safeNoVideoOverlap) {
-          circleX = safeCircleX
-          crossX = safeCrossX
-          _positionVideoBelowFixation()
-          console.log('  ✅ Conservative fallback position applied')
-          console.log('  Fallback bounds:', {
-            left: safeBounds.left.toFixed(1),
-            right: safeBounds.right.toFixed(1),
-            greenLeft: safeBounds.greenLeft.toFixed(1),
-            greenRight: safeBounds.greenRight.toFixed(1),
-            redLeft: safeBounds.redLeft.toFixed(1),
-            redRight: safeBounds.redRight.toFixed(1),
-          })
-        } else {
-          // Cannot find ANY safe position for far edge
-          // This happens when near edge was pushed to extreme and there's no room for 12° offset
-          console.log('  ❌ CANNOT APPLY ANY OFFSET - Screen too constrained')
-          console.log(
-            '  Near edge was at extreme position, no room for far edge offset',
-          )
-          console.log(
-            '  Will measure far edge at same ECCENTRICITY as near edge (0° offset)',
-          )
-
-          // CRITICAL: Keep the same eccentricity as near edge, but configure for far edge
-          // The near edge measured at nearEdgeX with green TOWARD fixation
-          // We need to measure far edge at same eccentricity but with green AWAY from fixation
-
-          // Calculate the eccentricity (distance from center) of the near edge
-          const nearEdgeEccentricityPx = Math.abs(nearEdgeX - centerX)
-
-          // For far edge: place the shared border at the same eccentricity
-          // but this time green will be AWAY from fixation
-          const farEdgeSharedBorderX =
-            centerX + directionAwayFromFixation * nearEdgeEccentricityPx
-
-          // Set circleX for far edge configuration (circleX is the edge position)
-          // Need to recalculate greenOffsetX with current square size
-          const farEdgeTempCircleX = farEdgeSharedBorderX // Edge position for size calc
-          const farEdgeTempCrossX = 2 * centerX - farEdgeTempCircleX
-          const farEdgeRPx = calculateSpotRadiusPx(
-            spotDeg,
-            ppi,
-            blindspotEccXDeg,
-            farEdgeTempCircleX,
-            farEdgeTempCrossX,
-          )
-          const farEdgeSquareSize = farEdgeRPx * 2
-          const farEdgeGreenOffsetX =
-            directionAwayFromFixation > 0
-              ? farEdgeSquareSize
-              : -farEdgeSquareSize
-
-          const farEdgeCircleX = farEdgeSharedBorderX // circleX is the edge position
-          const farEdgeCrossX = 2 * centerX - farEdgeCircleX
-
-          // Recalculate size one more time with final position
-          const farEdgeFinalRPx = calculateSpotRadiusPx(
-            spotDeg,
-            ppi,
-            blindspotEccXDeg,
-            farEdgeCircleX,
-            farEdgeCrossX,
-          )
-          const farEdgeFinalSquareSize = farEdgeFinalRPx * 2
-
-          // Validate this position
-          const farEdgeBounds = getRedGreenCombinedBounds(
-            farEdgeCircleX,
-            calculateSpotY(
-              farEdgeCircleX,
-              farEdgeCrossX,
-              crossY,
-              ppi,
-              blindspotEccXDeg,
-              blindspotEccYDeg,
-            ),
-            farEdgeFinalSquareSize, // Use final recalculated size
-            'far',
-            farEdgeCrossX,
-          )
-
-          const farLeftClearance = farEdgeBounds.left
-          const farRightClearance = c.width - farEdgeBounds.right
-          const farHasScreenClearance =
-            farLeftClearance >= 0 && farRightClearance >= 0 // Just need to be on screen, 5cm margin may not be possible
-
-          console.log('  📍 Far edge at same eccentricity as near edge:', {
-            nearEdgeEccentricity: nearEdgeEccentricityPx.toFixed(1) + ' px',
-            farEdgeSharedBorderX: farEdgeSharedBorderX.toFixed(1),
-            farEdgeCircleX: farEdgeCircleX.toFixed(1),
-            farEdgeCrossX: farEdgeCrossX.toFixed(1),
-            bounds: {
-              left: farEdgeBounds.left.toFixed(1),
-              right: farEdgeBounds.right.toFixed(1),
-              greenLeft: farEdgeBounds.greenLeft.toFixed(1),
-              greenRight: farEdgeBounds.greenRight.toFixed(1),
-              redLeft: farEdgeBounds.redLeft.toFixed(1),
-              redRight: farEdgeBounds.redRight.toFixed(1),
-            },
-            farHasScreenClearance,
-          })
-
-          if (farHasScreenClearance) {
-            // Apply far edge position at same eccentricity
-            circleX = farEdgeCircleX
-            crossX = farEdgeCrossX
-            _positionVideoBelowFixation()
-            console.log(
-              '  ✅ Far edge positioned at same eccentricity as near edge (0 deg separation)',
-            )
-          } else {
-            // Even same eccentricity does not fit - this should not happen but handle it
-            console.log(
-              '  ❌ CRITICAL: Even 0 deg offset does not fit on screen!',
-            )
-            console.log('  Using resetEyeSide default position as last resort')
-            // Keep the resetEyeSide position (6cm from center)
-          }
-        }
+        // Video overlap - shouldn't happen often, just apply anyway and log warning
+        console.log('  ⚠️  Video overlap detected but applying position anyway')
+        circleX = newCircleX
+        crossX = proposedCrossX
+        _positionVideoBelowFixation()
       }
 
-      console.log('=== Far Edge Initial Position (12° offset) ===')
-      console.log('Near edge position:', nearEdgeX.toFixed(1), 'px')
-      console.log('Measured distance:', measuredDistanceCm.toFixed(1), 'cm')
-      console.log(
-        'Requested 12° offset:',
-        offsetCm.toFixed(1),
-        'cm =',
-        offsetPx.toFixed(1),
-        'px',
-      )
-      if (offsetWasReduced) {
-        const actualOffsetCm = actualOffsetPx / pxPerCm
-        const actualOffsetDeg =
-          Math.atan(actualOffsetCm / measuredDistanceCm) * (180 / Math.PI)
-        console.log('⚠️  OFFSET REDUCED to keep green 5cm from edge')
-        console.log(
-          'Actual offset:',
-          actualOffsetCm.toFixed(1),
-          'cm =',
-          actualOffsetPx.toFixed(1),
-          'px',
-        )
-        console.log('Actual offset degrees:', actualOffsetDeg.toFixed(1), '°')
+      // Calculate final achieved eccentricity
+      const finalCrossX = 2 * centerX - circleX
+      const finalEccentricityPx = Math.abs(circleX - finalCrossX)
+      const finalEccentricityCm = finalEccentricityPx / pxPerCm
+      
+      // Calculate final near side of red eccentricity
+      const finalRedSize = finalSquareSize  // From the recalculation above
+      const finalNearSideOfRedX = directionAwayFromFixation > 0 
+        ? circleX - finalRedSize  // Right side: red is to the left of border
+        : circleX + finalRedSize  // Left side: red is to the right of border
+      const finalNearSideEccentricityPx = Math.abs(finalNearSideOfRedX - finalCrossX)
+      const finalNearSideEccentricityCm = finalNearSideEccentricityPx / pxPerCm
+      
+      console.log('///// STEP 5: FINAL RESULT')
+      console.log('/////   Near edge eccentricity (midline) was:', nearEdgeEccentricityCm.toFixed(1), 'cm (', nearEdgeEccentricityPx.toFixed(1), 'px )')
+      console.log('/////   Multiplier:', eccentricityMultiplier + '×')
+      console.log('/////   Target NEAR SIDE OF RED eccentricity:', targetEccentricityCm.toFixed(1), 'cm (', targetEccentricityPx.toFixed(1), 'px )')
+      console.log('/////   ')
+      console.log('/////   Final shared border (midline):', circleX.toFixed(1), 'px')
+      console.log('/////   Final fixation (crossX):', finalCrossX.toFixed(1), 'px')
+      console.log('/////   Final red square size:', finalRedSize.toFixed(1), 'px')
+      console.log('/////   Final NEAR SIDE OF RED position:', finalNearSideOfRedX.toFixed(1), 'px')
+      console.log('/////   ')
+      console.log('/////   ACHIEVED midline eccentricity:', finalEccentricityPx.toFixed(1), 'px =', finalEccentricityCm.toFixed(1), 'cm')
+      console.log('/////   ACHIEVED near side of red eccentricity:', finalNearSideEccentricityPx.toFixed(1), 'px =', finalNearSideEccentricityCm.toFixed(1), 'cm')
+      console.log('/////   Ratio to near edge (midline):', (finalNearSideEccentricityPx / nearEdgeEccentricityPx).toFixed(3) + '× (should be ' + eccentricityMultiplier.toFixed(1) + '×)')
+      console.log('///// ')
+      console.log('///// 📏 WHAT YOU SHOULD MEASURE WITH RULER:')
+      console.log('/////   PPI:', ppi, '→ pxPerCm:', pxPerCm.toFixed(2))
+      console.log('/////   Near edge: Fixation → Midline =', nearEdgeEccentricityCm.toFixed(2), 'cm')
+      console.log('/////   Far edge: Fixation → NEAR SIDE OF RED =', finalNearSideEccentricityCm.toFixed(2), 'cm')
+      console.log('/////   📊 Expected ratio with ruler:', (finalNearSideEccentricityCm / nearEdgeEccentricityCm).toFixed(3) + '× (should be ' + eccentricityMultiplier.toFixed(1) + '×)')
+      console.log('/////   ⚠️  If your ruler shows different, PPI calibration may be off!')
+      
+      if (eccentricityWasReduced) {
+        console.log('/////   ⚠️  ECCENTRICITY WAS REDUCED to keep green 2px from screen edge')
       } else {
-        console.log(
-          '✓ Full 12° offset applied (green has sufficient clearance)',
-        )
+        console.log('/////   ✓ Target eccentricity achieved (green has sufficient clearance)')
       }
+      console.log('///// ===== END DEBUGGING =====')
       console.log('Target shared border (edge):', newSharedBorderX.toFixed(1), 'px')
       console.log('Set circleX (edge position):', circleX.toFixed(1), 'px')
       console.log(
@@ -3999,6 +3976,7 @@ export async function blindSpotTestNew(
             calibrationFactor: nearestPointsData.calibrationFactor,
             samples,
             spotXYPx, // Include the spot position (shared border)
+            fixationXYPx: [crossX, crossY], // ADDED: Save actual fixation position
           }
           resolve(snapshot)
         } catch (e) {
@@ -4025,21 +4003,23 @@ export async function blindSpotTestNew(
   while (true) {
     try {
       rightNearSnapshot = await doEdgeSnapshot('right', 'near')
-      // Initialize far edge 12° farther from fixation than near edge
-      // Pass both position and distance for accurate calculation
+      // Initialize far edge based on near edge eccentricity
+      // Pass spot position, distance, AND actual fixation position for accurate calculation
       rightFarSnapshot = await doEdgeSnapshot(
         'right',
         'far',
         rightNearSnapshot.spotXYPx,
         rightNearSnapshot.distanceCm,
+        rightNearSnapshot.fixationXYPx,  // ADDED: Pass actual fixation position
       )
       leftNearSnapshot = await doEdgeSnapshot('left', 'near')
-      // Initialize far edge 12° farther from fixation than near edge
+      // Initialize far edge based on near edge eccentricity
       leftFarSnapshot = await doEdgeSnapshot(
         'left',
         'far',
         leftNearSnapshot.spotXYPx,
         leftNearSnapshot.distanceCm,
+        leftNearSnapshot.fixationXYPx,  // ADDED: Pass actual fixation position
       )
       break
     } catch (e) {
