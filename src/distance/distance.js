@@ -2293,35 +2293,39 @@ export async function blindSpotTestNew(
   // }
 
   // Center the stimulus at screen midline
-  const centerStimulus = diamondWidth => {
+  // Note: circleX now represents the red-green edge (midline between squares)
+  const centerStimulus = squareSize => {
     const vCont = document.getElementById('webgazerVideoContainer')
     const videoWidth = vCont
       ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
       : 0
     const videoHalfWidth = videoWidth / 2
-    const diamondHalfWidth = diamondWidth / 2
 
-    // Calculate outer edges based on which side diamond is on
-    let outerVideoX, outerDiamondX
+    // Calculate outer edges of the entire stimulus (video edge to far square edge)
+    // circleX is the edge between red and green squares
+    // Squares extend squareSize in both directions from the edge
+    let outerVideoX, outerSquaresX
 
     if (circleX < crossX) {
-      // Diamond is LEFT of fixation
+      // Squares are LEFT of fixation (red-green edge on left side)
       outerVideoX = crossX + videoHalfWidth // Right edge of video
-      outerDiamondX = circleX - diamondHalfWidth // Left edge of diamond
+      // The leftmost square extends squareSize to the left of the edge
+      outerSquaresX = circleX - squareSize // Left edge of leftmost square
     } else {
-      // Diamond is RIGHT of fixation
+      // Squares are RIGHT of fixation (red-green edge on right side)
       outerVideoX = crossX - videoHalfWidth // Left edge of video
-      outerDiamondX = circleX + diamondHalfWidth // Right edge of diamond
+      // The rightmost square extends squareSize to the right of the edge
+      outerSquaresX = circleX + squareSize // Right edge of rightmost square
     }
 
-    // Calculate middle of stimulus
-    const middlePx = (outerVideoX + outerDiamondX) / 2
+    // Calculate middle of entire stimulus (from video edge to far square edge)
+    const middlePx = (outerVideoX + outerSquaresX) / 2
 
     // Calculate offset to center at screen midline
     const screenMidline = c.width / 2
     const offsetXPx = screenMidline - middlePx
 
-    // Apply offset to both fixation and diamond (preserves eccentricity)
+    // Apply offset to both fixation and edge position (preserves eccentricity)
     crossX += offsetXPx
     circleX += offsetXPx
   }
