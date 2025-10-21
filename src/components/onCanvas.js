@@ -116,7 +116,8 @@ export function _diamond(
 }
 
 // RED-GREEN SQUARES (for edge-based blindspot test)
-// x, y represent the center of the red square (NOT the shared border)
+// x, y represent the red-green edge (shared border) position
+// When size changes, this edge position stays fixed and the squares expand/contract around it
 // greenSide: 'near' (toward fixation) or 'far' (away from fixation)
 // fixationX: x position of fixation cross to determine near/far direction
 export function _redGreenSquares(
@@ -144,7 +145,10 @@ export function _redGreenSquares(
     greenOffsetX = fixationX < x ? squareSize : -squareSize
   }
 
-  const greenX = x + greenOffsetX
+  // Calculate square centers from edge position
+  // x is the edge (midline), so red and green are offset in opposite directions
+  const redX = x - greenOffsetX / 2
+  const greenX = x + greenOffsetX / 2
 
   // Draw green square (steady, no flickering)
   ctx.fillStyle = '#00FF00' // Bright green
@@ -161,12 +165,11 @@ export function _redGreenSquares(
       ctx.fillStyle = '#ffffff' // White
     }
   }
-  ctx.fillRect(x - halfSize, y - halfSize, squareSize, squareSize)
+  ctx.fillRect(redX - halfSize, y - halfSize, squareSize, squareSize)
 
-  // Return the position of the shared border (middle of red-green edge)
+  // Return the position of the shared border (which is now just x, y)
   // This is the reported spotXYPx position
-  const sharedBorderX = x + greenOffsetX / 2
-  return { x: sharedBorderX, y: y }
+  return { x: x, y: y }
 }
 
 /* ---------------------------------- Drag ---------------------------------- */
@@ -192,7 +195,7 @@ export function clickOnRedGreenSquares(
   greenSide = 'near',
   fixationX = 0,
 ) {
-  // x, y is the center of the red square
+  // x, y is the red-green edge (midline)
   const halfSize = squareSize / 2
 
   // Determine green square offset
@@ -203,12 +206,14 @@ export function clickOnRedGreenSquares(
     greenOffsetX = fixationX < x ? squareSize : -squareSize
   }
 
-  const greenX = x + greenOffsetX
+  // Calculate square centers from edge position
+  const redX = x - greenOffsetX / 2
+  const greenX = x + greenOffsetX / 2
 
   // Check if click is in red square
   const inRedSquare =
-    mouseX >= x - halfSize &&
-    mouseX <= x + halfSize &&
+    mouseX >= redX - halfSize &&
+    mouseX <= redX + halfSize &&
     mouseY >= y - halfSize &&
     mouseY <= y + halfSize
 
