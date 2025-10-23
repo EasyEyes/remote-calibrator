@@ -2457,50 +2457,63 @@ export async function blindSpotTestNew(
     c.height = Math.round(window.innerHeight * 0.9)
     c.style.width = `${c.width}px`
     c.style.height = `${c.height}px`
-    
+
     const oldCenterX = centerX
     centerX = c.width / 2
-    
+
     // IMPORTANT: On resize, constrain circleX to prevent squares from going off screen
     // or ending up on wrong side of centerX
     if (allowMove && typeof circleX === 'number') {
       // Determine which side the square should be on
       const shouldBeOnRight = circleX > oldCenterX
-      
+
       // Calculate current square size to determine bounds
       const tempCrossX = 2 * centerX - circleX
-      const tempRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, circleX, tempCrossX)
+      const tempRPx = calculateSpotRadiusPx(
+        spotDeg,
+        ppi,
+        blindspotEccXDeg,
+        circleX,
+        tempCrossX,
+      )
       const tempSquareSize = tempRPx * 2
-      
+
       // Calculate safe bounds for this side
       const minEdgeMargin = 2 // 2px from edge minimum
-      const greenOffset = currentEdge === 'far' 
-        ? (shouldBeOnRight ? tempSquareSize : -tempSquareSize)  // Green away from fixation
-        : (shouldBeOnRight ? -tempSquareSize : tempSquareSize)  // Green toward fixation
-      
+      const greenOffset =
+        currentEdge === 'far'
+          ? shouldBeOnRight
+            ? tempSquareSize
+            : -tempSquareSize // Green away from fixation
+          : shouldBeOnRight
+            ? -tempSquareSize
+            : tempSquareSize // Green toward fixation
+
       // Determine bounds based on which side
       let minCircleX, maxCircleX
       if (shouldBeOnRight) {
         // Square should be on right side (circleX > centerX)
-        minCircleX = centerX + 10  // At least 10px from center
+        minCircleX = centerX + 10 // At least 10px from center
         // Max: green square right edge must be 2px from screen edge
         const maxGreenRight = c.width - minEdgeMargin
-        maxCircleX = greenOffset > 0 
-          ? maxGreenRight - tempSquareSize  // Green is to the right
-          : maxGreenRight  // Green is to the left
+        maxCircleX =
+          greenOffset > 0
+            ? maxGreenRight - tempSquareSize // Green is to the right
+            : maxGreenRight // Green is to the left
       } else {
         // Square should be on left side (circleX < centerX)
-        maxCircleX = centerX - 10  // At least 10px from center
+        maxCircleX = centerX - 10 // At least 10px from center
         // Min: green square left edge must be 2px from screen edge
         const minGreenLeft = minEdgeMargin
-        minCircleX = greenOffset < 0 
-          ? minGreenLeft + tempSquareSize  // Green is to the left
-          : minGreenLeft  // Green is to the right
+        minCircleX =
+          greenOffset < 0
+            ? minGreenLeft + tempSquareSize // Green is to the left
+            : minGreenLeft // Green is to the right
       }
-      
+
       // Constrain circleX to valid bounds
       circleX = Math.max(minCircleX, Math.min(maxCircleX, circleX))
-      
+
       // Recalculate crossX with constrained circleX
       crossX = 2 * centerX - circleX
     } else if (allowMove) {
@@ -2508,7 +2521,7 @@ export async function blindSpotTestNew(
     } else {
       crossX = crossX || centerX
     }
-    
+
     if (vCont) {
       const videoHeight =
         parseInt(vCont.style.height) || vCont.offsetHeight || 0
@@ -2778,7 +2791,11 @@ export async function blindSpotTestNew(
     ctx.font = '12px Arial' // Smaller font
     ctx.fillText(`Grade: ${grade.toFixed(3)}`, 10, 20)
     ctx.fillText(`X: ${blindspotEccXDeg}°, Y: ${blindspotEccYDeg}°`, 10, 35)
-    ctx.fillText(`Cross: (${Math.round(crossX)}, ${Math.round(crossY)})`, 10, 50)
+    ctx.fillText(
+      `Cross: (${Math.round(crossX)}, ${Math.round(crossY)})`,
+      10,
+      50,
+    )
   }
 
   const resetEyeSide = side => {
@@ -3325,7 +3342,7 @@ export async function blindSpotTestNew(
     edge,
     nearEdgeSpotXYPx = null,
     nearEdgeDistanceCm = null,
-    nearEdgeFixationXYPx = null,  // ADDED: Actual fixation position from near edge
+    nearEdgeFixationXYPx = null, // ADDED: Actual fixation position from near edge
   ) => {
     resetEyeSide(side)
 
@@ -3335,25 +3352,46 @@ export async function blindSpotTestNew(
 
       // Use ACTUAL fixation position from near edge measurement
       // If not provided, fall back to calculated value
-      const nearEdgeCrossX = nearEdgeFixationXYPx ? nearEdgeFixationXYPx[0] : (2 * centerX - nearEdgeX)
+      const nearEdgeCrossX = nearEdgeFixationXYPx
+        ? nearEdgeFixationXYPx[0]
+        : 2 * centerX - nearEdgeX
       const nearEdgeEccentricityPx = Math.abs(nearEdgeX - nearEdgeCrossX)
       const nearEdgeEccentricityCm = nearEdgeEccentricityPx / pxPerCm
-      
+
       console.log('///// ===== FAR EDGE ECCENTRICITY DEBUGGING =====')
       console.log('///// STEP 1: NEAR EDGE ANALYSIS')
       console.log('/////   Screen width:', c.width, 'px')
       console.log('/////   Screen centerX:', centerX.toFixed(1), 'px')
-      console.log('/////   Near edge shared border was at:', nearEdgeX.toFixed(1), 'px')
-      console.log('/////   Near edge fixation (crossX) was at:', nearEdgeCrossX.toFixed(1), 'px', nearEdgeFixationXYPx ? '(ACTUAL from snapshot ✓)' : '(CALCULATED - may be inaccurate!)')
-      console.log('/////   Distance between them:', nearEdgeEccentricityPx.toFixed(1), 'px =', nearEdgeEccentricityCm.toFixed(1), 'cm')
+      console.log(
+        '/////   Near edge shared border was at:',
+        nearEdgeX.toFixed(1),
+        'px',
+      )
+      console.log(
+        '/////   Near edge fixation (crossX) was at:',
+        nearEdgeCrossX.toFixed(1),
+        'px',
+        nearEdgeFixationXYPx
+          ? '(ACTUAL from snapshot ✓)'
+          : '(CALCULATED - may be inaccurate!)',
+      )
+      console.log(
+        '/////   Distance between them:',
+        nearEdgeEccentricityPx.toFixed(1),
+        'px =',
+        nearEdgeEccentricityCm.toFixed(1),
+        'cm',
+      )
       console.log('/////   ↑ This is the near edge eccentricity we will use')
-      
+
       // Multiplier for far edge eccentricity (configurable: 1x, 2x, 3x, etc.)
-      const eccentricityMultiplier = 2.0  // 2× the near edge eccentricity
-      
+      const eccentricityMultiplier = 2.0 // 2× the near edge eccentricity
+
       // Calculate target far edge eccentricity
-      const targetEccentricityPx = nearEdgeEccentricityPx * eccentricityMultiplier
-      const targetEccentricityCm = nearEdgeEccentricityCm * eccentricityMultiplier
+      const targetEccentricityPx =
+        nearEdgeEccentricityPx * eccentricityMultiplier
+      const targetEccentricityCm =
+        nearEdgeEccentricityCm * eccentricityMultiplier
 
       // Determine direction: away from fixation means away from centerX
       // CRITICAL: After resetEyeSide, crossX is reset to default position
@@ -3378,11 +3416,30 @@ export async function blindSpotTestNew(
 
       console.log('///// STEP 2: TARGET CALCULATION')
       console.log('/////   Multiplier:', eccentricityMultiplier + '×')
-      console.log('/////   Near edge eccentricity:', nearEdgeEccentricityCm.toFixed(1), 'cm (', nearEdgeEccentricityPx.toFixed(1), 'px )')
-      console.log('/////   Target far edge eccentricity:', targetEccentricityCm.toFixed(1), 'cm (', targetEccentricityPx.toFixed(1), 'px )')
-      console.log('/////   Direction away from fixation:', directionAwayFromFixation > 0 ? 'right (+1)' : 'left (-1)')
+      console.log(
+        '/////   Near edge eccentricity:',
+        nearEdgeEccentricityCm.toFixed(1),
+        'cm (',
+        nearEdgeEccentricityPx.toFixed(1),
+        'px )',
+      )
+      console.log(
+        '/////   Target far edge eccentricity:',
+        targetEccentricityCm.toFixed(1),
+        'cm (',
+        targetEccentricityPx.toFixed(1),
+        'px )',
+      )
+      console.log(
+        '/////   Direction away from fixation:',
+        directionAwayFromFixation > 0 ? 'right (+1)' : 'left (-1)',
+      )
       console.log('/////   Current spot size (deg):', spotDeg.toFixed(2))
-      console.log('/////   Calculated square size:', squareSize.toFixed(1), 'px')
+      console.log(
+        '/////   Calculated square size:',
+        squareSize.toFixed(1),
+        'px',
+      )
 
       // For 'far' edge, green is AWAY from fixation
       const greenOffsetX =
@@ -3390,7 +3447,7 @@ export async function blindSpotTestNew(
 
       // Smart constraint: Scale down offset if green would go too close to edge
       // Minimum distance from edge: 2px (very minimal constraint)
-      const minEdgeDistancePx = 2  // Just 2 pixels from edge
+      const minEdgeDistancePx = 2 // Just 2 pixels from edge
 
       // IMPORTANT: We want the NEAR SIDE OF RED SQUARE at 2× eccentricity, not the midline!
       // For far edge: Red is toward fixation, Green is away
@@ -3402,53 +3459,98 @@ export async function blindSpotTestNew(
       // We want: |nearSideOfRed - crossX| = targetEccentricity
       //
       // Since redSize depends on sharedBorder position, we iterate to converge
-      
-      console.log('///// STEP 3: FAR EDGE POSITION CALCULATION (NEAR SIDE OF RED at 2×)')
-      console.log('/////   Target: Near side of red at', targetEccentricityCm.toFixed(1), 'cm (', targetEccentricityPx.toFixed(1), 'px )')
-      
+
+      console.log(
+        '///// STEP 3: FAR EDGE POSITION CALCULATION (NEAR SIDE OF RED at 2×)',
+      )
+      console.log(
+        '/////   Target: Near side of red at',
+        targetEccentricityCm.toFixed(1),
+        'cm (',
+        targetEccentricityPx.toFixed(1),
+        'px )',
+      )
+
       // Start with initial guess: place midline at 2× eccentricity
-      let sharedBorderX = centerX + directionAwayFromFixation * targetEccentricityPx / 2
+      let sharedBorderX =
+        centerX + (directionAwayFromFixation * targetEccentricityPx) / 2
       let iterations = 0
       const maxIterations = 10
-      
+
       while (iterations < maxIterations) {
         const testCrossX = 2 * centerX - sharedBorderX
-        const testRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, sharedBorderX, testCrossX)
+        const testRPx = calculateSpotRadiusPx(
+          spotDeg,
+          ppi,
+          blindspotEccXDeg,
+          sharedBorderX,
+          testCrossX,
+        )
         const redSize = testRPx * 2
-        
+
         // Calculate where near side of red is
-        const nearSideOfRed = directionAwayFromFixation > 0 
-          ? sharedBorderX - redSize  // Right side: red is to the left of border
-          : sharedBorderX + redSize  // Left side: red is to the right of border
-        
+        const nearSideOfRed =
+          directionAwayFromFixation > 0
+            ? sharedBorderX - redSize // Right side: red is to the left of border
+            : sharedBorderX + redSize // Left side: red is to the right of border
+
         // Calculate eccentricity of near side of red
         const nearSideEccentricity = Math.abs(nearSideOfRed - testCrossX)
-        
-        console.log('/////   Iteration', iterations + 1 + ':', 'sharedBorder =', sharedBorderX.toFixed(1), 'redSize =', redSize.toFixed(1), 'nearSideEcc =', nearSideEccentricity.toFixed(1))
-        
+
+        console.log(
+          '/////   Iteration',
+          iterations + 1 + ':',
+          'sharedBorder =',
+          sharedBorderX.toFixed(1),
+          'redSize =',
+          redSize.toFixed(1),
+          'nearSideEcc =',
+          nearSideEccentricity.toFixed(1),
+        )
+
         // Check if we've converged
         if (Math.abs(nearSideEccentricity - targetEccentricityPx) < 0.5) {
-          console.log('/////   ✓ Converged! Near side of red eccentricity:', nearSideEccentricity.toFixed(1), 'px')
+          console.log(
+            '/////   ✓ Converged! Near side of red eccentricity:',
+            nearSideEccentricity.toFixed(1),
+            'px',
+          )
           break
         }
-        
+
         // Adjust: if nearSideEccentricity is too small, move sharedBorder farther from fixation
         const error = targetEccentricityPx - nearSideEccentricity
-        sharedBorderX += directionAwayFromFixation * error / 2
+        sharedBorderX += (directionAwayFromFixation * error) / 2
         iterations++
       }
-      
+
       let newSharedBorderX = sharedBorderX
       let newCircleX = newSharedBorderX
-      
+
       // IMPORTANT: Recalculate square size at the final converged position
       // This accounts for square size changing with eccentricity
       const finalIterCrossX = 2 * centerX - newSharedBorderX
-      const finalIterRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, newSharedBorderX, finalIterCrossX)
+      const finalIterRPx = calculateSpotRadiusPx(
+        spotDeg,
+        ppi,
+        blindspotEccXDeg,
+        newSharedBorderX,
+        finalIterCrossX,
+      )
       const finalIterSquareSize = finalIterRPx * 2
-      
-      console.log('/////   Final shared border X:', newSharedBorderX.toFixed(1), 'px (after', iterations + 1, 'iterations)')
-      console.log('/////   Final square size at this position:', finalIterSquareSize.toFixed(1), 'px (recalculated with current spotDeg)')
+
+      console.log(
+        '/////   Final shared border X:',
+        newSharedBorderX.toFixed(1),
+        'px (after',
+        iterations + 1,
+        'iterations)',
+      )
+      console.log(
+        '/////   Final square size at this position:',
+        finalIterSquareSize.toFixed(1),
+        'px (recalculated with current spotDeg)',
+      )
 
       // Calculate where green would be with this position using CURRENT square size
       const testSpotY = calculateSpotY(
@@ -3462,21 +3564,46 @@ export async function blindSpotTestNew(
       const testBounds = getRedGreenCombinedBounds(
         newCircleX,
         testSpotY,
-        finalIterSquareSize,  // Use the recalculated square size from converged position!
+        finalIterSquareSize, // Use the recalculated square size from converged position!
         'far',
         finalIterCrossX,
       )
 
       // Verify the calculated eccentricity
       const calculatedCrossX = 2 * centerX - newSharedBorderX
-      const calculatedEccentricityPx = Math.abs(newSharedBorderX - calculatedCrossX)
+      const calculatedEccentricityPx = Math.abs(
+        newSharedBorderX - calculatedCrossX,
+      )
       const calculatedEccentricityCm = calculatedEccentricityPx / pxPerCm
-      
+
       console.log('///// STEP 4: VERIFICATION')
-      console.log('/////   Calculated far edge crossX:', calculatedCrossX.toFixed(1), 'px')
-      console.log('/////   Calculated far edge eccentricity:', calculatedEccentricityPx.toFixed(1), 'px =', calculatedEccentricityCm.toFixed(1), 'cm')
-      console.log('/////   Target was:', targetEccentricityPx.toFixed(1), 'px =', targetEccentricityCm.toFixed(1), 'cm')
-      console.log('/////   Match:', Math.abs(calculatedEccentricityPx - targetEccentricityPx) < 0.1 ? '✓ YES' : '✗ NO - DIFFERENCE: ' + (calculatedEccentricityPx - targetEccentricityPx).toFixed(1) + 'px')
+      console.log(
+        '/////   Calculated far edge crossX:',
+        calculatedCrossX.toFixed(1),
+        'px',
+      )
+      console.log(
+        '/////   Calculated far edge eccentricity:',
+        calculatedEccentricityPx.toFixed(1),
+        'px =',
+        calculatedEccentricityCm.toFixed(1),
+        'cm',
+      )
+      console.log(
+        '/////   Target was:',
+        targetEccentricityPx.toFixed(1),
+        'px =',
+        targetEccentricityCm.toFixed(1),
+        'cm',
+      )
+      console.log(
+        '/////   Match:',
+        Math.abs(calculatedEccentricityPx - targetEccentricityPx) < 0.1
+          ? '✓ YES'
+          : '✗ NO - DIFFERENCE: ' +
+              (calculatedEccentricityPx - targetEccentricityPx).toFixed(1) +
+              'px',
+      )
 
       // Check if green would be too close to screen edge
       let eccentricityWasReduced = false
@@ -3510,29 +3637,51 @@ export async function blindSpotTestNew(
           // Green too close to right edge - need to find max position iteratively
           // because square size changes with eccentricity!
           eccentricityWasReduced = true
-          console.log('  ⚠️  TOO CLOSE! Finding maximum position (accounting for changing square size)...')
-          
+          console.log(
+            '  ⚠️  TOO CLOSE! Finding maximum position (accounting for changing square size)...',
+          )
+
           // Binary search for maximum position that fits
-          let lowX = centerX  // Safe position
-          let highX = newSharedBorderX  // Too far
+          let lowX = centerX // Safe position
+          let highX = newSharedBorderX // Too far
           let iterations = 0
           const maxIterations = 20
-          
+
           while (iterations < maxIterations && Math.abs(highX - lowX) > 1) {
             const midX = (lowX + highX) / 2
             const testCrossX = 2 * centerX - midX
-            
+
             // Calculate square size at THIS position
-            const testRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, midX, testCrossX)
+            const testRPx = calculateSpotRadiusPx(
+              spotDeg,
+              ppi,
+              blindspotEccXDeg,
+              midX,
+              testCrossX,
+            )
             const testSquareSize = testRPx * 2
-            const testGreenOffsetX = directionAwayFromFixation > 0 ? testSquareSize : -testSquareSize
-            
+            const testGreenOffsetX =
+              directionAwayFromFixation > 0 ? testSquareSize : -testSquareSize
+
             // Calculate bounds with the actual square size at this position
-            const testY = calculateSpotY(midX, testCrossX, crossY, ppi, blindspotEccXDeg, blindspotEccYDeg)
-            const testBoundsAtMid = getRedGreenCombinedBounds(midX, testY, testSquareSize, 'far', testCrossX)
-            
+            const testY = calculateSpotY(
+              midX,
+              testCrossX,
+              crossY,
+              ppi,
+              blindspotEccXDeg,
+              blindspotEccYDeg,
+            )
+            const testBoundsAtMid = getRedGreenCombinedBounds(
+              midX,
+              testY,
+              testSquareSize,
+              'far',
+              testCrossX,
+            )
+
             const rightClearance = c.width - testBoundsAtMid.right
-            
+
             if (rightClearance >= minEdgeDistancePx) {
               // This position works - try going farther
               lowX = midX
@@ -3542,26 +3691,46 @@ export async function blindSpotTestNew(
             }
             iterations++
           }
-          
+
           // Use the safe position found
           newSharedBorderX = lowX
           newCircleX = newSharedBorderX
-          
+
           const maxCrossX = 2 * centerX - newSharedBorderX
           const maxEccentricityPx = Math.abs(newSharedBorderX - maxCrossX)
           const maxEccentricityCm = maxEccentricityPx / pxPerCm
-          
+
           // Also calculate near side of red eccentricity at max position
-          const maxTestRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, newSharedBorderX, maxCrossX)
+          const maxTestRPx = calculateSpotRadiusPx(
+            spotDeg,
+            ppi,
+            blindspotEccXDeg,
+            newSharedBorderX,
+            maxCrossX,
+          )
           const maxRedSize = maxTestRPx * 2
           const maxNearSideOfRedX = newSharedBorderX - maxRedSize
-          const maxNearSideEccentricityPx = Math.abs(maxNearSideOfRedX - maxCrossX)
+          const maxNearSideEccentricityPx = Math.abs(
+            maxNearSideOfRedX - maxCrossX,
+          )
           const maxNearSideEccentricityCm = maxNearSideEccentricityPx / pxPerCm
 
-          console.log('  Found maximum position after', iterations, 'iterations')
+          console.log(
+            '  Found maximum position after',
+            iterations,
+            'iterations',
+          )
           console.log('  Max shared border X:', newSharedBorderX.toFixed(1))
-          console.log('  Max midline eccentricity:', maxEccentricityCm.toFixed(1), 'cm')
-          console.log('  Max NEAR SIDE OF RED eccentricity:', maxNearSideEccentricityCm.toFixed(1), 'cm')
+          console.log(
+            '  Max midline eccentricity:',
+            maxEccentricityCm.toFixed(1),
+            'cm',
+          )
+          console.log(
+            '  Max NEAR SIDE OF RED eccentricity:',
+            maxNearSideEccentricityCm.toFixed(1),
+            'cm',
+          )
         } else {
           console.log('  ✓ Sufficient clearance from right edge')
         }
@@ -3578,29 +3747,51 @@ export async function blindSpotTestNew(
           // Green too close to left edge - need to find max position iteratively
           // because square size changes with eccentricity!
           eccentricityWasReduced = true
-          console.log('  ⚠️  TOO CLOSE! Finding maximum position (accounting for changing square size)...')
-          
+          console.log(
+            '  ⚠️  TOO CLOSE! Finding maximum position (accounting for changing square size)...',
+          )
+
           // Binary search for maximum position that fits
-          let lowX = newSharedBorderX  // Too far (most negative)
-          let highX = centerX  // Safe position
+          let lowX = newSharedBorderX // Too far (most negative)
+          let highX = centerX // Safe position
           let iterations = 0
           const maxIterations = 20
-          
+
           while (iterations < maxIterations && Math.abs(highX - lowX) > 1) {
             const midX = (lowX + highX) / 2
             const testCrossX = 2 * centerX - midX
-            
+
             // Calculate square size at THIS position
-            const testRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, midX, testCrossX)
+            const testRPx = calculateSpotRadiusPx(
+              spotDeg,
+              ppi,
+              blindspotEccXDeg,
+              midX,
+              testCrossX,
+            )
             const testSquareSize = testRPx * 2
-            const testGreenOffsetX = directionAwayFromFixation > 0 ? testSquareSize : -testSquareSize
-            
+            const testGreenOffsetX =
+              directionAwayFromFixation > 0 ? testSquareSize : -testSquareSize
+
             // Calculate bounds with the actual square size at this position
-            const testY = calculateSpotY(midX, testCrossX, crossY, ppi, blindspotEccXDeg, blindspotEccYDeg)
-            const testBoundsAtMid = getRedGreenCombinedBounds(midX, testY, testSquareSize, 'far', testCrossX)
-            
+            const testY = calculateSpotY(
+              midX,
+              testCrossX,
+              crossY,
+              ppi,
+              blindspotEccXDeg,
+              blindspotEccYDeg,
+            )
+            const testBoundsAtMid = getRedGreenCombinedBounds(
+              midX,
+              testY,
+              testSquareSize,
+              'far',
+              testCrossX,
+            )
+
             const leftClearance = testBoundsAtMid.left
-            
+
             if (leftClearance >= minEdgeDistancePx) {
               // This position works - try going farther (more negative)
               highX = midX
@@ -3610,26 +3801,46 @@ export async function blindSpotTestNew(
             }
             iterations++
           }
-          
+
           // Use the safe position found
           newSharedBorderX = highX
           newCircleX = newSharedBorderX
-          
+
           const maxCrossX = 2 * centerX - newSharedBorderX
           const maxEccentricityPx = Math.abs(newSharedBorderX - maxCrossX)
           const maxEccentricityCm = maxEccentricityPx / pxPerCm
-          
+
           // Also calculate near side of red eccentricity at max position
-          const maxTestRPx = calculateSpotRadiusPx(spotDeg, ppi, blindspotEccXDeg, newSharedBorderX, maxCrossX)
+          const maxTestRPx = calculateSpotRadiusPx(
+            spotDeg,
+            ppi,
+            blindspotEccXDeg,
+            newSharedBorderX,
+            maxCrossX,
+          )
           const maxRedSize = maxTestRPx * 2
           const maxNearSideOfRedX = newSharedBorderX + maxRedSize
-          const maxNearSideEccentricityPx = Math.abs(maxNearSideOfRedX - maxCrossX)
+          const maxNearSideEccentricityPx = Math.abs(
+            maxNearSideOfRedX - maxCrossX,
+          )
           const maxNearSideEccentricityCm = maxNearSideEccentricityPx / pxPerCm
 
-          console.log('  Found maximum position after', iterations, 'iterations')
+          console.log(
+            '  Found maximum position after',
+            iterations,
+            'iterations',
+          )
           console.log('  Max shared border X:', newSharedBorderX.toFixed(1))
-          console.log('  Max midline eccentricity:', maxEccentricityCm.toFixed(1), 'cm')
-          console.log('  Max NEAR SIDE OF RED eccentricity:', maxNearSideEccentricityCm.toFixed(1), 'cm')
+          console.log(
+            '  Max midline eccentricity:',
+            maxEccentricityCm.toFixed(1),
+            'cm',
+          )
+          console.log(
+            '  Max NEAR SIDE OF RED eccentricity:',
+            maxNearSideEccentricityCm.toFixed(1),
+            'cm',
+          )
         } else {
           console.log('  ✓ Sufficient clearance from left edge')
         }
@@ -3675,7 +3886,7 @@ export async function blindSpotTestNew(
       const rightClearance = c.width - finalTestBounds.right
       const hasScreenClearance =
         leftClearance >= minEdgeDistancePx &&
-        rightClearance >= minEdgeDistancePx  // Only checking horizontal edges
+        rightClearance >= minEdgeDistancePx // Only checking horizontal edges
 
       // Constraint 2: Check video overlap
       const vCont = document.getElementById('webgazerVideoContainer')
@@ -3730,43 +3941,116 @@ export async function blindSpotTestNew(
       const finalCrossX = 2 * centerX - circleX
       const finalEccentricityPx = Math.abs(circleX - finalCrossX)
       const finalEccentricityCm = finalEccentricityPx / pxPerCm
-      
+
       // Calculate final near side of red eccentricity
-      const finalRedSize = finalSquareSize  // From the recalculation above
-      const finalNearSideOfRedX = directionAwayFromFixation > 0 
-        ? circleX - finalRedSize  // Right side: red is to the left of border
-        : circleX + finalRedSize  // Left side: red is to the right of border
-      const finalNearSideEccentricityPx = Math.abs(finalNearSideOfRedX - finalCrossX)
+      const finalRedSize = finalSquareSize // From the recalculation above
+      const finalNearSideOfRedX =
+        directionAwayFromFixation > 0
+          ? circleX - finalRedSize // Right side: red is to the left of border
+          : circleX + finalRedSize // Left side: red is to the right of border
+      const finalNearSideEccentricityPx = Math.abs(
+        finalNearSideOfRedX - finalCrossX,
+      )
       const finalNearSideEccentricityCm = finalNearSideEccentricityPx / pxPerCm
-      
+
       console.log('///// STEP 5: FINAL RESULT')
-      console.log('/////   Near edge eccentricity (midline) was:', nearEdgeEccentricityCm.toFixed(1), 'cm (', nearEdgeEccentricityPx.toFixed(1), 'px )')
+      console.log(
+        '/////   Near edge eccentricity (midline) was:',
+        nearEdgeEccentricityCm.toFixed(1),
+        'cm (',
+        nearEdgeEccentricityPx.toFixed(1),
+        'px )',
+      )
       console.log('/////   Multiplier:', eccentricityMultiplier + '×')
-      console.log('/////   Target NEAR SIDE OF RED eccentricity:', targetEccentricityCm.toFixed(1), 'cm (', targetEccentricityPx.toFixed(1), 'px )')
+      console.log(
+        '/////   Target NEAR SIDE OF RED eccentricity:',
+        targetEccentricityCm.toFixed(1),
+        'cm (',
+        targetEccentricityPx.toFixed(1),
+        'px )',
+      )
       console.log('/////   ')
-      console.log('/////   Final shared border (midline):', circleX.toFixed(1), 'px')
-      console.log('/////   Final fixation (crossX):', finalCrossX.toFixed(1), 'px')
-      console.log('/////   Final red square size:', finalRedSize.toFixed(1), 'px')
-      console.log('/////   Final NEAR SIDE OF RED position:', finalNearSideOfRedX.toFixed(1), 'px')
+      console.log(
+        '/////   Final shared border (midline):',
+        circleX.toFixed(1),
+        'px',
+      )
+      console.log(
+        '/////   Final fixation (crossX):',
+        finalCrossX.toFixed(1),
+        'px',
+      )
+      console.log(
+        '/////   Final red square size:',
+        finalRedSize.toFixed(1),
+        'px',
+      )
+      console.log(
+        '/////   Final NEAR SIDE OF RED position:',
+        finalNearSideOfRedX.toFixed(1),
+        'px',
+      )
       console.log('/////   ')
-      console.log('/////   ACHIEVED midline eccentricity:', finalEccentricityPx.toFixed(1), 'px =', finalEccentricityCm.toFixed(1), 'cm')
-      console.log('/////   ACHIEVED near side of red eccentricity:', finalNearSideEccentricityPx.toFixed(1), 'px =', finalNearSideEccentricityCm.toFixed(1), 'cm')
-      console.log('/////   Ratio to near edge (midline):', (finalNearSideEccentricityPx / nearEdgeEccentricityPx).toFixed(3) + '× (should be ' + eccentricityMultiplier.toFixed(1) + '×)')
+      console.log(
+        '/////   ACHIEVED midline eccentricity:',
+        finalEccentricityPx.toFixed(1),
+        'px =',
+        finalEccentricityCm.toFixed(1),
+        'cm',
+      )
+      console.log(
+        '/////   ACHIEVED near side of red eccentricity:',
+        finalNearSideEccentricityPx.toFixed(1),
+        'px =',
+        finalNearSideEccentricityCm.toFixed(1),
+        'cm',
+      )
+      console.log(
+        '/////   Ratio to near edge (midline):',
+        (finalNearSideEccentricityPx / nearEdgeEccentricityPx).toFixed(3) +
+          '× (should be ' +
+          eccentricityMultiplier.toFixed(1) +
+          '×)',
+      )
       console.log('///// ')
       console.log('///// 📏 WHAT YOU SHOULD MEASURE WITH RULER:')
       console.log('/////   PPI:', ppi, '→ pxPerCm:', pxPerCm.toFixed(2))
-      console.log('/////   Near edge: Fixation → Midline =', nearEdgeEccentricityCm.toFixed(2), 'cm')
-      console.log('/////   Far edge: Fixation → NEAR SIDE OF RED =', finalNearSideEccentricityCm.toFixed(2), 'cm')
-      console.log('/////   📊 Expected ratio with ruler:', (finalNearSideEccentricityCm / nearEdgeEccentricityCm).toFixed(3) + '× (should be ' + eccentricityMultiplier.toFixed(1) + '×)')
-      console.log('/////   ⚠️  If your ruler shows different, PPI calibration may be off!')
-      
+      console.log(
+        '/////   Near edge: Fixation → Midline =',
+        nearEdgeEccentricityCm.toFixed(2),
+        'cm',
+      )
+      console.log(
+        '/////   Far edge: Fixation → NEAR SIDE OF RED =',
+        finalNearSideEccentricityCm.toFixed(2),
+        'cm',
+      )
+      console.log(
+        '/////   📊 Expected ratio with ruler:',
+        (finalNearSideEccentricityCm / nearEdgeEccentricityCm).toFixed(3) +
+          '× (should be ' +
+          eccentricityMultiplier.toFixed(1) +
+          '×)',
+      )
+      console.log(
+        '/////   ⚠️  If your ruler shows different, PPI calibration may be off!',
+      )
+
       if (eccentricityWasReduced) {
-        console.log('/////   ⚠️  ECCENTRICITY WAS REDUCED to keep green 2px from screen edge')
-        } else {
-        console.log('/////   ✓ Target eccentricity achieved (green has sufficient clearance)')
+        console.log(
+          '/////   ⚠️  ECCENTRICITY WAS REDUCED to keep green 2px from screen edge',
+        )
+      } else {
+        console.log(
+          '/////   ✓ Target eccentricity achieved (green has sufficient clearance)',
+        )
       }
       console.log('///// ===== END DEBUGGING =====')
-      console.log('Target shared border (edge):', newSharedBorderX.toFixed(1), 'px')
+      console.log(
+        'Target shared border (edge):',
+        newSharedBorderX.toFixed(1),
+        'px',
+      )
       console.log('Set circleX (edge position):', circleX.toFixed(1), 'px')
       console.log(
         'Green offset:',
@@ -4057,7 +4341,7 @@ export async function blindSpotTestNew(
         'far',
         rightNearSnapshot.spotXYPx,
         rightNearSnapshot.distanceCm,
-        rightNearSnapshot.fixationXYPx,  // ADDED: Pass actual fixation position
+        rightNearSnapshot.fixationXYPx, // ADDED: Pass actual fixation position
       )
       leftNearSnapshot = await doEdgeSnapshot('left', 'near')
       // Initialize far edge based on near edge eccentricity
@@ -4066,7 +4350,7 @@ export async function blindSpotTestNew(
         'far',
         leftNearSnapshot.spotXYPx,
         leftNearSnapshot.distanceCm,
-        leftNearSnapshot.fixationXYPx,  // ADDED: Pass actual fixation position
+        leftNearSnapshot.fixationXYPx, // ADDED: Pass actual fixation position
       )
       break
     } catch (e) {
@@ -4413,6 +4697,9 @@ export async function objectTest(RC, options, callback = undefined) {
   let currentPage = 1
   let savedMeasurementData = null // Store measurement data from page 2
   // let selectedPage0Option = null // Store the selected radio button option from page 0
+  
+  // ===================== UNIT SELECTION STATE =====================
+  let selectedUnit = 'inches' // Default to inches
 
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   // Arrays to store 5 samples per page for calibration
@@ -4557,6 +4844,83 @@ export async function objectTest(RC, options, callback = undefined) {
   // Add responsive font size
   instructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
   container.appendChild(instructions)
+
+  // --- UNIT SELECTION RADIO BUTTONS (FOR PAGE 2) ---
+  const unitRadioContainer = document.createElement('div')
+  unitRadioContainer.style.position = 'relative'
+  unitRadioContainer.style.display = 'none' // Hidden by default, shown on page 2
+  unitRadioContainer.style.marginTop = '1rem'
+  unitRadioContainer.style.paddingLeft = '4.5rem'
+  unitRadioContainer.style.textAlign = 'start'
+  container.appendChild(unitRadioContainer)
+
+  // Create radio buttons for inches and cm in a vertical layout
+  const unitOptions = [
+    { value: 'inches', label: phrases.RC_inches[RC.L] },
+    { value: 'cm', label: phrases.RC_cm[RC.L] }
+  ]
+
+  unitOptions.forEach((option, index) => {
+    const optionContainer = document.createElement('div')
+    optionContainer.style.display = 'flex'
+    optionContainer.style.alignItems = 'baseline'
+    optionContainer.style.gap = '0.7em'
+    optionContainer.style.cursor = 'pointer'
+    optionContainer.style.marginBottom = index === 0 ? '0.3em' : '0'
+
+    const radio = document.createElement('input')
+    radio.type = 'radio'
+    radio.name = 'unitSelection'
+    radio.value = option.value
+    radio.id = `unit-${option.value}`
+    radio.style.cursor = 'pointer'
+    radio.style.margin = '0'
+    radio.style.padding = '0'
+    radio.style.width = '16px'
+    radio.style.height = '16px'
+    radio.checked = option.value === selectedUnit // Default to inches
+    radio.tabIndex = -1 // Disable tab navigation
+    
+    // Update selectedUnit when radio button changes
+    radio.addEventListener('change', () => {
+      if (radio.checked) {
+        selectedUnit = option.value
+        updateDiagonalLabels() // Refresh the display
+      }
+    })
+    
+    // Prevent arrow key navigation
+    radio.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault()
+      }
+    })
+
+    const label = document.createElement('label')
+    label.htmlFor = `unit-${option.value}`
+    label.textContent = option.label
+    label.style.fontSize = 'clamp(1.0em, 2.2vw, 1.2em)'
+    label.style.fontWeight = '500'
+    label.style.cursor = 'pointer'
+    label.style.userSelect = 'none'
+    label.style.margin = '0'
+    label.style.lineHeight = '1'
+    label.style.display = 'flex'
+    label.style.alignItems = 'center'
+
+    optionContainer.appendChild(radio)
+    optionContainer.appendChild(label)
+    
+    // Make the whole container clickable
+    optionContainer.addEventListener('click', (e) => {
+      if (e.target !== radio) {
+        radio.checked = true
+        radio.dispatchEvent(new Event('change'))
+      }
+    })
+    
+    unitRadioContainer.appendChild(optionContainer)
+  })
 
   // --- RADIO BUTTON CONTAINER ---
   const radioOverlay = document.createElement('div')
@@ -4764,6 +5128,13 @@ export async function objectTest(RC, options, callback = undefined) {
     dynamicLengthLabel.style.transform = 'translate(-50%, -50%)'
     tapeContainer.appendChild(dynamicLengthLabel)
 
+    // Container for ruler markings (tick marks and numbers)
+    const rulerMarkingsContainer = document.createElement('div')
+    rulerMarkingsContainer.style.position = 'absolute'
+    rulerMarkingsContainer.style.zIndex = '17'
+    rulerMarkingsContainer.style.pointerEvents = 'none'
+    tapeContainer.appendChild(rulerMarkingsContainer)
+
     // Double-sided arrow connecting the ruler edges
     const arrowContainer = document.createElement('div')
     arrowContainer.style.position = 'absolute'
@@ -4820,6 +5191,7 @@ export async function objectTest(RC, options, callback = undefined) {
         leftHandle,
         rightHandle,
         dynamicLengthLabel,
+        rulerMarkingsContainer,
         arrowContainer,
         arrowLine,
         leftArrowLine1,
@@ -4997,10 +5369,17 @@ export async function objectTest(RC, options, callback = undefined) {
     const objectLengthPx = distance
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
+    const objectLengthInches = objectLengthCm / 2.54
 
     tape.elements.dynamicLengthLabel.style.left = `${centerX}px`
     tape.elements.dynamicLengthLabel.style.top = `${centerY}px`
-    tape.elements.dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
+    
+    // Display length in selected unit
+    if (selectedUnit === 'inches') {
+      tape.elements.dynamicLengthLabel.innerText = `${objectLengthInches.toFixed(1)}`
+    } else {
+      tape.elements.dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)}`
+    }
 
     // Auto-scale font if needed
     const estimatedLabelWidth =
@@ -5013,10 +5392,21 @@ export async function objectTest(RC, options, callback = undefined) {
       tape.elements.dynamicLengthLabel.style.fontSize = '1.4rem'
     }
 
-    // Update double-sided arrow (spans full ruler length)
+    // Update double-sided arrow (positioned at lower 33% of the tape)
     const arrowLength = distance // Arrow spans the full ruler length
-    const arrowStartX = startX
-    const arrowStartY = startY
+    
+    // Calculate offset to position arrow at lower 33% of tape (inside the tape)
+    // Offset from center = (tapeWidth/2) * 0.33 to place at 33% from bottom edge
+    const arrowOffsetFromCenter = (tape.dimensions.tapeWidth / 2) * (2/3) // Position at lower third
+    
+    // Calculate perpendicular offset (toward the lower edge of the tape)
+    // The perpendicular direction is 90 degrees from the tape angle
+    const perpendicularAngleRad = (angle + 90) * (Math.PI / 180)
+    const offsetX = Math.cos(perpendicularAngleRad) * arrowOffsetFromCenter
+    const offsetY = Math.sin(perpendicularAngleRad) * arrowOffsetFromCenter
+    
+    const arrowStartX = startX + offsetX
+    const arrowStartY = startY + offsetY
 
     // Position and rotate main arrow line
     tape.elements.arrowLine.style.left = `${arrowStartX}px`
@@ -5025,8 +5415,8 @@ export async function objectTest(RC, options, callback = undefined) {
     tape.elements.arrowLine.style.transform = `rotate(${angle}deg)`
 
     // Left arrowhead tip anchored at left edge (outward pointing to left edge)
-    const leftTipX = startX
-    const leftTipY = startY
+    const leftTipX = startX + offsetX
+    const leftTipY = startY + offsetY
     tape.elements.leftArrowLine1.style.left = `${leftTipX}px`
     tape.elements.leftArrowLine1.style.top = `${leftTipY}px`
     tape.elements.leftArrowLine1.style.transform = `rotate(${angle - 30}deg)` // inside, upper leg
@@ -5036,14 +5426,99 @@ export async function objectTest(RC, options, callback = undefined) {
     tape.elements.leftArrowLine2.style.transform = `rotate(${angle + 30}deg)` // inside, lower leg
 
     // Right arrowhead tip anchored at right edge (outward pointing to right edge)
-    const rightTipX = endX
-    const rightTipY = endY
+    const rightTipX = endX + offsetX
+    const rightTipY = endY + offsetY
     tape.elements.rightArrowLine1.style.left = `${rightTipX}px`
     tape.elements.rightArrowLine1.style.top = `${rightTipY}px`
     tape.elements.rightArrowLine1.style.transform = `rotate(${angle + 150}deg)`
     tape.elements.rightArrowLine2.style.left = `${rightTipX}px`
     tape.elements.rightArrowLine2.style.top = `${rightTipY}px`
     tape.elements.rightArrowLine2.style.transform = `rotate(${angle - 150}deg)`
+    
+    // Update ruler markings
+    updateRulerMarkings()
+  }
+
+  // Function to update ruler markings (tick marks and numbers)
+  const updateRulerMarkings = () => {
+    // Clear existing markings
+    tape.elements.rulerMarkingsContainer.innerHTML = ''
+    
+    const distance = tape.helpers.getDistance(startX, startY, endX, endY)
+    const angle = tape.helpers.getAngle(startX, startY, endX, endY)
+    
+    // Calculate length in selected unit
+    const objectLengthMm = distance / pxPerMm
+    const objectLengthCm = objectLengthMm / 10
+    const objectLengthInches = objectLengthCm / 2.54
+    
+    // Determine spacing and total marks
+    let spacingInPx
+    let numMarks
+    
+    if (selectedUnit === 'inches') {
+      spacingInPx = pxPerMm * 25.4 // 1 inch in pixels
+      numMarks = Math.ceil(objectLengthInches)
+    } else {
+      spacingInPx = pxPerMm * 10 // 1 cm in pixels
+      numMarks = Math.ceil(objectLengthCm)
+    }
+    
+    // Create tick marks and numbers
+    for (let i = 1; i <= numMarks; i++) {
+      const markPosition = i * spacingInPx
+      if (markPosition > distance) break // Don't draw beyond the tape
+      
+      // Calculate position along the tape
+      const ratio = markPosition / distance
+      const markX = startX + ratio * (endX - startX)
+      const markY = startY + ratio * (endY - startY)
+      
+      // Create tick mark (perpendicular to tape, starting from upper edge)
+      const tick = document.createElement('div')
+      tick.style.position = 'absolute'
+      
+      // Position tick mark to start at the upper edge of the tape
+      const tickLength = tape.dimensions.tapeWidth * 0.3 // Half of previous length (30% of tape width)
+      const upperEdgeOffset = tape.dimensions.tapeWidth / 2 // Distance from center to upper edge
+      const perpendicularAngleRad = (angle - 90) * (Math.PI / 180) // Upper side direction
+      
+      // Start position at upper edge
+      const tickStartX = markX + Math.cos(perpendicularAngleRad) * upperEdgeOffset
+      const tickStartY = markY + Math.sin(perpendicularAngleRad) * upperEdgeOffset
+      
+      tick.style.left = `${tickStartX}px`
+      tick.style.top = `${tickStartY}px`
+      tick.style.width = `${tickLength}px`
+      tick.style.height = '2px' // Thin line
+      tick.style.background = 'rgb(0, 0, 0)'
+      tick.style.transformOrigin = 'left center' // Start from the top edge
+      // Rotate to be perpendicular to the tape, pointing downward into the tape
+      tick.style.transform = `rotate(${angle + 90}deg)`
+      tape.elements.rulerMarkingsContainer.appendChild(tick)
+      
+      // Create number label positioned inside the tape, below the tick mark
+      const label = document.createElement('div')
+      label.style.position = 'absolute'
+      
+      // Position label just below the end of the tick mark (inside the tape)
+      // Distance from center to label = upperEdgeOffset - tickLength - small gap
+      const labelOffsetDistance = upperEdgeOffset - tickLength - 10 // 5px gap below tick end
+      const labelOffsetX = Math.cos(perpendicularAngleRad) * labelOffsetDistance
+      const labelOffsetY = Math.sin(perpendicularAngleRad) * labelOffsetDistance
+      
+      label.style.left = `${markX + labelOffsetX}px`
+      label.style.top = `${markY + labelOffsetY}px`
+      label.textContent = i.toString()
+      label.style.color = 'rgb(0, 0, 0)'
+      label.style.fontSize = '0.9rem'
+      label.style.fontWeight = 'bold'
+      label.style.whiteSpace = 'nowrap'
+      label.style.userSelect = 'none'
+      label.style.transform = `translate(-50%, -50%)`
+      
+      tape.elements.rulerMarkingsContainer.appendChild(label)
+    }
   }
 
   // Function to update colors based on distance
@@ -5107,24 +5582,48 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== DIAGONAL TAPE INTERACTION HANDLERS =====================
 
-  // Dragging functionality for handles
+  // Dragging functionality for handles and tape body
   let leftDragging = false
   let rightDragging = false
+  let bodyDragging = false
+  let dragStartMouseX = 0
+  let dragStartMouseY = 0
+  let dragStartTapeStartX = 0
+  let dragStartTapeStartY = 0
+  let dragStartTapeEndX = 0
+  let dragStartTapeEndY = 0
 
   tape.elements.leftHandle.addEventListener('mousedown', e => {
     leftDragging = true
     document.body.style.cursor = 'move'
     e.preventDefault()
+    e.stopPropagation() // Prevent body drag
   })
 
   tape.elements.rightHandle.addEventListener('mousedown', e => {
     rightDragging = true
     document.body.style.cursor = 'move'
     e.preventDefault()
+    e.stopPropagation() // Prevent body drag
+  })
+
+  // Add body dragging for the tape
+  tape.elements.diagonalTape.style.pointerEvents = 'auto'
+  tape.elements.diagonalTape.style.cursor = 'move'
+  tape.elements.diagonalTape.addEventListener('mousedown', e => {
+    bodyDragging = true
+    dragStartMouseX = e.clientX
+    dragStartMouseY = e.clientY
+    dragStartTapeStartX = startX
+    dragStartTapeStartY = startY
+    dragStartTapeEndX = endX
+    dragStartTapeEndY = endY
+    document.body.style.cursor = 'move'
+    e.preventDefault()
   })
 
   // Helper function to update ruler endpoints while maintaining diagonal alignment
-  const updateRulerEndpoints = (newStartX, newStartY, newEndX, newEndY) => {
+  const updateRulerEndpoints = (newStartX, newStartY, newEndX, newEndY, allowStartOffScreen = false) => {
     // Project endpoints onto the diagonal line to maintain alignment
     const projectPointOnDiagonal = (x, y) => {
       const toPointX = x - screenDiagonalStartX
@@ -5139,23 +5638,35 @@ export async function objectTest(RC, options, callback = undefined) {
     const projectedStart = projectPointOnDiagonal(newStartX, newStartY)
     const projectedEnd = projectPointOnDiagonal(newEndX, newEndY)
 
-    // Constrain to screen bounds (no margins - allow reaching exact corners)
-    const constrainToScreen = point => {
+    // Constrain end point to screen bounds (high-numbered end cannot leave screen)
+    const constrainEndToScreen = point => {
       return {
         x: Math.max(0, Math.min(screenWidth, point.x)),
         y: Math.max(0, Math.min(screenHeight, point.y)),
       }
     }
 
-    const constrainedStart = constrainToScreen(projectedStart)
-    const constrainedEnd = constrainToScreen(projectedEnd)
+    const constrainedEnd = constrainEndToScreen(projectedEnd)
+    
+    // Start point can go beyond screen if allowStartOffScreen is true
+    let constrainedStart
+    if (allowStartOffScreen) {
+      // Allow start to go off screen - keep the projected position without constraints
+      constrainedStart = projectedStart
+    } else {
+      // Constrain start to screen bounds
+      constrainedStart = constrainEndToScreen(projectedStart)
+    }
 
-    // Ensure minimum distance
+    // Calculate actual distance (even if start is off-screen)
     const distance = Math.sqrt(
       (constrainedEnd.x - constrainedStart.x) ** 2 +
         (constrainedEnd.y - constrainedStart.y) ** 2,
     )
-    if (distance < 50) {
+    
+    // Only apply minimum distance check if we're not allowing off-screen
+    // This prevents the tape from "jumping" when the start goes off-screen
+    if (!allowStartOffScreen && distance < 50) {
       // If too short, maintain current positions
       return
     }
@@ -5168,26 +5679,72 @@ export async function objectTest(RC, options, callback = undefined) {
     updateDiagonalLabels()
   }
 
-  // Mouse move handler for diagonal handles
+  // Mouse move handler for diagonal handles and body
   window.addEventListener('mousemove', e => {
     if (leftDragging) {
-      // Move left handle independently
+      // Move left handle independently (allow it to go off screen)
       const mouseX = e.clientX
       const mouseY = e.clientY
-      updateRulerEndpoints(mouseX, mouseY, endX, endY)
+      updateRulerEndpoints(mouseX, mouseY, endX, endY, true)
     } else if (rightDragging) {
       // Move right handle independently
+      // If start is already off-screen, keep allowing it to stay off-screen
       const mouseX = e.clientX
       const mouseY = e.clientY
-      updateRulerEndpoints(startX, startY, mouseX, mouseY)
+      const isStartOffScreen = startX < 0 || startX > screenWidth || startY < 0 || startY > screenHeight
+      updateRulerEndpoints(startX, startY, mouseX, mouseY, isStartOffScreen)
+    } else if (bodyDragging) {
+      // Move entire tape, maintaining length
+      const deltaX = e.clientX - dragStartMouseX
+      const deltaY = e.clientY - dragStartMouseY
+      
+      // Project delta onto diagonal direction to maintain alignment
+      const deltaProjection = deltaX * diagonalUnitX + deltaY * diagonalUnitY
+      const projectedDeltaX = deltaProjection * diagonalUnitX
+      const projectedDeltaY = deltaProjection * diagonalUnitY
+      
+      const newStartX = dragStartTapeStartX + projectedDeltaX
+      const newStartY = dragStartTapeStartY + projectedDeltaY
+      const newEndX = dragStartTapeEndX + projectedDeltaX
+      const newEndY = dragStartTapeEndY + projectedDeltaY
+      
+      // Check if the end would be constrained by screen bounds
+      // Project end point onto diagonal
+      const toEndX = newEndX - screenDiagonalStartX
+      const toEndY = newEndY - screenDiagonalStartY
+      const endProjection = toEndX * diagonalUnitX + toEndY * diagonalUnitY
+      const projectedEndX = screenDiagonalStartX + endProjection * diagonalUnitX
+      const projectedEndY = screenDiagonalStartY + endProjection * diagonalUnitY
+      
+      // Constrain end to screen
+      const constrainedEndX = Math.max(0, Math.min(screenWidth, projectedEndX))
+      const constrainedEndY = Math.max(0, Math.min(screenHeight, projectedEndY))
+      
+      // If end would be constrained, calculate how much movement is actually allowed
+      if (constrainedEndX !== projectedEndX || constrainedEndY !== projectedEndY) {
+        // End hit a boundary - adjust both points to stop at the boundary
+        const allowedDeltaX = constrainedEndX - dragStartTapeEndX
+        const allowedDeltaY = constrainedEndY - dragStartTapeEndY
+        
+        const adjustedStartX = dragStartTapeStartX + allowedDeltaX
+        const adjustedStartY = dragStartTapeStartY + allowedDeltaY
+        const adjustedEndX = dragStartTapeEndX + allowedDeltaX
+        const adjustedEndY = dragStartTapeEndY + allowedDeltaY
+        
+        updateRulerEndpoints(adjustedStartX, adjustedStartY, adjustedEndX, adjustedEndY, true)
+      } else {
+        // Normal movement - end is not constrained
+        updateRulerEndpoints(newStartX, newStartY, newEndX, newEndY, true)
+      }
     }
   })
 
   // Mouse up handler
   window.addEventListener('mouseup', () => {
-    if (leftDragging || rightDragging) {
+    if (leftDragging || rightDragging || bodyDragging) {
       leftDragging = false
       rightDragging = false
+      bodyDragging = false
       document.body.style.cursor = ''
     }
   })
@@ -5235,11 +5792,14 @@ export async function objectTest(RC, options, callback = undefined) {
     arrowIntervalFunction = setInterval(() => {
       intervalCount++
       const moveAmount = calculateStepSize()
+      // Check if start is off-screen to preserve that state
+      const isStartOffScreen = startX < 0 || startX > screenWidth || startY < 0 || startY > screenHeight
+      
       if (currentArrowKey === 'ArrowLeft' || currentArrowKey === 'ArrowUp') {
         // Move right side closer to left (shrink from right)
         const newEndX = endX - moveAmount * diagonalUnitX
         const newEndY = endY - moveAmount * diagonalUnitY
-        updateRulerEndpoints(startX, startY, newEndX, newEndY)
+        updateRulerEndpoints(startX, startY, newEndX, newEndY, isStartOffScreen)
       } else if (
         currentArrowKey === 'ArrowRight' ||
         currentArrowKey === 'ArrowDown'
@@ -5247,7 +5807,7 @@ export async function objectTest(RC, options, callback = undefined) {
         // Move right side away from left (extend from right)
         const newEndX = endX + moveAmount * diagonalUnitX
         const newEndY = endY + moveAmount * diagonalUnitY
-        updateRulerEndpoints(startX, startY, newEndX, newEndY)
+        updateRulerEndpoints(startX, startY, newEndX, newEndY, isStartOffScreen)
       }
     }, 50) // Update every 50ms for smooth movement
   }
@@ -5339,6 +5899,9 @@ export async function objectTest(RC, options, callback = undefined) {
       leftLabel.container.style.display = 'none'
       rightLabel.container.style.display = 'none'
 
+      // Hide unit selection radio buttons on page 0
+      unitRadioContainer.style.display = 'none'
+
       // // Show radio buttons on page 0
       // radioContainer.style.display = 'block'
 
@@ -5379,6 +5942,9 @@ export async function objectTest(RC, options, callback = undefined) {
       leftLabel.container.style.display = 'none'
       rightLabel.container.style.display = 'none'
 
+      // Hide unit selection radio buttons on page 1
+      unitRadioContainer.style.display = 'none'
+
       // Hide explanation button on page 1
       explanationButton.style.display = 'block' //show explanation button on page 1
 
@@ -5412,6 +5978,9 @@ export async function objectTest(RC, options, callback = undefined) {
       tape.container.style.display = 'block'
       leftLabel.container.style.display = 'block'
       rightLabel.container.style.display = 'block'
+
+      // Show unit selection radio buttons on page 2
+      unitRadioContainer.style.display = 'block'
 
       // // Hide radio buttons on page 2
       // radioContainer.style.display = 'none'
@@ -5474,6 +6043,9 @@ export async function objectTest(RC, options, callback = undefined) {
       leftLabel.container.style.display = 'none'
       rightLabel.container.style.display = 'none'
 
+      // Hide unit selection radio buttons on page 3
+      unitRadioContainer.style.display = 'none'
+
       // // Hide radio buttons on page 3
       // radioContainer.style.display = 'none'
 
@@ -5508,6 +6080,9 @@ export async function objectTest(RC, options, callback = undefined) {
       tape.container.style.display = 'none'
       leftLabel.container.style.display = 'none'
       rightLabel.container.style.display = 'none'
+
+      // Hide unit selection radio buttons on page 4
+      unitRadioContainer.style.display = 'none'
 
       // // Hide radio buttons on page 4
       // radioContainer.style.display = 'none'
@@ -5583,6 +6158,7 @@ export async function objectTest(RC, options, callback = undefined) {
           objectLengthPx,
           objectLengthMm,
           ppi: ppi,
+          selectedUnit: selectedUnit, // Store the selected unit (inches or cm)
         },
       }
 
