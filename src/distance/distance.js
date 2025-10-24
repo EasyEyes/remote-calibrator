@@ -4699,6 +4699,9 @@ export async function objectTest(RC, options, callback = undefined) {
   let currentPage = 1
   let savedMeasurementData = null // Store measurement data from page 2
   // let selectedPage0Option = null // Store the selected radio button option from page 0
+  
+  // ===================== UNIT SELECTION STATE =====================
+  let selectedUnit = 'inches' // Default to inches
 
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   // Arrays to store 5 samples per page for calibration
@@ -4843,6 +4846,83 @@ export async function objectTest(RC, options, callback = undefined) {
   // Add responsive font size
   instructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
   container.appendChild(instructions)
+
+  // --- UNIT SELECTION RADIO BUTTONS (FOR PAGE 2) ---
+  const unitRadioContainer = document.createElement('div')
+  unitRadioContainer.style.position = 'relative'
+  unitRadioContainer.style.display = 'none' // Hidden by default, shown on page 2
+  unitRadioContainer.style.marginTop = '1rem'
+  unitRadioContainer.style.paddingLeft = '4.5rem'
+  unitRadioContainer.style.textAlign = 'start'
+  container.appendChild(unitRadioContainer)
+
+  // Create radio buttons for inches and cm in a vertical layout
+  const unitOptions = [
+    { value: 'inches', label: phrases.RC_inches[RC.L] },
+    { value: 'cm', label: phrases.RC_cm[RC.L] }
+  ]
+
+  unitOptions.forEach((option, index) => {
+    const optionContainer = document.createElement('div')
+    optionContainer.style.display = 'flex'
+    optionContainer.style.alignItems = 'baseline'
+    optionContainer.style.gap = '0.7em'
+    optionContainer.style.cursor = 'pointer'
+    optionContainer.style.marginBottom = index === 0 ? '0.3em' : '0'
+
+    const radio = document.createElement('input')
+    radio.type = 'radio'
+    radio.name = 'unitSelection'
+    radio.value = option.value
+    radio.id = `unit-${option.value}`
+    radio.style.cursor = 'pointer'
+    radio.style.margin = '0'
+    radio.style.padding = '0'
+    radio.style.width = '16px'
+    radio.style.height = '16px'
+    radio.checked = option.value === selectedUnit // Default to inches
+    radio.tabIndex = -1 // Disable tab navigation
+    
+    // Update selectedUnit when radio button changes
+    radio.addEventListener('change', () => {
+      if (radio.checked) {
+        selectedUnit = option.value
+        updateDiagonalLabels() // Refresh the display
+      }
+    })
+    
+    // Prevent arrow key navigation
+    radio.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault()
+      }
+    })
+
+    const label = document.createElement('label')
+    label.htmlFor = `unit-${option.value}`
+    label.textContent = option.label
+    label.style.fontSize = 'clamp(1.0em, 2.2vw, 1.2em)'
+    label.style.fontWeight = '500'
+    label.style.cursor = 'pointer'
+    label.style.userSelect = 'none'
+    label.style.margin = '0'
+    label.style.lineHeight = '1'
+    label.style.display = 'flex'
+    label.style.alignItems = 'center'
+
+    optionContainer.appendChild(radio)
+    optionContainer.appendChild(label)
+    
+    // Make the whole container clickable
+    optionContainer.addEventListener('click', (e) => {
+      if (e.target !== radio) {
+        radio.checked = true
+        radio.dispatchEvent(new Event('change'))
+      }
+    })
+    
+    unitRadioContainer.appendChild(optionContainer)
+  })
 
   // --- RADIO BUTTON CONTAINER ---
   const radioOverlay = document.createElement('div')
@@ -5050,6 +5130,13 @@ export async function objectTest(RC, options, callback = undefined) {
     dynamicLengthLabel.style.transform = 'translate(-50%, -50%)'
     tapeContainer.appendChild(dynamicLengthLabel)
 
+    // Container for ruler markings (tick marks and numbers)
+    const rulerMarkingsContainer = document.createElement('div')
+    rulerMarkingsContainer.style.position = 'absolute'
+    rulerMarkingsContainer.style.zIndex = '17'
+    rulerMarkingsContainer.style.pointerEvents = 'none'
+    tapeContainer.appendChild(rulerMarkingsContainer)
+
     // Double-sided arrow connecting the ruler edges
     const arrowContainer = document.createElement('div')
     arrowContainer.style.position = 'absolute'
@@ -5106,6 +5193,7 @@ export async function objectTest(RC, options, callback = undefined) {
         leftHandle,
         rightHandle,
         dynamicLengthLabel,
+        rulerMarkingsContainer,
         arrowContainer,
         arrowLine,
         leftArrowLine1,
@@ -5283,10 +5371,17 @@ export async function objectTest(RC, options, callback = undefined) {
     const objectLengthPx = distance
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
+    const objectLengthInches = objectLengthCm / 2.54
 
     tape.elements.dynamicLengthLabel.style.left = `${centerX}px`
     tape.elements.dynamicLengthLabel.style.top = `${centerY}px`
-    tape.elements.dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)} cm`
+    
+    // Display length in selected unit
+    if (selectedUnit === 'inches') {
+      tape.elements.dynamicLengthLabel.innerText = `${objectLengthInches.toFixed(1)}`
+    } else {
+      tape.elements.dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)}`
+    }
 
     // Auto-scale font if needed
     const estimatedLabelWidth =
@@ -5299,10 +5394,21 @@ export async function objectTest(RC, options, callback = undefined) {
       tape.elements.dynamicLengthLabel.style.fontSize = '1.4rem'
     }
 
-    // Update double-sided arrow (spans full ruler length)
+    // Update double-sided arrow (positioned at lower 33% of the tape)
     const arrowLength = distance // Arrow spans the full ruler length
-    const arrowStartX = startX
-    const arrowStartY = startY
+    
+    // Calculate offset to position arrow at lower 33% of tape (inside the tape)
+    // Offset from center = (tapeWidth/2) * 0.33 to place at 33% from bottom edge
+    const arrowOffsetFromCenter = (tape.dimensions.tapeWidth / 2) * (2/3) // Position at lower third
+    
+    // Calculate perpendicular offset (toward the lower edge of the tape)
+    // The perpendicular direction is 90 degrees from the tape angle
+    const perpendicularAngleRad = (angle + 90) * (Math.PI / 180)
+    const offsetX = Math.cos(perpendicularAngleRad) * arrowOffsetFromCenter
+    const offsetY = Math.sin(perpendicularAngleRad) * arrowOffsetFromCenter
+    
+    const arrowStartX = startX + offsetX
+    const arrowStartY = startY + offsetY
 
     // Position and rotate main arrow line
     tape.elements.arrowLine.style.left = `${arrowStartX}px`
@@ -5311,8 +5417,8 @@ export async function objectTest(RC, options, callback = undefined) {
     tape.elements.arrowLine.style.transform = `rotate(${angle}deg)`
 
     // Left arrowhead tip anchored at left edge (outward pointing to left edge)
-    const leftTipX = startX
-    const leftTipY = startY
+    const leftTipX = startX + offsetX
+    const leftTipY = startY + offsetY
     tape.elements.leftArrowLine1.style.left = `${leftTipX}px`
     tape.elements.leftArrowLine1.style.top = `${leftTipY}px`
     tape.elements.leftArrowLine1.style.transform = `rotate(${angle - 30}deg)` // inside, upper leg
@@ -5322,14 +5428,99 @@ export async function objectTest(RC, options, callback = undefined) {
     tape.elements.leftArrowLine2.style.transform = `rotate(${angle + 30}deg)` // inside, lower leg
 
     // Right arrowhead tip anchored at right edge (outward pointing to right edge)
-    const rightTipX = endX
-    const rightTipY = endY
+    const rightTipX = endX + offsetX
+    const rightTipY = endY + offsetY
     tape.elements.rightArrowLine1.style.left = `${rightTipX}px`
     tape.elements.rightArrowLine1.style.top = `${rightTipY}px`
     tape.elements.rightArrowLine1.style.transform = `rotate(${angle + 150}deg)`
     tape.elements.rightArrowLine2.style.left = `${rightTipX}px`
     tape.elements.rightArrowLine2.style.top = `${rightTipY}px`
     tape.elements.rightArrowLine2.style.transform = `rotate(${angle - 150}deg)`
+    
+    // Update ruler markings
+    updateRulerMarkings()
+  }
+
+  // Function to update ruler markings (tick marks and numbers)
+  const updateRulerMarkings = () => {
+    // Clear existing markings
+    tape.elements.rulerMarkingsContainer.innerHTML = ''
+    
+    const distance = tape.helpers.getDistance(startX, startY, endX, endY)
+    const angle = tape.helpers.getAngle(startX, startY, endX, endY)
+    
+    // Calculate length in selected unit
+    const objectLengthMm = distance / pxPerMm
+    const objectLengthCm = objectLengthMm / 10
+    const objectLengthInches = objectLengthCm / 2.54
+    
+    // Determine spacing and total marks
+    let spacingInPx
+    let numMarks
+    
+    if (selectedUnit === 'inches') {
+      spacingInPx = pxPerMm * 25.4 // 1 inch in pixels
+      numMarks = Math.ceil(objectLengthInches)
+    } else {
+      spacingInPx = pxPerMm * 10 // 1 cm in pixels
+      numMarks = Math.ceil(objectLengthCm)
+    }
+    
+    // Create tick marks and numbers
+    for (let i = 1; i <= numMarks; i++) {
+      const markPosition = i * spacingInPx
+      if (markPosition > distance) break // Don't draw beyond the tape
+      
+      // Calculate position along the tape
+      const ratio = markPosition / distance
+      const markX = startX + ratio * (endX - startX)
+      const markY = startY + ratio * (endY - startY)
+      
+      // Create tick mark (perpendicular to tape, starting from upper edge)
+      const tick = document.createElement('div')
+      tick.style.position = 'absolute'
+      
+      // Position tick mark to start at the upper edge of the tape
+      const tickLength = tape.dimensions.tapeWidth * 0.3 // Half of previous length (30% of tape width)
+      const upperEdgeOffset = tape.dimensions.tapeWidth / 2 // Distance from center to upper edge
+      const perpendicularAngleRad = (angle - 90) * (Math.PI / 180) // Upper side direction
+      
+      // Start position at upper edge
+      const tickStartX = markX + Math.cos(perpendicularAngleRad) * upperEdgeOffset
+      const tickStartY = markY + Math.sin(perpendicularAngleRad) * upperEdgeOffset
+      
+      tick.style.left = `${tickStartX}px`
+      tick.style.top = `${tickStartY}px`
+      tick.style.width = `${tickLength}px`
+      tick.style.height = '2px' // Thin line
+      tick.style.background = 'rgb(0, 0, 0)'
+      tick.style.transformOrigin = 'left center' // Start from the top edge
+      // Rotate to be perpendicular to the tape, pointing downward into the tape
+      tick.style.transform = `rotate(${angle + 90}deg)`
+      tape.elements.rulerMarkingsContainer.appendChild(tick)
+      
+      // Create number label positioned inside the tape, below the tick mark
+      const label = document.createElement('div')
+      label.style.position = 'absolute'
+      
+      // Position label just below the end of the tick mark (inside the tape)
+      // Distance from center to label = upperEdgeOffset - tickLength - small gap
+      const labelOffsetDistance = upperEdgeOffset - tickLength - 10 // 5px gap below tick end
+      const labelOffsetX = Math.cos(perpendicularAngleRad) * labelOffsetDistance
+      const labelOffsetY = Math.sin(perpendicularAngleRad) * labelOffsetDistance
+      
+      label.style.left = `${markX + labelOffsetX}px`
+      label.style.top = `${markY + labelOffsetY}px`
+      label.textContent = i.toString()
+      label.style.color = 'rgb(0, 0, 0)'
+      label.style.fontSize = '0.9rem'
+      label.style.fontWeight = 'bold'
+      label.style.whiteSpace = 'nowrap'
+      label.style.userSelect = 'none'
+      label.style.transform = `translate(-50%, -50%)`
+      
+      tape.elements.rulerMarkingsContainer.appendChild(label)
+    }
   }
 
   // Function to update colors based on distance
@@ -5393,24 +5584,48 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== DIAGONAL TAPE INTERACTION HANDLERS =====================
 
-  // Dragging functionality for handles
+  // Dragging functionality for handles and tape body
   let leftDragging = false
   let rightDragging = false
+  let bodyDragging = false
+  let dragStartMouseX = 0
+  let dragStartMouseY = 0
+  let dragStartTapeStartX = 0
+  let dragStartTapeStartY = 0
+  let dragStartTapeEndX = 0
+  let dragStartTapeEndY = 0
 
   tape.elements.leftHandle.addEventListener('mousedown', e => {
     leftDragging = true
     document.body.style.cursor = 'move'
     e.preventDefault()
+    e.stopPropagation() // Prevent body drag
   })
 
   tape.elements.rightHandle.addEventListener('mousedown', e => {
     rightDragging = true
     document.body.style.cursor = 'move'
     e.preventDefault()
+    e.stopPropagation() // Prevent body drag
+  })
+
+  // Add body dragging for the tape
+  tape.elements.diagonalTape.style.pointerEvents = 'auto'
+  tape.elements.diagonalTape.style.cursor = 'move'
+  tape.elements.diagonalTape.addEventListener('mousedown', e => {
+    bodyDragging = true
+    dragStartMouseX = e.clientX
+    dragStartMouseY = e.clientY
+    dragStartTapeStartX = startX
+    dragStartTapeStartY = startY
+    dragStartTapeEndX = endX
+    dragStartTapeEndY = endY
+    document.body.style.cursor = 'move'
+    e.preventDefault()
   })
 
   // Helper function to update ruler endpoints while maintaining diagonal alignment
-  const updateRulerEndpoints = (newStartX, newStartY, newEndX, newEndY) => {
+  const updateRulerEndpoints = (newStartX, newStartY, newEndX, newEndY, allowStartOffScreen = false) => {
     // Project endpoints onto the diagonal line to maintain alignment
     const projectPointOnDiagonal = (x, y) => {
       const toPointX = x - screenDiagonalStartX
@@ -5425,23 +5640,35 @@ export async function objectTest(RC, options, callback = undefined) {
     const projectedStart = projectPointOnDiagonal(newStartX, newStartY)
     const projectedEnd = projectPointOnDiagonal(newEndX, newEndY)
 
-    // Constrain to screen bounds (no margins - allow reaching exact corners)
-    const constrainToScreen = point => {
+    // Constrain end point to screen bounds (high-numbered end cannot leave screen)
+    const constrainEndToScreen = point => {
       return {
         x: Math.max(0, Math.min(screenWidth, point.x)),
         y: Math.max(0, Math.min(screenHeight, point.y)),
       }
     }
 
-    const constrainedStart = constrainToScreen(projectedStart)
-    const constrainedEnd = constrainToScreen(projectedEnd)
+    const constrainedEnd = constrainEndToScreen(projectedEnd)
+    
+    // Start point can go beyond screen if allowStartOffScreen is true
+    let constrainedStart
+    if (allowStartOffScreen) {
+      // Allow start to go off screen - keep the projected position without constraints
+      constrainedStart = projectedStart
+    } else {
+      // Constrain start to screen bounds
+      constrainedStart = constrainEndToScreen(projectedStart)
+    }
 
-    // Ensure minimum distance
+    // Calculate actual distance (even if start is off-screen)
     const distance = Math.sqrt(
       (constrainedEnd.x - constrainedStart.x) ** 2 +
         (constrainedEnd.y - constrainedStart.y) ** 2,
     )
-    if (distance < 50) {
+    
+    // Only apply minimum distance check if we're not allowing off-screen
+    // This prevents the tape from "jumping" when the start goes off-screen
+    if (!allowStartOffScreen && distance < 50) {
       // If too short, maintain current positions
       return
     }
@@ -5454,26 +5681,72 @@ export async function objectTest(RC, options, callback = undefined) {
     updateDiagonalLabels()
   }
 
-  // Mouse move handler for diagonal handles
+  // Mouse move handler for diagonal handles and body
   window.addEventListener('mousemove', e => {
     if (leftDragging) {
-      // Move left handle independently
+      // Move left handle independently (allow it to go off screen)
       const mouseX = e.clientX
       const mouseY = e.clientY
-      updateRulerEndpoints(mouseX, mouseY, endX, endY)
+      updateRulerEndpoints(mouseX, mouseY, endX, endY, true)
     } else if (rightDragging) {
       // Move right handle independently
+      // If start is already off-screen, keep allowing it to stay off-screen
       const mouseX = e.clientX
       const mouseY = e.clientY
-      updateRulerEndpoints(startX, startY, mouseX, mouseY)
+      const isStartOffScreen = startX < 0 || startX > screenWidth || startY < 0 || startY > screenHeight
+      updateRulerEndpoints(startX, startY, mouseX, mouseY, isStartOffScreen)
+    } else if (bodyDragging) {
+      // Move entire tape, maintaining length
+      const deltaX = e.clientX - dragStartMouseX
+      const deltaY = e.clientY - dragStartMouseY
+      
+      // Project delta onto diagonal direction to maintain alignment
+      const deltaProjection = deltaX * diagonalUnitX + deltaY * diagonalUnitY
+      const projectedDeltaX = deltaProjection * diagonalUnitX
+      const projectedDeltaY = deltaProjection * diagonalUnitY
+      
+      const newStartX = dragStartTapeStartX + projectedDeltaX
+      const newStartY = dragStartTapeStartY + projectedDeltaY
+      const newEndX = dragStartTapeEndX + projectedDeltaX
+      const newEndY = dragStartTapeEndY + projectedDeltaY
+      
+      // Check if the end would be constrained by screen bounds
+      // Project end point onto diagonal
+      const toEndX = newEndX - screenDiagonalStartX
+      const toEndY = newEndY - screenDiagonalStartY
+      const endProjection = toEndX * diagonalUnitX + toEndY * diagonalUnitY
+      const projectedEndX = screenDiagonalStartX + endProjection * diagonalUnitX
+      const projectedEndY = screenDiagonalStartY + endProjection * diagonalUnitY
+      
+      // Constrain end to screen
+      const constrainedEndX = Math.max(0, Math.min(screenWidth, projectedEndX))
+      const constrainedEndY = Math.max(0, Math.min(screenHeight, projectedEndY))
+      
+      // If end would be constrained, calculate how much movement is actually allowed
+      if (constrainedEndX !== projectedEndX || constrainedEndY !== projectedEndY) {
+        // End hit a boundary - adjust both points to stop at the boundary
+        const allowedDeltaX = constrainedEndX - dragStartTapeEndX
+        const allowedDeltaY = constrainedEndY - dragStartTapeEndY
+        
+        const adjustedStartX = dragStartTapeStartX + allowedDeltaX
+        const adjustedStartY = dragStartTapeStartY + allowedDeltaY
+        const adjustedEndX = dragStartTapeEndX + allowedDeltaX
+        const adjustedEndY = dragStartTapeEndY + allowedDeltaY
+        
+        updateRulerEndpoints(adjustedStartX, adjustedStartY, adjustedEndX, adjustedEndY, true)
+      } else {
+        // Normal movement - end is not constrained
+        updateRulerEndpoints(newStartX, newStartY, newEndX, newEndY, true)
+      }
     }
   })
 
   // Mouse up handler
   window.addEventListener('mouseup', () => {
-    if (leftDragging || rightDragging) {
+    if (leftDragging || rightDragging || bodyDragging) {
       leftDragging = false
       rightDragging = false
+      bodyDragging = false
       document.body.style.cursor = ''
     }
   })
@@ -5521,11 +5794,14 @@ export async function objectTest(RC, options, callback = undefined) {
     arrowIntervalFunction = setInterval(() => {
       intervalCount++
       const moveAmount = calculateStepSize()
+      // Check if start is off-screen to preserve that state
+      const isStartOffScreen = startX < 0 || startX > screenWidth || startY < 0 || startY > screenHeight
+      
       if (currentArrowKey === 'ArrowLeft' || currentArrowKey === 'ArrowUp') {
         // Move right side closer to left (shrink from right)
         const newEndX = endX - moveAmount * diagonalUnitX
         const newEndY = endY - moveAmount * diagonalUnitY
-        updateRulerEndpoints(startX, startY, newEndX, newEndY)
+        updateRulerEndpoints(startX, startY, newEndX, newEndY, isStartOffScreen)
       } else if (
         currentArrowKey === 'ArrowRight' ||
         currentArrowKey === 'ArrowDown'
@@ -5533,7 +5809,7 @@ export async function objectTest(RC, options, callback = undefined) {
         // Move right side away from left (extend from right)
         const newEndX = endX + moveAmount * diagonalUnitX
         const newEndY = endY + moveAmount * diagonalUnitY
-        updateRulerEndpoints(startX, startY, newEndX, newEndY)
+        updateRulerEndpoints(startX, startY, newEndX, newEndY, isStartOffScreen)
       }
     }, 50) // Update every 50ms for smooth movement
   }
@@ -5625,6 +5901,9 @@ export async function objectTest(RC, options, callback = undefined) {
       leftLabel.container.style.display = 'none'
       rightLabel.container.style.display = 'none'
 
+      // Hide unit selection radio buttons on page 0
+      unitRadioContainer.style.display = 'none'
+
       // // Show radio buttons on page 0
       // radioContainer.style.display = 'block'
 
@@ -5665,6 +5944,9 @@ export async function objectTest(RC, options, callback = undefined) {
       leftLabel.container.style.display = 'none'
       rightLabel.container.style.display = 'none'
 
+      // Hide unit selection radio buttons on page 1
+      unitRadioContainer.style.display = 'none'
+
       // Hide explanation button on page 1
       explanationButton.style.display = 'block' //show explanation button on page 1
 
@@ -5698,6 +5980,9 @@ export async function objectTest(RC, options, callback = undefined) {
       tape.container.style.display = 'block'
       leftLabel.container.style.display = 'block'
       rightLabel.container.style.display = 'block'
+
+      // Show unit selection radio buttons on page 2
+      unitRadioContainer.style.display = 'block'
 
       // // Hide radio buttons on page 2
       // radioContainer.style.display = 'none'
@@ -5760,6 +6045,9 @@ export async function objectTest(RC, options, callback = undefined) {
       leftLabel.container.style.display = 'none'
       rightLabel.container.style.display = 'none'
 
+      // Hide unit selection radio buttons on page 3
+      unitRadioContainer.style.display = 'none'
+
       // // Hide radio buttons on page 3
       // radioContainer.style.display = 'none'
 
@@ -5794,6 +6082,9 @@ export async function objectTest(RC, options, callback = undefined) {
       tape.container.style.display = 'none'
       leftLabel.container.style.display = 'none'
       rightLabel.container.style.display = 'none'
+
+      // Hide unit selection radio buttons on page 4
+      unitRadioContainer.style.display = 'none'
 
       // // Hide radio buttons on page 4
       // radioContainer.style.display = 'none'
@@ -5869,6 +6160,7 @@ export async function objectTest(RC, options, callback = undefined) {
           objectLengthPx,
           objectLengthMm,
           ppi: ppi,
+          selectedUnit: selectedUnit, // Store the selected unit (inches or cm)
         },
       }
 
