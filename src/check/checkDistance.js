@@ -535,6 +535,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateTrackDistanceCenterYourEyesBool = true,
   calibrateTrackDistancePupil = 'iris',
   calibrateTrackDistanceChecking = undefined,
+  calibrateTrackDistanceBlindspotXYDeg = null,
 ) {
   await this.getEquipment(
     async () => {
@@ -551,6 +552,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateTrackDistanceCenterYourEyesBool,
         calibrateTrackDistancePupil,
         calibrateTrackDistanceChecking,
+        calibrateTrackDistanceBlindspotXYDeg,
       )
     },
     false,
@@ -1395,6 +1397,7 @@ const trackDistanceCheck = async (
   calibrateTrackDistanceCenterYourEyesBool = true,
   calibrateTrackDistancePupil = 'iris',
   calibrateTrackDistanceChecking = undefined,
+  calibrateTrackDistanceBlindspotXYDeg = null,
 ) => {
   const isTrack = measureName === 'trackDistance'
 
@@ -1563,14 +1566,43 @@ const trackDistanceCheck = async (
 
     const pxPerCm = ppi / 2.54
 
+    let cameraResolutionXY = ''
+    if (
+      RC.gazeTracker &&
+      RC.gazeTracker.webgazer &&
+      RC.gazeTracker.webgazer.videoParamsToReport
+    ) {
+      const height = RC.gazeTracker.webgazer.videoParamsToReport.height
+      const width = RC.gazeTracker.webgazer.videoParamsToReport.width
+      cameraResolutionXY = `${width}x${height}`
+    }
+
     RC.distanceCheckJSON = {
-      _calibrateTrackDistanceCheckPoint: 'camera',
+      _calibrateTrackDistanceChecking: calibrateTrackDistanceChecking,
+      _calibrateTrackDistance: RC.viewingDistanceCm.method,
+      _calibrateTrackDistanceBlindspotXYDeg:
+        calibrateTrackDistanceBlindspotXYDeg,
+      _calibrateTrackDistancePupil: calibrateTrackDistancePupil,
       pointXYPx: [window.innerWidth / 2, 0],
       cameraXYPx: [window.innerWidth / 2, 0],
       centerXYPx: [window.innerWidth / 2, window.innerHeight / 2],
-      pxPerCm: pxPerCm,
-      factorCameraPxCm: stdDist.current.calibrationFactor,
-      distanceChecks: [],
+      pxPerCm: parseFloat(pxPerCm.toFixed(1)),
+      factorCameraPxCm: parseFloat(
+        stdDist.current.calibrationFactor.toFixed(1),
+      ),
+      cameraResolutionXY: cameraResolutionXY,
+      requestedEyesToPointCm: [],
+      eyesToCameraCm: [],
+      eyesToPointCm: [],
+      eyesToCenterCm: [],
+      footToCameraCm: [],
+      footToCenterCm: [],
+      footToPointCm: [],
+      ipdCameraPx: [],
+      rightEyeFootXYPx: [],
+      leftEyeFootXYPx: [],
+      footXYPx: [],
+      measuredFactorCameraPxCm: [],
     }
 
     for (let i = 0; i < calibrateTrackDistanceCheckCm.length; i++) {
@@ -1806,30 +1838,49 @@ const trackDistanceCheck = async (
               )
               const measuredFactorCameraPxCm =
                 requestedEyesToCameraCm * parseFloat(faceValidation.ipdPixels)
-              RC.distanceCheckJSON.distanceChecks.push({
-                requestedEyesToPointCm: Number(
+              RC.distanceCheckJSON.requestedEyesToPointCm.push(
+                parseFloat(
                   RC.equipment?.value?.unit === 'inches'
                     ? (cm * 2.54).toFixed(1)
                     : cm.toFixed(1),
                 ),
-                eyesToCameraCm: faceValidation.eyeToCameraCm,
-                eyesToPointCm: faceValidation.eyeToCameraCm,
-                eyesToCenterCm: faceValidation.eyeToCenterCm,
-                footToCameraCm: faceValidation.footToCameraCm,
-                footToCenterCm: faceValidation.footToCenterCm,
-                footToPointCm: faceValidation.footToCameraCm,
-                ipdCameraPx: faceValidation.ipdPixels,
-                rightEyeFeetXYPx: [
-                  faceValidation.nearestXYPx_right[0].toFixed(0),
-                  faceValidation.nearestXYPx_right[1].toFixed(0),
-                ],
-                leftEyeFeetXYPx: [
-                  faceValidation.nearestXYPx_left[0].toFixed(0),
-                  faceValidation.nearestXYPx_left[1].toFixed(0),
-                ],
-                footXYPx: faceValidation.footXYPx,
-                measuredFactorCameraPxCm: measuredFactorCameraPxCm.toFixed(0),
-              })
+              )
+              RC.distanceCheckJSON.eyesToCameraCm.push(
+                parseFloat(faceValidation.eyeToCameraCm),
+              )
+              RC.distanceCheckJSON.eyesToPointCm.push(
+                parseFloat(faceValidation.eyeToCameraCm),
+              )
+              RC.distanceCheckJSON.eyesToCenterCm.push(
+                parseFloat(faceValidation.eyeToCenterCm),
+              )
+              RC.distanceCheckJSON.footToCameraCm.push(
+                parseFloat(faceValidation.footToCameraCm),
+              )
+              RC.distanceCheckJSON.footToCenterCm.push(
+                parseFloat(faceValidation.footToCenterCm),
+              )
+              RC.distanceCheckJSON.footToPointCm.push(
+                parseFloat(faceValidation.footToCameraCm),
+              )
+              RC.distanceCheckJSON.ipdCameraPx.push(
+                parseFloat(faceValidation.ipdPixels),
+              )
+              RC.distanceCheckJSON.rightEyeFootXYPx.push([
+                parseFloat(faceValidation.nearestXYPx_right[0].toFixed(0)),
+                parseFloat(faceValidation.nearestXYPx_right[1].toFixed(0)),
+              ])
+              RC.distanceCheckJSON.leftEyeFootXYPx.push([
+                parseFloat(faceValidation.nearestXYPx_left[0].toFixed(0)),
+                parseFloat(faceValidation.nearestXYPx_left[1].toFixed(0)),
+              ])
+              RC.distanceCheckJSON.footXYPx.push([
+                parseFloat(faceValidation.footXYPx[0]),
+                parseFloat(faceValidation.footXYPx[1]),
+              ])
+              RC.distanceCheckJSON.measuredFactorCameraPxCm.push(
+                parseFloat(measuredFactorCameraPxCm.toFixed(0)),
+              )
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
@@ -1989,30 +2040,49 @@ const trackDistanceCheck = async (
                 )
                 const measuredFactorCameraPxCm =
                   requestedEyesToCameraCm * parseFloat(faceValidation.ipdPixels)
-                RC.distanceCheckJSON.distanceChecks.push({
-                  requestedEyesToPointCm: Number(
+                RC.distanceCheckJSON.requestedEyesToPointCm.push(
+                  parseFloat(
                     RC.equipment?.value?.unit === 'inches'
                       ? (cm * 2.54).toFixed(1)
                       : cm.toFixed(1),
                   ),
-                  eyesToCameraCm: faceValidation.eyeToCameraCm,
-                  eyesToPointCm: faceValidation.eyeToCameraCm,
-                  eyesToCenterCm: faceValidation.eyeToCenterCm,
-                  footToCameraCm: faceValidation.footToCameraCm,
-                  footToCenterCm: faceValidation.footToCenterCm,
-                  footToPointCm: faceValidation.footToCameraCm,
-                  ipdCameraPx: faceValidation.ipdPixels,
-                  rightEyeFeetXYPx: [
-                    faceValidation.nearestXYPx_right[0].toFixed(0),
-                    faceValidation.nearestXYPx_right[1].toFixed(0),
-                  ],
-                  leftEyeFeetXYPx: [
-                    faceValidation.nearestXYPx_left[0].toFixed(0),
-                    faceValidation.nearestXYPx_left[1].toFixed(0),
-                  ],
-                  footXYPx: faceValidation.footXYPx,
-                  measuredFactorCameraPxCm: measuredFactorCameraPxCm.toFixed(0),
-                })
+                )
+                RC.distanceCheckJSON.eyesToCameraCm.push(
+                  parseFloat(faceValidation.eyeToCameraCm),
+                )
+                RC.distanceCheckJSON.eyesToPointCm.push(
+                  parseFloat(faceValidation.eyeToCameraCm),
+                )
+                RC.distanceCheckJSON.eyesToCenterCm.push(
+                  parseFloat(faceValidation.eyeToCenterCm),
+                )
+                RC.distanceCheckJSON.footToCameraCm.push(
+                  parseFloat(faceValidation.footToCameraCm),
+                )
+                RC.distanceCheckJSON.footToCenterCm.push(
+                  parseFloat(faceValidation.footToCenterCm),
+                )
+                RC.distanceCheckJSON.footToPointCm.push(
+                  parseFloat(faceValidation.footToCameraCm),
+                )
+                RC.distanceCheckJSON.ipdCameraPx.push(
+                  parseFloat(faceValidation.ipdPixels),
+                )
+                RC.distanceCheckJSON.rightEyeFootXYPx.push([
+                  parseFloat(faceValidation.nearestXYPx_right[0].toFixed(0)),
+                  parseFloat(faceValidation.nearestXYPx_right[1].toFixed(0)),
+                ])
+                RC.distanceCheckJSON.leftEyeFootXYPx.push([
+                  parseFloat(faceValidation.nearestXYPx_left[0].toFixed(0)),
+                  parseFloat(faceValidation.nearestXYPx_left[1].toFixed(0)),
+                ])
+                RC.distanceCheckJSON.footXYPx.push([
+                  parseFloat(faceValidation.footXYPx[0]),
+                  parseFloat(faceValidation.footXYPx[1]),
+                ])
+                RC.distanceCheckJSON.measuredFactorCameraPxCm.push(
+                  parseFloat(measuredFactorCameraPxCm.toFixed(0)),
+                )
 
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
