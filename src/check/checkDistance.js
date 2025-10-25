@@ -260,14 +260,17 @@ const captureVideoFrame = RC => {
 const validateFaceMeshSamples = async (
   RC,
   calibrateTrackDistancePupil = 'iris',
+  calibrateTrackDistanceChecking = 'camera',
 ) => {
   const samples = []
   let nearestXYPx_left = null
   let nearestXYPx_right = null
   let eyeToCameraCm = null
   let eyeToCenterCm = null
+  let eyeToPointCm = null
   let footToCameraCm = null
   let footToCenterCm = null
+  let footToPointCm = null
   let calibrationFactor = null
   let footXYPx = null
   let ipdPixels = null
@@ -278,6 +281,7 @@ const validateFaceMeshSamples = async (
       const ipdData = await captureIPDFromFaceMesh(
         RC,
         calibrateTrackDistancePupil,
+        calibrateTrackDistanceChecking,
       )
       if (ipdData && ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
         samples.push(ipdData.ipdPixels)
@@ -306,12 +310,20 @@ const validateFaceMeshSamples = async (
           eyeToCenterCm = ipdData.eyeToCenterCm.toFixed(1)
         }
 
+        if (ipdData.eyeToPointCm && !isNaN(ipdData.eyeToPointCm)) {
+          eyeToPointCm = ipdData.eyeToPointCm.toFixed(1)
+        }
+
         if (ipdData.footToCameraCm && !isNaN(ipdData.footToCameraCm)) {
           footToCameraCm = ipdData.footToCameraCm.toFixed(1)
         }
 
         if (ipdData.footToCenterCm && !isNaN(ipdData.footToCenterCm)) {
           footToCenterCm = ipdData.footToCenterCm.toFixed(1)
+        }
+
+        if (ipdData.footToPointCm && !isNaN(ipdData.footToPointCm)) {
+          footToPointCm = ipdData.footToPointCm.toFixed(1)
         }
 
         if (ipdData.calibrationFactor && !isNaN(ipdData.calibrationFactor)) {
@@ -363,7 +375,9 @@ const validateFaceMeshSamples = async (
     nearestXYPx_right,
     eyeToCameraCm,
     eyeToCenterCm,
+    eyeToPointCm,
     footToCameraCm,
+    footToPointCm,
     footToCenterCm,
     calibrationFactor,
     footXYPx,
@@ -428,6 +442,7 @@ const showFaceBlockedPopup = async (RC, capturedImage) => {
 const captureIPDFromFaceMesh = async (
   RC,
   calibrateTrackDistancePupil = 'iris',
+  calibrateTrackDistanceChecking = 'camera',
 ) => {
   try {
     const video = document.getElementById('webgazerVideoCanvas')
@@ -488,14 +503,17 @@ const captureIPDFromFaceMesh = async (
       0,
       ipdPixels,
       true,
+      calibrateTrackDistanceChecking,
     )
     const {
       nearestXYPx_left,
       nearestXYPx_right,
       eyeToCameraCm,
+      eyeToPointCm,
       eyeToCenterCm,
       footToCameraCm,
       footToCenterCm,
+      footToPointCm,
       calibrationFactor,
       footXYPx,
     } = nearestPoints
@@ -515,6 +533,8 @@ const captureIPDFromFaceMesh = async (
       footToCameraCm,
       footToCenterCm,
       calibrationFactor,
+      eyeToPointCm,
+      footToPointCm,
       footXYPx,
     }
   } catch (error) {
@@ -535,7 +555,8 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateTrackDistanceCenterYourEyesBool = true,
   calibrateTrackDistancePupil = 'iris',
   calibrateTrackDistanceChecking = undefined,
-  calibrateTrackDistanceBlindspotXYDeg = null,
+  calibrateTrackDistanceSpotXYDeg = null,
+  calibrateTrackDistance = '',
 ) {
   await this.getEquipment(
     async () => {
@@ -552,7 +573,8 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateTrackDistanceCenterYourEyesBool,
         calibrateTrackDistancePupil,
         calibrateTrackDistanceChecking,
-        calibrateTrackDistanceBlindspotXYDeg,
+        calibrateTrackDistanceSpotXYDeg,
+        calibrateTrackDistance,
       )
     },
     false,
@@ -1396,8 +1418,9 @@ const trackDistanceCheck = async (
   calibrateTrackDistanceCheckLengthCm = [], // list of lengths to check
   calibrateTrackDistanceCenterYourEyesBool = true,
   calibrateTrackDistancePupil = 'iris',
-  calibrateTrackDistanceChecking = undefined,
-  calibrateTrackDistanceBlindspotXYDeg = null,
+  calibrateTrackDistanceChecking = 'camera',
+  calibrateTrackDistanceSpotXYDeg = null,
+  calibrateTrackDistance = '',
 ) => {
   const isTrack = measureName === 'trackDistance'
 
@@ -1579,9 +1602,8 @@ const trackDistanceCheck = async (
 
     RC.distanceCheckJSON = {
       _calibrateTrackDistanceChecking: calibrateTrackDistanceChecking,
-      _calibrateTrackDistance: RC.viewingDistanceCm.method,
-      _calibrateTrackDistanceBlindspotXYDeg:
-        calibrateTrackDistanceBlindspotXYDeg,
+      _calibrateTrackDistance: calibrateTrackDistance,
+      _calibrateTrackDistanceSpotXYDeg: calibrateTrackDistanceSpotXYDeg,
       _calibrateTrackDistancePupil: calibrateTrackDistancePupil,
       pointXYPx: [window.innerWidth / 2, 0],
       cameraXYPx: [window.innerWidth / 2, 0],
@@ -1715,6 +1737,7 @@ const trackDistanceCheck = async (
               const faceValidation = await validateFaceMeshSamples(
                 RC,
                 calibrateTrackDistancePupil,
+                calibrateTrackDistanceChecking,
               )
 
               if (!faceValidation.isValid) {
@@ -1849,7 +1872,7 @@ const trackDistanceCheck = async (
                 parseFloat(faceValidation.eyeToCameraCm),
               )
               RC.distanceCheckJSON.eyesToPointCm.push(
-                parseFloat(faceValidation.eyeToCameraCm),
+                parseFloat(faceValidation.eyeToPointCm),
               )
               RC.distanceCheckJSON.eyesToCenterCm.push(
                 parseFloat(faceValidation.eyeToCenterCm),
@@ -1861,7 +1884,7 @@ const trackDistanceCheck = async (
                 parseFloat(faceValidation.footToCenterCm),
               )
               RC.distanceCheckJSON.footToPointCm.push(
-                parseFloat(faceValidation.footToCameraCm),
+                parseFloat(faceValidation.footToPointCm),
               )
               RC.distanceCheckJSON.ipdCameraPx.push(
                 parseFloat(faceValidation.ipdPixels),
@@ -2051,7 +2074,7 @@ const trackDistanceCheck = async (
                   parseFloat(faceValidation.eyeToCameraCm),
                 )
                 RC.distanceCheckJSON.eyesToPointCm.push(
-                  parseFloat(faceValidation.eyeToCameraCm),
+                  parseFloat(faceValidation.eyeToPointCm),
                 )
                 RC.distanceCheckJSON.eyesToCenterCm.push(
                   parseFloat(faceValidation.eyeToCenterCm),
@@ -2063,7 +2086,7 @@ const trackDistanceCheck = async (
                   parseFloat(faceValidation.footToCenterCm),
                 )
                 RC.distanceCheckJSON.footToPointCm.push(
-                  parseFloat(faceValidation.footToCameraCm),
+                  parseFloat(faceValidation.footToPointCm),
                 )
                 RC.distanceCheckJSON.ipdCameraPx.push(
                   parseFloat(faceValidation.ipdPixels),

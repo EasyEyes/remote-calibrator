@@ -192,7 +192,7 @@ function saveCalibrationMeasurements(
       measurement.spotToFixationCm,
       measurement.eyesToFixationCm,
       measurement.eyesToSpotCm,
-      measurement.calibrateTrackDistanceBlindspotXYDeg,
+      measurement.calibrateTrackDistanceSpotXYDeg,
     )
   })
 }
@@ -222,7 +222,7 @@ function saveCalibrationAttempt(
   spotToFixationCm = undefined,
   eyesToFixationCm = undefined,
   eyesToSpotCm = undefined,
-  calibrateTrackDistanceBlindspotXYDeg = undefined,
+  calibrateTrackDistanceSpotXYDeg = undefined,
 ) {
   // Initialize the calibration attempts object if it doesn't exist
   if (!RC.calibrationAttempts) {
@@ -309,10 +309,10 @@ function saveCalibrationAttempt(
     leftEyeToCenterCm: safeRoundCm(leftEyeToCenterCmValue), //calcualted by trignometry from above
     spotDeg: safeToFixed(spotDeg), // Add spotDeg for blindspot calibrations
     // NEW FIELDS for edge-based blindspot test
-    _calibrateTrackDistanceBlindspotXYDeg: calibrateTrackDistanceBlindspotXYDeg
+    _calibrateTrackDistanceSpotXYDeg: calibrateTrackDistanceSpotXYDeg
       ? [
-          safeToFixed(calibrateTrackDistanceBlindspotXYDeg[0]),
-          safeToFixed(calibrateTrackDistanceBlindspotXYDeg[1]),
+          safeToFixed(calibrateTrackDistanceSpotXYDeg[0]),
+          safeToFixed(calibrateTrackDistanceSpotXYDeg[1]),
         ]
       : undefined,
     spotXYPx: safeRoundXYPx(spotXYPx), // Middle of red-green edge
@@ -346,6 +346,7 @@ async function processMeshDataAndCalculateNearestPoints(
   blindspotDeg = 0,
   fixationToSpotCm = 0,
   ipdCameraPx = 0,
+  calibrateTrackDistanceChecking = 'camera',
 ) {
   const mesh = await getMeshData(
     RC,
@@ -373,7 +374,9 @@ async function processMeshDataAndCalculateNearestPoints(
     spotPoint,
     blindspotDeg,
     fixationToSpotCm,
-    ipdCameraPx,
+    ipdCameraPx === 0 ? currentIPDDistance : ipdCameraPx,
+    false,
+    calibrateTrackDistanceChecking,
   )
   console.log('nearestPointsData...', nearestPointsData)
   console.log('currentIPDDistance...', currentIPDDistance)
@@ -1424,7 +1427,8 @@ export async function blindSpotTest(
             options.calibrateTrackDistanceCenterYourEyesBool,
             options.calibrateTrackDistancePupil,
             options.calibrateTrackDistanceChecking,
-            options.calibrateTrackDistanceBlindspotXYDeg,
+            options.calibrateTrackDistanceSpotXYDeg,
+            options.calibrateTrackDistance,
           )
         else safeExecuteFunc(callback, data)
       } else {
@@ -4246,12 +4250,13 @@ export async function blindSpotTestNew(
               0,
               0,
               'blindspot',
-              1,
+              side === 'right' ? 1 : 2,
               [crossX, crossY], // fixPoint - fixation cross position
               spotXYPx, // spotPoint - MUST be shared border, not red center
               eccDeg,
               fixationToSpotCm,
               avgIPD,
+              options.calibrateTrackDistanceChecking,
             )
 
           // Calculate additional distances for new JSON fields
@@ -4296,7 +4301,7 @@ export async function blindSpotTestNew(
           measurement.spotToFixationCm = fixationToSpotCm
           measurement.eyesToFixationCm = eyesToFixationCm
           measurement.eyesToSpotCm = eyesToSpotCm
-          measurement.calibrateTrackDistanceBlindspotXYDeg =
+          measurement.calibrateTrackDistanceSpotXYDeg =
             options.calibrateTrackDistanceSpotXYDeg
 
           saveCalibrationMeasurements(RC, 'blindspot', [measurement], spotDeg)
@@ -4491,7 +4496,8 @@ export async function blindSpotTestNew(
       options.calibrateTrackDistanceCenterYourEyesBool,
       options.calibrateTrackDistancePupil,
       options.calibrateTrackDistanceChecking,
-      options.calibrateTrackDistanceBlindspotXYDeg,
+      options.calibrateTrackDistanceSpotXYDeg,
+      options.calibrateTrackDistance,
     )
   else safeExecuteFunc(callback, data)
 
@@ -4699,7 +4705,7 @@ export async function objectTest(RC, options, callback = undefined) {
   let currentPage = 1
   let savedMeasurementData = null // Store measurement data from page 2
   // let selectedPage0Option = null // Store the selected radio button option from page 0
-  
+
   // ===================== UNIT SELECTION STATE =====================
   let selectedUnit = 'inches' // Default to inches
 
@@ -4859,7 +4865,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // Create radio buttons for inches and cm in a vertical layout
   const unitOptions = [
     { value: 'inches', label: phrases.RC_inches[RC.L] },
-    { value: 'cm', label: phrases.RC_cm[RC.L] }
+    { value: 'cm', label: phrases.RC_cm[RC.L] },
   ]
 
   unitOptions.forEach((option, index) => {
@@ -4882,7 +4888,7 @@ export async function objectTest(RC, options, callback = undefined) {
     radio.style.height = '16px'
     radio.checked = option.value === selectedUnit // Default to inches
     radio.tabIndex = -1 // Disable tab navigation
-    
+
     // Update selectedUnit when radio button changes
     radio.addEventListener('change', () => {
       if (radio.checked) {
@@ -4890,9 +4896,9 @@ export async function objectTest(RC, options, callback = undefined) {
         updateDiagonalLabels() // Refresh the display
       }
     })
-    
+
     // Prevent arrow key navigation
-    radio.addEventListener('keydown', (e) => {
+    radio.addEventListener('keydown', e => {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault()
       }
@@ -4912,15 +4918,15 @@ export async function objectTest(RC, options, callback = undefined) {
 
     optionContainer.appendChild(radio)
     optionContainer.appendChild(label)
-    
+
     // Make the whole container clickable
-    optionContainer.addEventListener('click', (e) => {
+    optionContainer.addEventListener('click', e => {
       if (e.target !== radio) {
         radio.checked = true
         radio.dispatchEvent(new Event('change'))
       }
     })
-    
+
     unitRadioContainer.appendChild(optionContainer)
   })
 
@@ -5375,7 +5381,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
     tape.elements.dynamicLengthLabel.style.left = `${centerX}px`
     tape.elements.dynamicLengthLabel.style.top = `${centerY}px`
-    
+
     // Display length in selected unit
     if (selectedUnit === 'inches') {
       tape.elements.dynamicLengthLabel.innerText = `${objectLengthInches.toFixed(1)}`
@@ -5396,17 +5402,17 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Update double-sided arrow (positioned at lower 33% of the tape)
     const arrowLength = distance // Arrow spans the full ruler length
-    
+
     // Calculate offset to position arrow at lower 33% of tape (inside the tape)
     // Offset from center = (tapeWidth/2) * 0.33 to place at 33% from bottom edge
-    const arrowOffsetFromCenter = (tape.dimensions.tapeWidth / 2) * (2/3) // Position at lower third
-    
+    const arrowOffsetFromCenter = (tape.dimensions.tapeWidth / 2) * (2 / 3) // Position at lower third
+
     // Calculate perpendicular offset (toward the lower edge of the tape)
     // The perpendicular direction is 90 degrees from the tape angle
     const perpendicularAngleRad = (angle + 90) * (Math.PI / 180)
     const offsetX = Math.cos(perpendicularAngleRad) * arrowOffsetFromCenter
     const offsetY = Math.sin(perpendicularAngleRad) * arrowOffsetFromCenter
-    
+
     const arrowStartX = startX + offsetX
     const arrowStartY = startY + offsetY
 
@@ -5436,7 +5442,7 @@ export async function objectTest(RC, options, callback = undefined) {
     tape.elements.rightArrowLine2.style.left = `${rightTipX}px`
     tape.elements.rightArrowLine2.style.top = `${rightTipY}px`
     tape.elements.rightArrowLine2.style.transform = `rotate(${angle - 150}deg)`
-    
+
     // Update ruler markings
     updateRulerMarkings()
   }
@@ -5445,19 +5451,19 @@ export async function objectTest(RC, options, callback = undefined) {
   const updateRulerMarkings = () => {
     // Clear existing markings
     tape.elements.rulerMarkingsContainer.innerHTML = ''
-    
+
     const distance = tape.helpers.getDistance(startX, startY, endX, endY)
     const angle = tape.helpers.getAngle(startX, startY, endX, endY)
-    
+
     // Calculate length in selected unit
     const objectLengthMm = distance / pxPerMm
     const objectLengthCm = objectLengthMm / 10
     const objectLengthInches = objectLengthCm / 2.54
-    
+
     // Determine spacing and total marks
     let spacingInPx
     let numMarks
-    
+
     if (selectedUnit === 'inches') {
       spacingInPx = pxPerMm * 25.4 // 1 inch in pixels
       numMarks = Math.ceil(objectLengthInches)
@@ -5465,30 +5471,32 @@ export async function objectTest(RC, options, callback = undefined) {
       spacingInPx = pxPerMm * 10 // 1 cm in pixels
       numMarks = Math.ceil(objectLengthCm)
     }
-    
+
     // Create tick marks and numbers
     for (let i = 1; i <= numMarks; i++) {
       const markPosition = i * spacingInPx
       if (markPosition > distance) break // Don't draw beyond the tape
-      
+
       // Calculate position along the tape
       const ratio = markPosition / distance
       const markX = startX + ratio * (endX - startX)
       const markY = startY + ratio * (endY - startY)
-      
+
       // Create tick mark (perpendicular to tape, starting from upper edge)
       const tick = document.createElement('div')
       tick.style.position = 'absolute'
-      
+
       // Position tick mark to start at the upper edge of the tape
       const tickLength = tape.dimensions.tapeWidth * 0.3 // Half of previous length (30% of tape width)
       const upperEdgeOffset = tape.dimensions.tapeWidth / 2 // Distance from center to upper edge
       const perpendicularAngleRad = (angle - 90) * (Math.PI / 180) // Upper side direction
-      
+
       // Start position at upper edge
-      const tickStartX = markX + Math.cos(perpendicularAngleRad) * upperEdgeOffset
-      const tickStartY = markY + Math.sin(perpendicularAngleRad) * upperEdgeOffset
-      
+      const tickStartX =
+        markX + Math.cos(perpendicularAngleRad) * upperEdgeOffset
+      const tickStartY =
+        markY + Math.sin(perpendicularAngleRad) * upperEdgeOffset
+
       tick.style.left = `${tickStartX}px`
       tick.style.top = `${tickStartY}px`
       tick.style.width = `${tickLength}px`
@@ -5498,17 +5506,17 @@ export async function objectTest(RC, options, callback = undefined) {
       // Rotate to be perpendicular to the tape, pointing downward into the tape
       tick.style.transform = `rotate(${angle + 90}deg)`
       tape.elements.rulerMarkingsContainer.appendChild(tick)
-      
+
       // Create number label positioned inside the tape, below the tick mark
       const label = document.createElement('div')
       label.style.position = 'absolute'
-      
+
       // Position label just below the end of the tick mark (inside the tape)
       // Distance from center to label = upperEdgeOffset - tickLength - small gap
       const labelOffsetDistance = upperEdgeOffset - tickLength - 10 // 5px gap below tick end
       const labelOffsetX = Math.cos(perpendicularAngleRad) * labelOffsetDistance
       const labelOffsetY = Math.sin(perpendicularAngleRad) * labelOffsetDistance
-      
+
       label.style.left = `${markX + labelOffsetX}px`
       label.style.top = `${markY + labelOffsetY}px`
       label.textContent = i.toString()
@@ -5518,7 +5526,7 @@ export async function objectTest(RC, options, callback = undefined) {
       label.style.whiteSpace = 'nowrap'
       label.style.userSelect = 'none'
       label.style.transform = `translate(-50%, -50%)`
-      
+
       tape.elements.rulerMarkingsContainer.appendChild(label)
     }
   }
@@ -5625,7 +5633,13 @@ export async function objectTest(RC, options, callback = undefined) {
   })
 
   // Helper function to update ruler endpoints while maintaining diagonal alignment
-  const updateRulerEndpoints = (newStartX, newStartY, newEndX, newEndY, allowStartOffScreen = false) => {
+  const updateRulerEndpoints = (
+    newStartX,
+    newStartY,
+    newEndX,
+    newEndY,
+    allowStartOffScreen = false,
+  ) => {
     // Project endpoints onto the diagonal line to maintain alignment
     const projectPointOnDiagonal = (x, y) => {
       const toPointX = x - screenDiagonalStartX
@@ -5649,7 +5663,7 @@ export async function objectTest(RC, options, callback = undefined) {
     }
 
     const constrainedEnd = constrainEndToScreen(projectedEnd)
-    
+
     // Start point can go beyond screen if allowStartOffScreen is true
     let constrainedStart
     if (allowStartOffScreen) {
@@ -5665,7 +5679,7 @@ export async function objectTest(RC, options, callback = undefined) {
       (constrainedEnd.x - constrainedStart.x) ** 2 +
         (constrainedEnd.y - constrainedStart.y) ** 2,
     )
-    
+
     // Only apply minimum distance check if we're not allowing off-screen
     // This prevents the tape from "jumping" when the start goes off-screen
     if (!allowStartOffScreen && distance < 50) {
@@ -5693,23 +5707,27 @@ export async function objectTest(RC, options, callback = undefined) {
       // If start is already off-screen, keep allowing it to stay off-screen
       const mouseX = e.clientX
       const mouseY = e.clientY
-      const isStartOffScreen = startX < 0 || startX > screenWidth || startY < 0 || startY > screenHeight
+      const isStartOffScreen =
+        startX < 0 ||
+        startX > screenWidth ||
+        startY < 0 ||
+        startY > screenHeight
       updateRulerEndpoints(startX, startY, mouseX, mouseY, isStartOffScreen)
     } else if (bodyDragging) {
       // Move entire tape, maintaining length
       const deltaX = e.clientX - dragStartMouseX
       const deltaY = e.clientY - dragStartMouseY
-      
+
       // Project delta onto diagonal direction to maintain alignment
       const deltaProjection = deltaX * diagonalUnitX + deltaY * diagonalUnitY
       const projectedDeltaX = deltaProjection * diagonalUnitX
       const projectedDeltaY = deltaProjection * diagonalUnitY
-      
+
       const newStartX = dragStartTapeStartX + projectedDeltaX
       const newStartY = dragStartTapeStartY + projectedDeltaY
       const newEndX = dragStartTapeEndX + projectedDeltaX
       const newEndY = dragStartTapeEndY + projectedDeltaY
-      
+
       // Check if the end would be constrained by screen bounds
       // Project end point onto diagonal
       const toEndX = newEndX - screenDiagonalStartX
@@ -5717,23 +5735,32 @@ export async function objectTest(RC, options, callback = undefined) {
       const endProjection = toEndX * diagonalUnitX + toEndY * diagonalUnitY
       const projectedEndX = screenDiagonalStartX + endProjection * diagonalUnitX
       const projectedEndY = screenDiagonalStartY + endProjection * diagonalUnitY
-      
+
       // Constrain end to screen
       const constrainedEndX = Math.max(0, Math.min(screenWidth, projectedEndX))
       const constrainedEndY = Math.max(0, Math.min(screenHeight, projectedEndY))
-      
+
       // If end would be constrained, calculate how much movement is actually allowed
-      if (constrainedEndX !== projectedEndX || constrainedEndY !== projectedEndY) {
+      if (
+        constrainedEndX !== projectedEndX ||
+        constrainedEndY !== projectedEndY
+      ) {
         // End hit a boundary - adjust both points to stop at the boundary
         const allowedDeltaX = constrainedEndX - dragStartTapeEndX
         const allowedDeltaY = constrainedEndY - dragStartTapeEndY
-        
+
         const adjustedStartX = dragStartTapeStartX + allowedDeltaX
         const adjustedStartY = dragStartTapeStartY + allowedDeltaY
         const adjustedEndX = dragStartTapeEndX + allowedDeltaX
         const adjustedEndY = dragStartTapeEndY + allowedDeltaY
-        
-        updateRulerEndpoints(adjustedStartX, adjustedStartY, adjustedEndX, adjustedEndY, true)
+
+        updateRulerEndpoints(
+          adjustedStartX,
+          adjustedStartY,
+          adjustedEndX,
+          adjustedEndY,
+          true,
+        )
       } else {
         // Normal movement - end is not constrained
         updateRulerEndpoints(newStartX, newStartY, newEndX, newEndY, true)
@@ -5795,8 +5822,12 @@ export async function objectTest(RC, options, callback = undefined) {
       intervalCount++
       const moveAmount = calculateStepSize()
       // Check if start is off-screen to preserve that state
-      const isStartOffScreen = startX < 0 || startX > screenWidth || startY < 0 || startY > screenHeight
-      
+      const isStartOffScreen =
+        startX < 0 ||
+        startX > screenWidth ||
+        startY < 0 ||
+        startY > screenHeight
+
       if (currentArrowKey === 'ArrowLeft' || currentArrowKey === 'ArrowUp') {
         // Move right side closer to left (shrink from right)
         const newEndX = endX - moveAmount * diagonalUnitX
@@ -6489,7 +6520,8 @@ export async function objectTest(RC, options, callback = undefined) {
               options.calibrateTrackDistanceCenterYourEyesBool,
               options.calibrateTrackDistancePupil,
               options.calibrateTrackDistanceChecking,
-              options.calibrateTrackDistanceBlindspotXYDeg,
+              options.calibrateTrackDistanceSpotXYDeg,
+              options.calibrateTrackDistance,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -6517,7 +6549,8 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateTrackDistanceCenterYourEyesBool,
           options.calibrateTrackDistancePupil,
           options.calibrateTrackDistanceChecking,
-          options.calibrateTrackDistanceBlindspotXYDeg,
+          options.calibrateTrackDistanceSpotXYDeg,
+          options.calibrateTrackDistance,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
@@ -7013,6 +7046,16 @@ export async function objectTest(RC, options, callback = undefined) {
                           meshSamplesDuringPage3,
                           page3FactorCmPx,
                           ppi,
+                          0,
+                          0,
+                          'object',
+                          1,
+                          [0, 0], // fixPoint - fixation cross position
+                          [0, 0], // spotPoint - MUST be shared border, not red center
+                          0,
+                          0,
+                          0,
+                          options.calibrateTrackDistanceChecking,
                         )
 
                       measurements.push(
@@ -7033,6 +7076,16 @@ export async function objectTest(RC, options, callback = undefined) {
                           meshSamplesDuringPage4,
                           page4FactorCmPx,
                           ppi,
+                          0,
+                          0,
+                          'object',
+                          2,
+                          [0, 0], // fixPoint - fixation cross position
+                          [0, 0], // spotPoint - MUST be shared border, not red center
+                          0,
+                          0,
+                          0,
+                          options.calibrateTrackDistanceChecking,
                         )
 
                       measurements.push(
@@ -7115,6 +7168,16 @@ export async function objectTest(RC, options, callback = undefined) {
                           meshSamplesDuringPage3,
                           page3FactorCmPx,
                           ppi,
+                          0,
+                          0,
+                          'object',
+                          1,
+                          [0, 0], // fixPoint - fixation cross position
+                          [0, 0], // spotPoint - MUST be shared border, not red center
+                          0,
+                          0,
+                          0,
+                          options.calibrateTrackDistanceChecking,
                         )
 
                       measurements.push(
@@ -7135,6 +7198,16 @@ export async function objectTest(RC, options, callback = undefined) {
                           meshSamplesDuringPage4,
                           page4FactorCmPx,
                           ppi,
+                          0,
+                          0,
+                          'object',
+                          2,
+                          [0, 0], // fixPoint - fixation cross position
+                          [0, 0], // spotPoint - MUST be shared border, not red center
+                          0,
+                          0,
+                          0,
+                          options.calibrateTrackDistanceChecking,
                         )
 
                       measurements.push(
@@ -7365,6 +7438,16 @@ export async function objectTest(RC, options, callback = undefined) {
                   meshSamplesDuringPage3,
                   page3FactorCmPx,
                   ppi,
+                  0,
+                  0,
+                  'object',
+                  1,
+                  [0, 0], // fixPoint - fixation cross position
+                  [0, 0], // spotPoint - MUST be shared border, not red center
+                  0,
+                  0,
+                  0,
+                  options.calibrateTrackDistanceChecking,
                 )
 
               measurements.push(
@@ -7385,6 +7468,16 @@ export async function objectTest(RC, options, callback = undefined) {
                   meshSamplesDuringPage4,
                   page4FactorCmPx,
                   ppi,
+                  0,
+                  0,
+                  'object',
+                  2,
+                  [0, 0], // fixPoint - fixation cross position
+                  [0, 0], // spotPoint - MUST be shared border, not red center
+                  0,
+                  0,
+                  0,
+                  options.calibrateTrackDistanceChecking,
                 )
 
               measurements.push(
@@ -7468,6 +7561,18 @@ export async function objectTest(RC, options, callback = undefined) {
               pxPerCm,
               ppi,
               RC,
+              options,
+              0,
+              0,
+              'object',
+              1,
+              [0, 0],
+              [0, 0],
+              0,
+              0,
+              currentIPDDistance,
+              false,
+              options.calibrateTrackDistanceChecking,
             )
             const {
               nearestXYPx_left,

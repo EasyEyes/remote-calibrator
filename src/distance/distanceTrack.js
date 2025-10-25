@@ -1013,6 +1013,7 @@ export const calculateNearestPoints = (
   fixationToSpotCm = 0,
   ipdCameraPx = 0,
   distanceCheck = false,
+  calibrateTrackDistanceChecking = 'camera',
 ) => {
   const {
     nearestXYPx_left,
@@ -1029,6 +1030,18 @@ export const calculateNearestPoints = (
     currentIPDDistance,
   )
   const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2]
+  let pointXYPx = cameraXYPx
+  if (
+    calibrateTrackDistanceChecking &&
+    typeof calibrateTrackDistanceChecking === 'string'
+  ) {
+    const optionsArray = calibrateTrackDistanceChecking
+      .toLowerCase()
+      .split(',')
+      .map(s => s.trim())
+    if (optionsArray.includes('camera')) pointXYPx = cameraXYPx
+    else if (optionsArray.includes('center')) pointXYPx = centerXYPx
+  }
   const avgFootXYPx = [
     (nearestXYPx_right[0] + nearestXYPx_left[0]) / 2,
     (nearestXYPx_right[1] + nearestXYPx_left[1]) / 2,
@@ -1050,8 +1063,12 @@ export const calculateNearestPoints = (
     Math.hypot(cameraXYPx[0] - footXYPx[0], cameraXYPx[1] - footXYPx[1]) /
     pxPerCm
 
+  const footToPointCm =
+    Math.hypot(pointXYPx[0] - footXYPx[0], pointXYPx[1] - footXYPx[1]) / pxPerCm
+
   let eyeToFootCm = 0
   let eyeToCameraCm = 0
+
   if (webcamToEyeDistance === 0) {
     try {
       const { d_cm, d_px } = solveEyeToScreenCm(
@@ -1085,6 +1102,9 @@ export const calculateNearestPoints = (
 
   const eyeToCenterCm = Math.sqrt(
     eyeToFootCm * eyeToFootCm + footToCenterCm * footToCenterCm,
+  )
+  const eyeToPointCm = Math.sqrt(
+    eyeToFootCm * eyeToFootCm + footToPointCm * footToPointCm,
   )
 
   const calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
@@ -1183,6 +1203,8 @@ export const calculateNearestPoints = (
     footToCenterCm,
     eyeToCenterCm,
     footXYPx,
+    footToPointCm,
+    eyeToPointCm,
   }
 }
 
@@ -1276,6 +1298,8 @@ const renderDistanceResult = async (
         0,
         0,
         currentIPDDistance,
+        false,
+        trackingOptions.calibrateTrackDistanceChecking,
       )
 
       const {
