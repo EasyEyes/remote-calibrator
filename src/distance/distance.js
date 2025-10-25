@@ -4548,8 +4548,18 @@ export async function objectTest(RC, options, callback = undefined) {
       updateDiagonalLabels()
 
       // Update instructions with combined phrase
-      instructions.innerText =
-        phrases['RC_UseObjectToSetViewingDistancePage1&2'][RC.L]
+      const minCm = options.calibrateTrackDistanceObjectMinMaxCm[0]
+      const maxCm = options.calibrateTrackDistanceObjectMinMaxCm[1]
+      const minInch = minCm / 2.54
+      const maxInch = maxCm / 2.54
+
+      instructions.innerText = phrases[
+        'RC_UseObjectToSetViewingDistancePage1&2NEW'
+      ][RC.L]
+        .replace('[[IN1]]', minInch.toFixed(0))
+        .replace('[[IN2]]', maxInch.toFixed(0))
+        .replace('[[CM1]]', minCm.toFixed(0))
+        .replace('[[CM2]]', maxCm.toFixed(0))
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
@@ -5206,6 +5216,37 @@ export async function objectTest(RC, options, callback = undefined) {
             firstMeasurement = diagonalDistancePx / pxPerMm / 10
             console.log('First measurement:', firstMeasurement)
 
+            // Validate object length - reject if too short
+            const minCm =
+              options.calibrateTrackDistanceObjectMinMaxCm?.[0] || 30
+            if (Math.round(firstMeasurement) < Math.round(minCm)) {
+              console.log(
+                `Object too short: ${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm`,
+              )
+
+              // Show error message
+              const objectCm = firstMeasurement
+              const errorMessage =
+                phrases.RC_YourObjectIsTooShort?.[RC.L]
+                  ?.replace('[[IN1]]', Math.round(objectCm / 2.54).toString())
+                  ?.replace('[[CM1]]', Math.round(objectCm).toString())
+                  ?.replace('[[IN2]]', Math.round(minCm / 2.54).toString())
+                  ?.replace('[[CM2]]', Math.round(minCm).toString()) ||
+                `Your object (${Math.round(objectCm)}cm) is too short. Minimum: ${Math.round(minCm)}cm`
+
+              await Swal.fire({
+                ...swalInfoOptions(RC, { showIcon: false }),
+                icon: undefined,
+                html: errorMessage,
+                allowEnterKey: true,
+                confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
+              })
+
+              // Stay on page 2 - re-add the event listener
+              document.addEventListener('keydown', handleKeyPress)
+              return
+            }
+
             // Store original measurement data before resetting lines
             const originalMeasurementData = {
               startX: startX,
@@ -5853,6 +5894,35 @@ export async function objectTest(RC, options, callback = undefined) {
       )
       firstMeasurement = diagonalDistancePx / pxPerMm / 10
       console.log('First measurement:', firstMeasurement)
+
+      // Validate object length - reject if too short
+      const minCm = options.calibrateTrackDistanceObjectMinMaxCm?.[0] || 10
+      if (Math.round(firstMeasurement) < Math.round(minCm)) {
+        console.log(
+          `Object too short: ${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm`,
+        )
+
+        // Show error message
+        const objectCm = firstMeasurement
+        const errorMessage =
+          phrases.RC_YourObjectIsTooShort?.[RC.L]
+            ?.replace('[[IN1]]', Math.round(objectCm / 2.54).toString())
+            ?.replace('[[CM1]]', Math.round(objectCm).toString())
+            ?.replace('[[IN2]]', Math.round(minCm / 2.54).toString())
+            ?.replace('[[CM2]]', Math.round(minCm).toString()) ||
+          `Your object (${Math.round(objectCm)}cm) is too short. Minimum: ${Math.round(minCm)}cm`
+
+        await Swal.fire({
+          ...swalInfoOptions(RC, { showIcon: false }),
+          icon: undefined,
+          html: errorMessage,
+          allowEnterKey: true,
+          confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
+        })
+
+        // Stay on page 2 - object length page is already showing
+        return
+      }
 
       // Store original measurement data before resetting lines
       const originalMeasurementData = {
