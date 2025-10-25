@@ -517,1526 +517,6 @@ const _calculateDistanceFromCenterToTop = ppi => {
   return halfScreenHeightCm
 }
 
-export async function blindSpotTest(
-  RC,
-  options,
-  toTrackDistance = false,
-  callback = undefined,
-) {
-  const control = options.control // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
-
-  // hide webgazerFaceFeedbackBox if calibrateTrackDistanceCenterYourEyesBool is false
-  const webgazerFaceFeedbackBox = document.getElementById(
-    'webgazerFaceFeedbackBox',
-  )
-
-  if (
-    !options.calibrateTrackDistanceCenterYourEyesBool &&
-    webgazerFaceFeedbackBox
-  ) {
-    webgazerFaceFeedbackBox.style.display = 'none'
-  }
-
-  let ppi = RC._CONST.N.PPI_DONT_USE // Dangerous! Arbitrary value
-  if (RC.screenPpi) ppi = RC.screenPpi.value
-  else
-    console.error(
-      'Screen size measurement is required to get accurate viewing distance measurement.',
-    )
-
-  // Dynamic blindspot spot diameter range in degrees - comes from options
-  // Define [minDeg, maxDeg] = options.calibrateTrackDistanceSpotMinMaxDeg
-  let minMaxDeg = options.calibrateTrackDistanceSpotMinMaxDeg
-  console.log('minMaxDeg', minMaxDeg)
-  if (typeof minMaxDeg === 'string')
-    minMaxDeg = minMaxDeg.split(',').map(Number)
-  if (!Array.isArray(minMaxDeg) || minMaxDeg.length < 2) minMaxDeg = [2.0, 8.0]
-  let minDeg = parseFloat(minMaxDeg[0])
-  let maxDeg = parseFloat(minMaxDeg[1])
-  if (!isFinite(minDeg) || minDeg <= 0) minDeg = 2.0
-  if (!isFinite(maxDeg) || maxDeg <= minDeg)
-    maxDeg = Math.max(minDeg * 2, minDeg + 0.1)
-
-  // Initial spot size at slider mid-height (h = 0.5): geometric mean of [minDeg, maxDeg]
-  let calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
-    10,
-    Math.log10(minDeg) + 0.5 * Math.log10(maxDeg / minDeg),
-  )
-
-  let inTest = true // Used to break animation
-  let dist = [] // Take the MEDIAN after all tests finished
-  let tested = 0 // options.repeatedTesting times
-
-  // Per-eye Face Mesh samples for calibration factor checks
-  const faceMeshSamplesLeft = []
-  const faceMeshSamplesRight = []
-  const meshPointsDuringLeftMeasurement = []
-  const meshPointsDuringRightMeasurement = []
-
-  // ===================== SHOW POPUP BEFORE CALIBRATION STARTS =====================
-  // Only show popup if not running as part of "both" methods and camera selection hasn't been done
-  if (options.useObjectTestData !== 'both' && !options.cameraSelectionDone) {
-    await showTestPopup(RC, null, options)
-  }
-
-  // Add HTML (append to body to allow overlay above video independent of background)
-  const blindSpotDiv = document.createElement('div')
-  blindSpotDiv.innerHTML = blindSpotHTML
-  document.body.appendChild(blindSpotDiv)
-  RC._constructFloatInstructionElement(
-    'blind-spot-instruction',
-    phrases.RC_distanceTrackingBeforeClosingEye[RC.L],
-  )
-  // Add blindspot-specific styling to remove white background
-  const blindspotInstruction = document.getElementById('blind-spot-instruction')
-  if (blindspotInstruction) {
-    blindspotInstruction.classList.add('blindspot-instruction')
-  }
-  RC._addCreditOnBackground(phrases.RC_viewingBlindSpotCredit[RC.L])
-
-  // Get HTML elements
-  const wrapper = document.querySelector('#blindspot-wrapper')
-  const c = document.querySelector('#blind-spot-canvas')
-  const ctx = c.getContext('2d')
-
-  // Ensure canvas sits above video and is interactive as needed
-  // Video is at z-index 999999997, so canvas must be higher
-  if (wrapper) wrapper.style.zIndex = '99999999998'
-  if (c) {
-    c.style.zIndex = '99999999999'
-    c.style.position = 'absolute'
-  }
-
-  // Update slider range labels to reflect [minDeg, maxDeg]
-  const labelSpans = document.querySelectorAll(
-    '#blindspot-slider-container span',
-  )
-  const formatDeg = v =>
-    Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(1)
-  if (labelSpans && labelSpans.length >= 3) {
-    const midDeg = Math.pow(10, (Math.log10(minDeg) + Math.log10(maxDeg)) / 2)
-    const midDegRounded = Math.round(midDeg)
-    // Order in DOM is top->bottom
-    labelSpans[0].textContent = `${formatDeg(maxDeg)} deg`
-    labelSpans[1].textContent = `${midDegRounded} deg`
-    labelSpans[2].textContent = `${formatDeg(minDeg)} deg`
-  }
-
-  const eyeSideEle = document.getElementById('blind-spot-instruction')
-
-  // Track intro page state
-  let introPage = true
-
-  // Helper: compute wrapper width (mapping) in pixels from screen width in cm
-  const _computeMappingWidthPx = () => {
-    const widthCm = RC.screenWidthCm ? RC.screenWidthCm.value : null
-    const pxPerCm = ppi / 2.54
-    if (!widthCm)
-      return Math.min(window.innerWidth, Math.round(0.6 * window.innerWidth))
-    const mappingCm = Math.min(
-      widthCm,
-      Math.max(0.45 * widthCm, 0.2 * widthCm + 18),
-    )
-    // return Math.round(mappingCm * pxPerCm)
-    return Math.round(window.innerWidth)
-  }
-
-  // Helper: place video immediately under the fixation crosshair
-  const _positionVideoBelowFixation = () => {
-    const v = document.getElementById('webgazerVideoContainer')
-    if (!v || !wrapper || !c.width || !c.height) return
-
-    // Save original style once
-    if (!RC._blindspotOriginalVideoStyle) {
-      RC._blindspotOriginalVideoStyle = {
-        left: v.style.left,
-        right: v.style.right,
-        top: v.style.top,
-        bottom: v.style.bottom,
-        transform: v.style.transform,
-        transition: v.style.transition,
-      }
-    }
-
-    const rect = wrapper.getBoundingClientRect()
-    const videoWidth = parseInt(v.style.width) || v.offsetWidth || 0
-    const videoHeight = parseInt(v.style.height) || v.offsetHeight || 0
-    // Align video at the very top of the screen, horizontally following fixation (crossX)
-    const fixationXViewport = rect.left + crossX
-    const leftPx = Math.max(0, Math.round(fixationXViewport - videoWidth / 2))
-    const topPx = 0 // top-aligned
-
-    // Disable transitions to avoid lag while moving and ensure stacking order
-    v.style.transition = 'none'
-    v.style.willChange = 'left, top'
-    v.style.zIndex = '999999997' // Keep video below canvas (99999999999)
-    v.style.pointerEvents = 'none'
-
-    if (_lastVideoLeftPx !== leftPx) {
-      v.style.left = `${leftPx}px`
-      v.style.right = 'unset'
-      v.style.top = `${topPx}px`
-      v.style.bottom = 'unset'
-      v.style.transform = 'none'
-      _lastVideoLeftPx = leftPx
-    }
-    // Make crossY the vertical center of the video within canvas coordinates
-    crossY = Math.max(0, Math.round(topPx - rect.top + videoHeight / 2))
-  }
-
-  // Auto-hide video when any Swal modal is present
-  let _lastVideoLeftPx = null
-
-  // Setup slider for dynamic spot size with continuous logarithmic positioning
-  const slider = document.getElementById('blindspot-size-slider')
-  const sliderContainer = document.getElementById('blindspot-slider-container')
-  // Hide slider during intro page
-  if (sliderContainer) sliderContainer.style.display = 'none'
-  if (slider) {
-    // SLIDER VARIABLE DEFINITIONS:
-    //
-    // fractionHeight (h): Slider position as fraction of whole range (0.0 to 1.0)
-    //   - 0.0 = bottom of slider = minDeg spot diameter
-    //   - 1.0 = top of slider = maxDeg spot diameter
-    //   - Continuous values between 0.0 and 1.0
-    //
-    // Logarithmic relationship:
-    //   spotDeg = 10**(log10(minDeg) + h*log10(maxDeg/minDeg))
-    //
-    // Convert initial spotDeg to fractionHeight for slider position
-    const initialFractionHeight =
-      (Math.log10(calibrateTrackDistanceBlindspotDiameterDeg) -
-        Math.log10(minDeg)) /
-      Math.log10(maxDeg / minDeg)
-    slider.value = isFinite(initialFractionHeight)
-      ? String(Math.max(0, Math.min(1, initialFractionHeight)))
-      : '0.5'
-
-    slider.addEventListener('input', e => {
-      const fractionHeight = parseFloat(e.target.value) // Range: 0.0 to 1.0
-
-      // Calculate spotDeg from fractionHeight: spotDeg = 10**(log10(minDeg) + h*log10(maxDeg/minDeg))
-      calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
-        10,
-        Math.log10(minDeg) + fractionHeight * Math.log10(maxDeg / minDeg),
-      )
-
-      // Recalculate circle bounds and check if current position is still valid
-      const spotRadiusPx = calculateSpotRadiusPx(
-        calibrateTrackDistanceBlindspotDiameterDeg,
-        ppi,
-        blindspotEccXDeg,
-        circleX,
-        crossX,
-      )
-      circleBounds = _getDiamondBounds(
-        eyeSide,
-        centerX,
-        c.width,
-        spotRadiusPx * 2, // Convert radius to diamond width
-        ppi,
-      )
-      // keep fixation mirrored across camera line and video top-centered
-      crossX = 2 * centerX - circleX
-      _positionVideoBelowFixation()
-
-      // Check if current position is still within bounds, adjust if needed
-      if (circleX < circleBounds[0]) {
-        circleX = circleBounds[0] // Move to leftmost valid position
-      } else if (circleX > circleBounds[1]) {
-        circleX = circleBounds[1] // Move to rightmost valid position
-      }
-    })
-
-    // Add keyboard event listeners for up/down arrow keys to control slider
-    const handleKeyDown = e => {
-      // Only handle arrow keys when the slider is focused or when no other element is focused
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault() // Prevent page scrolling
-
-        const currentValue = parseFloat(slider.value)
-        const step = 0.05 // Larger step for more responsive control (5% of slider range)
-
-        let newValue
-        if (e.key === 'ArrowUp') {
-          newValue = Math.min(1.0, currentValue + step) // Increase spot size
-        } else {
-          newValue = Math.max(0.0, currentValue - step) // Decrease spot size
-        }
-
-        // Update slider value
-        slider.value = newValue
-
-        // Trigger the same logic as the slider input event
-        const fractionHeight = newValue
-
-        // Calculate spotDeg from fractionHeight using generalized logarithmic mapping
-        calibrateTrackDistanceBlindspotDiameterDeg = Math.pow(
-          10,
-          Math.log10(minDeg) + fractionHeight * Math.log10(maxDeg / minDeg),
-        )
-
-        // Recalculate circle bounds and check if current position is still valid
-        const spotRadiusPx = calculateSpotRadiusPx(
-          calibrateTrackDistanceBlindspotDiameterDeg,
-          ppi,
-          blindspotEccXDeg,
-          circleX,
-          crossX,
-        )
-        circleBounds = _getCameraLineBounds(
-          eyeSide,
-          centerX,
-          c.width,
-          spotRadiusPx,
-          ppi,
-        )
-
-        // Check if current position is still within bounds, adjust if needed
-        if (circleX < circleBounds[0]) {
-          circleX = circleBounds[0] // Move to leftmost valid position
-        } else if (circleX > circleBounds[1]) {
-          circleX = circleBounds[1] // Move to rightmost valid position
-        }
-        // Mirror fixation across the camera line and keep video top-centered
-        crossX = 2 * centerX - circleX
-        _positionVideoBelowFixation()
-      }
-    }
-
-    // Add event listener to document for global keyboard control
-    document.addEventListener('keydown', handleKeyDown)
-
-    // Store reference for cleanup later
-    window.blindspotKeyHandler = handleKeyDown
-  }
-  // let eyeSide = (eyeSideEle.innerText = 'LEFT').toLocaleLowerCase()
-  let eyeSide = 'left'
-
-  // Blindspot eccentricity constants (in degrees)
-  // These define the anatomical position of the blindspot relative to fixation
-  // blindspotEccXDeg should have the same sign as spotEccXCm (negative for left eye, positive for right eye)
-  let blindspotEccXDeg =
-    eyeSide === 'left'
-      ? -options.calibrateTrackDistanceSpotXYDeg[0]
-      : options.calibrateTrackDistanceSpotXYDeg[0] // Horizontal eccentricity: ±15.5° (negative for left eye, positive for right eye)
-  const blindspotEccYDeg = options.calibrateTrackDistanceSpotXYDeg[1] // Vertical eccentricity: -1.5° (below horizontal midline)
-
-  // On intro page, position instructions on left side
-  RC._setFloatInstructionElementPos('left', 16)
-  // Camera line (vertical midline) and high placement configuration
-  let centerX = c.width / 2
-  let crossY = 60 // place cross/video near the top
-  // crossX will mirror the spot around the camera line; initialize at camera line
-  let crossX = centerX
-
-  let circleBounds
-  // Declare circleX early so it is defined before any layout resets
-  let circleX
-
-  // Window resize
-  const _resetCanvasSize = () => {
-    const wrapperWidth = _computeMappingWidthPx()
-    if (wrapper) {
-      wrapper.style.width = `${wrapperWidth}px`
-      wrapper.style.pointerEvents = 'none'
-    }
-
-    c.width = wrapperWidth
-    // Match canvas internal height to CSS height (90vh) to avoid scaling distortion
-    c.height = Math.round(window.innerHeight * 0.9)
-    c.style.width = `${c.width}px`
-    c.style.height = `${c.height}px`
-    centerX = c.width / 2
-    // keep cross mirroring current circle if available, else center
-    crossX = typeof circleX === 'number' ? 2 * centerX - circleX : centerX
-    // keep cross high on the screen
-    crossY = 60
-    // Calculate initial spot radius using the actual spot size at 6cm eccentricity
-    const defaultSpotEccXCm = 6 // Use 6cm as default eccentricity for initial bounds calculation
-    const defaultSpotCm =
-      (Math.abs(defaultSpotEccXCm) *
-        calibrateTrackDistanceBlindspotDiameterDeg) /
-      blindspotEccXDeg
-    const spotRadiusPx = (defaultSpotCm / 2) * ppiToPxPerCm(ppi)
-    circleBounds = _getDiamondBounds(
-      eyeSide,
-      centerX,
-      c.width,
-      spotRadiusPx * 2, // Convert radius to diamond width
-      ppi,
-    )
-
-    // Ensure initial position is within bounds
-    const initialDistanceCm = 6
-    const initialDistancePx = (initialDistanceCm * ppi) / 2.54
-    const initialCircleX =
-      eyeSide === 'left'
-        ? crossX + initialDistancePx // Left eye: start 6cm to the right of crosshair
-        : crossX - initialDistancePx // Right eye: start 6cm to the left of crosshair
-
-    // Constrain initial position to bounds
-    const constrainedInitialX = Math.max(
-      circleBounds[0],
-      Math.min(circleBounds[1], initialCircleX),
-    )
-
-    // Move video to top aligned with current fixation after dimensions update
-    _positionVideoBelowFixation()
-  }
-  const resizeObserver = new ResizeObserver(() => {
-    _resetCanvasSize()
-  })
-  resizeObserver.observe(RC.background)
-  _resetCanvasSize()
-
-  // Set initial position to 6cm separation (D) between spot and cross, symmetric about camera line
-  const initialDistanceCm = 6
-  const initialDistancePx = (initialDistanceCm * ppi) / 2.54
-  // For symmetric layout: |circleX - centerX| = D/2
-  const desiredInitialX =
-    eyeSide === 'left'
-      ? centerX + initialDistancePx / 2
-      : centerX - initialDistancePx / 2
-
-  // Constrain to bounds to ensure spot doesn't go off screen
-  circleX = Math.max(
-    circleBounds[0],
-    Math.min(circleBounds[1], desiredInitialX),
-  )
-  // Mirror fixation cross across camera line and position video at top
-  crossX = 2 * centerX - circleX
-  _positionVideoBelowFixation()
-
-  // Helper function to calculate spot radius in pixels from angular diameter
-  const calculateSpotRadiusPx = (
-    spotDeg,
-    ppi,
-    blindspotEccXDeg,
-    currentCircleX,
-    currentCrossX,
-    blindspotEccYDeg = -1.5, // Add vertical eccentricity parameter
-  ) => {
-    // Calculate on-screen eccentricities in cm
-    const spotEccXCm = (currentCircleX - currentCrossX) / ppiToPxPerCm(ppi)
-    const spotEccYCm = (spotEccXCm * blindspotEccYDeg) / blindspotEccXDeg
-
-    // Use the simple horizontal-based formula (original approach)
-    // This treats the screen as a flat 2D surface and scales based on horizontal eccentricity
-    const spotCm = (Math.abs(spotEccXCm) * spotDeg) / Math.abs(blindspotEccXDeg)
-
-    // Safety check: ensure spotCm is always positive and has a minimum size
-    const safeSpotCm = Math.max(spotCm, 0.1) // Minimum 0.1cm diameter
-
-    // Convert diameter to radius in pixels
-    return (safeSpotCm / 2) * ppiToPxPerCm(ppi)
-  }
-
-  // Helper function to calculate spot Y position (vertical eccentricity)
-  const calculateSpotY = (
-    currentCircleX,
-    currentCrossX,
-    currentCrossY,
-    ppi,
-    blindspotEccXDeg,
-    blindspotEccYDeg,
-  ) => {
-    // Calculate spotEccXCm from current circle position relative to fixation/crosshair
-    const spotEccXCm = (currentCircleX - currentCrossX) / ppiToPxPerCm(ppi)
-
-    // Calculate spotEccYCm using the formula: spotEccYCm = spotEccXCm * blindspotEccYDeg / blindspotEccXDeg
-    // This positions the spot 1.5° below the horizontal midline (fixation)
-    // Since spotEccXCm and blindspotEccXDeg have the same sign, spotEccYCm will always be negative (below fixation)
-    const spotEccYCm = (spotEccXCm * blindspotEccYDeg) / blindspotEccXDeg
-
-    // Convert to pixels and position relative to crosshair Y
-    const spotEccYCmPx = spotEccYCm * ppiToPxPerCm(ppi)
-    return currentCrossY + spotEccYCmPx
-  }
-
-  // Bounds based on video constraints (not spot radius).
-  // Video controls movement: video cannot cross midline or screen edges.
-  // Spot can extend beyond screen edges.
-  // circleX and crossX are mirrored: crossX = 2 * centerX - circleX
-  function _getCameraLineBounds(side, cameraLineX, cW, radius = 15, ppi = 96) {
-    const minDistanceCm = 5
-    const minDistancePx = (minDistanceCm * ppi) / 2.54
-    const minHalfPx = minDistancePx / 2
-
-    // Get video dimensions
-    const v = document.getElementById('webgazerVideoContainer')
-    const videoWidth = v ? parseInt(v.style.width) || v.offsetWidth || 0 : 0
-    const videoHalfWidth = videoWidth / 2
-
-    if (side === 'left') {
-      // Left eye: spot on right (circleX > centerX), video/fixation on left (crossX < centerX)
-      // Video constraints on crossX: videoHalfWidth <= crossX <= centerX - videoHalfWidth
-      // Convert to circleX: circleX = 2*centerX - crossX
-      // Min circleX when crossX is max: circleX = 2*centerX - (centerX - videoHalfWidth) = centerX + videoHalfWidth
-      // Max circleX when crossX is min: circleX = 2*centerX - videoHalfWidth
-      const minX = Math.max(
-        cameraLineX + minHalfPx,
-        cameraLineX + videoHalfWidth,
-      )
-      const maxX = 2 * cameraLineX - videoHalfWidth
-      return [minX, maxX]
-    } else {
-      // Right eye: spot on left (circleX < centerX), video/fixation on right (crossX > centerX)
-      // Video constraints on crossX: centerX + videoHalfWidth <= crossX <= window.innerWidth - videoHalfWidth
-      // Convert to circleX: circleX = 2*centerX - crossX
-      // Max circleX when crossX is min: circleX = 2*centerX - (centerX + videoHalfWidth) = centerX - videoHalfWidth
-      // Min circleX when crossX is max: circleX = 2*centerX - (window.innerWidth - videoHalfWidth)
-      const minX = 2 * cameraLineX - (window.innerWidth - videoHalfWidth)
-      const maxX = Math.min(
-        cameraLineX - minHalfPx,
-        cameraLineX - videoHalfWidth,
-      )
-      return [minX, maxX]
-    }
-  }
-
-  // Diamond-specific bounds calculation
-  // For a diamond, we need to ensure the diamond edges don't go off screen
-  function _getDiamondBounds(side, cameraLineX, cW, diamondWidth, ppi = 96) {
-    const minDistanceCm = 5
-    const minDistancePx = (minDistanceCm * ppi) / 2.54
-    const minHalfPx = minDistancePx / 2
-
-    // Get video dimensions
-    const v = document.getElementById('webgazerVideoContainer')
-    const videoWidth = v ? parseInt(v.style.width) || v.offsetWidth || 0 : 0
-    const videoHalfWidth = videoWidth / 2
-
-    // For diamond bounds, we need to account for the diamond's width
-    // Diamond extends diamondWidth/2 in each direction from center
-    const diamondHalfWidth = diamondWidth / 2
-
-    if (side === 'left') {
-      // Left eye: spot on right (circleX > centerX), video/fixation on left (crossX < centerX)
-      // Ensure diamond doesn't go off right edge of screen
-      const minX = Math.max(
-        cameraLineX + minHalfPx,
-        cameraLineX + videoHalfWidth,
-      )
-      const maxX = Math.min(
-        2 * cameraLineX - videoHalfWidth,
-        cW - diamondHalfWidth, // Don't let diamond go off right edge
-      )
-      return [minX, maxX]
-    } else {
-      // Right eye: spot on left (circleX < centerX), video/fixation on right (crossX > centerX)
-      // Ensure diamond doesn't go off left edge of screen
-      const minX = Math.max(
-        2 * cameraLineX - (window.innerWidth - videoHalfWidth),
-        diamondHalfWidth, // Don't let diamond go off left edge
-      )
-      const maxX = Math.min(
-        cameraLineX - minHalfPx,
-        cameraLineX - videoHalfWidth,
-      )
-      return [minX, maxX]
-    }
-  }
-
-  // Diamond vertical bounds calculation
-  // Ensures diamond doesn't go off top or bottom of screen
-  function _getDiamondVerticalBounds(diamondWidth, cH) {
-    const diamondHalfWidth = diamondWidth / 2
-    const minY = diamondHalfWidth // Don't let diamond go off top edge
-    const maxY = cH - diamondHalfWidth // Don't let diamond go off bottom edge
-    return [minY, maxY]
-  }
-
-  let tempX = circleX // Used to check touching bound
-  let circleFill = RC._CONST.COLOR.DARK_RED
-
-  let v = eyeSide === 'left' ? 1 : -1
-
-  let removeKeypadHandler = setUpEasyEyesKeypadHandler(
-    null,
-    RC.keypadHandler,
-    () => {
-      finishFunction() // ! Finish
-    },
-    false,
-    ['return'],
-    RC,
-  )
-
-  // ! KEY
-  const breakFunction = (toBreakTracking = true) => {
-    // ! BREAK
-    inTest = false
-    if (control) unbindMousedown('blind-spot-canvas', dragStart)
-    resizeObserver.unobserve(RC.background)
-
-    // Remove keyboard event listener for slider control
-    if (window.blindspotKeyHandler) {
-      document.removeEventListener('keydown', window.blindspotKeyHandler)
-      window.blindspotKeyHandler = null
-    }
-
-    // Remove slider
-    const sliderContainer = document.getElementById(
-      'blindspot-slider-container',
-    )
-    if (sliderContainer) {
-      sliderContainer.remove()
-    }
-
-    // Remove blindspot overlay from body
-    const blindOverlay = document.getElementById('blindspot-wrapper')
-    if (blindOverlay && blindOverlay.parentNode) {
-      try {
-        blindOverlay.parentNode.removeChild(blindOverlay)
-      } catch (e) {}
-    }
-
-    RC._removeBackground()
-
-    if (!RC._trackingSetupFinishedStatus.distance && toBreakTracking) {
-      RC._trackingSetupFinishedStatus.distance = true
-      if (RC.gazeTracker.checkInitialized('distance', false)) RC.endDistance()
-    }
-
-    unbindKeys(bindKeysFunction)
-    unbindKeys(bindKeyUpsFunction, 'keyup')
-
-    // Restore original video position when exiting test
-    const vCont = document.getElementById('webgazerVideoContainer')
-    if (vCont && RC._blindspotOriginalVideoStyle) {
-      const s = RC._blindspotOriginalVideoStyle
-      vCont.style.left = s.left
-      vCont.style.right = s.right
-      vCont.style.top = s.top
-      vCont.style.bottom = s.bottom
-      vCont.style.transform = s.transform
-      vCont.style.transition = s.transition
-      try {
-        setDefaultVideoPosition(RC, vCont)
-      } catch (e) {}
-      RC._blindspotOriginalVideoStyle = null
-    }
-  }
-
-  // SPACE
-  const finishFunction = async () => {
-    // customButton.disabled = false
-    if (env !== 'mocha') soundFeedback()
-
-    // If on intro page, transition to left eye test without recording
-    if (introPage) {
-      introPage = false
-
-      // Show slider now that test begins
-      if (sliderContainer) sliderContainer.style.display = 'block'
-
-      // Update instructions to left eye instructions
-      if (eyeSideEle) {
-        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
-          phrases.RC_distanceTrackingCloseL[RC.L],
-        )
-      }
-      // Keep instructions on left side (already positioned there)
-      RC._setFloatInstructionElementPos('left', 16)
-
-      // Initialize left eye geometry and bounds
-      const spotRadiusPx = calculateSpotRadiusPx(
-        calibrateTrackDistanceBlindspotDiameterDeg,
-        ppi,
-        blindspotEccXDeg,
-        circleX,
-        crossX,
-      )
-      circleBounds = _getDiamondBounds(
-        eyeSide,
-        centerX,
-        c.width,
-        spotRadiusPx * 2, // Convert radius to diamond width
-        ppi,
-      )
-
-      // Reset position for actual test
-      const initialDistanceCm = 6
-      const initialDistancePx = (initialDistanceCm * ppi) / 2.54
-      const desiredInitialX =
-        eyeSide === 'left'
-          ? centerX + initialDistancePx / 2
-          : centerX - initialDistancePx / 2
-      circleX = Math.max(
-        circleBounds[0],
-        Math.min(circleBounds[1], desiredInitialX),
-      )
-      crossX = 2 * centerX - circleX
-      _positionVideoBelowFixation()
-
-      return
-    }
-
-    tested += 1
-    // Average
-    const pxPerCm = ppi / 2.54
-    // Calculate the spot's Y position
-    const spotY = calculateSpotY(
-      circleX,
-      crossX,
-      crossY,
-      ppi,
-      blindspotEccXDeg,
-      blindspotEccYDeg,
-    )
-
-    const fixationToSpotPx = Math.sqrt(
-      (circleX - crossX) ** 2 + (spotY - crossY) ** 2,
-    )
-    const fixationToSpotCm = fixationToSpotPx / pxPerCm
-    const eyeToCameraCm = _getEyeToCameraCm(
-      fixationToSpotCm,
-      options.calibrateTrackDistanceSpotXYDeg,
-    )
-    dist.push({
-      dist: toFixedNumber(eyeToCameraCm, options.decimalPlace),
-      v: v,
-      closedEyeSide: eyeSide,
-      crossX: crossX,
-      circleX: circleX,
-      ppi: ppi,
-      timestamp: performance.now(),
-    })
-
-    if (!RC.blindspotData) RC.blindspotData = {}
-    if (eyeSide === 'left')
-      RC.blindspotData.viewingDistanceByBlindSpot1Cm = toFixedNumber(
-        eyeToCameraCm,
-        options.decimalPlace,
-      )
-    else
-      RC.blindspotData.viewingDistanceByBlindSpot2Cm = toFixedNumber(
-        eyeToCameraCm,
-        options.decimalPlace,
-      )
-
-    // Collect per-eye Face Mesh samples for calibration factor checks
-    const collectFiveSamples = async (targetArray, meshSamples) => {
-      for (let i = 0; i < 5; i++) {
-        try {
-          const pxDist = await measureIntraocularDistancePx(
-            RC,
-            options.calibrateTrackDistancePupil,
-            meshSamples,
-          )
-          targetArray.push(pxDist && !isNaN(pxDist) ? pxDist : NaN)
-        } catch (e) {
-          targetArray.push(NaN)
-        }
-        await new Promise(res => setTimeout(res, 100))
-      }
-    }
-    if (eyeSide === 'left')
-      await collectFiveSamples(
-        faceMeshSamplesLeft,
-        meshPointsDuringLeftMeasurement,
-      )
-    else
-      await collectFiveSamples(
-        faceMeshSamplesRight,
-        meshPointsDuringRightMeasurement,
-      )
-
-    // Enough tests?
-    if (Math.floor(tested / options.repeatTesting) === 2) {
-      // Check if these data are acceptable
-      // OLD METHOD: if (checkDataRepeatability(dist)) {
-      // NEW METHOD: Uses ratio-based tolerance with calibrateTrackDistanceAllowedRatio
-      const [pass, message, min, max, RMin, RMax] = checkBlindspotTolerance(
-        dist,
-        options.calibrateTrackDistanceAllowedRatio,
-        options.calibrateTrackDistanceAllowedRangeCm,
-        faceMeshSamplesLeft,
-        faceMeshSamplesRight,
-        ppi,
-      )
-      if (RC.measurementHistory && message !== 'Pass')
-        RC.measurementHistory.push(message)
-      else if (message !== 'Pass') RC.measurementHistory = [message]
-
-      if (pass) {
-        // ! Put dist into data and callback function
-        const data = {
-          value: toFixedNumber(
-            median(_getDistValues(dist)),
-            options.decimalPlace,
-          ),
-          timestamp: performance.now(),
-          method: RC._CONST.VIEW_METHOD.B,
-          raw: { ...dist },
-        }
-
-        // Compute per-eye and overall Face Mesh averages
-        const validLeft = faceMeshSamplesLeft.filter(s => !isNaN(s))
-        const validRight = faceMeshSamplesRight.filter(s => !isNaN(s))
-        const allValid = [...validLeft, ...validRight]
-        const averageFaceMesh = allValid.length
-          ? allValid.reduce((a, b) => a + b, 0) / allValid.length
-          : 0
-
-        // Compute per-eye means for debug
-        const lefts = []
-        const rights = []
-        for (const d of dist) {
-          if (d.closedEyeSide === 'left') lefts.push(d.dist)
-          else rights.push(d.dist)
-        }
-        const leftMean = lefts.length ? average(lefts) : 0
-        const rightMean = rights.length ? average(rights) : 0
-        const leftAvgFM = validLeft.length
-          ? validLeft.reduce((a, b) => a + b, 0) / validLeft.length
-          : 0
-        const rightAvgFM = validRight.length
-          ? validRight.reduce((a, b) => a + b, 0) / validRight.length
-          : 0
-        const distance1FactorCmPx = Math.round(leftAvgFM * leftMean)
-        const distance2FactorCmPx = Math.round(rightAvgFM * rightMean)
-
-        // Calibration factor used for tracking
-        // Apply Pythagorean correction: blindspot gives eyeToScreenCm, but we need eyeToCameraCm for calibration
-        const eyeToCameraCm = data.value
-        const calibrationFactor = Math.round(averageFaceMesh * eyeToCameraCm)
-
-        console.log('=== Blindspot Test Calibration Factor ===')
-        console.log('Blindspot distance (eyeToScreenCm):', data.value, 'cm')
-        console.log(
-          'Corrected distance (eyeToCameraCm):',
-          eyeToCameraCm.toFixed(2),
-          'cm',
-        )
-        console.log('Left/Right avg Face Mesh:', leftAvgFM, rightAvgFM, 'px')
-        console.log(
-          'Left/Right factors (cm*px):',
-          distance1FactorCmPx,
-          distance2FactorCmPx,
-        )
-        console.log('Overall avg Face Mesh:', averageFaceMesh, 'px')
-        console.log('Calibration factor (overall):', calibrationFactor)
-        console.log('=========================================')
-
-        // Store calibration factor and Face Mesh data
-        data.calibrationFactor = calibrationFactor
-        data.averageFaceMesh = averageFaceMesh
-        data.faceMeshSamplesLeft = faceMeshSamplesLeft
-        data.faceMeshSamplesRight = faceMeshSamplesRight
-        data.distance1FactorCmPx = distance1FactorCmPx
-        data.distance2FactorCmPx = distance2FactorCmPx
-
-        try {
-          if (
-            meshPointsDuringLeftMeasurement.length &&
-            meshPointsDuringRightMeasurement.length
-          ) {
-            const measurements = []
-
-            if (meshPointsDuringLeftMeasurement.length) {
-              const { nearestPointsData, currentIPDDistance } =
-                await processMeshDataAndCalculateNearestPoints(
-                  RC,
-                  options,
-                  meshPointsDuringLeftMeasurement,
-                  calibrationFactor,
-                  ppi,
-                  leftMean,
-                  rightMean,
-                  'blindspot',
-                  1,
-                )
-
-              const leftCalibrationFactor = distance1FactorCmPx
-              measurements.push(
-                createMeasurementObject(
-                  'right-eye',
-                  leftMean,
-                  leftCalibrationFactor,
-                  nearestPointsData,
-                  currentIPDDistance,
-                  leftAvgFM,
-                ),
-              )
-            }
-
-            if (meshPointsDuringRightMeasurement.length) {
-              const { nearestPointsData, currentIPDDistance } =
-                await processMeshDataAndCalculateNearestPoints(
-                  RC,
-                  options,
-                  meshPointsDuringRightMeasurement,
-                  calibrationFactor,
-                  ppi,
-                  leftMean,
-                  rightMean,
-                  'blindspot',
-                  2,
-                )
-
-              const rightCalibrationFactor = distance2FactorCmPx
-              measurements.push(
-                createMeasurementObject(
-                  'left-eye',
-                  rightMean,
-                  rightCalibrationFactor,
-                  nearestPointsData,
-                  currentIPDDistance,
-                  rightAvgFM,
-                ),
-              )
-            }
-
-            saveCalibrationMeasurements(
-              RC,
-              'blindspot',
-              measurements,
-              calibrateTrackDistanceBlindspotDiameterDeg,
-            )
-          }
-        } catch (error) {
-          console.error('Error getting mesh data:', error)
-        }
-
-        RC.newViewingDistanceData = data
-
-        // ! Break
-        let measureType // For the check function
-        if (!toTrackDistance) measureType = 'measureDistance'
-        else measureType = 'trackDistance' // ! For tracking
-
-        // Remove background, etc.
-        breakFunction(false)
-
-        // remove Handler
-        removeKeypadHandler()
-
-        // ! check
-        if (options.calibrateTrackDistanceCheckBool)
-          await RC._checkDistance(
-            callback,
-            data,
-            measureType,
-            options.checkCallback,
-            options.calibrateTrackDistanceCheckCm,
-            options.callbackStatic,
-            options.calibrateTrackDistanceCheckSecs,
-            options.calibrateTrackDistanceCheckLengthCm,
-            options.calibrateTrackDistanceCenterYourEyesBool,
-            options.calibrateTrackDistancePupil,
-            options.calibrateTrackDistanceChecking,
-            options.calibrateTrackDistanceSpotXYDeg,
-            options.calibrateTrackDistance,
-          )
-        else safeExecuteFunc(callback, data)
-      } else {
-        const reasonIsOutOfRange = message.includes('out of allowed range')
-        let displayMessage = phrases.RC_viewingBlindSpotRejected[RC.L]
-          .replace('[[N11]]', Math.round(min))
-          .replace('[[N22]]', Math.round(max))
-        if (reasonIsOutOfRange) {
-          displayMessage = phrases.RC_viewingExceededRange[RC.L]
-            .replace('[[N11]]', Math.round(min))
-            .replace('[[N22]]', Math.round(max))
-            .replace('[[N33]]', Math.round(RMin))
-            .replace('[[N44]]', Math.round(RMax))
-        }
-
-        // Save failed blindspot calibration attempt
-        const distanceMeasured = toFixedNumber(
-          median(_getDistValues(dist)),
-          options.decimalPlace,
-        )
-
-        // Calculate averageFaceMesh for failed attempt
-        const validLeft = faceMeshSamplesLeft.filter(s => !isNaN(s))
-        const validRight = faceMeshSamplesRight.filter(s => !isNaN(s))
-        const allValid = [...validLeft, ...validRight]
-        const averageFaceMesh = allValid.length
-          ? allValid.reduce((a, b) => a + b, 0) / allValid.length
-          : 0
-
-        const calibrationFactor =
-          averageFaceMesh *
-          Math.sqrt(
-            distanceMeasured ** 2 - _calculateDistanceFromCenterToTop(ppi) ** 2,
-          )
-
-        // Compute per-eye means for debug
-        const lefts = []
-        const rights = []
-        for (const d of dist) {
-          if (d.closedEyeSide === 'left') lefts.push(d.dist)
-          else rights.push(d.dist)
-        }
-        const leftMean = lefts.length ? average(lefts) : 0
-        const rightMean = rights.length ? average(rights) : 0
-        const leftAvgFM = validLeft.length
-          ? validLeft.reduce((a, b) => a + b, 0) / validLeft.length
-          : 0
-        const rightAvgFM = validRight.length
-          ? validRight.reduce((a, b) => a + b, 0) / validRight.length
-          : 0
-        const distance1FactorCmPx = Math.round(leftAvgFM * leftMean)
-        const distance2FactorCmPx = Math.round(rightAvgFM * rightMean)
-        try {
-          if (
-            meshPointsDuringLeftMeasurement.length &&
-            meshPointsDuringRightMeasurement.length
-          ) {
-            const measurements = []
-            if (meshPointsDuringLeftMeasurement.length) {
-              const { nearestPointsData, currentIPDDistance } =
-                await processMeshDataAndCalculateNearestPoints(
-                  RC,
-                  options,
-                  meshPointsDuringLeftMeasurement,
-                  calibrationFactor,
-                  ppi,
-                  leftMean,
-                  rightMean,
-                  'blindspot',
-                  1,
-                )
-
-              const leftCalibrationFactor = distance1FactorCmPx
-              measurements.push(
-                createMeasurementObject(
-                  'right-eye',
-                  leftMean,
-                  leftCalibrationFactor,
-                  nearestPointsData,
-                  currentIPDDistance,
-                  leftAvgFM,
-                ),
-              )
-            }
-            if (meshPointsDuringRightMeasurement.length) {
-              const { nearestPointsData, currentIPDDistance } =
-                await processMeshDataAndCalculateNearestPoints(
-                  RC,
-                  options,
-                  meshPointsDuringRightMeasurement,
-                  calibrationFactor,
-                  ppi,
-                  leftMean,
-                  rightMean,
-                  'blindspot',
-                  2,
-                )
-
-              const rightCalibrationFactor = distance2FactorCmPx
-              measurements.push(
-                createMeasurementObject(
-                  'left-eye',
-                  rightMean,
-                  rightCalibrationFactor,
-                  nearestPointsData,
-                  currentIPDDistance,
-                  rightAvgFM,
-                ),
-              )
-            }
-
-            saveCalibrationMeasurements(
-              RC,
-              'blindspot',
-              measurements,
-              calibrateTrackDistanceBlindspotDiameterDeg,
-            )
-          }
-        } catch (error) {
-          console.error('Error getting mesh data:', error)
-        }
-
-        // ! Reset
-        tested = 0
-        // customButton.disabled = true
-        // Get first response
-        const firstResponse = dist[0]
-        _resetCanvasLayout(
-          firstResponse.v,
-          firstResponse.closedEyeSide,
-          firstResponse.crossX,
-        )
-
-        dist = [] // Discard old data
-
-        const isOutOfRangeError = reasonIsOutOfRange
-        const inPanelContext = RC._panelStatus.hasPanel
-
-        if (isOutOfRangeError && inPanelContext) {
-          Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: undefined,
-            html: displayMessage,
-            allowEnterKey: true,
-          }).then(() => {
-            // Clean up blindspot test before returning to panel
-            if (removeKeypadHandler) removeKeypadHandler() // Clean up keypad handler
-            breakFunction(false) // Don't break tracking, just clean up test
-            RC._returnToPanelForScreenSize()
-          })
-          return
-        } else {
-          Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: undefined,
-            html: displayMessage,
-            allowEnterKey: true,
-          })
-        }
-      }
-    } else if (tested % options.repeatTesting === 0) {
-      removeKeypadHandler()
-      removeKeypadHandler = setUpEasyEyesKeypadHandler(
-        null,
-        RC.keypadHandler,
-        () => {
-          finishFunction() // ! Finish
-        },
-        false,
-        ['return'],
-        RC,
-      )
-
-      // Switch eye side
-      if (eyeSide === 'left') {
-        // Change to RIGHT
-        eyeSide = 'right'
-        blindspotEccXDeg = options.calibrateTrackDistanceSpotXYDeg[0] // Positive for right eye
-        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
-          phrases.RC_distanceTrackingCloseR[RC.L],
-        )
-      } else {
-        eyeSide = 'left'
-        blindspotEccXDeg = -options.calibrateTrackDistanceSpotXYDeg[0] // Negative for left eye
-        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
-          phrases.RC_distanceTrackingCloseL[RC.L],
-        )
-      }
-      RC._setFloatInstructionElementPos(eyeSide, 16)
-
-      _resetCanvasLayout(
-        // eyeSide === 'left' ? 1 : -1, // v
-        1, // v
-        eyeSide, // eyeSide
-        _getCrossX(eyeSide, c.width), // crossX
-        false,
-        true,
-      )
-    } else {
-      // Shift circle
-      v = -v
-      // if (v > 0)
-      //   // Going to the right
-      //   circleX = circleBounds[0]
-      // else if (v < 0) circleX = circleBounds[1]
-      _resetRandnCircleX(eyeSide, circleBounds)
-    }
-  }
-
-  // const redoFunction = () => {
-  //   if (!tested) return
-  //   tested--
-  //   // customButton.disabled = true
-
-  //   soundFeedback(3)
-
-  //   const lastResponse = dist.pop()
-  //   _resetCanvasLayout(
-  //     lastResponse.v,
-  //     lastResponse.closedEyeSide,
-  //     lastResponse.crossX,
-  //     true,
-  //     true
-  //   )
-  // }
-
-  let arrowKeyDown = false
-  let arrowIntervalFunction = null
-  const arrowDownFunction = e => {
-    if (arrowKeyDown) return
-
-    arrowUpFunction()
-    arrowKeyDown = true
-    circleFill = RC._CONST.COLOR.RED
-
-    arrowIntervalFunction = setInterval(() => {
-      if (e.key === 'ArrowLeft') {
-        circleX -= 2.5
-        helpMoveCircleX()
-      } else if (e.key === 'ArrowRight') {
-        circleX += 2.5
-        helpMoveCircleX()
-      }
-    }, 30)
-  }
-
-  const arrowUpFunction = () => {
-    arrowKeyDown = false
-    circleFill = RC._CONST.COLOR.DARK_RED
-    if (arrowIntervalFunction) {
-      clearInterval(arrowIntervalFunction)
-      arrowIntervalFunction = null
-    }
-  }
-
-  const helpMoveCircleX = () => {
-    if (introPage) {
-      // No movement on intro page
-      return
-    }
-    // Recalculate bounds with current spot size to ensure they're up to date
-    const spotRadiusPx = calculateSpotRadiusPx(
-      calibrateTrackDistanceBlindspotDiameterDeg,
-      ppi,
-      blindspotEccXDeg,
-      circleX,
-      crossX,
-    )
-    const currentBounds = _getDiamondBounds(
-      eyeSide,
-      centerX,
-      c.width,
-      spotRadiusPx * 2, // Convert radius to diamond width
-      ppi,
-    )
-
-    tempX = constrain(circleX, ...currentBounds)
-    circleX = tempX
-    // keep fixation mirrored across camera line and video top-centered
-    crossX = 2 * centerX - circleX
-    _positionVideoBelowFixation()
-  }
-
-  const _resetRandnCircleX = (eye, bounds) => {
-    const relativeBound = bounds[eye === 'left' ? 0 : 1]
-
-    const randRange = Math.abs(bounds[1] - bounds[0]) / 4 // ! Range: 1/4
-    let x = randn_bm(relativeBound - randRange, relativeBound + randRange)
-
-    if ((x - bounds[0]) * (x - bounds[1]) > 0) x = relativeBound * 2 - x
-    circleX = x
-  }
-
-  const _resetCanvasLayout = (
-    nextV,
-    nextEyeSide,
-    nextCrossX,
-    shiftFloatingElement = true,
-    shiftCircle = true,
-  ) => {
-    v = nextV
-    eyeSide = nextEyeSide
-    crossX = nextCrossX
-    // Ensure blindspot horizontal eccentricity sign matches current eye side
-    blindspotEccXDeg =
-      eyeSide === 'left'
-        ? -options.calibrateTrackDistanceSpotXYDeg[0]
-        : options.calibrateTrackDistanceSpotXYDeg[0]
-    const spotRadiusPx = calculateSpotRadiusPx(
-      calibrateTrackDistanceBlindspotDiameterDeg,
-      ppi,
-      blindspotEccXDeg,
-      circleX,
-      crossX,
-    )
-    circleBounds = _getDiamondBounds(
-      eyeSide,
-      centerX,
-      c.width,
-      spotRadiusPx * 2, // Convert radius to diamond width
-      ppi,
-    )
-
-    if (shiftFloatingElement) {
-      if (eyeSide === 'left')
-        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
-          phrases.RC_distanceTrackingCloseL[RC.L],
-        )
-      else
-        eyeSideEle.innerHTML = replaceNewlinesWithBreaks(
-          phrases.RC_distanceTrackingCloseR[RC.L],
-        )
-      RC._setFloatInstructionElementPos(eyeSide, 16)
-    }
-
-    if (shiftCircle) {
-      // Set position to 6cm from crosshair when switching eyes, constrained to bounds
-      const initialDistanceCm = 6
-      const initialDistancePx = (initialDistanceCm * ppi) / 2.54
-      const desiredInitialX =
-        eyeSide === 'left'
-          ? centerX + initialDistancePx / 2
-          : centerX - initialDistancePx / 2
-
-      // Constrain to bounds to ensure spot doesn't go off screen
-      circleX = Math.max(
-        circleBounds[0],
-        Math.min(circleBounds[1], desiredInitialX),
-      )
-      // mirror fixation across camera line
-      crossX = 2 * centerX - circleX
-      _resetRandnCircleX(nextEyeSide, circleBounds)
-    }
-
-    // Keep video under the current fixation crosshair after side change
-    _positionVideoBelowFixation()
-  }
-
-  // Bind keys - wrap arrow functions to check introPage at runtime
-  const bindKeysFunction = bindKeys({
-    Escape: options.showCancelButton ? breakFunction : undefined,
-    Enter: finishFunction,
-    ' ': finishFunction,
-    ArrowLeft: control
-      ? e => {
-          if (!introPage) arrowDownFunction(e)
-        }
-      : emptyFunc,
-    ArrowRight: control
-      ? e => {
-          if (!introPage) arrowDownFunction(e)
-        }
-      : emptyFunc,
-  })
-  const bindKeyUpsFunction = bindKeys(
-    {
-      ArrowLeft: control
-        ? e => {
-            if (!introPage) arrowUpFunction(e)
-          }
-        : emptyFunc,
-      ArrowRight: control
-        ? e => {
-            if (!introPage) arrowUpFunction(e)
-          }
-        : emptyFunc,
-    },
-    'keyup',
-  )
-
-  addButtons(
-    RC.L,
-    RC.background,
-    {
-      //go: finishFunction,
-      cancel: options.showCancelButton ? breakFunction : undefined,
-      custom: {
-        callback: () => {
-          Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: undefined,
-            html: phrases.RC_viewingDistanceIntroLiMethod[RC.L],
-            allowEnterKey: true,
-          })
-        },
-        content: phrases.RC_viewingDistanceIntroTitle[RC.L],
-      },
-    },
-    RC.params.showCancelButton,
-  )
-
-  // const customButton = addedButtons[3]
-  // customButton.disabled = true
-
-  /* -------------------------------------------------------------------------- */
-  // Drag
-  const _dragStartPosition = { x: null, circleX: null }
-  const dragStart = e => {
-    const isTouch = !!e.touches?.[0]
-    if (!isTouch) e.preventDefault()
-
-    let startX
-    let startY
-    if (isTouch) {
-      startX = e.touches[0].clientX
-      startY = e.touches[0].clientY
-    } else {
-      startX = e.clientX
-      startY = e.clientY
-    }
-
-    // compute current spot Y for accurate hit testing
-    const currentSpotRadiusPx = calculateSpotRadiusPx(
-      calibrateTrackDistanceBlindspotDiameterDeg,
-      ppi,
-      blindspotEccXDeg,
-      circleX,
-      crossX,
-    )
-    const currentSpotY = calculateSpotY(
-      circleX,
-      crossX,
-      crossY,
-      ppi,
-      blindspotEccXDeg,
-      blindspotEccYDeg,
-    )
-    // Apply vertical bounds to click detection as well
-    const verticalBounds = _getDiamondVerticalBounds(
-      currentSpotRadiusPx * 2, // Convert radius to diamond width
-      c.height,
-    )
-    const constrainedCurrentSpotY = constrain(currentSpotY, ...verticalBounds)
-
-    if (
-      clickOnRedGreenSquares(
-        circleX,
-        constrainedCurrentSpotY,
-        startX,
-        startY,
-        currentSpotRadiusPx * 2,
-        currentEdge, // Dynamic: 'near' or 'far' based on which edge we're testing
-        crossX,
-      )
-    ) {
-      _dragStartPosition.x = startX
-      _dragStartPosition.circleX = circleX
-
-      const thisCanvas = document.getElementById('blind-spot-canvas')
-
-      circleFill = RC._CONST.COLOR.RED
-      thisCanvas.classList.replace('cursor-grab', 'cursor-grabbing')
-
-      const dragMove = eMove => {
-        e.preventDefault()
-        eMove.preventDefault()
-
-        let currentX
-        if (isTouch) currentX = eMove.touches[0].clientX
-        else currentX = eMove.clientX
-
-        circleX = _dragStartPosition.circleX + currentX - _dragStartPosition.x
-        const spotRadiusPx = calculateSpotRadiusPx(
-          calibrateTrackDistanceBlindspotDiameterDeg,
-          ppi,
-          blindspotEccXDeg,
-          circleX,
-          crossX,
-        )
-        circleX = constrain(
-          circleX,
-          ..._getDiamondBounds(
-            eyeSide,
-            centerX,
-            c.width,
-            spotRadiusPx * 2,
-            ppi,
-          ),
-        )
-        // Mirror fixation across camera line and keep video at top
-        crossX = 2 * centerX - circleX
-        _positionVideoBelowFixation()
-      }
-      if (isTouch) document.addEventListener('touchmove', dragMove)
-      else document.addEventListener('mousemove', dragMove)
-
-      const dragEnd = () => {
-        if (isTouch) {
-          document.removeEventListener('touchend', dragEnd)
-          document.removeEventListener('touchmove', dragMove)
-        } else {
-          document.removeEventListener('mouseup', dragEnd)
-          document.removeEventListener('mousemove', dragMove)
-        }
-        _dragStartPosition.x = null
-        _dragStartPosition.circleX = null
-
-        circleFill = RC._CONST.COLOR.DARK_RED
-        thisCanvas.classList.replace('cursor-grabbing', 'cursor-grab')
-      }
-      if (isTouch) document.addEventListener('touchend', dragEnd)
-      else document.addEventListener('mouseup', dragEnd)
-    }
-  }
-  if (control) bindMousedown('blind-spot-canvas', dragStart)
-  /* -------------------------------------------------------------------------- */
-
-  // ! ACTUAL TEST
-  const frameTimestampInitial = performance.now()
-  let frameTimestamp = frameTimestampInitial
-  const runTest = () => {
-    // ctx.fillStyle = '#eee'
-    // ctx.fillRect(0, 0, c.width, c.height)
-    ctx.clearRect(0, 0, c.width, c.height)
-    // ctx.beginPath()
-
-    frameTimestamp = performance.now()
-    const spotRadiusPx = calculateSpotRadiusPx(
-      calibrateTrackDistanceBlindspotDiameterDeg,
-      ppi,
-      blindspotEccXDeg,
-      circleX,
-      crossX,
-    )
-    // Ensure the diamond stays within valid horizontal bounds after any layout changes/popups
-    const currentBounds = _getDiamondBounds(
-      eyeSide,
-      centerX,
-      c.width,
-      spotRadiusPx * 2, // Convert radius to diamond width
-      ppi,
-    )
-    circleX = constrain(circleX, ...currentBounds)
-    const spotY = calculateSpotY(
-      circleX,
-      crossX,
-      crossY,
-      ppi,
-      blindspotEccXDeg,
-      blindspotEccYDeg,
-    )
-    // Remove bounds constraints to let diamond follow anatomical line exactly
-    const constrainedSpotY = spotY
-    // Draw the flickering diamond - skip on intro page
-    if (!introPage) {
-      _diamond(
-        RC,
-        ctx,
-        circleX,
-        constrainedSpotY,
-        Math.round(frameTimestamp - frameTimestampInitial),
-        circleFill,
-        options.sparkle,
-        spotRadiusPx * 2, // Convert radius to diameter for diamond width
-      )
-    }
-
-    // Draw cross last so it stays on top of the spot and video
-    _cross(ctx, crossX, crossY)
-
-    // TEST: Draw anatomical line through fixation cross
-    drawAnatomicalLine(
-      ctx,
-      crossX,
-      crossY,
-      blindspotEccXDeg,
-      blindspotEccYDeg,
-      c.width,
-      c.height,
-      circleX,
-      constrainedSpotY,
-      options.calibrateTrackDistanceBlindspotDebugging,
-    )
-    if (!control && !introPage) {
-      circleX += v * circleDeltaX
-      helpMoveCircleX()
-    }
-
-    if (inTest) {
-      requestAnimationFrame(runTest)
-    } else {
-      ctx.clearRect(0, 0, c.width, c.height)
-    }
-  }
-
-  requestAnimationFrame(runTest)
-}
-
 /**
 Solve for eye-to-screen distance (cm).
 Inputs:
@@ -4778,35 +3258,26 @@ export async function objectTest(RC, options, callback = undefined) {
   let screenWidth = window.innerWidth
   let screenHeight = window.innerHeight
 
-  // For diagonal tape aligned with screen diagonal
-  // Calculate screen diagonal endpoints
-  let screenDiagonalStartX = 0 // Bottom-left corner (x)
-  let screenDiagonalStartY = screenHeight // Bottom-left corner (y)
-  let screenDiagonalEndX = screenWidth // Top-right corner (x)
-  let screenDiagonalEndY = 0 // Top-right corner (y)
-
-  // Calculate the direction vector of the screen diagonal
-  let diagonalDx = screenDiagonalEndX - screenDiagonalStartX
-  let diagonalDy = screenDiagonalEndY - screenDiagonalStartY
-  let diagonalLength = Math.sqrt(
-    diagonalDx * diagonalDx + diagonalDy * diagonalDy,
-  )
-  let diagonalUnitX = diagonalDx / diagonalLength
-  let diagonalUnitY = diagonalDy / diagonalLength
+  // For horizontal tape near bottom of screen
+  // Position tape horizontally, leaving room for arrow/dimensions below
+  const bottomMarginPx = 80 // Space for arrow and dimensions below tape
+  const tapeYPosition = screenHeight - bottomMarginPx
 
   // Initial ruler length (can be adjusted)
   let rulerLength = Math.min(screenWidth, screenHeight) * 0.6
 
-  // Set initial left endpoint near bottom-left with a small margin along the diagonal
-  const initialInsetPx = 200
-  // Left tip at: diagonal start + inset along diagonal
-  let startX = screenDiagonalStartX + initialInsetPx * diagonalUnitX
-  let startY = screenDiagonalStartY + initialInsetPx * diagonalUnitY
+  const oneCMInPx = pxPerMm * 10
+  //one cm on left and right of the tape
 
-  // Set initial right endpoint to 2/3 of the screen diagonal from the diagonal start
-  const twoThirdsAlong = (2 / 3) * diagonalLength
-  let endX = screenDiagonalStartX + twoThirdsAlong * diagonalUnitX
-  let endY = screenDiagonalStartY + twoThirdsAlong * diagonalUnitY
+  // Set initial left endpoint (left side with margin)
+  const leftMarginPx = oneCMInPx
+  let startX = leftMarginPx
+  let startY = tapeYPosition
+
+  // Set initial right endpoint (2/3 of screen width)
+  const initialRulerLengthPx = screenWidth - oneCMInPx * 2
+  let endX = leftMarginPx + initialRulerLengthPx
+  let endY = tapeYPosition
 
   // --- Create the main overlay container ---
   const container = document.createElement('div')
@@ -4818,51 +3289,35 @@ export async function objectTest(RC, options, callback = undefined) {
   container.style.userSelect = 'none'
   container.style.overflow = 'hidden' // Prevent scrolling
 
+  // --- TITLE AND UNIT SELECTION ROW ---
+  // Create a flex container to hold title and radio buttons side by side
+  const titleRow = document.createElement('div')
+  titleRow.style.display = 'flex'
+  titleRow.style.alignItems = 'baseline'
+  titleRow.style.gap = `${pxPerMm * 10}px` // 1 cm gap
+  titleRow.style.paddingInlineStart = '3rem'
+  titleRow.style.margin = '2rem 0 5rem 0'
+  titleRow.style.position = 'relative'
+  container.appendChild(titleRow)
+
   // --- TITLE  ---
   const title = document.createElement('h1')
   title.innerText = phrases.RC_SetViewingDistance[RC.L]
   title.style.whiteSpace = 'pre-line'
-  title.style.alignSelf = 'flex-start'
-  title.style.position = 'relative'
   title.style.textAlign = 'start'
-  title.style.paddingInlineStart = '3rem'
-  title.style.margin = '2rem 0 5rem 0'
+  title.style.margin = '0' // Remove default margin
   title.dir = RC.LD.toLowerCase()
-  container.appendChild(title)
-
-  // Set max-width to avoid video overlap
-  const video = document.getElementById('webgazerVideoContainer')
-  const videoRect = video.getBoundingClientRect()
-  const videoLeftEdge = (screenWidth - videoRect.width) / 2
-  // --- INSTRUCTIONS ---
-  const instructions = document.createElement('div')
-  instructions.style.maxWidth = `${videoLeftEdge - 10}px`
-  instructions.style.paddingLeft = '3rem'
-  instructions.style.marginTop = '-2rem'
-  instructions.style.textAlign = 'left'
-  instructions.style.whiteSpace = 'pre-line'
-  instructions.style.alignSelf = 'flex-start'
-  instructions.style.position = 'relative'
-  instructions.style.zIndex = '3'
-  instructions.style.fontSize = '1.4em'
-  instructions.style.lineHeight = '1.6'
-  instructions.style.textAlign = 'start'
-  //padding inline start
-  instructions.style.paddingInlineStart = '3rem'
-  // Add responsive font size
-  instructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
-  container.appendChild(instructions)
+  titleRow.appendChild(title)
 
   // --- UNIT SELECTION RADIO BUTTONS (FOR PAGE 2) ---
   const unitRadioContainer = document.createElement('div')
-  unitRadioContainer.style.position = 'relative'
   unitRadioContainer.style.display = 'none' // Hidden by default, shown on page 2
-  unitRadioContainer.style.marginTop = '1rem'
-  unitRadioContainer.style.paddingLeft = '4.5rem'
-  unitRadioContainer.style.textAlign = 'start'
-  container.appendChild(unitRadioContainer)
+  unitRadioContainer.style.flexDirection = 'row'
+  unitRadioContainer.style.gap = '1em'
+  unitRadioContainer.style.alignItems = 'center'
+  titleRow.appendChild(unitRadioContainer)
 
-  // Create radio buttons for inches and cm in a vertical layout
+  // Create radio buttons for inches and cm in a horizontal layout
   const unitOptions = [
     { value: 'inches', label: phrases.RC_inches[RC.L] },
     { value: 'cm', label: phrases.RC_cm[RC.L] },
@@ -4871,10 +3326,9 @@ export async function objectTest(RC, options, callback = undefined) {
   unitOptions.forEach((option, index) => {
     const optionContainer = document.createElement('div')
     optionContainer.style.display = 'flex'
-    optionContainer.style.alignItems = 'baseline'
-    optionContainer.style.gap = '0.7em'
+    optionContainer.style.alignItems = 'center'
+    optionContainer.style.gap = '0.4em'
     optionContainer.style.cursor = 'pointer'
-    optionContainer.style.marginBottom = index === 0 ? '0.3em' : '0'
 
     const radio = document.createElement('input')
     radio.type = 'radio'
@@ -4907,7 +3361,7 @@ export async function objectTest(RC, options, callback = undefined) {
     const label = document.createElement('label')
     label.htmlFor = `unit-${option.value}`
     label.textContent = option.label
-    label.style.fontSize = 'clamp(1.0em, 2.2vw, 1.2em)'
+    label.style.fontSize = 'clamp(0.9em, 2vw, 1.1em)'
     label.style.fontWeight = '500'
     label.style.cursor = 'pointer'
     label.style.userSelect = 'none'
@@ -4929,6 +3383,29 @@ export async function objectTest(RC, options, callback = undefined) {
 
     unitRadioContainer.appendChild(optionContainer)
   })
+
+  // Set max-width to avoid video overlap
+  const video = document.getElementById('webgazerVideoContainer')
+  const videoRect = video.getBoundingClientRect()
+  const videoLeftEdge = (screenWidth - videoRect.width) / 2
+  // --- INSTRUCTIONS ---
+  const instructions = document.createElement('div')
+  instructions.style.maxWidth = `${videoLeftEdge - 10}px`
+  instructions.style.paddingLeft = '3rem'
+  instructions.style.marginTop = '-2rem'
+  instructions.style.textAlign = 'left'
+  instructions.style.whiteSpace = 'pre-line'
+  instructions.style.alignSelf = 'flex-start'
+  instructions.style.position = 'relative'
+  instructions.style.zIndex = '3'
+  instructions.style.fontSize = '1.4em'
+  instructions.style.lineHeight = '1.6'
+  instructions.style.textAlign = 'start'
+  //padding inline start
+  instructions.style.paddingInlineStart = '3rem'
+  // Add responsive font size
+  instructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
+  container.appendChild(instructions)
 
   // --- RADIO BUTTON CONTAINER ---
   const radioOverlay = document.createElement('div')
@@ -5055,12 +3532,12 @@ export async function objectTest(RC, options, callback = undefined) {
   //   )
   // }
 
-  // ===================== DIAGONAL TAPE MEASUREMENT COMPONENT =====================
+  // ===================== HORIZONTAL TAPE MEASUREMENT COMPONENT =====================
 
-  // Create a diagonal tape component that groups all elements
+  // Create a horizontal tape component that groups all elements
   const createDiagonalTapeComponent = () => {
     // Calculate dimensions
-    const tapeWidth = Math.round(0.75 * ppi) // 3/4 inch width for diagonal tape
+    const tapeWidth = Math.round(0.75 * ppi) // 3/4 inch width for horizontal tape
     const lineThickness = 3 // px thickness for all lines
 
     // Helper function to calculate distance between two points
@@ -5082,7 +3559,7 @@ export async function objectTest(RC, options, callback = undefined) {
     tapeContainer.style.pointerEvents = 'none' // Allow clicks to pass through to individual elements
     tapeContainer.style.zIndex = '10'
 
-    // Main diagonal tape (yellow background with black border)
+    // Main horizontal tape (yellow background with black border)
     const diagonalTape = document.createElement('div')
     diagonalTape.style.position = 'absolute'
     diagonalTape.style.background = 'rgba(255, 221, 51, 0.95)'
@@ -5092,7 +3569,7 @@ export async function objectTest(RC, options, callback = undefined) {
     diagonalTape.style.transformOrigin = 'left center'
     tapeContainer.appendChild(diagonalTape)
 
-    // Left handle (invisible diagonal line)
+    // Left handle (invisible vertical line)
     const leftHandle = document.createElement('div')
     leftHandle.style.position = 'absolute'
     leftHandle.style.width = `${lineThickness}px`
@@ -5107,7 +3584,7 @@ export async function objectTest(RC, options, callback = undefined) {
     leftHandle.style.transformOrigin = 'center center'
     tapeContainer.appendChild(leftHandle)
 
-    // Right handle (invisible diagonal line)
+    // Right handle (invisible vertical line)
     const rightHandle = document.createElement('div')
     rightHandle.style.position = 'absolute'
     rightHandle.style.width = `${lineThickness}px`
@@ -5127,7 +3604,7 @@ export async function objectTest(RC, options, callback = undefined) {
     dynamicLengthLabel.style.position = 'absolute'
     dynamicLengthLabel.style.color = 'rgb(0, 0, 0)'
     dynamicLengthLabel.style.fontWeight = 'bold'
-    dynamicLengthLabel.style.fontSize = '1.4rem'
+    dynamicLengthLabel.style.fontSize = '1.0rem' // Reduced by factor of 1.4 (was 1.4rem)
     dynamicLengthLabel.style.background = 'rgba(255, 221, 51, 1.0)' // Same as tape background
     dynamicLengthLabel.style.padding = '2px 6px'
     dynamicLengthLabel.style.borderRadius = '4px'
@@ -5222,48 +3699,24 @@ export async function objectTest(RC, options, callback = undefined) {
   const tape = createDiagonalTapeComponent()
   container.appendChild(tape.container)
 
-  // Function to update diagonal tape on window resize (same pattern as checkDistance.js)
+  // Function to update horizontal tape on window resize (same pattern as checkDistance.js)
   function updateDiagonalTapeOnResize() {
-    // Store proportional positions
-    const currentStartProportion =
-      diagonalLength > 0
-        ? Math.sqrt(
-            (startX - screenDiagonalStartX) ** 2 +
-              (startY - screenDiagonalStartY) ** 2,
-          ) / diagonalLength
-        : 0
-    const currentEndProportion =
-      diagonalLength > 0
-        ? Math.sqrt(
-            (endX - screenDiagonalStartX) ** 2 +
-              (endY - screenDiagonalStartY) ** 2,
-          ) / diagonalLength
-        : 0
+    // Store proportional positions (as ratios of screen width)
+    const currentStartProportionX = startX / screenWidth
+    const currentEndProportionX = endX / screenWidth
 
     // Update screen dimensions
     screenWidth = window.innerWidth
     screenHeight = window.innerHeight
 
-    // Recalculate diagonal
-    screenDiagonalStartX = 0
-    screenDiagonalStartY = screenHeight
-    screenDiagonalEndX = screenWidth
-    screenDiagonalEndY = 0
-    diagonalDx = screenDiagonalEndX - screenDiagonalStartX
-    diagonalDy = screenDiagonalEndY - screenDiagonalStartY
-    diagonalLength = Math.sqrt(
-      diagonalDx * diagonalDx + diagonalDy * diagonalDy,
-    )
-    diagonalUnitX = diagonalDx / diagonalLength
-    diagonalUnitY = diagonalDy / diagonalLength
+    // Recalculate Y position (maintain distance from bottom)
+    const newTapeYPosition = screenHeight - bottomMarginPx
 
-    // Maintain proportional positions
-    const newStartDistance = currentStartProportion * diagonalLength
-    const newEndDistance = currentEndProportion * diagonalLength
-    startX = screenDiagonalStartX + newStartDistance * diagonalUnitX
-    startY = screenDiagonalStartY + newStartDistance * diagonalUnitY
-    endX = screenDiagonalStartX + newEndDistance * diagonalUnitX
-    endY = screenDiagonalStartY + newEndDistance * diagonalUnitY
+    // Maintain proportional X positions
+    startX = currentStartProportionX * screenWidth
+    startY = newTapeYPosition
+    endX = currentEndProportionX * screenWidth
+    endY = newTapeYPosition
 
     // Update tape
     updateDiagonalLabels()
@@ -5274,68 +3727,78 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== TRIANGULAR TEXT BOXES FOR TAPE ENDS =====================
 
-  // Create triangular text box function
+  // Create text box function with wrapping to fit on screen
   const createSimpleTextBox = (text, isLeft = true) => {
     // Container for the text box
     const textContainer = document.createElement('div')
     textContainer.style.position = 'absolute'
     textContainer.style.zIndex = '15'
 
-    // Calculate text width
-    const textLength = text.length
-    const estimatedWidth = Math.max(textLength * 12, 120) // At least 120px wide
-    const textHeight = 30
+    // Use a square-ish max width for wrapping
+    const maxWidth = 150 // Max width in pixels for wrapping
 
-    // Create simple rectangular container
+    // Create simple rectangular container that wraps text
     const textBox = document.createElement('div')
     textBox.style.position = 'relative'
-    textBox.style.width = `${estimatedWidth}px`
-    textBox.style.height = `${textHeight}px`
+    textBox.style.maxWidth = `${maxWidth}px`
     textBox.style.background = 'transparent'
     textBox.style.border = 'none'
     textBox.style.display = 'flex'
     textBox.style.alignItems = 'center'
     textBox.style.justifyContent = 'center'
+    textBox.style.padding = '0px'
 
-    // Text element
+    // Text element with wrapping enabled
     const textElement = document.createElement('div')
     textElement.innerText = text
     textElement.style.color = 'rgb(0, 0, 0)'
     textElement.style.fontWeight = 'bold'
     textElement.style.fontSize = '1.2em'
-    textElement.style.textAlign = 'center'
+    textElement.style.textAlign = isLeft ? 'left' : 'right'
     textElement.style.lineHeight = '1.2'
-    textElement.style.whiteSpace = 'nowrap'
+    textElement.style.whiteSpace = 'normal' // Allow wrapping
+    textElement.style.wordWrap = 'break-word'
     textElement.style.textShadow = '1px 1px 2px rgba(255, 255, 255, 0.8)'
     textBox.appendChild(textElement)
 
     textContainer.appendChild(textBox)
 
-    // Function to update text and resize container
+    // Function to update text
     const updateText = newText => {
-      const newTextLength = newText.length
-      const newEstimatedWidth = Math.max(newTextLength * 12, 120)
-
-      // Update container size
-      textBox.style.width = `${newEstimatedWidth}px`
-
       // Update text
       textElement.innerText = newText
 
-      // Update dimensions for positioning
-      textContainer.dimensions = {
-        width: newEstimatedWidth,
-        height: textHeight,
-      }
+      // Get actual dimensions after text is set (needed for positioning)
+      // Use setTimeout to allow DOM to update
+      setTimeout(() => {
+        const rect = textBox.getBoundingClientRect()
+        textContainer.dimensions = {
+          width: rect.width,
+          height: rect.height,
+        }
+        // Trigger a position update with new dimensions
+        if (typeof updateDiagonalLabels === 'function') {
+          updateDiagonalLabels()
+        }
+      }, 0)
 
-      return newEstimatedWidth
+      return maxWidth
     }
+
+    // Set initial dimensions
+    setTimeout(() => {
+      const rect = textBox.getBoundingClientRect()
+      textContainer.dimensions = {
+        width: rect.width,
+        height: rect.height,
+      }
+    }, 0)
 
     return {
       container: textContainer,
       textElement: textElement,
       updateText: updateText,
-      dimensions: { width: estimatedWidth, height: textHeight },
+      dimensions: { width: maxWidth, height: 50 }, // Initial estimate
     }
   }
 
@@ -5348,39 +3811,64 @@ export async function objectTest(RC, options, callback = undefined) {
   rightLabel.container.id = 'right-line-label'
   container.appendChild(rightLabel.container)
 
-  // ===================== DIAGONAL TAPE MANAGEMENT FUNCTIONS =====================
+  // Update label dimensions after they're in the DOM
+  setTimeout(() => {
+    const leftRect = leftLabel.container
+      .querySelector('div')
+      .getBoundingClientRect()
+    leftLabel.dimensions = {
+      width: leftRect.width,
+      height: leftRect.height,
+    }
+    const rightRect = rightLabel.container
+      .querySelector('div')
+      .getBoundingClientRect()
+    rightLabel.dimensions = {
+      width: rightRect.width,
+      height: rightRect.height,
+    }
+    // Trigger a position update with correct dimensions
+    updateDiagonalLabels()
+  }, 10)
 
-  // Function to update diagonal tape size and position
+  // ===================== HORIZONTAL TAPE MANAGEMENT FUNCTIONS =====================
+
+  // Function to update horizontal tape size and position
   const updateDiagonalTapeComponent = () => {
-    // Calculate distance and angle
-    const distance = tape.helpers.getDistance(startX, startY, endX, endY)
-    const angle = tape.helpers.getAngle(startX, startY, endX, endY)
+    // Calculate distance (horizontal distance between endpoints)
+    const distance = Math.abs(endX - startX)
 
-    // Update diagonal tape
+    // Update horizontal tape
     tape.elements.diagonalTape.style.left = `${startX}px`
     tape.elements.diagonalTape.style.top = `${startY - tape.dimensions.tapeWidth / 2}px`
     tape.elements.diagonalTape.style.width = `${distance}px`
     tape.elements.diagonalTape.style.height = `${tape.dimensions.tapeWidth}px`
-    tape.elements.diagonalTape.style.transform = `rotate(${angle}deg)`
+    tape.elements.diagonalTape.style.transform = 'rotate(0deg)' // Horizontal
 
-    // Update handle positions and rotation to match tape angle
+    // Update handle positions (horizontal alignment)
     tape.elements.leftHandle.style.left = `${startX}px`
     tape.elements.leftHandle.style.top = `${startY}px`
-    tape.elements.leftHandle.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`
+    tape.elements.leftHandle.style.transform =
+      'translate(-50%, -50%) rotate(0deg)'
     tape.elements.rightHandle.style.left = `${endX}px`
     tape.elements.rightHandle.style.top = `${endY}px`
-    tape.elements.rightHandle.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`
+    tape.elements.rightHandle.style.transform =
+      'translate(-50%, -50%) rotate(0deg)'
 
-    // Update dynamic length label (centered on tape)
-    const centerX = (startX + endX) / 2
-    const centerY = (startY + endY) / 2
+    // Update dynamic length label (centered on VISIBLE part of tape)
     const objectLengthPx = distance
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
     const objectLengthInches = objectLengthCm / 2.54
 
-    tape.elements.dynamicLengthLabel.style.left = `${centerX}px`
-    tape.elements.dynamicLengthLabel.style.top = `${centerY}px`
+    // Calculate visible portion of tape (constrained to screen bounds)
+    const visibleStartX = Math.max(0, startX)
+    const visibleEndX = Math.min(screenWidth, endX)
+    const visibleCenterX = (visibleStartX + visibleEndX) / 2
+    const visibleCenterY = startY // Y is constant for horizontal tape
+
+    tape.elements.dynamicLengthLabel.style.left = `${visibleCenterX}px`
+    tape.elements.dynamicLengthLabel.style.top = `${visibleCenterY}px`
 
     // Display length in selected unit
     if (selectedUnit === 'inches') {
@@ -5389,59 +3877,54 @@ export async function objectTest(RC, options, callback = undefined) {
       tape.elements.dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)}`
     }
 
-    // Auto-scale font if needed
+    // Auto-scale font if needed (using reduced base size)
     const estimatedLabelWidth =
       tape.elements.dynamicLengthLabel.innerText.length * 10 + 12
-    if (estimatedLabelWidth > distance * 0.4) {
-      const scaleFactor = (distance * 0.4) / estimatedLabelWidth
-      const newFontSize = Math.max(0.7, scaleFactor) * 1.4
+    const visibleDistance = visibleEndX - visibleStartX
+    if (estimatedLabelWidth > visibleDistance * 0.4) {
+      const scaleFactor = (visibleDistance * 0.4) / estimatedLabelWidth
+      const newFontSize = Math.max(0.5, scaleFactor) * 1.0 // Reduced by factor of 1.4
       tape.elements.dynamicLengthLabel.style.fontSize = `${newFontSize}rem`
     } else {
-      tape.elements.dynamicLengthLabel.style.fontSize = '1.4rem'
+      tape.elements.dynamicLengthLabel.style.fontSize = '1.0rem' // Reduced by factor of 1.4
     }
 
-    // Update double-sided arrow (positioned at lower 33% of the tape)
+    // Update double-sided arrow (positioned below the horizontal tape)
     const arrowLength = distance // Arrow spans the full ruler length
 
-    // Calculate offset to position arrow at lower 33% of tape (inside the tape)
-    // Offset from center = (tapeWidth/2) * 0.33 to place at 33% from bottom edge
-    const arrowOffsetFromCenter = (tape.dimensions.tapeWidth / 2) * (2 / 3) // Position at lower third
+    // Position arrow below the tape (outside the tape, in the margin space)
+    // Move it further below to accommodate the larger tick numbers and be clearly separate
+    const arrowOffsetBelow = tape.dimensions.tapeWidth / 2 + 10 // Below tape edge plus gap
 
-    // Calculate perpendicular offset (toward the lower edge of the tape)
-    // The perpendicular direction is 90 degrees from the tape angle
-    const perpendicularAngleRad = (angle + 90) * (Math.PI / 180)
-    const offsetX = Math.cos(perpendicularAngleRad) * arrowOffsetFromCenter
-    const offsetY = Math.sin(perpendicularAngleRad) * arrowOffsetFromCenter
+    const arrowStartX = startX
+    const arrowStartY = startY + arrowOffsetBelow
 
-    const arrowStartX = startX + offsetX
-    const arrowStartY = startY + offsetY
-
-    // Position and rotate main arrow line
+    // Position and rotate main arrow line (horizontal - angle is 0)
     tape.elements.arrowLine.style.left = `${arrowStartX}px`
     tape.elements.arrowLine.style.top = `${arrowStartY}px`
     tape.elements.arrowLine.style.width = `${arrowLength}px`
-    tape.elements.arrowLine.style.transform = `rotate(${angle}deg)`
+    tape.elements.arrowLine.style.transform = 'rotate(0deg)' // Horizontal
 
-    // Left arrowhead tip anchored at left edge (outward pointing to left edge)
-    const leftTipX = startX + offsetX
-    const leftTipY = startY + offsetY
+    // Left arrowhead tip anchored at left edge (pointing left)
+    const leftTipX = arrowStartX
+    const leftTipY = arrowStartY
     tape.elements.leftArrowLine1.style.left = `${leftTipX}px`
     tape.elements.leftArrowLine1.style.top = `${leftTipY}px`
-    tape.elements.leftArrowLine1.style.transform = `rotate(${angle - 30}deg)` // inside, upper leg
+    tape.elements.leftArrowLine1.style.transform = 'rotate(-30deg)' // Upper leg of left arrow
 
     tape.elements.leftArrowLine2.style.left = `${leftTipX}px`
     tape.elements.leftArrowLine2.style.top = `${leftTipY}px`
-    tape.elements.leftArrowLine2.style.transform = `rotate(${angle + 30}deg)` // inside, lower leg
+    tape.elements.leftArrowLine2.style.transform = 'rotate(30deg)' // Lower leg of left arrow
 
-    // Right arrowhead tip anchored at right edge (outward pointing to right edge)
-    const rightTipX = endX + offsetX
-    const rightTipY = endY + offsetY
+    // Right arrowhead tip anchored at right edge (pointing right)
+    const rightTipX = arrowStartX + arrowLength
+    const rightTipY = arrowStartY
     tape.elements.rightArrowLine1.style.left = `${rightTipX}px`
     tape.elements.rightArrowLine1.style.top = `${rightTipY}px`
-    tape.elements.rightArrowLine1.style.transform = `rotate(${angle + 150}deg)`
+    tape.elements.rightArrowLine1.style.transform = 'rotate(150deg)' // Upper leg of right arrow
     tape.elements.rightArrowLine2.style.left = `${rightTipX}px`
     tape.elements.rightArrowLine2.style.top = `${rightTipY}px`
-    tape.elements.rightArrowLine2.style.transform = `rotate(${angle - 150}deg)`
+    tape.elements.rightArrowLine2.style.transform = 'rotate(-150deg)' // Lower leg of right arrow
 
     // Update ruler markings
     updateRulerMarkings()
@@ -5477,34 +3960,29 @@ export async function objectTest(RC, options, callback = undefined) {
       const markPosition = i * spacingInPx
       if (markPosition > distance) break // Don't draw beyond the tape
 
-      // Calculate position along the tape
-      const ratio = markPosition / distance
-      const markX = startX + ratio * (endX - startX)
-      const markY = startY + ratio * (endY - startY)
+      // Calculate position along the horizontal tape
+      const markX = startX + markPosition
+      const markY = startY // Same Y for all marks (horizontal tape)
 
-      // Create tick mark (perpendicular to tape, starting from upper edge)
+      // Create tick mark (vertical, perpendicular to horizontal tape)
       const tick = document.createElement('div')
       tick.style.position = 'absolute'
 
-      // Position tick mark to start at the upper edge of the tape
-      const tickLength = tape.dimensions.tapeWidth * 0.3 // Half of previous length (30% of tape width)
+      // Position tick mark to start at the top edge of the tape
+      const tickLength = tape.dimensions.tapeWidth * 0.3 // 30% of tape width
       const upperEdgeOffset = tape.dimensions.tapeWidth / 2 // Distance from center to upper edge
-      const perpendicularAngleRad = (angle - 90) * (Math.PI / 180) // Upper side direction
 
-      // Start position at upper edge
-      const tickStartX =
-        markX + Math.cos(perpendicularAngleRad) * upperEdgeOffset
-      const tickStartY =
-        markY + Math.sin(perpendicularAngleRad) * upperEdgeOffset
+      // Start position at upper edge (above the tape center)
+      const tickStartX = markX
+      const tickStartY = markY - upperEdgeOffset
 
       tick.style.left = `${tickStartX}px`
       tick.style.top = `${tickStartY}px`
-      tick.style.width = `${tickLength}px`
-      tick.style.height = '2px' // Thin line
+      tick.style.width = '2px' // Thin vertical line
+      tick.style.height = `${tickLength}px`
       tick.style.background = 'rgb(0, 0, 0)'
-      tick.style.transformOrigin = 'left center' // Start from the top edge
-      // Rotate to be perpendicular to the tape, pointing downward into the tape
-      tick.style.transform = `rotate(${angle + 90}deg)`
+      tick.style.transformOrigin = 'center top' // Start from the top
+      tick.style.transform = 'rotate(0deg)' // Vertical (no rotation needed)
       tape.elements.rulerMarkingsContainer.appendChild(tick)
 
       // Create number label positioned inside the tape, below the tick mark
@@ -5512,20 +3990,17 @@ export async function objectTest(RC, options, callback = undefined) {
       label.style.position = 'absolute'
 
       // Position label just below the end of the tick mark (inside the tape)
-      // Distance from center to label = upperEdgeOffset - tickLength - small gap
-      const labelOffsetDistance = upperEdgeOffset - tickLength - 10 // 5px gap below tick end
-      const labelOffsetX = Math.cos(perpendicularAngleRad) * labelOffsetDistance
-      const labelOffsetY = Math.sin(perpendicularAngleRad) * labelOffsetDistance
+      const labelOffsetDistance = upperEdgeOffset - tickLength - 10 // 10px gap below tick end
 
-      label.style.left = `${markX + labelOffsetX}px`
-      label.style.top = `${markY + labelOffsetY}px`
+      label.style.left = `${markX}px`
+      label.style.top = `${markY - labelOffsetDistance}px`
       label.textContent = i.toString()
       label.style.color = 'rgb(0, 0, 0)'
-      label.style.fontSize = '0.9rem'
+      label.style.fontSize = '1.8rem' // Doubled from 0.9rem for better visibility
       label.style.fontWeight = 'bold'
       label.style.whiteSpace = 'nowrap'
       label.style.userSelect = 'none'
-      label.style.transform = `translate(-50%, -50%)`
+      label.style.transform = 'translate(-50%, -50%)'
 
       tape.elements.rulerMarkingsContainer.appendChild(label)
     }
@@ -5558,7 +4033,11 @@ export async function objectTest(RC, options, callback = undefined) {
     const newText = isShort
       ? phrases.RC_viewingDistanceObjectTooShort[RC.L]
       : phrases.RC_RightEdge[RC.L]
-    rightLabel.updateText(newText)
+
+    // Only update text if it has actually changed (prevent unnecessary DOM updates)
+    if (rightLabel.textElement.innerText !== newText) {
+      rightLabel.updateText(newText)
+    }
   }
 
   // Add hover effects to diagonal tape handles
@@ -5578,19 +4057,62 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Function to update triangular labels when tape changes
   function updateDiagonalLabels() {
-    // Position left label above left handle
-    leftLabel.container.style.left = `${startX - leftLabel.dimensions.width / 2}px`
-    leftLabel.container.style.top = `${startY - leftLabel.dimensions.height - 10}px`
+    // Check if left tape end is off-screen (left side can go negative)
+    const leftOffScreen = startX < 0
 
-    // Position right label above right handle
-    rightLabel.container.style.left = `${endX - rightLabel.dimensions.width / 2}px`
-    rightLabel.container.style.top = `${endY - rightLabel.dimensions.height - 10}px`
+    // Hide/show left label based on whether tip is off-screen
+    if (leftOffScreen) {
+      leftLabel.container.style.display = 'none'
+    } else {
+      leftLabel.container.style.display = 'block'
+
+      // Position left label above left handle, aligned with left tip
+      // Left edge of text box aligns with left tip of tape
+      let leftX = startX
+      let leftY = startY - leftLabel.dimensions.height - 10
+
+      // Constrain to screen bounds to prevent clipping
+      const marginFromEdge = 10 // Minimum pixels from screen edge
+      leftX = Math.max(
+        marginFromEdge,
+        Math.min(
+          leftX,
+          screenWidth - leftLabel.dimensions.width - marginFromEdge,
+        ),
+      )
+      leftY = Math.max(marginFromEdge, leftY) // Keep above tape, but on screen
+
+      leftLabel.container.style.left = `${leftX}px`
+      leftLabel.container.style.top = `${leftY}px`
+    }
+
+    // Right label is always shown (right tip can't go off-screen)
+    rightLabel.container.style.display = 'block'
+
+    // Position right label above right handle, aligned with right tip
+    // Right edge of text box aligns with right tip of tape
+    let rightX = endX - rightLabel.dimensions.width
+    let rightY = endY - rightLabel.dimensions.height - 10
+
+    // Constrain to screen bounds to prevent clipping
+    const marginFromEdge = 10 // Minimum pixels from screen edge
+    rightX = Math.max(
+      marginFromEdge,
+      Math.min(
+        rightX,
+        screenWidth - rightLabel.dimensions.width - marginFromEdge,
+      ),
+    )
+    rightY = Math.max(marginFromEdge, rightY) // Keep above tape, but on screen
+
+    rightLabel.container.style.left = `${rightX}px`
+    rightLabel.container.style.top = `${rightY}px`
 
     updateDiagonalColors() // Update colors when handles move
     updateDiagonalTapeComponent() // Update tape size and content
   }
 
-  // ===================== DIAGONAL TAPE INTERACTION HANDLERS =====================
+  // ===================== HORIZONTAL TAPE INTERACTION HANDLERS =====================
 
   // Dragging functionality for handles and tape body
   let leftDragging = false
@@ -5632,7 +4154,7 @@ export async function objectTest(RC, options, callback = undefined) {
     e.preventDefault()
   })
 
-  // Helper function to update ruler endpoints while maintaining diagonal alignment
+  // Helper function to update ruler endpoints while maintaining horizontal alignment
   const updateRulerEndpoints = (
     newStartX,
     newStartY,
@@ -5640,45 +4162,28 @@ export async function objectTest(RC, options, callback = undefined) {
     newEndY,
     allowStartOffScreen = false,
   ) => {
-    // Project endpoints onto the diagonal line to maintain alignment
-    const projectPointOnDiagonal = (x, y) => {
-      const toPointX = x - screenDiagonalStartX
-      const toPointY = y - screenDiagonalStartY
-      const projection = toPointX * diagonalUnitX + toPointY * diagonalUnitY
-      const projectedX = screenDiagonalStartX + projection * diagonalUnitX
-      const projectedY = screenDiagonalStartY + projection * diagonalUnitY
-      return { x: projectedX, y: projectedY }
+    // Keep Y coordinates fixed at tape position (horizontal tape)
+    const tapeY = screenHeight - bottomMarginPx
+
+    // Constrain end point to screen bounds (right end cannot leave screen)
+    const constrainEndToScreen = x => {
+      return Math.max(0, Math.min(screenWidth, x))
     }
 
-    // Project both points onto diagonal
-    const projectedStart = projectPointOnDiagonal(newStartX, newStartY)
-    const projectedEnd = projectPointOnDiagonal(newEndX, newEndY)
-
-    // Constrain end point to screen bounds (high-numbered end cannot leave screen)
-    const constrainEndToScreen = point => {
-      return {
-        x: Math.max(0, Math.min(screenWidth, point.x)),
-        y: Math.max(0, Math.min(screenHeight, point.y)),
-      }
-    }
-
-    const constrainedEnd = constrainEndToScreen(projectedEnd)
+    const constrainedEndX = constrainEndToScreen(newEndX)
 
     // Start point can go beyond screen if allowStartOffScreen is true
-    let constrainedStart
+    let constrainedStartX
     if (allowStartOffScreen) {
-      // Allow start to go off screen - keep the projected position without constraints
-      constrainedStart = projectedStart
+      // Allow start to go off screen (can be negative for left edge)
+      constrainedStartX = newStartX
     } else {
       // Constrain start to screen bounds
-      constrainedStart = constrainEndToScreen(projectedStart)
+      constrainedStartX = constrainEndToScreen(newStartX)
     }
 
     // Calculate actual distance (even if start is off-screen)
-    const distance = Math.sqrt(
-      (constrainedEnd.x - constrainedStart.x) ** 2 +
-        (constrainedEnd.y - constrainedStart.y) ** 2,
-    )
+    const distance = Math.abs(constrainedEndX - constrainedStartX)
 
     // Only apply minimum distance check if we're not allowing off-screen
     // This prevents the tape from "jumping" when the start goes off-screen
@@ -5687,15 +4192,15 @@ export async function objectTest(RC, options, callback = undefined) {
       return
     }
 
-    startX = constrainedStart.x
-    startY = constrainedStart.y
-    endX = constrainedEnd.x
-    endY = constrainedEnd.y
+    startX = constrainedStartX
+    startY = tapeY
+    endX = constrainedEndX
+    endY = tapeY
 
     updateDiagonalLabels()
   }
 
-  // Mouse move handler for diagonal handles and body
+  // Mouse move handler for horizontal tape handles and body
   window.addEventListener('mousemove', e => {
     if (leftDragging) {
       // Move left handle independently (allow it to go off screen)
@@ -5714,56 +4219,28 @@ export async function objectTest(RC, options, callback = undefined) {
         startY > screenHeight
       updateRulerEndpoints(startX, startY, mouseX, mouseY, isStartOffScreen)
     } else if (bodyDragging) {
-      // Move entire tape, maintaining length
+      // Move entire tape horizontally, maintaining length
       const deltaX = e.clientX - dragStartMouseX
-      const deltaY = e.clientY - dragStartMouseY
+      // Ignore Y movement - tape stays horizontal
 
-      // Project delta onto diagonal direction to maintain alignment
-      const deltaProjection = deltaX * diagonalUnitX + deltaY * diagonalUnitY
-      const projectedDeltaX = deltaProjection * diagonalUnitX
-      const projectedDeltaY = deltaProjection * diagonalUnitY
+      const newStartX = dragStartTapeStartX + deltaX
+      const newEndX = dragStartTapeEndX + deltaX
+      const tapeY = screenHeight - bottomMarginPx
 
-      const newStartX = dragStartTapeStartX + projectedDeltaX
-      const newStartY = dragStartTapeStartY + projectedDeltaY
-      const newEndX = dragStartTapeEndX + projectedDeltaX
-      const newEndY = dragStartTapeEndY + projectedDeltaY
-
-      // Check if the end would be constrained by screen bounds
-      // Project end point onto diagonal
-      const toEndX = newEndX - screenDiagonalStartX
-      const toEndY = newEndY - screenDiagonalStartY
-      const endProjection = toEndX * diagonalUnitX + toEndY * diagonalUnitY
-      const projectedEndX = screenDiagonalStartX + endProjection * diagonalUnitX
-      const projectedEndY = screenDiagonalStartY + endProjection * diagonalUnitY
-
-      // Constrain end to screen
-      const constrainedEndX = Math.max(0, Math.min(screenWidth, projectedEndX))
-      const constrainedEndY = Math.max(0, Math.min(screenHeight, projectedEndY))
+      // Constrain end to screen bounds
+      const constrainedEndX = Math.max(0, Math.min(screenWidth, newEndX))
 
       // If end would be constrained, calculate how much movement is actually allowed
-      if (
-        constrainedEndX !== projectedEndX ||
-        constrainedEndY !== projectedEndY
-      ) {
+      if (constrainedEndX !== newEndX) {
         // End hit a boundary - adjust both points to stop at the boundary
         const allowedDeltaX = constrainedEndX - dragStartTapeEndX
-        const allowedDeltaY = constrainedEndY - dragStartTapeEndY
-
         const adjustedStartX = dragStartTapeStartX + allowedDeltaX
-        const adjustedStartY = dragStartTapeStartY + allowedDeltaY
         const adjustedEndX = dragStartTapeEndX + allowedDeltaX
-        const adjustedEndY = dragStartTapeEndY + allowedDeltaY
 
-        updateRulerEndpoints(
-          adjustedStartX,
-          adjustedStartY,
-          adjustedEndX,
-          adjustedEndY,
-          true,
-        )
+        updateRulerEndpoints(adjustedStartX, tapeY, adjustedEndX, tapeY, true)
       } else {
         // Normal movement - end is not constrained
-        updateRulerEndpoints(newStartX, newStartY, newEndX, newEndY, true)
+        updateRulerEndpoints(newStartX, tapeY, newEndX, tapeY, true)
       }
     }
   })
@@ -5778,7 +4255,7 @@ export async function objectTest(RC, options, callback = undefined) {
     }
   })
 
-  // ===================== KEYBOARD HANDLING FOR DIAGONAL TAPE =====================
+  // ===================== KEYBOARD HANDLING FOR HORIZONTAL TAPE =====================
   let arrowKeyDown = false
   let arrowIntervalFunction = null
   let currentArrowKey = null
@@ -5817,30 +4294,25 @@ export async function objectTest(RC, options, callback = undefined) {
       return 0.5 * pxPerMm // 0.5mm for taps (precise adjustment)
     }
 
-    // Start continuous movement (only affects right side)
+    // Start continuous movement (only affects right side horizontally)
     arrowIntervalFunction = setInterval(() => {
       intervalCount++
       const moveAmount = calculateStepSize()
       // Check if start is off-screen to preserve that state
-      const isStartOffScreen =
-        startX < 0 ||
-        startX > screenWidth ||
-        startY < 0 ||
-        startY > screenHeight
+      const isStartOffScreen = startX < 0 || startX > screenWidth
+      const tapeY = screenHeight - bottomMarginPx
 
       if (currentArrowKey === 'ArrowLeft' || currentArrowKey === 'ArrowUp') {
         // Move right side closer to left (shrink from right)
-        const newEndX = endX - moveAmount * diagonalUnitX
-        const newEndY = endY - moveAmount * diagonalUnitY
-        updateRulerEndpoints(startX, startY, newEndX, newEndY, isStartOffScreen)
+        const newEndX = endX - moveAmount
+        updateRulerEndpoints(startX, tapeY, newEndX, tapeY, isStartOffScreen)
       } else if (
         currentArrowKey === 'ArrowRight' ||
         currentArrowKey === 'ArrowDown'
       ) {
         // Move right side away from left (extend from right)
-        const newEndX = endX + moveAmount * diagonalUnitX
-        const newEndY = endY + moveAmount * diagonalUnitY
-        updateRulerEndpoints(startX, startY, newEndX, newEndY, isStartOffScreen)
+        const newEndX = endX + moveAmount
+        updateRulerEndpoints(startX, tapeY, newEndX, tapeY, isStartOffScreen)
       }
     }, 50) // Update every 50ms for smooth movement
   }
@@ -5927,10 +4399,14 @@ export async function objectTest(RC, options, callback = undefined) {
         setDefaultVideoPosition(RC, videoContainer)
       }
 
-      // Hide diagonal tape component and labels
+      // Hide diagonal tape component and remove labels from DOM
       tape.container.style.display = 'none'
-      leftLabel.container.style.display = 'none'
-      rightLabel.container.style.display = 'none'
+      if (leftLabel.container.parentNode) {
+        leftLabel.container.parentNode.removeChild(leftLabel.container)
+      }
+      if (rightLabel.container.parentNode) {
+        rightLabel.container.parentNode.removeChild(rightLabel.container)
+      }
 
       // Hide unit selection radio buttons on page 0
       unitRadioContainer.style.display = 'none'
@@ -5970,10 +4446,14 @@ export async function objectTest(RC, options, callback = undefined) {
         setDefaultVideoPosition(RC, videoContainer)
       }
 
-      // Hide diagonal tape component and labels
+      // Hide diagonal tape component and remove labels from DOM
       tape.container.style.display = 'none'
-      leftLabel.container.style.display = 'none'
-      rightLabel.container.style.display = 'none'
+      if (leftLabel.container.parentNode) {
+        leftLabel.container.parentNode.removeChild(leftLabel.container)
+      }
+      if (rightLabel.container.parentNode) {
+        rightLabel.container.parentNode.removeChild(rightLabel.container)
+      }
 
       // Hide unit selection radio buttons on page 1
       unitRadioContainer.style.display = 'none'
@@ -6007,13 +4487,25 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide video on page 2 (tape measurement)
       RC.showVideo(false)
 
-      // Show diagonal tape component and labels
+      // Show diagonal tape component and add labels to DOM
       tape.container.style.display = 'block'
+
+      // Re-add labels to container if not already present
+      if (!leftLabel.container.parentNode) {
+        container.appendChild(leftLabel.container)
+      }
       leftLabel.container.style.display = 'block'
+
+      if (!rightLabel.container.parentNode) {
+        container.appendChild(rightLabel.container)
+      }
       rightLabel.container.style.display = 'block'
 
+      // Update label positions
+      updateDiagonalLabels()
+
       // Show unit selection radio buttons on page 2
-      unitRadioContainer.style.display = 'block'
+      unitRadioContainer.style.display = 'flex'
 
       // // Hide radio buttons on page 2
       // radioContainer.style.display = 'none'
@@ -6071,10 +4563,14 @@ export async function objectTest(RC, options, callback = undefined) {
         setDefaultVideoPosition(RC, videoContainer)
       }
 
-      // Hide diagonal tape component and labels
+      // Hide diagonal tape component and remove labels from DOM
       tape.container.style.display = 'none'
-      leftLabel.container.style.display = 'none'
-      rightLabel.container.style.display = 'none'
+      if (leftLabel.container.parentNode) {
+        leftLabel.container.parentNode.removeChild(leftLabel.container)
+      }
+      if (rightLabel.container.parentNode) {
+        rightLabel.container.parentNode.removeChild(rightLabel.container)
+      }
 
       // Hide unit selection radio buttons on page 3
       unitRadioContainer.style.display = 'none'
@@ -6109,10 +4605,14 @@ export async function objectTest(RC, options, callback = undefined) {
         setDefaultVideoPosition(RC, videoContainer)
       }
 
-      // Keep diagonal tape component and labels hidden
+      // Keep diagonal tape component hidden and remove labels from DOM
       tape.container.style.display = 'none'
-      leftLabel.container.style.display = 'none'
-      rightLabel.container.style.display = 'none'
+      if (leftLabel.container.parentNode) {
+        leftLabel.container.parentNode.removeChild(leftLabel.container)
+      }
+      if (rightLabel.container.parentNode) {
+        rightLabel.container.parentNode.removeChild(rightLabel.container)
+      }
 
       // Hide unit selection radio buttons on page 4
       unitRadioContainer.style.display = 'none'
@@ -6257,6 +4757,14 @@ export async function objectTest(RC, options, callback = undefined) {
     //     input.removeEventListener('keyup', keydownListener)
     //   })
     // }
+
+    // Clean up label elements explicitly
+    if (leftLabel.container.parentNode) {
+      leftLabel.container.parentNode.removeChild(leftLabel.container)
+    }
+    if (rightLabel.container.parentNode) {
+      rightLabel.container.parentNode.removeChild(rightLabel.container)
+    }
 
     // Hide don't use ruler text if it was created
     if (options.calibrateTrackDistanceCheckBool) {
@@ -6583,6 +5091,14 @@ export async function objectTest(RC, options, callback = undefined) {
     // Clean up resize event listener (same as checkDistance.js)
     window.removeEventListener('resize', updateDiagonalTapeOnResize)
 
+    // Clean up label elements explicitly
+    if (leftLabel.container.parentNode) {
+      leftLabel.container.parentNode.removeChild(leftLabel.container)
+    }
+    if (rightLabel.container.parentNode) {
+      rightLabel.container.parentNode.removeChild(rightLabel.container)
+    }
+
     // Clean up any remaining DOM elements
     if (container && container.parentNode) {
       container.parentNode.removeChild(container)
@@ -6606,6 +5122,14 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Clean up resize event listener (same as checkDistance.js)
     window.removeEventListener('resize', updateDiagonalTapeOnResize)
+
+    // Clean up label elements explicitly before restarting
+    if (leftLabel.container.parentNode) {
+      leftLabel.container.parentNode.removeChild(leftLabel.container)
+    }
+    if (rightLabel.container.parentNode) {
+      rightLabel.container.parentNode.removeChild(rightLabel.container)
+    }
 
     // Restart: reset right line to initial position
     objectTest(RC, options, callback)
@@ -6818,6 +5342,9 @@ export async function objectTest(RC, options, callback = undefined) {
                       // Close popup and restart
                       Swal.close()
                       nextPage()
+
+                      // Re-add the event listener for page 2 after restart
+                      document.addEventListener('keydown', handleKeyPress)
                     })
                 },
                 willClose: () => {
@@ -6960,6 +5487,9 @@ export async function objectTest(RC, options, callback = undefined) {
                       // Close popup and restart
                       Swal.close()
                       nextPage()
+
+                      // Re-add the event listener for page 2 after restart
+                      document.addEventListener('keydown', handleKeyPress)
                     })
                 },
                 willClose: () => {
@@ -7259,13 +5789,18 @@ export async function objectTest(RC, options, callback = undefined) {
                 currentPage = 1
                 firstMeasurement = null
                 await nextPage()
+
+                // Re-add the event listener for the new page 2 instance
+                document.addEventListener('keydown', handleKeyPress)
               }
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
 
-              // Remove the listener since the test is finishing
-              document.removeEventListener('keydown', handleKeyPress)
+              // Only remove the listener if the test is actually finishing (not restarting)
+              if (pass) {
+                document.removeEventListener('keydown', handleKeyPress)
+              }
             }
           })()
         }
@@ -7278,7 +5813,7 @@ export async function objectTest(RC, options, callback = undefined) {
   const buttonContainer = document.createElement('div')
   buttonContainer.className = 'rc-button-container'
   buttonContainer.style.position = 'fixed'
-  buttonContainer.style.bottom = '45px'
+  buttonContainer.style.bottom = '200px'
   buttonContainer.style.right = '20px'
   buttonContainer.style.zIndex = '9999999999'
   buttonContainer.style.display = 'flex'
@@ -7662,6 +6197,9 @@ export async function objectTest(RC, options, callback = undefined) {
         currentPage = 1
         firstMeasurement = null
         await nextPage()
+
+        // Re-add the event listener for page 2 after restart
+        document.addEventListener('keydown', handleKeyPress)
       }
     }
   }
