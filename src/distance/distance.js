@@ -3384,28 +3384,42 @@ export async function objectTest(RC, options, callback = undefined) {
     unitRadioContainer.appendChild(optionContainer)
   })
 
-  // Set max-width to avoid video overlap
-  const video = document.getElementById('webgazerVideoContainer')
-  const videoRect = video.getBoundingClientRect()
-  const videoLeftEdge = (screenWidth - videoRect.width) / 2
-  // --- INSTRUCTIONS ---
+  // --- INSTRUCTIONS CONTAINER (holds both columns) ---
+  const instructionsContainer = document.createElement('div')
+  instructionsContainer.style.display = 'flex'
+  instructionsContainer.style.flexDirection = 'row'
+  instructionsContainer.style.width = '100%'
+  instructionsContainer.style.gap = '0'
+  instructionsContainer.style.margin = '2rem 0 5rem 0'
+  instructionsContainer.style.position = 'relative'
+  instructionsContainer.style.zIndex = '3'
+  container.appendChild(instructionsContainer)
+
+  // --- LEFT/RIGHT COLUMN (instructions) ---
   const instructions = document.createElement('div')
-  instructions.style.maxWidth = `${videoLeftEdge - 10}px`
-  instructions.style.paddingLeft = '3rem'
-  instructions.style.marginTop = '-2rem'
-  instructions.style.textAlign = 'left'
-  instructions.style.whiteSpace = 'pre-line'
-  instructions.style.alignSelf = 'flex-start'
-  instructions.style.position = 'relative'
-  instructions.style.zIndex = '3'
-  instructions.style.fontSize = '1.4em'
-  instructions.style.lineHeight = '1.6'
-  instructions.style.textAlign = 'start'
-  //padding inline start
+  instructions.style.width = '50%'
+  instructions.style.maxWidth = '50%'
   instructions.style.paddingInlineStart = '3rem'
-  // Add responsive font size
+  instructions.style.paddingInlineEnd = '1rem'
+  instructions.style.textAlign = 'start'
+  instructions.style.whiteSpace = 'pre-line'
   instructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
-  container.appendChild(instructions)
+  instructions.style.lineHeight = '1.3'
+  instructionsContainer.appendChild(instructions)
+
+  // --- RIGHT/LEFT COLUMN (dontUseRuler placeholder) ---
+  const dontUseRulerColumn = document.createElement('div')
+  dontUseRulerColumn.id = 'dont-use-ruler-column'
+  dontUseRulerColumn.style.width = '50%'
+  dontUseRulerColumn.style.maxWidth = '50%'
+  dontUseRulerColumn.style.paddingInlineStart = '1rem'
+  dontUseRulerColumn.style.paddingInlineEnd = '3rem'
+  dontUseRulerColumn.style.textAlign = 'start'
+  dontUseRulerColumn.style.whiteSpace = 'pre-line'
+  dontUseRulerColumn.style.fontSize = '16pt'
+  dontUseRulerColumn.style.lineHeight = '1.3'
+  dontUseRulerColumn.style.display = 'none' // Hidden by default
+  instructionsContainer.appendChild(dontUseRulerColumn)
 
   // --- RADIO BUTTON CONTAINER ---
   const radioOverlay = document.createElement('div')
@@ -3551,6 +3565,8 @@ export async function objectTest(RC, options, callback = undefined) {
     // Create main tape container (covers the diagonal area)
     const tapeContainer = document.createElement('div')
     tapeContainer.id = 'diagonal-tape-measurement-component'
+    //add rc-lang-ltr (always ltr)
+    tapeContainer.className += ' rc-lang-ltr'
     tapeContainer.style.position = 'absolute'
     tapeContainer.style.left = '0px'
     tapeContainer.style.top = '0px'
@@ -3604,10 +3620,9 @@ export async function objectTest(RC, options, callback = undefined) {
     dynamicLengthLabel.style.position = 'absolute'
     dynamicLengthLabel.style.color = 'rgb(0, 0, 0)'
     dynamicLengthLabel.style.fontWeight = 'bold'
-    dynamicLengthLabel.style.fontSize = '1.0rem' // Reduced by factor of 1.4 (was 1.4rem)
-    dynamicLengthLabel.style.background = 'rgba(255, 221, 51, 1.0)' // Same as tape background
+    dynamicLengthLabel.style.fontSize = '1.4rem'
+    dynamicLengthLabel.style.background = 'white'
     dynamicLengthLabel.style.padding = '2px 6px'
-    dynamicLengthLabel.style.borderRadius = '4px'
     dynamicLengthLabel.style.whiteSpace = 'nowrap'
     dynamicLengthLabel.style.zIndex = '20'
     dynamicLengthLabel.style.transform = 'translate(-50%, -50%)'
@@ -3752,7 +3767,7 @@ export async function objectTest(RC, options, callback = undefined) {
     const textElement = document.createElement('div')
     textElement.innerText = text
     textElement.style.color = 'rgb(0, 0, 0)'
-    textElement.style.fontWeight = 'bold'
+    textElement.style.fontWeight = 'normal'
     textElement.style.fontSize = '1.2em'
     textElement.style.textAlign = isLeft ? 'left' : 'right'
     textElement.style.lineHeight = '1.2'
@@ -3865,7 +3880,7 @@ export async function objectTest(RC, options, callback = undefined) {
     const visibleStartX = Math.max(0, startX)
     const visibleEndX = Math.min(screenWidth, endX)
     const visibleCenterX = (visibleStartX + visibleEndX) / 2
-    const visibleCenterY = startY // Y is constant for horizontal tape
+    const visibleCenterY = startY + tape.dimensions.tapeWidth / 2 + 15 // Y is constant for horizontal tape
 
     tape.elements.dynamicLengthLabel.style.left = `${visibleCenterX}px`
     tape.elements.dynamicLengthLabel.style.top = `${visibleCenterY}px`
@@ -3894,7 +3909,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Position arrow below the tape (outside the tape, in the margin space)
     // Move it further below to accommodate the larger tick numbers and be clearly separate
-    const arrowOffsetBelow = tape.dimensions.tapeWidth / 2 + 10 // Below tape edge plus gap
+    const arrowOffsetBelow = tape.dimensions.tapeWidth / 2 + 15 // Below tape edge plus gap
 
     const arrowStartX = startX
     const arrowStartY = startY + arrowOffsetBelow
@@ -3964,33 +3979,50 @@ export async function objectTest(RC, options, callback = undefined) {
       const markX = startX + markPosition
       const markY = startY // Same Y for all marks (horizontal tape)
 
-      // Create tick mark (vertical, perpendicular to horizontal tape)
-      const tick = document.createElement('div')
-      tick.style.position = 'absolute'
+      // Create tick mark on TOP edge (vertical, perpendicular to horizontal tape)
+      const tickTop = document.createElement('div')
+      tickTop.style.position = 'absolute'
 
       // Position tick mark to start at the top edge of the tape
-      const tickLength = tape.dimensions.tapeWidth * 0.3 // 30% of tape width
+      const tickLength = tape.dimensions.tapeWidth * 0.2 // 20% of tape width
       const upperEdgeOffset = tape.dimensions.tapeWidth / 2 // Distance from center to upper edge
 
       // Start position at upper edge (above the tape center)
       const tickStartX = markX
       const tickStartY = markY - upperEdgeOffset
 
-      tick.style.left = `${tickStartX}px`
-      tick.style.top = `${tickStartY}px`
-      tick.style.width = '2px' // Thin vertical line
-      tick.style.height = `${tickLength}px`
-      tick.style.background = 'rgb(0, 0, 0)'
-      tick.style.transformOrigin = 'center top' // Start from the top
-      tick.style.transform = 'rotate(0deg)' // Vertical (no rotation needed)
-      tape.elements.rulerMarkingsContainer.appendChild(tick)
+      tickTop.style.left = `${tickStartX}px`
+      tickTop.style.top = `${tickStartY}px`
+      tickTop.style.width = '2px' // Thin vertical line
+      tickTop.style.height = `${tickLength}px`
+      tickTop.style.background = 'rgb(0, 0, 0)'
+      tickTop.style.transformOrigin = 'center top' // Start from the top
+      tickTop.style.transform = 'rotate(0deg)' // Vertical (no rotation needed)
+      tape.elements.rulerMarkingsContainer.appendChild(tickTop)
+
+      // Create tick mark on BOTTOM edge (mirror of top tick)
+      const tickBottom = document.createElement('div')
+      tickBottom.style.position = 'absolute'
+
+      // Start position at lower edge (below the tape center)
+      const tickBottomStartX = markX
+      const tickBottomStartY = markY + upperEdgeOffset - tickLength
+
+      tickBottom.style.left = `${tickBottomStartX}px`
+      tickBottom.style.top = `${tickBottomStartY}px`
+      tickBottom.style.width = '2px' // Thin vertical line
+      tickBottom.style.height = `${tickLength}px`
+      tickBottom.style.background = 'rgb(0, 0, 0)'
+      tickBottom.style.transformOrigin = 'center top' // Start from the top (extends downward)
+      tickBottom.style.transform = 'rotate(0deg)' // Vertical (no rotation needed)
+      tape.elements.rulerMarkingsContainer.appendChild(tickBottom)
 
       // Create number label positioned inside the tape, below the tick mark
       const label = document.createElement('div')
       label.style.position = 'absolute'
 
       // Position label just below the end of the tick mark (inside the tape)
-      const labelOffsetDistance = upperEdgeOffset - tickLength - 10 // 10px gap below tick end
+      const labelOffsetDistance = upperEdgeOffset - tickLength - 15 // 10px gap below tick end
 
       label.style.left = `${markX}px`
       label.style.top = `${markY - labelOffsetDistance}px`
@@ -4069,7 +4101,8 @@ export async function objectTest(RC, options, callback = undefined) {
       // Position left label above left handle, aligned with left tip
       // Left edge of text box aligns with left tip of tape
       let leftX = startX
-      let leftY = startY - leftLabel.dimensions.height - 10
+      let leftY =
+        startY - leftLabel.dimensions.height - tape.dimensions.tapeWidth / 2
 
       // Constrain to screen bounds to prevent clipping
       const marginFromEdge = 10 // Minimum pixels from screen edge
@@ -4092,7 +4125,8 @@ export async function objectTest(RC, options, callback = undefined) {
     // Position right label above right handle, aligned with right tip
     // Right edge of text box aligns with right tip of tape
     let rightX = endX - rightLabel.dimensions.width
-    let rightY = endY - rightLabel.dimensions.height - 10
+    let rightY =
+      endY - rightLabel.dimensions.height - tape.dimensions.tapeWidth / 2
 
     // Constrain to screen bounds to prevent clipping
     const marginFromEdge = 10 // Minimum pixels from screen edge
@@ -4420,19 +4454,12 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide explanation button on page 0
       explanationButton.style.display = 'none'
 
-      // Hide don't use ruler text if it exists
-      if (options.calibrateTrackDistanceCheckBool) {
-        const dontUseRuler = document.querySelector(
-          'div[style*="color: rgb(139, 0, 0)"]',
-        )
-        if (dontUseRuler) {
-          dontUseRuler.style.display = 'none'
-        }
-      }
-
       // Update instructions
       instructions.innerText =
         phrases.RC_UseObjectToSetViewingDistancePage0q[RC.L]
+
+      // Hide dontUseRuler column on page 0
+      dontUseRulerColumn.style.display = 'none'
     } else if (pageNumber === 1) {
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
@@ -4467,15 +4494,8 @@ export async function objectTest(RC, options, callback = undefined) {
       // Show PROCEED button on page 1
       proceedButton.style.display = 'block'
 
-      // Hide don't use ruler text if it exists
-      if (options.calibrateTrackDistanceCheckBool) {
-        const dontUseRuler = document.querySelector(
-          'div[style*="color: rgb(139, 0, 0)"]',
-        )
-        if (dontUseRuler) {
-          dontUseRuler.style.display = 'none'
-        }
-      }
+      // Hide dontUseRuler column on page 1
+      dontUseRulerColumn.style.display = 'none'
 
       // Update instructions
       instructions.innerText =
@@ -4516,32 +4536,13 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide explanation button on page 2
       explanationButton.style.display = 'block' //show explanation button on page 2
 
-      // Create placeholder text for page 2 only if calibrateTrackDistanceCheckBool is true
+      // Show dontUseRuler column on page 2 if calibrateTrackDistanceCheckBool is true
       if (options.calibrateTrackDistanceCheckBool) {
-        const dontUseRuler = document.createElement('div')
-        dontUseRuler.innerText = phrases.RC_DontUseYourRulerYet[RC.L]
-        dontUseRuler.style.position = 'fixed'
-        dontUseRuler.style.top = '60%' // A bit lower than halfway down the page
-        dontUseRuler.style.transform = 'translateY(-50%)' // Center vertically
-        dontUseRuler.style.right = '3rem'
-        dontUseRuler.style.color = '#8B0000' // Dark red ink
-        dontUseRuler.style.fontSize = '16pt'
-        dontUseRuler.style.fontWeight = 'normal'
-        dontUseRuler.style.zIndex = '10'
-        dontUseRuler.style.userSelect = 'none'
-        dontUseRuler.style.textAlign = 'right'
-        dontUseRuler.style.lineHeight = '1.6'
-        dontUseRuler.style.textAlign = 'start'
-        //dontUseRuler.dir = RC.LD.toLowerCase()
-        dontUseRuler.style.maxWidth = '40vw'
-        dontUseRuler.style.paddingInlineStart = '3rem'
-
-        if (RC.LD === RC._CONST.RTL) {
-          dontUseRuler.style.textAlign = 'left'
-          dontUseRuler.style.left = '3rem'
-          dontUseRuler.style.right = 'auto'
-        }
-        container.appendChild(dontUseRuler)
+        dontUseRulerColumn.style.display = 'block'
+        dontUseRulerColumn.innerText = phrases.RC_DontUseYourRulerYet[RC.L]
+        dontUseRulerColumn.style.color = '#8B0000' // Dark red ink
+        dontUseRulerColumn.style.fontWeight = 'normal'
+        dontUseRulerColumn.style.userSelect = 'none'
       }
 
       // Update all positions and colors after showing lines
@@ -4598,6 +4599,9 @@ export async function objectTest(RC, options, callback = undefined) {
       instructions.innerText =
         phrases.RC_UseObjectToSetViewingDistancePage3[RC.L]
 
+      // Hide dontUseRuler column on page 3
+      dontUseRulerColumn.style.display = 'none'
+
       // Note: Face Mesh samples will be collected when space key is pressed
       console.log(
         '=== PAGE 3 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
@@ -4639,6 +4643,9 @@ export async function objectTest(RC, options, callback = undefined) {
       // Update instructions
       instructions.innerText =
         phrases.RC_UseObjectToSetViewingDistancePage4[RC.L]
+
+      // Hide dontUseRuler column on page 4
+      dontUseRulerColumn.style.display = 'none'
 
       // Note: Face Mesh samples will be collected when space key is pressed
       console.log(
@@ -5854,8 +5861,12 @@ export async function objectTest(RC, options, callback = undefined) {
   const buttonContainer = document.createElement('div')
   buttonContainer.className = 'rc-button-container'
   buttonContainer.style.position = 'fixed'
-  buttonContainer.style.bottom = '200px'
-  buttonContainer.style.right = '20px'
+  buttonContainer.style.bottom = '230px'
+  if (RC.LD === RC._CONST.RTL) {
+    buttonContainer.style.left = '20px'
+  } else {
+    buttonContainer.style.right = '20px'
+  }
   buttonContainer.style.zIndex = '9999999999'
   buttonContainer.style.display = 'flex'
   buttonContainer.style.gap = '10px'
