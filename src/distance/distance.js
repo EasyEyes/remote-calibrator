@@ -3404,7 +3404,7 @@ export async function objectTest(RC, options, callback = undefined) {
   instructions.style.textAlign = 'start'
   instructions.style.whiteSpace = 'pre-line'
   instructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
-  instructions.style.lineHeight = '1.3'
+  instructions.style.lineHeight = '1.4'
   instructionsContainer.appendChild(instructions)
 
   // --- RIGHT/LEFT COLUMN (dontUseRuler placeholder) ---
@@ -3417,7 +3417,7 @@ export async function objectTest(RC, options, callback = undefined) {
   dontUseRulerColumn.style.textAlign = 'start'
   dontUseRulerColumn.style.whiteSpace = 'pre-line'
   dontUseRulerColumn.style.fontSize = '16pt'
-  dontUseRulerColumn.style.lineHeight = '1.3'
+  dontUseRulerColumn.style.lineHeight = '1.4'
   dontUseRulerColumn.style.display = 'none' // Hidden by default
   instructionsContainer.appendChild(dontUseRulerColumn)
 
