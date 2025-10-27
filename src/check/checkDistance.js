@@ -1883,10 +1883,10 @@ const trackDistanceCheck = async (
                     : cm.toFixed(1),
                 ),
               )
-              RC.distanceCheckJSON.pointXYPx.push([
+              RC.distanceCheckJSON.pointXYPx = [
                 parseFloat(faceValidation.pointXYPx[0]),
                 parseFloat(faceValidation.pointXYPx[1]),
-              ])
+              ]
               RC.distanceCheckJSON.eyesToCameraCm.push(
                 parseFloat(faceValidation.eyeToCameraCm),
               )
@@ -2082,10 +2082,10 @@ const trackDistanceCheck = async (
                 )
                 const measuredFactorCameraPxCm =
                   requestedEyesToCameraCm * parseFloat(faceValidation.ipdPixels)
-                RC.distanceCheckJSON.pointXYPx.push([
+                RC.distanceCheckJSON.pointXYPx = [
                   parseFloat(faceValidation.pointXYPx[0]),
                   parseFloat(faceValidation.pointXYPx[1]),
-                ])
+                ]
                 RC.distanceCheckJSON.requestedEyesToPointCm.push(
                   parseFloat(
                     RC.equipment?.value?.unit === 'inches'
