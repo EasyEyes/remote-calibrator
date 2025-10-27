@@ -337,8 +337,8 @@ async function processMeshDataAndCalculateNearestPoints(
   meshSamples,
   calibrationFactor,
   ppi,
-  leftMean = null,
-  rightMean = null,
+  _leftMean = null, // retained for API stability (unused)
+  _rightMean = null, // retained for API stability (unused)
   method = 'blindspot',
   order = 1,
   fixPoint = [window.innerWidth / 2, window.innerHeight / 2],
@@ -366,8 +366,8 @@ async function processMeshDataAndCalculateNearestPoints(
     ppi,
     RC,
     options,
-    leftMean,
-    rightMean,
+    _leftMean,
+    _rightMean,
     method,
     order,
     fixPoint,
@@ -378,8 +378,6 @@ async function processMeshDataAndCalculateNearestPoints(
     false,
     calibrateTrackDistanceChecking,
   )
-  console.log('nearestPointsData...', nearestPointsData)
-  console.log('currentIPDDistance...', currentIPDDistance)
   return {
     nearestPointsData,
     currentIPDDistance,

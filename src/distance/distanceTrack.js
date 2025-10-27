@@ -998,7 +998,7 @@ export const calculateNearestPoints = (
   leftEye,
   rightEye,
   currentIPDDistance,
-  webcamToEyeDistance,
+  webcamToEyeDistance, //for distance check: calibration factor / ipdCameraPx
   pxPerCm,
   ppi,
   RC,
@@ -1070,6 +1070,7 @@ export const calculateNearestPoints = (
   let eyeToCameraCm = 0
 
   if (webcamToEyeDistance === 0) {
+    //blindspot
     try {
       const { d_cm, d_px } = solveEyeToScreenCm(
         order === 1 ? nearestXYPx_right : nearestXYPx_left,
@@ -1093,8 +1094,7 @@ export const calculateNearestPoints = (
       throw new Error(e)
     }
   } else {
-    // eyeToFootCm = webcamToEyeDistance
-    eyeToCameraCm = webcamToEyeDistance // until _calibrateTrackDistanceCheckPoint is implemented?
+    eyeToCameraCm = webcamToEyeDistance // for distance check: calibration factor / ipdCameraPx
     eyeToFootCm = Math.sqrt(
       eyeToCameraCm * eyeToCameraCm - footToCameraCm * footToCameraCm,
     )
@@ -1205,6 +1205,7 @@ export const calculateNearestPoints = (
     footXYPx,
     footToPointCm,
     eyeToPointCm,
+    pointXYPx,
   }
 }
 

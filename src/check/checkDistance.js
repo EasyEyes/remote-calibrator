@@ -274,6 +274,7 @@ const validateFaceMeshSamples = async (
   let calibrationFactor = null
   let footXYPx = null
   let ipdPixels = null
+  let pointXYPx = null
 
   // Collect exactly 5 samples, using NaN for failed measurements
   for (let i = 0; i < 5; i++) {
@@ -344,6 +345,17 @@ const validateFaceMeshSamples = async (
         if (ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
           ipdPixels = ipdData.ipdPixels
         }
+
+        if (
+          ipdData.pointXYPx &&
+          !isNaN(ipdData.pointXYPx[0]) &&
+          !isNaN(ipdData.pointXYPx[1])
+        ) {
+          pointXYPx = [
+            ipdData.pointXYPx[0].toFixed(0),
+            ipdData.pointXYPx[1].toFixed(0),
+          ]
+        }
       } else {
         samples.push(NaN)
         console.warn(`Face Mesh measurement ${i + 1} failed, storing NaN`)
@@ -382,6 +394,7 @@ const validateFaceMeshSamples = async (
     calibrationFactor,
     footXYPx,
     ipdPixels,
+    pointXYPx,
   }
 }
 
@@ -516,6 +529,7 @@ const captureIPDFromFaceMesh = async (
       footToPointCm,
       calibrationFactor,
       footXYPx,
+      pointXYPx,
     } = nearestPoints
 
     return {
@@ -536,6 +550,7 @@ const captureIPDFromFaceMesh = async (
       eyeToPointCm,
       footToPointCm,
       footXYPx,
+      pointXYPx,
     }
   } catch (error) {
     console.error('Error capturing IPD from face mesh:', error)
@@ -1868,6 +1883,10 @@ const trackDistanceCheck = async (
                     : cm.toFixed(1),
                 ),
               )
+              RC.distanceCheckJSON.pointXYPx.push([
+                parseFloat(faceValidation.pointXYPx[0]),
+                parseFloat(faceValidation.pointXYPx[1]),
+              ])
               RC.distanceCheckJSON.eyesToCameraCm.push(
                 parseFloat(faceValidation.eyeToCameraCm),
               )
@@ -2063,6 +2082,10 @@ const trackDistanceCheck = async (
                 )
                 const measuredFactorCameraPxCm =
                   requestedEyesToCameraCm * parseFloat(faceValidation.ipdPixels)
+                RC.distanceCheckJSON.pointXYPx.push([
+                  parseFloat(faceValidation.pointXYPx[0]),
+                  parseFloat(faceValidation.pointXYPx[1]),
+                ])
                 RC.distanceCheckJSON.requestedEyesToPointCm.push(
                   parseFloat(
                     RC.equipment?.value?.unit === 'inches'
