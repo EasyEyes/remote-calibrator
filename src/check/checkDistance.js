@@ -28,6 +28,121 @@ try {
   console.warn('Sound module not available')
 }
 
+// Helper function to create/show fixation cross on video
+const createFixationCrossOnVideo = () => {
+  // Remove existing cross if any
+  const existingCross = document.getElementById('video-fixation-cross')
+  if (existingCross) {
+    existingCross.parentNode.removeChild(existingCross)
+  }
+
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  if (!videoContainer) return null
+
+  // Create cross container
+  const crossContainer = document.createElement('div')
+  crossContainer.id = 'video-fixation-cross'
+  crossContainer.style.position = 'absolute'
+  crossContainer.style.top = '50%'
+  crossContainer.style.left = '50%'
+  crossContainer.style.transform = 'translate(-50%, -50%)'
+  crossContainer.style.pointerEvents = 'none'
+  crossContainer.style.zIndex = '999999999999'
+
+  // Create horizontal line
+  const horizontalLine = document.createElement('div')
+  horizontalLine.style.position = 'absolute'
+  horizontalLine.style.width = '32px'
+  horizontalLine.style.height = '3px'
+  horizontalLine.style.backgroundColor = '#ac0d0d'
+  horizontalLine.style.left = '50%'
+  horizontalLine.style.top = '50%'
+  horizontalLine.style.transform = 'translate(-50%, -50%)'
+
+  // Create vertical line
+  const verticalLine = document.createElement('div')
+  verticalLine.style.position = 'absolute'
+  verticalLine.style.width = '3px'
+  verticalLine.style.height = '32px'
+  verticalLine.style.backgroundColor = '#ac0d0d'
+  verticalLine.style.left = '50%'
+  verticalLine.style.top = '50%'
+  verticalLine.style.transform = 'translate(-50%, -50%)'
+
+  crossContainer.appendChild(horizontalLine)
+  crossContainer.appendChild(verticalLine)
+  videoContainer.appendChild(crossContainer)
+
+  return crossContainer
+}
+
+// Helper function to remove fixation cross from video
+const removeFixationCrossFromVideo = () => {
+  const cross = document.getElementById('video-fixation-cross')
+  if (cross && cross.parentNode) {
+    cross.parentNode.removeChild(cross)
+  }
+}
+
+// Helper function to reposition video based on camera monitoring option
+const repositionVideoForCameraMonitoring = (
+  RC,
+  calibrateTrackDistanceChecking,
+) => {
+  if (!RC || !calibrateTrackDistanceChecking) return
+
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  if (!videoContainer) return
+
+  const checkingOptions = calibrateTrackDistanceChecking
+  let shouldPositionAtCamera = false
+
+  if (checkingOptions && typeof checkingOptions === 'string') {
+    const optionsArray = checkingOptions
+      .toLowerCase()
+      .split(',')
+      .map(s => s.trim())
+    shouldPositionAtCamera = optionsArray.includes('camera')
+  }
+
+  if (shouldPositionAtCamera) {
+    // Position video at cameraXYPx (top center of screen)
+    const cameraXYPx = [window.innerWidth / 2, 0]
+
+    videoContainer.style.zIndex = '999999999999'
+    videoContainer.style.position = 'fixed'
+
+    if (RC.isMobile.value) {
+      // Mobile - keep standard positioning
+      videoContainer.style.left = 'unset'
+      videoContainer.style.right = RC._CONST.N.VIDEO_MARGIN
+      videoContainer.style.top = '0px'
+      videoContainer.style.bottom = 'unset'
+    } else {
+      // Desktop - position at top center (cameraXYPx)
+      const videoWidth =
+        parseInt(videoContainer.style.width) || videoContainer.offsetWidth || 0
+
+      // Center horizontally at cameraXYPx[0]
+      videoContainer.style.left = `${cameraXYPx[0] - videoWidth / 2}px`
+      videoContainer.style.right = 'unset'
+
+      // Position at top (cameraXYPx[1] = 0)
+      videoContainer.style.top = `${cameraXYPx[1]}px`
+      videoContainer.style.bottom = 'unset'
+      videoContainer.style.transform = 'none'
+    }
+
+    // Add fixation cross centered on video
+    createFixationCrossOnVideo()
+  } else {
+    // Default positioning (centered on screen)
+    setDefaultVideoPosition(RC, videoContainer)
+    // Remove cross if not in camera mode
+    removeFixationCrossFromVideo()
+  }
+}
+
 // Helper function to adjust instruction font size for distance check (RC_produceDistance)
 const adjustDistanceCheckFontSize = () => {
   const instructionElement = document.querySelector('.calibration-instruction')
@@ -182,7 +297,10 @@ const adjustSizeCheckFontSize = () => {
 }
 
 // Helper function to set up distance check font size adjustment
-const setupDistanceCheckFontAdjustment = () => {
+const setupDistanceCheckFontAdjustment = (
+  RC = null,
+  calibrateTrackDistanceChecking = undefined,
+) => {
   console.log('Setting up distance check font adjustment')
 
   // Initial adjustment
@@ -192,6 +310,11 @@ const setupDistanceCheckFontAdjustment = () => {
   const resizeHandler = () => {
     console.log('Resize event detected')
     adjustDistanceCheckFontSize()
+
+    // Reposition video to maintain camera monitoring position after resize
+    if (RC && calibrateTrackDistanceChecking) {
+      repositionVideoForCameraMonitoring(RC, calibrateTrackDistanceChecking)
+    }
   }
 
   window.addEventListener('resize', resizeHandler)
@@ -1330,9 +1453,12 @@ const checkSize = async (
     if (!shouldPositionAtCamera) {
       // Only reposition to default if NOT using camera positioning
       setDefaultVideoPosition(RC, videoContainer)
+      // Remove fixation cross when not in camera mode
+      removeFixationCrossFromVideo()
+    } else {
+      // Re-create fixation cross when returning to camera mode
+      createFixationCrossOnVideo()
     }
-    // If shouldPositionAtCamera is true, don't call setDefaultVideoPosition
-    // The video will stay at the camera position set by createProgressBar
   }
 
   // Global cleanup: Remove any remaining space bar listeners from checkSize
@@ -1715,7 +1841,10 @@ const trackDistanceCheck = async (
       }
 
       // Set up adaptive font sizing for distance check instructions
-      let cleanupFontAdjustment = setupDistanceCheckFontAdjustment()
+      let cleanupFontAdjustment = setupDistanceCheckFontAdjustment(
+        RC,
+        calibrateTrackDistanceChecking,
+      )
 
       //wait for return key press
       await new Promise(async resolve => {
@@ -2354,55 +2483,7 @@ const createProgressBar = (RC, calibrateTrackDistanceChecking = undefined) => {
   document.body.appendChild(progressBarContainer)
 
   // Reposition video based on calibrateTrackDistanceChecking option
-  const videoContainer = document.getElementById('webgazerVideoContainer')
-  if (videoContainer && RC) {
-    // Check if option includes "camera" - if so, position at cameraXYPx (top center)
-    const checkingOptions = calibrateTrackDistanceChecking
-    let shouldPositionAtCamera = false
-
-    if (checkingOptions && typeof checkingOptions === 'string') {
-      const optionsArray = checkingOptions
-        .toLowerCase()
-        .split(',')
-        .map(s => s.trim())
-      shouldPositionAtCamera = optionsArray.includes('camera')
-    }
-
-    if (shouldPositionAtCamera) {
-      // Position video at cameraXYPx (top center of screen)
-      // cameraXYPx is defined as [window.innerWidth / 2, 0]
-      const cameraXYPx = [window.innerWidth / 2, 0]
-
-      videoContainer.style.zIndex = '999999999999'
-      videoContainer.style.position = 'fixed'
-
-      if (RC.isMobile.value) {
-        // Mobile - keep standard positioning
-        videoContainer.style.left = 'unset'
-        videoContainer.style.right = RC._CONST.N.VIDEO_MARGIN
-        videoContainer.style.top = '0px'
-        videoContainer.style.bottom = 'unset'
-      } else {
-        // Desktop - position at top center (cameraXYPx)
-        const videoWidth =
-          parseInt(videoContainer.style.width) ||
-          videoContainer.offsetWidth ||
-          0
-
-        // Center horizontally at cameraXYPx[0]
-        videoContainer.style.left = `${cameraXYPx[0] - videoWidth / 2}px`
-        videoContainer.style.right = 'unset'
-
-        // Position at top (cameraXYPx[1] = 0)
-        videoContainer.style.top = `${cameraXYPx[1]}px`
-        videoContainer.style.bottom = 'unset'
-        videoContainer.style.transform = 'none'
-      }
-    } else {
-      // Default positioning (centered on screen)
-      setDefaultVideoPosition(RC, videoContainer)
-    }
-  }
+  repositionVideoForCameraMonitoring(RC, calibrateTrackDistanceChecking)
 }
 
 // Function to update the progress
@@ -2452,9 +2533,11 @@ const removeProgressBar = (RC, calibrateTrackDistanceChecking = undefined) => {
       if (!shouldPositionAtCamera) {
         // Only reposition to default if NOT using camera positioning
         setDefaultVideoPosition(RC, videoContainer)
+        // Remove fixation cross when not in camera mode
+        removeFixationCrossFromVideo()
       }
       // If shouldPositionAtCamera is true, don't call setDefaultVideoPosition
-      // The video will stay at the camera position
+      // The video will stay at the camera position and cross remains
     }
   } else {
     console.warn('Progress bar does not exist.')
