@@ -3551,6 +3551,7 @@ export async function objectTest(RC, options, callback = undefined) {
     // Calculate dimensions
     const tapeWidth = Math.round(0.75 * ppi) // 3/4 inch width for horizontal tape
     const lineThickness = 3 // px thickness for all lines
+    const handleHotspotWidth = Math.round(ppi / 4) // 1" wide hotspot for easier grabbing
 
     // Helper function to calculate distance between two points
     const getDistance = (x1, y1, x2, y2) =>
@@ -3583,10 +3584,10 @@ export async function objectTest(RC, options, callback = undefined) {
     diagonalTape.style.transformOrigin = 'left center'
     tapeContainer.appendChild(diagonalTape)
 
-    // Left handle (invisible vertical line)
+    // Left handle (wider hotspot for easier clicking)
     const leftHandle = document.createElement('div')
     leftHandle.style.position = 'absolute'
-    leftHandle.style.width = `${lineThickness}px`
+    leftHandle.style.width = `${handleHotspotWidth}px`
     leftHandle.style.height = `${tapeWidth}px`
     leftHandle.style.background = 'transparent'
     leftHandle.style.borderRadius = '1px'
@@ -3597,11 +3598,26 @@ export async function objectTest(RC, options, callback = undefined) {
     leftHandle.style.transform = 'translate(-50%, -50%)'
     leftHandle.style.transformOrigin = 'center center'
     tapeContainer.appendChild(leftHandle)
+    
+    // Visual line for left handle (thin, centered within hotspot)
+    const leftVisualLine = document.createElement('div')
+    leftVisualLine.style.position = 'absolute'
+    leftVisualLine.style.width = `${lineThickness}px`
+    leftVisualLine.style.height = `${tapeWidth}px`
+    leftVisualLine.style.background = 'transparent'
+    leftVisualLine.style.borderRadius = '1px'
+    leftVisualLine.style.boxShadow = 'none'
+    leftVisualLine.style.left = '50%'
+    leftVisualLine.style.top = '50%'
+    leftVisualLine.style.transform = 'translate(-50%, -50%)'
+    leftVisualLine.style.pointerEvents = 'none'
+    leftVisualLine.style.zIndex = '4'
+    leftHandle.appendChild(leftVisualLine)
 
-    // Right handle (invisible vertical line)
+    // Right handle (wider hotspot for easier clicking)
     const rightHandle = document.createElement('div')
     rightHandle.style.position = 'absolute'
-    rightHandle.style.width = `${lineThickness}px`
+    rightHandle.style.width = `${handleHotspotWidth}px`
     rightHandle.style.height = `${tapeWidth}px`
     rightHandle.style.background = 'transparent'
     rightHandle.style.borderRadius = '1px'
@@ -3612,6 +3628,21 @@ export async function objectTest(RC, options, callback = undefined) {
     rightHandle.style.transform = 'translate(-50%, -50%)'
     rightHandle.style.transformOrigin = 'center center'
     tapeContainer.appendChild(rightHandle)
+    
+    // Visual line for right handle (thin, centered within hotspot)
+    const rightVisualLine = document.createElement('div')
+    rightVisualLine.style.position = 'absolute'
+    rightVisualLine.style.width = `${lineThickness}px`
+    rightVisualLine.style.height = `${tapeWidth}px`
+    rightVisualLine.style.background = 'transparent'
+    rightVisualLine.style.borderRadius = '1px'
+    rightVisualLine.style.boxShadow = 'none'
+    rightVisualLine.style.left = '50%'
+    rightVisualLine.style.top = '50%'
+    rightVisualLine.style.transform = 'translate(-50%, -50%)'
+    rightVisualLine.style.pointerEvents = 'none'
+    rightVisualLine.style.zIndex = '4'
+    rightHandle.appendChild(rightVisualLine)
 
     // Dynamic length label (centered on tape)
     const dynamicLengthLabel = document.createElement('div')
@@ -3619,7 +3650,7 @@ export async function objectTest(RC, options, callback = undefined) {
     dynamicLengthLabel.style.color = 'rgb(0, 0, 0)'
     dynamicLengthLabel.style.fontWeight = 'bold'
     dynamicLengthLabel.style.fontSize = '1.4rem'
-    dynamicLengthLabel.style.background = 'white'
+    dynamicLengthLabel.style.background = '#eee'
     dynamicLengthLabel.style.padding = '2px 6px'
     dynamicLengthLabel.style.whiteSpace = 'nowrap'
     dynamicLengthLabel.style.zIndex = '20'
@@ -3688,6 +3719,8 @@ export async function objectTest(RC, options, callback = undefined) {
         diagonalTape,
         leftHandle,
         rightHandle,
+        leftVisualLine,
+        rightVisualLine,
         dynamicLengthLabel,
         rulerMarkingsContainer,
         arrowContainer,
@@ -4015,15 +4048,13 @@ export async function objectTest(RC, options, callback = undefined) {
       tickBottom.style.transform = 'rotate(0deg)' // Vertical (no rotation needed)
       tape.elements.rulerMarkingsContainer.appendChild(tickBottom)
 
-      // Create number label positioned inside the tape, below the tick mark
+      // Create number label positioned vertically centered on the tape
       const label = document.createElement('div')
       label.style.position = 'absolute'
 
-      // Position label just below the end of the tick mark (inside the tape)
-      const labelOffsetDistance = upperEdgeOffset - tickLength - 15 // 10px gap below tick end
-
+      // Position label at the center of the tape (vertically centered)
       label.style.left = `${markX}px`
-      label.style.top = `${markY - labelOffsetDistance}px`
+      label.style.top = `${markY}px`
       label.textContent = i.toString()
       label.style.color = 'rgb(0, 0, 0)'
       label.style.fontSize = '1.8rem' // Doubled from 0.9rem for better visibility
@@ -4049,11 +4080,11 @@ export async function objectTest(RC, options, callback = undefined) {
       ? '0 0 8px rgba(255, 0, 0, 0.4)'
       : '0 0 8px rgba(0, 0, 0, 0.4)'
 
-    // Update handle colors
-    tape.elements.leftHandle.style.background = color
-    tape.elements.leftHandle.style.boxShadow = shadow
-    tape.elements.rightHandle.style.background = color
-    tape.elements.rightHandle.style.boxShadow = shadow
+    // Update visual line colors (not the handles, which are transparent hotspots)
+    tape.elements.leftVisualLine.style.background = color
+    tape.elements.leftVisualLine.style.boxShadow = shadow
+    tape.elements.rightVisualLine.style.background = color
+    tape.elements.rightVisualLine.style.boxShadow = shadow
 
     // Update tape border color as well
     tape.elements.diagonalTape.style.borderColor = color
@@ -4070,16 +4101,16 @@ export async function objectTest(RC, options, callback = undefined) {
     }
   }
 
-  // Add hover effects to diagonal tape handles
+  // Add hover effects to diagonal tape handles (apply to visual lines)
   tape.elements.leftHandle.addEventListener('mouseenter', () => {
-    tape.elements.leftHandle.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
+    tape.elements.leftVisualLine.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
   })
   tape.elements.leftHandle.addEventListener('mouseleave', () => {
     updateDiagonalColors() // This will restore correct shadow
   })
 
   tape.elements.rightHandle.addEventListener('mouseenter', () => {
-    tape.elements.rightHandle.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
+    tape.elements.rightVisualLine.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
   })
   tape.elements.rightHandle.addEventListener('mouseleave', () => {
     updateDiagonalColors() // This will restore correct shadow
