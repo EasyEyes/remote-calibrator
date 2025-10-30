@@ -224,6 +224,17 @@ function saveCalibrationAttempt(
   eyesToSpotCm = undefined,
   calibrateTrackDistanceSpotXYDeg = undefined,
 ) {
+  // Maintain a transposed view of calibration attempts where each field accumulates
+  // arrays of values across attempts for easier downstream analysis.
+  const _updateCalibrationAttemptsTransposed = (RC, calibrationObject) => {
+    if (!RC.calibrationAttemptsT) RC.calibrationAttemptsT = {}
+    for (const [key, value] of Object.entries(calibrationObject)) {
+      const v = value === undefined ? null : value
+      if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = []
+      RC.calibrationAttemptsT[key].push(v)
+    }
+  }
+
   // Initialize the calibration attempts object if it doesn't exist
   if (!RC.calibrationAttempts) {
     RC.calibrationAttempts = {}
@@ -250,9 +261,10 @@ function saveCalibrationAttempt(
   }
 
   // Helper function to safely round pixel values (integer)
-  const safeRoundPx = value => {
+  const safeRoundPx = (value, decimalPlaces = 0) => {
     if (value == null || isNaN(value)) return null
-    return Math.round(value)
+    // return parseFloat(value.toFixed(decimalPlaces))
+    return Math.round(value * 10 ** decimalPlaces) / 10 ** decimalPlaces
   }
 
   // Helper function to safely round XY pixel coordinates
@@ -297,7 +309,7 @@ function saveCalibrationAttempt(
     pxPerCm: safeRoundCm(pxPerCmValue), //measured in size phase of rc
     cameraXYPx: safeRoundXYPx(cameraXYPxValue), //top center of the screen
     eyesToCameraCm: safeRoundCm(nearestEyeToWebcamDistanceCM),
-    ipdCameraPx: safeRoundPx(currentIPDDistance),
+    ipdCameraPx: safeRoundPx(currentIPDDistance, 1),
     factorCameraPxCm: safeRoundPx(trimmedCalibrationFactor),
     ipdCm: safeRoundCm(ipdCmValue), //calculated from age
     leftEyeFootXYPx: safeRoundXYPx(nearestXYPx_left),
@@ -326,6 +338,9 @@ function saveCalibrationAttempt(
 
   // Store in the new JSON format
   RC.calibrationAttempts[`calibration${calibrationNumber}`] = calibrationObject
+
+  // Also maintain a transposed structure for easier consumption
+  _updateCalibrationAttemptsTransposed(RC, calibrationObject)
 
   console.log(`Saved calibration${calibrationNumber}:`, calibrationObject)
 }
@@ -3178,20 +3193,20 @@ function _getDistValues(dist) {
 // Helper function to find any 2 consistent object measurements
 function findConsistentObjectPair(measurements, threshold) {
   if (measurements.length < 2) return null
-  
+
   for (let i = 0; i < measurements.length - 1; i++) {
     for (let j = i + 1; j < measurements.length; j++) {
       const val1 = measurements[i].objectLengthCm
       const val2 = measurements[j].objectLengthCm
       const geoMean = Math.sqrt(val1 * val2)
       const percentDiff = Math.abs(val1 - val2) / geoMean
-      
+
       if (percentDiff <= threshold) {
         return { indices: [i, j], values: [val1, val2] }
       }
     }
   }
-  
+
   return null
 }
 
@@ -3210,7 +3225,10 @@ export async function objectTest(RC, options, callback = undefined) {
   // ===================== MEASUREMENT STATE MANAGEMENT =====================
   const measurementState = {
     currentIteration: 1,
-    totalIterations: Math.max(1, Math.floor(options.objectMeasurementCount || 1)),
+    totalIterations: Math.max(
+      1,
+      Math.floor(options.objectMeasurementCount || 1),
+    ),
     measurements: [], // Store all individual ruler measurements
     consistentPair: null,
   }
@@ -3626,7 +3644,7 @@ export async function objectTest(RC, options, callback = undefined) {
     leftHandle.style.transform = 'translate(-50%, -50%)'
     leftHandle.style.transformOrigin = 'center center'
     tapeContainer.appendChild(leftHandle)
-    
+
     // Visual line for left handle (thin, centered within hotspot)
     const leftVisualLine = document.createElement('div')
     leftVisualLine.style.position = 'absolute'
@@ -3656,7 +3674,7 @@ export async function objectTest(RC, options, callback = undefined) {
     rightHandle.style.transform = 'translate(-50%, -50%)'
     rightHandle.style.transformOrigin = 'center center'
     tapeContainer.appendChild(rightHandle)
-    
+
     // Visual line for right handle (thin, centered within hotspot)
     const rightVisualLine = document.createElement('div')
     rightVisualLine.style.position = 'absolute'
@@ -4138,7 +4156,8 @@ export async function objectTest(RC, options, callback = undefined) {
   })
 
   tape.elements.rightHandle.addEventListener('mouseenter', () => {
-    tape.elements.rightVisualLine.style.boxShadow = '0 0 12px rgba(0, 0, 0, 0.6)'
+    tape.elements.rightVisualLine.style.boxShadow =
+      '0 0 12px rgba(0, 0, 0, 0.6)'
   })
   tape.elements.rightHandle.addEventListener('mouseleave', () => {
     updateDiagonalColors() // This will restore correct shadow
@@ -4474,19 +4493,21 @@ export async function objectTest(RC, options, callback = undefined) {
   }
 
   // ===================== PAGE NAVIGATION FUNCTIONS =====================
-  
+
   // Function to reset page 2 for next measurement
   const resetPage2ForNextMeasurement = async () => {
-    console.log(`=== RESETTING PAGE 2 FOR MEASUREMENT ${measurementState.currentIteration}/${measurementState.totalIterations} ===`)
-    
+    console.log(
+      `=== RESETTING PAGE 2 FOR MEASUREMENT ${measurementState.currentIteration}/${measurementState.totalIterations} ===`,
+    )
+
     // Reset tape to default/initial position
     startX = leftMarginPx
     endX = leftMarginPx + initialRulerLengthPx
     // startY and endY stay the same (horizontal tape)
-    
+
     // Update the visual representation
     updateDiagonalLabels()
-    
+
     // Update progress in instructions
     if (measurementState.totalIterations > 1) {
       const progressText = ` (${measurementState.currentIteration}/${measurementState.totalIterations})`
@@ -4780,7 +4801,11 @@ export async function objectTest(RC, options, callback = undefined) {
         selectedUnit: selectedUnit,
       })
 
-      console.log(`Measurement ${measurementState.currentIteration} saved:`, objectLengthCm.toFixed(1), 'cm')
+      console.log(
+        `Measurement ${measurementState.currentIteration} saved:`,
+        objectLengthCm.toFixed(1),
+        'cm',
+      )
 
       // If only 1 measurement requested, accept it immediately
       if (measurementState.totalIterations === 1) {
@@ -4813,9 +4838,13 @@ export async function objectTest(RC, options, callback = undefined) {
       }
 
       // Check if we need more measurements to reach minimum count
-      if (measurementState.currentIteration < measurementState.totalIterations) {
+      if (
+        measurementState.currentIteration < measurementState.totalIterations
+      ) {
         measurementState.currentIteration++
-        console.log(`Need more measurements: ${measurementState.currentIteration}/${measurementState.totalIterations}`)
+        console.log(
+          `Need more measurements: ${measurementState.currentIteration}/${measurementState.totalIterations}`,
+        )
         // Reset tape and stay on page 2
         await resetPage2ForNextMeasurement()
         return
@@ -4824,19 +4853,27 @@ export async function objectTest(RC, options, callback = undefined) {
       // We've done minimum N measurements - now check for consistency
       const consistentPair = findConsistentObjectPair(
         measurementState.measurements,
-        options.objectMeasurementConsistencyThreshold
+        options.objectMeasurementConsistencyThreshold,
       )
 
       if (consistentPair) {
         // Found 2 consistent measurements! Use geometric mean
-        const geoMean = Math.sqrt(consistentPair.values[0] * consistentPair.values[1])
+        const geoMean = Math.sqrt(
+          consistentPair.values[0] * consistentPair.values[1],
+        )
         measurementState.consistentPair = consistentPair
 
-        console.log('Found consistent pair:', consistentPair.values, '→ geometric mean:', geoMean.toFixed(1))
+        console.log(
+          'Found consistent pair:',
+          consistentPair.values,
+          '→ geometric mean:',
+          geoMean.toFixed(1),
+        )
 
         // Use the first measurement's data as template, but with geometric mean value
-        const firstMeasurement = measurementState.measurements[consistentPair.indices[0]]
-        
+        const firstMeasurement =
+          measurementState.measurements[consistentPair.indices[0]]
+
         savedMeasurementData = {
           value: toFixedNumber(geoMean, 1),
           timestamp: performance.now(),
@@ -4863,12 +4900,17 @@ export async function objectTest(RC, options, callback = undefined) {
 
         // Save measurement details to RC
         RC.objectMeasurements = {
-          objectLengthCm: measurementState.measurements.map(m => toFixedNumber(m.objectLengthCm, 1)),
+          objectLengthCm: measurementState.measurements.map(m =>
+            toFixedNumber(m.objectLengthCm, 1),
+          ),
           chosen: consistentPair.values.map(v => toFixedNumber(v, 1)),
-          mean: toFixedNumber(geoMean, 1)
+          mean: toFixedNumber(geoMean, 1),
         }
 
-        console.log('Proceeding to page 3 with geometric mean:', geoMean.toFixed(1))
+        console.log(
+          'Proceeding to page 3 with geometric mean:',
+          geoMean.toFixed(1),
+        )
         await showPage(3)
       } else {
         // No consistent pair found - keep measuring

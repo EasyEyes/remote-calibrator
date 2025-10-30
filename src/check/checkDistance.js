@@ -386,18 +386,47 @@ const validateFaceMeshSamples = async (
   calibrateTrackDistanceChecking = 'camera',
 ) => {
   const samples = []
-  let nearestXYPx_left = null
-  let nearestXYPx_right = null
-  let eyeToCameraCm = null
-  let eyeToCenterCm = null
-  let eyeToPointCm = null
-  let footToCameraCm = null
-  let footToCenterCm = null
-  let footToPointCm = null
-  let calibrationFactor = null
-  let footXYPx = null
-  let ipdPixels = null
-  let pointXYPx = null
+
+  // Accumulators for averaging over valid samples
+  let ipdPixelsSum = 0
+  let ipdPixelsCount = 0
+
+  let leftXSum = 0
+  let leftYSum = 0
+  let leftCount = 0
+
+  let rightXSum = 0
+  let rightYSum = 0
+  let rightCount = 0
+
+  let eyeToCameraSum = 0
+  let eyeToCameraCount = 0
+
+  let eyeToCenterSum = 0
+  let eyeToCenterCount = 0
+
+  let eyeToPointSum = 0
+  let eyeToPointCount = 0
+
+  let footToCameraSum = 0
+  let footToCameraCount = 0
+
+  let footToCenterSum = 0
+  let footToCenterCount = 0
+
+  let footToPointSum = 0
+  let footToPointCount = 0
+
+  let calibrationFactorSum = 0
+  let calibrationFactorCount = 0
+
+  let footXXSum = 0
+  let footYYSum = 0
+  let footXYCount = 0
+
+  let pointXXSum = 0
+  let pointYYSum = 0
+  let pointXYCount = 0
 
   // Collect exactly 5 samples, using NaN for failed measurements
   for (let i = 0; i < 5; i++) {
@@ -409,13 +438,18 @@ const validateFaceMeshSamples = async (
       )
       if (ipdData && ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
         samples.push(ipdData.ipdPixels)
+        ipdPixelsSum += ipdData.ipdPixels
+        ipdPixelsCount++
+
         if (
           ipdData.nearestXYPx_left &&
           ipdData.nearestXYPx_left.length > 0 &&
           !isNaN(ipdData.nearestXYPx_left[0]) &&
           !isNaN(ipdData.nearestXYPx_left[1])
         ) {
-          nearestXYPx_left = ipdData.nearestXYPx_left
+          leftXSum += Number(ipdData.nearestXYPx_left[0])
+          leftYSum += Number(ipdData.nearestXYPx_left[1])
+          leftCount++
         }
         if (
           ipdData.nearestXYPx_right &&
@@ -423,35 +457,44 @@ const validateFaceMeshSamples = async (
           !isNaN(ipdData.nearestXYPx_right[0]) &&
           !isNaN(ipdData.nearestXYPx_right[1])
         ) {
-          nearestXYPx_right = ipdData.nearestXYPx_right
+          rightXSum += Number(ipdData.nearestXYPx_right[0])
+          rightYSum += Number(ipdData.nearestXYPx_right[1])
+          rightCount++
         }
 
         if (ipdData.eyeToCameraCm && !isNaN(ipdData.eyeToCameraCm)) {
-          eyeToCameraCm = ipdData.eyeToCameraCm.toFixed(1)
+          eyeToCameraSum += Number(ipdData.eyeToCameraCm)
+          eyeToCameraCount++
         }
 
         if (ipdData.eyeToCenterCm && !isNaN(ipdData.eyeToCenterCm)) {
-          eyeToCenterCm = ipdData.eyeToCenterCm.toFixed(1)
+          eyeToCenterSum += Number(ipdData.eyeToCenterCm)
+          eyeToCenterCount++
         }
 
         if (ipdData.eyeToPointCm && !isNaN(ipdData.eyeToPointCm)) {
-          eyeToPointCm = ipdData.eyeToPointCm.toFixed(1)
+          eyeToPointSum += Number(ipdData.eyeToPointCm)
+          eyeToPointCount++
         }
 
         if (ipdData.footToCameraCm && !isNaN(ipdData.footToCameraCm)) {
-          footToCameraCm = ipdData.footToCameraCm.toFixed(1)
+          footToCameraSum += Number(ipdData.footToCameraCm)
+          footToCameraCount++
         }
 
         if (ipdData.footToCenterCm && !isNaN(ipdData.footToCenterCm)) {
-          footToCenterCm = ipdData.footToCenterCm.toFixed(1)
+          footToCenterSum += Number(ipdData.footToCenterCm)
+          footToCenterCount++
         }
 
         if (ipdData.footToPointCm && !isNaN(ipdData.footToPointCm)) {
-          footToPointCm = ipdData.footToPointCm.toFixed(1)
+          footToPointSum += Number(ipdData.footToPointCm)
+          footToPointCount++
         }
 
         if (ipdData.calibrationFactor && !isNaN(ipdData.calibrationFactor)) {
-          calibrationFactor = ipdData.calibrationFactor.toFixed(0)
+          calibrationFactorSum += Number(ipdData.calibrationFactor)
+          calibrationFactorCount++
         }
 
         if (
@@ -459,14 +502,9 @@ const validateFaceMeshSamples = async (
           !isNaN(ipdData.footXYPx[0]) &&
           !isNaN(ipdData.footXYPx[1])
         ) {
-          footXYPx = [
-            ipdData.footXYPx[0].toFixed(0),
-            ipdData.footXYPx[1].toFixed(0),
-          ]
-        }
-
-        if (ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
-          ipdPixels = ipdData.ipdPixels
+          footXXSum += Number(ipdData.footXYPx[0])
+          footYYSum += Number(ipdData.footXYPx[1])
+          footXYCount++
         }
 
         if (
@@ -474,10 +512,9 @@ const validateFaceMeshSamples = async (
           !isNaN(ipdData.pointXYPx[0]) &&
           !isNaN(ipdData.pointXYPx[1])
         ) {
-          pointXYPx = [
-            ipdData.pointXYPx[0].toFixed(0),
-            ipdData.pointXYPx[1].toFixed(0),
-          ]
+          pointXXSum += Number(ipdData.pointXYPx[0])
+          pointYYSum += Number(ipdData.pointXYPx[1])
+          pointXYCount++
         }
       } else {
         samples.push(NaN)
@@ -501,6 +538,66 @@ const validateFaceMeshSamples = async (
     'All samples:',
     samples.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))),
   )
+
+  // Compute averaged results
+  const nearestXYPx_left =
+    leftCount > 0
+      ? [Math.round(leftXSum / leftCount), Math.round(leftYSum / leftCount)]
+      : null
+  const nearestXYPx_right =
+    rightCount > 0
+      ? [Math.round(rightXSum / rightCount), Math.round(rightYSum / rightCount)]
+      : null
+
+  const eyeToCameraCm =
+    eyeToCameraCount > 0
+      ? Math.round((eyeToCameraSum / eyeToCameraCount) * 10) / 10
+      : null
+  const eyeToCenterCm =
+    eyeToCenterCount > 0
+      ? Math.round((eyeToCenterSum / eyeToCenterCount) * 10) / 10
+      : null
+  const eyeToPointCm =
+    eyeToPointCount > 0
+      ? Math.round((eyeToPointSum / eyeToPointCount) * 10) / 10
+      : null
+
+  const footToCameraCm =
+    footToCameraCount > 0
+      ? Math.round((footToCameraSum / footToCameraCount) * 10) / 10
+      : null
+  const footToCenterCm =
+    footToCenterCount > 0
+      ? Math.round((footToCenterSum / footToCenterCount) * 10) / 10
+      : null
+  const footToPointCm =
+    footToPointCount > 0
+      ? Math.round((footToPointSum / footToPointCount) * 10) / 10
+      : null
+
+  const calibrationFactor =
+    calibrationFactorCount > 0
+      ? Math.round(calibrationFactorSum / calibrationFactorCount)
+      : null
+
+  const footXYPx =
+    footXYCount > 0
+      ? [
+          Math.round(footXXSum / footXYCount),
+          Math.round(footYYSum / footXYCount),
+        ]
+      : null
+  const pointXYPx =
+    pointXYCount > 0
+      ? [
+          Math.round(pointXXSum / pointXYCount),
+          Math.round(pointYYSum / pointXYCount),
+        ]
+      : null
+  const ipdPixels =
+    ipdPixelsCount > 0
+      ? Math.round((ipdPixelsSum / ipdPixelsCount) * 10) / 10
+      : null
 
   return {
     isValid,
@@ -656,7 +753,7 @@ const captureIPDFromFaceMesh = async (
     } = nearestPoints
 
     return {
-      ipdPixels: Math.round(ipdPixels), // Round to integer
+      ipdPixels: ipdPixels ? Number(ipdPixels.toFixed(1)) : null,
       ipdCm: ipdCm ? Number(ipdCm.toFixed(2)) : null,
       timestamp: performance.now(),
       eyePositions: {
@@ -1547,6 +1644,15 @@ const trimVideoFeedbackDisplay = (
   }
 }
 
+const median = array => {
+  if (!array || array.length === 0) return 0
+  const sorted = array.slice().sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle]
+}
+
 const trackDistanceCheck = async (
   RC,
   distanceCallback,
@@ -1749,10 +1855,9 @@ const trackDistanceCheck = async (
       pointXYPx: [window.innerWidth / 2, 0],
       cameraXYPx: [window.innerWidth / 2, 0],
       centerXYPx: [window.innerWidth / 2, window.innerHeight / 2],
-      pxPerCm: parseFloat(pxPerCm.toFixed(1)),
-      factorCameraPxCm: parseFloat(
-        stdDist.current.calibrationFactor.toFixed(1),
-      ),
+      pxPerCm: Math.round(pxPerCm * 10) / 10,
+      factorCameraPxCm:
+        Math.round(Number(stdDist.current.calibrationFactor) * 10) / 10,
       cameraResolutionXY: cameraResolutionXY,
       requestedEyesToPointCm: [],
       eyesToCameraCm: [],
@@ -1766,6 +1871,7 @@ const trackDistanceCheck = async (
       leftEyeFootXYPx: [],
       footXYPx: [],
       measuredFactorCameraPxCm: [],
+      medianFactorCameraPxCm: 0, //median of all measured factor camera pxcms
     }
 
     for (let i = 0; i < calibrateTrackDistanceCheckCm.length; i++) {
@@ -1952,18 +2058,6 @@ const trackDistanceCheck = async (
 
               const distanceFromRC = Number(measuredDistanceCm.toFixed(1))
 
-              // Use the validated face mesh samples for IPD data (average of valid samples)
-              const validSamples = faceValidation.samples.filter(
-                sample => !isNaN(sample),
-              )
-              const averageIPD =
-                validSamples.length > 0
-                  ? Math.round(
-                      validSamples.reduce((a, b) => a + b, 0) /
-                        validSamples.length,
-                    )
-                  : null
-
               RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
               RC.calibrateTrackDistanceRequestedCm.push(
                 Number(
@@ -1976,7 +2070,7 @@ const trackDistanceCheck = async (
               const EyeFeetXYPxRight = faceValidation.nearestXYPx_right
 
               // Store the averaged IPD pixels from validation test
-              RC.calibrateTrackDistanceIPDPixels.push(averageIPD)
+              RC.calibrateTrackDistanceIPDPixels.push(faceValidation.ipdPixels)
               RC.calibrateTrackDistanceEyeFeetXYPx.push(
                 EyeFeetXYPxLeft,
                 EyeFeetXYPxRight,
@@ -2006,52 +2100,57 @@ const trackDistanceCheck = async (
               const measuredFactorCameraPxCm =
                 requestedEyesToCameraCm * parseFloat(faceValidation.ipdPixels)
               RC.distanceCheckJSON.requestedEyesToPointCm.push(
-                parseFloat(
+                Math.round(
                   RC.equipment?.value?.unit === 'inches'
-                    ? (cm * 2.54).toFixed(1)
-                    : cm.toFixed(1),
-                ),
+                    ? cm * 2.54 * 10
+                    : cm * 10,
+                ) / 10,
               )
               RC.distanceCheckJSON.pointXYPx = [
-                parseFloat(faceValidation.pointXYPx[0]),
-                parseFloat(faceValidation.pointXYPx[1]),
+                faceValidation.pointXYPx[0],
+                faceValidation.pointXYPx[1],
               ]
               RC.distanceCheckJSON.eyesToCameraCm.push(
-                parseFloat(faceValidation.eyeToCameraCm),
+                faceValidation.eyeToCameraCm,
               )
               RC.distanceCheckJSON.eyesToPointCm.push(
-                parseFloat(faceValidation.eyeToPointCm),
+                faceValidation.eyeToPointCm,
               )
               RC.distanceCheckJSON.eyesToCenterCm.push(
-                parseFloat(faceValidation.eyeToCenterCm),
+                faceValidation.eyeToCenterCm,
               )
               RC.distanceCheckJSON.footToCameraCm.push(
-                parseFloat(faceValidation.footToCameraCm),
+                faceValidation.footToCameraCm,
               )
               RC.distanceCheckJSON.footToCenterCm.push(
-                parseFloat(faceValidation.footToCenterCm),
+                faceValidation.footToCenterCm,
               )
               RC.distanceCheckJSON.footToPointCm.push(
-                parseFloat(faceValidation.footToPointCm),
+                faceValidation.footToPointCm,
               )
-              RC.distanceCheckJSON.ipdCameraPx.push(
-                parseFloat(faceValidation.ipdPixels),
-              )
+              RC.distanceCheckJSON.ipdCameraPx.push(faceValidation.ipdPixels)
               RC.distanceCheckJSON.rightEyeFootXYPx.push([
-                parseFloat(faceValidation.nearestXYPx_right[0].toFixed(0)),
-                parseFloat(faceValidation.nearestXYPx_right[1].toFixed(0)),
+                faceValidation.nearestXYPx_right[0],
+                faceValidation.nearestXYPx_right[1],
               ])
               RC.distanceCheckJSON.leftEyeFootXYPx.push([
-                parseFloat(faceValidation.nearestXYPx_left[0].toFixed(0)),
-                parseFloat(faceValidation.nearestXYPx_left[1].toFixed(0)),
+                faceValidation.nearestXYPx_left[0],
+                faceValidation.nearestXYPx_left[1],
               ])
               RC.distanceCheckJSON.footXYPx.push([
-                parseFloat(faceValidation.footXYPx[0]),
-                parseFloat(faceValidation.footXYPx[1]),
+                faceValidation.footXYPx[0],
+                faceValidation.footXYPx[1],
               ])
               RC.distanceCheckJSON.measuredFactorCameraPxCm.push(
-                parseFloat(measuredFactorCameraPxCm.toFixed(0)),
+                Math.round(measuredFactorCameraPxCm),
               )
+              RC.distanceCheckJSON.medianFactorCameraPxCm =
+                RC.distanceCheckJSON.measuredFactorCameraPxCm.length > 0
+                  ? Math.round(
+                      median(RC.distanceCheckJSON.measuredFactorCameraPxCm) *
+                        10,
+                    ) / 10
+                  : 0
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
@@ -2158,23 +2257,13 @@ const trackDistanceCheck = async (
 
                 const distanceFromRC = Number(measuredDistanceCm.toFixed(1))
 
-                // Use the validated face mesh samples for IPD data (average of valid samples)
-                const validSamples = faceValidation.samples.filter(
-                  sample => !isNaN(sample),
-                )
-                const averageIPD =
-                  validSamples.length > 0
-                    ? Math.round(
-                        validSamples.reduce((a, b) => a + b, 0) /
-                          validSamples.length,
-                      )
-                    : null
-
                 RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
                 RC.calibrateTrackDistanceRequestedCm.push(
-                  RC.equipment?.value?.unit === 'inches'
-                    ? (cm * 2.54).toFixed(1)
-                    : cm.toFixed(1),
+                  Math.round(
+                    RC.equipment?.value?.unit === 'inches'
+                      ? cm * 2.54 * 10
+                      : cm * 10,
+                  ) / 10,
                 )
 
                 const EyeFeetXYPxLeft = faceValidation.nearestXYPx_left
@@ -2185,13 +2274,15 @@ const trackDistanceCheck = async (
                 )
 
                 // Store the averaged IPD pixels from validation test
-                RC.calibrateTrackDistanceIPDPixels.push(averageIPD)
+                RC.calibrateTrackDistanceIPDPixels.push(
+                  faceValidation.ipdPixels,
+                )
                 RC.calibrateTrackDistanceRequestedDistances.push(
-                  Number(
+                  Math.round(
                     RC.equipment?.value?.unit === 'inches'
-                      ? (cm * 2.54).toFixed(1)
-                      : cm.toFixed(1),
-                  ),
+                      ? cm * 2.54 * 10
+                      : cm * 10,
+                  ) / 10,
                 )
 
                 const requestedEyesToPointCm = Number(
@@ -2212,52 +2303,57 @@ const trackDistanceCheck = async (
                 const measuredFactorCameraPxCm =
                   requestedEyesToCameraCm * parseFloat(faceValidation.ipdPixels)
                 RC.distanceCheckJSON.pointXYPx = [
-                  parseFloat(faceValidation.pointXYPx[0]),
-                  parseFloat(faceValidation.pointXYPx[1]),
+                  faceValidation.pointXYPx[0],
+                  faceValidation.pointXYPx[1],
                 ]
                 RC.distanceCheckJSON.requestedEyesToPointCm.push(
-                  parseFloat(
+                  Math.round(
                     RC.equipment?.value?.unit === 'inches'
-                      ? (cm * 2.54).toFixed(1)
-                      : cm.toFixed(1),
-                  ),
+                      ? cm * 2.54 * 10
+                      : cm * 10,
+                  ) / 10,
                 )
                 RC.distanceCheckJSON.eyesToCameraCm.push(
-                  parseFloat(faceValidation.eyeToCameraCm),
+                  faceValidation.eyeToCameraCm,
                 )
                 RC.distanceCheckJSON.eyesToPointCm.push(
-                  parseFloat(faceValidation.eyeToPointCm),
+                  faceValidation.eyeToPointCm,
                 )
                 RC.distanceCheckJSON.eyesToCenterCm.push(
-                  parseFloat(faceValidation.eyeToCenterCm),
+                  faceValidation.eyeToCenterCm,
                 )
                 RC.distanceCheckJSON.footToCameraCm.push(
-                  parseFloat(faceValidation.footToCameraCm),
+                  faceValidation.footToCameraCm,
                 )
                 RC.distanceCheckJSON.footToCenterCm.push(
-                  parseFloat(faceValidation.footToCenterCm),
+                  faceValidation.footToCenterCm,
                 )
                 RC.distanceCheckJSON.footToPointCm.push(
-                  parseFloat(faceValidation.footToPointCm),
+                  faceValidation.footToPointCm,
                 )
-                RC.distanceCheckJSON.ipdCameraPx.push(
-                  parseFloat(faceValidation.ipdPixels),
-                )
+                RC.distanceCheckJSON.ipdCameraPx.push(faceValidation.ipdPixels)
                 RC.distanceCheckJSON.rightEyeFootXYPx.push([
-                  parseFloat(faceValidation.nearestXYPx_right[0].toFixed(0)),
-                  parseFloat(faceValidation.nearestXYPx_right[1].toFixed(0)),
+                  faceValidation.nearestXYPx_right[0],
+                  faceValidation.nearestXYPx_right[1],
                 ])
                 RC.distanceCheckJSON.leftEyeFootXYPx.push([
-                  parseFloat(faceValidation.nearestXYPx_left[0].toFixed(0)),
-                  parseFloat(faceValidation.nearestXYPx_left[1].toFixed(0)),
+                  faceValidation.nearestXYPx_left[0],
+                  faceValidation.nearestXYPx_left[1],
                 ])
                 RC.distanceCheckJSON.footXYPx.push([
-                  parseFloat(faceValidation.footXYPx[0]),
-                  parseFloat(faceValidation.footXYPx[1]),
+                  faceValidation.footXYPx[0],
+                  faceValidation.footXYPx[1],
                 ])
                 RC.distanceCheckJSON.measuredFactorCameraPxCm.push(
-                  parseFloat(measuredFactorCameraPxCm.toFixed(0)),
+                  Math.round(measuredFactorCameraPxCm),
                 )
+                RC.distanceCheckJSON.medianFactorCameraPxCm =
+                  RC.distanceCheckJSON.measuredFactorCameraPxCm.length > 0
+                    ? Math.round(
+                        median(RC.distanceCheckJSON.measuredFactorCameraPxCm) *
+                          10,
+                      ) / 10
+                    : 0
 
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
