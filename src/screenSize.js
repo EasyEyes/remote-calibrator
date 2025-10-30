@@ -85,6 +85,8 @@ RemoteCalibrator.prototype.screenSize = function (
     {
       fullscreen: false,
       repeatTesting: 1,
+      screenSizeMeasurementCount: 2, // Number of repeated measurements
+      screenSizeConsistencyThreshold: 0.03, // 3% - measurements must be within this % to be considered consistent
       decimalPlace: 1,
       defaultObject: 'card', // Can be card, usba, usbc
       headline: `${phrases.RC_screenSizeTitle[this.L]}`,
@@ -96,6 +98,15 @@ RemoteCalibrator.prototype.screenSize = function (
   )
 
   this.getFullscreen(options.fullscreen)
+
+  // Validate and normalize screenSizeMeasurementCount
+  if (typeof options.screenSizeMeasurementCount !== 'number' || 
+      isNaN(options.screenSizeMeasurementCount) || 
+      options.screenSizeMeasurementCount < 1) {
+    console.warn(`Invalid screenSizeMeasurementCount: ${options.screenSizeMeasurementCount}. Using default value of 2.`)
+    options.screenSizeMeasurementCount = 2
+  }
+  options.screenSizeMeasurementCount = Math.max(1, Math.floor(options.screenSizeMeasurementCount))
 
   if (!['usba', 'usbc', 'card'].includes(options.defaultObject))
     options.defaultObject = 'card'
@@ -123,8 +134,60 @@ RemoteCalibrator.prototype.screenSize = function (
 }
 
 function getSize(RC, parent, options, callback) {
-  // Slider
+  // Initialize measurement tracking
+  const measurementState = {
+    currentIteration: 1,
+    totalIterations: Math.max(1, Math.floor(options.screenSizeMeasurementCount || 1)),
+    measurements: [], // Store all individual measurements
+    consistentPair: null, // Will store the indices of 2 consistent measurements
+  }
+
+  // Start the measurement loop
+  performMeasurement(RC, parent, options, callback, measurementState)
+}
+
+// Helper function to find any 2 consistent measurements
+function findConsistentPair(measurements, threshold) {
+  // Need at least 2 measurements to compare
+  if (measurements.length < 2) return null
+  
+  // Check all pairs
+  for (let i = 0; i < measurements.length - 1; i++) {
+    for (let j = i + 1; j < measurements.length; j++) {
+      const ppi1 = measurements[i].ppi
+      const ppi2 = measurements[j].ppi
+      const geoMean = Math.sqrt(ppi1 * ppi2) // Geometric mean
+      const percentDiff = Math.abs(ppi1 - ppi2) / geoMean
+      
+      if (percentDiff <= threshold) {
+        // Found a consistent pair!
+        return { indices: [i, j], ppis: [ppi1, ppi2] }
+      }
+    }
+  }
+  
+  return null // No consistent pair found
+}
+
+function performMeasurement(RC, parent, options, callback, measurementState) {
+  // Update headline to show progress if multiple measurements
+  if (measurementState.totalIterations > 1) {
+    const progressText = `${phrases.RC_screenSizeTitle[RC.L]} (${measurementState.currentIteration}/${measurementState.totalIterations})`
+    const headlineElement = parent.querySelector('.rc-text-panel-title')
+    if (headlineElement) {
+      headlineElement.textContent = progressText
+    }
+  }
+
+  // Slider with random initial position (0-66% for subsequent measurements)
   const sliderElement = createSlider(parent, 0, 100)
+  
+  // Set random initial size for measurements after the first one
+  if (measurementState.currentIteration > 1) {
+    const randomValue = Math.random() * 66.67 // Random value between 0 and 66.67%
+    sliderElement.value = randomValue
+    setSliderStyle(sliderElement)
+  }
 
   const _onDown = (e, type) => {
     if (
@@ -330,20 +393,136 @@ function getSize(RC, parent, options, callback) {
 
     const toFixedN = options.decimalPlace
 
-    // ! Get screen data
-    const screenData = _getScreenData(ppi, toFixedN)
-    // ! Record data
-    RC.newScreenData = screenData
+    // Store this measurement
+    measurementState.measurements.push({
+      ppi: ppi,
+      object: currentMatchingObj,
+      timestamp: performance.now(),
+    })
 
-    // Remove listeners and DOM
-    breakFunction()
+    // If only 1 measurement requested, return immediately without consistency check
+    if (measurementState.totalIterations === 1) {
+      const screenData = _getSingleMeasurementData(measurementState.measurements[0], toFixedN)
+      
+      RC.newScreenData = screenData
+      const singlePpi = toFixedNumber(measurementState.measurements[0].ppi, 1)
+      RC.screenSizeMeasurements = {
+        ppi: [singlePpi],
+        chosen: [singlePpi],
+        mean: singlePpi
+      }
+      breakFunction()
+      
+      if (options.check)
+        RC._checkScreenSize(callback, screenData, options.checkCallback)
+      else safeExecuteFunc(callback, screenData)
+      
+      return
+    }
 
-    // ! Call the callback function
-    if (options.check)
-      RC._checkScreenSize(callback, screenData, options.checkCallback)
-    else safeExecuteFunc(callback, screenData)
+    // Check if we need more measurements to reach minimum count
+    if (measurementState.currentIteration < measurementState.totalIterations) {
+      // More measurements needed - clean up current UI and restart
+      cleanupMeasurement()
+      
+      // Increment iteration counter
+      measurementState.currentIteration++
+      
+      // Restart measurement with same parent and options
+      performMeasurement(RC, parent, options, callback, measurementState)
+      return
+    }
+    
+    // We've done minimum N measurements - now check for consistency
+    if (measurementState.measurements.length > 1) {
+      const consistentPair = findConsistentPair(
+        measurementState.measurements, 
+        options.screenSizeConsistencyThreshold
+      )
+      
+      if (consistentPair) {
+        // Found 2 consistent measurements! Calculate data and finish
+        measurementState.consistentPair = consistentPair
+        
+        const screenData = _getConsistentPairScreenData(
+          measurementState.measurements,
+          consistentPair,
+          toFixedN
+        )
+        
+        // ! Record data
+        RC.newScreenData = screenData
+        RC.screenSizeMeasurements = {
+          ppi: measurementState.measurements.map(m => toFixedNumber(m.ppi, 1)),
+          chosen: consistentPair.ppis.map(p => toFixedNumber(p, 1)),
+          mean: toFixedNumber(Math.sqrt(consistentPair.ppis[0] * consistentPair.ppis[1]), 1)
+        }
+
+        // Remove listeners and DOM
+        breakFunction()
+
+        // ! Call the callback function
+        if (options.check)
+          RC._checkScreenSize(callback, screenData, options.checkCallback)
+        else safeExecuteFunc(callback, screenData)
+        
+        return
+      }
+    }
+    
+    // We've done N measurements but no consistent pair found
+    // Keep measuring until we find consistency
+    cleanupMeasurement()
+    
+    // Increment iteration counter (but not totalIterations)
+    measurementState.currentIteration++
+    
+    console.log('No consistent measurements found yet, continuing...')
+    
+    // Restart measurement
+    performMeasurement(RC, parent, options, callback, measurementState)
 
     return
+  }
+
+  // Helper function to clean up measurement UI for restart
+  const cleanupMeasurement = () => {
+    document.removeEventListener('mousedown', onMouseDown, false)
+    document.removeEventListener('touchstart', onTouchStart, false)
+    document.removeEventListener('input', onSliderInput, false)
+    document.removeEventListener('keydown', arrowDownFunction)
+    document.removeEventListener('keyup', arrowUpFunction)
+    if (arrowIntervalFunction) {
+      clearInterval(arrowIntervalFunction)
+    }
+    resizeObserver.unobserve(parent)
+    removeKeypadHandler()
+
+    // Remove UI elements
+    const measureTextElement = document.getElementById('rc-measure-text')
+    if (measureTextElement && measureTextElement.parentNode) {
+      measureTextElement.parentNode.removeChild(measureTextElement)
+    }
+
+    // Remove slider
+    if (sliderElement && sliderElement.parentNode) {
+      sliderElement.parentNode.removeChild(sliderElement)
+    }
+
+    // Remove objects
+    const sizeObjects = document.getElementsByClassName('size-obj')
+    while (sizeObjects.length > 0) {
+      sizeObjects[0].parentNode.removeChild(sizeObjects[0])
+    }
+
+    // Remove buttons
+    const buttons = document.getElementById('rc-buttons')
+    if (buttons && buttons.parentNode) {
+      buttons.parentNode.removeChild(buttons)
+    }
+
+    // Unbind keys
+    unbindKeys(bindKeysFunction)
   }
 
   sliderElement.addEventListener('input', onSliderInput, false)
@@ -437,6 +616,107 @@ const switchMatchingObj = (name, elements, setSizes) => {
   // else elements.arrow.style.visibility = 'hidden'
   elements.arrow.style.visibility = 'hidden'
   safeExecuteFunc(setSizes)
+}
+
+/**
+ *
+ * Get screen data from a single measurement (no consistency check)
+ *
+ */
+const _getSingleMeasurementData = (measurement, toFixedN) => {
+  const ppi = measurement.ppi
+  
+  // Get base screen data using the single PPI
+  const baseScreenData = _getScreenData(ppi, toFixedN)
+
+  // Add measurement metadata (consistent with multi-measurement structure)
+  baseScreenData.value.screenPpiMean = toFixedNumber(ppi, toFixedN)
+  baseScreenData.value.screenPpiStd = 0 // No std dev for single measurement
+  baseScreenData.value.screenPpiMeasurements = [toFixedNumber(ppi, toFixedN)]
+  baseScreenData.value.measurementCount = 1
+  baseScreenData.value.totalMeasurementsTaken = 1
+  
+  // Include the single measurement
+  baseScreenData.measurements = [{
+    ppi: toFixedNumber(ppi, toFixedN),
+    object: measurement.object,
+    timestamp: measurement.timestamp,
+    used: true,
+    screenData: _getScreenData(ppi, toFixedN).value,
+  }]
+
+  return baseScreenData
+}
+
+/**
+ *
+ * Get screen data from the 2 consistent measurements
+ *
+ */
+const _getConsistentPairScreenData = (measurements, consistentPair, toFixedN) => {
+  const ppi1 = consistentPair.ppis[0]
+  const ppi2 = consistentPair.ppis[1]
+  const meanPpi = Math.sqrt(ppi1 * ppi2) // Geometric mean
+  
+  // Calculate standard deviation of the 2 measurements
+  const variance = (Math.pow(ppi1 - meanPpi, 2) + Math.pow(ppi2 - meanPpi, 2)) / 2
+  const stdDev = Math.sqrt(variance)
+
+  // Get base screen data using mean PPI
+  const baseScreenData = _getScreenData(meanPpi, toFixedN)
+
+  // Enhance with measurement data
+  baseScreenData.value.screenPpiMean = toFixedNumber(meanPpi, toFixedN)
+  baseScreenData.value.screenPpiStd = toFixedNumber(stdDev, toFixedN)
+  baseScreenData.value.screenPpiMeasurements = [toFixedNumber(ppi1, toFixedN), toFixedNumber(ppi2, toFixedN)]
+  baseScreenData.value.measurementCount = 2 // Always 2 for consistent pair
+  baseScreenData.value.totalMeasurementsTaken = measurements.length // How many measurements were needed
+  baseScreenData.value.consistentPairIndices = consistentPair.indices // Which measurements were used
+  
+  // Include ALL measurements with flag for which were used
+  baseScreenData.measurements = measurements.map((m, idx) => ({
+    ppi: toFixedNumber(m.ppi, toFixedN),
+    object: m.object,
+    timestamp: m.timestamp,
+    used: consistentPair.indices.includes(idx), // Flag if this measurement was used
+    screenData: _getScreenData(m.ppi, toFixedN).value,
+  }))
+
+  return baseScreenData
+}
+
+/**
+ *
+ * Get aggregated screen data from multiple measurements (legacy - for single measurement case)
+ *
+ */
+const _getAggregatedScreenData = (measurements, toFixedN) => {
+  // Calculate mean PPI from all measurements
+  const ppiValues = measurements.map(m => m.ppi)
+  const meanPpi = ppiValues.reduce((sum, val) => sum + val, 0) / ppiValues.length
+  
+  // Calculate standard deviation
+  const variance = ppiValues.reduce((sum, val) => sum + Math.pow(val - meanPpi, 2), 0) / ppiValues.length
+  const stdDev = Math.sqrt(variance)
+
+  // Get base screen data using mean PPI
+  const baseScreenData = _getScreenData(meanPpi, toFixedN)
+
+  // Enhance with aggregated measurement data
+  baseScreenData.value.screenPpiMean = toFixedNumber(meanPpi, toFixedN)
+  baseScreenData.value.screenPpiStd = toFixedNumber(stdDev, toFixedN)
+  baseScreenData.value.screenPpiMeasurements = ppiValues.map(ppi => toFixedNumber(ppi, toFixedN))
+  baseScreenData.value.measurementCount = measurements.length
+  
+  // Include individual measurements with full details
+  baseScreenData.measurements = measurements.map(m => ({
+    ppi: toFixedNumber(m.ppi, toFixedN),
+    object: m.object,
+    timestamp: m.timestamp,
+    screenData: _getScreenData(m.ppi, toFixedN).value,
+  }))
+
+  return baseScreenData
 }
 
 /**

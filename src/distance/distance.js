@@ -3175,6 +3175,26 @@ function _getDistValues(dist) {
   return v
 }
 
+// Helper function to find any 2 consistent object measurements
+function findConsistentObjectPair(measurements, threshold) {
+  if (measurements.length < 2) return null
+  
+  for (let i = 0; i < measurements.length - 1; i++) {
+    for (let j = i + 1; j < measurements.length; j++) {
+      const val1 = measurements[i].objectLengthCm
+      const val2 = measurements[j].objectLengthCm
+      const geoMean = Math.sqrt(val1 * val2)
+      const percentDiff = Math.abs(val1 - val2) / geoMean
+      
+      if (percentDiff <= threshold) {
+        return { indices: [i, j], values: [val1, val2] }
+      }
+    }
+  }
+  
+  return null
+}
+
 // ===================== OBJECT TEST SCHEME =====================
 export async function objectTest(RC, options, callback = undefined) {
   RC._addBackground()
@@ -3186,6 +3206,14 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== UNIT SELECTION STATE =====================
   let selectedUnit = 'inches' // Default to inches
+
+  // ===================== MEASUREMENT STATE MANAGEMENT =====================
+  const measurementState = {
+    currentIteration: 1,
+    totalIterations: Math.max(1, Math.floor(options.objectMeasurementCount || 1)),
+    measurements: [], // Store all individual ruler measurements
+    consistentPair: null,
+  }
 
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   // Arrays to store 5 samples per page for calibration
@@ -4446,6 +4474,29 @@ export async function objectTest(RC, options, callback = undefined) {
   }
 
   // ===================== PAGE NAVIGATION FUNCTIONS =====================
+  
+  // Function to reset page 2 for next measurement
+  const resetPage2ForNextMeasurement = async () => {
+    console.log(`=== RESETTING PAGE 2 FOR MEASUREMENT ${measurementState.currentIteration}/${measurementState.totalIterations} ===`)
+    
+    // Reset tape to default/initial position
+    startX = leftMarginPx
+    endX = leftMarginPx + initialRulerLengthPx
+    // startY and endY stay the same (horizontal tape)
+    
+    // Update the visual representation
+    updateDiagonalLabels()
+    
+    // Update progress in instructions
+    if (measurementState.totalIterations > 1) {
+      const progressText = ` (${measurementState.currentIteration}/${measurementState.totalIterations})`
+      const currentInstructions = instructions.innerText
+      if (!currentInstructions.includes(progressText)) {
+        instructions.innerText = currentInstructions + progressText
+      }
+    }
+  }
+
   const showPage = async pageNumber => {
     currentPage = pageNumber
 
@@ -4716,33 +4767,115 @@ export async function objectTest(RC, options, callback = undefined) {
       const objectLengthMm = objectLengthPx / pxPerMm
       const objectLengthCm = objectLengthMm / 10
 
-      savedMeasurementData = {
-        value: toFixedNumber(objectLengthCm, 1),
+      // Store this measurement
+      measurementState.measurements.push({
+        objectLengthCm: objectLengthCm,
+        objectLengthPx: objectLengthPx,
+        objectLengthMm: objectLengthMm,
         timestamp: performance.now(),
-        method: 'object',
-        intraocularDistanceCm: null,
-        faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
-          isNaN(sample) ? sample : Math.round(sample),
-        ),
-        faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
-          isNaN(sample) ? sample : Math.round(sample),
-        ),
-        // page0Option: selectedPage0Option, // Store the radio button answer
-        raw: {
-          startX,
-          startY,
-          endX,
-          endY,
-          screenWidth,
-          objectLengthPx,
-          objectLengthMm,
-          ppi: ppi,
-          selectedUnit: selectedUnit, // Store the selected unit (inches or cm)
-        },
+        startX,
+        startY,
+        endX,
+        endY,
+        selectedUnit: selectedUnit,
+      })
+
+      console.log(`Measurement ${measurementState.currentIteration} saved:`, objectLengthCm.toFixed(1), 'cm')
+
+      // If only 1 measurement requested, accept it immediately
+      if (measurementState.totalIterations === 1) {
+        savedMeasurementData = {
+          value: toFixedNumber(objectLengthCm, 1),
+          timestamp: performance.now(),
+          method: 'object',
+          intraocularDistanceCm: null,
+          faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+            isNaN(sample) ? sample : Math.round(sample),
+          ),
+          faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
+            isNaN(sample) ? sample : Math.round(sample),
+          ),
+          raw: {
+            startX,
+            startY,
+            endX,
+            endY,
+            screenWidth,
+            objectLengthPx,
+            objectLengthMm,
+            ppi: ppi,
+            selectedUnit: selectedUnit,
+          },
+        }
+        console.log('Single measurement accepted:', savedMeasurementData)
+        await showPage(3)
+        return
       }
 
-      console.log('Saved measurement data:', savedMeasurementData)
-      await showPage(3)
+      // Check if we need more measurements to reach minimum count
+      if (measurementState.currentIteration < measurementState.totalIterations) {
+        measurementState.currentIteration++
+        console.log(`Need more measurements: ${measurementState.currentIteration}/${measurementState.totalIterations}`)
+        // Reset tape and stay on page 2
+        await resetPage2ForNextMeasurement()
+        return
+      }
+
+      // We've done minimum N measurements - now check for consistency
+      const consistentPair = findConsistentObjectPair(
+        measurementState.measurements,
+        options.objectMeasurementConsistencyThreshold
+      )
+
+      if (consistentPair) {
+        // Found 2 consistent measurements! Use geometric mean
+        const geoMean = Math.sqrt(consistentPair.values[0] * consistentPair.values[1])
+        measurementState.consistentPair = consistentPair
+
+        console.log('Found consistent pair:', consistentPair.values, '→ geometric mean:', geoMean.toFixed(1))
+
+        // Use the first measurement's data as template, but with geometric mean value
+        const firstMeasurement = measurementState.measurements[consistentPair.indices[0]]
+        
+        savedMeasurementData = {
+          value: toFixedNumber(geoMean, 1),
+          timestamp: performance.now(),
+          method: 'object',
+          intraocularDistanceCm: null,
+          faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+            isNaN(sample) ? sample : Math.round(sample),
+          ),
+          faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
+            isNaN(sample) ? sample : Math.round(sample),
+          ),
+          raw: {
+            startX: firstMeasurement.startX,
+            startY: firstMeasurement.startY,
+            endX: firstMeasurement.endX,
+            endY: firstMeasurement.endY,
+            screenWidth,
+            objectLengthPx: firstMeasurement.objectLengthPx,
+            objectLengthMm: firstMeasurement.objectLengthMm,
+            ppi: ppi,
+            selectedUnit: selectedUnit,
+          },
+        }
+
+        // Save measurement details to RC
+        RC.objectMeasurements = {
+          objectLengthCm: measurementState.measurements.map(m => toFixedNumber(m.objectLengthCm, 1)),
+          chosen: consistentPair.values.map(v => toFixedNumber(v, 1)),
+          mean: toFixedNumber(geoMean, 1)
+        }
+
+        console.log('Proceeding to page 3 with geometric mean:', geoMean.toFixed(1))
+        await showPage(3)
+      } else {
+        // No consistent pair found - keep measuring
+        measurementState.currentIteration++
+        console.log('No consistent measurements found yet, continuing...')
+        await resetPage2ForNextMeasurement()
+      }
     } else if (currentPage === 3) {
       await showPage(4)
     } else if (currentPage === 4) {
