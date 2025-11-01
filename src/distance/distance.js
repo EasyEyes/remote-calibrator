@@ -4714,10 +4714,21 @@ export async function objectTest(RC, options, callback = undefined) {
       // Show video on page 4
       RC.showVideo(true)
 
-      // Position video properly
+      // Position video at lower right corner for page 4
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
-        setDefaultVideoPosition(RC, videoContainer)
+        // Position video's lower right corner at screen's lower right corner
+        const videoWidth = parseInt(videoContainer.style.width) || parseInt(videoContainer.offsetWidth) || 0
+        const videoHeight = parseInt(videoContainer.style.height) || parseInt(videoContainer.offsetHeight) || 0
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+        
+        videoContainer.style.zIndex = 999999999999
+        videoContainer.style.left = `${viewportWidth - videoWidth}px`
+        videoContainer.style.top = `${viewportHeight - videoHeight}px`
+        videoContainer.style.right = 'unset'
+        videoContainer.style.bottom = 'unset'
+        videoContainer.style.transform = 'none'
       }
 
       // Keep diagonal tape component hidden and remove labels from DOM
@@ -4743,7 +4754,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Update instructions
       instructions.innerText =
-        phrases.RC_UseObjectToSetViewingDistancePage4[RC.L]
+        phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4[RC.L]
 
       // Hide dontUseRuler column on page 4
       dontUseRulerColumn.style.display = 'none'
@@ -5125,15 +5136,75 @@ export async function objectTest(RC, options, callback = undefined) {
       feedbackDiv.style.borderRadius = '5px'
       feedbackDiv.style.fontFamily = 'monospace'
       feedbackDiv.style.zIndex = '9999999999'
+      feedbackDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.95)'
+      feedbackDiv.style.maxHeight = '80vh'
+      feedbackDiv.style.overflowY = 'auto'
+      feedbackDiv.style.fontSize = '11px'
+      
+      // Build geometric calculation details HTML
+      let geometricCalcHtml = ''
+      if (RC.page4GeometricCalc) {
+        const g = RC.page4GeometricCalc
+        geometricCalcHtml = `
+          <div style="margin-top: 10px; border-top: 1px solid #ccc; padding-top: 10px;">
+            <div style="font-weight: bold; margin-bottom: 5px;">📐 Page 4 Geometric Calculation:</div>
+            <div style="margin-left: 10px;">
+              <div style="color: #0066cc; font-weight: bold;">Input Values:</div>
+              <div>  objectLengthCm = ${g.objectLengthCm.toFixed(2)}</div>
+              <div>  ipdCameraPx = ${g.ipdCameraPx.toFixed(2)}</div>
+              <div>  nearestXYPx_left = [${g.nearestXYPx_left[0].toFixed(1)}, ${g.nearestXYPx_left[1].toFixed(1)}]</div>
+              <div>  nearestXYPx_right = [${g.nearestXYPx_right[0].toFixed(1)}, ${g.nearestXYPx_right[1].toFixed(1)}]</div>
+              <div>  cameraXYPx = [${g.cameraXYPx[0].toFixed(1)}, ${g.cameraXYPx[1].toFixed(1)}]</div>
+              <div>  pointXYPx (lower right) = [${g.pointXYPx[0].toFixed(1)}, ${g.pointXYPx[1].toFixed(1)}]</div>
+              
+              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 1: Calculate foot position (mean of left & right eye feet)</div>
+              <div>  footXYPx = mean(nearestXYPx_left, nearestXYPx_right)</div>
+              <div>  footXYPx = [${g.footXYPx[0].toFixed(1)}, ${g.footXYPx[1].toFixed(1)}]</div>
+              
+              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 2: Calculate pointToFootCm</div>
+              <div>  pointToFootCm = norm(pointXYPx - footXYPx) / pxPerCm</div>
+              <div>  pointToFootCm = sqrt((${g.pointXYPx[0].toFixed(1)} - ${g.footXYPx[0].toFixed(1)})² + (${g.pointXYPx[1].toFixed(1)} - ${g.footXYPx[1].toFixed(1)})²) / ${(ppi / 2.54).toFixed(2)}</div>
+              <div>  <strong>pointToFootCm = ${g.pointToFootCm.toFixed(2)} cm</strong></div>
+              
+              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 3: Calculate footToCameraCm</div>
+              <div>  footToCameraCm = norm(footXYPx - cameraXYPx) / pxPerCm</div>
+              <div>  footToCameraCm = sqrt((${g.footXYPx[0].toFixed(1)} - ${g.cameraXYPx[0].toFixed(1)})² + (${g.footXYPx[1].toFixed(1)} - ${g.cameraXYPx[1].toFixed(1)})²) / ${(ppi / 2.54).toFixed(2)}</div>
+              <div>  <strong>footToCameraCm = ${g.footToCameraCm.toFixed(2)} cm</strong></div>
+              
+              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 4: Set eyeToPointCm = objectLengthCm</div>
+              <div>  <strong>eyeToPointCm = ${g.eyeToPointCm.toFixed(2)} cm</strong></div>
+              
+              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 5: Calculate eyeToFootCm (Pythagorean theorem)</div>
+              <div>  eyeToFootCm = sqrt(eyeToPointCm² - pointToFootCm²)</div>
+              <div>  eyeToFootCm = sqrt(${g.eyeToPointCm.toFixed(2)}² - ${g.pointToFootCm.toFixed(2)}²)</div>
+              <div>  <strong>eyeToFootCm = ${g.eyeToFootCm.toFixed(2)} cm</strong></div>
+              
+              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 6: Calculate eyeToCameraCm (Pythagorean theorem)</div>
+              <div>  eyeToCameraCm = sqrt(eyeToFootCm² + footToCameraCm²)</div>
+              <div>  eyeToCameraCm = sqrt(${g.eyeToFootCm.toFixed(2)}² + ${g.footToCameraCm.toFixed(2)}²)</div>
+              <div>  <strong>eyeToCameraCm = ${g.eyeToCameraCm.toFixed(2)} cm</strong></div>
+              
+              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 7: Calculate factorCameraPxCm</div>
+              <div>  factorCameraPxCm = ipdCameraPx × eyeToCameraCm</div>
+              <div>  factorCameraPxCm = ${g.ipdCameraPx.toFixed(2)} × ${g.eyeToCameraCm.toFixed(2)}</div>
+              <div style="color: #cc0000; font-weight: bold;">  ✓ page4FactorCmPx = ${g.page4FactorCmPx.toFixed(2)}</div>
+            </div>
+          </div>
+        `
+      }
+      
       feedbackDiv.innerHTML = `
         <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
-        <div style="margin-top: 10px;">Object distance calibration</div>
+        <div style="margin-top: 10px; font-weight: bold;">Object Distance Calibration Debug</div>
         <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
         <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
+        <div style="margin-top: 5px; border-top: 1px solid #eee; padding-top: 5px;">
         <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
-        <div>distance1FactorCmPx = ${distance1FactorCmPx}</div>
+          <div>distance1FactorCmPx (Page 3) = ${distance1FactorCmPx}</div>
         <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
-        <div>distance2FactorCmPx = ${distance2FactorCmPx}</div>
+          <div>distance2FactorCmPx (Page 4) = ${distance2FactorCmPx}</div>
+        </div>
+        ${geometricCalcHtml}
       `
       document.body.appendChild(feedbackDiv)
     }
@@ -5216,17 +5287,72 @@ export async function objectTest(RC, options, callback = undefined) {
 
           // Update feedback for combined measurement
           if (options.objecttestdebug && feedbackDiv) {
+            // Build geometric calculation details HTML
+            let geometricCalcHtml = ''
+            if (RC.page4GeometricCalc) {
+              const g = RC.page4GeometricCalc
+              geometricCalcHtml = `
+                <div style="margin-top: 10px; border-top: 1px solid #ccc; padding-top: 10px;">
+                  <div style="font-weight: bold; margin-bottom: 5px;">📐 Page 4 Geometric Calculation:</div>
+                  <div style="margin-left: 10px;">
+                    <div style="color: #0066cc; font-weight: bold;">Input Values:</div>
+                    <div>  objectLengthCm = ${g.objectLengthCm.toFixed(2)}</div>
+                    <div>  ipdCameraPx = ${g.ipdCameraPx.toFixed(2)}</div>
+                    <div>  nearestXYPx_left = [${g.nearestXYPx_left[0].toFixed(1)}, ${g.nearestXYPx_left[1].toFixed(1)}]</div>
+                    <div>  nearestXYPx_right = [${g.nearestXYPx_right[0].toFixed(1)}, ${g.nearestXYPx_right[1].toFixed(1)}]</div>
+                    <div>  cameraXYPx = [${g.cameraXYPx[0].toFixed(1)}, ${g.cameraXYPx[1].toFixed(1)}]</div>
+                    <div>  pointXYPx (lower right) = [${g.pointXYPx[0].toFixed(1)}, ${g.pointXYPx[1].toFixed(1)}]</div>
+                    
+                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 1: Calculate foot position (mean of left & right eye feet)</div>
+                    <div>  footXYPx = mean(nearestXYPx_left, nearestXYPx_right)</div>
+                    <div>  footXYPx = [${g.footXYPx[0].toFixed(1)}, ${g.footXYPx[1].toFixed(1)}]</div>
+                    
+                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 2: Calculate pointToFootCm</div>
+                    <div>  pointToFootCm = norm(pointXYPx - footXYPx) / pxPerCm</div>
+                    <div>  pointToFootCm = sqrt((${g.pointXYPx[0].toFixed(1)} - ${g.footXYPx[0].toFixed(1)})² + (${g.pointXYPx[1].toFixed(1)} - ${g.footXYPx[1].toFixed(1)})²) / ${(ppi / 2.54).toFixed(2)}</div>
+                    <div>  <strong>pointToFootCm = ${g.pointToFootCm.toFixed(2)} cm</strong></div>
+                    
+                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 3: Calculate footToCameraCm</div>
+                    <div>  footToCameraCm = norm(footXYPx - cameraXYPx) / pxPerCm</div>
+                    <div>  footToCameraCm = sqrt((${g.footXYPx[0].toFixed(1)} - ${g.cameraXYPx[0].toFixed(1)})² + (${g.footXYPx[1].toFixed(1)} - ${g.cameraXYPx[1].toFixed(1)})²) / ${(ppi / 2.54).toFixed(2)}</div>
+                    <div>  <strong>footToCameraCm = ${g.footToCameraCm.toFixed(2)} cm</strong></div>
+                    
+                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 4: Set eyeToPointCm = objectLengthCm</div>
+                    <div>  <strong>eyeToPointCm = ${g.eyeToPointCm.toFixed(2)} cm</strong></div>
+                    
+                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 5: Calculate eyeToFootCm (Pythagorean theorem)</div>
+                    <div>  eyeToFootCm = sqrt(eyeToPointCm² - pointToFootCm²)</div>
+                    <div>  eyeToFootCm = sqrt(${g.eyeToPointCm.toFixed(2)}² - ${g.pointToFootCm.toFixed(2)}²)</div>
+                    <div>  <strong>eyeToFootCm = ${g.eyeToFootCm.toFixed(2)} cm</strong></div>
+                    
+                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 6: Calculate eyeToCameraCm (Pythagorean theorem)</div>
+                    <div>  eyeToCameraCm = sqrt(eyeToFootCm² + footToCameraCm²)</div>
+                    <div>  eyeToCameraCm = sqrt(${g.eyeToFootCm.toFixed(2)}² + ${g.footToCameraCm.toFixed(2)}²)</div>
+                    <div>  <strong>eyeToCameraCm = ${g.eyeToCameraCm.toFixed(2)} cm</strong></div>
+                    
+                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 7: Calculate factorCameraPxCm</div>
+                    <div>  factorCameraPxCm = ipdCameraPx × eyeToCameraCm</div>
+                    <div>  factorCameraPxCm = ${g.ipdCameraPx.toFixed(2)} × ${g.eyeToCameraCm.toFixed(2)}</div>
+                    <div style="color: #cc0000; font-weight: bold;">  ✓ page4FactorCmPx = ${g.page4FactorCmPx.toFixed(2)}</div>
+                  </div>
+                </div>
+              `
+            }
+            
             feedbackDiv.innerHTML = `
                       <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
-                      <div style="margin-top: 10px;">Object distance calibration</div>
+                      <div style="margin-top: 10px; font-weight: bold;">Object + Blindspot Combined Calibration Debug</div>
                       <div>pxPerCm = ${(ppi / 2.54).toFixed(1)}</div>
                       <div>distanceObjectCm = ${data.value.toFixed(1)}</div>
+                      <div style="margin-top: 5px; border-top: 1px solid #eee; padding-top: 5px;">
                       <div>distance1InterpupillaryPx = ${faceMeshSamplesPage3.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
-                      <div>distance1FactorCmPx = ${distance1FactorCmPx}</div>
+                        <div>distance1FactorCmPx (Page 3) = ${distance1FactorCmPx}</div>
                       <div>distance2InterpupillaryPx = ${faceMeshSamplesPage4.map(sample => (isNaN(sample) ? 'NaN' : Math.round(sample))).join(', ')}</div>
-                      <div>distance2FactorCmPx = ${distance2FactorCmPx}</div>
-                      <div>blindspotCalibrationFactor = ${blindspotCalibrationFactor.toFixed(1)}</div>
+                        <div>distance2FactorCmPx (Page 4) = ${distance2FactorCmPx}</div>
+                        <div style="margin-top: 5px;">blindspotCalibrationFactor = ${blindspotCalibrationFactor.toFixed(1)}</div>
                       <div>AverageCombinedCalibrationFactor = ${medianCalibrationFactor.toFixed(1)}</div>
+                      </div>
+                      ${geometricCalcHtml}
                   `
           }
 
@@ -5765,30 +5891,12 @@ export async function objectTest(RC, options, callback = undefined) {
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
             } else {
-              // All 5 samples are valid - check tolerance before finishing
+              // All 5 samples are valid - calculate factors then check tolerance
               console.log(
-                '=== ALL 5 FACE MESH SAMPLES VALID - CHECKING TOLERANCE ===',
+                '=== ALL 5 FACE MESH SAMPLES VALID - CALCULATING FACTORS ===',
               )
 
-              // Check if the two sets of Face Mesh samples are consistent
-              const [pass, message, min, max, RMin, RMax, maxRatio] =
-                checkObjectTestTolerance(
-                  RC,
-                  faceMeshSamplesPage3,
-                  faceMeshSamplesPage4,
-                  options.calibrateTrackDistanceAllowedRatio,
-                  options.calibrateTrackDistanceAllowedRangeCm,
-                  firstMeasurement,
-                )
-              if (RC.measurementHistory && message !== 'Pass')
-                RC.measurementHistory.push(message)
-              else if (message !== 'Pass') RC.measurementHistory = [message]
-
-              if (pass) {
-                // Tolerance check passed - finish the test
-                console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
-
-                // Save successful object test calibration attempt
+              // Calculate factors BEFORE tolerance check
                 const validPage3Samples = faceMeshSamplesPage3.filter(
                   sample => !isNaN(sample),
                 )
@@ -5803,16 +5911,134 @@ export async function objectTest(RC, options, callback = undefined) {
                   ? validPage4Samples.reduce((a, b) => a + b, 0) /
                     validPage4Samples.length
                   : 0
+              
                 // Calculate separate calibration factors for page3 and page4
                 const page3FactorCmPx = page3Average * firstMeasurement
                 RC.page3FactorCmPx = page3FactorCmPx
-                const page4FactorCmPx = page4Average * firstMeasurement
+                
+                // For page 4, calculate factorCameraPxCm using new geometric formulas
+                let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
+                
+                // Calculate page4FactorCmPx using new geometry (lower right corner)
+                try {
+                  if (meshSamplesDuringPage4.length) {
+                    const mesh = await getMeshData(
+                      RC,
+                      options.calibrateTrackDistancePupil,
+                      meshSamplesDuringPage4,
+                    )
+                    if (mesh) {
+                      const { leftEye, rightEye, video, currentIPDDistance } = mesh
+                      const pxPerCm = ppi / 2.54
+                      const objectLengthCm = firstMeasurement
+                      const ipdCameraPx = currentIPDDistance
+                      
+                      // Get foot positions
+                      const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } = calculateFootXYPx(
+                        RC,
+                        video,
+                        leftEye,
+                        rightEye,
+                        pxPerCm,
+                        currentIPDDistance,
+                      )
+                      
+                      // Calculate average foot position
+                      const footXYPx = [
+                        (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
+                        (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
+                      ]
+                      
+                      // Set pointXYPx to lower right corner of screen
+                      const pointXYPx = [window.innerWidth, window.innerHeight]
+                      
+                      // Calculate distances using the new formulas
+                      const pointToFootCm = Math.hypot(
+                        pointXYPx[0] - footXYPx[0],
+                        pointXYPx[1] - footXYPx[1]
+                      ) / pxPerCm
+                      
+                      const footToCameraCm = Math.hypot(
+                        footXYPx[0] - cameraXYPx[0],
+                        footXYPx[1] - cameraXYPx[1]
+                      ) / pxPerCm
+                      
+                      const eyeToPointCm = objectLengthCm
+                      const eyeToFootCm = Math.sqrt(
+                        eyeToPointCm ** 2 - pointToFootCm ** 2
+                      )
+                      const eyeToCameraCm = Math.sqrt(
+                        eyeToFootCm ** 2 + footToCameraCm ** 2
+                      )
+                      
+                      // Calculate factorCameraPxCm using new formula
+                      page4FactorCmPx = ipdCameraPx * eyeToCameraCm
+                      
+                      // Store geometric calculation details for debugging
+                      RC.page4GeometricCalc = {
+                        objectLengthCm: objectLengthCm,
+                        ipdCameraPx: ipdCameraPx,
+                        footXYPx: footXYPx,
+                        pointXYPx: pointXYPx,
+                        cameraXYPx: cameraXYPx,
+                        pointToFootCm: pointToFootCm,
+                        footToCameraCm: footToCameraCm,
+                        eyeToPointCm: eyeToPointCm,
+                        eyeToFootCm: eyeToFootCm,
+                        eyeToCameraCm: eyeToCameraCm,
+                        page4FactorCmPx: page4FactorCmPx,
+                        nearestXYPx_left: nearestXYPx_left,
+                        nearestXYPx_right: nearestXYPx_right,
+                      }
+                      
+                      console.log('=== Page 4 Geometric Calculation ===')
+                      console.log('objectLengthCm:', objectLengthCm)
+                      console.log('ipdCameraPx:', ipdCameraPx)
+                      console.log('footXYPx:', footXYPx)
+                      console.log('pointXYPx:', pointXYPx)
+                      console.log('cameraXYPx:', cameraXYPx)
+                      console.log('pointToFootCm:', pointToFootCm)
+                      console.log('footToCameraCm:', footToCameraCm)
+                      console.log('eyeToPointCm:', eyeToPointCm)
+                      console.log('eyeToFootCm:', eyeToFootCm)
+                      console.log('eyeToCameraCm:', eyeToCameraCm)
+                      console.log('page4FactorCmPx:', page4FactorCmPx)
+                      console.log('====================================')
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error calculating page4FactorCmPx with new geometry:', error)
+                  // Fall back to simple calculation
+                  //page4FactorCmPx = page4Average * firstMeasurement
+                }
+                
                 RC.page4FactorCmPx = page4FactorCmPx
                 const averageFactorCmPx =
                   (page3FactorCmPx + page4FactorCmPx) / 2
                 RC.averageObjectTestCalibrationFactor = Math.round(
                   Math.sqrt(page3FactorCmPx * page4FactorCmPx),
                 )
+
+                // Now check tolerance with the calculated factors
+                console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')
+                const [pass, message, min, max, RMin, RMax, maxRatio] =
+                  checkObjectTestTolerance(
+                    RC,
+                    faceMeshSamplesPage3,
+                    faceMeshSamplesPage4,
+                    options.calibrateTrackDistanceAllowedRatio,
+                    options.calibrateTrackDistanceAllowedRangeCm,
+                    firstMeasurement,
+                    page3FactorCmPx,
+                    page4FactorCmPx,
+                  )
+                if (RC.measurementHistory && message !== 'Pass')
+                  RC.measurementHistory.push(message)
+                else if (message !== 'Pass') RC.measurementHistory = [message]
+
+                if (pass) {
+                  // Tolerance check passed - finish the test
+                  console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
 
                 try {
                   if (
@@ -5912,29 +6138,9 @@ export async function objectTest(RC, options, callback = undefined) {
                   '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
                 )
 
-                // Save failed object test calibration attempt
-                const validPage3Samples = faceMeshSamplesPage3.filter(
-                  sample => !isNaN(sample),
-                )
-                const validPage4Samples = faceMeshSamplesPage4.filter(
-                  sample => !isNaN(sample),
-                )
-                const page3Average = validPage3Samples.length
-                  ? validPage3Samples.reduce((a, b) => a + b, 0) /
-                    validPage3Samples.length
-                  : 0
-                const page4Average = validPage4Samples.length
-                  ? validPage4Samples.reduce((a, b) => a + b, 0) /
-                    validPage4Samples.length
-                  : 0
-                // Calculate separate calibration factors for page3 and page4
-                const page3FactorCmPx = page3Average * firstMeasurement
-                RC.page3FactorCmPx = page3FactorCmPx
-                const page4FactorCmPx = page4Average * firstMeasurement
-                RC.page4FactorCmPx = page4FactorCmPx
-                const averageFactorCmPx =
-                  (page3FactorCmPx + page4FactorCmPx) / 2
-                //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
+                // Note: validPage3Samples, validPage4Samples, page3Average, page4Average,
+                // page3FactorCmPx, page4FactorCmPx, averageFactorCmPx
+                // are already calculated above in the outer scope
 
                 try {
                   if (
@@ -6037,12 +6243,13 @@ export async function objectTest(RC, options, callback = undefined) {
                   })
                 }
 
-                // Reset to page 2 to restart object measurement
-                currentPage = 1
-                firstMeasurement = null
+                // Reset to page 3 to restart snapshots (keep same object measurement)
+                // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
+                currentPage = 2  // Will advance to page 3
+                // Keep firstMeasurement - DO NOT set to null
                 await nextPage()
 
-                // Re-add the event listener for the new page 2 instance
+                // Re-add the event listener for the new page 3 instance
                 document.addEventListener('keydown', handleKeyPress)
               }
 
@@ -6208,25 +6415,9 @@ export async function objectTest(RC, options, callback = undefined) {
         faceMeshSamplesPage4,
       )
 
-      console.log('=== CHECKING TOLERANCE BEFORE FINISHING ===')
+      console.log('=== CALCULATING FACTORS BEFORE TOLERANCE CHECK ===')
 
-      const [pass, message, min, max, RMin, RMax, maxRatio] =
-        checkObjectTestTolerance(
-          RC,
-          faceMeshSamplesPage3,
-          faceMeshSamplesPage4,
-          options.calibrateTrackDistanceAllowedRatio,
-          options.calibrateTrackDistanceAllowedRangeCm,
-          firstMeasurement,
-        )
-      if (RC.measurementHistory && message !== 'Pass')
-        RC.measurementHistory.push(message)
-      else if (message !== 'Pass') RC.measurementHistory = [message]
-
-      if (pass) {
-        console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
-
-        // Save successful object test calibration attempt (Proceed button case)
+      // Calculate factors BEFORE tolerance check (Proceed button case)
         const validPage3Samples = faceMeshSamplesPage3.filter(
           sample => !isNaN(sample),
         )
@@ -6241,11 +6432,114 @@ export async function objectTest(RC, options, callback = undefined) {
           ? validPage4Samples.reduce((a, b) => a + b, 0) /
             validPage4Samples.length
           : 0
+      
         // Calculate separate calibration factors for page3 and page4
         const page3FactorCmPx = RC.page3FactorCmPx
-        const page4FactorCmPx = page4Average * firstMeasurement
+        
+        // For page 4, calculate factorCameraPxCm using new geometric formulas
+        let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
+        
+        // Calculate page4FactorCmPx using new geometry (lower right corner)
+        try {
+          if (meshSamplesDuringPage4.length) {
+            const mesh = await getMeshData(
+              RC,
+              options.calibrateTrackDistancePupil,
+              meshSamplesDuringPage4,
+            )
+            if (mesh) {
+              const { leftEye, rightEye, video, currentIPDDistance } = mesh
+              const pxPerCm = ppi / 2.54
+              const objectLengthCm = firstMeasurement
+              const ipdCameraPx = currentIPDDistance
+              
+              // Get foot positions
+              const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } = calculateFootXYPx(
+                RC,
+                video,
+                leftEye,
+                rightEye,
+                pxPerCm,
+                currentIPDDistance,
+              )
+              
+              // Calculate average foot position
+              const footXYPx = [
+                (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
+                (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
+              ]
+              
+              // Set pointXYPx to lower right corner of screen
+              const pointXYPx = [window.innerWidth, window.innerHeight]
+              
+              // Calculate distances using the new formulas
+              const pointToFootCm = Math.hypot(
+                pointXYPx[0] - footXYPx[0],
+                pointXYPx[1] - footXYPx[1]
+              ) / pxPerCm
+              
+              const footToCameraCm = Math.hypot(
+                footXYPx[0] - cameraXYPx[0],
+                footXYPx[1] - cameraXYPx[1]
+              ) / pxPerCm
+              
+              const eyeToPointCm = objectLengthCm
+              const eyeToFootCm = Math.sqrt(
+                eyeToPointCm ** 2 - pointToFootCm ** 2
+              )
+              const eyeToCameraCm = Math.sqrt(
+                eyeToFootCm ** 2 + footToCameraCm ** 2
+              )
+              
+              // Calculate factorCameraPxCm using new formula
+              page4FactorCmPx = ipdCameraPx * eyeToCameraCm
+              
+              // Store geometric calculation details for debugging
+              RC.page4GeometricCalc = {
+                objectLengthCm: objectLengthCm,
+                ipdCameraPx: ipdCameraPx,
+                footXYPx: footXYPx,
+                pointXYPx: pointXYPx,
+                cameraXYPx: cameraXYPx,
+                pointToFootCm: pointToFootCm,
+                footToCameraCm: footToCameraCm,
+                eyeToPointCm: eyeToPointCm,
+                eyeToFootCm: eyeToFootCm,
+                eyeToCameraCm: eyeToCameraCm,
+                page4FactorCmPx: page4FactorCmPx,
+                nearestXYPx_left: nearestXYPx_left,
+                nearestXYPx_right: nearestXYPx_right,
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error calculating page4FactorCmPx with new geometry (Proceed button):', error)
+          // Fall back to simple calculation
+          //page4FactorCmPx = page4Average * firstMeasurement
+        }
+        
         const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
         //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
+
+        // Now check tolerance with the calculated factors
+        console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS (Proceed button) ===')
+        const [pass, message, min, max, RMin, RMax, maxRatio] =
+          checkObjectTestTolerance(
+            RC,
+            faceMeshSamplesPage3,
+            faceMeshSamplesPage4,
+            options.calibrateTrackDistanceAllowedRatio,
+            options.calibrateTrackDistanceAllowedRangeCm,
+            firstMeasurement,
+            page3FactorCmPx,
+            page4FactorCmPx,
+          )
+        if (RC.measurementHistory && message !== 'Pass')
+          RC.measurementHistory.push(message)
+        else if (message !== 'Pass') RC.measurementHistory = [message]
+
+        if (pass) {
+          console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
 
         try {
           if (meshSamplesDuringPage3.length && meshSamplesDuringPage4.length) {
@@ -6337,29 +6631,13 @@ export async function objectTest(RC, options, callback = undefined) {
             .replace('[[N44]]', Math.round(RMax))
         }
         console.log(
-          '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
-        )
+            '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION (Proceed button) ===',
+          )
 
-        // Save failed object test calibration attempt (Proceed button case)
-        const validPage3Samples = faceMeshSamplesPage3.filter(
-          sample => !isNaN(sample),
-        )
-        const validPage4Samples = faceMeshSamplesPage4.filter(
-          sample => !isNaN(sample),
-        )
-        const page3Average = validPage3Samples.length
-          ? validPage3Samples.reduce((a, b) => a + b, 0) /
-            validPage3Samples.length
-          : 0
-        const page4Average = validPage4Samples.length
-          ? validPage4Samples.reduce((a, b) => a + b, 0) /
-            validPage4Samples.length
-          : 0
-        // Calculate separate calibration factors for page3 and page4
-        const page3FactorCmPx = RC.page3FactorCmPx
-        const page4FactorCmPx = RC.page4FactorCmPx
-        const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
-        //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
+          // Note: validPage3Samples, validPage4Samples, page3Average, page4Average, page3FactorCmPx, page4FactorCmPx
+          // are already calculated above in the outer scope
+
+          // Save failed calibration attempt with the calculated factors
         try {
           const mesh = await getMeshData(
             RC,
@@ -6479,11 +6757,13 @@ export async function objectTest(RC, options, callback = undefined) {
           })
         }
 
-        currentPage = 1
-        firstMeasurement = null
+        // Reset to page 3 to restart snapshots (keep same object measurement)
+        // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
+        currentPage = 2  // Will advance to page 3
+        // Keep firstMeasurement - DO NOT set to null
         await nextPage()
 
-        // Re-add the event listener for page 2 after restart
+        // Re-add the event listener for page 3 after restart
         document.addEventListener('keydown', handleKeyPress)
       }
     }
@@ -6771,6 +7051,8 @@ function checkObjectTestTolerance(
   allowedRatio = 1.1,
   allowedRangeCm,
   measurementCm,
+  page3FactorCmPx = null,
+  page4FactorCmPx = null,
 ) {
   const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
   const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
@@ -6793,8 +7075,9 @@ function checkObjectTestTolerance(
     validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
 
   // Factor ratio using calibration factors F1 and F2
-  const F1 = page3Mean * measurementCm
-  const F2 = page4Mean * measurementCm
+  // Use the actual calculated factors if provided, otherwise fall back to simple calculation
+  const F1 = page3FactorCmPx !== null ? page3FactorCmPx : page3Mean * measurementCm
+  const F2 = page4FactorCmPx !== null ? page4FactorCmPx : page4Mean * measurementCm
   const ratio1 = F1 / F2
   const ratio2 = F2 / F1
   const maxRatio = Math.max(ratio1, ratio2)
@@ -6804,7 +7087,8 @@ function checkObjectTestTolerance(
   console.log('Measurement (cm):', measurementCm.toFixed(2))
   console.log('Page 3 avg FM (px):', page3Mean.toFixed(2))
   console.log('Page 4 avg FM (px):', page4Mean.toFixed(2))
-  console.log('F1, F2 (cm*px):', F1.toFixed(2), F2.toFixed(2))
+  console.log('F1 (page3FactorCmPx):', F1.toFixed(2))
+  console.log('F2 (page4FactorCmPx):', F2.toFixed(2))
   console.log('Max ratio:', maxRatio.toFixed(3))
   console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
 
