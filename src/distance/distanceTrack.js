@@ -173,7 +173,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       fullscreen: false,
       repeatTesting: 1,
       objectMeasurementCount: 2, // Number of repeated ruler measurements for object test
-      objectMeasurementConsistencyThreshold: 0.03, // 3% - measurements must be within this % to be considered consistent
+      objectMeasurementConsistencyThreshold: 1.1, // Ratio threshold - measurements must satisfy max(M1/M2, M2/M1) <= max(threshold, 1/threshold)
       sparkle: true,
       pipWidthPx:
         this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP'],

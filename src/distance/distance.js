@@ -3190,24 +3190,34 @@ function _getDistValues(dist) {
   return v
 }
 
-// Helper function to find any 2 consistent object measurements
-function findConsistentObjectPair(measurements, threshold) {
+// Helper function to check if the last 2 consecutive object measurements are consistent
+function checkLastTwoObjectMeasurements(measurements, threshold) {
+  // Need at least 2 measurements to compare
   if (measurements.length < 2) return null
 
-  for (let i = 0; i < measurements.length - 1; i++) {
-    for (let j = i + 1; j < measurements.length; j++) {
-      const val1 = measurements[i].objectLengthCm
-      const val2 = measurements[j].objectLengthCm
-      const geoMean = Math.sqrt(val1 * val2)
-      const percentDiff = Math.abs(val1 - val2) / geoMean
-
-      if (percentDiff <= threshold) {
-        return { indices: [i, j], values: [val1, val2] }
-      }
-    }
+  // Get the last two measurements
+  const lastIdx = measurements.length - 1
+  const secondLastIdx = measurements.length - 2
+  
+  const M1 = measurements[secondLastIdx].objectLengthCm
+  const M2 = measurements[lastIdx].objectLengthCm
+  
+  // Calculate max(M1/M2, M2/M1)
+  const ratio = Math.max(M1 / M2, M2 / M1)
+  
+  // Test passes if ratio <= max(threshold, 1/threshold)
+  const maxThreshold = Math.max(threshold, 1 / threshold)
+  
+  console.log(`Checking last two measurements: M1=${M1.toFixed(1)}cm, M2=${M2.toFixed(1)}cm, ratio=${ratio.toFixed(3)}, maxThreshold=${maxThreshold.toFixed(3)}`)
+  
+  if (ratio <= maxThreshold) {
+    // Found consistent last two measurements!
+    console.log('✓ Last two measurements are consistent')
+    return { indices: [secondLastIdx, lastIdx], values: [M1, M2] }
   }
-
-  return null
+  
+  console.log('✗ Last two measurements are NOT consistent')
+  return null // Last two measurements are not consistent
 }
 
 // ===================== OBJECT TEST SCHEME =====================
@@ -3346,12 +3356,60 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // --- TITLE  ---
   const title = document.createElement('h1')
-  title.innerText = phrases.RC_SetViewingDistance[RC.L]
+  // Start with regular title (no progress counter)
+  const initialTitleText = phrases.RC_SetViewingDistance?.[RC.L] || 'Set Viewing Distance'
+  title.innerText = initialTitleText
   title.style.whiteSpace = 'pre-line'
   title.style.textAlign = 'start'
   title.style.margin = '0' // Remove default margin
   title.dir = RC.LD.toLowerCase()
   titleRow.appendChild(title)
+  
+  // Helper function to update title with current progress (only for page 2)
+  const updateTitleWithProgress = () => {
+    const currentMeasurement = measurementState.currentIteration
+    const totalShown = Math.max(currentMeasurement, measurementState.totalIterations)
+    
+    const titleText = phrases.RC_distanceTrackingN?.[RC.L]
+      ?.replace('[[N1]]', currentMeasurement.toString())
+      ?.replace('[[N2]]', totalShown.toString()) ||
+      phrases.RC_SetViewingDistance[RC.L]
+    
+    title.innerText = titleText
+    console.log(`Updated title to: ${titleText}`)
+  }
+  
+  // Helper function to reset title to default (for pages other than page 2)
+  const resetTitleToDefault = () => {
+    title.innerText = phrases.RC_SetViewingDistance?.[RC.L] || 'Set Viewing Distance'
+  }
+  
+  // Helper function to update instructions based on current iteration
+  const updateInstructions = () => {
+    const minCm = options.calibrateTrackDistanceObjectMinMaxCm[0]
+    const maxCm = options.calibrateTrackDistanceObjectMinMaxCm[1]
+    const minInch = minCm / 2.54
+    const maxInch = maxCm / 2.54
+    
+    // Use different phrase for first measurement vs subsequent measurements
+    const phraseKey = measurementState.currentIteration === 1
+      ? 'RC_UseObjectToSetViewingDistancePage1&2NEW'
+      : 'RC_UseObjectToSetViewingDistancePage1&2Continue'
+    
+    const instructionText = phrases[phraseKey]?.[RC.L]
+      ?.replace('[[IN1]]', minInch.toFixed(0))
+      ?.replace('[[IN2]]', maxInch.toFixed(0))
+      ?.replace('[[CM1]]', minCm.toFixed(0))
+      ?.replace('[[CM2]]', maxCm.toFixed(0)) ||
+      phrases['RC_UseObjectToSetViewingDistancePage1&2NEW'][RC.L]
+        ?.replace('[[IN1]]', minInch.toFixed(0))
+        ?.replace('[[IN2]]', maxInch.toFixed(0))
+        ?.replace('[[CM1]]', minCm.toFixed(0))
+        ?.replace('[[CM2]]', maxCm.toFixed(0))
+    
+    instructions.innerText = instructionText
+    console.log(`Updated instructions for iteration ${measurementState.currentIteration}`)
+  }
 
   // --- UNIT SELECTION RADIO BUTTONS (FOR PAGE 2) ---
   const unitRadioContainer = document.createElement('div')
@@ -3826,8 +3884,8 @@ export async function objectTest(RC, options, callback = undefined) {
     textContainer.style.position = 'absolute'
     textContainer.style.zIndex = '15'
 
-    // Use a square-ish max width for wrapping
-    const maxWidth = 150 // Max width in pixels for wrapping
+    // Use a wider max width for wrapping (twice the original width)
+    const maxWidth = 300 // Max width in pixels for wrapping
 
     // Create simple rectangular container that wraps text
     const textBox = document.createElement('div')
@@ -4508,14 +4566,11 @@ export async function objectTest(RC, options, callback = undefined) {
     // Update the visual representation
     updateDiagonalLabels()
 
-    // Update progress in instructions
-    if (measurementState.totalIterations > 1) {
-      const progressText = ` (${measurementState.currentIteration}/${measurementState.totalIterations})`
-      const currentInstructions = instructions.innerText
-      if (!currentInstructions.includes(progressText)) {
-        instructions.innerText = currentInstructions + progressText
-      }
-    }
+    // Update title with current progress (only for page 2)
+    updateTitleWithProgress()
+    
+    // Update instructions for subsequent measurements
+    updateInstructions()
   }
 
   const showPage = async pageNumber => {
@@ -4524,6 +4579,9 @@ export async function objectTest(RC, options, callback = undefined) {
     if (pageNumber === 0) {
       // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
       console.log('=== SHOWING PAGE 0: INSTRUCTIONS ONLY ===')
+      
+      // Reset title to default (no progress counter)
+      resetTitleToDefault()
 
       // Show video on page 0
       RC.showVideo(true)
@@ -4604,6 +4662,9 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 2) {
       // ===================== PAGE 2: DIAGONAL TAPE =====================
       console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
+      
+      // Update title with progress counter (for page 2 only)
+      updateTitleWithProgress()
 
       // Hide video on page 2 (tape measurement)
       RC.showVideo(false)
@@ -4649,22 +4710,14 @@ export async function objectTest(RC, options, callback = undefined) {
       // Update all positions and colors after showing lines
       updateDiagonalLabels()
 
-      // Update instructions with combined phrase
-      const minCm = options.calibrateTrackDistanceObjectMinMaxCm[0]
-      const maxCm = options.calibrateTrackDistanceObjectMinMaxCm[1]
-      const minInch = minCm / 2.54
-      const maxInch = maxCm / 2.54
-
-      instructions.innerText = phrases[
-        'RC_UseObjectToSetViewingDistancePage1&2NEW'
-      ][RC.L]
-        .replace('[[IN1]]', minInch.toFixed(0))
-        .replace('[[IN2]]', maxInch.toFixed(0))
-        .replace('[[CM1]]', minCm.toFixed(0))
-        .replace('[[CM2]]', maxCm.toFixed(0))
+      // Update instructions based on current iteration (first vs subsequent)
+      updateInstructions()
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
+      
+      // Reset title to default (no progress counter)
+      resetTitleToDefault()
 
       // Show video on page 3
       RC.showVideo(true)
@@ -4710,6 +4763,9 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
+      
+      // Reset title to default (no progress counter)
+      resetTitleToDefault()
 
       // Show video on page 4
       RC.showVideo(true)
@@ -4861,8 +4917,8 @@ export async function objectTest(RC, options, callback = undefined) {
         return
       }
 
-      // We've done minimum N measurements - now check for consistency
-      const consistentPair = findConsistentObjectPair(
+      // We've done minimum N measurements - now check for consistency of last 2
+      const consistentPair = checkLastTwoObjectMeasurements(
         measurementState.measurements,
         options.objectMeasurementConsistencyThreshold,
       )
@@ -4924,7 +4980,52 @@ export async function objectTest(RC, options, callback = undefined) {
         )
         await showPage(3)
       } else {
-        // No consistent pair found - keep measuring
+        // No consistent pair found
+        console.log(`consistentPair is null. objectMeasurementCount=${options.objectMeasurementCount}, type=${typeof options.objectMeasurementCount}`)
+        console.log(`Number of measurements: ${measurementState.measurements.length}`)
+        
+        // If objectMeasurementCount is 2, show popup with error message
+        if (options.objectMeasurementCount === 2 && measurementState.measurements.length >= 2) {
+          // Calculate ratio for the last two measurements to show in popup
+          const lastIdx = measurementState.measurements.length - 1
+          const secondLastIdx = measurementState.measurements.length - 2
+          const M1 = measurementState.measurements[secondLastIdx].objectLengthCm
+          const M2 = measurementState.measurements[lastIdx].objectLengthCm
+          const ratio = Math.max(M1 / M2, M2 / M1)
+          
+          console.log(`///Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`)
+          console.log(`///M1=${M1}, M2=${M2}, ratio=${ratio}`)
+          
+          const errorMessage = phrases.RC_objectSizeMismatch?.[RC.L]
+            ?.replace('[[N1]]', toFixedNumber(ratio, 2).toString()) ||
+            `Measurements are inconsistent. Ratio: ${toFixedNumber(ratio, 2)}`
+          
+          // Show popup (only accept Return/Enter, not spacebar)
+          const preventSpacebar = (e) => {
+            if (e.key === ' ' || e.code === 'Space') {
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          }
+          
+          await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            html: errorMessage,
+            allowEnterKey: true,
+            confirmButtonText: phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
+            didOpen: () => {
+              // Prevent spacebar from closing the popup
+              document.addEventListener('keydown', preventSpacebar, true)
+            },
+            willClose: () => {
+              // Clean up the event listener
+              document.removeEventListener('keydown', preventSpacebar, true)
+            }
+          })
+        }
+        
+        // After popup (or if no popup), continue measuring
         measurementState.currentIteration++
         console.log('No consistent measurements found yet, continuing...')
         await resetPage2ForNextMeasurement()
@@ -6235,12 +6336,93 @@ export async function objectTest(RC, options, callback = undefined) {
                   })
                   return // Exit early to prevent the normal restart flow
                 } else {
-                  await Swal.fire({
+                  // Show popup with two buttons: Use Old Object Again or Try New Object
+                  const result = await Swal.fire({
                     ...swalInfoOptions(RC, { showIcon: false }),
                     icon: undefined,
                     html: displayMessage,
+                    showCancelButton: true,
+                    confirmButtonText: phrases.RC_UseOldObjectAgain?.[RC.L],
+                    cancelButtonText: phrases.RC_TryNewObject?.[RC.L],
                     allowEnterKey: true,
+                    allowEscapeKey: false, // Prevent ESC from dismissing
+                    allowOutsideClick: false, // Require button click
+                    reverseButtons: true, // Put confirm (Use Old Object) on the right
+                    customClass: {
+                      actions: 'rc-two-button-actions',
+                      confirmButton: 'rc-two-button-confirm',
+                      cancelButton: 'rc-two-button-cancel',
+                    },
+                    didOpen: () => {
+                      // Style buttons to be the same
+                      const confirmBtn = document.querySelector('.rc-two-button-confirm')
+                      const cancelBtn = document.querySelector('.rc-two-button-cancel')
+                      
+                      const buttonStyle = `
+                        background-color: #019267 !important;
+                        color: white !important;
+                        border: none !important;
+                        padding: 12px 24px !important;
+                        font-size: 16px !important;
+                        cursor: pointer !important;
+                        border-radius: 7px !important;
+                        min-width: 150px !important;
+                        font-weight: 700 !important;
+                      `
+                      
+                      if (confirmBtn) {
+                        confirmBtn.style.cssText = buttonStyle
+                        // Add hover effect
+                        confirmBtn.addEventListener('mouseenter', () => {
+                          confirmBtn.style.backgroundColor = '#016b4a'
+                        })
+                        confirmBtn.addEventListener('mouseleave', () => {
+                          confirmBtn.style.backgroundColor = '#019267'
+                        })
+                      }
+                      if (cancelBtn) {
+                        cancelBtn.style.cssText = buttonStyle
+                        // Add hover effect
+                        cancelBtn.addEventListener('mouseenter', () => {
+                          cancelBtn.style.backgroundColor = '#016b4a'
+                        })
+                        cancelBtn.addEventListener('mouseleave', () => {
+                          cancelBtn.style.backgroundColor = '#019267'
+                        })
+                      }
+                      
+                      // Center buttons with gap between them
+                      const actionsContainer = document.querySelector('.rc-two-button-actions')
+                      if (actionsContainer) {
+                        actionsContainer.style.cssText = `
+                          display: flex !important;
+                          justify-content: center !important;
+                          width: 100% !important;
+                          gap: 20px !important;
+                        `
+                      }
+                    }
                   })
+                  
+                  if (result.dismiss === Swal.DismissReason.cancel || !result.isConfirmed) {
+                    // User clicked "Try New Object" (cancel button) - go back to page 2
+                    console.log('User chose to try new object - returning to page 2')
+                    
+                    // Clear the saved measurement data to start fresh
+                    savedMeasurementData = null
+                    measurementState.measurements = []
+                    measurementState.currentIteration = 1
+                    measurementState.consistentPair = null
+                    
+                    // Go back to page 2 to measure new object
+                    currentPage = 1  // Will advance to page 2
+                    await nextPage()
+                    
+                    // Re-add the event listener for the new page 2 instance
+                    document.addEventListener('keydown', handleKeyPress)
+                    return
+                  }
+                  // If confirmed (Use Old Object Again), continue with existing flow below
                 }
 
                 // Reset to page 3 to restart snapshots (keep same object measurement)
@@ -6748,13 +6930,90 @@ export async function objectTest(RC, options, callback = undefined) {
           })
           return // Exit early to prevent the normal restart flow
         } else {
-          // Normal error dialog without panel return functionality
-          await Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: undefined,
-            html: displayMessage,
-            allowEnterKey: true,
-          })
+                  // Show popup with two buttons: Use Old Object Again or Try New Object
+                  const result = await Swal.fire({
+                    ...swalInfoOptions(RC, { showIcon: false }),
+                    icon: undefined,
+                    html: displayMessage,
+                    showCancelButton: true,
+                    confirmButtonText: phrases.RC_UseOldObjectAgain?.[RC.L] || 'Use Old Object Again',
+                    cancelButtonText: phrases.RC_TryNewObject?.[RC.L] || 'Try New Object',
+                    allowEnterKey: true,
+                    allowEscapeKey: false, // Prevent ESC from dismissing
+                    allowOutsideClick: false, // Require button click
+                    reverseButtons: true, // Put confirm (Use Old Object) on the right
+                    customClass: {
+                      actions: 'rc-two-button-actions',
+                      confirmButton: 'rc-two-button-confirm',
+                      cancelButton: 'rc-two-button-cancel',
+                    },
+                    didOpen: () => {
+                      // Style buttons to be the same
+                      const confirmBtn = document.querySelector('.rc-two-button-confirm')
+                      const cancelBtn = document.querySelector('.rc-two-button-cancel')
+                      
+                      const buttonStyle = `
+                        background-color: #019267 !important;
+                        color: white !important;
+                        border: none !important;
+                        padding: 12px 24px !important;
+                        font-size: 16px !important;
+                        cursor: pointer !important;
+                        border-radius: 7px !important;
+                        min-width: 150px !important;
+                        font-weight: 700 !important;
+                      `
+                      
+                      if (confirmBtn) {
+                        confirmBtn.style.cssText = buttonStyle
+                        // Add hover effect
+                        confirmBtn.addEventListener('mouseenter', () => {
+                          confirmBtn.style.backgroundColor = '#016b4a'
+                        })
+                        confirmBtn.addEventListener('mouseleave', () => {
+                          confirmBtn.style.backgroundColor = '#019267'
+                        })
+                      }
+                      if (cancelBtn) {
+                        cancelBtn.style.cssText = buttonStyle
+                        // Add hover effect
+                        cancelBtn.addEventListener('mouseenter', () => {
+                          cancelBtn.style.backgroundColor = '#016b4a'
+                        })
+                        cancelBtn.addEventListener('mouseleave', () => {
+                          cancelBtn.style.backgroundColor = '#019267'
+                        })
+                      }
+                      
+                      // Center buttons with gap between them
+                      const actionsContainer = document.querySelector('.rc-two-button-actions')
+                      if (actionsContainer) {
+                        actionsContainer.style.cssText = `
+                          display: flex !important;
+                          justify-content: center !important;
+                          width: 100% !important;
+                          gap: 20px !important;
+                        `
+                      }
+                    }
+                  })
+          
+          if (result.dismiss === Swal.DismissReason.cancel || !result.isConfirmed) {
+            // User clicked "Try New Object" (cancel button) - go back to page 2
+            console.log('User chose to try new object (Proceed button path) - returning to page 2')
+            
+            // Clear the saved measurement data to start fresh
+            savedMeasurementData = null
+            measurementState.measurements = []
+            measurementState.currentIteration = 1
+            measurementState.consistentPair = null
+            
+            // Go back to page 2 to measure new object
+            currentPage = 1  // Will advance to page 2
+            await nextPage()
+            return
+          }
+          // If confirmed (Use Old Object Again), continue with existing flow below
         }
 
         // Reset to page 3 to restart snapshots (keep same object measurement)

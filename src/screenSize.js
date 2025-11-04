@@ -1,4 +1,5 @@
 import isEqual from 'react-fast-compare'
+import Swal from 'sweetalert2'
 
 import RemoteCalibrator from './core'
 import {
@@ -22,6 +23,7 @@ import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
 import { phrases } from './i18n/schema'
 import { setUpEasyEyesKeypadHandler } from './extensions/keypadHandler'
+import { swalInfoOptions } from './components/swalOptions'
 
 RemoteCalibrator.prototype._displaySize = function (forInit = false) {
   ////
@@ -86,10 +88,10 @@ RemoteCalibrator.prototype.screenSize = function (
       fullscreen: false,
       repeatTesting: 1,
       screenSizeMeasurementCount: 2, // Number of repeated measurements
-      screenSizeConsistencyThreshold: 0.03, // 3% - measurements must be within this % to be considered consistent
+      screenSizeConsistencyThreshold: 1.03, // Ratio threshold - last two measurements must satisfy max(M1/M2, M2/M1) <= threshold
       decimalPlace: 1,
       defaultObject: 'card', // Can be card, usba, usbc
-      headline: `${phrases.RC_screenSizeTitle[this.L]}`,
+      headline: `${phrases.RC_screenSizeTitleN[this.L]}`, // Will be overridden with RC_screenSizeTitleN
       description: phrases.RC_screenSizeIntro[this.L],
       check: false,
       checkCallback: null,
@@ -107,6 +109,12 @@ RemoteCalibrator.prototype.screenSize = function (
     options.screenSizeMeasurementCount = 2
   }
   options.screenSizeMeasurementCount = Math.max(1, Math.floor(options.screenSizeMeasurementCount))
+  
+  // Set initial headline with progress indicator (1 of N)
+  options.headline = phrases.RC_screenSizeTitleN?.[this.L]
+    ?.replace('[[N1]]', '1')
+    ?.replace('[[N2]]', options.screenSizeMeasurementCount.toString()) ||
+    `${phrases.RC_screenSizeTitle[this.L]} (1/${options.screenSizeMeasurementCount})`
 
   if (!['usba', 'usbc', 'card'].includes(options.defaultObject))
     options.defaultObject = 'card'
@@ -146,44 +154,91 @@ function getSize(RC, parent, options, callback) {
   performMeasurement(RC, parent, options, callback, measurementState)
 }
 
-// Helper function to find any 2 consistent measurements
-function findConsistentPair(measurements, threshold) {
+// Helper function to check if the last 2 consecutive measurements are consistent
+function checkLastTwoMeasurements(measurements, threshold) {
   // Need at least 2 measurements to compare
   if (measurements.length < 2) return null
   
-  // Check all pairs
-  for (let i = 0; i < measurements.length - 1; i++) {
-    for (let j = i + 1; j < measurements.length; j++) {
-      const ppi1 = measurements[i].ppi
-      const ppi2 = measurements[j].ppi
-      const geoMean = Math.sqrt(ppi1 * ppi2) // Geometric mean
-      const percentDiff = Math.abs(ppi1 - ppi2) / geoMean
-      
-      if (percentDiff <= threshold) {
-        // Found a consistent pair!
-        return { indices: [i, j], ppis: [ppi1, ppi2] }
-      }
-    }
+  // Get the last two measurements
+  const lastIdx = measurements.length - 1
+  const secondLastIdx = measurements.length - 2
+  
+  const M1 = measurements[secondLastIdx].ppi
+  const M2 = measurements[lastIdx].ppi
+  
+  // Calculate max(M1/M2, M2/M1)
+  const ratio = Math.max(M1 / M2, M2 / M1)
+  
+  // Test passes if ratio <= threshold
+  if (ratio <= threshold) {
+    // Found consistent last two measurements!
+    return { indices: [secondLastIdx, lastIdx], ppis: [M1, M2] }
   }
   
-  return null // No consistent pair found
+  return null // Last two measurements are not consistent
 }
 
 function performMeasurement(RC, parent, options, callback, measurementState) {
-  // Update headline to show progress if multiple measurements
-  if (measurementState.totalIterations > 1) {
-    const progressText = `${phrases.RC_screenSizeTitle[RC.L]} (${measurementState.currentIteration}/${measurementState.totalIterations})`
-    const headlineElement = parent.querySelector('.rc-text-panel-title')
-    if (headlineElement) {
-      headlineElement.textContent = progressText
+  // Update headline to show progress dynamically as measurements continue
+  // Shows "1 of 2", "2 of 2", "3 of 3", "4 of 4", etc.
+  const currentMeasurement = measurementState.currentIteration
+  const totalShown = Math.max(currentMeasurement, measurementState.totalIterations)
+  
+  const progressText = phrases.RC_screenSizeTitleN?.[RC.L]
+    ?.replace('[[N1]]', currentMeasurement.toString())
+    ?.replace('[[N2]]', totalShown.toString()) ||
+    `${phrases.RC_screenSizeTitle[RC.L]} (${currentMeasurement}/${totalShown})`
+  
+  // Update the title element (constructed by constructInstructions)
+  const headlineElement = parent.querySelector('#instruction-title')
+  if (headlineElement) {
+    headlineElement.textContent = progressText
+    console.log(`Updated title to: ${progressText}`)
+  } else {
+    console.warn('Could not find #instruction-title element to update')
+  }
+  
+  // Update the instruction body text for iterations after the first one
+  if (measurementState.currentIteration > 1) {
+    const bodyElement = parent.querySelector('#instruction-body')
+    if (bodyElement) {
+      // For subsequent iterations, use RC_screenSizeContinue instead of RC_screenSizeIntro
+      const continueDescription = phrases.RC_screenSizeContinue?.[RC.L] || phrases.RC_screenSizeIntro[RC.L]
+      
+      // Add the object selection dropdown to the continue text
+      const fullDescription = continueDescription + `<br /><br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
+        RC.L
+      ].replace(
+        '[[xxx]]',
+        `<select id="matching-obj"><option value="usba"${
+          options.defaultObject === 'usba' ? ' selected' : ''
+        }>${phrases.RC_screenSizeUSBA[RC.L]}</option><option value="usbc"${
+          options.defaultObject === 'usbc' ? ' selected' : ''
+        }>${phrases.RC_screenSizeUSBC[RC.L]}</option><option value="card"${
+          options.defaultObject === 'card' ? ' selected' : ''
+        }>${phrases.RC_screenSizeCreditCard[RC.L]}</option></select>`,
+      )}</b>`
+      
+      bodyElement.innerHTML = fullDescription
+      console.log(`Updated body text for iteration ${measurementState.currentIteration}`)
     }
   }
 
   // Slider with random initial position (0-66% for subsequent measurements)
   const sliderElement = createSlider(parent, 0, 100)
   
-  // Set random initial size for measurements after the first one
+  // Generate random offsets ONLY for measurements after the first one
+  let randomSizeFactor = 1 // Default: no size change
+  let randomHorizontalOffset = 0 // Default: no horizontal offset
+  
   if (measurementState.currentIteration > 1) {
+    // Random size factor: between 0.5x and 2x (factor of 2 range)
+    randomSizeFactor = 0.5 + Math.random() * 1.5 // 0.5 to 2.0
+    // Random horizontal offset: between -400px and +400px (800px range)
+    // This will be applied only to the card/USB object, not the slider
+    randomHorizontalOffset = (Math.random() - 0.5) * 800 // -400 to +400
+    
+    // Set random initial slider value (this changes the progress bar fill)
     const randomValue = Math.random() * 66.67 // Random value between 0 and 66.67%
     sliderElement.value = randomValue
     setSliderStyle(sliderElement)
@@ -221,6 +276,11 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
 
   // Add all objects
   const elements = addMatchingObj(['card', 'arrow', 'usba', 'usbc'], parent)
+  
+  // Apply horizontal offset to objects after creation (only for iterations > 1)
+  if (measurementState.currentIteration > 1) {
+    setObjectsPosition(elements, sliderElement, randomHorizontalOffset)
+  }
 
   // Switch OBJ
   let currentMatchingObj = options.defaultObject // DEFAULT
@@ -239,14 +299,14 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   }
 
   const setSizes = () => {
-    setCardSizes(RC, sliderElement, elements.card, elements.arrow, arrowSizes)
-    setConnectorSizes(sliderElement, elements.usba)
-    setConnectorSizes(sliderElement, elements.usbc)
+    setCardSizes(RC, sliderElement, elements.card, elements.arrow, arrowSizes, randomSizeFactor)
+    setConnectorSizes(sliderElement, elements.usba, randomSizeFactor)
+    setConnectorSizes(sliderElement, elements.usbc, randomSizeFactor)
   }
 
   setSizes()
 
-  // Add "please measure carefully" text below slider
+  // Add "please measure carefully" text below slider (never moves horizontally)
   const measureText = document.createElement('div')
   measureText.innerText = phrases.RC_screenSizeMatters[RC.L]
   measureText.style.position = 'absolute'
@@ -276,8 +336,8 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   }
   const resizeObserver = new ResizeObserver(() => {
     setSizes()
-    setSliderPosition(sliderElement, parent)
-    setObjectsPosition(elements, sliderElement)
+    setSliderPosition(sliderElement, parent) // Slider never moves horizontally
+    setObjectsPosition(elements, sliderElement, randomHorizontalOffset) // Only objects move
     positionMeasureText() // Update text position on resize
   })
   resizeObserver.observe(parent)
@@ -379,7 +439,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
 
   // Call when SPACE pressed
   // ! RETURN & BREAK
-  const finishFunction = () => {
+  const finishFunction = async () => {
     //play stamp of approval sound
     const soundModule = require('./components/sound')
     const stampOfApprovalSound = soundModule.stampOfApprovalSound
@@ -433,9 +493,9 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
       return
     }
     
-    // We've done minimum N measurements - now check for consistency
+    // We've done minimum N measurements - now check for consistency of last 2
     if (measurementState.measurements.length > 1) {
-      const consistentPair = findConsistentPair(
+      const consistentPair = checkLastTwoMeasurements(
         measurementState.measurements, 
         options.screenSizeConsistencyThreshold
       )
@@ -467,11 +527,57 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         else safeExecuteFunc(callback, screenData)
         
         return
+      } else {
+        // Consistency check failed
+        // If screenSizeMeasurementCount is 2, show popup with error message
+        if (options.screenSizeMeasurementCount === 2) {
+          const lastIdx = measurementState.measurements.length - 1
+          const secondLastIdx = measurementState.measurements.length - 2
+          const M1 = measurementState.measurements[secondLastIdx].ppi
+          const M2 = measurementState.measurements[lastIdx].ppi
+          const ratio = Math.max(M1 / M2, M2 / M1)
+          
+          console.log(`Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Continuing to next measurement.`)
+          
+          const errorMessage = phrases.RC_objectSizeMismatch?.[RC.L]
+            ?.replace('[[N1]]', toFixedNumber(ratio, 2).toString()) ||
+            `Measurements are inconsistent. Ratio: ${toFixedNumber(ratio, 2)}`
+          
+          // Show popup (only accept Return/Enter, not spacebar)
+          const preventSpacebar = (e) => {
+            if (e.key === ' ' || e.code === 'Space') {
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          }
+          
+          await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            html: errorMessage,
+            allowEnterKey: true,
+            confirmButtonText: phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
+            didOpen: () => {
+              // Prevent spacebar from closing the popup
+              document.addEventListener('keydown', preventSpacebar, true)
+            },
+            willClose: () => {
+              // Clean up the event listener
+              document.removeEventListener('keydown', preventSpacebar, true)
+            }
+          })
+          
+          // After popup, continue to next measurement (don't reset)
+          cleanupMeasurement()
+          measurementState.currentIteration++
+          performMeasurement(RC, parent, options, callback, measurementState)
+          return
+        }
       }
     }
     
     // We've done N measurements but no consistent pair found
-    // Keep measuring until we find consistency
+    // Keep measuring until we find consistency (for screenSizeMeasurementCount !== 2)
     cleanupMeasurement()
     
     // Increment iteration counter (but not totalIterations)
@@ -559,13 +665,13 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   switchMatchingObj(currentMatchingObj, elements, setSizes)
 }
 
-const setCardSizes = (RC, slider, card, arrow, aS) => {
-  // Card
+const setCardSizes = (RC, slider, card, arrow, aS, sizeFactor = 1) => {
+  // Card - apply size factor for randomization
   const targetWidth =
-    (slider.offsetWidth - 30) *
+    ((slider.offsetWidth - 30) *
       (slider.value / 100) *
       (window.innerWidth < 480 ? 2 : 1) +
-    15
+    15) * sizeFactor
   card.style.width = `${targetWidth}px`
   // Arrow
   const cardSizes = card.getBoundingClientRect()
@@ -579,8 +685,9 @@ const setCardSizes = (RC, slider, card, arrow, aS) => {
   }
 }
 
-const setConnectorSizes = (slider, connector) => {
-  connector.style.width = `${remap(slider.value ** 1.5, 0, 1000, 50, 400)}px`
+const setConnectorSizes = (slider, connector, sizeFactor = 1) => {
+  // Apply size factor for randomization
+  connector.style.width = `${remap(slider.value ** 1.5, 0, 1000, 50, 400) * sizeFactor}px`
 }
 
 const addMatchingObj = (names, parent) => {
@@ -602,7 +709,8 @@ const addMatchingObj = (names, parent) => {
     elements[name] = element
   }
 
-  setObjectsPosition(elements, document.querySelector('#rc-size-slider'))
+  // Initial positioning without horizontal offset
+  setObjectsPosition(elements, document.querySelector('#rc-size-slider'), 0)
 
   return elements
 }
@@ -752,7 +860,25 @@ const _getScreenData = (ppi, toFixedN) => {
   return screenData
 }
 
-const setObjectsPosition = (objects, slider) => {
-  for (const i in objects)
+const setObjectsPosition = (objects, slider, horizontalOffset = 0) => {
+  for (const i in objects) {
     objects[i].style.top = `${slider.getBoundingClientRect().top + 50}px`
+    
+    // Apply horizontal offset only to card and connectors (not arrow)
+    // Also ensure the object stays within screen bounds
+    if (horizontalOffset !== 0 && (i === 'card' || i === 'usba' || i === 'usbc')) {
+      const objectRect = objects[i].getBoundingClientRect()
+      const objectWidth = objectRect.width || 0
+      const screenWidth = window.innerWidth
+      
+      // Constrain offset to keep object on screen
+      // Left edge: object should not go off left side
+      // Right edge: object should not go off right side
+      const maxLeftOffset = -objectRect.left
+      const maxRightOffset = screenWidth - objectRect.right
+      const constrainedOffset = Math.max(maxLeftOffset, Math.min(maxRightOffset, horizontalOffset))
+      
+      objects[i].style.transform = `translateX(${constrainedOffset}px)`
+    }
+  }
 }
