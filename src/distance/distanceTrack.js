@@ -213,6 +213,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       viewingDistanceWhichPoint: undefined,
       calibrateTrackDistanceBlindspotDebugging: false, // Debug option to show anatomical line and diamond center
       calibrateTrackDistanceChecking: undefined,
+      calibrateTrackDistanceShowLengthBool: false,
+      calibrateTrackDistancePupil: 'iris',
     },
     trackDistanceOptions,
   )
@@ -373,6 +375,17 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.showNearPoint = options.showNearPoint
   trackingOptions.showIrisesBool = options.showIrisesBool
   trackingOptions.showNearestPointsBool = options.showNearestPointsBool
+  trackingOptions.calibrateTrackDistanceShowLengthBool =
+    options.calibrateTrackDistanceShowLengthBool
+  trackDistanceOptions.objectMeasurementCount = options.objectMeasurementCount
+  trackingOptions.objectMeasurementConsistencyThreshold =
+    options.objectMeasurementConsistencyThreshold
+  trackingOptions.objectMeasurementCount = options.objectMeasurementCount
+  trackingOptions.objectMeasurementConsistencyThreshold =
+    options.objectMeasurementConsistencyThreshold
+  trackingOptions.objectMeasurementCount = options.objectMeasurementCount
+  trackingOptions.objectMeasurementConsistencyThreshold =
+    options.objectMeasurementConsistencyThreshold
   trackingOptions.calibrateTrackDistancePupil =
     options.calibrateTrackDistancePupil
 

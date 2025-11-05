@@ -41,6 +41,7 @@ import {
   calculateNearestPoints,
   getMeshData,
 } from './distanceTrack'
+import woodSvg from '../media/AdobeStock_1568677429.svg'
 
 export const objectLengthCmGlobal = {
   value: null,
@@ -3236,6 +3237,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== UNIT SELECTION STATE =====================
   let selectedUnit = 'inches' // Default to inches
+  const showLength = !!options.calibrateTrackDistanceShowLengthBool
 
   // ===================== MEASUREMENT STATE MANAGEMENT =====================
   const measurementState = {
@@ -3313,6 +3315,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // Get the screen's pixels per millimeter (for accurate physical placement)
   let ppi = RC.screenPpi ? RC.screenPpi.value : 96 / 25.4 // fallback: 96dpi/25.4mm
   let pxPerMm = ppi / 25.4
+  const pxPerCm = ppi / 2.54
 
   let screenWidth = window.innerWidth
   let screenHeight = window.innerHeight
@@ -3337,6 +3340,14 @@ export async function objectTest(RC, options, callback = undefined) {
   const initialRulerLengthPx = screenWidth - oneCMInPx * 2
   let endX = leftMarginPx + initialRulerLengthPx
   let endY = tapeYPosition
+
+  // Randomized interval (in cm) used only when showLength is false
+  let intervalCmCurrent = null
+  const computeNewIntervalCm = () => {
+    const screenWidthCm = screenWidth / pxPerCm
+    const r = 0.8 + 0.2 * Math.random()
+    return Math.max(0.1, (screenWidthCm - 1) * r)
+  }
 
   // --- Create the main overlay container ---
   const container = document.createElement('div')
@@ -3703,6 +3714,20 @@ export async function objectTest(RC, options, callback = undefined) {
     diagonalTape.style.transformOrigin = 'left center'
     tapeContainer.appendChild(diagonalTape)
 
+    // Apply wood texture when not showing numeric length
+    if (!showLength) {
+      // Use inline SVG as a data URL so it tiles and moves with the ruler
+      const woodDataUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(
+        woodSvg,
+      )}")`
+      diagonalTape.style.background = 'transparent'
+      diagonalTape.style.backgroundImage = woodDataUrl
+      diagonalTape.style.backgroundRepeat = 'repeat-x'
+      diagonalTape.style.backgroundPosition = '0 0'
+      // Keep natural pixel size (no scaling) to approximate "actual size"
+      diagonalTape.style.backgroundSize = 'auto'
+    }
+
     // Left handle (wider hotspot for easier clicking)
     const leftHandle = document.createElement('div')
     leftHandle.style.position = 'absolute'
@@ -3775,6 +3800,9 @@ export async function objectTest(RC, options, callback = undefined) {
     dynamicLengthLabel.style.zIndex = '20'
     dynamicLengthLabel.style.transform = 'translate(-50%, -50%)'
     tapeContainer.appendChild(dynamicLengthLabel)
+    if (!showLength) {
+      dynamicLengthLabel.style.display = 'none'
+    }
 
     // Container for ruler markings (tick marks and numbers)
     const rulerMarkingsContainer = document.createElement('div')
@@ -3789,6 +3817,9 @@ export async function objectTest(RC, options, callback = undefined) {
     arrowContainer.style.zIndex = '18'
     arrowContainer.style.pointerEvents = 'none'
     tapeContainer.appendChild(arrowContainer)
+    if (!showLength) {
+      arrowContainer.style.display = 'none'
+    }
 
     // Main arrow line
     const arrowLine = document.createElement('div')
@@ -4020,77 +4051,79 @@ export async function objectTest(RC, options, callback = undefined) {
     tape.elements.rightHandle.style.transform =
       'translate(-50%, -50%) rotate(0deg)'
 
-    // Update dynamic length label (centered on VISIBLE part of tape)
+    // Update dynamic length label and dimension line only when showing numeric length
     const objectLengthPx = distance
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
     objectLengthCmGlobal.value = objectLengthCm
     const objectLengthInches = objectLengthCm / 2.54
 
-    // Calculate visible portion of tape (constrained to screen bounds)
-    const visibleStartX = Math.max(0, startX)
-    const visibleEndX = Math.min(screenWidth, endX)
-    const visibleCenterX = (visibleStartX + visibleEndX) / 2
-    const visibleCenterY = startY + tape.dimensions.tapeWidth / 2 + 15 // Y is constant for horizontal tape
+    if (showLength) {
+      // Calculate visible portion of tape (constrained to screen bounds)
+      const visibleStartX = Math.max(0, startX)
+      const visibleEndX = Math.min(screenWidth, endX)
+      const visibleCenterX = (visibleStartX + visibleEndX) / 2
+      const visibleCenterY = startY + tape.dimensions.tapeWidth / 2 + 15 // Y is constant for horizontal tape
 
-    tape.elements.dynamicLengthLabel.style.left = `${visibleCenterX}px`
-    tape.elements.dynamicLengthLabel.style.top = `${visibleCenterY}px`
+      tape.elements.dynamicLengthLabel.style.left = `${visibleCenterX}px`
+      tape.elements.dynamicLengthLabel.style.top = `${visibleCenterY}px`
 
-    // Display length in selected unit
-    if (selectedUnit === 'inches') {
-      tape.elements.dynamicLengthLabel.innerText = `${objectLengthInches.toFixed(1)}`
-    } else {
-      tape.elements.dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)}`
+      // Display length in selected unit
+      if (selectedUnit === 'inches') {
+        tape.elements.dynamicLengthLabel.innerText = `${objectLengthInches.toFixed(1)}`
+      } else {
+        tape.elements.dynamicLengthLabel.innerText = `${objectLengthCm.toFixed(1)}`
+      }
+
+      // Auto-scale font if needed (using reduced base size)
+      const estimatedLabelWidth =
+        tape.elements.dynamicLengthLabel.innerText.length * 10 + 12
+      const visibleDistance = visibleEndX - visibleStartX
+      if (estimatedLabelWidth > visibleDistance * 0.4) {
+        const scaleFactor = (visibleDistance * 0.4) / estimatedLabelWidth
+        const newFontSize = Math.max(0.5, scaleFactor) * 1.0 // Reduced by factor of 1.4
+        tape.elements.dynamicLengthLabel.style.fontSize = `${newFontSize}rem`
+      } else {
+        tape.elements.dynamicLengthLabel.style.fontSize = '1.0rem' // Reduced by factor of 1.4
+      }
+
+      // Update double-sided arrow (positioned below the horizontal tape)
+      const arrowLength = distance // Arrow spans the full ruler length
+
+      // Position arrow below the tape (outside the tape, in the margin space)
+      // Move it further below to accommodate the larger tick numbers and be clearly separate
+      const arrowOffsetBelow = tape.dimensions.tapeWidth / 2 + 15 // Below tape edge plus gap
+
+      const arrowStartX = startX
+      const arrowStartY = startY + arrowOffsetBelow
+
+      // Position and rotate main arrow line (horizontal - angle is 0)
+      tape.elements.arrowLine.style.left = `${arrowStartX}px`
+      tape.elements.arrowLine.style.top = `${arrowStartY}px`
+      tape.elements.arrowLine.style.width = `${arrowLength}px`
+      tape.elements.arrowLine.style.transform = 'rotate(0deg)' // Horizontal
+
+      // Left arrowhead tip anchored at left edge (pointing left)
+      const leftTipX = arrowStartX
+      const leftTipY = arrowStartY
+      tape.elements.leftArrowLine1.style.left = `${leftTipX}px`
+      tape.elements.leftArrowLine1.style.top = `${leftTipY}px`
+      tape.elements.leftArrowLine1.style.transform = 'rotate(-30deg)' // Upper leg of left arrow
+
+      tape.elements.leftArrowLine2.style.left = `${leftTipX}px`
+      tape.elements.leftArrowLine2.style.top = `${leftTipY}px`
+      tape.elements.leftArrowLine2.style.transform = 'rotate(30deg)' // Lower leg of left arrow
+
+      // Right arrowhead tip anchored at right edge (pointing right)
+      const rightTipX = arrowStartX + arrowLength
+      const rightTipY = arrowStartY
+      tape.elements.rightArrowLine1.style.left = `${rightTipX}px`
+      tape.elements.rightArrowLine1.style.top = `${rightTipY}px`
+      tape.elements.rightArrowLine1.style.transform = 'rotate(150deg)' // Upper leg of right arrow
+      tape.elements.rightArrowLine2.style.left = `${rightTipX}px`
+      tape.elements.rightArrowLine2.style.top = `${rightTipY}px`
+      tape.elements.rightArrowLine2.style.transform = 'rotate(-150deg)' // Lower leg of right arrow
     }
-
-    // Auto-scale font if needed (using reduced base size)
-    const estimatedLabelWidth =
-      tape.elements.dynamicLengthLabel.innerText.length * 10 + 12
-    const visibleDistance = visibleEndX - visibleStartX
-    if (estimatedLabelWidth > visibleDistance * 0.4) {
-      const scaleFactor = (visibleDistance * 0.4) / estimatedLabelWidth
-      const newFontSize = Math.max(0.5, scaleFactor) * 1.0 // Reduced by factor of 1.4
-      tape.elements.dynamicLengthLabel.style.fontSize = `${newFontSize}rem`
-    } else {
-      tape.elements.dynamicLengthLabel.style.fontSize = '1.0rem' // Reduced by factor of 1.4
-    }
-
-    // Update double-sided arrow (positioned below the horizontal tape)
-    const arrowLength = distance // Arrow spans the full ruler length
-
-    // Position arrow below the tape (outside the tape, in the margin space)
-    // Move it further below to accommodate the larger tick numbers and be clearly separate
-    const arrowOffsetBelow = tape.dimensions.tapeWidth / 2 + 15 // Below tape edge plus gap
-
-    const arrowStartX = startX
-    const arrowStartY = startY + arrowOffsetBelow
-
-    // Position and rotate main arrow line (horizontal - angle is 0)
-    tape.elements.arrowLine.style.left = `${arrowStartX}px`
-    tape.elements.arrowLine.style.top = `${arrowStartY}px`
-    tape.elements.arrowLine.style.width = `${arrowLength}px`
-    tape.elements.arrowLine.style.transform = 'rotate(0deg)' // Horizontal
-
-    // Left arrowhead tip anchored at left edge (pointing left)
-    const leftTipX = arrowStartX
-    const leftTipY = arrowStartY
-    tape.elements.leftArrowLine1.style.left = `${leftTipX}px`
-    tape.elements.leftArrowLine1.style.top = `${leftTipY}px`
-    tape.elements.leftArrowLine1.style.transform = 'rotate(-30deg)' // Upper leg of left arrow
-
-    tape.elements.leftArrowLine2.style.left = `${leftTipX}px`
-    tape.elements.leftArrowLine2.style.top = `${leftTipY}px`
-    tape.elements.leftArrowLine2.style.transform = 'rotate(30deg)' // Lower leg of left arrow
-
-    // Right arrowhead tip anchored at right edge (pointing right)
-    const rightTipX = arrowStartX + arrowLength
-    const rightTipY = arrowStartY
-    tape.elements.rightArrowLine1.style.left = `${rightTipX}px`
-    tape.elements.rightArrowLine1.style.top = `${rightTipY}px`
-    tape.elements.rightArrowLine1.style.transform = 'rotate(150deg)' // Upper leg of right arrow
-    tape.elements.rightArrowLine2.style.left = `${rightTipX}px`
-    tape.elements.rightArrowLine2.style.top = `${rightTipY}px`
-    tape.elements.rightArrowLine2.style.transform = 'rotate(-150deg)' // Lower leg of right arrow
 
     // Update ruler markings
     updateRulerMarkings()
@@ -4104,22 +4137,29 @@ export async function objectTest(RC, options, callback = undefined) {
     const distance = tape.helpers.getDistance(startX, startY, endX, endY)
     const angle = tape.helpers.getAngle(startX, startY, endX, endY)
 
-    // Calculate length in selected unit
+    // Calculate length in cm
     const objectLengthMm = distance / pxPerMm
     const objectLengthCm = objectLengthMm / 10
     objectLengthCmGlobal.value = objectLengthCm
-    const objectLengthInches = objectLengthCm / 2.54
 
     // Determine spacing and total marks
     let spacingInPx
     let numMarks
 
-    if (selectedUnit === 'inches') {
-      spacingInPx = pxPerMm * 25.4 // 1 inch in pixels
-      numMarks = Math.ceil(objectLengthInches)
+    if (!showLength) {
+      // Use randomized large interval per measurement (kept until SPACE)
+      if (!intervalCmCurrent) intervalCmCurrent = computeNewIntervalCm()
+      spacingInPx = intervalCmCurrent * pxPerCm
+      numMarks = Math.ceil(objectLengthCm / intervalCmCurrent)
     } else {
-      spacingInPx = pxPerMm * 10 // 1 cm in pixels
-      numMarks = Math.ceil(objectLengthCm)
+      const objectLengthInches = objectLengthCm / 2.54
+      if (selectedUnit === 'inches') {
+        spacingInPx = pxPerMm * 25.4 // 1 inch in pixels
+        numMarks = Math.ceil(objectLengthInches)
+      } else {
+        spacingInPx = pxPerMm * 10 // 1 cm in pixels
+        numMarks = Math.ceil(objectLengthCm)
+      }
     }
 
     // Create tick marks and numbers
@@ -4589,6 +4629,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Update instructions for subsequent measurements
     updateInstructions()
+    // Generate a fresh interval for this measurement when not showing length
+    if (!showLength) {
+      intervalCmCurrent = computeNewIntervalCm()
+      updateRulerMarkings()
+    }
   }
 
   const showPage = async pageNumber => {
@@ -4704,8 +4749,8 @@ export async function objectTest(RC, options, callback = undefined) {
       // Update label positions
       updateDiagonalLabels()
 
-      // Show unit selection radio buttons on page 2
-      unitRadioContainer.style.display = 'flex'
+      // Show unit selection radio buttons on page 2 only when length is shown
+      unitRadioContainer.style.display = showLength ? 'flex' : 'none'
 
       // // Hide radio buttons on page 2
       // radioContainer.style.display = 'none'
@@ -4730,6 +4775,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Update instructions based on current iteration (first vs subsequent)
       updateInstructions()
+      // Initialize the randomized interval for this measurement if needed
+      if (!showLength) {
+        intervalCmCurrent = computeNewIntervalCm()
+        updateRulerMarkings()
+      }
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
