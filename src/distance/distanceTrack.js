@@ -671,7 +671,10 @@ const startIrisDrawing = RC => {
       if (sharedFaceData) {
         drawIrisAndPupil()
 
-        if (objectLengthCmGlobal.value !== null) {
+        if (
+          objectLengthCmGlobal.value !== null &&
+          trackingOptions.showNearestPointsBool
+        ) {
           const { leftEye, rightEye, video, currentIPDDistance } =
             sharedFaceData
           const eyeToPointCm = objectLengthCmGlobal.value

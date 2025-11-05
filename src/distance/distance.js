@@ -3406,6 +3406,12 @@ export async function objectTest(RC, options, callback = undefined) {
       phrases.RC_SetViewingDistance?.[RC.L] || 'Set Viewing Distance'
   }
 
+  // Track and render instructions text with custom two-column flow
+  let currentInstructionText = ''
+  let setInstructionsText = text => {
+    if (instructions) instructions.innerText = text
+  }
+
   // Helper function to update instructions based on current iteration
   const updateInstructions = () => {
     const minCm = options.calibrateTrackDistanceObjectMinMaxCm[0]
@@ -3431,7 +3437,8 @@ export async function objectTest(RC, options, callback = undefined) {
         ?.replace('[[CM1]]', minCm.toFixed(0))
         ?.replace('[[CM2]]', maxCm.toFixed(0))
 
-    instructions.innerText = instructionText
+    currentInstructionText = instructionText
+    setInstructionsText(currentInstructionText)
     console.log(
       `Updated instructions for iteration ${measurementState.currentIteration}`,
     )
@@ -3523,31 +3530,106 @@ export async function objectTest(RC, options, callback = undefined) {
   instructionsContainer.style.zIndex = '3'
   container.appendChild(instructionsContainer)
 
-  // --- LEFT/RIGHT COLUMN (instructions) ---
+  // --- INSTRUCTIONS WRAPPER (two explicit columns) ---
   const instructions = document.createElement('div')
-  instructions.style.width = '50%'
-  instructions.style.maxWidth = '50%'
-  instructions.style.paddingInlineStart = '3rem'
-  instructions.style.paddingInlineEnd = '1rem'
-  instructions.style.textAlign = 'start'
-  instructions.style.whiteSpace = 'pre-line'
-  instructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
-  instructions.style.lineHeight = '1.4'
+  instructions.style.display = 'flex'
+  instructions.style.flexDirection = 'row'
+  instructions.style.width = '100%'
+  instructions.style.maxWidth = '100%'
   instructionsContainer.appendChild(instructions)
 
-  // --- RIGHT/LEFT COLUMN (dontUseRuler placeholder) ---
+  // Left column for primary instructional text (fills up to 70vh)
+  const leftInstructions = document.createElement('div')
+  leftInstructions.style.width = '50%'
+  leftInstructions.style.maxWidth = '50%'
+  leftInstructions.style.paddingInlineStart = '3rem'
+  leftInstructions.style.paddingInlineEnd = '1rem'
+  leftInstructions.style.textAlign = 'start'
+  leftInstructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
+  leftInstructions.style.lineHeight = '1.4'
+  const leftInstructionsText = document.createElement('div')
+  leftInstructionsText.style.whiteSpace = 'pre-line'
+  leftInstructionsText.style.wordBreak = 'break-word'
+  leftInstructionsText.style.overflowWrap = 'anywhere'
+  leftInstructions.appendChild(leftInstructionsText)
+  instructions.appendChild(leftInstructions)
+
+  // Right column for overflow instructional text and follow-up content
+  const rightInstructions = document.createElement('div')
+  rightInstructions.style.width = '50%'
+  rightInstructions.style.maxWidth = '50%'
+  rightInstructions.style.paddingInlineStart = '1rem'
+  rightInstructions.style.paddingInlineEnd = '3rem'
+  rightInstructions.style.textAlign = 'start'
+  rightInstructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
+  rightInstructions.style.lineHeight = '1.4'
+  const rightInstructionsText = document.createElement('div')
+  rightInstructionsText.style.whiteSpace = 'pre-line'
+  rightInstructionsText.style.wordBreak = 'break-word'
+  rightInstructionsText.style.overflowWrap = 'anywhere'
+  rightInstructions.appendChild(rightInstructionsText)
+  instructions.appendChild(rightInstructions)
+
+  // --- FOLLOW-UP BLOCK inside the right column (dontUseRuler) ---
   const dontUseRulerColumn = document.createElement('div')
   dontUseRulerColumn.id = 'dont-use-ruler-column'
-  dontUseRulerColumn.style.width = '50%'
-  dontUseRulerColumn.style.maxWidth = '50%'
-  dontUseRulerColumn.style.paddingInlineStart = '1rem'
-  dontUseRulerColumn.style.paddingInlineEnd = '3rem'
+  dontUseRulerColumn.style.breakInside = 'avoid'
   dontUseRulerColumn.style.textAlign = 'start'
   dontUseRulerColumn.style.whiteSpace = 'pre-line'
   dontUseRulerColumn.style.fontSize = '16pt'
   dontUseRulerColumn.style.lineHeight = '1.4'
+  dontUseRulerColumn.style.marginTop = '1rem'
   dontUseRulerColumn.style.display = 'none' // Hidden by default
-  instructionsContainer.appendChild(dontUseRulerColumn)
+  // Place after instructional overflow so it appears following the text in column 2
+  rightInstructions.appendChild(dontUseRulerColumn)
+
+  // Define text flow: fill up to 70% of viewport height in left column, overflow to right
+  const splitInstructionTextByHeight = text => {
+    // Reset
+    leftInstructionsText.textContent = ''
+    rightInstructionsText.textContent = ''
+
+    // Nothing to render
+    if (!text || typeof text !== 'string') return
+
+    const threshold = Math.floor(window.innerHeight * 0.7)
+
+    // Quick path: try to fit all in left
+    leftInstructionsText.textContent = text
+    if (leftInstructionsText.scrollHeight <= threshold) {
+      return
+    }
+
+    // Need to split: keep whitespace/newlines by splitting tokens including separators
+    const tokens = text.split(/(\s+)/)
+    let low = 0
+    let high = tokens.length
+    let fitIndex = 0
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2)
+      leftInstructionsText.textContent = tokens.slice(0, mid).join('')
+      if (leftInstructionsText.scrollHeight <= threshold) {
+        fitIndex = mid
+        low = mid + 1
+      } else {
+        high = mid - 1
+      }
+    }
+
+    // Finalize columns
+    leftInstructionsText.textContent = tokens.slice(0, fitIndex).join('')
+    rightInstructionsText.textContent = tokens.slice(fitIndex).join('')
+  }
+
+  // Replace the setter to use our splitter and reflow on resize
+  const reflowInstructionsOnResize = () =>
+    splitInstructionTextByHeight(currentInstructionText)
+  setInstructionsText = text => splitInstructionTextByHeight(text)
+  // Initial flow (if text already computed)
+  setInstructionsText(currentInstructionText)
+  // Reflow on viewport changes
+  window.addEventListener('resize', reflowInstructionsOnResize)
 
   // --- RADIO BUTTON CONTAINER ---
   const radioOverlay = document.createElement('div')
@@ -5627,6 +5709,10 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Clean up resize event listener (same as checkDistance.js)
     window.removeEventListener('resize', updateDiagonalTapeOnResize)
+    // Remove instructions reflow listener if present
+    if (typeof reflowInstructionsOnResize === 'function') {
+      window.removeEventListener('resize', reflowInstructionsOnResize)
+    }
 
     // Clean up label elements explicitly
     if (leftLabel.container.parentNode) {
