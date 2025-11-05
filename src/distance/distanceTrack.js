@@ -377,18 +377,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.showNearestPointsBool = options.showNearestPointsBool
   trackingOptions.calibrateTrackDistanceShowLengthBool =
     options.calibrateTrackDistanceShowLengthBool
-  trackDistanceOptions.objectMeasurementCount = options.objectMeasurementCount
-  trackingOptions.objectMeasurementConsistencyThreshold =
-    options.objectMeasurementConsistencyThreshold
-  trackingOptions.objectMeasurementCount = options.objectMeasurementCount
-  trackingOptions.objectMeasurementConsistencyThreshold =
-    options.objectMeasurementConsistencyThreshold
   trackingOptions.objectMeasurementCount = options.objectMeasurementCount
   trackingOptions.objectMeasurementConsistencyThreshold =
     options.objectMeasurementConsistencyThreshold
   trackingOptions.calibrateTrackDistancePupil =
     options.calibrateTrackDistancePupil
-
   trackingOptions.desiredDistanceCm = options.desiredDistanceCm
   trackingOptions.desiredDistanceTolerance = options.desiredDistanceTolerance
   trackingOptions.desiredDistanceMonitor = options.desiredDistanceMonitor
