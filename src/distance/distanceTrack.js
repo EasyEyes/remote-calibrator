@@ -4,6 +4,7 @@ import {
   _getEyeToCameraCm,
   blindSpotTestNew,
   getLeftAndRightEyePointsFromMeshData,
+  objectLengthCmGlobal,
   objectTest,
   solveEyeToScreenCm,
 } from './distance'
@@ -656,6 +657,74 @@ const startIrisDrawing = RC => {
       // Use the mesh data from the shared face data (updated by distance tracking)
       if (sharedFaceData) {
         drawIrisAndPupil()
+
+        if (objectLengthCmGlobal.value !== null) {
+          const { leftEye, rightEye, video, currentIPDDistance } =
+            sharedFaceData
+          const eyeToPointCm = objectLengthCmGlobal.value
+          const ppi = RC.screenPpi
+            ? RC.screenPpi.value
+            : RC._CONST.N.PPI_DONT_USE
+          const pxPerCm = ppi / 2.54
+          const nearestPointsData = calculateNearestPoints(
+            video,
+            leftEye,
+            rightEye,
+            currentIPDDistance,
+            eyeToPointCm,
+            pxPerCm,
+            ppi,
+            RC,
+            trackingOptions,
+            0,
+            0,
+            'object',
+            1,
+            [],
+            [],
+            0,
+            0,
+            currentIPDDistance,
+            true,
+            'camera',
+          )
+
+          const footToPointCm = nearestPointsData.footToPointCm
+          const footToCameraCm = nearestPointsData.footToCameraCm
+          const eyeToFootCm = Math.sqrt(eyeToPointCm ** 2 - footToPointCm ** 2)
+          const eyeToCameraCm = Math.sqrt(
+            eyeToFootCm ** 2 + footToCameraCm ** 2,
+          )
+          const factorCameraPxCm = currentIPDDistance * eyeToCameraCm
+          _drawNearestPoints(
+            nearestPointsData.clampedNearestLeft,
+            nearestPointsData.clampedNearestRight,
+            nearestPointsData.nearestDistanceCm_left,
+            nearestPointsData.nearestDistanceCm_right,
+            trackingOptions.decimalPlace,
+            nearestPointsData.nearestEyeToWebcamDistanceCM,
+            factorCameraPxCm,
+            currentIPDDistance,
+            {
+              x: leftEye.x,
+              y: leftEye.y,
+            },
+            {
+              x: rightEye.x,
+              y: rightEye.y,
+            },
+            nearestPointsData.cameraXYPx,
+            trackingOptions.viewingDistanceWhichEye,
+            trackingOptions.viewingDistanceWhichPoint,
+            nearestPointsData.nearestXYPx,
+            nearestPointsData.distanceCm_left,
+            nearestPointsData.distanceCm_right,
+            nearestPointsData.pointXYPx,
+            eyeToPointCm,
+            eyeToFootCm,
+            currentIPDDistance,
+          )
+        }
       }
       lastIrisFrameTime = currentTime
     }
@@ -1489,6 +1558,9 @@ let ipdLabel = null
 let cameraXYPxLabel = null
 let viewingDistanceWhichEyeLabel = null
 let viewingDistanceWhichPointLabel = null
+let pointXYPxLabel = null
+let eyeToPointCmLabel = null
+let eyeToFootCmLabel = null
 let eyePointDots = { left: null, right: null }
 let pupilDots = { left: null, right: null }
 let nearestPointCoordsLabels = { left: null, right: null }
@@ -1509,6 +1581,10 @@ const _drawNearestPoints = (
   nearestXYPx,
   distanceCm_left,
   distanceCm_right,
+  pointXYPx = null,
+  eyeToPointCm = null,
+  eyeToFootCm = null,
+  ipdCameraPx = null,
 ) => {
   // Get video container and its bounding rect once for reuse
   const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -1784,47 +1860,50 @@ const _drawNearestPoints = (
   }
 
   // Add IPD label right below the factor label
-  if (averageDist !== undefined) {
-    ipdLabel = createOrUpdateElement(ipdLabel, 'rc-ipd-label', {
-      position: 'fixed',
-      fontSize: '16px',
-      color: '#333',
-      background: 'rgba(255, 255, 255, 0.9)',
-      padding: '4px 8px',
-      borderRadius: '6px',
-      border: '1px solid #ddd',
-      zIndex: '2147483646',
-      pointerEvents: 'none',
-      fontFamily: 'Arial, sans-serif',
-      fontWeight: 'normal',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    })
+  {
+    const ipdValue = ipdCameraPx ?? averageDist
+    if (ipdValue !== undefined) {
+      ipdLabel = createOrUpdateElement(ipdLabel, 'rc-ipd-label', {
+        position: 'fixed',
+        fontSize: '16px',
+        color: '#333',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        zIndex: '2147483646',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: 'normal',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      })
 
-    // Update content and position
-    ipdLabel.textContent = `ipdCameraPx: ${Math.round(averageDist)}`
+      // Update content and position
+      ipdLabel.textContent = `ipdCameraPx: ${Math.round(ipdValue)}`
 
-    // Calculate position: same horizontal position as factor label, but below it
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 80 // 80px from top (30px below the factor label)
+      // Calculate position: same horizontal position as factor label, but below it
+      let labelLeft = window.innerWidth / 2
+      const labelTop = 80 // 80px from top (30px below the factor label)
 
-    // If video container exists, offset to avoid overlap (same logic as other labels)
-    if (videoRect) {
-      const labelWidth = 80 // Approximate label width
+      // If video container exists, offset to avoid overlap (same logic as other labels)
+      if (videoRect) {
+        const labelWidth = 80 // Approximate label width
 
-      // Position to the right of the video with some padding
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+        // Position to the right of the video with some padding
+        labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
 
-      // If that would push it off screen, position to the left of video
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+        // If that would push it off screen, position to the left of video
+        if (labelLeft + labelWidth > window.innerWidth) {
+          labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+        }
       }
+
+      // Ensure label stays within screen bounds
+      labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+
+      ipdLabel.style.left = `${labelLeft}px`
+      ipdLabel.style.top = `${labelTop}px`
     }
-
-    // Ensure label stays within screen bounds
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-
-    ipdLabel.style.left = `${labelLeft}px`
-    ipdLabel.style.top = `${labelTop}px`
   }
 
   // Add cameraXYPx label right below the IPD label
@@ -2044,6 +2123,125 @@ const _drawNearestPoints = (
     viewingDistanceWhichPointLabel.style.left = `${labelLeft}px`
     viewingDistanceWhichPointLabel.style.top = `${labelTop}px`
   }
+
+  // Add pointXYPx label right below the viewingDistanceWhichPoint label
+  if (pointXYPx !== null && pointXYPx !== undefined) {
+    pointXYPxLabel = createOrUpdateElement(
+      pointXYPxLabel,
+      'rc-point-xy-px-label',
+      {
+        position: 'fixed',
+        fontSize: '16px',
+        color: '#333',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        zIndex: '2147483646',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: 'normal',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    )
+
+    // Update content and position
+    const xyText = Array.isArray(pointXYPx)
+      ? `[${Math.round(pointXYPx[0])}, ${Math.round(pointXYPx[1])}]`
+      : `${pointXYPx}`
+    pointXYPxLabel.textContent = `pointXYPx: ${xyText}`
+
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 200
+    if (videoRect) {
+      const labelWidth = 80
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+    pointXYPxLabel.style.left = `${labelLeft}px`
+    pointXYPxLabel.style.top = `${labelTop}px`
+  }
+
+  // Add eyeToPointCm label below pointXYPx
+  if (eyeToPointCm !== null && eyeToPointCm !== undefined) {
+    eyeToPointCmLabel = createOrUpdateElement(
+      eyeToPointCmLabel,
+      'rc-eye-to-point-cm-label',
+      {
+        position: 'fixed',
+        fontSize: '16px',
+        color: '#333',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        zIndex: '2147483646',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: 'normal',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    )
+
+    eyeToPointCmLabel.textContent = `eyeToPointCm: ${eyeToPointCm.toFixed(
+      decimalPlace || 1,
+    )} cm`
+
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 230
+    if (videoRect) {
+      const labelWidth = 80
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+    eyeToPointCmLabel.style.left = `${labelLeft}px`
+    eyeToPointCmLabel.style.top = `${labelTop}px`
+  }
+
+  // Add eyeToFootCm label below eyeToPointCm
+  if (eyeToFootCm !== null && eyeToFootCm !== undefined) {
+    eyeToFootCmLabel = createOrUpdateElement(
+      eyeToFootCmLabel,
+      'rc-eye-to-foot-cm-label',
+      {
+        position: 'fixed',
+        fontSize: '16px',
+        color: '#333',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        zIndex: '2147483646',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: 'normal',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    )
+
+    eyeToFootCmLabel.textContent = `eyeToFootCm: ${eyeToFootCm.toFixed(
+      decimalPlace || 1,
+    )} cm`
+
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 260
+    if (videoRect) {
+      const labelWidth = 80
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+    eyeToFootCmLabel.style.left = `${labelLeft}px`
+    eyeToFootCmLabel.style.top = `${labelTop}px`
+  }
 }
 
 const cleanUpEyePoints = () => {
@@ -2095,6 +2293,18 @@ const cleanUpEyePoints = () => {
   if (nearestPointCoordsLabels.right) {
     document.body.removeChild(nearestPointCoordsLabels.right)
     nearestPointCoordsLabels.right = null
+  }
+  if (pointXYPxLabel) {
+    document.body.removeChild(pointXYPxLabel)
+    pointXYPxLabel = null
+  }
+  if (eyeToPointCmLabel) {
+    document.body.removeChild(eyeToPointCmLabel)
+    eyeToPointCmLabel = null
+  }
+  if (eyeToFootCmLabel) {
+    document.body.removeChild(eyeToFootCmLabel)
+    eyeToFootCmLabel = null
   }
   if (pupilDots.left) {
     document.body.removeChild(pupilDots.left)
@@ -2345,6 +2555,18 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     if (nearestPointCoordsLabels.right) {
       document.body.removeChild(nearestPointCoordsLabels.right)
       nearestPointCoordsLabels.right = null
+    }
+    if (pointXYPxLabel) {
+      document.body.removeChild(pointXYPxLabel)
+      pointXYPxLabel = null
+    }
+    if (eyeToPointCmLabel) {
+      document.body.removeChild(eyeToPointCmLabel)
+      eyeToPointCmLabel = null
+    }
+    if (eyeToFootCmLabel) {
+      document.body.removeChild(eyeToFootCmLabel)
+      eyeToFootCmLabel = null
     }
 
     if (eyePointDots && eyePointDots.left) {

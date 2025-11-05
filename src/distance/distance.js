@@ -42,6 +42,9 @@ import {
   getMeshData,
 } from './distanceTrack'
 
+export const objectLengthCmGlobal = {
+  value: null,
+}
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
 let cameraShutterSound
@@ -3198,24 +3201,26 @@ function checkLastTwoObjectMeasurements(measurements, threshold) {
   // Get the last two measurements
   const lastIdx = measurements.length - 1
   const secondLastIdx = measurements.length - 2
-  
+
   const M1 = measurements[secondLastIdx].objectLengthCm
   const M2 = measurements[lastIdx].objectLengthCm
-  
+
   // Calculate max(M1/M2, M2/M1)
   const ratio = Math.max(M1 / M2, M2 / M1)
-  
+
   // Test passes if ratio <= max(threshold, 1/threshold)
   const maxThreshold = Math.max(threshold, 1 / threshold)
-  
-  console.log(`Checking last two measurements: M1=${M1.toFixed(1)}cm, M2=${M2.toFixed(1)}cm, ratio=${ratio.toFixed(3)}, maxThreshold=${maxThreshold.toFixed(3)}`)
-  
+
+  console.log(
+    `Checking last two measurements: M1=${M1.toFixed(1)}cm, M2=${M2.toFixed(1)}cm, ratio=${ratio.toFixed(3)}, maxThreshold=${maxThreshold.toFixed(3)}`,
+  )
+
   if (ratio <= maxThreshold) {
     // Found consistent last two measurements!
     console.log('✓ Last two measurements are consistent')
     return { indices: [secondLastIdx, lastIdx], values: [M1, M2] }
   }
-  
+
   console.log('✗ Last two measurements are NOT consistent')
   return null // Last two measurements are not consistent
 }
@@ -3357,58 +3362,68 @@ export async function objectTest(RC, options, callback = undefined) {
   // --- TITLE  ---
   const title = document.createElement('h1')
   // Start with regular title (no progress counter)
-  const initialTitleText = phrases.RC_SetViewingDistance?.[RC.L] || 'Set Viewing Distance'
+  const initialTitleText =
+    phrases.RC_SetViewingDistance?.[RC.L] || 'Set Viewing Distance'
   title.innerText = initialTitleText
   title.style.whiteSpace = 'pre-line'
   title.style.textAlign = 'start'
   title.style.margin = '0' // Remove default margin
   title.dir = RC.LD.toLowerCase()
   titleRow.appendChild(title)
-  
+
   // Helper function to update title with current progress (only for page 2)
   const updateTitleWithProgress = () => {
     const currentMeasurement = measurementState.currentIteration
-    const totalShown = Math.max(currentMeasurement, measurementState.totalIterations)
-    
-    const titleText = phrases.RC_distanceTrackingN?.[RC.L]
-      ?.replace('[[N1]]', currentMeasurement.toString())
-      ?.replace('[[N2]]', totalShown.toString()) ||
+    const totalShown = Math.max(
+      currentMeasurement,
+      measurementState.totalIterations,
+    )
+
+    const titleText =
+      phrases.RC_distanceTrackingN?.[RC.L]
+        ?.replace('[[N1]]', currentMeasurement.toString())
+        ?.replace('[[N2]]', totalShown.toString()) ||
       phrases.RC_SetViewingDistance[RC.L]
-    
+
     title.innerText = titleText
     console.log(`Updated title to: ${titleText}`)
   }
-  
+
   // Helper function to reset title to default (for pages other than page 2)
   const resetTitleToDefault = () => {
-    title.innerText = phrases.RC_SetViewingDistance?.[RC.L] || 'Set Viewing Distance'
+    title.innerText =
+      phrases.RC_SetViewingDistance?.[RC.L] || 'Set Viewing Distance'
   }
-  
+
   // Helper function to update instructions based on current iteration
   const updateInstructions = () => {
     const minCm = options.calibrateTrackDistanceObjectMinMaxCm[0]
     const maxCm = options.calibrateTrackDistanceObjectMinMaxCm[1]
     const minInch = minCm / 2.54
     const maxInch = maxCm / 2.54
-    
+
     // Use different phrase for first measurement vs subsequent measurements
-    const phraseKey = measurementState.currentIteration === 1
-      ? 'RC_UseObjectToSetViewingDistancePage1&2NEW'
-      : 'RC_UseObjectToSetViewingDistancePage1&2Continue'
-    
-    const instructionText = phrases[phraseKey]?.[RC.L]
-      ?.replace('[[IN1]]', minInch.toFixed(0))
-      ?.replace('[[IN2]]', maxInch.toFixed(0))
-      ?.replace('[[CM1]]', minCm.toFixed(0))
-      ?.replace('[[CM2]]', maxCm.toFixed(0)) ||
+    const phraseKey =
+      measurementState.currentIteration === 1
+        ? 'RC_UseObjectToSetViewingDistancePage1&2NEW'
+        : 'RC_UseObjectToSetViewingDistancePage1&2Continue'
+
+    const instructionText =
+      phrases[phraseKey]?.[RC.L]
+        ?.replace('[[IN1]]', minInch.toFixed(0))
+        ?.replace('[[IN2]]', maxInch.toFixed(0))
+        ?.replace('[[CM1]]', minCm.toFixed(0))
+        ?.replace('[[CM2]]', maxCm.toFixed(0)) ||
       phrases['RC_UseObjectToSetViewingDistancePage1&2NEW'][RC.L]
         ?.replace('[[IN1]]', minInch.toFixed(0))
         ?.replace('[[IN2]]', maxInch.toFixed(0))
         ?.replace('[[CM1]]', minCm.toFixed(0))
         ?.replace('[[CM2]]', maxCm.toFixed(0))
-    
+
     instructions.innerText = instructionText
-    console.log(`Updated instructions for iteration ${measurementState.currentIteration}`)
+    console.log(
+      `Updated instructions for iteration ${measurementState.currentIteration}`,
+    )
   }
 
   // --- UNIT SELECTION RADIO BUTTONS (FOR PAGE 2) ---
@@ -4009,6 +4024,7 @@ export async function objectTest(RC, options, callback = undefined) {
     const objectLengthPx = distance
     const objectLengthMm = objectLengthPx / pxPerMm
     const objectLengthCm = objectLengthMm / 10
+    objectLengthCmGlobal.value = objectLengthCm
     const objectLengthInches = objectLengthCm / 2.54
 
     // Calculate visible portion of tape (constrained to screen bounds)
@@ -4091,6 +4107,7 @@ export async function objectTest(RC, options, callback = undefined) {
     // Calculate length in selected unit
     const objectLengthMm = distance / pxPerMm
     const objectLengthCm = objectLengthMm / 10
+    objectLengthCmGlobal.value = objectLengthCm
     const objectLengthInches = objectLengthCm / 2.54
 
     // Determine spacing and total marks
@@ -4176,6 +4193,7 @@ export async function objectTest(RC, options, callback = undefined) {
     const distance = tape.helpers.getDistance(startX, startY, endX, endY)
     const objectLengthMm = distance / pxPerMm
     const objectLengthCm = objectLengthMm / 10
+    objectLengthCmGlobal.value = objectLengthCm
     const minDistanceCm = options.calibrateTrackDistanceMinCm || 10
 
     const isShort = objectLengthCm <= minDistanceCm
@@ -4568,7 +4586,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Update title with current progress (only for page 2)
     updateTitleWithProgress()
-    
+
     // Update instructions for subsequent measurements
     updateInstructions()
   }
@@ -4579,7 +4597,7 @@ export async function objectTest(RC, options, callback = undefined) {
     if (pageNumber === 0) {
       // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
       console.log('=== SHOWING PAGE 0: INSTRUCTIONS ONLY ===')
-      
+
       // Reset title to default (no progress counter)
       resetTitleToDefault()
 
@@ -4662,7 +4680,7 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 2) {
       // ===================== PAGE 2: DIAGONAL TAPE =====================
       console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
-      
+
       // Update title with progress counter (for page 2 only)
       updateTitleWithProgress()
 
@@ -4715,7 +4733,7 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
-      
+
       // Reset title to default (no progress counter)
       resetTitleToDefault()
 
@@ -4763,7 +4781,7 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
-      
+
       // Reset title to default (no progress counter)
       resetTitleToDefault()
 
@@ -4774,11 +4792,19 @@ export async function objectTest(RC, options, callback = undefined) {
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
         // Position video's lower right corner at screen's lower right corner
-        const videoWidth = parseInt(videoContainer.style.width) || parseInt(videoContainer.offsetWidth) || 0
-        const videoHeight = parseInt(videoContainer.style.height) || parseInt(videoContainer.offsetHeight) || 0
-        const viewportWidth = window.innerWidth || document.documentElement.clientWidth
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight
-        
+        const videoWidth =
+          parseInt(videoContainer.style.width) ||
+          parseInt(videoContainer.offsetWidth) ||
+          0
+        const videoHeight =
+          parseInt(videoContainer.style.height) ||
+          parseInt(videoContainer.offsetHeight) ||
+          0
+        const viewportWidth =
+          window.innerWidth || document.documentElement.clientWidth
+        const viewportHeight =
+          window.innerHeight || document.documentElement.clientHeight
+
         videoContainer.style.zIndex = 999999999999
         videoContainer.style.left = `${viewportWidth - videoWidth}px`
         videoContainer.style.top = `${viewportHeight - videoHeight}px`
@@ -4854,7 +4880,7 @@ export async function objectTest(RC, options, callback = undefined) {
       )
       const objectLengthMm = objectLengthPx / pxPerMm
       const objectLengthCm = objectLengthMm / 10
-
+      objectLengthCmGlobal.value = objectLengthCm
       // Store this measurement
       measurementState.measurements.push({
         objectLengthCm: objectLengthCm,
@@ -4981,39 +5007,52 @@ export async function objectTest(RC, options, callback = undefined) {
         await showPage(3)
       } else {
         // No consistent pair found
-        console.log(`consistentPair is null. objectMeasurementCount=${options.objectMeasurementCount}, type=${typeof options.objectMeasurementCount}`)
-        console.log(`Number of measurements: ${measurementState.measurements.length}`)
-        
+        console.log(
+          `consistentPair is null. objectMeasurementCount=${options.objectMeasurementCount}, type=${typeof options.objectMeasurementCount}`,
+        )
+        console.log(
+          `Number of measurements: ${measurementState.measurements.length}`,
+        )
+
         // If objectMeasurementCount is 2, show popup with error message
-        if (options.objectMeasurementCount === 2 && measurementState.measurements.length >= 2) {
+        if (
+          options.objectMeasurementCount === 2 &&
+          measurementState.measurements.length >= 2
+        ) {
           // Calculate ratio for the last two measurements to show in popup
           const lastIdx = measurementState.measurements.length - 1
           const secondLastIdx = measurementState.measurements.length - 2
           const M1 = measurementState.measurements[secondLastIdx].objectLengthCm
           const M2 = measurementState.measurements[lastIdx].objectLengthCm
           const ratio = Math.max(M1 / M2, M2 / M1)
-          
-          console.log(`///Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`)
+
+          console.log(
+            `///Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`,
+          )
           console.log(`///M1=${M1}, M2=${M2}, ratio=${ratio}`)
-          
-          const errorMessage = phrases.RC_objectSizeMismatch?.[RC.L]
-            ?.replace('[[N1]]', toFixedNumber(ratio, 2).toString()) ||
+
+          const errorMessage =
+            phrases.RC_objectSizeMismatch?.[RC.L]?.replace(
+              '[[N1]]',
+              toFixedNumber(ratio, 2).toString(),
+            ) ||
             `Measurements are inconsistent. Ratio: ${toFixedNumber(ratio, 2)}`
-          
+
           // Show popup (only accept Return/Enter, not spacebar)
-          const preventSpacebar = (e) => {
+          const preventSpacebar = e => {
             if (e.key === ' ' || e.code === 'Space') {
               e.preventDefault()
               e.stopPropagation()
             }
           }
-          
+
           await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
             icon: undefined,
             html: errorMessage,
             allowEnterKey: true,
-            confirmButtonText: phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
+            confirmButtonText:
+              phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
             didOpen: () => {
               // Prevent spacebar from closing the popup
               document.addEventListener('keydown', preventSpacebar, true)
@@ -5021,10 +5060,10 @@ export async function objectTest(RC, options, callback = undefined) {
             willClose: () => {
               // Clean up the event listener
               document.removeEventListener('keydown', preventSpacebar, true)
-            }
+            },
           })
         }
-        
+
         // After popup (or if no popup), continue measuring
         measurementState.currentIteration++
         console.log('No consistent measurements found yet, continuing...')
@@ -5241,7 +5280,7 @@ export async function objectTest(RC, options, callback = undefined) {
       feedbackDiv.style.maxHeight = '80vh'
       feedbackDiv.style.overflowY = 'auto'
       feedbackDiv.style.fontSize = '11px'
-      
+
       // Build geometric calculation details HTML
       let geometricCalcHtml = ''
       if (RC.page4GeometricCalc) {
@@ -5293,7 +5332,7 @@ export async function objectTest(RC, options, callback = undefined) {
           </div>
         `
       }
-      
+
       feedbackDiv.innerHTML = `
         <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
         <div style="margin-top: 10px; font-weight: bold;">Object Distance Calibration Debug</div>
@@ -5439,7 +5478,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 </div>
               `
             }
-            
+
             feedbackDiv.innerHTML = `
                       <div style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-weight: bold; font-size: 16px; color: #666;" onclick="this.parentElement.remove()">×</div>
                       <div style="margin-top: 10px; font-weight: bold;">Object + Blindspot Combined Calibration Debug</div>
@@ -5998,44 +6037,47 @@ export async function objectTest(RC, options, callback = undefined) {
               )
 
               // Calculate factors BEFORE tolerance check
-                const validPage3Samples = faceMeshSamplesPage3.filter(
-                  sample => !isNaN(sample),
-                )
-                const validPage4Samples = faceMeshSamplesPage4.filter(
-                  sample => !isNaN(sample),
-                )
-                const page3Average = validPage3Samples.length
-                  ? validPage3Samples.reduce((a, b) => a + b, 0) /
-                    validPage3Samples.length
-                  : 0
-                const page4Average = validPage4Samples.length
-                  ? validPage4Samples.reduce((a, b) => a + b, 0) /
-                    validPage4Samples.length
-                  : 0
-              
-                // Calculate separate calibration factors for page3 and page4
-                const page3FactorCmPx = page3Average * firstMeasurement
-                RC.page3FactorCmPx = page3FactorCmPx
-                
-                // For page 4, calculate factorCameraPxCm using new geometric formulas
-                let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
-                
-                // Calculate page4FactorCmPx using new geometry (lower right corner)
-                try {
-                  if (meshSamplesDuringPage4.length) {
-                    const mesh = await getMeshData(
-                      RC,
-                      options.calibrateTrackDistancePupil,
-                      meshSamplesDuringPage4,
-                    )
-                    if (mesh) {
-                      const { leftEye, rightEye, video, currentIPDDistance } = mesh
-                      const pxPerCm = ppi / 2.54
-                      const objectLengthCm = firstMeasurement
-                      const ipdCameraPx = currentIPDDistance
-                      
-                      // Get foot positions
-                      const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } = calculateFootXYPx(
+              const validPage3Samples = faceMeshSamplesPage3.filter(
+                sample => !isNaN(sample),
+              )
+              const validPage4Samples = faceMeshSamplesPage4.filter(
+                sample => !isNaN(sample),
+              )
+              const page3Average = validPage3Samples.length
+                ? validPage3Samples.reduce((a, b) => a + b, 0) /
+                  validPage3Samples.length
+                : 0
+              const page4Average = validPage4Samples.length
+                ? validPage4Samples.reduce((a, b) => a + b, 0) /
+                  validPage4Samples.length
+                : 0
+
+              // Calculate separate calibration factors for page3 and page4
+              const page3FactorCmPx = page3Average * firstMeasurement
+              RC.page3FactorCmPx = page3FactorCmPx
+
+              // For page 4, calculate factorCameraPxCm using new geometric formulas
+              let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
+
+              // Calculate page4FactorCmPx using new geometry (lower right corner)
+              try {
+                if (meshSamplesDuringPage4.length) {
+                  const mesh = await getMeshData(
+                    RC,
+                    options.calibrateTrackDistancePupil,
+                    meshSamplesDuringPage4,
+                  )
+                  if (mesh) {
+                    const { leftEye, rightEye, video, currentIPDDistance } =
+                      mesh
+                    const pxPerCm = ppi / 2.54
+                    const objectLengthCm = firstMeasurement
+                    objectLengthCmGlobal.value = objectLengthCm
+                    const ipdCameraPx = currentIPDDistance
+
+                    // Get foot positions
+                    const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } =
+                      calculateFootXYPx(
                         RC,
                         video,
                         leftEye,
@@ -6043,103 +6085,107 @@ export async function objectTest(RC, options, callback = undefined) {
                         pxPerCm,
                         currentIPDDistance,
                       )
-                      
-                      // Calculate average foot position
-                      const footXYPx = [
-                        (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
-                        (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
-                      ]
-                      
-                      // Set pointXYPx to lower right corner of screen
-                      const pointXYPx = [window.innerWidth, window.innerHeight]
-                      
-                      // Calculate distances using the new formulas
-                      const pointToFootCm = Math.hypot(
+
+                    // Calculate average foot position
+                    const footXYPx = [
+                      (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
+                      (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
+                    ]
+
+                    // Set pointXYPx to lower right corner of screen
+                    const pointXYPx = [window.innerWidth, window.innerHeight]
+
+                    // Calculate distances using the new formulas
+                    const pointToFootCm =
+                      Math.hypot(
                         pointXYPx[0] - footXYPx[0],
-                        pointXYPx[1] - footXYPx[1]
+                        pointXYPx[1] - footXYPx[1],
                       ) / pxPerCm
-                      
-                      const footToCameraCm = Math.hypot(
+
+                    const footToCameraCm =
+                      Math.hypot(
                         footXYPx[0] - cameraXYPx[0],
-                        footXYPx[1] - cameraXYPx[1]
+                        footXYPx[1] - cameraXYPx[1],
                       ) / pxPerCm
-                      
-                      const eyeToPointCm = objectLengthCm
-                      const eyeToFootCm = Math.sqrt(
-                        eyeToPointCm ** 2 - pointToFootCm ** 2
-                      )
-                      const eyeToCameraCm = Math.sqrt(
-                        eyeToFootCm ** 2 + footToCameraCm ** 2
-                      )
-                      
-                      // Calculate factorCameraPxCm using new formula
-                      page4FactorCmPx = ipdCameraPx * eyeToCameraCm
-                      
-                      // Store geometric calculation details for debugging
-                      RC.page4GeometricCalc = {
-                        objectLengthCm: objectLengthCm,
-                        ipdCameraPx: ipdCameraPx,
-                        footXYPx: footXYPx,
-                        pointXYPx: pointXYPx,
-                        cameraXYPx: cameraXYPx,
-                        pointToFootCm: pointToFootCm,
-                        footToCameraCm: footToCameraCm,
-                        eyeToPointCm: eyeToPointCm,
-                        eyeToFootCm: eyeToFootCm,
-                        eyeToCameraCm: eyeToCameraCm,
-                        page4FactorCmPx: page4FactorCmPx,
-                        nearestXYPx_left: nearestXYPx_left,
-                        nearestXYPx_right: nearestXYPx_right,
-                      }
-                      
-                      console.log('=== Page 4 Geometric Calculation ===')
-                      console.log('objectLengthCm:', objectLengthCm)
-                      console.log('ipdCameraPx:', ipdCameraPx)
-                      console.log('footXYPx:', footXYPx)
-                      console.log('pointXYPx:', pointXYPx)
-                      console.log('cameraXYPx:', cameraXYPx)
-                      console.log('pointToFootCm:', pointToFootCm)
-                      console.log('footToCameraCm:', footToCameraCm)
-                      console.log('eyeToPointCm:', eyeToPointCm)
-                      console.log('eyeToFootCm:', eyeToFootCm)
-                      console.log('eyeToCameraCm:', eyeToCameraCm)
-                      console.log('page4FactorCmPx:', page4FactorCmPx)
-                      console.log('====================================')
+
+                    const eyeToPointCm = objectLengthCm
+                    const eyeToFootCm = Math.sqrt(
+                      eyeToPointCm ** 2 - pointToFootCm ** 2,
+                    )
+                    const eyeToCameraCm = Math.sqrt(
+                      eyeToFootCm ** 2 + footToCameraCm ** 2,
+                    )
+
+                    // Calculate factorCameraPxCm using new formula
+                    page4FactorCmPx = ipdCameraPx * eyeToCameraCm
+
+                    // Store geometric calculation details for debugging
+                    RC.page4GeometricCalc = {
+                      objectLengthCm: objectLengthCm,
+                      ipdCameraPx: ipdCameraPx,
+                      footXYPx: footXYPx,
+                      pointXYPx: pointXYPx,
+                      cameraXYPx: cameraXYPx,
+                      pointToFootCm: pointToFootCm,
+                      footToCameraCm: footToCameraCm,
+                      eyeToPointCm: eyeToPointCm,
+                      eyeToFootCm: eyeToFootCm,
+                      eyeToCameraCm: eyeToCameraCm,
+                      page4FactorCmPx: page4FactorCmPx,
+                      nearestXYPx_left: nearestXYPx_left,
+                      nearestXYPx_right: nearestXYPx_right,
                     }
+
+                    console.log('=== Page 4 Geometric Calculation ===')
+                    console.log('objectLengthCm:', objectLengthCm)
+                    console.log('ipdCameraPx:', ipdCameraPx)
+                    console.log('footXYPx:', footXYPx)
+                    console.log('pointXYPx:', pointXYPx)
+                    console.log('cameraXYPx:', cameraXYPx)
+                    console.log('pointToFootCm:', pointToFootCm)
+                    console.log('footToCameraCm:', footToCameraCm)
+                    console.log('eyeToPointCm:', eyeToPointCm)
+                    console.log('eyeToFootCm:', eyeToFootCm)
+                    console.log('eyeToCameraCm:', eyeToCameraCm)
+                    console.log('page4FactorCmPx:', page4FactorCmPx)
+                    console.log('====================================')
                   }
-                } catch (error) {
-                  console.error('Error calculating page4FactorCmPx with new geometry:', error)
-                  // Fall back to simple calculation
-                  //page4FactorCmPx = page4Average * firstMeasurement
                 }
-                
-                RC.page4FactorCmPx = page4FactorCmPx
-                const averageFactorCmPx =
-                  (page3FactorCmPx + page4FactorCmPx) / 2
-                RC.averageObjectTestCalibrationFactor = Math.round(
-                  Math.sqrt(page3FactorCmPx * page4FactorCmPx),
+              } catch (error) {
+                console.error(
+                  'Error calculating page4FactorCmPx with new geometry:',
+                  error,
                 )
+                // Fall back to simple calculation
+                //page4FactorCmPx = page4Average * firstMeasurement
+              }
 
-                // Now check tolerance with the calculated factors
-                console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')
-                const [pass, message, min, max, RMin, RMax, maxRatio] =
-                  checkObjectTestTolerance(
-                    RC,
-                    faceMeshSamplesPage3,
-                    faceMeshSamplesPage4,
-                    options.calibrateTrackDistanceAllowedRatio,
-                    options.calibrateTrackDistanceAllowedRangeCm,
-                    firstMeasurement,
-                    page3FactorCmPx,
-                    page4FactorCmPx,
-                  )
-                if (RC.measurementHistory && message !== 'Pass')
-                  RC.measurementHistory.push(message)
-                else if (message !== 'Pass') RC.measurementHistory = [message]
+              RC.page4FactorCmPx = page4FactorCmPx
+              const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
+              RC.averageObjectTestCalibrationFactor = Math.round(
+                Math.sqrt(page3FactorCmPx * page4FactorCmPx),
+              )
 
-                if (pass) {
-                  // Tolerance check passed - finish the test
-                  console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
+              // Now check tolerance with the calculated factors
+              console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')
+              const [pass, message, min, max, RMin, RMax, maxRatio] =
+                checkObjectTestTolerance(
+                  RC,
+                  faceMeshSamplesPage3,
+                  faceMeshSamplesPage4,
+                  options.calibrateTrackDistanceAllowedRatio,
+                  options.calibrateTrackDistanceAllowedRangeCm,
+                  firstMeasurement,
+                  page3FactorCmPx,
+                  page4FactorCmPx,
+                )
+              if (RC.measurementHistory && message !== 'Pass')
+                RC.measurementHistory.push(message)
+              else if (message !== 'Pass') RC.measurementHistory = [message]
+
+              if (pass) {
+                // Tolerance check passed - finish the test
+                console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
 
                 try {
                   if (
@@ -6355,9 +6401,13 @@ export async function objectTest(RC, options, callback = undefined) {
                     },
                     didOpen: () => {
                       // Style buttons to be the same
-                      const confirmBtn = document.querySelector('.rc-two-button-confirm')
-                      const cancelBtn = document.querySelector('.rc-two-button-cancel')
-                      
+                      const confirmBtn = document.querySelector(
+                        '.rc-two-button-confirm',
+                      )
+                      const cancelBtn = document.querySelector(
+                        '.rc-two-button-cancel',
+                      )
+
                       const buttonStyle = `
                         background-color: #019267 !important;
                         color: white !important;
@@ -6369,7 +6419,7 @@ export async function objectTest(RC, options, callback = undefined) {
                         min-width: 150px !important;
                         font-weight: 700 !important;
                       `
-                      
+
                       if (confirmBtn) {
                         confirmBtn.style.cssText = buttonStyle
                         // Add hover effect
@@ -6390,9 +6440,11 @@ export async function objectTest(RC, options, callback = undefined) {
                           cancelBtn.style.backgroundColor = '#019267'
                         })
                       }
-                      
+
                       // Center buttons with gap between them
-                      const actionsContainer = document.querySelector('.rc-two-button-actions')
+                      const actionsContainer = document.querySelector(
+                        '.rc-two-button-actions',
+                      )
                       if (actionsContainer) {
                         actionsContainer.style.cssText = `
                           display: flex !important;
@@ -6401,23 +6453,28 @@ export async function objectTest(RC, options, callback = undefined) {
                           gap: 20px !important;
                         `
                       }
-                    }
+                    },
                   })
-                  
-                  if (result.dismiss === Swal.DismissReason.cancel || !result.isConfirmed) {
+
+                  if (
+                    result.dismiss === Swal.DismissReason.cancel ||
+                    !result.isConfirmed
+                  ) {
                     // User clicked "Try New Object" (cancel button) - go back to page 2
-                    console.log('User chose to try new object - returning to page 2')
-                    
+                    console.log(
+                      'User chose to try new object - returning to page 2',
+                    )
+
                     // Clear the saved measurement data to start fresh
                     savedMeasurementData = null
                     measurementState.measurements = []
                     measurementState.currentIteration = 1
                     measurementState.consistentPair = null
-                    
+
                     // Go back to page 2 to measure new object
-                    currentPage = 1  // Will advance to page 2
+                    currentPage = 1 // Will advance to page 2
                     await nextPage()
-                    
+
                     // Re-add the event listener for the new page 2 instance
                     document.addEventListener('keydown', handleKeyPress)
                     return
@@ -6427,7 +6484,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
                 // Reset to page 3 to restart snapshots (keep same object measurement)
                 // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
-                currentPage = 2  // Will advance to page 3
+                currentPage = 2 // Will advance to page 3
                 // Keep firstMeasurement - DO NOT set to null
                 await nextPage()
 
@@ -6600,43 +6657,45 @@ export async function objectTest(RC, options, callback = undefined) {
       console.log('=== CALCULATING FACTORS BEFORE TOLERANCE CHECK ===')
 
       // Calculate factors BEFORE tolerance check (Proceed button case)
-        const validPage3Samples = faceMeshSamplesPage3.filter(
-          sample => !isNaN(sample),
-        )
-        const validPage4Samples = faceMeshSamplesPage4.filter(
-          sample => !isNaN(sample),
-        )
-        const page3Average = validPage3Samples.length
-          ? validPage3Samples.reduce((a, b) => a + b, 0) /
-            validPage3Samples.length
-          : 0
-        const page4Average = validPage4Samples.length
-          ? validPage4Samples.reduce((a, b) => a + b, 0) /
-            validPage4Samples.length
-          : 0
-      
-        // Calculate separate calibration factors for page3 and page4
-        const page3FactorCmPx = RC.page3FactorCmPx
-        
-        // For page 4, calculate factorCameraPxCm using new geometric formulas
-        let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
-        
-        // Calculate page4FactorCmPx using new geometry (lower right corner)
-        try {
-          if (meshSamplesDuringPage4.length) {
-            const mesh = await getMeshData(
-              RC,
-              options.calibrateTrackDistancePupil,
-              meshSamplesDuringPage4,
-            )
-            if (mesh) {
-              const { leftEye, rightEye, video, currentIPDDistance } = mesh
-              const pxPerCm = ppi / 2.54
-              const objectLengthCm = firstMeasurement
-              const ipdCameraPx = currentIPDDistance
-              
-              // Get foot positions
-              const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } = calculateFootXYPx(
+      const validPage3Samples = faceMeshSamplesPage3.filter(
+        sample => !isNaN(sample),
+      )
+      const validPage4Samples = faceMeshSamplesPage4.filter(
+        sample => !isNaN(sample),
+      )
+      const page3Average = validPage3Samples.length
+        ? validPage3Samples.reduce((a, b) => a + b, 0) /
+          validPage3Samples.length
+        : 0
+      const page4Average = validPage4Samples.length
+        ? validPage4Samples.reduce((a, b) => a + b, 0) /
+          validPage4Samples.length
+        : 0
+
+      // Calculate separate calibration factors for page3 and page4
+      const page3FactorCmPx = RC.page3FactorCmPx
+
+      // For page 4, calculate factorCameraPxCm using new geometric formulas
+      let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
+
+      // Calculate page4FactorCmPx using new geometry (lower right corner)
+      try {
+        if (meshSamplesDuringPage4.length) {
+          const mesh = await getMeshData(
+            RC,
+            options.calibrateTrackDistancePupil,
+            meshSamplesDuringPage4,
+          )
+          if (mesh) {
+            const { leftEye, rightEye, video, currentIPDDistance } = mesh
+            const pxPerCm = ppi / 2.54
+            const objectLengthCm = firstMeasurement
+            objectLengthCmGlobal.value = objectLengthCm
+            const ipdCameraPx = currentIPDDistance
+
+            // Get foot positions
+            const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } =
+              calculateFootXYPx(
                 RC,
                 video,
                 leftEye,
@@ -6644,84 +6703,91 @@ export async function objectTest(RC, options, callback = undefined) {
                 pxPerCm,
                 currentIPDDistance,
               )
-              
-              // Calculate average foot position
-              const footXYPx = [
-                (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
-                (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
-              ]
-              
-              // Set pointXYPx to lower right corner of screen
-              const pointXYPx = [window.innerWidth, window.innerHeight]
-              
-              // Calculate distances using the new formulas
-              const pointToFootCm = Math.hypot(
+
+            // Calculate average foot position
+            const footXYPx = [
+              (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
+              (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
+            ]
+
+            // Set pointXYPx to lower right corner of screen
+            const pointXYPx = [window.innerWidth, window.innerHeight]
+
+            // Calculate distances using the new formulas
+            const pointToFootCm =
+              Math.hypot(
                 pointXYPx[0] - footXYPx[0],
-                pointXYPx[1] - footXYPx[1]
+                pointXYPx[1] - footXYPx[1],
               ) / pxPerCm
-              
-              const footToCameraCm = Math.hypot(
+
+            const footToCameraCm =
+              Math.hypot(
                 footXYPx[0] - cameraXYPx[0],
-                footXYPx[1] - cameraXYPx[1]
+                footXYPx[1] - cameraXYPx[1],
               ) / pxPerCm
-              
-              const eyeToPointCm = objectLengthCm
-              const eyeToFootCm = Math.sqrt(
-                eyeToPointCm ** 2 - pointToFootCm ** 2
-              )
-              const eyeToCameraCm = Math.sqrt(
-                eyeToFootCm ** 2 + footToCameraCm ** 2
-              )
-              
-              // Calculate factorCameraPxCm using new formula
-              page4FactorCmPx = ipdCameraPx * eyeToCameraCm
-              
-              // Store geometric calculation details for debugging
-              RC.page4GeometricCalc = {
-                objectLengthCm: objectLengthCm,
-                ipdCameraPx: ipdCameraPx,
-                footXYPx: footXYPx,
-                pointXYPx: pointXYPx,
-                cameraXYPx: cameraXYPx,
-                pointToFootCm: pointToFootCm,
-                footToCameraCm: footToCameraCm,
-                eyeToPointCm: eyeToPointCm,
-                eyeToFootCm: eyeToFootCm,
-                eyeToCameraCm: eyeToCameraCm,
-                page4FactorCmPx: page4FactorCmPx,
-                nearestXYPx_left: nearestXYPx_left,
-                nearestXYPx_right: nearestXYPx_right,
-              }
+
+            const eyeToPointCm = objectLengthCm
+            const eyeToFootCm = Math.sqrt(
+              eyeToPointCm ** 2 - pointToFootCm ** 2,
+            )
+            const eyeToCameraCm = Math.sqrt(
+              eyeToFootCm ** 2 + footToCameraCm ** 2,
+            )
+
+            // Calculate factorCameraPxCm using new formula
+            page4FactorCmPx = ipdCameraPx * eyeToCameraCm
+
+            // Store geometric calculation details for debugging
+            RC.page4GeometricCalc = {
+              objectLengthCm: objectLengthCm,
+              ipdCameraPx: ipdCameraPx,
+              footXYPx: footXYPx,
+              pointXYPx: pointXYPx,
+              cameraXYPx: cameraXYPx,
+              pointToFootCm: pointToFootCm,
+              footToCameraCm: footToCameraCm,
+              eyeToPointCm: eyeToPointCm,
+              eyeToFootCm: eyeToFootCm,
+              eyeToCameraCm: eyeToCameraCm,
+              page4FactorCmPx: page4FactorCmPx,
+              nearestXYPx_left: nearestXYPx_left,
+              nearestXYPx_right: nearestXYPx_right,
             }
           }
-        } catch (error) {
-          console.error('Error calculating page4FactorCmPx with new geometry (Proceed button):', error)
-          // Fall back to simple calculation
-          //page4FactorCmPx = page4Average * firstMeasurement
         }
-        
-        const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
-        //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
+      } catch (error) {
+        console.error(
+          'Error calculating page4FactorCmPx with new geometry (Proceed button):',
+          error,
+        )
+        // Fall back to simple calculation
+        //page4FactorCmPx = page4Average * firstMeasurement
+      }
 
-        // Now check tolerance with the calculated factors
-        console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS (Proceed button) ===')
-        const [pass, message, min, max, RMin, RMax, maxRatio] =
-          checkObjectTestTolerance(
-            RC,
-            faceMeshSamplesPage3,
-            faceMeshSamplesPage4,
-            options.calibrateTrackDistanceAllowedRatio,
-            options.calibrateTrackDistanceAllowedRangeCm,
-            firstMeasurement,
-            page3FactorCmPx,
-            page4FactorCmPx,
-          )
-        if (RC.measurementHistory && message !== 'Pass')
-          RC.measurementHistory.push(message)
-        else if (message !== 'Pass') RC.measurementHistory = [message]
+      const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
+      //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
 
-        if (pass) {
-          console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
+      // Now check tolerance with the calculated factors
+      console.log(
+        '=== CHECKING TOLERANCE WITH CALCULATED FACTORS (Proceed button) ===',
+      )
+      const [pass, message, min, max, RMin, RMax, maxRatio] =
+        checkObjectTestTolerance(
+          RC,
+          faceMeshSamplesPage3,
+          faceMeshSamplesPage4,
+          options.calibrateTrackDistanceAllowedRatio,
+          options.calibrateTrackDistanceAllowedRangeCm,
+          firstMeasurement,
+          page3FactorCmPx,
+          page4FactorCmPx,
+        )
+      if (RC.measurementHistory && message !== 'Pass')
+        RC.measurementHistory.push(message)
+      else if (message !== 'Pass') RC.measurementHistory = [message]
+
+      if (pass) {
+        console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
 
         try {
           if (meshSamplesDuringPage3.length && meshSamplesDuringPage4.length) {
@@ -6813,13 +6879,13 @@ export async function objectTest(RC, options, callback = undefined) {
             .replace('[[N44]]', Math.round(RMax))
         }
         console.log(
-            '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION (Proceed button) ===',
-          )
+          '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION (Proceed button) ===',
+        )
 
-          // Note: validPage3Samples, validPage4Samples, page3Average, page4Average, page3FactorCmPx, page4FactorCmPx
-          // are already calculated above in the outer scope
+        // Note: validPage3Samples, validPage4Samples, page3Average, page4Average, page3FactorCmPx, page4FactorCmPx
+        // are already calculated above in the outer scope
 
-          // Save failed calibration attempt with the calculated factors
+        // Save failed calibration attempt with the calculated factors
         try {
           const mesh = await getMeshData(
             RC,
@@ -6930,29 +6996,33 @@ export async function objectTest(RC, options, callback = undefined) {
           })
           return // Exit early to prevent the normal restart flow
         } else {
-                  // Show popup with two buttons: Use Old Object Again or Try New Object
-                  const result = await Swal.fire({
-                    ...swalInfoOptions(RC, { showIcon: false }),
-                    icon: undefined,
-                    html: displayMessage,
-                    showCancelButton: true,
-                    confirmButtonText: phrases.RC_UseOldObjectAgain?.[RC.L] || 'Use Old Object Again',
-                    cancelButtonText: phrases.RC_TryNewObject?.[RC.L] || 'Try New Object',
-                    allowEnterKey: true,
-                    allowEscapeKey: false, // Prevent ESC from dismissing
-                    allowOutsideClick: false, // Require button click
-                    reverseButtons: true, // Put confirm (Use Old Object) on the right
-                    customClass: {
-                      actions: 'rc-two-button-actions',
-                      confirmButton: 'rc-two-button-confirm',
-                      cancelButton: 'rc-two-button-cancel',
-                    },
-                    didOpen: () => {
-                      // Style buttons to be the same
-                      const confirmBtn = document.querySelector('.rc-two-button-confirm')
-                      const cancelBtn = document.querySelector('.rc-two-button-cancel')
-                      
-                      const buttonStyle = `
+          // Show popup with two buttons: Use Old Object Again or Try New Object
+          const result = await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            html: displayMessage,
+            showCancelButton: true,
+            confirmButtonText:
+              phrases.RC_UseOldObjectAgain?.[RC.L] || 'Use Old Object Again',
+            cancelButtonText:
+              phrases.RC_TryNewObject?.[RC.L] || 'Try New Object',
+            allowEnterKey: true,
+            allowEscapeKey: false, // Prevent ESC from dismissing
+            allowOutsideClick: false, // Require button click
+            reverseButtons: true, // Put confirm (Use Old Object) on the right
+            customClass: {
+              actions: 'rc-two-button-actions',
+              confirmButton: 'rc-two-button-confirm',
+              cancelButton: 'rc-two-button-cancel',
+            },
+            didOpen: () => {
+              // Style buttons to be the same
+              const confirmBtn = document.querySelector(
+                '.rc-two-button-confirm',
+              )
+              const cancelBtn = document.querySelector('.rc-two-button-cancel')
+
+              const buttonStyle = `
                         background-color: #019267 !important;
                         color: white !important;
                         border: none !important;
@@ -6963,53 +7033,60 @@ export async function objectTest(RC, options, callback = undefined) {
                         min-width: 150px !important;
                         font-weight: 700 !important;
                       `
-                      
-                      if (confirmBtn) {
-                        confirmBtn.style.cssText = buttonStyle
-                        // Add hover effect
-                        confirmBtn.addEventListener('mouseenter', () => {
-                          confirmBtn.style.backgroundColor = '#016b4a'
-                        })
-                        confirmBtn.addEventListener('mouseleave', () => {
-                          confirmBtn.style.backgroundColor = '#019267'
-                        })
-                      }
-                      if (cancelBtn) {
-                        cancelBtn.style.cssText = buttonStyle
-                        // Add hover effect
-                        cancelBtn.addEventListener('mouseenter', () => {
-                          cancelBtn.style.backgroundColor = '#016b4a'
-                        })
-                        cancelBtn.addEventListener('mouseleave', () => {
-                          cancelBtn.style.backgroundColor = '#019267'
-                        })
-                      }
-                      
-                      // Center buttons with gap between them
-                      const actionsContainer = document.querySelector('.rc-two-button-actions')
-                      if (actionsContainer) {
-                        actionsContainer.style.cssText = `
+
+              if (confirmBtn) {
+                confirmBtn.style.cssText = buttonStyle
+                // Add hover effect
+                confirmBtn.addEventListener('mouseenter', () => {
+                  confirmBtn.style.backgroundColor = '#016b4a'
+                })
+                confirmBtn.addEventListener('mouseleave', () => {
+                  confirmBtn.style.backgroundColor = '#019267'
+                })
+              }
+              if (cancelBtn) {
+                cancelBtn.style.cssText = buttonStyle
+                // Add hover effect
+                cancelBtn.addEventListener('mouseenter', () => {
+                  cancelBtn.style.backgroundColor = '#016b4a'
+                })
+                cancelBtn.addEventListener('mouseleave', () => {
+                  cancelBtn.style.backgroundColor = '#019267'
+                })
+              }
+
+              // Center buttons with gap between them
+              const actionsContainer = document.querySelector(
+                '.rc-two-button-actions',
+              )
+              if (actionsContainer) {
+                actionsContainer.style.cssText = `
                           display: flex !important;
                           justify-content: center !important;
                           width: 100% !important;
                           gap: 20px !important;
                         `
-                      }
-                    }
-                  })
-          
-          if (result.dismiss === Swal.DismissReason.cancel || !result.isConfirmed) {
+              }
+            },
+          })
+
+          if (
+            result.dismiss === Swal.DismissReason.cancel ||
+            !result.isConfirmed
+          ) {
             // User clicked "Try New Object" (cancel button) - go back to page 2
-            console.log('User chose to try new object (Proceed button path) - returning to page 2')
-            
+            console.log(
+              'User chose to try new object (Proceed button path) - returning to page 2',
+            )
+
             // Clear the saved measurement data to start fresh
             savedMeasurementData = null
             measurementState.measurements = []
             measurementState.currentIteration = 1
             measurementState.consistentPair = null
-            
+
             // Go back to page 2 to measure new object
-            currentPage = 1  // Will advance to page 2
+            currentPage = 1 // Will advance to page 2
             await nextPage()
             return
           }
@@ -7018,7 +7095,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
         // Reset to page 3 to restart snapshots (keep same object measurement)
         // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
-        currentPage = 2  // Will advance to page 3
+        currentPage = 2 // Will advance to page 3
         // Keep firstMeasurement - DO NOT set to null
         await nextPage()
 
@@ -7335,8 +7412,10 @@ function checkObjectTestTolerance(
 
   // Factor ratio using calibration factors F1 and F2
   // Use the actual calculated factors if provided, otherwise fall back to simple calculation
-  const F1 = page3FactorCmPx !== null ? page3FactorCmPx : page3Mean * measurementCm
-  const F2 = page4FactorCmPx !== null ? page4FactorCmPx : page4Mean * measurementCm
+  const F1 =
+    page3FactorCmPx !== null ? page3FactorCmPx : page3Mean * measurementCm
+  const F2 =
+    page4FactorCmPx !== null ? page4FactorCmPx : page4Mean * measurementCm
   const ratio1 = F1 / F2
   const ratio2 = F2 / F1
   const maxRatio = Math.max(ratio1, ratio2)
