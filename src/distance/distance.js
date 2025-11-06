@@ -3378,8 +3378,9 @@ export async function objectTest(RC, options, callback = undefined) {
   // --- TITLE  ---
   const title = document.createElement('h1')
   // Start with regular title (no progress counter)
-  const initialTitleText =
-    phrases.RC_distanceTrackingN?.[RC.L].replace('[[N1]]', '1').replace('[[N2]]', '2')
+  const initialTitleText = phrases.RC_distanceTrackingN?.[RC.L]
+    .replace('[[N1]]', '1')
+    .replace('[[N2]]', '2')
   title.innerText = initialTitleText
   title.style.whiteSpace = 'pre-line'
   title.style.textAlign = 'start'
@@ -3395,10 +3396,9 @@ export async function objectTest(RC, options, callback = undefined) {
       measurementState.totalIterations,
     )
 
-    const titleText =
-      phrases.RC_distanceObjectLengthN?.[RC.L]
-        ?.replace('[[N1]]', currentMeasurement.toString())
-        ?.replace('[[N2]]', totalShown.toString()) 
+    const titleText = phrases.RC_distanceObjectLengthN?.[RC.L]
+      ?.replace('[[N1]]', currentMeasurement.toString())
+      ?.replace('[[N2]]', totalShown.toString())
 
     title.innerText = titleText
     console.log(`Updated title to: ${titleText}`)
@@ -3406,8 +3406,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Helper function to reset title to default (for pages other than page 2)
   const resetTitleToDefault = () => {
-    title.innerText =
-      phrases.RC_distanceTrackingN?.[RC.L].replace('[[N1]]', '1').replace('[[N2]]', '2')
+    title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
+      .replace('[[N1]]', '1')
+      .replace('[[N2]]', '2')
   }
 
   // Track and render instructions text with custom two-column flow
@@ -3426,8 +3427,12 @@ export async function objectTest(RC, options, callback = undefined) {
     // Use different phrase for first measurement vs subsequent measurements
     const phraseKey =
       measurementState.currentIteration === 1
-        ? 'RC_UseObjectToSetViewingDistancePage1&2NEW'
-        : 'RC_UseObjectToSetViewingDistancePage1&2Continue'
+        ? showLength
+          ? 'RC_UseObjectToSetViewingDistanceTapePage1'
+          : 'RC_UseObjectToSetViewingDistanceRulerPage1'
+        : showLength
+          ? 'RC_UseObjectToSetViewingDistanceTapePage2'
+          : 'RC_UseObjectToSetViewingDistanceRulerPage2'
 
     const instructionText =
       phrases[phraseKey]?.[RC.L]
@@ -3435,7 +3440,11 @@ export async function objectTest(RC, options, callback = undefined) {
         ?.replace('[[IN2]]', maxInch.toFixed(0))
         ?.replace('[[CM1]]', minCm.toFixed(0))
         ?.replace('[[CM2]]', maxCm.toFixed(0)) ||
-      phrases['RC_UseObjectToSetViewingDistancePage1&2NEW'][RC.L]
+      phrases[
+        showLength
+          ? 'RC_UseObjectToSetViewingDistanceTapePage1'
+          : 'RC_UseObjectToSetViewingDistanceRulerPage1'
+      ][RC.L]
         ?.replace('[[IN1]]', minInch.toFixed(0))
         ?.replace('[[IN2]]', maxInch.toFixed(0))
         ?.replace('[[CM1]]', minCm.toFixed(0))
@@ -3587,7 +3596,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // Place after instructional overflow so it appears following the text in column 2
   rightInstructions.appendChild(dontUseRulerColumn)
 
-  // Define text flow: fill up to 70% of viewport height in left column, overflow to right
+  // Define text flow: fill up to 60% of viewport height in left column, overflow to right
   const splitInstructionTextByHeight = text => {
     // Reset
     leftInstructionsText.textContent = ''
@@ -3596,7 +3605,7 @@ export async function objectTest(RC, options, callback = undefined) {
     // Nothing to render
     if (!text || typeof text !== 'string') return
 
-    const threshold = Math.floor(window.innerHeight * 0.7)
+    const threshold = Math.floor(window.innerHeight * 0.6)
 
     // Quick path: try to fit all in left
     leftInstructionsText.textContent = text
@@ -3802,16 +3811,45 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Apply wood texture when not showing numeric length
     if (!showLength) {
-      // Use inline SVG as a data URL so it tiles and moves with the ruler
-      const woodDataUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(
-        woodSvg,
-      )}")`
+      // Build an adjusted wood tile: crop bottom half of the source so vertical tiling has no empty gap
+      let sourceSvg = woodSvg
+      try {
+        const pngMatch =
+          woodSvg.match(/xlink:href="([^"]+)"/) ||
+          woodSvg.match(/href="([^"]+)"/)
+        const widthMatch = woodSvg.match(/width="([\\d.]+)px"/)
+        const heightMatch = woodSvg.match(/height="([\\d.]+)px"/)
+        const originalWidth = widthMatch
+          ? Math.round(parseFloat(widthMatch[1]))
+          : 6000
+        const originalHeight = heightMatch
+          ? Math.round(parseFloat(heightMatch[1]))
+          : 3000
+        const croppedHeight = Math.max(1, Math.round(originalHeight / 2))
+        if (pngMatch && pngMatch[1]) {
+          const pngHref = pngMatch[1]
+          sourceSvg =
+            `<svg xmlns="http://www.w3.org/2000/svg" ` +
+            `xmlns:xlink="http://www.w3.org/1999/xlink" ` +
+            `width="${originalWidth}px" height="${croppedHeight}px" ` +
+            `viewBox="0 0 ${originalWidth} ${croppedHeight}">` +
+            `<image xlink:href="${pngHref}" x="0" y="0" ` +
+            `width="${originalWidth}" height="${originalHeight}" />` +
+            `</svg>`
+        }
+      } catch (e) {
+        // Fall back to original woodSvg if parsing fails
+        sourceSvg = woodSvg
+      }
+
+      // Use inline SVG (cropped) as a data URL so it tiles and moves with the ruler
+      const woodDataUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(sourceSvg)}")`
       diagonalTape.style.background = 'transparent'
       diagonalTape.style.backgroundImage = woodDataUrl
-      diagonalTape.style.backgroundRepeat = 'repeat-x'
+      diagonalTape.style.backgroundRepeat = 'repeat'
       diagonalTape.style.backgroundPosition = '0 0'
-      // Keep natural pixel size (no scaling) to approximate "actual size"
-      diagonalTape.style.backgroundSize = 'auto'
+      // Make wood grain larger by mapping one tile to the tape height
+      diagonalTape.style.backgroundSize = `auto ${Math.round(tapeWidth)}px`
     }
 
     // Left handle (wider hotspot for easier clicking)
@@ -4874,10 +4912,9 @@ export async function objectTest(RC, options, callback = undefined) {
       viewingDistanceMeasurementCount++
 
       // Set title with dynamic progress counter
-      title.innerText =
-        phrases.RC_distanceTrackingN?.[RC.L]
-          ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
-          ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+      title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
+        ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
+        ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
 
       console.log(
         `Page 3 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
@@ -4932,10 +4969,9 @@ export async function objectTest(RC, options, callback = undefined) {
       viewingDistanceMeasurementCount++
 
       // Set title with dynamic progress counter
-      title.innerText =
-        phrases.RC_distanceTrackingN?.[RC.L]
-          ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
-          ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+      title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
+        ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
+        ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
 
       console.log(
         `Page 4 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
@@ -5180,7 +5216,8 @@ export async function objectTest(RC, options, callback = undefined) {
           const secondLastIdx = measurementState.measurements.length - 2
           const M1 = measurementState.measurements[secondLastIdx].objectLengthCm
           const M2 = measurementState.measurements[lastIdx].objectLengthCm
-          const ratio = Math.max(M1 / M2, M2 / M1)
+          const ratio = M1 / M2
+          // Math.max(M1 / M2, M2 / M1)
 
           console.log(
             `///Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`,
@@ -6648,7 +6685,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
                 // Reset to page 3 to restart snapshots (keep same object measurement)
                 // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
-                
+
                 // Increment expected total by 2 (one more page 3/4 cycle)
                 viewingDistanceTotalExpected += 2
                 console.log(
@@ -7270,7 +7307,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
         // Reset to page 3 to restart snapshots (keep same object measurement)
         // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
-        
+
         // Increment expected total by 2 (one more page 3/4 cycle)
         viewingDistanceTotalExpected += 2
         console.log(
