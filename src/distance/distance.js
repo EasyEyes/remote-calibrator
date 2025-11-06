@@ -3250,6 +3250,11 @@ export async function objectTest(RC, options, callback = undefined) {
     consistentPair: null,
   }
 
+  // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
+  // Track page 3/4 measurement cycles (for dynamic title counter)
+  let viewingDistanceMeasurementCount = 0 // Total number of page 3/4 cycles completed
+  let viewingDistanceTotalExpected = 2 // Expected total (starts at 2, increments by 2 on retry)
+
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   // Arrays to store 5 samples per page for calibration
   let faceMeshSamplesPage3 = []
@@ -3374,7 +3379,7 @@ export async function objectTest(RC, options, callback = undefined) {
   const title = document.createElement('h1')
   // Start with regular title (no progress counter)
   const initialTitleText =
-    phrases.RC_SetViewingDistance?.[RC.L] || 'Set Viewing Distance'
+    phrases.RC_distanceTrackingN?.[RC.L].replace('[[N1]]', '1').replace('[[N2]]', '2')
   title.innerText = initialTitleText
   title.style.whiteSpace = 'pre-line'
   title.style.textAlign = 'start'
@@ -3391,10 +3396,9 @@ export async function objectTest(RC, options, callback = undefined) {
     )
 
     const titleText =
-      phrases.RC_distanceTrackingN?.[RC.L]
+      phrases.RC_distanceObjectLengthN?.[RC.L]
         ?.replace('[[N1]]', currentMeasurement.toString())
-        ?.replace('[[N2]]', totalShown.toString()) ||
-      phrases.RC_SetViewingDistance[RC.L]
+        ?.replace('[[N2]]', totalShown.toString()) 
 
     title.innerText = titleText
     console.log(`Updated title to: ${titleText}`)
@@ -3403,7 +3407,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // Helper function to reset title to default (for pages other than page 2)
   const resetTitleToDefault = () => {
     title.innerText =
-      phrases.RC_SetViewingDistance?.[RC.L] || 'Set Viewing Distance'
+      phrases.RC_distanceTrackingN?.[RC.L].replace('[[N1]]', '1').replace('[[N2]]', '2')
   }
 
   // Track and render instructions text with custom two-column flow
@@ -4866,8 +4870,18 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
 
-      // Reset title to default (no progress counter)
-      resetTitleToDefault()
+      // Increment measurement count for page 3
+      viewingDistanceMeasurementCount++
+
+      // Set title with dynamic progress counter
+      title.innerText =
+        phrases.RC_distanceTrackingN?.[RC.L]
+          ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
+          ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+
+      console.log(
+        `Page 3 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
+      )
 
       // Show video on page 3
       RC.showVideo(true)
@@ -4914,8 +4928,18 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
 
-      // Reset title to default (no progress counter)
-      resetTitleToDefault()
+      // Increment measurement count for page 4
+      viewingDistanceMeasurementCount++
+
+      // Set title with dynamic progress counter
+      title.innerText =
+        phrases.RC_distanceTrackingN?.[RC.L]
+          ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
+          ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+
+      console.log(
+        `Page 4 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
+      )
 
       // Show video on page 4
       RC.showVideo(true)
@@ -6607,6 +6631,10 @@ export async function objectTest(RC, options, callback = undefined) {
                     measurementState.currentIteration = 1
                     measurementState.consistentPair = null
 
+                    // Reset viewing distance counters for fresh start
+                    viewingDistanceMeasurementCount = 0
+                    viewingDistanceTotalExpected = 2
+
                     // Go back to page 2 to measure new object
                     currentPage = 1 // Will advance to page 2
                     await nextPage()
@@ -6620,6 +6648,13 @@ export async function objectTest(RC, options, callback = undefined) {
 
                 // Reset to page 3 to restart snapshots (keep same object measurement)
                 // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
+                
+                // Increment expected total by 2 (one more page 3/4 cycle)
+                viewingDistanceTotalExpected += 2
+                console.log(
+                  `Retrying with same object. Expected total now: ${viewingDistanceTotalExpected}`,
+                )
+
                 currentPage = 2 // Will advance to page 3
                 // Keep firstMeasurement - DO NOT set to null
                 await nextPage()
@@ -7221,6 +7256,10 @@ export async function objectTest(RC, options, callback = undefined) {
             measurementState.currentIteration = 1
             measurementState.consistentPair = null
 
+            // Reset viewing distance counters for fresh start
+            viewingDistanceMeasurementCount = 0
+            viewingDistanceTotalExpected = 2
+
             // Go back to page 2 to measure new object
             currentPage = 1 // Will advance to page 2
             await nextPage()
@@ -7231,6 +7270,13 @@ export async function objectTest(RC, options, callback = undefined) {
 
         // Reset to page 3 to restart snapshots (keep same object measurement)
         // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
+        
+        // Increment expected total by 2 (one more page 3/4 cycle)
+        viewingDistanceTotalExpected += 2
+        console.log(
+          `Retrying with same object (Proceed button path). Expected total now: ${viewingDistanceTotalExpected}`,
+        )
+
         currentPage = 2 // Will advance to page 3
         // Keep firstMeasurement - DO NOT set to null
         await nextPage()

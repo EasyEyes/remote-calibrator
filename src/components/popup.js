@@ -235,7 +235,7 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
 }
 
 /**
- * Checks camera resolution and shows popup if needed
+ * Checks camera resolution and automatically improves it without showing popup
  * @param {Object} RC - RemoteCalibrator instance
  * @param {Object} options - Options object with resolutionWarningThreshold
  * @returns {Promise<boolean>} - True to continue
@@ -250,10 +250,10 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
     let { width, height } = videoParams
     console.log(`Selected camera resolution: ${width}x${height}`)
 
-    // Get threshold from options (if undefined, don't show popup)
+    // Get threshold from options (if undefined, skip resolution improvement)
     const threshold = options.resolutionWarningThreshold
 
-    // If threshold is defined and resolution is low, try to improve it automatically first
+    // If threshold is defined and resolution is low, try to improve it automatically
     if (
       threshold !== undefined &&
       width < threshold &&
@@ -263,9 +263,13 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
         `Resolution ${width}x${height} is below threshold ${threshold}. Attempting automatic improvement...`,
       )
 
+      // Mark that we've attempted resolution improvement
+      RC.resolutionWarningShown = true
+
       // Get current camera info for improvement attempt
       const activeCamera = RC.gazeTracker?.webgazer?.params?.activeCamera
       if (activeCamera?.id) {
+        // First attempt
         const improved = await applyIdealResolutionConstraints(
           RC,
           activeCamera.id,
@@ -277,111 +281,44 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
           if (videoParams && videoParams.width && videoParams.height) {
             width = videoParams.width
             height = videoParams.height
-            console.log(`After automatic improvement: ${width}x${height}`)
+            console.log(`After first automatic improvement: ${width}x${height}`)
 
-            // If we now meet the threshold, no need to show popup
+            // If we now meet the threshold, we're done
             if (width >= threshold) {
-              console.log('Automatic improvement successful, no popup needed')
+              console.log('First automatic improvement successful!')
               return true
             }
           }
         }
-      }
-    }
 
-    // Show popup if threshold is defined AND width < threshold AND we haven't shown it before
-    if (
-      threshold !== undefined &&
-      width < threshold &&
-      !RC.resolutionWarningShown
-    ) {
-      console.log(`Low resolution detected: ${width}x${height}. Showing popup.`)
+        // If first attempt didn't work, retry once more
+        console.log('First attempt did not reach threshold. Retrying once more...')
+        await new Promise(resolve => setTimeout(resolve, 500)) // Brief pause before retry
 
-      // Mark that we've shown the warning
-      RC.resolutionWarningShown = true
-
-      // Store fullscreen state and exit fullscreen before showing popup
-      const wasInFullscreen = isFullscreen()
-      if (wasInFullscreen) {
-        console.log('Exiting fullscreen before showing resolution popup')
-        await exitFullscreen()
-        // Minimal wait for fullscreen to exit
-        await new Promise(resolve => setTimeout(resolve, 50))
-      }
-
-      await Swal.fire({
-        ...swalInfoOptions(RC, { showIcon: false }),
-        title: phrases.RC_ImprovingCameraResolutionTitle[RC.L],
-        html: `
-            <div style="text-align: left; margin: 1rem 0; padding: 0;">
-              <p style="margin: 0; padding: 0; text-align: left;"> ${phrases.RC_ImprovingCameraResolution[RC.L].replace('𝟙𝟙𝟙', width).replace('𝟚𝟚𝟚', height)}</p>
-            </div>
-          `,
-        showCancelButton: false,
-        confirmButtonText: phrases.RC_OK[RC.L],
-        customClass: {
-          popup: 'my__swal2__container',
-          title: 'my__swal2__title',
-          htmlContainer: `my__swal2__html rc-lang-${RC.LD.toLowerCase()}`,
-          confirmButton: 'rc-button rc-go-button',
-        },
-        didOpen: () => {
-          // Force left alignment for title and content while keeping vertical margins
-          const titleElement = document.querySelector('.swal2-title')
-          const htmlContainer = document.querySelector('.swal2-html-container')
-          if (titleElement) {
-            titleElement.style.textAlign = 'left'
-            // Keep original vertical margins for title
-            titleElement.style.marginLeft = '0'
-            titleElement.style.marginRight = '0'
-            titleElement.style.padding = '0'
-          }
-          if (htmlContainer) {
-            htmlContainer.style.textAlign = 'left'
-            // Keep original vertical margins for content
-            htmlContainer.style.marginLeft = '0'
-            htmlContainer.style.marginRight = '0'
-            htmlContainer.style.padding = '0'
-          }
-        },
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-      })
-
-      // After user clicks OK, prioritize fullscreen re-entry and run resolution improvement in parallel
-      console.log('User clicked OK, processing...')
-
-      // Start both operations in parallel for better performance
-      const operations = []
-
-      // Priority 1: Re-enter fullscreen immediately if needed
-      if (wasInFullscreen) {
-        console.log('Re-entering fullscreen after resolution popup')
-        operations.push(
-          getFullscreen(RC.L, RC)
-            .then(() => console.log('Successfully re-entered fullscreen'))
-            .catch(error =>
-              console.error('Failed to re-enter fullscreen:', error),
-            ),
+        const retriedImproved = await applyIdealResolutionConstraints(
+          RC,
+          activeCamera.id,
         )
-      }
 
-      // Priority 2: Attempt resolution improvement in parallel
-      const activeCamera = RC.gazeTracker?.webgazer?.params?.activeCamera
-      if (activeCamera?.id) {
-        console.log('Attempting to apply ideal resolution constraints again...')
-        operations.push(
-          applyIdealResolutionConstraints(RC, activeCamera.id)
-            .then(() => console.log('Resolution improvement completed'))
-            .catch(error =>
-              console.error('Resolution improvement failed:', error),
-            ),
+        if (retriedImproved) {
+          // Re-check resolution after retry
+          videoParams = RC.gazeTracker?.webgazer?.videoParamsToReport
+          if (videoParams && videoParams.width && videoParams.height) {
+            width = videoParams.width
+            height = videoParams.height
+            console.log(`After second automatic improvement: ${width}x${height}`)
+
+            if (width >= threshold) {
+              console.log('Second automatic improvement successful!')
+              return true
+            }
+          }
+        }
+
+        // Both attempts failed, but continue anyway
+        console.log(
+          `Resolution improvement attempts complete. Final resolution: ${width}x${height}. Continuing with current resolution.`,
         )
-      }
-
-      // Wait for all operations to complete (but don't block on resolution improvement)
-      if (operations.length > 0) {
-        await Promise.allSettled(operations)
       }
     }
   }

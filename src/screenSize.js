@@ -148,6 +148,8 @@ function getSize(RC, parent, options, callback) {
     totalIterations: Math.max(1, Math.floor(options.screenSizeMeasurementCount || 1)),
     measurements: [], // Store all individual measurements
     consistentPair: null, // Will store the indices of 2 consistent measurements
+    previousCardWidth: null, // Track previous iteration's actual card width
+    originalCardLeftPosition: null, // Track original left position from first iteration
   }
 
   // Start the measurement loop
@@ -224,24 +226,38 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
     }
   }
 
-  // Slider with random initial position (0-66% for subsequent measurements)
+  // Slider with random initial position
   const sliderElement = createSlider(parent, 0, 100)
   
   // Generate random offsets ONLY for measurements after the first one
-  let randomSizeFactor = 1 // Default: no size change
   let randomHorizontalOffset = 0 // Default: no horizontal offset
+  let appliedHorizontalOffset = 0 // Store the actual constrained offset that was applied
   
-  if (measurementState.currentIteration > 1) {
-    // Random size factor: between 0.5x and 2x (factor of 2 range)
-    randomSizeFactor = 0.5 + Math.random() * 1.5 // 0.5 to 2.0
-    // Random horizontal offset: between -400px and +400px (800px range)
-    // This will be applied only to the card/USB object, not the slider
-    randomHorizontalOffset = (Math.random() - 0.5) * 800 // -400 to +400
+  if (measurementState.currentIteration > 1 && measurementState.previousCardWidth) {
+    // Random horizontal offset: between 0px and +200px (only positive, moving right)
+    randomHorizontalOffset = Math.random() * 200 // 0 to +200
     
-    // Set random initial slider value (this changes the progress bar fill)
-    const randomValue = Math.random() * 66.67 // Random value between 0 and 66.67%
-    sliderElement.value = randomValue
+    // Calculate the slider value range that would give card width within 0.5x to 2x of previous
+    // Card width formula: cardWidth = ((sliderWidth - 30) * (sliderValue / 100) * mobileFactor + 15)
+    const mobileFactor = window.innerWidth < 480 ? 2 : 1
+    const sliderWidth = sliderElement.offsetWidth || (window.innerWidth * 0.8)
+    
+    // Target card width range
+    const minTargetWidth = measurementState.previousCardWidth * 0.5
+    const maxTargetWidth = measurementState.previousCardWidth * 2.0
+    
+    // Solve for slider value: sliderValue = ((cardWidth - 15) / mobileFactor) / (sliderWidth - 30) * 100
+    const minSliderValue = Math.max(0, ((minTargetWidth - 15) / mobileFactor) / (sliderWidth - 30) * 100)
+    const maxSliderValue = Math.min(100, ((maxTargetWidth - 15) / mobileFactor) / (sliderWidth - 30) * 100)
+    
+    // Pick random slider value within this range
+    const newSliderValue = minSliderValue + Math.random() * (maxSliderValue - minSliderValue)
+    sliderElement.value = newSliderValue
     setSliderStyle(sliderElement)
+    
+    // Calculate actual card width for logging
+    const actualCardWidth = (sliderWidth - 30) * (newSliderValue / 100) * mobileFactor + 15
+    console.log(`Randomization: prevCard=${measurementState.previousCardWidth.toFixed(1)}px, newCard=${actualCardWidth.toFixed(1)}px, ratio=${(actualCardWidth/measurementState.previousCardWidth).toFixed(2)}x, slider=${newSliderValue.toFixed(1)}%`)
   }
 
   const _onDown = (e, type) => {
@@ -277,9 +293,45 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   // Add all objects
   const elements = addMatchingObj(['card', 'arrow', 'usba', 'usbc'], parent)
   
-  // Apply horizontal offset to objects after creation (only for iterations > 1)
-  if (measurementState.currentIteration > 1) {
-    setObjectsPosition(elements, sliderElement, randomHorizontalOffset)
+  
+  // Apply horizontal offset to slider and objects together (only for iterations > 1)
+  if (measurementState.currentIteration > 1 && randomHorizontalOffset !== 0) {
+    // Get current card position to constrain the offset
+    const cardElement = elements.card || elements.usba || elements.usbc
+    const cardRect = cardElement ? cardElement.getBoundingClientRect() : null
+    
+    if (cardRect) {
+      // Since offset is always positive (moving right), no left boundary check needed
+      appliedHorizontalOffset = randomHorizontalOffset
+      
+      console.log(`Applying horizontal offset: ${appliedHorizontalOffset.toFixed(1)}px`)
+      
+      // Get slider rect BEFORE applying transform to get original dimensions
+      const sliderRect = sliderElement.getBoundingClientRect()
+      const originalSliderWidth = sliderRect.width
+      const sliderLeftAfterOffset = sliderRect.left + appliedHorizontalOffset
+      const sliderRightAfterOffset = sliderRect.right + appliedHorizontalOffset
+      const screenWidth = window.innerWidth
+      const rightMargin = 30 // Consistent 30px margin on the right
+      
+      // Check if slider right edge would go beyond screen width - 30px with this offset
+      if (sliderRightAfterOffset > screenWidth - rightMargin) {
+        // Shrink slider width to maintain 30px right margin
+        const maxAllowedWidth = screenWidth - rightMargin - sliderLeftAfterOffset
+        sliderElement.style.width = `${maxAllowedWidth}px`
+        console.log(`Shrinking slider: originalWidth=${originalSliderWidth.toFixed(1)}px, newWidth=${maxAllowedWidth.toFixed(1)}px, rightEdgeAt=${(screenWidth - rightMargin).toFixed(1)}px`)
+      }
+      
+      // Apply offset to slider AFTER width adjustment
+      sliderElement.style.transform = `translateX(${appliedHorizontalOffset}px)`
+      
+      // Apply same constrained offset to objects
+      for (const i in elements) {
+        if (i === 'card' || i === 'usba' || i === 'usbc') {
+          elements[i].style.transform = `translateX(${appliedHorizontalOffset}px)`
+        }
+      }
+    }
   }
 
   // Switch OBJ
@@ -299,9 +351,9 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   }
 
   const setSizes = () => {
-    setCardSizes(RC, sliderElement, elements.card, elements.arrow, arrowSizes, randomSizeFactor)
-    setConnectorSizes(sliderElement, elements.usba, randomSizeFactor)
-    setConnectorSizes(sliderElement, elements.usbc, randomSizeFactor)
+    setCardSizes(RC, sliderElement, elements.card, elements.arrow, arrowSizes)
+    setConnectorSizes(sliderElement, elements.usba)
+    setConnectorSizes(sliderElement, elements.usbc)
   }
 
   setSizes()
@@ -336,9 +388,35 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   }
   const resizeObserver = new ResizeObserver(() => {
     setSizes()
-    setSliderPosition(sliderElement, parent) // Slider never moves horizontally
-    setObjectsPosition(elements, sliderElement, randomHorizontalOffset) // Only objects move
-    positionMeasureText() // Update text position on resize
+    setSliderPosition(sliderElement, parent)
+    setObjectsPosition(elements, sliderElement)
+    // Reapply horizontal offset to slider and objects
+    if (appliedHorizontalOffset !== 0) {
+      // Get slider rect WITHOUT transform to get base dimensions
+      sliderElement.style.transform = ''
+      const sliderRect = sliderElement.getBoundingClientRect()
+      const sliderLeftAfterOffset = sliderRect.left + appliedHorizontalOffset
+      const sliderRightAfterOffset = sliderRect.right + appliedHorizontalOffset
+      const screenWidth = window.innerWidth
+      const rightMargin = 30 // Consistent 30px margin on the right
+      
+      // Check if slider needs to be shrunk
+      if (sliderRightAfterOffset > screenWidth - rightMargin) {
+        // Shrink slider width to maintain 30px right margin
+        const maxAllowedWidth = screenWidth - rightMargin - sliderLeftAfterOffset
+        sliderElement.style.width = `${maxAllowedWidth}px`
+      }
+      
+      // Apply offset AFTER width adjustment
+      sliderElement.style.transform = `translateX(${appliedHorizontalOffset}px)`
+      
+      for (const i in elements) {
+        if (i === 'card' || i === 'usba' || i === 'usbc') {
+          elements[i].style.transform = `translateX(${appliedHorizontalOffset}px)`
+        }
+      }
+    }
+    positionMeasureText()
   })
   resizeObserver.observe(parent)
 
@@ -459,6 +537,15 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
       object: currentMatchingObj,
       timestamp: performance.now(),
     })
+    
+    // Store actual card width for next iteration's size constraint
+    measurementState.previousCardWidth = eleWidth
+    
+    // Store original card left position from first iteration
+    if (measurementState.currentIteration === 1 && measurementState.originalCardLeftPosition === null) {
+      measurementState.originalCardLeftPosition = elements[currentMatchingObj].getBoundingClientRect().left
+      console.log(`Stored original card left position: ${measurementState.originalCardLeftPosition}px`)
+    }
 
     // If only 1 measurement requested, return immediately without consistency check
     if (measurementState.totalIterations === 1) {
@@ -665,13 +752,13 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   switchMatchingObj(currentMatchingObj, elements, setSizes)
 }
 
-const setCardSizes = (RC, slider, card, arrow, aS, sizeFactor = 1) => {
-  // Card - apply size factor for randomization
+const setCardSizes = (RC, slider, card, arrow, aS) => {
+  // Card size determined directly by slider value (no size factor)
   const targetWidth =
-    ((slider.offsetWidth - 30) *
+    (slider.offsetWidth - 30) *
       (slider.value / 100) *
       (window.innerWidth < 480 ? 2 : 1) +
-    15) * sizeFactor
+    15
   card.style.width = `${targetWidth}px`
   // Arrow
   const cardSizes = card.getBoundingClientRect()
@@ -685,9 +772,9 @@ const setCardSizes = (RC, slider, card, arrow, aS, sizeFactor = 1) => {
   }
 }
 
-const setConnectorSizes = (slider, connector, sizeFactor = 1) => {
-  // Apply size factor for randomization
-  connector.style.width = `${remap(slider.value ** 1.5, 0, 1000, 50, 400) * sizeFactor}px`
+const setConnectorSizes = (slider, connector) => {
+  // Connector size determined directly by slider value (no size factor)
+  connector.style.width = `${remap(slider.value ** 1.5, 0, 1000, 50, 400)}px`
 }
 
 const addMatchingObj = (names, parent) => {
@@ -709,8 +796,8 @@ const addMatchingObj = (names, parent) => {
     elements[name] = element
   }
 
-  // Initial positioning without horizontal offset
-  setObjectsPosition(elements, document.querySelector('#rc-size-slider'), 0)
+  // Initial positioning
+  setObjectsPosition(elements, document.querySelector('#rc-size-slider'))
 
   return elements
 }
@@ -860,25 +947,8 @@ const _getScreenData = (ppi, toFixedN) => {
   return screenData
 }
 
-const setObjectsPosition = (objects, slider, horizontalOffset = 0) => {
+const setObjectsPosition = (objects, slider) => {
   for (const i in objects) {
     objects[i].style.top = `${slider.getBoundingClientRect().top + 50}px`
-    
-    // Apply horizontal offset only to card and connectors (not arrow)
-    // Also ensure the object stays within screen bounds
-    if (horizontalOffset !== 0 && (i === 'card' || i === 'usba' || i === 'usbc')) {
-      const objectRect = objects[i].getBoundingClientRect()
-      const objectWidth = objectRect.width || 0
-      const screenWidth = window.innerWidth
-      
-      // Constrain offset to keep object on screen
-      // Left edge: object should not go off left side
-      // Right edge: object should not go off right side
-      const maxLeftOffset = -objectRect.left
-      const maxRightOffset = screenWidth - objectRect.right
-      const constrainedOffset = Math.max(maxLeftOffset, Math.min(maxRightOffset, horizontalOffset))
-      
-      objects[i].style.transform = `translateX(${constrainedOffset}px)`
-    }
   }
 }
