@@ -704,7 +704,7 @@ const startIrisDrawing = RC => {
           const eyeToCameraCm = Math.sqrt(
             eyeToFootCm ** 2 + footToCameraCm ** 2,
           )
-          const factorCameraPxCm = currentIPDDistance * eyeToCameraCm
+          const factorVpxCm = currentIPDDistance * eyeToCameraCm
           _drawNearestPoints(
             nearestPointsData.clampedNearestLeft,
             nearestPointsData.clampedNearestRight,
@@ -712,7 +712,7 @@ const startIrisDrawing = RC => {
             nearestPointsData.nearestDistanceCm_right,
             trackingOptions.decimalPlace,
             nearestPointsData.nearestEyeToWebcamDistanceCM,
-            factorCameraPxCm,
+            factorVpxCm,
             currentIPDDistance,
             {
               x: leftEye.x,
@@ -1020,7 +1020,7 @@ export const calculateFootXYPx = (
   pxPerCm,
   currentIPDDistance,
 ) => {
-  const centerXYCameraPx = getCenterXYCameraPx(video)
+  const centerXYVpx = getCenterXYVpx(video)
 
   // Mirror correction: Video is horizontally flipped, so flip X coordinates to match screen
   //left eye: 468
@@ -1030,24 +1030,24 @@ export const calculateFootXYPx = (
   const rightEyeX = video.width - rightEye.x // Flip X coordinate
   const rightEyeY = rightEye.y // Y coordinate unchanged
 
-  const ipdCameraPx = eyeDist(leftEye, rightEye)
+  const ipdVpx = eyeDist(leftEye, rightEye)
 
-  const offsetXYCameraPx_left = [
-    leftEyeX - centerXYCameraPx[0],
-    leftEyeY - centerXYCameraPx[1],
+  const offsetXYVpx_left = [
+    leftEyeX - centerXYVpx[0],
+    leftEyeY - centerXYVpx[1],
   ]
-  const offsetXYCameraPx_right = [
-    rightEyeX - centerXYCameraPx[0],
-    rightEyeY - centerXYCameraPx[1],
+  const offsetXYVpx_right = [
+    rightEyeX - centerXYVpx[0],
+    rightEyeY - centerXYVpx[1],
   ]
 
   const offsetXYCm_left = [
-    (offsetXYCameraPx_left[0] * RC._CONST.IPD_CM) / currentIPDDistance,
-    (offsetXYCameraPx_left[1] * RC._CONST.IPD_CM) / currentIPDDistance,
+    (offsetXYVpx_left[0] * RC._CONST.IPD_CM) / currentIPDDistance,
+    (offsetXYVpx_left[1] * RC._CONST.IPD_CM) / currentIPDDistance,
   ]
   const offsetXYCm_right = [
-    (offsetXYCameraPx_right[0] * RC._CONST.IPD_CM) / currentIPDDistance,
-    (offsetXYCameraPx_right[1] * RC._CONST.IPD_CM) / currentIPDDistance,
+    (offsetXYVpx_right[0] * RC._CONST.IPD_CM) / currentIPDDistance,
+    (offsetXYVpx_right[1] * RC._CONST.IPD_CM) / currentIPDDistance,
   ]
 
   const cameraXYPx = [window.innerWidth / 2, 0]
@@ -1064,7 +1064,7 @@ export const calculateFootXYPx = (
   return {
     nearestXYPx_left,
     nearestXYPx_right,
-    ipdCameraPx,
+    ipdVpx,
     offsetXYCm_left,
     offsetXYCm_right,
     cameraXYPx,
@@ -1078,7 +1078,7 @@ export const calculateNearestPoints = (
   leftEye,
   rightEye,
   currentIPDDistance,
-  webcamToEyeDistance, //for distance check: calibration factor / ipdCameraPx
+  webcamToEyeDistance, //for distance check: calibration factor / ipdVpx
   pxPerCm,
   ppi,
   RC,
@@ -1091,7 +1091,7 @@ export const calculateNearestPoints = (
   spotPoint = [window.innerWidth / 2, window.innerHeight / 2],
   blindspotDeg = 0,
   fixationToSpotCm = 0,
-  ipdCameraPx = 0,
+  ipdVpx = 0,
   distanceCheck = false,
   calibrateTrackDistanceChecking = 'camera',
 ) => {
@@ -1174,7 +1174,7 @@ export const calculateNearestPoints = (
       throw new Error(e)
     }
   } else {
-    eyeToCameraCm = webcamToEyeDistance // for distance check: calibration factor / ipdCameraPx
+    eyeToCameraCm = webcamToEyeDistance // for distance check: calibration factor / ipdVpx
     eyeToFootCm = Math.sqrt(
       eyeToCameraCm * eyeToCameraCm - footToCameraCm * footToCameraCm,
     )
@@ -1187,7 +1187,7 @@ export const calculateNearestPoints = (
     eyeToFootCm * eyeToFootCm + footToPointCm * footToPointCm,
   )
 
-  const calibrationFactor = Math.round(eyeToCameraCm * ipdCameraPx)
+  const calibrationFactor = Math.round(eyeToCameraCm * ipdVpx)
 
   // Clamp coordinates to stay within viewport bounds
   const clampedNearestLeft = [
@@ -1272,7 +1272,7 @@ export const calculateNearestPoints = (
     distanceCm_left,
     distanceCm_right,
     distanceCm,
-    ipdCameraPx,
+    ipdVpx,
     cameraXYPx,
     viewingDistanceWhichEye: options?.viewingDistanceWhichEye,
     viewingDistanceWhichPoint: options?.viewingDistanceWhichPoint,
@@ -1357,7 +1357,7 @@ const renderDistanceResult = async (
       )
 
       const webcamToEyeDistance = stdFactor / currentIPDDistance
-      const cameraPxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+      const VpxPerCm = currentIPDDistance / RC._CONST.IPD_CM
 
       // Calculate nearest points using the factored function
       const nearestPointsData = calculateNearestPoints(
@@ -1507,7 +1507,7 @@ const getEyeToDesiredDistance = (
   return Math.sqrt(nearestDistanceCm ** 2 + desiredOffsetCm ** 2)
 }
 
-const getCenterXYCameraPx = video => {
+const getCenterXYVpx = video => {
   if (!video) return [0, 0]
   const videoWidth = video.width
   const videoHeight = video.height
@@ -1580,7 +1580,7 @@ const _drawNearestPoints = (
   distanceRight,
   decimalPlace,
   nearestEyeToWebcamDistanceCM,
-  factorCameraPxCm,
+  factorVpxCm,
   averageDist,
   leftEyePoint,
   rightEyePoint,
@@ -1593,7 +1593,7 @@ const _drawNearestPoints = (
   pointXYPx = null,
   eyeToPointCm = null,
   eyeToFootCm = null,
-  ipdCameraPx = null,
+  ipdVpx = null,
 ) => {
   // Get video container and its bounding rect once for reuse
   const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -1825,7 +1825,7 @@ const _drawNearestPoints = (
   }
 
   // Add factor label right below the webcam distance label
-  if (factorCameraPxCm !== undefined) {
+  if (factorVpxCm !== undefined) {
     factorLabel = createOrUpdateElement(factorLabel, 'rc-factor-label', {
       position: 'fixed',
       fontSize: '16px',
@@ -1842,7 +1842,7 @@ const _drawNearestPoints = (
     })
 
     // Update content and position
-    factorLabel.textContent = `factorCameraPxCm: ${factorCameraPxCm.toFixed(0)}`
+    factorLabel.textContent = `factorVpxCm: ${factorVpxCm.toFixed(0)}`
 
     // Calculate position: same horizontal position as webcam label, but below it
     let labelLeft = window.innerWidth / 2
@@ -1870,7 +1870,7 @@ const _drawNearestPoints = (
 
   // Add IPD label right below the factor label
   {
-    const ipdValue = ipdCameraPx ?? averageDist
+    const ipdValue = ipdVpx ?? averageDist
     if (ipdValue !== undefined) {
       ipdLabel = createOrUpdateElement(ipdLabel, 'rc-ipd-label', {
         position: 'fixed',
@@ -1888,7 +1888,7 @@ const _drawNearestPoints = (
       })
 
       // Update content and position
-      ipdLabel.textContent = `ipdCameraPx: ${Math.round(ipdValue)}`
+      ipdLabel.textContent = `ipdVpx: ${Math.round(ipdValue)}`
 
       // Calculate position: same horizontal position as factor label, but below it
       let labelLeft = window.innerWidth / 2

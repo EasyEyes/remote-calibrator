@@ -174,7 +174,7 @@ function saveCalibrationMeasurements(
       measurement.distance,
       measurement.calibrationFactor,
       method === 'blindspot'
-        ? measurement.ipdCameraPx
+        ? measurement.ipdVpx
         : measurement.currentIPDDistance,
       method === 'blindspot'
         ? measurement.distanceCm
@@ -313,8 +313,8 @@ function saveCalibrationAttempt(
     pxPerCm: safeRoundCm(pxPerCmValue), //measured in size phase of rc
     cameraXYPx: safeRoundXYPx(cameraXYPxValue), //top center of the screen
     eyesToCameraCm: safeRoundCm(nearestEyeToWebcamDistanceCM),
-    ipdCameraPx: safeRoundPx(currentIPDDistance, 1),
-    factorCameraPxCm: safeRoundPx(trimmedCalibrationFactor),
+    ipdVpx: safeRoundPx(currentIPDDistance, 1),
+    factorVpxCm: safeRoundPx(trimmedCalibrationFactor),
     ipdCm: safeRoundCm(ipdCmValue), //calculated from age
     leftEyeFootXYPx: safeRoundXYPx(nearestXYPx_left),
     rightEyeFootXYPx: safeRoundXYPx(nearestXYPx_right),
@@ -338,7 +338,7 @@ function saveCalibrationAttempt(
     eyesToSpotCm: safeRoundCm(eyesToSpotCm), // Distance from participant to spot
   }
 
-  console.log('factorCameraPxCm', calibrationObject.factorCameraPxCm)
+  console.log('factorVpxCm', calibrationObject.factorVpxCm)
 
   // Store in the new JSON format
   RC.calibrationAttempts[`calibration${calibrationNumber}`] = calibrationObject
@@ -364,7 +364,7 @@ async function processMeshDataAndCalculateNearestPoints(
   spotPoint = [window.innerWidth / 2, window.innerHeight / 2],
   blindspotDeg = 0,
   fixationToSpotCm = 0,
-  ipdCameraPx = 0,
+  ipdVpx = 0,
   calibrateTrackDistanceChecking = 'camera',
 ) {
   const mesh = await getMeshData(
@@ -393,7 +393,7 @@ async function processMeshDataAndCalculateNearestPoints(
     spotPoint,
     blindspotDeg,
     fixationToSpotCm,
-    ipdCameraPx === 0 ? currentIPDDistance : ipdCameraPx,
+    ipdVpx === 0 ? currentIPDDistance : ipdVpx,
     false,
     calibrateTrackDistanceChecking,
   )
@@ -410,7 +410,7 @@ function createMeasurementObject(
   calibrationFactor,
   nearestPointsData,
   currentIPDDistance,
-  ipdCameraPx = null,
+  ipdVpx = null,
 ) {
   const {
     nearestDistanceCm_left,
@@ -444,8 +444,8 @@ function createMeasurementObject(
     nearestXYPx_right,
   }
 
-  if (ipdCameraPx !== null) {
-    measurement.ipdCameraPx = ipdCameraPx
+  if (ipdVpx !== null) {
+    measurement.ipdVpx = ipdVpx
   }
 
   return measurement
@@ -5484,7 +5484,7 @@ export async function objectTest(RC, options, callback = undefined) {
             <div style="margin-left: 10px;">
               <div style="color: #0066cc; font-weight: bold;">Input Values:</div>
               <div>  objectLengthCm = ${g.objectLengthCm.toFixed(2)}</div>
-              <div>  ipdCameraPx = ${g.ipdCameraPx.toFixed(2)}</div>
+              <div>  ipdVpx = ${g.ipdVpx.toFixed(2)}</div>
               <div>  nearestXYPx_left = [${g.nearestXYPx_left[0].toFixed(1)}, ${g.nearestXYPx_left[1].toFixed(1)}]</div>
               <div>  nearestXYPx_right = [${g.nearestXYPx_right[0].toFixed(1)}, ${g.nearestXYPx_right[1].toFixed(1)}]</div>
               <div>  cameraXYPx = [${g.cameraXYPx[0].toFixed(1)}, ${g.cameraXYPx[1].toFixed(1)}]</div>
@@ -5517,9 +5517,9 @@ export async function objectTest(RC, options, callback = undefined) {
               <div>  eyeToCameraCm = sqrt(${g.eyeToFootCm.toFixed(2)}² + ${g.footToCameraCm.toFixed(2)}²)</div>
               <div>  <strong>eyeToCameraCm = ${g.eyeToCameraCm.toFixed(2)} cm</strong></div>
               
-              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 7: Calculate factorCameraPxCm</div>
-              <div>  factorCameraPxCm = ipdCameraPx × eyeToCameraCm</div>
-              <div>  factorCameraPxCm = ${g.ipdCameraPx.toFixed(2)} × ${g.eyeToCameraCm.toFixed(2)}</div>
+              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 7: Calculate factorVpxCm</div>
+              <div>  factorVpxCm = ipdVpx × eyeToCameraCm</div>
+              <div>  factorVpxCm = ${g.ipdVpx.toFixed(2)} × ${g.eyeToCameraCm.toFixed(2)}</div>
               <div style="color: #cc0000; font-weight: bold;">  ✓ page4FactorCmPx = ${g.page4FactorCmPx.toFixed(2)}</div>
             </div>
           </div>
@@ -5630,7 +5630,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   <div style="margin-left: 10px;">
                     <div style="color: #0066cc; font-weight: bold;">Input Values:</div>
                     <div>  objectLengthCm = ${g.objectLengthCm.toFixed(2)}</div>
-                    <div>  ipdCameraPx = ${g.ipdCameraPx.toFixed(2)}</div>
+                    <div>  ipdVpx = ${g.ipdVpx.toFixed(2)}</div>
                     <div>  nearestXYPx_left = [${g.nearestXYPx_left[0].toFixed(1)}, ${g.nearestXYPx_left[1].toFixed(1)}]</div>
                     <div>  nearestXYPx_right = [${g.nearestXYPx_right[0].toFixed(1)}, ${g.nearestXYPx_right[1].toFixed(1)}]</div>
                     <div>  cameraXYPx = [${g.cameraXYPx[0].toFixed(1)}, ${g.cameraXYPx[1].toFixed(1)}]</div>
@@ -5663,9 +5663,9 @@ export async function objectTest(RC, options, callback = undefined) {
                     <div>  eyeToCameraCm = sqrt(${g.eyeToFootCm.toFixed(2)}² + ${g.footToCameraCm.toFixed(2)}²)</div>
                     <div>  <strong>eyeToCameraCm = ${g.eyeToCameraCm.toFixed(2)} cm</strong></div>
                     
-                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 7: Calculate factorCameraPxCm</div>
-                    <div>  factorCameraPxCm = ipdCameraPx × eyeToCameraCm</div>
-                    <div>  factorCameraPxCm = ${g.ipdCameraPx.toFixed(2)} × ${g.eyeToCameraCm.toFixed(2)}</div>
+                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 7: Calculate factorVpxCm</div>
+                    <div>  factorVpxCm = ipdVpx × eyeToCameraCm</div>
+                    <div>  factorVpxCm = ${g.ipdVpx.toFixed(2)} × ${g.eyeToCameraCm.toFixed(2)}</div>
                     <div style="color: #cc0000; font-weight: bold;">  ✓ page4FactorCmPx = ${g.page4FactorCmPx.toFixed(2)}</div>
                   </div>
                 </div>
@@ -6253,7 +6253,7 @@ export async function objectTest(RC, options, callback = undefined) {
               const page3FactorCmPx = page3Average * firstMeasurement
               RC.page3FactorCmPx = page3FactorCmPx
 
-              // For page 4, calculate factorCameraPxCm using new geometric formulas
+              // For page 4, calculate factorVpxCm using new geometric formulas
               let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
 
               // Calculate page4FactorCmPx using new geometry (lower right corner)
@@ -6270,7 +6270,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     const pxPerCm = ppi / 2.54
                     const objectLengthCm = firstMeasurement
                     objectLengthCmGlobal.value = objectLengthCm
-                    const ipdCameraPx = currentIPDDistance
+                    const ipdVpx = currentIPDDistance
 
                     // Get foot positions
                     const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } =
@@ -6313,13 +6313,13 @@ export async function objectTest(RC, options, callback = undefined) {
                       eyeToFootCm ** 2 + footToCameraCm ** 2,
                     )
 
-                    // Calculate factorCameraPxCm using new formula
-                    page4FactorCmPx = ipdCameraPx * eyeToCameraCm
+                    // Calculate factorVpxCm using new formula
+                    page4FactorCmPx = ipdVpx * eyeToCameraCm
 
                     // Store geometric calculation details for debugging
                     RC.page4GeometricCalc = {
                       objectLengthCm: objectLengthCm,
-                      ipdCameraPx: ipdCameraPx,
+                      ipdVpx: ipdVpx,
                       footXYPx: footXYPx,
                       pointXYPx: pointXYPx,
                       cameraXYPx: cameraXYPx,
@@ -6335,7 +6335,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
                     console.log('=== Page 4 Geometric Calculation ===')
                     console.log('objectLengthCm:', objectLengthCm)
-                    console.log('ipdCameraPx:', ipdCameraPx)
+                    console.log('ipdVpx:', ipdVpx)
                     console.log('footXYPx:', footXYPx)
                     console.log('pointXYPx:', pointXYPx)
                     console.log('cameraXYPx:', cameraXYPx)
@@ -6883,7 +6883,7 @@ export async function objectTest(RC, options, callback = undefined) {
       // Calculate separate calibration factors for page3 and page4
       const page3FactorCmPx = RC.page3FactorCmPx
 
-      // For page 4, calculate factorCameraPxCm using new geometric formulas
+      // For page 4, calculate factorVpxCm using new geometric formulas
       let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
 
       // Calculate page4FactorCmPx using new geometry (lower right corner)
@@ -6899,7 +6899,7 @@ export async function objectTest(RC, options, callback = undefined) {
             const pxPerCm = ppi / 2.54
             const objectLengthCm = firstMeasurement
             objectLengthCmGlobal.value = objectLengthCm
-            const ipdCameraPx = currentIPDDistance
+            const ipdVpx = currentIPDDistance
 
             // Get foot positions
             const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } =
@@ -6942,13 +6942,13 @@ export async function objectTest(RC, options, callback = undefined) {
               eyeToFootCm ** 2 + footToCameraCm ** 2,
             )
 
-            // Calculate factorCameraPxCm using new formula
-            page4FactorCmPx = ipdCameraPx * eyeToCameraCm
+            // Calculate factorVpxCm using new formula
+            page4FactorCmPx = ipdVpx * eyeToCameraCm
 
             // Store geometric calculation details for debugging
             RC.page4GeometricCalc = {
               objectLengthCm: objectLengthCm,
-              ipdCameraPx: ipdCameraPx,
+              ipdVpx: ipdVpx,
               footXYPx: footXYPx,
               pointXYPx: pointXYPx,
               cameraXYPx: cameraXYPx,
