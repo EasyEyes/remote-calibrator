@@ -3349,9 +3349,18 @@ export async function objectTest(RC, options, callback = undefined) {
   // Randomized interval (in cm) used only when showLength is false
   let intervalCmCurrent = null
   const computeNewIntervalCm = () => {
-    const screenWidthCm = screenWidth / pxPerCm
-    const r = 0.8 + 0.2 * Math.random()
-    return Math.max(0.1, (screenWidthCm - 1) * r)
+    // Base the randomized interval on the CURRENT ruler length so the first tick ("1")
+    // always fits within the initial ruler span without requiring user adjustment.
+    const currentDistancePx = tape.helpers.getDistance(
+      startX,
+      startY,
+      endX,
+      endY,
+    )
+    const currentLengthCm = currentDistancePx / pxPerCm
+    const r = 0.8 + 0.2 * Math.random() // keep some variability per measurement
+    // Leave ~1 cm headroom so the first tick is guaranteed on-screen
+    return Math.max(0.1, Math.max(0, currentLengthCm - 1) * r)
   }
 
   // --- Create the main overlay container ---
