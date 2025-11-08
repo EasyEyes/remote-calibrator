@@ -3226,6 +3226,65 @@ function checkLastTwoObjectMeasurements(measurements, threshold) {
   return null // Last two measurements are not consistent
 }
 
+// Helper function to show pause before allowing new object measurement
+async function showPauseBeforeNewObject(RC, rejectionCount) {
+  let pauseSec
+  if (rejectionCount === 0) {
+    pauseSec = 0
+  } else {
+    pauseSec = 10 * Math.pow(1.4, rejectionCount - 1)
+  }
+
+  if (pauseSec === 0) {
+    return // No pause needed
+  }
+
+  console.log(
+    `Showing pause for ${pauseSec.toFixed(1)} seconds after ${rejectionCount} rejections`,
+  )
+
+  const pauseMs = pauseSec * 1000
+  let timerInterval
+
+  await Swal.fire({
+    title: phrases.RC_PauseBeforeNewObject?.[RC.L],
+    html: `<div style="margin: 20px 0;">
+      <div style="width: 100%; background-color: #e0e0e0; border-radius: 10px; height: 30px; overflow: hidden;">
+        <div id="pause-progress-bar" style="height: 100%; background-color: #4CAF50; width: 0%; transition: width 0.1s linear;"></div>
+      </div>
+    </div>`,
+    showConfirmButton: false,
+    allowEscapeKey: false,
+    allowOutsideClick: false,
+    didOpen: () => {
+      const progressBar = document.getElementById('pause-progress-bar')
+      const startTime = Date.now()
+
+      timerInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime
+        const remaining = Math.max(0, pauseMs - elapsed)
+        const progress = Math.min(100, (elapsed / pauseMs) * 100)
+
+        if (progressBar) {
+          progressBar.style.width = `${progress}%`
+        }
+
+        if (remaining <= 0) {
+          clearInterval(timerInterval)
+          Swal.close()
+        }
+      }, 100)
+    },
+    willClose: () => {
+      if (timerInterval) {
+        clearInterval(timerInterval)
+      }
+    },
+  })
+
+  console.log('Pause completed')
+}
+
 // ===================== OBJECT TEST SCHEME =====================
 export async function objectTest(RC, options, callback = undefined) {
   RC._addBackground()
@@ -3248,6 +3307,8 @@ export async function objectTest(RC, options, callback = undefined) {
     ),
     measurements: [], // Store all individual ruler measurements
     consistentPair: null,
+    lastAttemptWasTooShort: false, // Track if previous attempt failed minimum length check
+    tooShortRejectionCount: 0, // Track number of times user has been rejected for too-short objects
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
@@ -5899,35 +5960,75 @@ export async function objectTest(RC, options, callback = undefined) {
             firstMeasurement = diagonalDistancePx / pxPerMm / 10
             console.log('First measurement:', firstMeasurement)
 
-            // Validate object length - reject if too short
+            // Validate object length - check if this is first measurement or if previous was too short
             const minCm =
               options.calibrateTrackDistanceObjectMinMaxCm?.[0] || 30
-            if (Math.round(firstMeasurement) < Math.round(minCm)) {
+            const isFirstMeasurement = measurementState.measurements.length === 0
+            const shouldEnforceMinimum = isFirstMeasurement || measurementState.lastAttemptWasTooShort
+            
+            if (shouldEnforceMinimum) {
+              // We need to enforce minimum length - reject if too short
+              if (Math.round(firstMeasurement) < Math.round(minCm)) {
+                console.log(
+                  `Object too short: ${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm (isFirst: ${isFirstMeasurement}, prevWasShort: ${measurementState.lastAttemptWasTooShort})`,
+                )
+
+                // Mark that this attempt was too short
+                measurementState.lastAttemptWasTooShort = true
+
+                // Increment rejection counter
+                measurementState.tooShortRejectionCount++
+                console.log(
+                  `Rejection count: ${measurementState.tooShortRejectionCount}`,
+                )
+
+                // Show error message
+                const objectCm = firstMeasurement
+                const errorMessage =
+                  phrases.RC_YourObjectIsTooShort?.[RC.L]
+                    ?.replace('[[IN1]]', Math.round(objectCm / 2.54).toString())
+                    ?.replace('[[CM1]]', Math.round(objectCm).toString())
+                    ?.replace('[[IN2]]', Math.round(minCm / 2.54).toString())
+                    ?.replace('[[CM2]]', Math.round(minCm).toString()) ||
+                  `Your object (${Math.round(objectCm)}cm) is too short. Minimum: ${Math.round(minCm)}cm`
+
+                await Swal.fire({
+                  ...swalInfoOptions(RC, { showIcon: false }),
+                  icon: undefined,
+                  html: errorMessage,
+                  allowEnterKey: true,
+                  confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
+                })
+
+                // Show pause before allowing new object (with exponentially growing duration)
+                await showPauseBeforeNewObject(RC, measurementState.tooShortRejectionCount)
+
+                // Reset the ruler/tape to initial position
+                await resetPage2ForNextMeasurement()
+
+                // Stay on page 2 - re-add the event listener
+                document.addEventListener('keydown', handleKeyPress)
+                return
+              } else {
+                // Passed the enforcement check
+                console.log(
+                  `Measurement passed minimum length enforcement: ${Math.round(firstMeasurement)}cm >= ${Math.round(minCm)}cm`,
+                )
+                measurementState.lastAttemptWasTooShort = false
+              }
+            } else {
+              // Don't enforce minimum - but check if current measurement is too short for NEXT time
               console.log(
-                `Object too short: ${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm`,
+                `Not enforcing minimum length for measurement #${measurementState.measurements.length + 1}: ${Math.round(firstMeasurement)}cm`,
               )
-
-              // Show error message
-              const objectCm = firstMeasurement
-              const errorMessage =
-                phrases.RC_YourObjectIsTooShort?.[RC.L]
-                  ?.replace('[[IN1]]', Math.round(objectCm / 2.54).toString())
-                  ?.replace('[[CM1]]', Math.round(objectCm).toString())
-                  ?.replace('[[IN2]]', Math.round(minCm / 2.54).toString())
-                  ?.replace('[[CM2]]', Math.round(minCm).toString()) ||
-                `Your object (${Math.round(objectCm)}cm) is too short. Minimum: ${Math.round(minCm)}cm`
-
-              await Swal.fire({
-                ...swalInfoOptions(RC, { showIcon: false }),
-                icon: undefined,
-                html: errorMessage,
-                allowEnterKey: true,
-                confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
-              })
-
-              // Stay on page 2 - re-add the event listener
-              document.addEventListener('keydown', handleKeyPress)
-              return
+              if (Math.round(firstMeasurement) < Math.round(minCm)) {
+                console.log(
+                  `Current measurement is too short (${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm) - will enforce on NEXT measurement`,
+                )
+                measurementState.lastAttemptWasTooShort = true
+              } else {
+                measurementState.lastAttemptWasTooShort = false
+              }
             }
 
             // Store original measurement data before resetting lines
@@ -6773,33 +6874,73 @@ export async function objectTest(RC, options, callback = undefined) {
       firstMeasurement = diagonalDistancePx / pxPerMm / 10
       console.log('First measurement:', firstMeasurement)
 
-      // Validate object length - reject if too short
+      // Validate object length - check if this is first measurement or if previous was too short
       const minCm = options.calibrateTrackDistanceObjectMinMaxCm?.[0] || 10
-      if (Math.round(firstMeasurement) < Math.round(minCm)) {
+      const isFirstMeasurement = measurementState.measurements.length === 0
+      const shouldEnforceMinimum = isFirstMeasurement || measurementState.lastAttemptWasTooShort
+      
+      if (shouldEnforceMinimum) {
+        // We need to enforce minimum length - reject if too short
+        if (Math.round(firstMeasurement) < Math.round(minCm)) {
+          console.log(
+            `Object too short: ${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm (isFirst: ${isFirstMeasurement}, prevWasShort: ${measurementState.lastAttemptWasTooShort})`,
+          )
+
+          // Mark that this attempt was too short
+          measurementState.lastAttemptWasTooShort = true
+
+          // Increment rejection counter
+          measurementState.tooShortRejectionCount++
+          console.log(
+            `Rejection count: ${measurementState.tooShortRejectionCount}`,
+          )
+
+          // Show error message
+          const objectCm = firstMeasurement
+          const errorMessage =
+            phrases.RC_YourObjectIsTooShort?.[RC.L]
+              ?.replace('[[IN1]]', Math.round(objectCm / 2.54).toString())
+              ?.replace('[[CM1]]', Math.round(objectCm).toString())
+              ?.replace('[[IN2]]', Math.round(minCm / 2.54).toString())
+              ?.replace('[[CM2]]', Math.round(minCm).toString()) ||
+            `Your object (${Math.round(objectCm)}cm) is too short. Minimum: ${Math.round(minCm)}cm`
+
+          await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: undefined,
+            html: errorMessage,
+            allowEnterKey: true,
+            confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
+          })
+
+          // Show pause before allowing new object (with exponentially growing duration)
+          await showPauseBeforeNewObject(RC, measurementState.tooShortRejectionCount)
+
+          // Reset the ruler/tape to initial position
+          await resetPage2ForNextMeasurement()
+
+          // Stay on page 2 - object length page is already showing
+          return
+        } else {
+          // Passed the enforcement check
+          console.log(
+            `Measurement passed minimum length enforcement: ${Math.round(firstMeasurement)}cm >= ${Math.round(minCm)}cm`,
+          )
+          measurementState.lastAttemptWasTooShort = false
+        }
+      } else {
+        // Don't enforce minimum - but check if current measurement is too short for NEXT time
         console.log(
-          `Object too short: ${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm`,
+          `Not enforcing minimum length for measurement #${measurementState.measurements.length + 1}: ${Math.round(firstMeasurement)}cm`,
         )
-
-        // Show error message
-        const objectCm = firstMeasurement
-        const errorMessage =
-          phrases.RC_YourObjectIsTooShort?.[RC.L]
-            ?.replace('[[IN1]]', Math.round(objectCm / 2.54).toString())
-            ?.replace('[[CM1]]', Math.round(objectCm).toString())
-            ?.replace('[[IN2]]', Math.round(minCm / 2.54).toString())
-            ?.replace('[[CM2]]', Math.round(minCm).toString()) ||
-          `Your object (${Math.round(objectCm)}cm) is too short. Minimum: ${Math.round(minCm)}cm`
-
-        await Swal.fire({
-          ...swalInfoOptions(RC, { showIcon: false }),
-          icon: undefined,
-          html: errorMessage,
-          allowEnterKey: true,
-          confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
-        })
-
-        // Stay on page 2 - object length page is already showing
-        return
+        if (Math.round(firstMeasurement) < Math.round(minCm)) {
+          console.log(
+            `Current measurement is too short (${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm) - will enforce on NEXT measurement`,
+          )
+          measurementState.lastAttemptWasTooShort = true
+        } else {
+          measurementState.lastAttemptWasTooShort = false
+        }
       }
 
       // Store original measurement data before resetting lines
