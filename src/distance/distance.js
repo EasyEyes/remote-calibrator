@@ -3232,7 +3232,7 @@ async function showPauseBeforeNewObject(RC, rejectionCount) {
   if (rejectionCount === 0) {
     pauseSec = 0
   } else {
-    pauseSec = 10 * Math.pow(1.4, rejectionCount - 1)
+    pauseSec = 2 * Math.pow(1.4, rejectionCount - 1)
   }
 
   if (pauseSec === 0) {
@@ -3308,7 +3308,7 @@ export async function objectTest(RC, options, callback = undefined) {
     measurements: [], // Store all individual ruler measurements
     consistentPair: null,
     lastAttemptWasTooShort: false, // Track if previous attempt failed minimum length check
-    tooShortRejectionCount: 0, // Track number of times user has been rejected for too-short objects
+    rejectionCount: 0, // Track number of times user has been rejected (too short OR mismatched)
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
@@ -5325,6 +5325,15 @@ export async function objectTest(RC, options, callback = undefined) {
               document.removeEventListener('keydown', preventSpacebar, true)
             },
           })
+
+          // Increment rejection counter for mismatched measurements
+          measurementState.rejectionCount++
+          console.log(
+            `Rejection count (mismatch): ${measurementState.rejectionCount}`,
+          )
+
+          // Show pause before allowing new object (with exponentially growing duration)
+          await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
         }
 
         // After popup (or if no popup), continue measuring
@@ -5977,9 +5986,9 @@ export async function objectTest(RC, options, callback = undefined) {
                 measurementState.lastAttemptWasTooShort = true
 
                 // Increment rejection counter
-                measurementState.tooShortRejectionCount++
+                measurementState.rejectionCount++
                 console.log(
-                  `Rejection count: ${measurementState.tooShortRejectionCount}`,
+                  `Rejection count: ${measurementState.rejectionCount}`,
                 )
 
                 // Show error message
@@ -6001,7 +6010,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 })
 
                 // Show pause before allowing new object (with exponentially growing duration)
-                await showPauseBeforeNewObject(RC, measurementState.tooShortRejectionCount)
+                await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
 
                 // Reset the ruler/tape to initial position
                 await resetPage2ForNextMeasurement()

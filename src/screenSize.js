@@ -63,6 +63,31 @@ const widthDataIn = {
   usbc: 0.787402, // 20mm (8.25mm head)
 }
 
+// Create size scale distribution for randomization
+// Generates scale factors from 0.6 to 0.95 and 1.053 to 1.667 (excludes 0.95-1.05 zone)
+function createSizeScaleDistribution() {
+  const delta = 0.05
+  const step = 0.01
+  const min = 0.6
+  const distribution = []
+  
+  // Distribution from min to (1 - delta)
+  for (let x = min; x <= 1 - delta + 1e-9; x += step) {
+    distribution.push(x)
+  }
+  
+  // Distribution from 1/(1 - delta) to 1/min
+  const n = distribution.length
+  for (let i = 0; i < n; i++) {
+    distribution.push(1 / distribution[i])
+  }
+  
+  return distribution
+}
+
+// Create the distribution once at module level
+const sizeScaleDistribution = createSizeScaleDistribution()
+
 RemoteCalibrator.prototype.screenSize = function (
   screenSizeOptions = {},
   callback = undefined,
@@ -237,27 +262,41 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
     // Random horizontal offset: between 0px and +200px (only positive, moving right)
     randomHorizontalOffset = Math.random() * 200 // 0 to +200
     
-    // Calculate the slider value range that would give card width within 0.5x to 2x of previous
     // Card width formula: cardWidth = ((sliderWidth - 30) * (sliderValue / 100) * mobileFactor + 15)
     const mobileFactor = window.innerWidth < 480 ? 2 : 1
     const sliderWidth = sliderElement.offsetWidth || (window.innerWidth * 0.8)
     
-    // Target card width range
-    const minTargetWidth = measurementState.previousCardWidth * 0.5
-    const maxTargetWidth = measurementState.previousCardWidth * 2.0
+    // Calculate what scale factors are achievable with slider 0-100
+    const maxAchievableWidth = (sliderWidth - 30) * (100 / 100) * mobileFactor + 15
+    const minAchievableWidth = (sliderWidth - 30) * (0 / 100) * mobileFactor + 15
+    const maxAchievableFactor = maxAchievableWidth / measurementState.previousCardWidth
+    const minAchievableFactor = minAchievableWidth / measurementState.previousCardWidth
     
-    // Solve for slider value: sliderValue = ((cardWidth - 15) / mobileFactor) / (sliderWidth - 30) * 100
-    const minSliderValue = Math.max(0, ((minTargetWidth - 15) / mobileFactor) / (sliderWidth - 30) * 100)
-    const maxSliderValue = Math.min(100, ((maxTargetWidth - 15) / mobileFactor) / (sliderWidth - 30) * 100)
+    // Filter distribution to only achievable scale factors
+    const achievableFactors = sizeScaleDistribution.filter(
+      f => f >= minAchievableFactor && f <= maxAchievableFactor
+    )
     
-    // Pick random slider value within this range
-    const newSliderValue = minSliderValue + Math.random() * (maxSliderValue - minSliderValue)
+    // Pick random scale factor from filtered distribution
+    const scaleFactor = achievableFactors[Math.floor(Math.random() * achievableFactors.length)]
+    const targetCardWidth = measurementState.previousCardWidth * scaleFactor
+    
+    // Solve for slider value to achieve this target card width
+    const newSliderValue = Math.max(0, Math.min(100, 
+      ((targetCardWidth - 15) / mobileFactor) / (sliderWidth - 30) * 100
+    ))
+    
     sliderElement.value = newSliderValue
     setSliderStyle(sliderElement)
     
-    // Calculate actual card width for logging
-    const actualCardWidth = (sliderWidth - 30) * (newSliderValue / 100) * mobileFactor + 15
-    console.log(`Randomization: prevCard=${measurementState.previousCardWidth.toFixed(1)}px, newCard=${actualCardWidth.toFixed(1)}px, ratio=${(actualCardWidth/measurementState.previousCardWidth).toFixed(2)}x, slider=${newSliderValue.toFixed(1)}%`)
+    // Store intended values for logging and validation after slider positioning
+    measurementState._randomizationData = {
+      prevCard: measurementState.previousCardWidth,
+      scaleFactor: scaleFactor,
+      sliderValue: newSliderValue,
+      achievableFactors: achievableFactors,
+      randomHorizontalOffset: randomHorizontalOffset,
+    }
   }
 
   const _onDown = (e, type) => {
@@ -332,6 +371,56 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         }
       }
     }
+  }
+  
+  // Validate and retry if actual ratio falls in excluded zone (if randomized)
+  if (measurementState._randomizationData) {
+    const data = measurementState._randomizationData
+    const mobileFactor = window.innerWidth < 480 ? 2 : 1
+    const finalSliderWidth = sliderElement.offsetWidth || sliderElement.getBoundingClientRect().width
+    let actualCardWidth = (finalSliderWidth - 30) * (data.sliderValue / 100) * mobileFactor + 15
+    let actualRatio = actualCardWidth / data.prevCard
+    
+    // Excluded zone check: 0.95 < ratio < 1.05
+    const excludedMin = 0.95
+    const excludedMax = 1.05
+    let retryCount = 0
+    const maxRetries = 20
+    
+    while (actualRatio > excludedMin && actualRatio < excludedMax && retryCount < maxRetries) {
+      retryCount++
+      console.log(`Retry ${retryCount}: actualRatio ${actualRatio.toFixed(3)} in excluded zone [${excludedMin}, ${excludedMax}], picking new scaleFactor...`)
+      
+      // Pick a new random scale factor
+      const newScaleFactor = data.achievableFactors[Math.floor(Math.random() * data.achievableFactors.length)]
+      const newTargetWidth = data.prevCard * newScaleFactor
+      const newSliderValue = Math.max(0, Math.min(100, 
+        ((newTargetWidth - 15) / mobileFactor) / (sliderElement.offsetWidth - 30) * 100
+      ))
+      
+      // Update slider
+      sliderElement.value = newSliderValue
+      setSliderStyle(sliderElement)
+      
+      // Recalculate actual card width
+      const updatedSliderWidth = sliderElement.offsetWidth || sliderElement.getBoundingClientRect().width
+      actualCardWidth = (updatedSliderWidth - 30) * (newSliderValue / 100) * mobileFactor + 15
+      actualRatio = actualCardWidth / data.prevCard
+      
+      // Update stored data for logging
+      data.scaleFactor = newScaleFactor
+      data.sliderValue = newSliderValue
+    }
+    
+    if (retryCount >= maxRetries) {
+      console.warn(`Reached max retries (${maxRetries}) without escaping excluded zone. Using current ratio: ${actualRatio.toFixed(3)}`)
+    } else if (retryCount > 0) {
+      console.log(`Success after ${retryCount} retries: actualRatio ${actualRatio.toFixed(3)} outside excluded zone`)
+    }
+    
+    // Log final result
+    console.log(`Randomization: prevCard=${data.prevCard.toFixed(1)}px, newCard=${actualCardWidth.toFixed(1)}px, scaleFactor=${data.scaleFactor.toFixed(2)}x, actualRatio=${actualRatio.toFixed(2)}x, slider=${data.sliderValue.toFixed(1)}%`)
+    delete measurementState._randomizationData // Clean up
   }
 
   // Switch OBJ
@@ -622,7 +711,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
           const secondLastIdx = measurementState.measurements.length - 2
           const M1 = measurementState.measurements[secondLastIdx].ppi
           const M2 = measurementState.measurements[lastIdx].ppi
-          const ratio = Math.max(M1 / M2, M2 / M1)
+          const ratio = M2 / M1  // Show actual ratio (current / previous) to indicate direction
           
           console.log(`Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Continuing to next measurement.`)
           
