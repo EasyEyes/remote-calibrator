@@ -158,10 +158,13 @@ function saveCalibrationMeasurements(
   method,
   measurements, // Array of measurement objects
   spotDeg = undefined, // Spot diameter in degrees for blindspot calibrations
+  COMMON = undefined,
 ) {
   // Initialize the calibration attempts object if it doesn't exist
   if (!RC.calibrationAttempts) {
-    RC.calibrationAttempts = {}
+    RC.calibrationAttempts = {
+      future: 'To be deleted by end of November 2025.',
+    }
   }
 
   // Save each measurement separately
@@ -197,6 +200,7 @@ function saveCalibrationMeasurements(
       measurement.eyesToFixationCm,
       measurement.eyesToSpotCm,
       measurement.calibrateTrackDistanceSpotXYDeg,
+      COMMON,
     )
   })
 }
@@ -227,21 +231,31 @@ function saveCalibrationAttempt(
   eyesToFixationCm = undefined,
   eyesToSpotCm = undefined,
   calibrateTrackDistanceSpotXYDeg = undefined,
+  COMMON = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
   // arrays of values across attempts for easier downstream analysis.
-  const _updateCalibrationAttemptsTransposed = (RC, calibrationObject) => {
+  const _updateCalibrationAttemptsTransposed = (
+    RC,
+    calibrationObject,
+    COMMON,
+  ) => {
     if (!RC.calibrationAttemptsT) RC.calibrationAttemptsT = {}
     for (const [key, value] of Object.entries(calibrationObject)) {
       const v = value === undefined ? null : value
       if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = []
       RC.calibrationAttemptsT[key].push(v)
     }
+    if (COMMON) {
+      RC.calibrationAttemptsT.COMMON = COMMON
+    }
   }
 
   // Initialize the calibration attempts object if it doesn't exist
   if (!RC.calibrationAttempts) {
-    RC.calibrationAttempts = {}
+    RC.calibrationAttempts = {
+      future: 'To be deleted by end of November 2025.',
+    }
   }
 
   // Trim values to 1 decimal place, handle NaN gracefully
@@ -344,7 +358,7 @@ function saveCalibrationAttempt(
   RC.calibrationAttempts[`calibration${calibrationNumber}`] = calibrationObject
 
   // Also maintain a transposed structure for easier consumption
-  _updateCalibrationAttemptsTransposed(RC, calibrationObject)
+  _updateCalibrationAttemptsTransposed(RC, calibrationObject, COMMON)
 
   console.log(`Saved calibration${calibrationNumber}:`, calibrationObject)
 }
@@ -3311,6 +3325,28 @@ export async function objectTest(RC, options, callback = undefined) {
     rejectionCount: 0, // Track number of times user has been rejected (too short OR mismatched)
   }
 
+  // ===================== OBJECT TEST COMMON DATA TO BE SAVED IN RC.calibrationAttempts.COMMON =====================
+  const objectTestCommonData = {
+    objectRulerIntervalCm: [],
+    objectMeasuredCm: [],
+    objectMeasuredMsg: [],
+    objectLengthCm: null, // Geometric mean of the last two values of objectMeasuredCm, but only if the last value is “ok”, and it’s preceded by “ok” or “mismatch”.
+    _calibrateTrackDistance: options.calibrateTrackDistance,
+    _calibrateTrackDistanceAllowedRangeCm:
+      options.calibrateTrackDistanceAllowedRangeCm,
+    _calibrateTrackDistanceAllowedRatio:
+      options.calibrateTrackDistanceAllowedRatio,
+    _calibrateTrackDistancePupil: options.calibrateTrackDistancePupil,
+    _calibrateTrackDistanceShowLengthBool:
+      options.calibrateTrackDistanceShowLengthBool,
+    _calibrateTrackDistanceTimes: options.objectMeasurementCount,
+    _showPerpendicularFeetBool: options.showNearestPointsBool,
+    _calibrateScreenSizeAllowedRatio: options.calibrateScreenSizeAllowedRatio,
+    _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
+    _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
+    _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+  }
+
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
   // Track page 3/4 measurement cycles (for dynamic title counter)
   let viewingDistanceMeasurementCount = 0 // Total number of page 3/4 cycles completed
@@ -5188,6 +5224,9 @@ export async function objectTest(RC, options, callback = undefined) {
           },
         }
         console.log('Single measurement accepted:', savedMeasurementData)
+        objectTestCommonData.objectMeasuredMsg.push('ok')
+        objectTestCommonData.objectLengthCm =
+          Math.round(Number(objectLengthCm) * 10) / 10
         await showPage(3)
         return
       }
@@ -5199,6 +5238,9 @@ export async function objectTest(RC, options, callback = undefined) {
         measurementState.currentIteration++
         console.log(
           `Need more measurements: ${measurementState.currentIteration}/${measurementState.totalIterations}`,
+        )
+        objectTestCommonData.objectMeasuredMsg.push(
+          measurementState.lastAttemptWasTooShort ? 'short' : 'ok',
         )
         // Reset tape and stay on page 2
         await resetPage2ForNextMeasurement()
@@ -5217,6 +5259,9 @@ export async function objectTest(RC, options, callback = undefined) {
           consistentPair.values[0] * consistentPair.values[1],
         )
         measurementState.consistentPair = consistentPair
+        objectTestCommonData.objectMeasuredMsg.push('ok')
+        objectTestCommonData.objectLengthCm =
+          Math.round(Number(geoMean) * 10) / 10
 
         console.log(
           'Found consistent pair:',
@@ -5255,6 +5300,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
         // Save measurement details to RC
         RC.objectMeasurements = {
+          future: 'To be deleted by end of November 2025.',
           objectLengthCm: measurementState.measurements.map(m =>
             toFixedNumber(m.objectLengthCm, 1),
           ),
@@ -5335,6 +5381,8 @@ export async function objectTest(RC, options, callback = undefined) {
           // Show pause before allowing new object (with exponentially growing duration)
           await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
         }
+
+        objectTestCommonData.objectMeasuredMsg.push('mismatch')
 
         // After popup (or if no popup), continue measuring
         measurementState.currentIteration++
@@ -5972,9 +6020,18 @@ export async function objectTest(RC, options, callback = undefined) {
             // Validate object length - check if this is first measurement or if previous was too short
             const minCm =
               options.calibrateTrackDistanceObjectMinMaxCm?.[0] || 30
-            const isFirstMeasurement = measurementState.measurements.length === 0
-            const shouldEnforceMinimum = isFirstMeasurement || measurementState.lastAttemptWasTooShort
-            
+            const isFirstMeasurement =
+              measurementState.measurements.length === 0
+            const shouldEnforceMinimum =
+              isFirstMeasurement || measurementState.lastAttemptWasTooShort
+
+            objectTestCommonData.objectMeasuredCm.push(
+              Math.round(Number(firstMeasurement) * 10) / 10,
+            )
+            objectTestCommonData.objectRulerIntervalCm.push(
+              Math.round(Number(intervalCmCurrent) * 10) / 10,
+            )
+
             if (shouldEnforceMinimum) {
               // We need to enforce minimum length - reject if too short
               if (Math.round(firstMeasurement) < Math.round(minCm)) {
@@ -5984,6 +6041,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
                 // Mark that this attempt was too short
                 measurementState.lastAttemptWasTooShort = true
+                objectTestCommonData.objectMeasuredMsg.push('short')
 
                 // Increment rejection counter
                 measurementState.rejectionCount++
@@ -6010,7 +6068,10 @@ export async function objectTest(RC, options, callback = undefined) {
                 })
 
                 // Show pause before allowing new object (with exponentially growing duration)
-                await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
+                await showPauseBeforeNewObject(
+                  RC,
+                  measurementState.rejectionCount,
+                )
 
                 // Reset the ruler/tape to initial position
                 await resetPage2ForNextMeasurement()
@@ -6035,6 +6096,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   `Current measurement is too short (${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm) - will enforce on NEXT measurement`,
                 )
                 measurementState.lastAttemptWasTooShort = true
+                objectTestCommonData.objectMeasuredMsg.push('short')
               } else {
                 measurementState.lastAttemptWasTooShort = false
               }
@@ -6570,7 +6632,13 @@ export async function objectTest(RC, options, callback = undefined) {
                       )
                     }
 
-                    saveCalibrationMeasurements(RC, 'object', measurements)
+                    saveCalibrationMeasurements(
+                      RC,
+                      'object',
+                      measurements,
+                      undefined,
+                      objectTestCommonData,
+                    )
                   }
                 } catch (error) {
                   console.error('Error getting mesh data:', error)
@@ -6672,7 +6740,13 @@ export async function objectTest(RC, options, callback = undefined) {
                       )
                     }
 
-                    saveCalibrationMeasurements(RC, 'object', measurements)
+                    saveCalibrationMeasurements(
+                      RC,
+                      'object',
+                      measurements,
+                      undefined,
+                      objectTestCommonData,
+                    )
                   }
                 } catch (error) {
                   console.error('Error getting mesh data:', error)
@@ -6886,8 +6960,16 @@ export async function objectTest(RC, options, callback = undefined) {
       // Validate object length - check if this is first measurement or if previous was too short
       const minCm = options.calibrateTrackDistanceObjectMinMaxCm?.[0] || 10
       const isFirstMeasurement = measurementState.measurements.length === 0
-      const shouldEnforceMinimum = isFirstMeasurement || measurementState.lastAttemptWasTooShort
-      
+      const shouldEnforceMinimum =
+        isFirstMeasurement || measurementState.lastAttemptWasTooShort
+
+      objectTestCommonData.objectMeasuredCm.push(
+        Math.round(Number(firstMeasurement) * 10) / 10,
+      )
+      objectTestCommonData.objectRulerIntervalCm.push(
+        Math.round(Number(intervalCmCurrent) * 10) / 10,
+      )
+
       if (shouldEnforceMinimum) {
         // We need to enforce minimum length - reject if too short
         if (Math.round(firstMeasurement) < Math.round(minCm)) {
@@ -6897,6 +6979,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
           // Mark that this attempt was too short
           measurementState.lastAttemptWasTooShort = true
+          objectTestCommonData.objectMeasuredMsg.push('short')
 
           // Increment rejection counter
           measurementState.tooShortRejectionCount++
@@ -6923,7 +7006,10 @@ export async function objectTest(RC, options, callback = undefined) {
           })
 
           // Show pause before allowing new object (with exponentially growing duration)
-          await showPauseBeforeNewObject(RC, measurementState.tooShortRejectionCount)
+          await showPauseBeforeNewObject(
+            RC,
+            measurementState.tooShortRejectionCount,
+          )
 
           // Reset the ruler/tape to initial position
           await resetPage2ForNextMeasurement()
@@ -6947,6 +7033,7 @@ export async function objectTest(RC, options, callback = undefined) {
             `Current measurement is too short (${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm) - will enforce on NEXT measurement`,
           )
           measurementState.lastAttemptWasTooShort = true
+          objectTestCommonData.objectMeasuredMsg.push('short')
         } else {
           measurementState.lastAttemptWasTooShort = false
         }
@@ -7220,7 +7307,13 @@ export async function objectTest(RC, options, callback = undefined) {
               )
             }
 
-            saveCalibrationMeasurements(RC, 'object', measurements)
+            saveCalibrationMeasurements(
+              RC,
+              'object',
+              measurements,
+              undefined,
+              objectTestCommonData,
+            )
           }
         } catch (error) {
           console.error('Error getting mesh data:', error)
@@ -7328,16 +7421,13 @@ export async function objectTest(RC, options, callback = undefined) {
               },
             ]
 
-            const sharedData = {
-              currentIPDDistance,
-              nearestEyeToWebcamDistanceCM,
-              nearestEye,
-              nearestXYPx,
-              nearestXYPx_left,
-              nearestXYPx_right,
-            }
-
-            saveCalibrationMeasurements(RC, 'object', measurements, sharedData)
+            saveCalibrationMeasurements(
+              RC,
+              'object',
+              measurements,
+              undefined,
+              objectTestCommonData,
+            )
           }
         } catch (error) {
           console.error('Error getting mesh data:', error)
