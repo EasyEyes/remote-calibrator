@@ -11,6 +11,12 @@ import { phrases } from '../i18n/schema'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setDefaultVideoPosition } from '../components/video'
+import {
+  buildStepInstructions,
+  createStepInstructionsUI,
+  renderStepInstructions,
+} from '../distance/stepByStepInstructionHelps'
+import { test_phrases, test_assetMap } from '../distance/assetMap'
 import { irisTrackingIsActive } from '../distance/distanceTrack'
 import {
   calculateNearestPoints,
@@ -1919,19 +1925,37 @@ const trackDistanceCheck = async (
         }
       }
 
-      const html = constructInstructions(
-        phrases.RC_produceDistanceTitle[RC.language.value]
-          .replace('[[N22]]', index)
-          .replace('[[N33]]', calibrateTrackDistanceCheckCm.length),
-        instructionBodyPhrase
-          .replace('[[N11]]', cm)
-          .replace('[[UUU]]', RC.equipment?.value?.unit)
-          .replace(/(?:\r\n|\r|\n)/g, '<br><br>'),
-        false,
-        'bodyText',
-        'left',
-      )
-      RC._replaceBackground(html)
+      // Choose step-by-step phrase key using test_phrases if available
+      let phraseKeyForSteps = 'RC_produceDistance'
+      if (checkingOptions && typeof checkingOptions === 'string') {
+        const optionsArray = checkingOptions
+          .toLowerCase()
+          .split(',')
+          .map(s => s.trim())
+        const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
+        const hasCamera = optionsArray.includes('camera')
+        if (hasTiltAndSwivel && hasCamera) {
+          phraseKeyForSteps = 'RC_produceDistanceCameraTiltAndSwivel'
+        } else if (hasTiltAndSwivel) {
+          phraseKeyForSteps = 'RC_produceDistanceTiltAndSwivel'
+        } else if (hasCamera) {
+          phraseKeyForSteps = 'RC_produceDistanceCamera'
+        }
+      }
+
+      // Keep the title, render step-by-step body ourselves
+      {
+        const html = constructInstructions(
+          phrases.RC_produceDistanceTitle[RC.language.value]
+            .replace('[[N22]]', index)
+            .replace('[[N33]]', calibrateTrackDistanceCheckCm.length),
+          '',
+          false,
+          'bodyText',
+          'left',
+        )
+        RC._replaceBackground(html)
+      }
 
       // Set max-width to avoid video overlap
       const instructionElement = document.querySelector(
@@ -1945,11 +1969,84 @@ const trackDistanceCheck = async (
         instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
       }
 
-      // Set up adaptive font sizing for distance check instructions
-      let cleanupFontAdjustment = setupDistanceCheckFontAdjustment(
-        RC,
-        calibrateTrackDistanceChecking,
-      )
+      // Build single-column (left-only) step-by-step UI in the instruction body
+      let navHandlerRef = null
+      // Ensure an instruction body exists; constructInstructions omits it when body is empty
+      let instructionBody = document.getElementById('instruction-body')
+      if (!instructionBody) {
+        const container = document.querySelector('.calibration-instruction')
+        if (container) {
+          instructionBody = document.createElement('div')
+          instructionBody.id = 'instruction-body'
+          instructionBody.className = 'calibration-description bodyText'
+          container.appendChild(instructionBody)
+        }
+      }
+      if (instructionBody) {
+        instructionBody.innerHTML = ''
+        const ui = createStepInstructionsUI(instructionBody, {
+          layout: 'leftOnly',
+          leftWidth: '100%',
+          leftPaddingStart: '0rem',
+          leftPaddingEnd: '1rem',
+          fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
+          lineHeight: '1.4',
+        })
+        const rawStepText =
+          test_phrases?.[phraseKeyForSteps]?.en ||
+          phrases[phraseKeyForSteps]?.[RC.language.value] ||
+          ''
+        const chosenStepText = String(rawStepText)
+          .replace('[[N11]]', cm)
+          .replace('[[UUU]]', RC.equipment?.value?.unit || '')
+
+        try {
+          const stepModel = buildStepInstructions(chosenStepText, test_assetMap)
+          let stepIndex = 0
+          const doRender = () =>
+            renderStepInstructions({
+              model: stepModel,
+              flatIndex: stepIndex,
+              elements: {
+                leftText: ui.leftText,
+                rightText: null,
+                mediaContainer: ui.mediaContainer,
+              },
+              options: {
+                thresholdFraction: 0.4,
+                useCurrentSectionOnly: true,
+                resolveMediaUrl: url => url,
+                layout: 'leftOnly',
+              },
+            })
+          doRender()
+          const navHandler = e => {
+            if (e.key === 'ArrowDown') {
+              const maxIdx = (stepModel.flatSteps?.length || 1) - 1
+              if (stepIndex < maxIdx) {
+                stepIndex++
+                doRender()
+              }
+              e.preventDefault()
+              e.stopPropagation()
+            } else if (e.key === 'ArrowUp') {
+              if (stepIndex > 0) {
+                stepIndex--
+                doRender()
+              }
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          }
+          navHandlerRef = navHandler
+          document.addEventListener('keydown', navHandlerRef)
+        } catch (e) {
+          // Fallback to plain text if parsing fails
+          instructionBody.innerText = instructionBodyPhrase
+            .replace('[[N11]]', cm)
+            .replace('[[UUU]]', RC.equipment?.value?.unit || '')
+        }
+      }
 
       //wait for return key press
       await new Promise(async resolve => {
@@ -2146,8 +2243,7 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.medianFactorVpxCm =
                 RC.distanceCheckJSON.measuredFactorVpxCm.length > 0
                   ? Math.round(
-                      median(RC.distanceCheckJSON.measuredFactorVpxCm) *
-                        10,
+                      median(RC.distanceCheckJSON.measuredFactorVpxCm) * 10,
                     ) / 10
                   : 0
 
@@ -2156,7 +2252,10 @@ const trackDistanceCheck = async (
 
               document.removeEventListener('keydown', keyupListener)
               removeKeypadHandler()
-              cleanupFontAdjustment() // Clean up font adjustment listeners
+              if (navHandlerRef) {
+                document.removeEventListener('keydown', navHandlerRef)
+                navHandlerRef = null
+              }
               resolve()
             }
             //check for the x key to skip
@@ -2168,7 +2267,10 @@ const trackDistanceCheck = async (
               i--
               document.removeEventListener('keydown', keyupListener)
               removeKeypadHandler()
-              cleanupFontAdjustment() // Clean up font adjustment listeners
+              if (navHandlerRef) {
+                document.removeEventListener('keydown', navHandlerRef)
+                navHandlerRef = null
+              }
               resolve()
             }
           }
@@ -2349,8 +2451,7 @@ const trackDistanceCheck = async (
                 RC.distanceCheckJSON.medianFactorVpxCm =
                   RC.distanceCheckJSON.measuredFactorVpxCm.length > 0
                     ? Math.round(
-                        median(RC.distanceCheckJSON.measuredFactorVpxCm) *
-                          10,
+                        median(RC.distanceCheckJSON.measuredFactorVpxCm) * 10,
                       ) / 10
                     : 0
 

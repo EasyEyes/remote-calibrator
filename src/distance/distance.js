@@ -32,6 +32,16 @@ import {
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { addButtons } from '../components/buttons'
 import { phrases } from '../i18n/schema'
+import {
+  test_phrases,
+  test_assetMap,
+  distanceCalibrationAssetMap,
+} from './assetMap'
+import {
+  buildStepInstructions,
+  createStepInstructionsUI,
+  renderStepInstructions,
+} from './stepByStepInstructionHelps'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { showTestPopup } from '../components/popup'
@@ -3325,6 +3335,51 @@ export async function objectTest(RC, options, callback = undefined) {
     rejectionCount: 0, // Track number of times user has been rejected (too short OR mismatched)
   }
 
+  // ===================== INSTRUCTION MEDIA PRELOAD (BLOB CACHE, ONCE PER URL) =====================
+  const mediaBlobCache = (window.__eeInstructionMediaBlobCache =
+    window.__eeInstructionMediaBlobCache || new Map())
+  const mediaFetchCache = (window.__eeInstructionMediaFetchCache =
+    window.__eeInstructionMediaFetchCache || new Map())
+
+  const collectAllAssetUrls = () => {
+    const maps = [test_assetMap, distanceCalibrationAssetMap].filter(Boolean)
+    const urls = new Set()
+    maps.forEach(m => {
+      Object.values(m || {}).forEach(u => {
+        if (typeof u === 'string' && u) urls.add(u)
+      })
+    })
+    return Array.from(urls)
+  }
+
+  const fetchBlobOnce = url => {
+    if (!url) return Promise.resolve(null)
+    if (mediaBlobCache.has(url)) return Promise.resolve(mediaBlobCache.get(url))
+    if (mediaFetchCache.has(url)) return mediaFetchCache.get(url)
+    const p = fetch(url, { mode: 'cors', credentials: 'omit' })
+      .then(resp => {
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        return resp.blob()
+      })
+      .then(blob => {
+        const objectUrl = URL.createObjectURL(blob)
+        const entry = { objectUrl, blob, mime: blob.type }
+        mediaBlobCache.set(url, entry)
+        return entry
+      })
+      .catch(() => null)
+    mediaFetchCache.set(url, p)
+    return p
+  }
+
+  const preloadAllInstructionMedia = async () => {
+    const urls = collectAllAssetUrls()
+    if (!urls.length) return
+    await Promise.all(urls.map(fetchBlobOnce)).catch(() => {})
+  }
+  // Wait for preload before proceeding
+  await preloadAllInstructionMedia()
+
   // ===================== OBJECT TEST COMMON DATA TO BE SAVED IN RC.calibrationAttempts.COMMON =====================
   const objectTestCommonData = {
     objectRulerIntervalCm: [],
@@ -3519,8 +3574,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Track and render instructions text with custom two-column flow
   let currentInstructionText = ''
+  // Setter is reassigned after UI is created; default stores text only
   let setInstructionsText = text => {
-    if (instructions) instructions.innerText = text
+    currentInstructionText = text
   }
 
   // Helper function to update instructions based on current iteration
@@ -3540,26 +3596,43 @@ export async function objectTest(RC, options, callback = undefined) {
           ? 'RC_UseObjectToSetViewingDistanceTapePage2'
           : 'RC_UseObjectToSetViewingDistanceRulerPage2'
 
-    const instructionText =
-      phrases[phraseKey]?.[RC.L]
-        ?.replace('[[IN1]]', minInch.toFixed(0))
-        ?.replace('[[IN2]]', maxInch.toFixed(0))
-        ?.replace('[[CM1]]', minCm.toFixed(0))
-        ?.replace('[[CM2]]', maxCm.toFixed(0)) ||
+    // Prefer new test phrases from assetMap; fall back to legacy phrases if missing
+    const testText =
+      test_phrases?.[phraseKey]?.en ||
+      test_phrases?.[
+        showLength
+          ? 'RC_UseObjectToSetViewingDistanceTapePage1'
+          : 'RC_UseObjectToSetViewingDistanceRulerPage1'
+      ]?.en
+    const legacyText =
+      phrases[phraseKey]?.[RC.L] ||
       phrases[
         showLength
           ? 'RC_UseObjectToSetViewingDistanceTapePage1'
           : 'RC_UseObjectToSetViewingDistanceRulerPage1'
-      ][RC.L]
-        ?.replace('[[IN1]]', minInch.toFixed(0))
-        ?.replace('[[IN2]]', maxInch.toFixed(0))
-        ?.replace('[[CM1]]', minCm.toFixed(0))
-        ?.replace('[[CM2]]', maxCm.toFixed(0))
+      ]?.[RC.L]
 
-    currentInstructionText = instructionText
-    setInstructionsText(currentInstructionText)
+    const chosenText = (testText || legacyText || '')
+      .replace('[[IN1]]', minInch.toFixed(0))
+      .replace('[[IN2]]', maxInch.toFixed(0))
+      .replace('[[CM1]]', minCm.toFixed(0))
+      .replace('[[CM2]]', maxCm.toFixed(0))
+
+    // Build step-by-step model from chosenText; if parsing fails, fall back to plain text
+    try {
+      stepInstructionModel = buildStepInstructions(chosenText, test_assetMap)
+      currentStepFlatIndex = 0
+      currentInstructionText = chosenText
+      renderCurrentStepView()
+    } catch (e) {
+      console.warn('Failed to parse step instructions; using plain text', e)
+      currentInstructionText = chosenText
+      leftInstructionsText.textContent = currentInstructionText || ''
+      rightInstructionsText.textContent = ''
+      sectionMediaContainer.innerHTML = ''
+    }
     console.log(
-      `Updated instructions for iteration ${measurementState.currentIteration}`,
+      `Updated instructions (${phraseKey}) for iteration ${measurementState.currentIteration}`,
     )
   }
 
@@ -3649,45 +3722,21 @@ export async function objectTest(RC, options, callback = undefined) {
   instructionsContainer.style.zIndex = '3'
   container.appendChild(instructionsContainer)
 
-  // --- INSTRUCTIONS WRAPPER (two explicit columns) ---
-  const instructions = document.createElement('div')
-  instructions.style.display = 'flex'
-  instructions.style.flexDirection = 'row'
-  instructions.style.width = '100%'
-  instructions.style.maxWidth = '100%'
-  instructionsContainer.appendChild(instructions)
-
-  // Left column for primary instructional text (fills up to 70vh)
-  const leftInstructions = document.createElement('div')
-  leftInstructions.style.width = '50%'
-  leftInstructions.style.maxWidth = '50%'
-  leftInstructions.style.paddingInlineStart = '3rem'
-  leftInstructions.style.paddingInlineEnd = '1rem'
-  leftInstructions.style.textAlign = 'start'
-  leftInstructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
-  leftInstructions.style.lineHeight = '1.4'
-  const leftInstructionsText = document.createElement('div')
-  leftInstructionsText.style.whiteSpace = 'pre-line'
-  leftInstructionsText.style.wordBreak = 'break-word'
-  leftInstructionsText.style.overflowWrap = 'anywhere'
-  leftInstructions.appendChild(leftInstructionsText)
-  instructions.appendChild(leftInstructions)
-
-  // Right column for overflow instructional text and follow-up content
-  const rightInstructions = document.createElement('div')
-  rightInstructions.style.width = '50%'
-  rightInstructions.style.maxWidth = '50%'
-  rightInstructions.style.paddingInlineStart = '1rem'
-  rightInstructions.style.paddingInlineEnd = '3rem'
-  rightInstructions.style.textAlign = 'start'
-  rightInstructions.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)'
-  rightInstructions.style.lineHeight = '1.4'
-  const rightInstructionsText = document.createElement('div')
-  rightInstructionsText.style.whiteSpace = 'pre-line'
-  rightInstructionsText.style.wordBreak = 'break-word'
-  rightInstructionsText.style.overflowWrap = 'anywhere'
-  rightInstructions.appendChild(rightInstructionsText)
-  instructions.appendChild(rightInstructions)
+  // --- STEP INSTRUCTIONS UI (reusable) ---
+  const instructionsUI = createStepInstructionsUI(instructionsContainer, {
+    leftWidth: '50%',
+    rightWidth: '50%',
+    leftPaddingStart: '3rem',
+    leftPaddingEnd: '1rem',
+    rightPaddingStart: '1rem',
+    rightPaddingEnd: '3rem',
+    fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
+    lineHeight: '1.4',
+  })
+  const leftInstructionsText = instructionsUI.leftText
+  const rightInstructionsText = instructionsUI.rightText
+  const rightInstructions = instructionsUI.rightColumn
+  const sectionMediaContainer = instructionsUI.mediaContainer
 
   // --- FOLLOW-UP BLOCK inside the right column (dontUseRuler) ---
   const dontUseRulerColumn = document.createElement('div')
@@ -3702,53 +3751,66 @@ export async function objectTest(RC, options, callback = undefined) {
   // Place after instructional overflow so it appears following the text in column 2
   rightInstructions.appendChild(dontUseRulerColumn)
 
-  // Define text flow: fill up to 60% of viewport height in left column, overflow to right
-  const splitInstructionTextByHeight = text => {
-    // Reset
-    leftInstructionsText.textContent = ''
+  // Step-by-step instruction model and current index
+  let stepInstructionModel = null
+  let currentStepFlatIndex = 0
+
+  const renderCurrentStepView = () =>
+    renderStepInstructions({
+      model: stepInstructionModel,
+      flatIndex: currentStepFlatIndex,
+      elements: {
+        leftText: leftInstructionsText,
+        rightText: rightInstructionsText,
+        mediaContainer: sectionMediaContainer,
+      },
+      options: {
+        calibrateTrackDistanceCheckBool:
+          options.calibrateTrackDistanceCheckBool,
+        thresholdFraction: 0.6,
+        useCurrentSectionOnly: true,
+        resolveMediaUrl: url => {
+          const cached = mediaBlobCache && mediaBlobCache.get(url)
+          return cached && cached.objectUrl ? cached.objectUrl : url
+        },
+      },
+    })
+
+  // Replace the setter to support both legacy and step-by-step flows
+  const reflowInstructionsOnResize = () => renderCurrentStepView()
+  setInstructionsText = text => {
+    currentInstructionText = text
+    // Fallback: raw text mode
+    leftInstructionsText.textContent = currentInstructionText || ''
     rightInstructionsText.textContent = ''
-
-    // Nothing to render
-    if (!text || typeof text !== 'string') return
-
-    const threshold = Math.floor(window.innerHeight * 0.6)
-
-    // Quick path: try to fit all in left
-    leftInstructionsText.textContent = text
-    if (leftInstructionsText.scrollHeight <= threshold) {
-      return
-    }
-
-    // Need to split: keep whitespace/newlines by splitting tokens including separators
-    const tokens = text.split(/(\s+)/)
-    let low = 0
-    let high = tokens.length
-    let fitIndex = 0
-
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2)
-      leftInstructionsText.textContent = tokens.slice(0, mid).join('')
-      if (leftInstructionsText.scrollHeight <= threshold) {
-        fitIndex = mid
-        low = mid + 1
-      } else {
-        high = mid - 1
-      }
-    }
-
-    // Finalize columns
-    leftInstructionsText.textContent = tokens.slice(0, fitIndex).join('')
-    rightInstructionsText.textContent = tokens.slice(fitIndex).join('')
+    sectionMediaContainer.innerHTML = ''
   }
-
-  // Replace the setter to use our splitter and reflow on resize
-  const reflowInstructionsOnResize = () =>
-    splitInstructionTextByHeight(currentInstructionText)
-  setInstructionsText = text => splitInstructionTextByHeight(text)
   // Initial flow (if text already computed)
   setInstructionsText(currentInstructionText)
   // Reflow on viewport changes
   window.addEventListener('resize', reflowInstructionsOnResize)
+
+  // Up/Down navigation for step-by-step instructions (page 2 only)
+  const handleInstructionNav = e => {
+    if (![2, 3, 4].includes(currentPage) || !stepInstructionModel) return
+    if (e.key === 'ArrowDown') {
+      const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
+      if (currentStepFlatIndex < maxIdx) {
+        currentStepFlatIndex++
+        renderCurrentStepView()
+      }
+      e.preventDefault()
+      e.stopPropagation()
+    } else if (e.key === 'ArrowUp') {
+      if (currentStepFlatIndex > 0) {
+        currentStepFlatIndex--
+        renderCurrentStepView()
+      }
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+  document.addEventListener('keydown', handleInstructionNav)
 
   // --- RADIO BUTTON CONTAINER ---
   const radioOverlay = document.createElement('div')
@@ -4758,14 +4820,11 @@ export async function objectTest(RC, options, callback = undefined) {
       const isStartOffScreen = startX < 0 || startX > screenWidth
       const tapeY = screenHeight - bottomMarginPx
 
-      if (currentArrowKey === 'ArrowLeft' || currentArrowKey === 'ArrowUp') {
+      if (currentArrowKey === 'ArrowLeft') {
         // Move right side closer to left (shrink from right)
         const newEndX = endX - moveAmount
         updateRulerEndpoints(startX, tapeY, newEndX, tapeY, isStartOffScreen)
-      } else if (
-        currentArrowKey === 'ArrowRight' ||
-        currentArrowKey === 'ArrowDown'
-      ) {
+      } else if (currentArrowKey === 'ArrowRight') {
         // Move right side away from left (extend from right)
         const newEndX = endX + moveAmount
         updateRulerEndpoints(startX, tapeY, newEndX, tapeY, isStartOffScreen)
@@ -4907,8 +4966,7 @@ export async function objectTest(RC, options, callback = undefined) {
       explanationButton.style.display = 'none'
 
       // Update instructions
-      instructions.innerText =
-        phrases.RC_UseObjectToSetViewingDistancePage0q[RC.L]
+      setInstructionsText(phrases.RC_UseObjectToSetViewingDistancePage0q[RC.L])
 
       // Hide dontUseRuler column on page 0
       dontUseRulerColumn.style.display = 'none'
@@ -4950,8 +5008,7 @@ export async function objectTest(RC, options, callback = undefined) {
       dontUseRulerColumn.style.display = 'none'
 
       // Update instructions
-      instructions.innerText =
-        phrases.RC_UseObjectToSetViewingDistancePage1[RC.L]
+      setInstructionsText(phrases.RC_UseObjectToSetViewingDistancePage1[RC.L])
     } else if (pageNumber === 2) {
       // ===================== PAGE 2: DIAGONAL TAPE =====================
       console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
@@ -5056,9 +5113,22 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide explanation button on page 3
       explanationButton.style.display = 'block' //show explanation button on page 3
 
-      // Update instructions
-      instructions.innerText =
-        phrases.RC_UseObjectToSetViewingDistancePage3[RC.L]
+      // Update instructions using step-by-step renderer
+      try {
+        const p3Text =
+          (test_phrases?.RC_UseObjectToSetViewingDistancePage3?.en ||
+            phrases.RC_UseObjectToSetViewingDistancePage3?.[RC.L] ||
+            '') + ''
+        stepInstructionModel = buildStepInstructions(p3Text, test_assetMap)
+        currentStepFlatIndex = 0
+        renderCurrentStepView()
+      } catch (e) {
+        console.warn(
+          'Failed to parse step instructions for Page 3; using plain text',
+          e,
+        )
+        setInstructionsText(phrases.RC_UseObjectToSetViewingDistancePage3[RC.L])
+      }
 
       // Hide dontUseRuler column on page 3
       dontUseRulerColumn.style.display = 'none'
@@ -5132,9 +5202,24 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide explanation button on page 4
       explanationButton.style.display = 'block' //show explanation button on page 4
 
-      // Update instructions
-      instructions.innerText =
-        phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4[RC.L]
+      // Update instructions using step-by-step renderer
+      try {
+        const p4Text =
+          (test_phrases?.RC_UseObjectToSetViewingDistanceLowerRightPage4?.en ||
+            phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4?.[RC.L] ||
+            '') + ''
+        stepInstructionModel = buildStepInstructions(p4Text, test_assetMap)
+        currentStepFlatIndex = 0
+        renderCurrentStepView()
+      } catch (e) {
+        console.warn(
+          'Failed to parse step instructions for Page 4; using plain text',
+          e,
+        )
+        setInstructionsText(
+          phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4[RC.L],
+        )
+      }
 
       // Hide dontUseRuler column on page 4
       dontUseRulerColumn.style.display = 'none'
@@ -5882,6 +5967,7 @@ export async function objectTest(RC, options, callback = undefined) {
     // Clean up keyboard event listeners
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
+    document.removeEventListener('keydown', handleInstructionNav)
 
     // // Clean up radio button event listeners
     // if (customInputs) {
@@ -5923,6 +6009,7 @@ export async function objectTest(RC, options, callback = undefined) {
     // Always clean up keyboard event listeners
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
+    document.removeEventListener('keydown', handleInstructionNav)
 
     // // Clean up radio button event listeners
     // if (customInputs) {
