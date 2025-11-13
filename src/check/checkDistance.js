@@ -2018,6 +2018,8 @@ const trackDistanceCheck = async (
                 resolveMediaUrl: url => url,
                 layout: 'leftOnly',
               },
+              lang: RC.language.value,
+              phrases: phrases,
             })
           doRender()
           const navHandler = e => {

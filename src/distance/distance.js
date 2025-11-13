@@ -3380,6 +3380,22 @@ export async function objectTest(RC, options, callback = undefined) {
   // Wait for preload before proceeding
   await preloadAllInstructionMedia()
 
+  // Resolve a media URL to a cached blob URL if available.
+  // On cache miss, kick off a lazy fetch to populate cache for next use.
+  const resolveInstructionMediaUrl = url => {
+    if (!url) return url
+    const key = String(url).trim()
+    const cached = mediaBlobCache && mediaBlobCache.get(key)
+    if (cached && cached.objectUrl) return cached.objectUrl
+    // Lazy warm the cache so subsequent renders use the blob URL
+    if (!mediaFetchCache.has(key)) {
+      try {
+        fetchBlobOnce(key)
+      } catch {}
+    }
+    return key
+  }
+
   // ===================== OBJECT TEST COMMON DATA TO BE SAVED IN RC.calibrationAttempts.COMMON =====================
   const objectTestCommonData = {
     objectRulerIntervalCm: [],
@@ -3738,18 +3754,21 @@ export async function objectTest(RC, options, callback = undefined) {
   const rightInstructions = instructionsUI.rightColumn
   const sectionMediaContainer = instructionsUI.mediaContainer
 
-  // --- FOLLOW-UP BLOCK inside the right column (dontUseRuler) ---
+  // --- FOLLOW-UP BANNER fixed at upper-right (dontUseRuler) ---
   const dontUseRulerColumn = document.createElement('div')
   dontUseRulerColumn.id = 'dont-use-ruler-column'
-  dontUseRulerColumn.style.breakInside = 'avoid'
-  dontUseRulerColumn.style.textAlign = 'start'
+  dontUseRulerColumn.style.position = 'fixed'
+  dontUseRulerColumn.style.top = '12px'
+  dontUseRulerColumn.style.right = '12px'
+  dontUseRulerColumn.style.zIndex = '999999999'
+  dontUseRulerColumn.style.textAlign = 'right'
   dontUseRulerColumn.style.whiteSpace = 'pre-line'
   dontUseRulerColumn.style.fontSize = '16pt'
   dontUseRulerColumn.style.lineHeight = '1.4'
-  dontUseRulerColumn.style.marginTop = '1rem'
   dontUseRulerColumn.style.display = 'none' // Hidden by default
-  // Place after instructional overflow so it appears following the text in column 2
-  rightInstructions.appendChild(dontUseRulerColumn)
+  dontUseRulerColumn.style.width = '50vw'
+  dontUseRulerColumn.style.maxWidth = '50vw'
+  document.body.appendChild(dontUseRulerColumn)
 
   // Step-by-step instruction model and current index
   let stepInstructionModel = null
@@ -3769,11 +3788,10 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateTrackDistanceCheckBool,
         thresholdFraction: 0.6,
         useCurrentSectionOnly: true,
-        resolveMediaUrl: url => {
-          const cached = mediaBlobCache && mediaBlobCache.get(url)
-          return cached && cached.objectUrl ? cached.objectUrl : url
-        },
+        resolveMediaUrl: resolveInstructionMediaUrl,
       },
+      lang: RC.language.value,
+      phrases: phrases,
     })
 
   // Replace the setter to support both legacy and step-by-step flows
@@ -4223,7 +4241,8 @@ export async function objectTest(RC, options, callback = undefined) {
     textContainer.style.zIndex = '15'
 
     // Use a wider max width for wrapping (twice the original width)
-    const maxWidth = 300 // Max width in pixels for wrapping
+    //1/3 of screen width
+    const maxWidth = screenWidth / 3 // Max width in pixels for wrapping
 
     // Create simple rectangular container that wraps text
     const textBox = document.createElement('div')

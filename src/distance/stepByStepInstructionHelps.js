@@ -220,6 +220,12 @@ export function renderStepInstructions({
   flatIndex = 0,
   elements,
   options = {},
+  lang = 'en',
+  phrases = {
+    EE_UseKeysToStep: {
+      en: 'Press the ▼ key to step to the next instruction. Press ▲ to go back one step.',
+    },
+  },
 }) {
   const {
     calibrateTrackDistanceCheckBool = false,
@@ -314,7 +320,7 @@ export function renderStepInstructions({
     layout === 'leftOnly'
       ? Math.max(0, Math.floor(window.innerHeight * (1 - thresholdFraction)))
       : calibrateTrackDistanceCheckBool
-        ? Math.floor(window.innerHeight * thresholdFraction * 0.7)
+        ? Math.floor(window.innerHeight * thresholdFraction)
         : Math.floor(window.innerHeight * thresholdFraction)
   // Apply fixed sizes in leftOnly to prevent media from moving
   if (layout === 'leftOnly') {
@@ -345,6 +351,7 @@ export function renderStepInstructions({
     navHint.style.fontSize = 'clamp(0.9em, 2vw, 1em)'
     navHint.style.fontStyle = 'italic'
     navHint.textContent =
+      phrases.EE_UseKeysToStep?.[lang] ||
       'Use ▼ to advance through the instructions. Use ▲ to go back to the previous instruction.'
     return navHint
   }
@@ -449,8 +456,8 @@ export function renderStepInstructions({
     }
   }
 
-  // Append navigation hint below the current step
-  leftText.appendChild(buildNavHintNode())
+  // Prepend navigation hint at the top
+  leftText.insertBefore(buildNavHintNode(), leftText.firstChild)
 
   // Render media for current section
   mediaContainer.innerHTML = ''
@@ -467,7 +474,7 @@ export function renderStepInstructions({
       vid.src = srcUrl
       vid.muted = true
       vid.autoplay = true
-      vid.loop = true
+      vid.loop = false
       vid.playsInline = true
       vid.controls = false
       vid.style.width = '100%'
