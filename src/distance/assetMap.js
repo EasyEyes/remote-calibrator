@@ -22,40 +22,39 @@ export const test_assetMap = {
 export const test_phrases = {
   RC_UseObjectToSetViewingDistanceTapePage1: {
     en: `[[TT1]] GET READY
-[[SS1]] Pick a common object about [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better. Examples: long ruler, book, magazine, clipboard, coat hanger, wooden spoon, keyboard, string, or ribbon. Or fold in half a scarf or charging cable.
-\nAvoid sharp objects (like pencils).
-\nYou'll drag the on-screen tape left a few times to make room, then pull its right end to match your object’s length.
+[[SS1]] In the following steps, you'll use the on-screen ruler (below) to measure the length of an object that you'll choose.
+\nPress the ▼ key to step to the next instruction. Press ▲ to go back one step.
 [[LL5]]
 
 [[TT2]] STEP BY STEP
-[[SS1]] Line up your object's left end (←) with the tape's left end (←).
-[[SS2]] If the right end extends beyond the screen:
-[[SS2.1]] Use your thumbnail to mark your object at the tape's largest visible number.
-[[SS2.2]] Move your thumbnail (and the object) to the left side of the screen (←).
-[[SS2.3]] Drag that number (and the tape) left until it again lines up with your thumbnail.
-[[SS2.4]] Repeat these moves until the object’s right end is on the screen.
-[[SS3]] Once the end is on the screen, use ◀ ▶ keys or drag the tape’s right end to match your object's length.
-[[SS4]] Press SPACE to proceed.
+[[SS1]] Pick a common object about [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better (see picture). Avoid sharp objects (like pencils).
+[[SS2]] Line up your object's left end (←) with the tape's left end (←).
+[[SS3]] Repeat the following as long as the object's right end extends beyond the screen:
+[[SS3.1]] Use your thumbnail to mark your object at the tape's largest visible number.
+[[SS3.2]] Move your thumbnail (and the object) to the left side of the screen (←).
+[[SS3.3]] Drag that number (and the tape) left until it again lines up with your thumbnail.
+[[SS3.4]] Repeat these moves until the object’s right end is on the screen.
+[[SS4]] Once the end is on the screen, use ◀ ▶ keys or drag the tape’s right end to match your object's length.
+[[SS5]] Press SPACE to proceed.
 \n🔉 A “kerchunk” sound will acknowledge your setting.
 [[LL1]]`,
   },
   RC_UseObjectToSetViewingDistanceRulerPage1: {
-    en: `[[TT1]] GET READY
-[[SS1]] Pick a common object about [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better. Examples: long ruler, book, magazine, clipboard, coat hanger, wooden spoon, keyboard, string, or ribbon. Or fold in half a scarf or charging cable.
-\nAvoid sharp objects (like pencils).
-\nYou'll drag the on-screen "ruler" left a few times to make room, then pull its right end to match your object’s length.
-\nThe ruler’s numbers are intentionally spaced far apart.
+    en: `[[TT1]]GET READY
+[[SS1]] In the following steps, you'll use the on-screen ruler (below) to measure the length of an object that you'll choose. The ruler’s numbers are intentionally spaced far apart.
+\nPress the ▼ key to step to the next instruction. Press ▲ to go back one step.
 [[LL5]]
 
 [[TT2]] STEP BY STEP
-[[SS1]] Line up your object's left end (←) with the ruler's left end (←).
-[[SS2]] If the object's right end extends beyond the screen:
-[[SS2.1]] Use your thumbnail to mark your object at the ruler's largest visible number, initially "1".
-[[SS2.2]] Move your thumbnail (and the object) toward the left edge of the screen (←).
-[[SS2.3]] Drag that number (and the ruler) left until it again lines up with your thumbnail.
-[[SS2.4]] Repeat these moves until the object’s right end is on the screen.
-[[SS3]] Once the end is on the screen, use ◀ ▶ keys or drag the ruler’s right end to match your object's length.
-[[SS4]] Press SPACE to proceed.
+[[SS1]] Pick a common object about [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better (see picture). Avoid sharp objects (like pencils).
+[[SS2]] Line up your object's left end (←) with the ruler's left end (←).
+[[SS3]] Repeat the following as long as the object's right end extends beyond the screen:
+[[SS3.1]] Use your thumbnail to mark your object at the ruler's largest visible number, initially "1".
+[[SS3.2]] Move your thumbnail (and the object) toward the left edge of the screen (←).
+[[SS3.3]] Drag that number (and the ruler) left until it again lines up with your thumbnail.
+[[SS3.4]] Repeat these moves until the object’s right end is on the screen.
+[[SS4]] Once the end is on the screen, use ◀ ▶ keys to drag the ruler’s right end to match your object's length.
+[[SS5]] Press SPACE to proceed.
 \n🔉 A “kerchunk” sound will acknowledge your setting.
 [[LL1]]`,
   },
