@@ -152,9 +152,8 @@ export const showPopup = async (RC, title, message, onClose = null) => {
   if (RC.gazeTracker?.webgazer) {
     RC.gazeTracker.webgazer.showVideo(originalVideoState.showVideo)
     RC.gazeTracker.webgazer.showFaceOverlay(originalVideoState.showFaceOverlay)
-    RC.gazeTracker.webgazer.showFaceFeedbackBox(
-      originalVideoState.showFaceFeedbackBox,
-    )
+    // Don't restore feedback box - keep it hidden for cleaner preview
+    RC.gazeTracker.webgazer.showFaceFeedbackBox(false)
   }
 
   // Call onClose callback if provided
@@ -241,6 +240,12 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
  * @returns {Promise<boolean>} - True to continue
  */
 const checkResolutionAfterSelection = async (RC, options = {}) => {
+  // Hide the grey face feedback box immediately when checking resolution
+  const webgazerFaceFeedbackBox = document.getElementById('webgazerFaceFeedbackBox')
+  if (webgazerFaceFeedbackBox) {
+    webgazerFaceFeedbackBox.style.display = 'none'
+  }
+
   // Give minimal time for camera to initialize after selection
   await new Promise(resolve => setTimeout(resolve, 300))
 
@@ -307,6 +312,12 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
         await exitFullscreen()
         // Minimal wait for fullscreen to exit
         await new Promise(resolve => setTimeout(resolve, 50))
+      }
+
+      // Hide the grey face feedback box BEFORE showing the popup
+      const webgazerFaceFeedbackBox = document.getElementById('webgazerFaceFeedbackBox')
+      if (webgazerFaceFeedbackBox) {
+        webgazerFaceFeedbackBox.style.display = 'none'
       }
 
       await Swal.fire({
@@ -1439,9 +1450,8 @@ export const showCameraSelectionPopup = async (
   if (RC.gazeTracker?.webgazer) {
     RC.gazeTracker.webgazer.showVideo(originalVideoState.showVideo)
     RC.gazeTracker.webgazer.showFaceOverlay(originalVideoState.showFaceOverlay)
-    RC.gazeTracker.webgazer.showFaceFeedbackBox(
-      originalVideoState.showFaceFeedbackBox,
-    )
+    // Don't restore feedback box - keep it hidden for cleaner preview
+    RC.gazeTracker.webgazer.showFaceFeedbackBox(false)
   }
 
   // Get selected camera (only from user selection, no fallback)

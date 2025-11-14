@@ -3251,7 +3251,7 @@ function checkLastTwoObjectMeasurements(measurements, threshold) {
 }
 
 // Helper function to show pause before allowing new object measurement
-async function showPauseBeforeNewObject(RC, rejectionCount) {
+export async function showPauseBeforeNewObject(RC, rejectionCount, phraseKey = 'RC_PauseBeforeNewObject') {
   let pauseSec
   if (rejectionCount === 0) {
     pauseSec = 0
@@ -3271,7 +3271,7 @@ async function showPauseBeforeNewObject(RC, rejectionCount) {
   let timerInterval
 
   await Swal.fire({
-    title: phrases.RC_PauseBeforeNewObject?.[RC.L],
+    title: phrases[phraseKey]?.[RC.L],
     html: `<div style="margin: 20px 0;">
       <div style="width: 100%; background-color: #e0e0e0; border-radius: 10px; height: 30px; overflow: hidden;">
         <div id="pause-progress-bar" style="height: 100%; background-color: #4CAF50; width: 0%; transition: width 0.1s linear;"></div>
@@ -3333,6 +3333,7 @@ export async function objectTest(RC, options, callback = undefined) {
     consistentPair: null,
     lastAttemptWasTooShort: false, // Track if previous attempt failed minimum length check
     rejectionCount: 0, // Track number of times user has been rejected (too short OR mismatched)
+    factorRejectionCount: 0, // Track number of times page 3/4 factor mismatch occurred
   }
 
   // ===================== INSTRUCTION MEDIA PRELOAD (BLOB CACHE, ONCE PER URL) =====================
@@ -3490,6 +3491,111 @@ export async function objectTest(RC, options, callback = undefined) {
   let pxPerMm = ppi / 25.4
   const pxPerCm = ppi / 2.54
 
+  // ===================== ARROW INDICATORS FOR PAGES 3 & 4 =====================
+  // Create arrow elements to point to the object resting position
+  const createArrowIndicators = (targetXYPx) => {
+    const arrowSizeCm = 3
+    const arrowSizePx = arrowSizeCm * pxPerCm
+    const lineThicknessPx = Math.max(2, arrowSizePx / 30) // Proportional thickness
+
+    // Calculate arrow positions on horizontal midline
+    const midlineY = window.innerHeight / 2
+    const leftArrowX = window.innerWidth / 3
+    const rightArrowX = (2 * window.innerWidth) / 3
+
+    // Create container for arrows
+    const arrowContainer = document.createElement('div')
+    arrowContainer.id = 'object-test-arrow-indicators'
+    arrowContainer.style.position = 'fixed'
+    arrowContainer.style.top = '0'
+    arrowContainer.style.left = '0'
+    arrowContainer.style.width = '100%'
+    arrowContainer.style.height = '100%'
+    arrowContainer.style.pointerEvents = 'none'
+    arrowContainer.style.zIndex = '999999998' // Below video but above most elements
+
+    // Helper function to create a single arrow
+    const createArrow = (fromX, fromY, toX, toY) => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      svg.style.position = 'absolute'
+      svg.style.top = '0'
+      svg.style.left = '0'
+      svg.style.width = '100%'
+      svg.style.height = '100%'
+      svg.style.overflow = 'visible'
+
+      // Calculate arrow direction
+      const dx = toX - fromX
+      const dy = toY - fromY
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      const unitX = dx / distance
+      const unitY = dy / distance
+
+      // Arrow shaft (line from starting point toward target, length = arrowSizePx)
+      const endX = fromX + unitX * arrowSizePx
+      const endY = fromY + unitY * arrowSizePx
+
+      // Draw arrow shaft
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      line.setAttribute('x1', fromX)
+      line.setAttribute('y1', fromY)
+      line.setAttribute('x2', endX)
+      line.setAttribute('y2', endY)
+      line.setAttribute('stroke', 'black')
+      line.setAttribute('stroke-width', lineThicknessPx)
+      line.setAttribute('stroke-linecap', 'round')
+      svg.appendChild(line)
+
+      // Draw arrowhead (two lines forming a V)
+      const arrowheadLength = arrowSizePx * 0.35 // 35% of arrow size
+      const arrowheadAngle = 30 * (Math.PI / 180) // 30 degrees
+
+      // Calculate perpendicular direction for arrowhead wings
+      const angle = Math.atan2(dy, dx)
+      
+      // Left wing of arrowhead
+      const leftWingX = endX - arrowheadLength * Math.cos(angle - arrowheadAngle)
+      const leftWingY = endY - arrowheadLength * Math.sin(angle - arrowheadAngle)
+      const leftWing = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      leftWing.setAttribute('x1', endX)
+      leftWing.setAttribute('y1', endY)
+      leftWing.setAttribute('x2', leftWingX)
+      leftWing.setAttribute('y2', leftWingY)
+      leftWing.setAttribute('stroke', 'black')
+      leftWing.setAttribute('stroke-width', lineThicknessPx)
+      leftWing.setAttribute('stroke-linecap', 'round')
+      svg.appendChild(leftWing)
+
+      // Right wing of arrowhead
+      const rightWingX = endX - arrowheadLength * Math.cos(angle + arrowheadAngle)
+      const rightWingY = endY - arrowheadLength * Math.sin(angle + arrowheadAngle)
+      const rightWing = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      rightWing.setAttribute('x1', endX)
+      rightWing.setAttribute('y1', endY)
+      rightWing.setAttribute('x2', rightWingX)
+      rightWing.setAttribute('y2', rightWingY)
+      rightWing.setAttribute('stroke', 'black')
+      rightWing.setAttribute('stroke-width', lineThicknessPx)
+      rightWing.setAttribute('stroke-linecap', 'round')
+      svg.appendChild(rightWing)
+
+      return svg
+    }
+
+    // Create left arrow (pointing from 1/3 position toward target)
+    const leftArrow = createArrow(leftArrowX, midlineY, targetXYPx[0], targetXYPx[1])
+    arrowContainer.appendChild(leftArrow)
+
+    // Create right arrow (pointing from 2/3 position toward target)
+    const rightArrow = createArrow(rightArrowX, midlineY, targetXYPx[0], targetXYPx[1])
+    arrowContainer.appendChild(rightArrow)
+
+    return arrowContainer
+  }
+
+  // Store reference to arrow indicators for cleanup
+  let arrowIndicators = null
+
   let screenWidth = window.innerWidth
   let screenHeight = window.innerHeight
 
@@ -3526,7 +3632,7 @@ export async function objectTest(RC, options, callback = undefined) {
       endY,
     )
     const currentLengthCm = currentDistancePx / pxPerCm
-    const r = 0.8 + 0.2 * Math.random() // keep some variability per measurement
+    const r = 0.6 + 0.4 * Math.random() // doubled randomness amplitude (was 0.8 + 0.2)
     // Leave ~1 cm headroom so the first tick is guaranteed on-screen
     return Math.max(0.1, Math.max(0, currentLengthCm - 1) * r)
   }
@@ -5035,6 +5141,12 @@ export async function objectTest(RC, options, callback = undefined) {
       // Update title with progress counter (for page 2 only)
       updateTitleWithProgress()
 
+      // Hide arrow indicators on page 2
+      if (arrowIndicators) {
+        arrowIndicators.remove()
+        arrowIndicators = null
+      }
+
       // Hide video on page 2 (tape measurement)
       RC.showVideo(false)
 
@@ -5152,6 +5264,17 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide dontUseRuler column on page 3
       dontUseRulerColumn.style.display = 'none'
 
+      // ⚠️⚠️⚠️ ARROWS COMMENTED OUT - UNCOMMENT BELOW TO SHOW PAGE 3 ARROWS ⚠️⚠️⚠️
+      // Show arrow indicators pointing to top-center of screen (camera position)
+      // if (arrowIndicators) {
+      //   arrowIndicators.remove()
+      // }
+      // const cameraXYPx = [window.innerWidth / 2, 0] // Top center
+      // arrowIndicators = createArrowIndicators(cameraXYPx)
+      // RC.background.appendChild(arrowIndicators)
+      // console.log('Arrow indicators added for page 3, pointing to top-center')
+      // ⚠️⚠️⚠️ END OF COMMENTED ARROW CODE ⚠️⚠️⚠️
+
       // Note: Face Mesh samples will be collected when space key is pressed
       console.log(
         '=== PAGE 3 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
@@ -5242,6 +5365,17 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Hide dontUseRuler column on page 4
       dontUseRulerColumn.style.display = 'none'
+
+      // ⚠️⚠️⚠️ ARROWS COMMENTED OUT - UNCOMMENT BELOW TO SHOW PAGE 4 ARROWS ⚠️⚠️⚠️
+      // Show arrow indicators pointing to lower-right corner of screen
+      // if (arrowIndicators) {
+      //   arrowIndicators.remove()
+      // }
+      // const lowerRightXYPx = [window.innerWidth, window.innerHeight] // Lower-right corner
+      // arrowIndicators = createArrowIndicators(lowerRightXYPx)
+      // RC.background.appendChild(arrowIndicators)
+      // console.log('Arrow indicators added for page 4, pointing to lower-right corner')
+      // ⚠️⚠️⚠️ END OF COMMENTED ARROW CODE ⚠️⚠️⚠️
 
       // Note: Face Mesh samples will be collected when space key is pressed
       console.log(
@@ -5436,8 +5570,7 @@ export async function objectTest(RC, options, callback = undefined) {
           const secondLastIdx = measurementState.measurements.length - 2
           const M1 = measurementState.measurements[secondLastIdx].objectLengthCm
           const M2 = measurementState.measurements[lastIdx].objectLengthCm
-          const ratio = M1 / M2
-          // Math.max(M1 / M2, M2 / M1)
+          const ratio = M2 / M1  // Current / Previous
 
           console.log(
             `///Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`,
@@ -5546,6 +5679,12 @@ export async function objectTest(RC, options, callback = undefined) {
     // Always clean up keyboard event listeners
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
+
+    // Clean up arrow indicators
+    if (arrowIndicators) {
+      arrowIndicators.remove()
+      arrowIndicators = null
+    }
 
     // // Clean up radio button event listeners
     // if (customInputs) {
@@ -6652,7 +6791,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
               // Now check tolerance with the calculated factors
               console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')
-              const [pass, message, min, max, RMin, RMax, maxRatio] =
+              const [pass, message, min, max, RMin, RMax, maxRatio, factorRatio] =
                 checkObjectTestTolerance(
                   RC,
                   faceMeshSamplesPage3,
@@ -6756,7 +6895,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 )
                 const newMin = min.toFixed(1) * ipdpxRatio
                 const newMax = max.toFixed(1) / ipdpxRatio
-                const ratioText = maxRatio.toFixed(2)
+                const ratioText = factorRatio.toFixed(2)  // Use factorRatio (F1/F2) for display
                 let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
                   .replace('[[N11]]', ratioText)
                   .replace('[[N22]]', '')
@@ -6961,6 +7100,10 @@ export async function objectTest(RC, options, callback = undefined) {
                       'User chose to try new object - returning to page 2',
                     )
 
+                    // Reset rejection counter when starting fresh with new object
+                    measurementState.factorRejectionCount = 0
+                    console.log('Reset factor rejection count to 0 (new object)')
+
                     // Clear the saved measurement data to start fresh
                     savedMeasurementData = null
                     measurementState.measurements = []
@@ -6971,6 +7114,9 @@ export async function objectTest(RC, options, callback = undefined) {
                     viewingDistanceMeasurementCount = 0
                     viewingDistanceTotalExpected = 2
 
+                    // Reset ruler/tape to initial position for new object
+                    await resetPage2ForNextMeasurement()
+
                     // Go back to page 2 to measure new object
                     currentPage = 1 // Will advance to page 2
                     await nextPage()
@@ -6979,7 +7125,15 @@ export async function objectTest(RC, options, callback = undefined) {
                     document.addEventListener('keydown', handleKeyPress)
                     return
                   }
-                  // If confirmed (Use Old Object Again), continue with existing flow below
+                  
+                  // User chose "Use Old Object Again" - increment counter and show pause
+                  measurementState.factorRejectionCount++
+                  console.log(
+                    `Factor rejection count: ${measurementState.factorRejectionCount}`,
+                  )
+
+                  // Show pause before allowing retry (with exponentially growing duration)
+                  await showPauseBeforeNewObject(RC, measurementState.factorRejectionCount, 'RC_PauseBeforeRemeasuringDistance')
                 }
 
                 // Reset to page 3 to restart snapshots (keep same object measurement)
@@ -7331,7 +7485,7 @@ export async function objectTest(RC, options, callback = undefined) {
       console.log(
         '=== CHECKING TOLERANCE WITH CALCULATED FACTORS (Proceed button) ===',
       )
-      const [pass, message, min, max, RMin, RMax, maxRatio] =
+      const [pass, message, min, max, RMin, RMax, maxRatio, factorRatio] =
         checkObjectTestTolerance(
           RC,
           faceMeshSamplesPage3,
@@ -7432,7 +7586,7 @@ export async function objectTest(RC, options, callback = undefined) {
         )
         const newMin = min.toFixed(1) * ipdpxRatio
         const newMax = max.toFixed(1) / ipdpxRatio
-        const ratioText = maxRatio.toFixed(2)
+        const ratioText = factorRatio.toFixed(2)  // Use factorRatio (F1/F2) for display
         let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
           .replace('[[N11]]', ratioText)
           .replace('[[N22]]', '')
@@ -7642,6 +7796,10 @@ export async function objectTest(RC, options, callback = undefined) {
               'User chose to try new object (Proceed button path) - returning to page 2',
             )
 
+            // Reset rejection counter when starting fresh with new object
+            measurementState.factorRejectionCount = 0
+            console.log('Reset factor rejection count to 0 (new object, Proceed button path)')
+
             // Clear the saved measurement data to start fresh
             savedMeasurementData = null
             measurementState.measurements = []
@@ -7652,12 +7810,23 @@ export async function objectTest(RC, options, callback = undefined) {
             viewingDistanceMeasurementCount = 0
             viewingDistanceTotalExpected = 2
 
+            // Reset ruler/tape to initial position for new object
+            await resetPage2ForNextMeasurement()
+
             // Go back to page 2 to measure new object
             currentPage = 1 // Will advance to page 2
             await nextPage()
             return
           }
-          // If confirmed (Use Old Object Again), continue with existing flow below
+          
+          // User chose "Use Old Object Again" - increment counter and show pause
+          measurementState.factorRejectionCount++
+          console.log(
+            `Factor rejection count (Proceed button path): ${measurementState.factorRejectionCount}`,
+          )
+
+          // Show pause before allowing retry (with exponentially growing duration)
+          await showPauseBeforeNewObject(RC, measurementState.factorRejectionCount, 'RC_PauseBeforeRemeasuringDistance')
         }
 
         // Reset to page 3 to restart snapshots (keep same object measurement)
@@ -7990,6 +8159,9 @@ function checkObjectTestTolerance(
     page3FactorCmPx !== null ? page3FactorCmPx : page3Mean * measurementCm
   const F2 =
     page4FactorCmPx !== null ? page4FactorCmPx : page4Mean * measurementCm
+  const factorRatio = F1 / F2  // Previous (Page 3) / Current (Page 4)
+  
+  // For tolerance check, use the maximum of the ratio and its inverse
   const ratio1 = F1 / F2
   const ratio2 = F2 / F1
   const maxRatio = Math.max(ratio1, ratio2)
@@ -8051,6 +8223,7 @@ function checkObjectTestTolerance(
     RMin,
     RMax,
     maxRatio,
+    factorRatio,
   ]
 }
 

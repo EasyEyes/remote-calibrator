@@ -24,6 +24,7 @@ import { addButtons } from './components/buttons'
 import { phrases } from './i18n/schema'
 import { setUpEasyEyesKeypadHandler } from './extensions/keypadHandler'
 import { swalInfoOptions } from './components/swalOptions'
+import { showPauseBeforeNewObject } from './distance/distance'
 
 RemoteCalibrator.prototype._displaySize = function (forInit = false) {
   ////
@@ -175,6 +176,7 @@ function getSize(RC, parent, options, callback) {
     consistentPair: null, // Will store the indices of 2 consistent measurements
     previousCardWidth: null, // Track previous iteration's actual card width
     originalCardLeftPosition: null, // Track original left position from first iteration
+    rejectionCount: 0, // Track number of times user has been rejected for mismatched measurements
   }
 
   // Start the measurement loop
@@ -743,7 +745,16 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
             }
           })
           
-          // After popup, continue to next measurement (don't reset)
+          // Increment rejection counter for mismatched measurements
+          measurementState.rejectionCount++
+          console.log(
+            `Rejection count (screen size mismatch): ${measurementState.rejectionCount}`,
+          )
+          
+          // Show pause before allowing new measurement (with exponentially growing duration)
+          await showPauseBeforeNewObject(RC, measurementState.rejectionCount, 'RC_PauseBeforeRemeasuringCreditCard')
+          
+          // After popup and pause, continue to next measurement (don't reset)
           cleanupMeasurement()
           measurementState.currentIteration++
           performMeasurement(RC, parent, options, callback, measurementState)

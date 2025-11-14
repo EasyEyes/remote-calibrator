@@ -138,7 +138,7 @@
 
 .calibration-instruction h1 {
   min-width: 360px;
-  font-weight: 700;
+  /* font-weight: 700; */
 }
 
 .calibration-instruction * {

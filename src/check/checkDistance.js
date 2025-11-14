@@ -250,6 +250,7 @@ const adjustDistanceCheckFontSize = () => {
 }
 
 // Helper function to adjust instruction font size for size check (RC_SetLength)
+// DISABLED: Title now uses default h1 styling to match object test page 2
 const adjustSizeCheckFontSize = () => {
   const instructionElement = document.querySelector('.calibration-instruction')
   if (!instructionElement) {
@@ -274,7 +275,7 @@ const adjustSizeCheckFontSize = () => {
   // Size check: start with 1.4rem for body and scale down only
   const baseFontSize = 16
   const baseBodySize = 1.4 * baseFontSize // 22.4px (1.4rem)
-  const baseTitleSize = 2.5 * baseFontSize // 40px (2.5rem)
+  // const baseTitleSize = 2.5 * baseFontSize // 40px (2.5rem) - DISABLED
 
   // Calculate scale factor based on window width
   let scaleFactor = 1.0
@@ -283,18 +284,18 @@ const adjustSizeCheckFontSize = () => {
   }
 
   // Calculate font sizes
-  const titleFontSize = Math.round(baseTitleSize * scaleFactor)
+  // const titleFontSize = Math.round(baseTitleSize * scaleFactor) - DISABLED
   const bodyFontSize = Math.round(baseBodySize * scaleFactor)
 
   console.log(
-    `Size check - Scale factor: ${scaleFactor.toFixed(2)}, Title: ${titleFontSize}px, Body: ${bodyFontSize}px`,
+    `Size check - Scale factor: ${scaleFactor.toFixed(2)}, Body: ${bodyFontSize}px`,
   )
 
-  // Apply font sizes
-  if (titleElement) {
-    titleElement.style.fontSize = `${titleFontSize}px`
-    titleElement.style.lineHeight = windowWidth <= 480 ? '120%' : '100%'
-  }
+  // Apply font sizes - Title styling removed to use default h1
+  // if (titleElement) {
+  //   titleElement.style.fontSize = `${titleFontSize}px`
+  //   titleElement.style.lineHeight = windowWidth <= 480 ? '120%' : '100%'
+  // }
 
   if (bodyElement) {
     bodyElement.style.fontSize = `${bodyFontSize}px`
@@ -1216,10 +1217,10 @@ const createLengthDisplayDiv = RC => {
   lengthContainer.style.position = 'absolute'
   //right above the yellow tape rectangle
   let screenCenterY = window.innerHeight - 65 // Same as yellow tape positioning
-  lengthContainer.style.top = `${screenCenterY - threeQuarterInchesInPx / 2 - 375}px`
+  lengthContainer.style.top = `${screenCenterY - threeQuarterInchesInPx / 2 - 187.5}px`
   lengthContainer.style.transform = 'translate(-50%)'
   lengthContainer.style.width = '100%'
-  lengthContainer.style.height = '350px'
+  lengthContainer.style.height = '175px' // Halved from 350px
   lengthContainer.style.marginLeft = '25px'
 
   // Create the input element for the length value (single string with unit)
@@ -1243,7 +1244,7 @@ const createLengthDisplayDiv = RC => {
   // Function to update position on window resize
   window.updateLengthDisplayPosition = () => {
     const newScreenCenterY = window.innerHeight - 65
-    lengthContainer.style.top = `${newScreenCenterY - threeQuarterInchesInPx / 2 - 375}px`
+    lengthContainer.style.top = `${newScreenCenterY - threeQuarterInchesInPx / 2 - 187.5}px`
   }
 
   // Add resize listener for this specific element
@@ -1385,7 +1386,7 @@ const checkSize = async (
       const instructionBody = phrases.RC_SetLength[RC.language.value]
         .replace('[[N33]]', currentLength)
         .replace('[[UUU]]', RC.equipment?.value?.unit)
-        .replace(/(?:\r\n|\r|\n)/g, '<br><br>')
+        .replace(/(?:\r\n|\r|\n)/g, '<br>')
 
       if (!document.getElementById('instruction-title')) {
         const html = constructInstructions(
