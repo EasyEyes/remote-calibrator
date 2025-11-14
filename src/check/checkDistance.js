@@ -1954,6 +1954,9 @@ const trackDistanceCheck = async (
           false,
           'bodyText',
           'left',
+          null,
+          false,
+          'check-distance-instruction-title',
         )
         RC._replaceBackground(html)
       }

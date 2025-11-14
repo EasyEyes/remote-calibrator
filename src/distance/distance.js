@@ -3251,7 +3251,11 @@ function checkLastTwoObjectMeasurements(measurements, threshold) {
 }
 
 // Helper function to show pause before allowing new object measurement
-export async function showPauseBeforeNewObject(RC, rejectionCount, phraseKey = 'RC_PauseBeforeNewObject') {
+export async function showPauseBeforeNewObject(
+  RC,
+  rejectionCount,
+  phraseKey = 'RC_PauseBeforeNewObject',
+) {
   let pauseSec
   if (rejectionCount === 0) {
     pauseSec = 0
@@ -3343,7 +3347,7 @@ export async function objectTest(RC, options, callback = undefined) {
     window.__eeInstructionMediaFetchCache || new Map())
 
   const collectAllAssetUrls = () => {
-    const maps = [test_assetMap, distanceCalibrationAssetMap].filter(Boolean)
+    const maps = [test_assetMap].filter(Boolean)
     const urls = new Set()
     maps.forEach(m => {
       Object.values(m || {}).forEach(u => {
@@ -3360,25 +3364,99 @@ export async function objectTest(RC, options, callback = undefined) {
     const p = fetch(url, { mode: 'cors', credentials: 'omit' })
       .then(resp => {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        console.log('got response from url...')
         return resp.blob()
       })
       .then(blob => {
+        console.log('got blob from url...')
         const objectUrl = URL.createObjectURL(blob)
         const entry = { objectUrl, blob, mime: blob.type }
         mediaBlobCache.set(url, entry)
+        console.log('set blob in cache...')
         return entry
       })
       .catch(() => null)
     mediaFetchCache.set(url, p)
+    console.log('p...', p)
     return p
   }
 
-  const preloadAllInstructionMedia = async () => {
-    const urls = collectAllAssetUrls()
-    if (!urls.length) return
-    await Promise.all(urls.map(fetchBlobOnce)).catch(() => {})
+  // Build a prioritized preload order for instruction media.
+  // We start with LL9, LL1, LL10, LL2, LL3, LL4, LL5, LL6, LL8, LL7, then the rest.
+  const buildInstructionMediaPreloadOrder = () => {
+    const allUrls = collectAllAssetUrls()
+    if (!allUrls.length) return []
+
+    const priorityKeys = [
+      'LL9',
+      'LL1',
+      'LL10',
+      'LL2',
+      'LL3',
+      'LL4',
+      'LL5',
+      'LL6',
+      'LL8',
+      'LL7',
+    ]
+    const seen = new Set()
+    const ordered = []
+
+    // Map priority keys to URLs (if present) and keep only unique URLs.
+    priorityKeys.forEach(key => {
+      const url = (test_assetMap && test_assetMap[key]) || null
+      if (url && allUrls.includes(url) && !seen.has(url)) {
+        ordered.push(url)
+        seen.add(url)
+      }
+    })
+
+    // Append any remaining URLs that weren't in the explicit priority list.
+    allUrls.forEach(url => {
+      if (!seen.has(url)) {
+        ordered.push(url)
+        seen.add(url)
+      }
+    })
+
+    return ordered
   }
-  // Wait for preload before proceeding
+
+  // Preload a small number of highest-priority assets (blocking),
+  // then continue preloading the rest sequentially in the background.
+  const preloadAllInstructionMedia = async () => {
+    const orderedUrls = buildInstructionMediaPreloadOrder()
+    console.log('orderedUrls...', orderedUrls)
+    if (!orderedUrls.length) return
+
+    const firstBlockingCount = 3
+    const firstBatch = orderedUrls.slice(0, firstBlockingCount)
+    const remaining = orderedUrls.slice(firstBlockingCount)
+
+    // Block only on the first 1–2 assets so the initial step has media ready.
+    await Promise.all(firstBatch.map(fetchBlobOnce)).catch(error => {
+      console.error('error preloading initial media...', error)
+    })
+
+    // Start a sequential preloader in the background for the rest.
+    if (remaining.length) {
+      if (!window.__eeInstructionMediaPreloaderPromise) {
+        window.__eeInstructionMediaPreloaderPromise = (async () => {
+          for (const url of remaining) {
+            try {
+              // Sequentially warm the cache; fetchBlobOnce will no-op on cached URLs.
+              // eslint-disable-next-line no-await-in-loop
+              await fetchBlobOnce(url)
+            } catch (err) {
+              console.error('error preloading media url...', err)
+            }
+          }
+        })()
+      }
+    }
+  }
+
+  // Start preload: block only on the highest-priority assets, then continue in background.
   await preloadAllInstructionMedia()
 
   // Resolve a media URL to a cached blob URL if available.
@@ -3493,7 +3571,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== ARROW INDICATORS FOR PAGES 3 & 4 =====================
   // Create arrow elements to point to the object resting position
-  const createArrowIndicators = (targetXYPx) => {
+  const createArrowIndicators = targetXYPx => {
     const arrowSizeCm = 3
     const arrowSizePx = arrowSizeCm * pxPerCm
     const lineThicknessPx = Math.max(2, arrowSizePx / 30) // Proportional thickness
@@ -3536,7 +3614,10 @@ export async function objectTest(RC, options, callback = undefined) {
       const endY = fromY + unitY * arrowSizePx
 
       // Draw arrow shaft
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      const line = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'line',
+      )
       line.setAttribute('x1', fromX)
       line.setAttribute('y1', fromY)
       line.setAttribute('x2', endX)
@@ -3552,11 +3633,16 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Calculate perpendicular direction for arrowhead wings
       const angle = Math.atan2(dy, dx)
-      
+
       // Left wing of arrowhead
-      const leftWingX = endX - arrowheadLength * Math.cos(angle - arrowheadAngle)
-      const leftWingY = endY - arrowheadLength * Math.sin(angle - arrowheadAngle)
-      const leftWing = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      const leftWingX =
+        endX - arrowheadLength * Math.cos(angle - arrowheadAngle)
+      const leftWingY =
+        endY - arrowheadLength * Math.sin(angle - arrowheadAngle)
+      const leftWing = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'line',
+      )
       leftWing.setAttribute('x1', endX)
       leftWing.setAttribute('y1', endY)
       leftWing.setAttribute('x2', leftWingX)
@@ -3567,9 +3653,14 @@ export async function objectTest(RC, options, callback = undefined) {
       svg.appendChild(leftWing)
 
       // Right wing of arrowhead
-      const rightWingX = endX - arrowheadLength * Math.cos(angle + arrowheadAngle)
-      const rightWingY = endY - arrowheadLength * Math.sin(angle + arrowheadAngle)
-      const rightWing = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      const rightWingX =
+        endX - arrowheadLength * Math.cos(angle + arrowheadAngle)
+      const rightWingY =
+        endY - arrowheadLength * Math.sin(angle + arrowheadAngle)
+      const rightWing = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'line',
+      )
       rightWing.setAttribute('x1', endX)
       rightWing.setAttribute('y1', endY)
       rightWing.setAttribute('x2', rightWingX)
@@ -3583,11 +3674,21 @@ export async function objectTest(RC, options, callback = undefined) {
     }
 
     // Create left arrow (pointing from 1/3 position toward target)
-    const leftArrow = createArrow(leftArrowX, midlineY, targetXYPx[0], targetXYPx[1])
+    const leftArrow = createArrow(
+      leftArrowX,
+      midlineY,
+      targetXYPx[0],
+      targetXYPx[1],
+    )
     arrowContainer.appendChild(leftArrow)
 
     // Create right arrow (pointing from 2/3 position toward target)
-    const rightArrow = createArrow(rightArrowX, midlineY, targetXYPx[0], targetXYPx[1])
+    const rightArrow = createArrow(
+      rightArrowX,
+      midlineY,
+      targetXYPx[0],
+      targetXYPx[1],
+    )
     arrowContainer.appendChild(rightArrow)
 
     return arrowContainer
@@ -3654,7 +3755,7 @@ export async function objectTest(RC, options, callback = undefined) {
   titleRow.style.alignItems = 'baseline'
   titleRow.style.gap = `${pxPerMm * 10}px` // 1 cm gap
   titleRow.style.paddingInlineStart = '3rem'
-  titleRow.style.margin = '2rem 0 5rem 0'
+  titleRow.style.margin = '2rem 0 0rem 0'
   titleRow.style.position = 'relative'
   container.appendChild(titleRow)
 
@@ -3669,6 +3770,7 @@ export async function objectTest(RC, options, callback = undefined) {
   title.style.textAlign = 'start'
   title.style.margin = '0' // Remove default margin
   title.dir = RC.LD.toLowerCase()
+  title.id = 'distance-tracking-title'
   titleRow.appendChild(title)
 
   // Helper function to update title with current progress (only for page 2)
@@ -5570,7 +5672,7 @@ export async function objectTest(RC, options, callback = undefined) {
           const secondLastIdx = measurementState.measurements.length - 2
           const M1 = measurementState.measurements[secondLastIdx].objectLengthCm
           const M2 = measurementState.measurements[lastIdx].objectLengthCm
-          const ratio = M2 / M1  // Current / Previous
+          const ratio = M2 / M1 // Current / Previous
 
           console.log(
             `///Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`,
@@ -6791,17 +6893,25 @@ export async function objectTest(RC, options, callback = undefined) {
 
               // Now check tolerance with the calculated factors
               console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')
-              const [pass, message, min, max, RMin, RMax, maxRatio, factorRatio] =
-                checkObjectTestTolerance(
-                  RC,
-                  faceMeshSamplesPage3,
-                  faceMeshSamplesPage4,
-                  options.calibrateTrackDistanceAllowedRatio,
-                  options.calibrateTrackDistanceAllowedRangeCm,
-                  firstMeasurement,
-                  page3FactorCmPx,
-                  page4FactorCmPx,
-                )
+              const [
+                pass,
+                message,
+                min,
+                max,
+                RMin,
+                RMax,
+                maxRatio,
+                factorRatio,
+              ] = checkObjectTestTolerance(
+                RC,
+                faceMeshSamplesPage3,
+                faceMeshSamplesPage4,
+                options.calibrateTrackDistanceAllowedRatio,
+                options.calibrateTrackDistanceAllowedRangeCm,
+                firstMeasurement,
+                page3FactorCmPx,
+                page4FactorCmPx,
+              )
               if (RC.measurementHistory && message !== 'Pass')
                 RC.measurementHistory.push(message)
               else if (message !== 'Pass') RC.measurementHistory = [message]
@@ -6895,7 +7005,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 )
                 const newMin = min.toFixed(1) * ipdpxRatio
                 const newMax = max.toFixed(1) / ipdpxRatio
-                const ratioText = factorRatio.toFixed(2)  // Use factorRatio (F1/F2) for display
+                const ratioText = factorRatio.toFixed(2) // Use factorRatio (F1/F2) for display
                 let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
                   .replace('[[N11]]', ratioText)
                   .replace('[[N22]]', '')
@@ -7102,7 +7212,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
                     // Reset rejection counter when starting fresh with new object
                     measurementState.factorRejectionCount = 0
-                    console.log('Reset factor rejection count to 0 (new object)')
+                    console.log(
+                      'Reset factor rejection count to 0 (new object)',
+                    )
 
                     // Clear the saved measurement data to start fresh
                     savedMeasurementData = null
@@ -7125,7 +7237,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     document.addEventListener('keydown', handleKeyPress)
                     return
                   }
-                  
+
                   // User chose "Use Old Object Again" - increment counter and show pause
                   measurementState.factorRejectionCount++
                   console.log(
@@ -7133,7 +7245,11 @@ export async function objectTest(RC, options, callback = undefined) {
                   )
 
                   // Show pause before allowing retry (with exponentially growing duration)
-                  await showPauseBeforeNewObject(RC, measurementState.factorRejectionCount, 'RC_PauseBeforeRemeasuringDistance')
+                  await showPauseBeforeNewObject(
+                    RC,
+                    measurementState.factorRejectionCount,
+                    'RC_PauseBeforeRemeasuringDistance',
+                  )
                 }
 
                 // Reset to page 3 to restart snapshots (keep same object measurement)
@@ -7586,7 +7702,7 @@ export async function objectTest(RC, options, callback = undefined) {
         )
         const newMin = min.toFixed(1) * ipdpxRatio
         const newMax = max.toFixed(1) / ipdpxRatio
-        const ratioText = factorRatio.toFixed(2)  // Use factorRatio (F1/F2) for display
+        const ratioText = factorRatio.toFixed(2) // Use factorRatio (F1/F2) for display
         let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
           .replace('[[N11]]', ratioText)
           .replace('[[N22]]', '')
@@ -7798,7 +7914,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
             // Reset rejection counter when starting fresh with new object
             measurementState.factorRejectionCount = 0
-            console.log('Reset factor rejection count to 0 (new object, Proceed button path)')
+            console.log(
+              'Reset factor rejection count to 0 (new object, Proceed button path)',
+            )
 
             // Clear the saved measurement data to start fresh
             savedMeasurementData = null
@@ -7818,7 +7936,7 @@ export async function objectTest(RC, options, callback = undefined) {
             await nextPage()
             return
           }
-          
+
           // User chose "Use Old Object Again" - increment counter and show pause
           measurementState.factorRejectionCount++
           console.log(
@@ -7826,7 +7944,11 @@ export async function objectTest(RC, options, callback = undefined) {
           )
 
           // Show pause before allowing retry (with exponentially growing duration)
-          await showPauseBeforeNewObject(RC, measurementState.factorRejectionCount, 'RC_PauseBeforeRemeasuringDistance')
+          await showPauseBeforeNewObject(
+            RC,
+            measurementState.factorRejectionCount,
+            'RC_PauseBeforeRemeasuringDistance',
+          )
         }
 
         // Reset to page 3 to restart snapshots (keep same object measurement)
@@ -8159,8 +8281,8 @@ function checkObjectTestTolerance(
     page3FactorCmPx !== null ? page3FactorCmPx : page3Mean * measurementCm
   const F2 =
     page4FactorCmPx !== null ? page4FactorCmPx : page4Mean * measurementCm
-  const factorRatio = F1 / F2  // Previous (Page 3) / Current (Page 4)
-  
+  const factorRatio = F1 / F2 // Previous (Page 3) / Current (Page 4)
+
   // For tolerance check, use the maximum of the ratio and its inverse
   const ratio1 = F1 / F2
   const ratio2 = F2 / F1

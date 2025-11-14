@@ -54,9 +54,22 @@ export function buildStepInstructions(phraseText, linkMap = {}) {
       if (!sections.includes(currentSection)) {
         sections.push(currentSection)
       }
-      currentSection.mediaKeys.push(key)
-      const url = getLinkUrl(key)
-      if (url) currentSection.mediaUrls.push(url)
+      // If there is a current step, attach media to that step; otherwise, attach to section
+      const lastStep =
+        currentSection.steps && currentSection.steps.length > 0
+          ? currentSection.steps[currentSection.steps.length - 1]
+          : null
+      if (lastStep) {
+        if (!lastStep.mediaKeys) lastStep.mediaKeys = []
+        if (!lastStep.mediaUrls) lastStep.mediaUrls = []
+        lastStep.mediaKeys.push(key)
+        const url = getLinkUrl(key)
+        if (url) lastStep.mediaUrls.push(url)
+      } else {
+        currentSection.mediaKeys.push(key)
+        const url = getLinkUrl(key)
+        if (url) currentSection.mediaUrls.push(url)
+      }
       continue
     }
 
@@ -64,7 +77,7 @@ export function buildStepInstructions(phraseText, linkMap = {}) {
     const ss = line.match(/^\[\[SS(\d+(?:\.\d+)*)\]\]\s*(.*)$/i)
     if (ss) {
       const number = ss[1]
-      const text = ss[2] || ''
+      let text = ss[2] || ''
       currentSection = currentSection || {
         index: '0',
         title: '',
@@ -76,7 +89,27 @@ export function buildStepInstructions(phraseText, linkMap = {}) {
         sections.push(currentSection)
       }
       const level = (number.match(/\./g) || []).length
-      currentSection.steps.push({ number, text, level })
+      // Extract any inline [[LLn]] tokens from the step's text
+      const inlineMediaKeys = []
+      text = text.replace(/\[\[LL(\d+)\]\]/gi, (_, n) => {
+        inlineMediaKeys.push(`LL${n}`)
+        return ''
+      })
+      const step = {
+        number,
+        text: text.trim(),
+        level,
+      }
+      if (inlineMediaKeys.length > 0) {
+        step.mediaKeys = []
+        step.mediaUrls = []
+        inlineMediaKeys.forEach(k => {
+          step.mediaKeys.push(k)
+          const u = getLinkUrl(k)
+          if (u) step.mediaUrls.push(u)
+        })
+      }
+      currentSection.steps.push(step)
       expectingTitle = false
       continue
     }
@@ -319,9 +352,7 @@ export function renderStepInstructions({
   const mediaAllottedPx =
     layout === 'leftOnly'
       ? Math.max(0, Math.floor(window.innerHeight * (1 - thresholdFraction)))
-      : calibrateTrackDistanceCheckBool
-        ? Math.floor(window.innerHeight * thresholdFraction)
-        : Math.floor(window.innerHeight * thresholdFraction)
+      : Math.floor(window.innerHeight * thresholdFraction)
   // Apply fixed sizes in leftOnly to prevent media from moving
   if (layout === 'leftOnly') {
     leftText.style.maxHeight = `${textAllottedPx}px`
@@ -348,21 +379,15 @@ export function renderStepInstructions({
     const navHint = document.createElement('div')
     navHint.style.marginTop = '0.5rem'
     navHint.style.color = '#555'
-    navHint.style.fontSize = 'clamp(0.9em, 2vw, 1em)'
+    navHint.style.fontSize = 'clamp(1.1em, 2vw, 1.2em)'
     navHint.style.fontStyle = 'italic'
     navHint.textContent =
       phrases.EE_UseKeysToStep?.[lang] ||
       'Use ▼ to advance through the instructions. Use ▲ to go back to the previous instruction.'
     return navHint
   }
-  // Include nav hint in overflow decision for compaction
-  let needsCompact = false
-  {
-    const tmp = buildNavHintNode()
-    leftText.appendChild(tmp)
-    needsCompact = leftText.scrollHeight > threshold
-    leftText.removeChild(tmp)
-  }
+  // Decide on compaction based on instruction text only (nav hint is rendered separately)
+  let needsCompact = leftText.scrollHeight > threshold
   if (needsCompact) {
     const stepsAll = items.filter(i => i.type === 'step')
     const stepsSeq = useCurrentSectionOnly
@@ -422,12 +447,8 @@ export function renderStepInstructions({
       })
       leftText.innerHTML = ''
       nodes.forEach(n => leftText.appendChild(n))
-      // Include nav hint in measurement to ensure final render fits
-      const tmp = buildNavHintNode()
-      leftText.appendChild(tmp)
+      // Measure only the instruction text; nav hint is positioned outside this container
       const fits = leftText.scrollHeight <= threshold
-      // Remove temporary hint before returning so callers don't see duplicates
-      if (tmp.parentNode === leftText) leftText.removeChild(tmp)
       return { fits, nodes }
     }
     // Initial probe to short-circuit if everything fits
@@ -456,15 +477,37 @@ export function renderStepInstructions({
     }
   }
 
-  // Prepend navigation hint at the top
-  leftText.insertBefore(buildNavHintNode(), leftText.firstChild)
+  // Render navigation hint as its own row directly below the title row (not in the flex row)
+  const titleEl =
+    document.getElementById('distance-tracking-title') ||
+    document.getElementById('check-distance-instruction-title')
+  if (titleEl && titleEl.parentNode && titleEl.parentNode.parentNode) {
+    const titleRow = titleEl.parentNode
+    const container = titleRow.parentNode
+    // Remove any existing nav hint to avoid duplicates across re-renders
+    const existing = document.getElementById('distance-tracking-nav-hint')
+    if (existing && existing.parentNode) {
+      existing.parentNode.removeChild(existing)
+    }
+    const navHint = buildNavHintNode()
+    navHint.id = 'distance-tracking-nav-hint'
+    // Align with title's left padding (matches titleRow's paddingInlineStart)
+    navHint.style.paddingInlineStart = '3rem'
+    container.insertBefore(navHint, titleRow.nextSibling)
+  }
 
   // Render media for current section
   mediaContainer.innerHTML = ''
   const mediaHeightPx = mediaAllottedPx
   mediaContainer.style.maxHeight = `${mediaHeightPx}px`
   mediaContainer.style.overflow = 'hidden'
-  const mediaUrls = (sections[curSectionIdx]?.mediaUrls || []).filter(Boolean)
+  // Prefer media linked to the current step; fallback to section-level media
+  const currentStepObj = sections[curSectionIdx]?.steps?.[curStepIdx] || null
+  const stepMediaUrls = (currentStepObj?.mediaUrls || []).filter(Boolean)
+  const sectionMediaUrls = (sections[curSectionIdx]?.mediaUrls || []).filter(
+    Boolean,
+  )
+  const mediaUrls = stepMediaUrls.length ? stepMediaUrls : sectionMediaUrls
   const chosen = mediaUrls.length ? mediaUrls[mediaUrls.length - 1] : null
   if (chosen) {
     const srcUrl = resolveMediaUrl(chosen)
@@ -480,7 +523,6 @@ export function renderStepInstructions({
       vid.style.width = '100%'
       vid.style.height = `${mediaHeightPx}px`
       vid.style.objectFit = 'contain'
-      vid.style.marginTop = '0.75rem'
       mediaContainer.appendChild(vid)
     } else {
       const img = document.createElement('img')
@@ -490,7 +532,6 @@ export function renderStepInstructions({
       img.style.width = '100%'
       img.style.height = `${mediaHeightPx}px`
       img.style.objectFit = 'contain'
-      img.style.marginTop = '0.75rem'
       mediaContainer.appendChild(img)
     }
   }
