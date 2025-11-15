@@ -34,7 +34,7 @@ export const test_assetMap = {
   LL8: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FInstruction%20stiff%201.1.mp4?alt=media&token=15ba0ae2-8c91-4af1-ac76-f382950eda5d',
   LL9: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis1%2FObjects.png?alt=media&token=b337c36d-6991-4ef8-bb9a-29c2e503c8c3',
   LL10: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FImage_1.1.png?alt=media&token=e113bd5f-c16c-49af-97b6-471050e94d8c',
-  LL11: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/s[…]ia&token=8180ddbf-20a5-44a2-934c-90d052a5fdcf',
+  LL11: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FInstruction%20stiff%201.2.mp4?alt=media&token=8180ddbf-20a5-44a2-934c-90d052a5fdcf',
 }
 
 export const test_phrases = {
@@ -138,8 +138,8 @@ export const test_phrases = {
 
 [[SS2]] Use the object you measured: Hold it with one end against the top-center of the screen (above the video) and the other end touching your face near your eye.
 [[SS2.1]] If your object is stiff: Hold it with one hand, near your eye. This leaves your other hand free.
-[[SS2.2]] If your object is not stiff, like string: Hold it with two hands.
 [[LL8]]
+[[SS2.2]] If your object is not stiff, like string: Hold it with two hands.
 [[SS3]] Take the snapshot: Hold still, remove object so your face is visible, and press SPACE.
 \nIf your object is not stiff, such as string: Hold your head still, as one of your hands releases the string and moves to the keyboard to press the SPACE key.
 \n🔉 You’ll hear the sound of a camera shutter.
@@ -159,6 +159,7 @@ SCREEN ALIGNMENT AND CAMERA-CENTER MEASUREMENT
 [[SS2]] Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
 [[SS3]] Set distance: Position one eye [[N11]] [[UUU]] from the camera (in top center of screen) using a tape or stick:
 [[SS3.1]] Mark the desired length with your thumbnail.
+[[LL7]]
 [[SS3.2]] If using a stick or metal tape: Place the end at the camera and your thumbnail beside your eye.
 [[SS3.3]] If using a cloth tape: Place your thumbnail at the camera and bring the tape’s free end to your eye.
 [[SS4]] Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
@@ -166,14 +167,14 @@ SCREEN ALIGNMENT AND CAMERA-CENTER MEASUREMENT
 [[SS6]] The green progress bar below tracks completion.
 [[SS7]] Repeat for the next distance.
 \nTip: If the phone keypad freezes, tap the address bar and press Go.
-[[LL4]]`,
+`,
   },
   RC_produceDistanceCamera: {
     en: `[[TT1]] CAMERA-CENTER DISTANCE MEASUREMENT
 [[SS1]] Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
 [[SS2]] Set distance: Position one eye [[N11]] [[UUU]] from the camera (in top center of screen) using a tape or stick:
 [[SS2.1]] Mark the desired length with your thumbnail.
-[[LL4]]
+[[LL7]]
 [[SS2.2]] If using a stick or metal tape: Place the end at the camera and your thumbnail beside your eye.
 [[SS2.3]] If using a cloth tape: Place your thumbnail at the camera and bring the tape’s free end to your eye.
 [[SS3]] Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
@@ -189,6 +190,7 @@ SCREEN-CENTER DISTANCE MEASUREMENT
 [[SS2]] Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
 [[SS3]] Set distance: Position one eye [[N11]] [[UUU]] from the screen center using a tape or stick.
 [[SS3.1]] Mark the desired length with your thumbnail.
+[[LL7]]
 [[SS3.2]] If using a stick or metal tape: Place the end at the screen center and your thumbnail beside your eye.
 [[SS3.3]] If using a cloth tape: Place your thumbnail at the screen center and bring the tape’s free end to your eye.
 [[SS4]] Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
@@ -196,7 +198,7 @@ SCREEN-CENTER DISTANCE MEASUREMENT
 [[SS6]] The green progress bar below tracks completion.
 [[SS7]] Repeat for the next distance.
 \nTip: If the phone keypad freezes, tap the address bar and press Go.
-[[LL4]]`,
+`,
   },
   RC_produceDistance: {
     en: `[[TT1]]
@@ -204,6 +206,7 @@ SCREEN-CENTER DISTANCE MEASUREMENT
 [[SS1]] Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
 [[SS2]] Set distance: Position one eye [[N11]] [[UUU]] from the screen center using a tape or stick:
 [[SS2.1]] Mark the desired length with your thumbnail.
+[[LL7]]
 [[SS2.2]] If using a stick or metal tape: Place the end at the screen center and your thumbnail beside your eye.
 [[SS2.3]] If using a cloth tape: Place your thumbnail at the screen center and bring the tape’s free end to your eye.
 [[SS3]] Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
@@ -211,6 +214,6 @@ SCREEN-CENTER DISTANCE MEASUREMENT
 [[SS5]] The green progress bar below tracks completion.
 [[SS6]] Repeat for the next distance.
 \nTip: If the phone keypad freezes, tap the address bar and press Go.
-[[LL4]]`,
+`,
   },
 }

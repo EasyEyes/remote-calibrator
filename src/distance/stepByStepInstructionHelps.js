@@ -379,8 +379,14 @@ export function renderStepInstructions({
     const navHint = document.createElement('div')
     navHint.style.marginTop = '0.5rem'
     navHint.style.color = '#555'
-    navHint.style.fontSize = 'clamp(1.1em, 2vw, 1.2em)'
+    // Decreased font size by ~30% from previous values
+    navHint.style.fontSize = 'clamp(0.9em, 2vw, 1em)'
     navHint.style.fontStyle = 'italic'
+    // Restrict width to ~1/3 of the viewport and allow wrapping
+    navHint.style.maxWidth = '33vw'
+    navHint.style.whiteSpace = 'normal'
+    navHint.style.wordBreak = 'break-word'
+    navHint.style.overflowWrap = 'anywhere'
     navHint.textContent =
       phrases.EE_UseKeysToStep?.[lang] ||
       'Use ▼ to advance through the instructions. Use ▲ to go back to the previous instruction.'
@@ -481,19 +487,37 @@ export function renderStepInstructions({
   const titleEl =
     document.getElementById('distance-tracking-title') ||
     document.getElementById('check-distance-instruction-title')
-  if (titleEl && titleEl.parentNode && titleEl.parentNode.parentNode) {
-    const titleRow = titleEl.parentNode
-    const container = titleRow.parentNode
-    // Remove any existing nav hint to avoid duplicates across re-renders
-    const existing = document.getElementById('distance-tracking-nav-hint')
-    if (existing && existing.parentNode) {
-      existing.parentNode.removeChild(existing)
+  if (titleEl.id === 'distance-tracking-title') {
+    if (titleEl && titleEl.parentNode && titleEl.parentNode.parentNode) {
+      const titleRow = titleEl.parentNode
+      const container = titleRow.parentNode
+      // Remove any existing nav hint to avoid duplicates across re-renders
+      const existing = document.getElementById('distance-tracking-nav-hint')
+      if (existing && existing.parentNode) {
+        existing.parentNode.removeChild(existing)
+      }
+      const navHint = buildNavHintNode()
+      navHint.id = 'distance-tracking-nav-hint'
+      // Align with title's left padding (matches titleRow's paddingInlineStart)
+      navHint.style.paddingInlineStart = '3rem'
+      container.insertBefore(navHint, titleRow.nextSibling)
     }
-    const navHint = buildNavHintNode()
-    navHint.id = 'distance-tracking-nav-hint'
-    // Align with title's left padding (matches titleRow's paddingInlineStart)
-    navHint.style.paddingInlineStart = '3rem'
-    container.insertBefore(navHint, titleRow.nextSibling)
+  } else if (titleEl.id === 'check-distance-instruction-title') {
+    try {
+      // Remove any existing nav hint to avoid duplicates across re-renders
+      const existing = document.getElementById('distance-tracking-nav-hint')
+      if (existing && existing.parentNode) {
+        existing.parentNode.removeChild(existing)
+      }
+      const parent = titleEl.parentNode
+      titleEl.style.margin = 0
+      const thirdElement = parent.children[1]
+      const navHint = buildNavHintNode()
+      navHint.id = 'distance-tracking-nav-hint'
+      parent.insertBefore(navHint, thirdElement)
+    } catch (e) {
+      console.error('Error rendering navigation hint:', e)
+    }
   }
 
   // Render media for current section
