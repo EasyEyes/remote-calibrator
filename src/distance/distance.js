@@ -38,6 +38,10 @@ import {
   distanceCalibrationAssetMap,
 } from './assetMap'
 import {
+  fetchBlobOnce,
+  resolveInstructionMediaUrl,
+} from './instructionMediaCache'
+import {
   buildStepInstructions,
   createStepInstructionsUI,
   renderStepInstructions,
@@ -3019,6 +3023,7 @@ export async function blindSpotTestNew(
       options.calibrateTrackDistanceChecking,
       options.calibrateTrackDistanceSpotXYDeg,
       options.calibrateTrackDistance,
+      options.stepperHistory,
     )
   else safeExecuteFunc(callback, data)
 
@@ -3340,12 +3345,6 @@ export async function objectTest(RC, options, callback = undefined) {
     factorRejectionCount: 0, // Track number of times page 3/4 factor mismatch occurred
   }
 
-  // ===================== INSTRUCTION MEDIA PRELOAD (BLOB CACHE, ONCE PER URL) =====================
-  const mediaBlobCache = (window.__eeInstructionMediaBlobCache =
-    window.__eeInstructionMediaBlobCache || new Map())
-  const mediaFetchCache = (window.__eeInstructionMediaFetchCache =
-    window.__eeInstructionMediaFetchCache || new Map())
-
   const collectAllAssetUrls = () => {
     const maps = [test_assetMap].filter(Boolean)
     const urls = new Set()
@@ -3355,30 +3354,6 @@ export async function objectTest(RC, options, callback = undefined) {
       })
     })
     return Array.from(urls)
-  }
-
-  const fetchBlobOnce = url => {
-    if (!url) return Promise.resolve(null)
-    if (mediaBlobCache.has(url)) return Promise.resolve(mediaBlobCache.get(url))
-    if (mediaFetchCache.has(url)) return mediaFetchCache.get(url)
-    const p = fetch(url, { mode: 'cors', credentials: 'omit' })
-      .then(resp => {
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-        console.log('got response from url...')
-        return resp.blob()
-      })
-      .then(blob => {
-        console.log('got blob from url...')
-        const objectUrl = URL.createObjectURL(blob)
-        const entry = { objectUrl, blob, mime: blob.type }
-        mediaBlobCache.set(url, entry)
-        console.log('set blob in cache...')
-        return entry
-      })
-      .catch(() => null)
-    mediaFetchCache.set(url, p)
-    console.log('p...', p)
-    return p
   }
 
   // Build a prioritized preload order for instruction media.
@@ -3458,22 +3433,6 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Start preload: block only on the highest-priority assets, then continue in background.
   await preloadAllInstructionMedia()
-
-  // Resolve a media URL to a cached blob URL if available.
-  // On cache miss, kick off a lazy fetch to populate cache for next use.
-  const resolveInstructionMediaUrl = url => {
-    if (!url) return url
-    const key = String(url).trim()
-    const cached = mediaBlobCache && mediaBlobCache.get(key)
-    if (cached && cached.objectUrl) return cached.objectUrl
-    // Lazy warm the cache so subsequent renders use the blob URL
-    if (!mediaFetchCache.has(key)) {
-      try {
-        fetchBlobOnce(key)
-      } catch {}
-    }
-    return key
-  }
 
   // ===================== OBJECT TEST COMMON DATA TO BE SAVED IN RC.calibrationAttempts.COMMON =====================
   const objectTestCommonData = {
@@ -3997,6 +3956,7 @@ export async function objectTest(RC, options, callback = undefined) {
         thresholdFraction: 0.6,
         useCurrentSectionOnly: true,
         resolveMediaUrl: resolveInstructionMediaUrl,
+        stepperHistory: options.stepperHistory,
       },
       lang: RC.language.value,
       phrases: phrases,
@@ -6182,6 +6142,7 @@ export async function objectTest(RC, options, callback = undefined) {
               options.calibrateTrackDistanceChecking,
               options.calibrateTrackDistanceSpotXYDeg,
               options.calibrateTrackDistance,
+              options.stepperHistory,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -6211,6 +6172,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateTrackDistanceChecking,
           options.calibrateTrackDistanceSpotXYDeg,
           options.calibrateTrackDistance,
+          options.stepperHistory,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================

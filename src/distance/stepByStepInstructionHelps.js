@@ -265,6 +265,9 @@ export function renderStepInstructions({
     thresholdFraction = 0.6,
     resolveMediaUrl = url => url,
     useCurrentSectionOnly = true,
+    // How many *past* steps to keep visible when compacting.
+    // If null/undefined, keep as many as fit (previous behavior).
+    stepperHistory = null,
     layout = 'twoColumn', // 'twoColumn' | 'leftOnly'
   } = options
 
@@ -393,7 +396,10 @@ export function renderStepInstructions({
     return navHint
   }
   // Decide on compaction based on instruction text only (nav hint is rendered separately)
-  let needsCompact = leftText.scrollHeight > threshold
+  let needsCompact =
+    leftText.scrollHeight > threshold ||
+    stepperHistory !== null ||
+    stepperHistory !== undefined
   if (needsCompact) {
     const stepsAll = items.filter(i => i.type === 'step')
     const stepsSeq = useCurrentSectionOnly
@@ -440,9 +446,8 @@ export function renderStepInstructions({
       result.sort(originalOrder)
       return result
     }
-    let low = 0
-    let high = stepsSeq.length - 1
-    let bestStart = stepsSeq.length - 1
+    const totalSteps = stepsSeq.length
+    let bestStart = totalSteps > 0 ? totalSteps - 1 : 0
     const measureFits = startIdx => {
       const slice = stepsSeq.slice(startIdx)
       const withParents = buildWithParents(slice)
@@ -457,29 +462,61 @@ export function renderStepInstructions({
       const fits = leftText.scrollHeight <= threshold
       return { fits, nodes }
     }
-    // Initial probe to short-circuit if everything fits
-    {
-      const test = measureFits(0)
-      if (test.fits) {
-        leftText.innerHTML = ''
-        test.nodes.forEach(n => leftText.appendChild(n))
-      }
-    }
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2)
-      const { fits } = measureFits(mid)
-      if (fits) {
-        bestStart = mid
-        high = mid - 1
+    if (totalSteps > 0) {
+      const hasHistoryLimit =
+        typeof stepperHistory === 'number' && stepperHistory >= 0
+      console.log('hasHistoryLimit..', hasHistoryLimit, stepperHistory)
+      if (!hasHistoryLimit) {
+        // Previous behavior: try to show as many steps as possible while fitting.
+        let low = 0
+        let high = totalSteps - 1
+        // Initial probe to short-circuit if everything fits
+        {
+          const test = measureFits(0)
+          if (test.fits) {
+            leftText.innerHTML = ''
+            test.nodes.forEach(n => leftText.appendChild(n))
+          }
+        }
+        while (low <= high) {
+          const mid = Math.floor((low + high) / 2)
+          const { fits } = measureFits(mid)
+          if (fits) {
+            bestStart = mid
+            high = mid - 1
+          } else {
+            low = mid + 1
+          }
+        }
       } else {
-        low = mid + 1
+        // New behavior with stepperHistory:
+        // limit how many *past* steps can be shown, but still respect the height.
+        const maxPast = Math.floor(stepperHistory)
+        const minStart = Math.max(0, totalSteps - 1 - maxPast)
+        let low = minStart
+        let high = totalSteps - 1
+        console.log('maxPast..', maxPast)
+        console.log('minStart..', minStart)
+        console.log('low..', low)
+        console.log('high..', high)
+        while (low <= high) {
+          const mid = Math.floor((low + high) / 2)
+          const { fits } = measureFits(mid)
+          if (fits) {
+            bestStart = mid
+            high = mid - 1
+          } else {
+            low = mid + 1
+          }
+        }
+        console.log('bestStart..', bestStart)
       }
-    }
-    // Always render the best-fitting slice after search to avoid leaving a temp state
-    {
-      const { nodes } = measureFits(bestStart)
-      leftText.innerHTML = ''
-      nodes.forEach(n => leftText.appendChild(n))
+      // Always render the best-fitting slice after search to avoid leaving a temp state
+      {
+        const { nodes } = measureFits(bestStart)
+        leftText.innerHTML = ''
+        nodes.forEach(n => leftText.appendChild(n))
+      }
     }
   }
 

@@ -16,6 +16,7 @@ import {
   createStepInstructionsUI,
   renderStepInstructions,
 } from '../distance/stepByStepInstructionHelps'
+import { resolveInstructionMediaUrl } from '../distance/instructionMediaCache'
 import { test_phrases, test_assetMap } from '../distance/assetMap'
 import { irisTrackingIsActive } from '../distance/distanceTrack'
 import {
@@ -798,6 +799,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateTrackDistanceChecking = undefined,
   calibrateTrackDistanceSpotXYDeg = null,
   calibrateTrackDistance = '',
+  stepperHistory = 1,
 ) {
   await this.getEquipment(
     async () => {
@@ -816,6 +818,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateTrackDistanceChecking,
         calibrateTrackDistanceSpotXYDeg,
         calibrateTrackDistance,
+        stepperHistory,
       )
     },
     false,
@@ -1674,6 +1677,7 @@ const trackDistanceCheck = async (
   calibrateTrackDistanceChecking = 'camera',
   calibrateTrackDistanceSpotXYDeg = null,
   calibrateTrackDistance = '',
+  stepperHistory = 1,
 ) => {
   const isTrack = measureName === 'trackDistance'
 
@@ -2019,8 +2023,9 @@ const trackDistanceCheck = async (
               options: {
                 thresholdFraction: 0.4,
                 useCurrentSectionOnly: true,
-                resolveMediaUrl: url => url,
+                resolveMediaUrl: resolveInstructionMediaUrl,
                 layout: 'leftOnly',
+                stepperHistory: stepperHistory,
               },
               lang: RC.language.value,
               phrases: phrases,
