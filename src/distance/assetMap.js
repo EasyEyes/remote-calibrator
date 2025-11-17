@@ -44,24 +44,25 @@ export const test_phrases = {
 \nPress the ▼ key to step to next instruction. Press ▲ to go back.
 
 [[TT2]]STEP BY STEP
-[[SS1]] Pick a common object about [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better (see picture). Avoid sharp objects (like pencils).
+[[SS1]] 1. Pick a common object about [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better (see picture). Avoid sharp objects (like pencils).
 [[LL9]]
-[[SS2]] Line up your object's left end (←) with the tape's left end (←).
+[[SS2]] 2. Line up your object's left end (←) with the tape's left end (←).
 [[LL1]]
-[[SS3]] Repeat the following as long as the object's right end extends beyond the screen:
+[[SS3]] 3. Repeat the following as long as the object's right end extends beyond the screen:
 [[LL10]]
-[[SS3.1]] Use your thumbnail to mark your object at the tape's largest visible number.
+[[SS3.1]] ⭘ Press ▶ to extend the ruler to the right edge. 
+[[SS3.2]] ⭘ Use your thumbnail to mark your object at the tape's largest visible number.
 [[LL2]]
-[[SS3.2]] Move your thumbnail (and the object) to the left side of the screen (←).
+[[SS3.3]] ⭘ Move your thumbnail (and the object) to the left side of the screen (←).
 [[LL3]]
-[[SS3.3]] Drag that number (and the tape) left until it again lines up with your thumbnail.
+[[SS3.4]] ⭘ Drag that number (and the tape) left until it again lines up with your thumbnail.
 [[LL4]]
-[[SS3.4]] Repeat these moves until the object’s right end is on the screen.
+[[SS3.5]] ⭘ Repeat these moves until the object’s right end is on the screen.
 [[LL10]]
-[[SS4]] Once the end is on the screen, use ◀ ▶ keys or drag the tape's right end to match your object's length.
+[[SS4]] 4. Once the end is on the screen, use ◀ ▶ keys or drag the tape's right end to match your object's length.
 [[LL5]]
-[[SS5]] Press SPACE to record the setting.
-\n🔉 A “kerchunk” sound will confirm the setting.
+[[SS5]] 5. Press SPACE to record the setting.
+\n6. 🔉 A “kerchunk” sound will confirm the setting.
 [[LL6]]`,
   },
   RC_UseObjectToSetViewingDistanceRulerPage1: {
@@ -70,149 +71,152 @@ export const test_phrases = {
 \nPress ▼ to go forward, ▲ to go back.
 
 [[TT2]] STEP BY STEP
-[[SS1]] Get an object [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better (see picture). Avoid sharp objects.
+[[SS1]] 1. Get an object [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better (see picture). Avoid sharp objects.
 [[LL9]]
-[[SS2]] Align your object’s left end (←) with the ruler’s left end (←).
+[[SS2]] 2. Align your object’s left end (←) with the ruler’s left end (←).
 [[LL1]]
-[[SS3]] If the object extends off the right side, repeat:
+[[SS3]] 3. If the object extends off the right side, repeat:
 [[LL10]]
-[[SS3.1]] Mark your object with your thumbnail at the largest visible number (start with “1”).
+[[SS3.1]] ⭘ Press ▶ to extend the ruler to the right edge. 
+[[SS3.2]] ⭘ Mark your object with your thumbnail at the largest visible number (start with “1”).
 [[LL2]]
-[[SS3.2]] Slide your thumbnail and object to the left edge.
+[[SS3.3]] ⭘ Slide your thumbnail and object to the left edge.
 [[LL3]]
-[[SS3.3]] Drag the ruler left until that number again lines up with your thumbnail.
+[[SS3.4]] ⭘ Drag the ruler left until that number again lines up with your thumbnail.
 [[LL4]]
-[[SS3.4]] Repeat until the object’s right end is on the screen.
+[[SS3.5]] ⭘ Repeat until the object’s right end is on the screen.
 [[LL10]]
-[[SS4]] Once the end is on the screen, use ◀ ▶ keys to align the ruler’s right end with your object's right end.
+[[SS4]] 4. Once the end is on the screen, use ◀ ▶ keys to align the ruler’s right end with your object's right end.
 [[LL5]]
-[[SS5]] Press SPACE to record the setting.
-\n🔉 A “kerchunk” sound will confirm the setting.
+[[SS5]] 5. Press SPACE to record the setting.
+\n6. 🔉 A “kerchunk” sound will confirm the setting.
 [[LL6]]`,
   },
   RC_UseObjectToSetViewingDistanceTapePage2: {
     en: `[[TT1]] REMEASURE FOR BEST ACCURACY
-[[SS1]] Line up your object's left end with the tape's left end.
+[[SS1]] 1. Line up your object's left end with the tape's left end.
 [[LL1]]
-[[SS2]] Repeat the following as long as the object's right end extends beyond the screen:
+[[SS2]] 2. Repeat the following as long as the object's right end extends beyond the screen:
 [[LL10]]
-[[SS2.1]] Use your thumbnail to mark your object at the largest visible number.
+[[SS2.1]] ⭘ Press ▶ to extend the ruler to the right edge.
+[[SS2.2]] ⭘ Use your thumbnail to mark your object at the largest visible number.
 [[LL2]]
-[[SS2.2]] Move your thumbnail and object to the left edge.
+[[SS2.3]] ⭘ Move your thumbnail and object to the left edge.
 [[LL3]]
-[[SS2.3]] Drag the tape left until that number again lines up with your thumbnail
+[[SS2.4]] ⭘ Drag the tape left until that number again lines up with your thumbnail
 [[LL4]]
-[[SS2.4]] Repeat until the object’s right end is on the screen.
+[[SS2.5]] ⭘ Repeat until the object’s right end is on the screen.
 [[LL10]]
-[[SS3]] Once the end is on the screen, use ◀ ▶ keys to align the tape’s right end with your object's right end.
+[[SS3]] 3. Once the end is on the screen, use ◀ ▶ keys to align the tape’s right end with your object's right end.
 [[LL5]]
-[[SS4]] Press SPACE to record the setting.
-\n🔉 A “kerchunk” sound will confirm the setting.
+[[SS4]] 4. Press SPACE to record the setting.
+\n5. 🔉 A “kerchunk” sound will confirm the setting.
 [[LL6]]`,
   },
   RC_UseObjectToSetViewingDistanceRulerPage2: {
     en: `[[TT1]] REMEASURE FOR BEST ACCURACY
-[[SS1]] Line up your object's left end with the ruler's left end.
+[[SS1]] 1. Line up your object's left end with the ruler's left end.
 [[LL1]]
-[[SS2]] Repeat the following as long as the object's right end extends beyond the screen:
+[[SS2]] 2. Repeat the following as long as the object's right end extends beyond the screen:
 [[LL10]]
-[[SS2.1]] Use your thumbnail to mark your object at the largest visible number.
+[[SS2.1]] ⭘ Press ▶ to extend the ruler to the right edge.
+[[SS2.2]] ⭘ Use your thumbnail to mark your object at the largest visible number.
 [[LL2]]
-[[SS2.2]] Move your thumbnail and object to the left edge.
+[[SS2.3]] ⭘ Move your thumbnail and object to the left edge.
 [[LL3]]
-[[SS2.3]] Drag the ruler left until that number again lines up with your thumbnail
+[[SS2.4]] ⭘ Drag the ruler left until that number again lines up with your thumbnail
 [[LL4]]
-[[SS2.4]] Repeat until the object’s right end is on the screen.
+[[SS2.5]] ⭘ Repeat until the object’s right end is on the screen.
 [[LL10]]
-[[SS3]] Once the end is on the screen, use ◀ ▶ keys to align the ruler’s right end with your object's right end.
+[[SS3]] 3. Once the end is on the screen, use ◀ ▶ keys to align the ruler’s right end with your object's right end.
 [[LL5]]
-[[SS4]] Press SPACE to record the setting.
-\n🔉 A “kerchunk” sound will confirm the setting.
+[[SS4]] 4. Press SPACE to record the setting.
+\n5. 🔉 A “kerchunk” sound will confirm the setting.
 [[LL6]]`,
   },
   RC_UseObjectToSetViewingDistancePage3: {
     en: `[[TT1]] EYE SNAPSHOT FOR DISTANCE MEASUREMENT
-[[SS1]] On this page, you'll use the webcam to take a temporary snapshot of your eyes—just to measure your distance.
-[[SS1.1]] The goal is eye tracking: The live video shows blue circles over your eyes.
-[[SS1.2]] If tracking fails, the blue circles turn red and freeze, blocking the snapshot. To fix this, bring more of your face into view, until the circles turn blue and move again.
+[[SS1]] 1. On this page, you'll use the webcam to take a temporary snapshot of your eyes—just to measure your distance.
+[[SS1.1]] ⭘ The goal is eye tracking: The live video shows blue circles over your eyes.
+[[SS1.2]] ⭘ If tracking fails, the blue circles turn red and freeze, blocking the snapshot. To fix this, bring more of your face into view, until the circles turn blue and move again.
 
-[[SS2]] Use the object you measured: Hold it with one end against the top-center of the screen (above the video) and the other end touching your face near your eye.
-[[SS2.1]] If your object is stiff: Hold it with one hand, near your eye. This leaves your other hand free.
+[[SS2]] 2. Use the object you measured: Hold it with one end against the top-center of the screen (above the video) and the other end touching your face near your eye.
+[[SS2.1]] ⭘ If your object is stiff: Hold it with one hand, near your eye. This leaves your other hand free.
 [[LL8]]
-[[SS2.2]] If your object is not stiff, like string: Hold it with two hands.
-[[SS3]] Take the snapshot: Hold still, remove object so your face is visible, and press SPACE.
+[[SS2.2]] ⭘ If your object is not stiff, like string: Hold it with two hands.
+[[SS3]] 3. Take the snapshot: Hold still, remove object so your face is visible, and press SPACE.
 \nIf your object is not stiff, such as string: Hold your head still, as one of your hands releases the string and moves to the keyboard to press the SPACE key.
-\n🔉 You’ll hear the sound of a camera shutter.
+\n4. 🔉 You’ll hear the sound of a camera shutter.
 [[LL11]]
 `,
   },
   RC_UseObjectToSetViewingDistanceLowerRightPage4: {
     en: `[[TT1]] LOWER-RIGHT CORNER SNAPSHOT
-[[SS1]] Repeat for the lower-right corner of the screen (far corner of video).
-[[SS2]] Use your object to set the same distance, now eye-to-corner.
-[[SS3]] Hold still, uncover your face, and press SPACE.`,
+[[SS1]] 1. Repeat for the lower-right corner of the screen (far corner of video).
+[[SS2]] 2. Use your object to set the same distance, now eye-to-corner.
+[[SS3]] 3. Hold still, uncover your face, and press SPACE.`,
   },
   RC_produceDistanceCameraTiltAndSwivel: {
     en: `[[TT1]]
 SCREEN ALIGNMENT AND CAMERA-CENTER MEASUREMENT
-[[SS1]] Tilt and swivel the screen until your eyes in the video are centered on the red cross.
-[[SS2]] Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
-[[SS3]] Set distance: Position one eye [[N11]] [[UUU]] from the camera (in top center of screen) using a tape or stick:
-[[SS3.1]] Mark the desired length with your thumbnail.
+[[SS1]] 1. Tilt and swivel the screen until your eyes in the video are centered on the red cross.
+[[SS2]] 2. Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
+[[SS3]] 3. Set distance: Position one eye [[N11]] [[UUU]] from the camera (in top center of screen) using a tape or stick:
+[[SS3.1]] ⭘ Mark the desired length with your thumbnail.
 [[LL7]]
-[[SS3.2]] If using a stick or metal tape: Place the end at the camera and your thumbnail beside your eye.
-[[SS3.3]] If using a cloth tape: Place your thumbnail at the camera and bring the tape’s free end to your eye.
-[[SS4]] Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
-[[SS5]] Take snapshot: Hold still, uncover your face, and press SPACE. (🔉 SPACE bar will play the sound of a camera shutter.)
-[[SS6]] The green progress bar below tracks completion.
-[[SS7]] Repeat for the next distance.
+[[SS3.2]] ⭘ If using a stick or metal tape: Place the end at the camera and your thumbnail beside your eye.
+[[SS3.3]] ⭘ If using a cloth tape: Place your thumbnail at the camera and bring the tape’s free end to your eye.
+[[SS4]] 4. Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
+[[SS5]] 5. Take snapshot: Hold still, uncover your face, and press SPACE. (🔉 SPACE bar will play the sound of a camera shutter.)
+[[SS6]] 6. The green progress bar below tracks completion.
+[[SS7]] 7. Repeat for the next distance.
 \nTip: If the phone keypad freezes, tap the address bar and press Go.
 `,
   },
   RC_produceDistanceCamera: {
     en: `[[TT1]] CAMERA-CENTER DISTANCE MEASUREMENT
-[[SS1]] Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
-[[SS2]] Set distance: Position one eye [[N11]] [[UUU]] from the camera (in top center of screen) using a tape or stick:
-[[SS2.1]] Mark the desired length with your thumbnail.
+[[SS1]] 1. Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
+[[SS2]] 2. Set distance: Position one eye [[N11]] [[UUU]] from the camera (in top center of screen) using a tape or stick:
+[[SS2.1]] ⭘ Mark the desired length with your thumbnail.
 [[LL7]]
-[[SS2.2]] If using a stick or metal tape: Place the end at the camera and your thumbnail beside your eye.
-[[SS2.3]] If using a cloth tape: Place your thumbnail at the camera and bring the tape’s free end to your eye.
-[[SS3]] Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
-[[SS4]] Take snapshot: Hold still, uncover your face, and press SPACE. (🔉 SPACE bar will play the sound of a camera shutter.)
-\nThe green progress bar below tracks completion.
-\n Repeat for the next distance.
+[[SS2.2]] ⭘ If using a stick or metal tape: Place the end at the camera and your thumbnail beside your eye.
+[[SS2.3]] ⭘ If using a cloth tape: Place your thumbnail at the camera and bring the tape’s free end to your eye.
+[[SS3]] 3. Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
+[[SS4]] 4. Take snapshot: Hold still, uncover your face, and press SPACE. (🔉 SPACE bar will play the sound of a camera shutter.)
+\n5. The green progress bar below tracks completion.
+\n6. Repeat for the next distance.
 \nTip: If the phone keypad freezes, tap the address bar and press Go.`,
   },
   RC_produceDistanceTiltAndSwivel: {
     en: `[[TT1]]
 SCREEN-CENTER DISTANCE MEASUREMENT
-[[SS1]] Tilt and swivel the screen until your eyes in the video are centered on the red cross.
-[[SS2]] Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
-[[SS3]] Set distance: Position one eye [[N11]] [[UUU]] from the screen center using a tape or stick.
-[[SS3.1]] Mark the desired length with your thumbnail.
+[[SS1]] 1. Tilt and swivel the screen until your eyes in the video are centered on the red cross.
+[[SS2]] 2. Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
+[[SS3]] 3. Set distance: Position one eye [[N11]] [[UUU]] from the screen center using a tape or stick.
+[[SS3.1]] ⭘ Mark the desired length with your thumbnail.
 [[LL7]]
-[[SS3.2]] If using a stick or metal tape: Place the end at the screen center and your thumbnail beside your eye.
-[[SS3.3]] If using a cloth tape: Place your thumbnail at the screen center and bring the tape’s free end to your eye.
-[[SS4]] Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
-[[SS5]] Take snapshot: Hold still, uncover your face, and press SPACE. (🔉 SPACE bar will play the sound of a camera shutter.)
-[[SS6]] The green progress bar below tracks completion.
-[[SS7]] Repeat for the next distance.
+[[SS3.2]] ⭘ If using a stick or metal tape: Place the end at the screen center and your thumbnail beside your eye.
+[[SS3.3]] ⭘ If using a cloth tape: Place your thumbnail at the screen center and bring the tape’s free end to your eye.
+[[SS4]] 4. Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
+[[SS5]] 5. Take snapshot: Hold still, uncover your face, and press SPACE. (🔉 SPACE bar will play the sound of a camera shutter.)
+[[SS6]] 6. The green progress bar below tracks completion.
+[[SS7]] 7. Repeat for the next distance.
 \nTip: If the phone keypad freezes, tap the address bar and press Go.
 `,
   },
   RC_produceDistance: {
     en: `[[TT1]]
 SCREEN-CENTER DISTANCE MEASUREMENT
-[[SS1]] Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
-[[SS2]] Set distance: Position one eye [[N11]] [[UUU]] from the screen center using a tape or stick:
-[[SS2.1]] Mark the desired length with your thumbnail.
+[[SS1]] 1. Check tracking: The video shows blue circles on your eyes. If they turn red and freeze, move more of your face into view.
+[[SS2]] 2. Set distance: Position one eye [[N11]] [[UUU]] from the screen center using a tape or stick:
+[[SS2.1]] ⭘ Mark the desired length with your thumbnail.
 [[LL7]]
-[[SS2.2]] If using a stick or metal tape: Place the end at the screen center and your thumbnail beside your eye.
-[[SS2.3]] If using a cloth tape: Place your thumbnail at the screen center and bring the tape’s free end to your eye.
-[[SS3]] Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
-[[SS4]] Take snapshot: Hold still, uncover your face, and press SPACE. (🔉 SPACE bar will play the sound of a camera shutter.)
-[[SS5]] The green progress bar below tracks completion.
-[[SS6]] Repeat for the next distance.
+[[SS2.2]] ⭘ If using a stick or metal tape: Place the end at the screen center and your thumbnail beside your eye.
+[[SS2.3]] ⭘ If using a cloth tape: Place your thumbnail at the screen center and bring the tape’s free end to your eye.
+[[SS3]] 3. Skip the impossible: If a distance is too hard to measure, press ❌ or X to skip it.
+[[SS4]] 4. Take snapshot: Hold still, uncover your face, and press SPACE. (🔉 SPACE bar will play the sound of a camera shutter.)
+[[SS5]] 5. The green progress bar below tracks completion.
+[[SS6]] 6. Repeat for the next distance.
 \nTip: If the phone keypad freezes, tap the address bar and press Go.
 `,
   },

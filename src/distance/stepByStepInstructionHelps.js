@@ -284,7 +284,8 @@ export function renderStepInstructions({
       div.textContent = text
     } else {
       div.style.marginTop = '0.25rem'
-      div.textContent = `• ${text}`
+      // Preserve original text with its numbering/bullets instead of adding generic bullet
+      div.textContent = text
       if (indentLevel > 0) {
         div.style.paddingInlineStart = `${indentLevel * 1.25}em`
       }
