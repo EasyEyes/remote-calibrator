@@ -3806,6 +3806,12 @@ export async function objectTest(RC, options, callback = undefined) {
       stepInstructionModel = buildStepInstructions(chosenText, test_assetMap)
       currentStepFlatIndex = 0
       currentInstructionText = chosenText
+      
+      // Hide Ruler-Shift button when resetting to step 0
+      if (typeof rulerShiftButton !== 'undefined' && rulerShiftButton) {
+        rulerShiftButton.style.display = 'none'
+      }
+      
       renderCurrentStepView()
     } catch (e) {
       console.warn('Failed to parse step instructions; using plain text', e)
@@ -3941,7 +3947,7 @@ export async function objectTest(RC, options, callback = undefined) {
   let stepInstructionModel = null
   let currentStepFlatIndex = 0
 
-  const renderCurrentStepView = () =>
+  const renderCurrentStepView = () => {
     renderStepInstructions({
       model: stepInstructionModel,
       flatIndex: currentStepFlatIndex,
@@ -3961,6 +3967,23 @@ export async function objectTest(RC, options, callback = undefined) {
       lang: RC.language.value,
       phrases: phrases,
     })
+    
+    // Show/Hide Ruler-Shift button based on step and measurement iteration
+    // First measurement (iteration 1): show after step index 6
+    // Subsequent measurements (iteration 2+): show after step index 4
+    if (currentPage === 2 && stepInstructionModel) {
+      if (typeof rulerShiftButton !== 'undefined' && rulerShiftButton) {
+        const isFirstMeasurement = measurementState.currentIteration === 1
+        const showAfterIndex = isFirstMeasurement ? 6 : 4
+        
+        if (currentStepFlatIndex >= showAfterIndex) {
+          rulerShiftButton.style.display = 'flex'
+        } else {
+          rulerShiftButton.style.display = 'none'
+        }
+      }
+    }
+  }
 
   // Replace the setter to support both legacy and step-by-step flows
   const reflowInstructionsOnResize = () => renderCurrentStepView()
@@ -4411,7 +4434,7 @@ export async function objectTest(RC, options, callback = undefined) {
   rulerShiftButton.style.width = '100px'
   rulerShiftButton.style.height = '100px'
   rulerShiftButton.style.backgroundColor = '#FFD700' // Bright gold/yellow
-  rulerShiftButton.style.border = '4px solid #FF8C00' // Dark orange border
+  rulerShiftButton.style.border = 'none' // No border
   rulerShiftButton.style.borderRadius = '50%' // Perfect circle
   rulerShiftButton.style.cursor = 'pointer'
   rulerShiftButton.style.zIndex = '100'
@@ -4468,7 +4491,6 @@ export async function objectTest(RC, options, callback = undefined) {
     rulerShiftButton.style.backgroundColor = '#FFA500' // Bright orange on hover
     rulerShiftButton.style.transform = 'translate(-50%, -5px) scale(1.15)' // Lift up and grow
     rulerShiftButton.style.boxShadow = '0 10px 25px rgba(255, 140, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.6)' // Stronger glow
-    rulerShiftButton.style.borderColor = '#FF6347' // Tomato red border
   })
   
   rulerShiftButton.addEventListener('mouseleave', () => {
@@ -4476,7 +4498,6 @@ export async function objectTest(RC, options, callback = undefined) {
     rulerShiftButton.style.backgroundColor = '#FFD700'
     rulerShiftButton.style.transform = 'translate(-50%, 0) scale(1)'
     rulerShiftButton.style.boxShadow = '0 6px 16px rgba(255, 140, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.4)'
-    rulerShiftButton.style.borderColor = '#FF8C00'
   })
   
   // Active state (when pressed)
@@ -4505,7 +4526,6 @@ export async function objectTest(RC, options, callback = undefined) {
       rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
       rulerShiftButton.style.transform = 'translate(-50%, 0) scale(1)' // Keep centered
       rulerShiftButton.style.backgroundColor = '#FFD700' // Restore gold color
-      rulerShiftButton.style.borderColor = '#FF8C00' // Restore orange border
     }
   }
   
@@ -4556,7 +4576,6 @@ export async function objectTest(RC, options, callback = undefined) {
     rulerShiftButton.style.cursor = 'not-allowed'
     rulerShiftButton.style.transform = 'translate(-50%, 0) scale(0.95)' // Keep centered, slightly smaller
     rulerShiftButton.style.backgroundColor = '#D3D3D3' // Gray out during animation
-    rulerShiftButton.style.borderColor = '#A9A9A9'
     
     const ANIMATION_SPEED = 100 // pixels per second
     const TARGET_MARGIN = 25 // pixels from edge
@@ -4619,7 +4638,6 @@ export async function objectTest(RC, options, callback = undefined) {
           rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
           rulerShiftButton.style.transform = 'translate(-50%, 0) scale(1)' // Keep centered
           rulerShiftButton.style.backgroundColor = '#FFD700' // Restore gold color
-          rulerShiftButton.style.borderColor = '#FF8C00' // Restore orange border
         }
       }
     }
@@ -5545,8 +5563,9 @@ export async function objectTest(RC, options, callback = undefined) {
       // Update all positions and colors after showing lines
       updateDiagonalLabels()
 
-      // Show Ruler-Shift button on page 2
-      rulerShiftButton.style.display = 'flex'
+      // Ruler-Shift button will be shown by renderCurrentStepView() after step 2.2
+      // Initially hide it when page 2 first loads
+      rulerShiftButton.style.display = 'none'
 
       // Update instructions based on current iteration (first vs subsequent)
       updateInstructions()

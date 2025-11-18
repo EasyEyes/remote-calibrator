@@ -51,11 +51,10 @@ export const test_phrases = {
 [[SS3]] 3. Repeat the following as long as the object's right end extends beyond the screen:
 [[LL10]]
 [[SS3.1]] ⭘ Press ▶ to extend the ruler to the right edge. 
-[[SS3.2]] ⭘ Use your thumbnail to mark your object at the tape's largest visible number.
+[[SS3.2]] ⭘ Use your thumbnail to mark your object at the tape's largest visible number. Remember the number.
 [[LL2]]
-[[SS3.3]] ⭘ Move your thumbnail (and the object) to the left side of the screen (←).
-[[LL3]]
-[[SS3.4]] ⭘ Drag that number (and the tape) left until it again lines up with your thumbnail.
+[[SS3.3]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS3.4]] ⭘ Re-align your thumbnail (and object) with the number.
 [[LL4]]
 [[SS3.5]] ⭘ Repeat these moves until the object’s right end is on the screen.
 [[LL10]]
@@ -78,11 +77,10 @@ export const test_phrases = {
 [[SS3]] 3. If the object extends off the right side, repeat:
 [[LL10]]
 [[SS3.1]] ⭘ Press ▶ to extend the ruler to the right edge. 
-[[SS3.2]] ⭘ Mark your object with your thumbnail at the largest visible number (start with “1”).
+[[SS3.2]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
 [[LL2]]
-[[SS3.3]] ⭘ Slide your thumbnail and object to the left edge.
-[[LL3]]
-[[SS3.4]] ⭘ Drag the ruler left until that number again lines up with your thumbnail.
+[[SS3.3]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS3.4]] ⭘ Re-align your thumbnail (and object) with the remembered number.
 [[LL4]]
 [[SS3.5]] ⭘ Repeat until the object’s right end is on the screen.
 [[LL10]]
@@ -99,11 +97,10 @@ export const test_phrases = {
 [[SS2]] 2. Repeat the following as long as the object's right end extends beyond the screen:
 [[LL10]]
 [[SS2.1]] ⭘ Press ▶ to extend the ruler to the right edge.
-[[SS2.2]] ⭘ Use your thumbnail to mark your object at the largest visible number.
+[[SS2.2]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
 [[LL2]]
-[[SS2.3]] ⭘ Move your thumbnail and object to the left edge.
-[[LL3]]
-[[SS2.4]] ⭘ Drag the tape left until that number again lines up with your thumbnail
+[[SS2.3]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS2.4]] ⭘ Re-align your thumbnail (and object) with the number.
 [[LL4]]
 [[SS2.5]] ⭘ Repeat until the object’s right end is on the screen.
 [[LL10]]
@@ -120,11 +117,10 @@ export const test_phrases = {
 [[SS2]] 2. Repeat the following as long as the object's right end extends beyond the screen:
 [[LL10]]
 [[SS2.1]] ⭘ Press ▶ to extend the ruler to the right edge.
-[[SS2.2]] ⭘ Use your thumbnail to mark your object at the largest visible number.
+[[SS2.2]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
 [[LL2]]
-[[SS2.3]] ⭘ Move your thumbnail and object to the left edge.
-[[LL3]]
-[[SS2.4]] ⭘ Drag the ruler left until that number again lines up with your thumbnail
+[[SS2.3]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS2.4]] ⭘ Re-align your thumbnail (and object) with the number.
 [[LL4]]
 [[SS2.5]] ⭘ Repeat until the object’s right end is on the screen.
 [[LL10]]
