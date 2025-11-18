@@ -71,18 +71,18 @@ function createSizeScaleDistribution() {
   const step = 0.01
   const min = 0.6
   const distribution = []
-  
+
   // Distribution from min to (1 - delta)
   for (let x = min; x <= 1 - delta + 1e-9; x += step) {
     distribution.push(x)
   }
-  
+
   // Distribution from 1/(1 - delta) to 1/min
   const n = distribution.length
   for (let i = 0; i < n; i++) {
     distribution.push(1 / distribution[i])
   }
-  
+
   return distribution
 }
 
@@ -128,18 +128,26 @@ RemoteCalibrator.prototype.screenSize = function (
   this.getFullscreen(options.fullscreen)
 
   // Validate and normalize screenSizeMeasurementCount
-  if (typeof options.screenSizeMeasurementCount !== 'number' || 
-      isNaN(options.screenSizeMeasurementCount) || 
-      options.screenSizeMeasurementCount < 1) {
-    console.warn(`Invalid screenSizeMeasurementCount: ${options.screenSizeMeasurementCount}. Using default value of 2.`)
+  if (
+    typeof options.screenSizeMeasurementCount !== 'number' ||
+    isNaN(options.screenSizeMeasurementCount) ||
+    options.screenSizeMeasurementCount < 1
+  ) {
+    console.warn(
+      `Invalid screenSizeMeasurementCount: ${options.screenSizeMeasurementCount}. Using default value of 2.`,
+    )
     options.screenSizeMeasurementCount = 2
   }
-  options.screenSizeMeasurementCount = Math.max(1, Math.floor(options.screenSizeMeasurementCount))
-  
+  options.screenSizeMeasurementCount = Math.max(
+    1,
+    Math.floor(options.screenSizeMeasurementCount),
+  )
+
   // Set initial headline with progress indicator (1 of N)
-  options.headline = phrases.RC_screenSizeTitleN?.[this.L]
-    ?.replace('[[N1]]', '1')
-    ?.replace('[[N2]]', options.screenSizeMeasurementCount.toString()) ||
+  options.headline =
+    phrases.RC_screenSizeTitleN?.[this.L]
+      ?.replace('[[N1]]', '1')
+      ?.replace('[[N2]]', options.screenSizeMeasurementCount.toString()) ||
     `${phrases.RC_screenSizeTitle[this.L]} (1/${options.screenSizeMeasurementCount})`
 
   if (!['usba', 'usbc', 'card'].includes(options.defaultObject))
@@ -171,7 +179,10 @@ function getSize(RC, parent, options, callback) {
   // Initialize measurement tracking
   const measurementState = {
     currentIteration: 1,
-    totalIterations: Math.max(1, Math.floor(options.screenSizeMeasurementCount || 1)),
+    totalIterations: Math.max(
+      1,
+      Math.floor(options.screenSizeMeasurementCount || 1),
+    ),
     measurements: [], // Store all individual measurements
     consistentPair: null, // Will store the indices of 2 consistent measurements
     previousCardWidth: null, // Track previous iteration's actual card width
@@ -187,23 +198,23 @@ function getSize(RC, parent, options, callback) {
 function checkLastTwoMeasurements(measurements, threshold) {
   // Need at least 2 measurements to compare
   if (measurements.length < 2) return null
-  
+
   // Get the last two measurements
   const lastIdx = measurements.length - 1
   const secondLastIdx = measurements.length - 2
-  
+
   const M1 = measurements[secondLastIdx].ppi
   const M2 = measurements[lastIdx].ppi
-  
+
   // Calculate max(M1/M2, M2/M1)
   const ratio = Math.max(M1 / M2, M2 / M1)
-  
+
   // Test passes if ratio <= threshold
   if (ratio <= threshold) {
     // Found consistent last two measurements!
     return { indices: [secondLastIdx, lastIdx], ppis: [M1, M2] }
   }
-  
+
   return null // Last two measurements are not consistent
 }
 
@@ -211,13 +222,17 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   // Update headline to show progress dynamically as measurements continue
   // Shows "1 of 2", "2 of 2", "3 of 3", "4 of 4", etc.
   const currentMeasurement = measurementState.currentIteration
-  const totalShown = Math.max(currentMeasurement, measurementState.totalIterations)
-  
-  const progressText = phrases.RC_screenSizeTitleN?.[RC.L]
-    ?.replace('[[N1]]', currentMeasurement.toString())
-    ?.replace('[[N2]]', totalShown.toString()) ||
+  const totalShown = Math.max(
+    currentMeasurement,
+    measurementState.totalIterations,
+  )
+
+  const progressText =
+    phrases.RC_screenSizeTitleN?.[RC.L]
+      ?.replace('[[N1]]', currentMeasurement.toString())
+      ?.replace('[[N2]]', totalShown.toString()) ||
     `${phrases.RC_screenSizeTitle[RC.L]} (${currentMeasurement}/${totalShown})`
-  
+
   // Update the title element (constructed by constructInstructions)
   const headlineElement = parent.querySelector('#instruction-title')
   if (headlineElement) {
@@ -226,71 +241,89 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   } else {
     console.warn('Could not find #instruction-title element to update')
   }
-  
+
   // Update the instruction body text for iterations after the first one
   if (measurementState.currentIteration > 1) {
     const bodyElement = parent.querySelector('#instruction-body')
     if (bodyElement) {
       // For subsequent iterations, use RC_screenSizeContinue instead of RC_screenSizeIntro
-      const continueDescription = phrases.RC_screenSizeContinue?.[RC.L] || phrases.RC_screenSizeIntro[RC.L]
-      
+      const continueDescription =
+        phrases.RC_screenSizeContinue?.[RC.L] ||
+        phrases.RC_screenSizeIntro[RC.L]
+
       // Add the object selection dropdown to the continue text
-      const fullDescription = continueDescription + `<br /><br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
-        RC.L
-      ].replace(
-        '[[xxx]]',
-        `<select id="matching-obj"><option value="usba"${
-          options.defaultObject === 'usba' ? ' selected' : ''
-        }>${phrases.RC_screenSizeUSBA[RC.L]}</option><option value="usbc"${
-          options.defaultObject === 'usbc' ? ' selected' : ''
-        }>${phrases.RC_screenSizeUSBC[RC.L]}</option><option value="card"${
-          options.defaultObject === 'card' ? ' selected' : ''
-        }>${phrases.RC_screenSizeCreditCard[RC.L]}</option></select>`,
-      )}</b>`
-      
+      const fullDescription =
+        continueDescription +
+        `<br /><br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
+          RC.L
+        ].replace(
+          '[[xxx]]',
+          `<select id="matching-obj"><option value="usba"${
+            options.defaultObject === 'usba' ? ' selected' : ''
+          }>${phrases.RC_screenSizeUSBA[RC.L]}</option><option value="usbc"${
+            options.defaultObject === 'usbc' ? ' selected' : ''
+          }>${phrases.RC_screenSizeUSBC[RC.L]}</option><option value="card"${
+            options.defaultObject === 'card' ? ' selected' : ''
+          }>${phrases.RC_screenSizeCreditCard[RC.L]}</option></select>`,
+        )}</b>`
+
       bodyElement.innerHTML = fullDescription
-      console.log(`Updated body text for iteration ${measurementState.currentIteration}`)
+      console.log(
+        `Updated body text for iteration ${measurementState.currentIteration}`,
+      )
     }
   }
 
   // Slider with random initial position
   const sliderElement = createSlider(parent, 0, 100)
-  
+
   // Generate random offsets ONLY for measurements after the first one
   let randomHorizontalOffset = 0 // Default: no horizontal offset
   let appliedHorizontalOffset = 0 // Store the actual constrained offset that was applied
-  
-  if (measurementState.currentIteration > 1 && measurementState.previousCardWidth) {
+
+  if (
+    measurementState.currentIteration > 1 &&
+    measurementState.previousCardWidth
+  ) {
     // Random horizontal offset: between 0px and +200px (only positive, moving right)
     randomHorizontalOffset = Math.random() * 200 // 0 to +200
-    
+
     // Card width formula: cardWidth = ((sliderWidth - 30) * (sliderValue / 100) * mobileFactor + 15)
     const mobileFactor = window.innerWidth < 480 ? 2 : 1
-    const sliderWidth = sliderElement.offsetWidth || (window.innerWidth * 0.8)
-    
+    const sliderWidth = sliderElement.offsetWidth || window.innerWidth * 0.8
+
     // Calculate what scale factors are achievable with slider 0-100
-    const maxAchievableWidth = (sliderWidth - 30) * (100 / 100) * mobileFactor + 15
-    const minAchievableWidth = (sliderWidth - 30) * (0 / 100) * mobileFactor + 15
-    const maxAchievableFactor = maxAchievableWidth / measurementState.previousCardWidth
-    const minAchievableFactor = minAchievableWidth / measurementState.previousCardWidth
-    
+    const maxAchievableWidth =
+      (sliderWidth - 30) * (100 / 100) * mobileFactor + 15
+    const minAchievableWidth =
+      (sliderWidth - 30) * (0 / 100) * mobileFactor + 15
+    const maxAchievableFactor =
+      maxAchievableWidth / measurementState.previousCardWidth
+    const minAchievableFactor =
+      minAchievableWidth / measurementState.previousCardWidth
+
     // Filter distribution to only achievable scale factors
     const achievableFactors = sizeScaleDistribution.filter(
-      f => f >= minAchievableFactor && f <= maxAchievableFactor
+      f => f >= minAchievableFactor && f <= maxAchievableFactor,
     )
-    
+
     // Pick random scale factor from filtered distribution
-    const scaleFactor = achievableFactors[Math.floor(Math.random() * achievableFactors.length)]
+    const scaleFactor =
+      achievableFactors[Math.floor(Math.random() * achievableFactors.length)]
     const targetCardWidth = measurementState.previousCardWidth * scaleFactor
-    
+
     // Solve for slider value to achieve this target card width
-    const newSliderValue = Math.max(0, Math.min(100, 
-      ((targetCardWidth - 15) / mobileFactor) / (sliderWidth - 30) * 100
-    ))
-    
+    const newSliderValue = Math.max(
+      0,
+      Math.min(
+        100,
+        ((targetCardWidth - 15) / mobileFactor / (sliderWidth - 30)) * 100,
+      ),
+    )
+
     sliderElement.value = newSliderValue
     setSliderStyle(sliderElement)
-    
+
     // Store intended values for logging and validation after slider positioning
     measurementState._randomizationData = {
       prevCard: measurementState.previousCardWidth,
@@ -333,20 +366,21 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
 
   // Add all objects
   const elements = addMatchingObj(['card', 'arrow', 'usba', 'usbc'], parent)
-  
-  
+
   // Apply horizontal offset to slider and objects together (only for iterations > 1)
   if (measurementState.currentIteration > 1 && randomHorizontalOffset !== 0) {
     // Get current card position to constrain the offset
     const cardElement = elements.card || elements.usba || elements.usbc
     const cardRect = cardElement ? cardElement.getBoundingClientRect() : null
-    
+
     if (cardRect) {
       // Since offset is always positive (moving right), no left boundary check needed
       appliedHorizontalOffset = randomHorizontalOffset
-      
-      console.log(`Applying horizontal offset: ${appliedHorizontalOffset.toFixed(1)}px`)
-      
+
+      console.log(
+        `Applying horizontal offset: ${appliedHorizontalOffset.toFixed(1)}px`,
+      )
+
       // Get slider rect BEFORE applying transform to get original dimensions
       const sliderRect = sliderElement.getBoundingClientRect()
       const originalSliderWidth = sliderRect.width
@@ -354,74 +388,104 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
       const sliderRightAfterOffset = sliderRect.right + appliedHorizontalOffset
       const screenWidth = window.innerWidth
       const rightMargin = 30 // Consistent 30px margin on the right
-      
+
       // Check if slider right edge would go beyond screen width - 30px with this offset
       if (sliderRightAfterOffset > screenWidth - rightMargin) {
         // Shrink slider width to maintain 30px right margin
-        const maxAllowedWidth = screenWidth - rightMargin - sliderLeftAfterOffset
+        const maxAllowedWidth =
+          screenWidth - rightMargin - sliderLeftAfterOffset
         sliderElement.style.width = `${maxAllowedWidth}px`
-        console.log(`Shrinking slider: originalWidth=${originalSliderWidth.toFixed(1)}px, newWidth=${maxAllowedWidth.toFixed(1)}px, rightEdgeAt=${(screenWidth - rightMargin).toFixed(1)}px`)
+        console.log(
+          `Shrinking slider: originalWidth=${originalSliderWidth.toFixed(1)}px, newWidth=${maxAllowedWidth.toFixed(1)}px, rightEdgeAt=${(screenWidth - rightMargin).toFixed(1)}px`,
+        )
       }
-      
+
       // Apply offset to slider AFTER width adjustment
       sliderElement.style.transform = `translateX(${appliedHorizontalOffset}px)`
-      
+
       // Apply same constrained offset to objects
       for (const i in elements) {
         if (i === 'card' || i === 'usba' || i === 'usbc') {
-          elements[i].style.transform = `translateX(${appliedHorizontalOffset}px)`
+          elements[i].style.transform =
+            `translateX(${appliedHorizontalOffset}px)`
         }
       }
     }
   }
-  
+
   // Validate and retry if actual ratio falls in excluded zone (if randomized)
   if (measurementState._randomizationData) {
     const data = measurementState._randomizationData
     const mobileFactor = window.innerWidth < 480 ? 2 : 1
-    const finalSliderWidth = sliderElement.offsetWidth || sliderElement.getBoundingClientRect().width
-    let actualCardWidth = (finalSliderWidth - 30) * (data.sliderValue / 100) * mobileFactor + 15
+    const finalSliderWidth =
+      sliderElement.offsetWidth || sliderElement.getBoundingClientRect().width
+    let actualCardWidth =
+      (finalSliderWidth - 30) * (data.sliderValue / 100) * mobileFactor + 15
     let actualRatio = actualCardWidth / data.prevCard
-    
+
     // Excluded zone check: 0.95 < ratio < 1.05
     const excludedMin = 0.95
     const excludedMax = 1.05
     let retryCount = 0
     const maxRetries = 20
-    
-    while (actualRatio > excludedMin && actualRatio < excludedMax && retryCount < maxRetries) {
+
+    while (
+      actualRatio > excludedMin &&
+      actualRatio < excludedMax &&
+      retryCount < maxRetries
+    ) {
       retryCount++
-      console.log(`Retry ${retryCount}: actualRatio ${actualRatio.toFixed(3)} in excluded zone [${excludedMin}, ${excludedMax}], picking new scaleFactor...`)
-      
+      console.log(
+        `Retry ${retryCount}: actualRatio ${actualRatio.toFixed(3)} in excluded zone [${excludedMin}, ${excludedMax}], picking new scaleFactor...`,
+      )
+
       // Pick a new random scale factor
-      const newScaleFactor = data.achievableFactors[Math.floor(Math.random() * data.achievableFactors.length)]
+      const newScaleFactor =
+        data.achievableFactors[
+          Math.floor(Math.random() * data.achievableFactors.length)
+        ]
       const newTargetWidth = data.prevCard * newScaleFactor
-      const newSliderValue = Math.max(0, Math.min(100, 
-        ((newTargetWidth - 15) / mobileFactor) / (sliderElement.offsetWidth - 30) * 100
-      ))
-      
+      const newSliderValue = Math.max(
+        0,
+        Math.min(
+          100,
+          ((newTargetWidth - 15) /
+            mobileFactor /
+            (sliderElement.offsetWidth - 30)) *
+            100,
+        ),
+      )
+
       // Update slider
       sliderElement.value = newSliderValue
       setSliderStyle(sliderElement)
-      
+
       // Recalculate actual card width
-      const updatedSliderWidth = sliderElement.offsetWidth || sliderElement.getBoundingClientRect().width
-      actualCardWidth = (updatedSliderWidth - 30) * (newSliderValue / 100) * mobileFactor + 15
+      const updatedSliderWidth =
+        sliderElement.offsetWidth || sliderElement.getBoundingClientRect().width
+      actualCardWidth =
+        (updatedSliderWidth - 30) * (newSliderValue / 100) * mobileFactor + 15
       actualRatio = actualCardWidth / data.prevCard
-      
+
       // Update stored data for logging
       data.scaleFactor = newScaleFactor
       data.sliderValue = newSliderValue
     }
-    
+
     if (retryCount >= maxRetries) {
-      console.warn(`Reached max retries (${maxRetries}) without escaping excluded zone. Using current ratio: ${actualRatio.toFixed(3)}`)
+      console.warn(
+        `Reached max retries (${maxRetries}) without escaping excluded zone. Using current ratio: ${actualRatio.toFixed(3)}`,
+      )
     } else if (retryCount > 0) {
-      console.log(`Success after ${retryCount} retries: actualRatio ${actualRatio.toFixed(3)} outside excluded zone`)
+      console.log(
+        `Success after ${retryCount} retries: actualRatio ${actualRatio.toFixed(3)} outside excluded zone`,
+      )
     }
-    
+
     // Log final result
-    console.log(`Randomization: prevCard=${data.prevCard.toFixed(1)}px, newCard=${actualCardWidth.toFixed(1)}px, scaleFactor=${data.scaleFactor.toFixed(2)}x, actualRatio=${actualRatio.toFixed(2)}x, slider=${data.sliderValue.toFixed(1)}%`)
+    console.log(
+      `Randomization: prevCard=${data.prevCard.toFixed(1)}px, newCard=${actualCardWidth.toFixed(1)}px, scaleFactor=${data.scaleFactor.toFixed(2)}x, actualRatio=${actualRatio.toFixed(2)}x, slider=${data.sliderValue.toFixed(1)}%`,
+    )
     delete measurementState._randomizationData // Clean up
   }
 
@@ -490,20 +554,22 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
       const sliderRightAfterOffset = sliderRect.right + appliedHorizontalOffset
       const screenWidth = window.innerWidth
       const rightMargin = 30 // Consistent 30px margin on the right
-      
+
       // Check if slider needs to be shrunk
       if (sliderRightAfterOffset > screenWidth - rightMargin) {
         // Shrink slider width to maintain 30px right margin
-        const maxAllowedWidth = screenWidth - rightMargin - sliderLeftAfterOffset
+        const maxAllowedWidth =
+          screenWidth - rightMargin - sliderLeftAfterOffset
         sliderElement.style.width = `${maxAllowedWidth}px`
       }
-      
+
       // Apply offset AFTER width adjustment
       sliderElement.style.transform = `translateX(${appliedHorizontalOffset}px)`
-      
+
       for (const i in elements) {
         if (i === 'card' || i === 'usba' || i === 'usbc') {
-          elements[i].style.transform = `translateX(${appliedHorizontalOffset}px)`
+          elements[i].style.transform =
+            `translateX(${appliedHorizontalOffset}px)`
         }
       }
     }
@@ -628,33 +694,42 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
       object: currentMatchingObj,
       timestamp: performance.now(),
     })
-    
+
     // Store actual card width for next iteration's size constraint
     measurementState.previousCardWidth = eleWidth
-    
+
     // Store original card left position from first iteration
-    if (measurementState.currentIteration === 1 && measurementState.originalCardLeftPosition === null) {
-      measurementState.originalCardLeftPosition = elements[currentMatchingObj].getBoundingClientRect().left
-      console.log(`Stored original card left position: ${measurementState.originalCardLeftPosition}px`)
+    if (
+      measurementState.currentIteration === 1 &&
+      measurementState.originalCardLeftPosition === null
+    ) {
+      measurementState.originalCardLeftPosition =
+        elements[currentMatchingObj].getBoundingClientRect().left
+      console.log(
+        `Stored original card left position: ${measurementState.originalCardLeftPosition}px`,
+      )
     }
 
     // If only 1 measurement requested, return immediately without consistency check
     if (measurementState.totalIterations === 1) {
-      const screenData = _getSingleMeasurementData(measurementState.measurements[0], toFixedN)
-      
+      const screenData = _getSingleMeasurementData(
+        measurementState.measurements[0],
+        toFixedN,
+      )
+
       RC.newScreenData = screenData
       const singlePpi = toFixedNumber(measurementState.measurements[0].ppi, 1)
       RC.screenSizeMeasurements = {
         ppi: [singlePpi],
         chosen: [singlePpi],
-        mean: singlePpi
+        mean: singlePpi,
       }
       breakFunction()
-      
+
       if (options.check)
         RC._checkScreenSize(callback, screenData, options.checkCallback)
       else safeExecuteFunc(callback, screenData)
-      
+
       return
     }
 
@@ -662,38 +737,41 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
     if (measurementState.currentIteration < measurementState.totalIterations) {
       // More measurements needed - clean up current UI and restart
       cleanupMeasurement()
-      
+
       // Increment iteration counter
       measurementState.currentIteration++
-      
+
       // Restart measurement with same parent and options
       performMeasurement(RC, parent, options, callback, measurementState)
       return
     }
-    
+
     // We've done minimum N measurements - now check for consistency of last 2
     if (measurementState.measurements.length > 1) {
       const consistentPair = checkLastTwoMeasurements(
-        measurementState.measurements, 
-        options.screenSizeConsistencyThreshold
+        measurementState.measurements,
+        options.screenSizeConsistencyThreshold,
       )
-      
+
       if (consistentPair) {
         // Found 2 consistent measurements! Calculate data and finish
         measurementState.consistentPair = consistentPair
-        
+
         const screenData = _getConsistentPairScreenData(
           measurementState.measurements,
           consistentPair,
-          toFixedN
+          toFixedN,
         )
-        
+
         // ! Record data
         RC.newScreenData = screenData
         RC.screenSizeMeasurements = {
           ppi: measurementState.measurements.map(m => toFixedNumber(m.ppi, 1)),
           chosen: consistentPair.ppis.map(p => toFixedNumber(p, 1)),
-          mean: toFixedNumber(Math.sqrt(consistentPair.ppis[0] * consistentPair.ppis[1]), 1)
+          mean: toFixedNumber(
+            Math.sqrt(consistentPair.ppis[0] * consistentPair.ppis[1]),
+            1,
+          ),
         }
 
         // Remove listeners and DOM
@@ -703,7 +781,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         if (options.check)
           RC._checkScreenSize(callback, screenData, options.checkCallback)
         else safeExecuteFunc(callback, screenData)
-        
+
         return
       } else {
         // Consistency check failed
@@ -713,28 +791,34 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
           const secondLastIdx = measurementState.measurements.length - 2
           const M1 = measurementState.measurements[secondLastIdx].ppi
           const M2 = measurementState.measurements[lastIdx].ppi
-          const ratio = M2 / M1  // Show actual ratio (current / previous) to indicate direction
-          
-          console.log(`Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Continuing to next measurement.`)
-          
-          const errorMessage = phrases.RC_objectSizeMismatch?.[RC.L]
-            ?.replace('[[N1]]', toFixedNumber(ratio, 2).toString()) ||
+          const ratio = M2 / M1 // Show actual ratio (current / previous) to indicate direction
+
+          console.log(
+            `Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Continuing to next measurement.`,
+          )
+
+          const errorMessage =
+            phrases.RC_objectSizeMismatch?.[RC.L]?.replace(
+              '[[N1]]',
+              toFixedNumber(ratio, 2).toString(),
+            ) ||
             `Measurements are inconsistent. Ratio: ${toFixedNumber(ratio, 2)}`
-          
+
           // Show popup (only accept Return/Enter, not spacebar)
-          const preventSpacebar = (e) => {
+          const preventSpacebar = e => {
             if (e.key === ' ' || e.code === 'Space') {
               e.preventDefault()
               e.stopPropagation()
             }
           }
-          
+
           await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
             icon: undefined,
             html: errorMessage,
             allowEnterKey: true,
-            confirmButtonText: phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
+            confirmButtonText:
+              phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
             didOpen: () => {
               // Prevent spacebar from closing the popup
               document.addEventListener('keydown', preventSpacebar, true)
@@ -742,18 +826,22 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
             willClose: () => {
               // Clean up the event listener
               document.removeEventListener('keydown', preventSpacebar, true)
-            }
+            },
           })
-          
+
           // Increment rejection counter for mismatched measurements
           measurementState.rejectionCount++
           console.log(
             `Rejection count (screen size mismatch): ${measurementState.rejectionCount}`,
           )
-          
+
           // Show pause before allowing new measurement (with exponentially growing duration)
-          await showPauseBeforeNewObject(RC, measurementState.rejectionCount, 'RC_PauseBeforeRemeasuringCreditCard')
-          
+          await showPauseBeforeNewObject(
+            RC,
+            measurementState.rejectionCount,
+            'RC_PauseBeforeRemeasuringCreditCard',
+          )
+
           // After popup and pause, continue to next measurement (don't reset)
           cleanupMeasurement()
           measurementState.currentIteration++
@@ -762,16 +850,16 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         }
       }
     }
-    
+
     // We've done N measurements but no consistent pair found
     // Keep measuring until we find consistency (for screenSizeMeasurementCount !== 2)
     cleanupMeasurement()
-    
+
     // Increment iteration counter (but not totalIterations)
     measurementState.currentIteration++
-    
+
     console.log('No consistent measurements found yet, continuing...')
-    
+
     // Restart measurement
     performMeasurement(RC, parent, options, callback, measurementState)
 
@@ -920,7 +1008,7 @@ const switchMatchingObj = (name, elements, setSizes) => {
  */
 const _getSingleMeasurementData = (measurement, toFixedN) => {
   const ppi = measurement.ppi
-  
+
   // Get base screen data using the single PPI
   const baseScreenData = _getScreenData(ppi, toFixedN)
 
@@ -930,15 +1018,17 @@ const _getSingleMeasurementData = (measurement, toFixedN) => {
   baseScreenData.value.screenPpiMeasurements = [toFixedNumber(ppi, toFixedN)]
   baseScreenData.value.measurementCount = 1
   baseScreenData.value.totalMeasurementsTaken = 1
-  
+
   // Include the single measurement
-  baseScreenData.measurements = [{
-    ppi: toFixedNumber(ppi, toFixedN),
-    object: measurement.object,
-    timestamp: measurement.timestamp,
-    used: true,
-    screenData: _getScreenData(ppi, toFixedN).value,
-  }]
+  baseScreenData.measurements = [
+    {
+      ppi: toFixedNumber(ppi, toFixedN),
+      object: measurement.object,
+      timestamp: measurement.timestamp,
+      used: true,
+      screenData: _getScreenData(ppi, toFixedN).value,
+    },
+  ]
 
   return baseScreenData
 }
@@ -948,13 +1038,18 @@ const _getSingleMeasurementData = (measurement, toFixedN) => {
  * Get screen data from the 2 consistent measurements
  *
  */
-const _getConsistentPairScreenData = (measurements, consistentPair, toFixedN) => {
+const _getConsistentPairScreenData = (
+  measurements,
+  consistentPair,
+  toFixedN,
+) => {
   const ppi1 = consistentPair.ppis[0]
   const ppi2 = consistentPair.ppis[1]
   const meanPpi = Math.sqrt(ppi1 * ppi2) // Geometric mean
-  
+
   // Calculate standard deviation of the 2 measurements
-  const variance = (Math.pow(ppi1 - meanPpi, 2) + Math.pow(ppi2 - meanPpi, 2)) / 2
+  const variance =
+    (Math.pow(ppi1 - meanPpi, 2) + Math.pow(ppi2 - meanPpi, 2)) / 2
   const stdDev = Math.sqrt(variance)
 
   // Get base screen data using mean PPI
@@ -963,11 +1058,14 @@ const _getConsistentPairScreenData = (measurements, consistentPair, toFixedN) =>
   // Enhance with measurement data
   baseScreenData.value.screenPpiMean = toFixedNumber(meanPpi, toFixedN)
   baseScreenData.value.screenPpiStd = toFixedNumber(stdDev, toFixedN)
-  baseScreenData.value.screenPpiMeasurements = [toFixedNumber(ppi1, toFixedN), toFixedNumber(ppi2, toFixedN)]
+  baseScreenData.value.screenPpiMeasurements = [
+    toFixedNumber(ppi1, toFixedN),
+    toFixedNumber(ppi2, toFixedN),
+  ]
   baseScreenData.value.measurementCount = 2 // Always 2 for consistent pair
   baseScreenData.value.totalMeasurementsTaken = measurements.length // How many measurements were needed
   baseScreenData.value.consistentPairIndices = consistentPair.indices // Which measurements were used
-  
+
   // Include ALL measurements with flag for which were used
   baseScreenData.measurements = measurements.map((m, idx) => ({
     ppi: toFixedNumber(m.ppi, toFixedN),
@@ -988,10 +1086,13 @@ const _getConsistentPairScreenData = (measurements, consistentPair, toFixedN) =>
 const _getAggregatedScreenData = (measurements, toFixedN) => {
   // Calculate mean PPI from all measurements
   const ppiValues = measurements.map(m => m.ppi)
-  const meanPpi = ppiValues.reduce((sum, val) => sum + val, 0) / ppiValues.length
-  
+  const meanPpi =
+    ppiValues.reduce((sum, val) => sum + val, 0) / ppiValues.length
+
   // Calculate standard deviation
-  const variance = ppiValues.reduce((sum, val) => sum + Math.pow(val - meanPpi, 2), 0) / ppiValues.length
+  const variance =
+    ppiValues.reduce((sum, val) => sum + Math.pow(val - meanPpi, 2), 0) /
+    ppiValues.length
   const stdDev = Math.sqrt(variance)
 
   // Get base screen data using mean PPI
@@ -1000,9 +1101,11 @@ const _getAggregatedScreenData = (measurements, toFixedN) => {
   // Enhance with aggregated measurement data
   baseScreenData.value.screenPpiMean = toFixedNumber(meanPpi, toFixedN)
   baseScreenData.value.screenPpiStd = toFixedNumber(stdDev, toFixedN)
-  baseScreenData.value.screenPpiMeasurements = ppiValues.map(ppi => toFixedNumber(ppi, toFixedN))
+  baseScreenData.value.screenPpiMeasurements = ppiValues.map(ppi =>
+    toFixedNumber(ppi, toFixedN),
+  )
   baseScreenData.value.measurementCount = measurements.length
-  
+
   // Include individual measurements with full details
   baseScreenData.measurements = measurements.map(m => ({
     ppi: toFixedNumber(m.ppi, toFixedN),

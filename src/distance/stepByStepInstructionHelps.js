@@ -525,22 +525,26 @@ export function renderStepInstructions({
   const titleEl =
     document.getElementById('distance-tracking-title') ||
     document.getElementById('check-distance-instruction-title')
-  if (titleEl.id === 'distance-tracking-title') {
-    if (titleEl && titleEl.parentNode && titleEl.parentNode.parentNode) {
-      const titleRow = titleEl.parentNode
-      const container = titleRow.parentNode
-      // Remove any existing nav hint to avoid duplicates across re-renders
-      const existing = document.getElementById('distance-tracking-nav-hint')
-      if (existing && existing.parentNode) {
-        existing.parentNode.removeChild(existing)
+  if (titleEl && titleEl.id === 'distance-tracking-title') {
+    try {
+      if (titleEl.parentNode && titleEl.parentNode.parentNode) {
+        const titleRow = titleEl.parentNode
+        const container = titleRow.parentNode
+        // Remove any existing nav hint to avoid duplicates across re-renders
+        const existing = document.getElementById('distance-tracking-nav-hint')
+        if (existing && existing.parentNode) {
+          existing.parentNode.removeChild(existing)
+        }
+        const navHint = buildNavHintNode()
+        navHint.id = 'distance-tracking-nav-hint'
+        // Align with title's left padding (matches titleRow's paddingInlineStart)
+        navHint.style.paddingInlineStart = '3rem'
+        container.insertBefore(navHint, titleRow.nextSibling)
       }
-      const navHint = buildNavHintNode()
-      navHint.id = 'distance-tracking-nav-hint'
-      // Align with title's left padding (matches titleRow's paddingInlineStart)
-      navHint.style.paddingInlineStart = '3rem'
-      container.insertBefore(navHint, titleRow.nextSibling)
+    } catch (error) {
+      console.warn('Error adding navigation hint to distance tracking title:', error)
     }
-  } else if (titleEl.id === 'check-distance-instruction-title') {
+  } else if (titleEl && titleEl.id === 'check-distance-instruction-title') {
     try {
       // Remove any existing nav hint to avoid duplicates across re-renders
       const existing = document.getElementById('distance-tracking-nav-hint')

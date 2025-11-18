@@ -241,7 +241,9 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
  */
 const checkResolutionAfterSelection = async (RC, options = {}) => {
   // Hide the grey face feedback box immediately when checking resolution
-  const webgazerFaceFeedbackBox = document.getElementById('webgazerFaceFeedbackBox')
+  const webgazerFaceFeedbackBox = document.getElementById(
+    'webgazerFaceFeedbackBox',
+  )
   if (webgazerFaceFeedbackBox) {
     webgazerFaceFeedbackBox.style.display = 'none'
   }
@@ -315,7 +317,9 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
       }
 
       // Hide the grey face feedback box BEFORE showing the popup
-      const webgazerFaceFeedbackBox = document.getElementById('webgazerFaceFeedbackBox')
+      const webgazerFaceFeedbackBox = document.getElementById(
+        'webgazerFaceFeedbackBox',
+      )
       if (webgazerFaceFeedbackBox) {
         webgazerFaceFeedbackBox.style.display = 'none'
       }

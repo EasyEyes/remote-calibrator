@@ -4375,22 +4375,23 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Function to update horizontal tape on window resize (same pattern as checkDistance.js)
   function updateDiagonalTapeOnResize() {
-    // Store proportional positions (as ratios of screen width)
+    // Store proportional positions (as ratios of screen dimensions)
     const currentStartProportionX = startX / screenWidth
     const currentEndProportionX = endX / screenWidth
+    const currentStartProportionY = startY / screenHeight
+    const currentEndProportionY = endY / screenHeight
 
     // Update screen dimensions
+    const oldScreenWidth = screenWidth
+    const oldScreenHeight = screenHeight
     screenWidth = window.innerWidth
     screenHeight = window.innerHeight
 
-    // Recalculate Y position (maintain distance from bottom)
-    const newTapeYPosition = screenHeight - bottomMarginPx
-
-    // Maintain proportional X positions
+    // Maintain proportional positions
     startX = currentStartProportionX * screenWidth
-    startY = newTapeYPosition
+    startY = currentStartProportionY * screenHeight
     endX = currentEndProportionX * screenWidth
-    endY = newTapeYPosition
+    endY = currentEndProportionY * screenHeight
 
     // Update tape
     updateDiagonalLabels()
@@ -4398,6 +4399,244 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Add window resize event listener (same as checkDistance.js)
   window.addEventListener('resize', updateDiagonalTapeOnResize)
+
+  // ===================== RULER-SHIFT BUTTON =====================
+  
+  // Create the Ruler-Shift button (large left arrow above ruler)
+  const rulerShiftButton = document.createElement('button')
+  rulerShiftButton.id = 'ruler-shift-button'
+  rulerShiftButton.innerHTML = '⬅'
+  rulerShiftButton.style.position = 'fixed'
+  rulerShiftButton.style.fontSize = '60pt' // 60 point arrow
+  rulerShiftButton.style.width = '100px'
+  rulerShiftButton.style.height = '100px'
+  rulerShiftButton.style.backgroundColor = '#FFD700' // Bright gold/yellow
+  rulerShiftButton.style.border = '4px solid #FF8C00' // Dark orange border
+  rulerShiftButton.style.borderRadius = '50%' // Perfect circle
+  rulerShiftButton.style.cursor = 'pointer'
+  rulerShiftButton.style.zIndex = '100'
+  rulerShiftButton.style.display = 'flex'
+  rulerShiftButton.style.alignItems = 'center'
+  rulerShiftButton.style.justifyContent = 'center'
+  rulerShiftButton.style.boxShadow = '0 6px 16px rgba(255, 140, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.4)' // Glowing effect
+  rulerShiftButton.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' // Bouncy transition
+  rulerShiftButton.style.fontWeight = 'bold'
+  rulerShiftButton.style.lineHeight = '1'
+  rulerShiftButton.style.padding = '0'
+  rulerShiftButton.style.outline = 'none'
+  rulerShiftButton.title = 'Click to shift ruler left and extend to fit screen'
+  
+  // Add pulsing animation to make it inviting
+  const pulseKeyframes = `
+    @keyframes ruler-shift-pulse {
+      0%, 100% { transform: translate(-50%, 0) scale(1); }
+      50% { transform: translate(-50%, 0) scale(1.08); }
+    }
+  `
+  if (!document.getElementById('ruler-shift-pulse-style')) {
+    const style = document.createElement('style')
+    style.id = 'ruler-shift-pulse-style'
+    style.textContent = pulseKeyframes
+    document.head.appendChild(style)
+  }
+  rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite'
+  
+  // Position button above the ruler (centered horizontally on screen, 25px above ruler)
+  const positionRulerShiftButton = () => {
+    const buttonX = screenWidth / 2 // Center horizontally (will use transform to center)
+    // Use the actual ruler Y position (average of start and end Y, which should be the same)
+    const rulerY = (startY + endY) / 2
+    const rulerTopEdge = rulerY - tape.dimensions.tapeWidth / 2
+    const buttonBottomEdge = rulerTopEdge - 25 // 25px gap above ruler
+    const buttonY = buttonBottomEdge - 100 // Button is 100px tall, position by top edge
+    rulerShiftButton.style.left = `${buttonX}px`
+    rulerShiftButton.style.top = `${buttonY}px`
+    rulerShiftButton.style.transform = 'translate(-50%, 0)' // Center the button on the X position
+  }
+  positionRulerShiftButton()
+  
+  // Update button position on window resize
+  const originalResizeHandler = updateDiagonalTapeOnResize
+  updateDiagonalTapeOnResize = function() {
+    originalResizeHandler()
+    positionRulerShiftButton()
+  }
+  
+  // Add hover effects - make it more exciting!
+  rulerShiftButton.addEventListener('mouseenter', () => {
+    rulerShiftButton.style.animation = 'none' // Stop pulsing on hover
+    rulerShiftButton.style.backgroundColor = '#FFA500' // Bright orange on hover
+    rulerShiftButton.style.transform = 'translate(-50%, -5px) scale(1.15)' // Lift up and grow
+    rulerShiftButton.style.boxShadow = '0 10px 25px rgba(255, 140, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.6)' // Stronger glow
+    rulerShiftButton.style.borderColor = '#FF6347' // Tomato red border
+  })
+  
+  rulerShiftButton.addEventListener('mouseleave', () => {
+    rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
+    rulerShiftButton.style.backgroundColor = '#FFD700'
+    rulerShiftButton.style.transform = 'translate(-50%, 0) scale(1)'
+    rulerShiftButton.style.boxShadow = '0 6px 16px rgba(255, 140, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.4)'
+    rulerShiftButton.style.borderColor = '#FF8C00'
+  })
+  
+  // Active state (when pressed)
+  rulerShiftButton.addEventListener('mousedown', () => {
+    if (!isAnimating) {
+      rulerShiftButton.style.transform = 'translate(-50%, 2px) scale(1.05)' // Press down effect
+      rulerShiftButton.style.boxShadow = '0 2px 8px rgba(255, 140, 0, 0.8)'
+    }
+  })
+  
+  // Animation state
+  let isAnimating = false
+  let animationFrameId = null
+  
+  // Function to cancel ongoing animation
+  const cancelRulerShiftAnimation = () => {
+    if (isAnimating) {
+      isAnimating = false
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId)
+        animationFrameId = null
+      }
+      rulerShiftButton.disabled = false
+      rulerShiftButton.style.opacity = '1'
+      rulerShiftButton.style.cursor = 'pointer'
+      rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
+      rulerShiftButton.style.transform = 'translate(-50%, 0) scale(1)' // Keep centered
+      rulerShiftButton.style.backgroundColor = '#FFD700' // Restore gold color
+      rulerShiftButton.style.borderColor = '#FF8C00' // Restore orange border
+    }
+  }
+  
+  // Function to find the rightmost visible tick/number on the ruler
+  const getRightmostVisibleTickX = () => {
+    const distance = tape.helpers.getDistance(startX, startY, endX, endY)
+    const objectLengthMm = distance / pxPerMm
+    const objectLengthCm = objectLengthMm / 10
+    
+    // Determine spacing (same logic as updateRulerMarkings)
+    let spacingInPx
+    let numMarks
+    
+    if (!showLength) {
+      if (!intervalCmCurrent) intervalCmCurrent = computeNewIntervalCm()
+      spacingInPx = intervalCmCurrent * pxPerCm
+      numMarks = Math.ceil(objectLengthCm / intervalCmCurrent)
+    } else {
+      const objectLengthInches = objectLengthCm / 2.54
+      if (selectedUnit === 'inches') {
+        spacingInPx = pxPerMm * 25.4
+        numMarks = Math.ceil(objectLengthInches)
+      } else {
+        spacingInPx = pxPerMm * 10
+        numMarks = Math.ceil(objectLengthCm)
+      }
+    }
+    
+    // Find the rightmost tick that's actually drawn
+    let rightmostTickX = startX
+    for (let i = 1; i <= numMarks; i++) {
+      const markPosition = i * spacingInPx
+      if (markPosition > distance) break
+      rightmostTickX = startX + markPosition
+    }
+    
+    return rightmostTickX
+  }
+  
+  // Ruler-Shift animation function
+  const performRulerShift = () => {
+    if (isAnimating) return
+    
+    isAnimating = true
+    rulerShiftButton.disabled = true
+    rulerShiftButton.style.animation = 'none' // Stop pulsing during animation
+    rulerShiftButton.style.opacity = '0.6'
+    rulerShiftButton.style.cursor = 'not-allowed'
+    rulerShiftButton.style.transform = 'translate(-50%, 0) scale(0.95)' // Keep centered, slightly smaller
+    rulerShiftButton.style.backgroundColor = '#D3D3D3' // Gray out during animation
+    rulerShiftButton.style.borderColor = '#A9A9A9'
+    
+    const ANIMATION_SPEED = 100 // pixels per second
+    const TARGET_MARGIN = 25 // pixels from edge
+    
+    let phase = 1 // Phase 1: slide left, Phase 2: extend right
+    let lastTimestamp = performance.now()
+    
+    const animate = (currentTimestamp) => {
+      const deltaTime = (currentTimestamp - lastTimestamp) / 1000 // Convert to seconds
+      lastTimestamp = currentTimestamp
+      
+      const movement = ANIMATION_SPEED * deltaTime
+      
+      if (phase === 1) {
+        // PHASE 1: Slide ruler left until rightmost tick is 25px from left edge
+        const rightmostTickX = getRightmostVisibleTickX()
+        const targetX = TARGET_MARGIN
+        
+        if (rightmostTickX > targetX + 1) { // +1 for tolerance
+          // Calculate how much to move
+          const distanceToMove = Math.min(movement, rightmostTickX - targetX)
+          
+          // Move both endpoints left by the same amount (solid object movement)
+          // Maintain current Y position
+          const currentTapeY = startY
+          const newStartX = startX - distanceToMove
+          const newEndX = endX - distanceToMove
+          
+          updateRulerEndpoints(newStartX, currentTapeY, newEndX, currentTapeY, true)
+          
+          animationFrameId = requestAnimationFrame(animate)
+        } else {
+          // Phase 1 complete, move to phase 2
+          phase = 2
+          animationFrameId = requestAnimationFrame(animate)
+        }
+      } else if (phase === 2) {
+        // PHASE 2: Extend right end until it's 25px from right edge
+        const targetEndX = screenWidth - TARGET_MARGIN
+        
+        if (endX < targetEndX - 1) { // -1 for tolerance
+          // Calculate how much to extend
+          const distanceToExtend = Math.min(movement, targetEndX - endX)
+          
+          // Extend only the right end
+          // Maintain current Y position
+          const currentTapeY = startY
+          const newEndX = endX + distanceToExtend
+          const isStartOffScreen = startX < 0 || startX > screenWidth
+          
+          updateRulerEndpoints(startX, currentTapeY, newEndX, currentTapeY, isStartOffScreen)
+          
+          animationFrameId = requestAnimationFrame(animate)
+        } else {
+          // Animation complete - restore button to normal state
+          isAnimating = false
+          rulerShiftButton.disabled = false
+          rulerShiftButton.style.opacity = '1'
+          rulerShiftButton.style.cursor = 'pointer'
+          rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
+          rulerShiftButton.style.transform = 'translate(-50%, 0) scale(1)' // Keep centered
+          rulerShiftButton.style.backgroundColor = '#FFD700' // Restore gold color
+          rulerShiftButton.style.borderColor = '#FF8C00' // Restore orange border
+        }
+      }
+    }
+    
+    animationFrameId = requestAnimationFrame(animate)
+  }
+  
+  // Add click handler
+  rulerShiftButton.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    performRulerShift()
+  })
+  
+  // Add button to container (only show on page 2)
+  rulerShiftButton.style.display = 'none'
+  container.appendChild(rulerShiftButton)
 
   // ===================== TRIANGULAR TEXT BOXES FOR TAPE ENDS =====================
 
@@ -4815,6 +5054,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
     updateDiagonalColors() // Update colors when handles move
     updateDiagonalTapeComponent() // Update tape size and content
+    
+    // Update Ruler-Shift button position to stay centered and 25px above ruler
+    if (typeof positionRulerShiftButton === 'function') {
+      positionRulerShiftButton()
+    }
   }
 
   // ===================== HORIZONTAL TAPE INTERACTION HANDLERS =====================
@@ -4831,6 +5075,7 @@ export async function objectTest(RC, options, callback = undefined) {
   let dragStartTapeEndY = 0
 
   tape.elements.leftHandle.addEventListener('mousedown', e => {
+    cancelRulerShiftAnimation() // Cancel animation if user manually adjusts
     leftDragging = true
     document.body.style.cursor = 'move'
     e.preventDefault()
@@ -4838,6 +5083,7 @@ export async function objectTest(RC, options, callback = undefined) {
   })
 
   tape.elements.rightHandle.addEventListener('mousedown', e => {
+    cancelRulerShiftAnimation() // Cancel animation if user manually adjusts
     rightDragging = true
     document.body.style.cursor = 'move'
     e.preventDefault()
@@ -4848,6 +5094,7 @@ export async function objectTest(RC, options, callback = undefined) {
   tape.elements.diagonalTape.style.pointerEvents = 'auto'
   tape.elements.diagonalTape.style.cursor = 'move'
   tape.elements.diagonalTape.addEventListener('mousedown', e => {
+    cancelRulerShiftAnimation() // Cancel animation if user manually adjusts
     bodyDragging = true
     dragStartMouseX = e.clientX
     dragStartMouseY = e.clientY
@@ -4859,7 +5106,7 @@ export async function objectTest(RC, options, callback = undefined) {
     e.preventDefault()
   })
 
-  // Helper function to update ruler endpoints while maintaining horizontal alignment
+  // Helper function to update ruler endpoints
   const updateRulerEndpoints = (
     newStartX,
     newStartY,
@@ -4867,25 +5114,34 @@ export async function objectTest(RC, options, callback = undefined) {
     newEndY,
     allowStartOffScreen = false,
   ) => {
-    // Keep Y coordinates fixed at tape position (horizontal tape)
-    const tapeY = screenHeight - bottomMarginPx
+    // Constrain Y coordinates to keep ruler on screen (with margins)
+    const minY = tape.dimensions.tapeWidth // Minimum: top of screen + tape height
+    const maxY = screenHeight - 30 // Maximum: near bottom of screen (30px margin)
+    
+    const constrainYToScreen = y => {
+      return Math.max(minY, Math.min(maxY, y))
+    }
 
     // Constrain end point to screen bounds (right end cannot leave screen)
-    const constrainEndToScreen = x => {
+    const constrainXToScreen = x => {
       return Math.max(0, Math.min(screenWidth, x))
     }
 
-    const constrainedEndX = constrainEndToScreen(newEndX)
+    const constrainedEndX = constrainXToScreen(newEndX)
+    const constrainedEndY = constrainYToScreen(newEndY)
 
-    // Start point can go beyond screen if allowStartOffScreen is true
+    // Start point can go beyond screen horizontally if allowStartOffScreen is true
     let constrainedStartX
     if (allowStartOffScreen) {
-      // Allow start to go off screen (can be negative for left edge)
+      // Allow start to go off screen horizontally (can be negative for left edge)
       constrainedStartX = newStartX
     } else {
       // Constrain start to screen bounds
-      constrainedStartX = constrainEndToScreen(newStartX)
+      constrainedStartX = constrainXToScreen(newStartX)
     }
+    
+    // Y coordinates are always constrained for both start and end
+    const constrainedStartY = constrainYToScreen(newStartY)
 
     // Calculate actual distance (even if start is off-screen)
     const distance = Math.abs(constrainedEndX - constrainedStartX)
@@ -4898,54 +5154,80 @@ export async function objectTest(RC, options, callback = undefined) {
     }
 
     startX = constrainedStartX
-    startY = tapeY
+    startY = constrainedStartY
     endX = constrainedEndX
-    endY = tapeY
+    endY = constrainedEndY
 
+    // Update button position immediately for smooth dragging (before other updates)
+    positionRulerShiftButton()
+    
     updateDiagonalLabels()
   }
 
   // Mouse move handler for horizontal tape handles and body
   window.addEventListener('mousemove', e => {
     if (leftDragging) {
-      // Move left handle independently (allow it to go off screen)
+      // Move left handle horizontally only (maintain current Y position)
       const mouseX = e.clientX
-      const mouseY = e.clientY
-      updateRulerEndpoints(mouseX, mouseY, endX, endY, true)
+      const currentY = startY // Maintain current Y position
+      updateRulerEndpoints(mouseX, currentY, endX, endY, true)
     } else if (rightDragging) {
-      // Move right handle independently
-      // If start is already off-screen, keep allowing it to stay off-screen
+      // Move right handle horizontally only (maintain current Y position)
       const mouseX = e.clientX
-      const mouseY = e.clientY
+      const currentY = endY // Maintain current Y position
       const isStartOffScreen =
         startX < 0 ||
-        startX > screenWidth ||
-        startY < 0 ||
-        startY > screenHeight
-      updateRulerEndpoints(startX, startY, mouseX, mouseY, isStartOffScreen)
+        startX > screenWidth
+      updateRulerEndpoints(startX, startY, mouseX, currentY, isStartOffScreen)
     } else if (bodyDragging) {
-      // Move entire tape horizontally, maintaining length
+      // Move entire tape horizontally and vertically, maintaining length and horizontal orientation
       const deltaX = e.clientX - dragStartMouseX
-      // Ignore Y movement - tape stays horizontal
+      const deltaY = e.clientY - dragStartMouseY
 
       const newStartX = dragStartTapeStartX + deltaX
       const newEndX = dragStartTapeEndX + deltaX
-      const tapeY = screenHeight - bottomMarginPx
+      const newStartY = dragStartTapeStartY + deltaY
+      const newEndY = dragStartTapeEndY + deltaY
 
       // Constrain end to screen bounds
       const constrainedEndX = Math.max(0, Math.min(screenWidth, newEndX))
 
-      // If end would be constrained, calculate how much movement is actually allowed
+      // If end would be constrained horizontally, calculate how much movement is actually allowed
       if (constrainedEndX !== newEndX) {
-        // End hit a boundary - adjust both points to stop at the boundary
+        // End hit a horizontal boundary - adjust both points to stop at the boundary
         const allowedDeltaX = constrainedEndX - dragStartTapeEndX
         const adjustedStartX = dragStartTapeStartX + allowedDeltaX
         const adjustedEndX = dragStartTapeEndX + allowedDeltaX
 
-        updateRulerEndpoints(adjustedStartX, tapeY, adjustedEndX, tapeY, true)
+        // Update button position immediately BEFORE updateRulerEndpoints for smooth tracking
+        // Calculate button position directly from new coordinates
+        const minY = tape.dimensions.tapeWidth
+        const maxY = screenHeight - 30
+        const constrainedNewStartY = Math.max(minY, Math.min(maxY, newStartY))
+        const constrainedNewEndY = Math.max(minY, Math.min(maxY, newEndY))
+        const newRulerY = (constrainedNewStartY + constrainedNewEndY) / 2
+        const newRulerTopEdge = newRulerY - tape.dimensions.tapeWidth / 2
+        const newButtonBottomEdge = newRulerTopEdge - 25
+        const newButtonY = newButtonBottomEdge - 100
+        rulerShiftButton.style.top = `${newButtonY}px`
+        
+        updateRulerEndpoints(adjustedStartX, newStartY, adjustedEndX, newEndY, true)
       } else {
-        // Normal movement - end is not constrained
-        updateRulerEndpoints(newStartX, tapeY, newEndX, tapeY, true)
+        // Normal movement - end is not constrained horizontally
+        
+        // Update button position immediately BEFORE updateRulerEndpoints for smooth tracking
+        // Calculate button position directly from new coordinates
+        const minY = tape.dimensions.tapeWidth
+        const maxY = screenHeight - 30
+        const constrainedNewStartY = Math.max(minY, Math.min(maxY, newStartY))
+        const constrainedNewEndY = Math.max(minY, Math.min(maxY, newEndY))
+        const newRulerY = (constrainedNewStartY + constrainedNewEndY) / 2
+        const newRulerTopEdge = newRulerY - tape.dimensions.tapeWidth / 2
+        const newButtonBottomEdge = newRulerTopEdge - 25
+        const newButtonY = newButtonBottomEdge - 100
+        rulerShiftButton.style.top = `${newButtonY}px`
+        
+        updateRulerEndpoints(newStartX, newStartY, newEndX, newEndY, true)
       }
     }
   })
@@ -4978,6 +5260,9 @@ export async function objectTest(RC, options, callback = undefined) {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key))
       return
 
+    // Cancel animation if user manually adjusts with arrow keys
+    cancelRulerShiftAnimation()
+
     // If already handling a key, ignore
     if (arrowKeyDown) return
 
@@ -5005,16 +5290,17 @@ export async function objectTest(RC, options, callback = undefined) {
       const moveAmount = calculateStepSize()
       // Check if start is off-screen to preserve that state
       const isStartOffScreen = startX < 0 || startX > screenWidth
-      const tapeY = screenHeight - bottomMarginPx
+      // Use current Y position (ruler maintains its vertical position)
+      const currentTapeY = startY
 
       if (currentArrowKey === 'ArrowLeft') {
         // Move right side closer to left (shrink from right)
         const newEndX = endX - moveAmount
-        updateRulerEndpoints(startX, tapeY, newEndX, tapeY, isStartOffScreen)
+        updateRulerEndpoints(startX, currentTapeY, newEndX, currentTapeY, isStartOffScreen)
       } else if (currentArrowKey === 'ArrowRight') {
         // Move right side away from left (extend from right)
         const newEndX = endX + moveAmount
-        updateRulerEndpoints(startX, tapeY, newEndX, tapeY, isStartOffScreen)
+        updateRulerEndpoints(startX, currentTapeY, newEndX, currentTapeY, isStartOffScreen)
       }
     }, 50) // Update every 50ms for smooth movement
   }
@@ -5131,6 +5417,9 @@ export async function objectTest(RC, options, callback = undefined) {
         setDefaultVideoPosition(RC, videoContainer)
       }
 
+      // Hide Ruler-Shift button on page 0
+      rulerShiftButton.style.display = 'none'
+
       // Hide diagonal tape component and remove labels from DOM
       tape.container.style.display = 'none'
       if (leftLabel.container.parentNode) {
@@ -5169,6 +5458,9 @@ export async function objectTest(RC, options, callback = undefined) {
       if (videoContainer) {
         setDefaultVideoPosition(RC, videoContainer)
       }
+
+      // Hide Ruler-Shift button on page 1
+      rulerShiftButton.style.display = 'none'
 
       // Hide diagonal tape component and remove labels from DOM
       tape.container.style.display = 'none'
@@ -5253,6 +5545,9 @@ export async function objectTest(RC, options, callback = undefined) {
       // Update all positions and colors after showing lines
       updateDiagonalLabels()
 
+      // Show Ruler-Shift button on page 2
+      rulerShiftButton.style.display = 'flex'
+
       // Update instructions based on current iteration (first vs subsequent)
       updateInstructions()
       // Initialize the randomized interval for this measurement if needed
@@ -5284,6 +5579,9 @@ export async function objectTest(RC, options, callback = undefined) {
       if (videoContainer) {
         setDefaultVideoPosition(RC, videoContainer)
       }
+
+      // Hide Ruler-Shift button on page 3
+      rulerShiftButton.style.display = 'none'
 
       // Hide diagonal tape component and remove labels from DOM
       tape.container.style.display = 'none'
@@ -5384,6 +5682,9 @@ export async function objectTest(RC, options, callback = undefined) {
         videoContainer.style.bottom = 'unset'
         videoContainer.style.transform = 'none'
       }
+
+      // Hide Ruler-Shift button on page 4
+      rulerShiftButton.style.display = 'none'
 
       // Keep diagonal tape component hidden and remove labels from DOM
       tape.container.style.display = 'none'
@@ -6285,6 +6586,11 @@ export async function objectTest(RC, options, callback = undefined) {
       if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
         e.preventDefault()
 
+        // Cancel any ongoing ruler-shift animation on page 2
+        if (currentPage === 2) {
+          cancelRulerShiftAnimation()
+        }
+
         // Check if iris tracking is active before proceeding (for pages 3 and 4)
         if ((currentPage === 3 || currentPage === 4) && !irisTrackingIsActive) {
           console.log('Iris tracking not active - ignoring space bar')
@@ -6539,6 +6845,8 @@ export async function objectTest(RC, options, callback = undefined) {
                       // Clear Face Mesh samples and measurement (same as tolerance failure)
                       faceMeshSamplesPage3.length = 0
                       faceMeshSamplesPage4.length = 0
+                      meshSamplesDuringPage3.length = 0
+                      meshSamplesDuringPage4.length = 0
                       firstMeasurement = null
 
                       // Reset to page 2 to restart object measurement (same as tolerance failure)
@@ -6684,6 +6992,8 @@ export async function objectTest(RC, options, callback = undefined) {
                       // Clear Face Mesh samples and measurement (same as tolerance failure)
                       faceMeshSamplesPage3.length = 0
                       faceMeshSamplesPage4.length = 0
+                      meshSamplesDuringPage3.length = 0
+                      meshSamplesDuringPage4.length = 0
                       firstMeasurement = null
 
                       // Reset to page 2 to restart object measurement (same as tolerance failure)
@@ -7072,6 +7382,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 // Clear both sample arrays to restart collection
                 faceMeshSamplesPage3.length = 0
                 faceMeshSamplesPage4.length = 0
+                meshSamplesDuringPage3.length = 0
+                meshSamplesDuringPage4.length = 0
 
                 const isOutOfRangeError = reasonIsOutOfRange
                 const inPanelContext = RC._panelStatus.hasPanel
@@ -7773,6 +8085,8 @@ export async function objectTest(RC, options, callback = undefined) {
 
         faceMeshSamplesPage3.length = 0
         faceMeshSamplesPage4.length = 0
+        meshSamplesDuringPage3.length = 0
+        meshSamplesDuringPage4.length = 0
 
         const isOutOfRangeError = reasonIsOutOfRange
         const inPanelContext = RC._panelStatus.hasPanel
