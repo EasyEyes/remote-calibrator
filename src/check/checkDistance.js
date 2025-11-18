@@ -1414,7 +1414,11 @@ const checkSize = async (
         }
 
         // Re-append yellow tape if it exists after background replacement
-        if (yellowTapeRef && yellowTapeRef.container && yellowTapeRef.container.parentNode !== RC.background) {
+        if (
+          yellowTapeRef &&
+          yellowTapeRef.container &&
+          yellowTapeRef.container.parentNode !== RC.background
+        ) {
           RC.background.appendChild(yellowTapeRef.container)
         }
       } else {

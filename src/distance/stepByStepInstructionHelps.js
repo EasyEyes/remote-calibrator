@@ -542,7 +542,10 @@ export function renderStepInstructions({
         container.insertBefore(navHint, titleRow.nextSibling)
       }
     } catch (error) {
-      console.warn('Error adding navigation hint to distance tracking title:', error)
+      console.warn(
+        'Error adding navigation hint to distance tracking title:',
+        error,
+      )
     }
   } else if (titleEl && titleEl.id === 'check-distance-instruction-title') {
     try {

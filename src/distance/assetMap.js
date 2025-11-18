@@ -50,13 +50,12 @@ export const test_phrases = {
 [[LL1]]
 [[SS3]] 3. Repeat the following as long as the object's right end extends beyond the screen:
 [[LL10]]
-[[SS3.1]] ⭘ Press ▶ to extend the ruler to the right edge. 
-[[SS3.2]] ⭘ Use your thumbnail to mark your object at the tape's largest visible number. Remember the number.
+[[SS3.1]] ⭘ Use your thumbnail to mark your object at the tape's largest visible number. Remember the number.
 [[LL2]]
-[[SS3.3]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
-[[SS3.4]] ⭘ Re-align your thumbnail (and object) with the number.
+[[SS3.2]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS3.3]] ⭘ Re-align your thumbnail (and object) with the number.
 [[LL4]]
-[[SS3.5]] ⭘ Repeat these moves until the object’s right end is on the screen.
+[[SS3.4]] ⭘ Repeat these moves until the object’s right end is on the screen.
 [[LL10]]
 [[SS4]] 4. Once the end is on the screen, use ◀ ▶ keys or drag the tape's right end to match your object's length.
 [[LL5]]
@@ -76,13 +75,12 @@ export const test_phrases = {
 [[LL1]]
 [[SS3]] 3. If the object extends off the right side, repeat:
 [[LL10]]
-[[SS3.1]] ⭘ Press ▶ to extend the ruler to the right edge. 
-[[SS3.2]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
+[[SS3.1]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
 [[LL2]]
-[[SS3.3]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
-[[SS3.4]] ⭘ Re-align your thumbnail (and object) with the remembered number.
+[[SS3.2]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS3.3]] ⭘ Re-align your thumbnail (and object) with the remembered number.
 [[LL4]]
-[[SS3.5]] ⭘ Repeat until the object’s right end is on the screen.
+[[SS3.4]] ⭘ Repeat until the object’s right end is on the screen.
 [[LL10]]
 [[SS4]] 4. Once the end is on the screen, use ◀ ▶ keys to align the ruler’s right end with your object's right end.
 [[LL5]]
@@ -96,13 +94,12 @@ export const test_phrases = {
 [[LL1]]
 [[SS2]] 2. Repeat the following as long as the object's right end extends beyond the screen:
 [[LL10]]
-[[SS2.1]] ⭘ Press ▶ to extend the ruler to the right edge.
-[[SS2.2]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
+[[SS2.1]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
 [[LL2]]
-[[SS2.3]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
-[[SS2.4]] ⭘ Re-align your thumbnail (and object) with the number.
+[[SS2.2]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS2.3]] ⭘ Re-align your thumbnail (and object) with the number.
 [[LL4]]
-[[SS2.5]] ⭘ Repeat until the object’s right end is on the screen.
+[[SS2.4]] ⭘ Repeat until the object’s right end is on the screen.
 [[LL10]]
 [[SS3]] 3. Once the end is on the screen, use ◀ ▶ keys to align the tape’s right end with your object's right end.
 [[LL5]]
@@ -116,13 +113,12 @@ export const test_phrases = {
 [[LL1]]
 [[SS2]] 2. Repeat the following as long as the object's right end extends beyond the screen:
 [[LL10]]
-[[SS2.1]] ⭘ Press ▶ to extend the ruler to the right edge.
-[[SS2.2]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
+[[SS2.1]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
 [[LL2]]
-[[SS2.3]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
-[[SS2.4]] ⭘ Re-align your thumbnail (and object) with the number.
+[[SS2.2]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS2.3]] ⭘ Re-align your thumbnail (and object) with the number.
 [[LL4]]
-[[SS2.5]] ⭘ Repeat until the object’s right end is on the screen.
+[[SS2.4]] ⭘ Repeat until the object’s right end is on the screen.
 [[LL10]]
 [[SS3]] 3. Once the end is on the screen, use ◀ ▶ keys to align the ruler’s right end with your object's right end.
 [[LL5]]

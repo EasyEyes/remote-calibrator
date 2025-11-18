@@ -3806,12 +3806,12 @@ export async function objectTest(RC, options, callback = undefined) {
       stepInstructionModel = buildStepInstructions(chosenText, test_assetMap)
       currentStepFlatIndex = 0
       currentInstructionText = chosenText
-      
+
       // Hide Ruler-Shift button when resetting to step 0
       if (typeof rulerShiftButton !== 'undefined' && rulerShiftButton) {
         rulerShiftButton.style.display = 'none'
       }
-      
+
       renderCurrentStepView()
     } catch (e) {
       console.warn('Failed to parse step instructions; using plain text', e)
@@ -3967,7 +3967,7 @@ export async function objectTest(RC, options, callback = undefined) {
       lang: RC.language.value,
       phrases: phrases,
     })
-    
+
     // Show/Hide Ruler-Shift button based on step and measurement iteration
     // First measurement (iteration 1): show after step index 6
     // Subsequent measurements (iteration 2+): show after step index 4
@@ -3975,7 +3975,7 @@ export async function objectTest(RC, options, callback = undefined) {
       if (typeof rulerShiftButton !== 'undefined' && rulerShiftButton) {
         const isFirstMeasurement = measurementState.currentIteration === 1
         const showAfterIndex = isFirstMeasurement ? 6 : 4
-        
+
         if (currentStepFlatIndex >= showAfterIndex) {
           rulerShiftButton.style.display = 'flex'
         } else {
@@ -4424,7 +4424,7 @@ export async function objectTest(RC, options, callback = undefined) {
   window.addEventListener('resize', updateDiagonalTapeOnResize)
 
   // ===================== RULER-SHIFT BUTTON =====================
-  
+
   // Create the Ruler-Shift button (large left arrow above ruler)
   const rulerShiftButton = document.createElement('button')
   rulerShiftButton.id = 'ruler-shift-button'
@@ -4441,14 +4441,16 @@ export async function objectTest(RC, options, callback = undefined) {
   rulerShiftButton.style.display = 'flex'
   rulerShiftButton.style.alignItems = 'center'
   rulerShiftButton.style.justifyContent = 'center'
-  rulerShiftButton.style.boxShadow = '0 6px 16px rgba(255, 140, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.4)' // Glowing effect
-  rulerShiftButton.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' // Bouncy transition
+  rulerShiftButton.style.boxShadow =
+    '0 6px 16px rgba(255, 140, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.4)' // Glowing effect
+  rulerShiftButton.style.transition =
+    'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' // Bouncy transition
   rulerShiftButton.style.fontWeight = 'bold'
   rulerShiftButton.style.lineHeight = '1'
   rulerShiftButton.style.padding = '0'
   rulerShiftButton.style.outline = 'none'
   rulerShiftButton.title = 'Click to shift ruler left and extend to fit screen'
-  
+
   // Add pulsing animation to make it inviting
   const pulseKeyframes = `
     @keyframes ruler-shift-pulse {
@@ -4463,7 +4465,7 @@ export async function objectTest(RC, options, callback = undefined) {
     document.head.appendChild(style)
   }
   rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite'
-  
+
   // Position button above the ruler (centered horizontally on screen, 25px above ruler)
   const positionRulerShiftButton = () => {
     const buttonX = screenWidth / 2 // Center horizontally (will use transform to center)
@@ -4477,29 +4479,32 @@ export async function objectTest(RC, options, callback = undefined) {
     rulerShiftButton.style.transform = 'translate(-50%, 0)' // Center the button on the X position
   }
   positionRulerShiftButton()
-  
+
   // Update button position on window resize
   const originalResizeHandler = updateDiagonalTapeOnResize
-  updateDiagonalTapeOnResize = function() {
+  updateDiagonalTapeOnResize = function () {
     originalResizeHandler()
     positionRulerShiftButton()
   }
-  
+
   // Add hover effects - make it more exciting!
   rulerShiftButton.addEventListener('mouseenter', () => {
     rulerShiftButton.style.animation = 'none' // Stop pulsing on hover
     rulerShiftButton.style.backgroundColor = '#FFA500' // Bright orange on hover
     rulerShiftButton.style.transform = 'translate(-50%, -5px) scale(1.15)' // Lift up and grow
-    rulerShiftButton.style.boxShadow = '0 10px 25px rgba(255, 140, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.6)' // Stronger glow
+    rulerShiftButton.style.boxShadow =
+      '0 10px 25px rgba(255, 140, 0, 0.8), 0 0 30px rgba(255, 215, 0, 0.6)' // Stronger glow
   })
-  
+
   rulerShiftButton.addEventListener('mouseleave', () => {
-    rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
+    rulerShiftButton.style.animation =
+      'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
     rulerShiftButton.style.backgroundColor = '#FFD700'
     rulerShiftButton.style.transform = 'translate(-50%, 0) scale(1)'
-    rulerShiftButton.style.boxShadow = '0 6px 16px rgba(255, 140, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.4)'
+    rulerShiftButton.style.boxShadow =
+      '0 6px 16px rgba(255, 140, 0, 0.6), 0 0 20px rgba(255, 215, 0, 0.4)'
   })
-  
+
   // Active state (when pressed)
   rulerShiftButton.addEventListener('mousedown', () => {
     if (!isAnimating) {
@@ -4507,11 +4512,11 @@ export async function objectTest(RC, options, callback = undefined) {
       rulerShiftButton.style.boxShadow = '0 2px 8px rgba(255, 140, 0, 0.8)'
     }
   })
-  
+
   // Animation state
   let isAnimating = false
   let animationFrameId = null
-  
+
   // Function to cancel ongoing animation
   const cancelRulerShiftAnimation = () => {
     if (isAnimating) {
@@ -4523,22 +4528,23 @@ export async function objectTest(RC, options, callback = undefined) {
       rulerShiftButton.disabled = false
       rulerShiftButton.style.opacity = '1'
       rulerShiftButton.style.cursor = 'pointer'
-      rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
+      rulerShiftButton.style.animation =
+        'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
       rulerShiftButton.style.transform = 'translate(-50%, 0) scale(1)' // Keep centered
       rulerShiftButton.style.backgroundColor = '#FFD700' // Restore gold color
     }
   }
-  
+
   // Function to find the rightmost visible tick/number on the ruler
   const getRightmostVisibleTickX = () => {
     const distance = tape.helpers.getDistance(startX, startY, endX, endY)
     const objectLengthMm = distance / pxPerMm
     const objectLengthCm = objectLengthMm / 10
-    
+
     // Determine spacing (same logic as updateRulerMarkings)
     let spacingInPx
     let numMarks
-    
+
     if (!showLength) {
       if (!intervalCmCurrent) intervalCmCurrent = computeNewIntervalCm()
       spacingInPx = intervalCmCurrent * pxPerCm
@@ -4553,7 +4559,7 @@ export async function objectTest(RC, options, callback = undefined) {
         numMarks = Math.ceil(objectLengthCm)
       }
     }
-    
+
     // Find the rightmost tick that's actually drawn
     let rightmostTickX = startX
     for (let i = 1; i <= numMarks; i++) {
@@ -4561,14 +4567,14 @@ export async function objectTest(RC, options, callback = undefined) {
       if (markPosition > distance) break
       rightmostTickX = startX + markPosition
     }
-    
+
     return rightmostTickX
   }
-  
+
   // Ruler-Shift animation function
   const performRulerShift = () => {
     if (isAnimating) return
-    
+
     isAnimating = true
     rulerShiftButton.disabled = true
     rulerShiftButton.style.animation = 'none' // Stop pulsing during animation
@@ -4576,36 +4582,43 @@ export async function objectTest(RC, options, callback = undefined) {
     rulerShiftButton.style.cursor = 'not-allowed'
     rulerShiftButton.style.transform = 'translate(-50%, 0) scale(0.95)' // Keep centered, slightly smaller
     rulerShiftButton.style.backgroundColor = '#D3D3D3' // Gray out during animation
-    
+
     const ANIMATION_SPEED = 100 // pixels per second
     const TARGET_MARGIN = 25 // pixels from edge
-    
+
     let phase = 1 // Phase 1: slide left, Phase 2: extend right
     let lastTimestamp = performance.now()
-    
-    const animate = (currentTimestamp) => {
+
+    const animate = currentTimestamp => {
       const deltaTime = (currentTimestamp - lastTimestamp) / 1000 // Convert to seconds
       lastTimestamp = currentTimestamp
-      
+
       const movement = ANIMATION_SPEED * deltaTime
-      
+
       if (phase === 1) {
         // PHASE 1: Slide ruler left until rightmost tick is 25px from left edge
         const rightmostTickX = getRightmostVisibleTickX()
         const targetX = TARGET_MARGIN
-        
-        if (rightmostTickX > targetX + 1) { // +1 for tolerance
+
+        if (rightmostTickX > targetX + 1) {
+          // +1 for tolerance
           // Calculate how much to move
           const distanceToMove = Math.min(movement, rightmostTickX - targetX)
-          
+
           // Move both endpoints left by the same amount (solid object movement)
           // Maintain current Y position
           const currentTapeY = startY
           const newStartX = startX - distanceToMove
           const newEndX = endX - distanceToMove
-          
-          updateRulerEndpoints(newStartX, currentTapeY, newEndX, currentTapeY, true)
-          
+
+          updateRulerEndpoints(
+            newStartX,
+            currentTapeY,
+            newEndX,
+            currentTapeY,
+            true,
+          )
+
           animationFrameId = requestAnimationFrame(animate)
         } else {
           // Phase 1 complete, move to phase 2
@@ -4615,19 +4628,26 @@ export async function objectTest(RC, options, callback = undefined) {
       } else if (phase === 2) {
         // PHASE 2: Extend right end until it's 25px from right edge
         const targetEndX = screenWidth - TARGET_MARGIN
-        
-        if (endX < targetEndX - 1) { // -1 for tolerance
+
+        if (endX < targetEndX - 1) {
+          // -1 for tolerance
           // Calculate how much to extend
           const distanceToExtend = Math.min(movement, targetEndX - endX)
-          
+
           // Extend only the right end
           // Maintain current Y position
           const currentTapeY = startY
           const newEndX = endX + distanceToExtend
           const isStartOffScreen = startX < 0 || startX > screenWidth
-          
-          updateRulerEndpoints(startX, currentTapeY, newEndX, currentTapeY, isStartOffScreen)
-          
+
+          updateRulerEndpoints(
+            startX,
+            currentTapeY,
+            newEndX,
+            currentTapeY,
+            isStartOffScreen,
+          )
+
           animationFrameId = requestAnimationFrame(animate)
         } else {
           // Animation complete - restore button to normal state
@@ -4635,23 +4655,24 @@ export async function objectTest(RC, options, callback = undefined) {
           rulerShiftButton.disabled = false
           rulerShiftButton.style.opacity = '1'
           rulerShiftButton.style.cursor = 'pointer'
-          rulerShiftButton.style.animation = 'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
+          rulerShiftButton.style.animation =
+            'ruler-shift-pulse 2s ease-in-out infinite' // Resume pulsing
           rulerShiftButton.style.transform = 'translate(-50%, 0) scale(1)' // Keep centered
           rulerShiftButton.style.backgroundColor = '#FFD700' // Restore gold color
         }
       }
     }
-    
+
     animationFrameId = requestAnimationFrame(animate)
   }
-  
+
   // Add click handler
-  rulerShiftButton.addEventListener('click', (e) => {
+  rulerShiftButton.addEventListener('click', e => {
     e.preventDefault()
     e.stopPropagation()
     performRulerShift()
   })
-  
+
   // Add button to container (only show on page 2)
   rulerShiftButton.style.display = 'none'
   container.appendChild(rulerShiftButton)
@@ -5072,7 +5093,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
     updateDiagonalColors() // Update colors when handles move
     updateDiagonalTapeComponent() // Update tape size and content
-    
+
     // Update Ruler-Shift button position to stay centered and 25px above ruler
     if (typeof positionRulerShiftButton === 'function') {
       positionRulerShiftButton()
@@ -5135,7 +5156,7 @@ export async function objectTest(RC, options, callback = undefined) {
     // Constrain Y coordinates to keep ruler on screen (with margins)
     const minY = tape.dimensions.tapeWidth // Minimum: top of screen + tape height
     const maxY = screenHeight - 30 // Maximum: near bottom of screen (30px margin)
-    
+
     const constrainYToScreen = y => {
       return Math.max(minY, Math.min(maxY, y))
     }
@@ -5157,7 +5178,7 @@ export async function objectTest(RC, options, callback = undefined) {
       // Constrain start to screen bounds
       constrainedStartX = constrainXToScreen(newStartX)
     }
-    
+
     // Y coordinates are always constrained for both start and end
     const constrainedStartY = constrainYToScreen(newStartY)
 
@@ -5178,7 +5199,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Update button position immediately for smooth dragging (before other updates)
     positionRulerShiftButton()
-    
+
     updateDiagonalLabels()
   }
 
@@ -5193,9 +5214,7 @@ export async function objectTest(RC, options, callback = undefined) {
       // Move right handle horizontally only (maintain current Y position)
       const mouseX = e.clientX
       const currentY = endY // Maintain current Y position
-      const isStartOffScreen =
-        startX < 0 ||
-        startX > screenWidth
+      const isStartOffScreen = startX < 0 || startX > screenWidth
       updateRulerEndpoints(startX, startY, mouseX, currentY, isStartOffScreen)
     } else if (bodyDragging) {
       // Move entire tape horizontally and vertically, maintaining length and horizontal orientation
@@ -5228,11 +5247,17 @@ export async function objectTest(RC, options, callback = undefined) {
         const newButtonBottomEdge = newRulerTopEdge - 25
         const newButtonY = newButtonBottomEdge - 100
         rulerShiftButton.style.top = `${newButtonY}px`
-        
-        updateRulerEndpoints(adjustedStartX, newStartY, adjustedEndX, newEndY, true)
+
+        updateRulerEndpoints(
+          adjustedStartX,
+          newStartY,
+          adjustedEndX,
+          newEndY,
+          true,
+        )
       } else {
         // Normal movement - end is not constrained horizontally
-        
+
         // Update button position immediately BEFORE updateRulerEndpoints for smooth tracking
         // Calculate button position directly from new coordinates
         const minY = tape.dimensions.tapeWidth
@@ -5244,7 +5269,7 @@ export async function objectTest(RC, options, callback = undefined) {
         const newButtonBottomEdge = newRulerTopEdge - 25
         const newButtonY = newButtonBottomEdge - 100
         rulerShiftButton.style.top = `${newButtonY}px`
-        
+
         updateRulerEndpoints(newStartX, newStartY, newEndX, newEndY, true)
       }
     }
@@ -5314,11 +5339,23 @@ export async function objectTest(RC, options, callback = undefined) {
       if (currentArrowKey === 'ArrowLeft') {
         // Move right side closer to left (shrink from right)
         const newEndX = endX - moveAmount
-        updateRulerEndpoints(startX, currentTapeY, newEndX, currentTapeY, isStartOffScreen)
+        updateRulerEndpoints(
+          startX,
+          currentTapeY,
+          newEndX,
+          currentTapeY,
+          isStartOffScreen,
+        )
       } else if (currentArrowKey === 'ArrowRight') {
         // Move right side away from left (extend from right)
         const newEndX = endX + moveAmount
-        updateRulerEndpoints(startX, currentTapeY, newEndX, currentTapeY, isStartOffScreen)
+        updateRulerEndpoints(
+          startX,
+          currentTapeY,
+          newEndX,
+          currentTapeY,
+          isStartOffScreen,
+        )
       }
     }, 50) // Update every 50ms for smooth movement
   }
@@ -5753,7 +5790,9 @@ export async function objectTest(RC, options, callback = undefined) {
       const lowerRightXYPx = [window.innerWidth, window.innerHeight] // Lower-right corner
       arrowIndicators = createArrowIndicators(lowerRightXYPx)
       RC.background.appendChild(arrowIndicators)
-      console.log('Arrow indicators added for page 4, pointing to lower-right corner')
+      console.log(
+        'Arrow indicators added for page 4, pointing to lower-right corner',
+      )
 
       // Note: Face Mesh samples will be collected when space key is pressed
       console.log(
