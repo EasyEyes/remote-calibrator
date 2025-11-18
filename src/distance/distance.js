@@ -4583,7 +4583,7 @@ export async function objectTest(RC, options, callback = undefined) {
     rulerShiftButton.style.transform = 'translate(-50%, 0) scale(0.95)' // Keep centered, slightly smaller
     rulerShiftButton.style.backgroundColor = '#D3D3D3' // Gray out during animation
 
-    const ANIMATION_SPEED = 100 // pixels per second
+    const ANIMATION_SPEED = 200 // pixels per second (doubled from 100)
     const TARGET_MARGIN = 25 // pixels from edge
 
     let phase = 1 // Phase 1: slide left, Phase 2: extend right

@@ -16,7 +16,7 @@ export const distanceCalibrationAssetMap = {
   Instruction_stiff_1_1:
     'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FInstruction%20stiff%201.1.mp4?alt=media&token=15ba0ae2-8c91-4af1-ac76-f382950eda5d',
   Objects_png:
-    'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis1%2FObjects.png?alt=media&token=b337c36d-6991-4ef8-bb9a-29c2e503c8c3',
+    'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FStiff%20objects.png?alt=media&token=8acfda00-fb5d-444c-8976-0835a3881512',
   Image1_1:
     'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FImage_1.1.png?alt=media&token=e113bd5f-c16c-49af-97b6-471050e94d8c',
   Instruction_stiff_1_2:
@@ -32,43 +32,42 @@ export const test_assetMap = {
   LL6: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FInstruction_1.6.mp4?alt=media&token=e6230fd1-f24a-48b5-8394-48cbc9c79c7e',
   LL7: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FInstruction%204%20(Revis%202).mp4?alt=media&token=803b2cfe-52d3-43d7-9f97-f36bf8e844a6',
   LL8: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FInstruction%20stiff%201.1.mp4?alt=media&token=15ba0ae2-8c91-4af1-ac76-f382950eda5d',
-  LL9: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis1%2FObjects.png?alt=media&token=b337c36d-6991-4ef8-bb9a-29c2e503c8c3',
+  LL9: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FStiff%20objects.png?alt=media&token=8acfda00-fb5d-444c-8976-0835a3881512',
   LL10: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FImage_1.1.png?alt=media&token=e113bd5f-c16c-49af-97b6-471050e94d8c',
   LL11: 'https://easyeyes-cors-proxy-1cf4742aef20.herokuapp.com/https://firebasestorage.googleapis.com/v0/b/speaker-calibration.firebasestorage.app/o/Instructions%2FRevis2%2FInstruction%20stiff%201.2.mp4?alt=media&token=8180ddbf-20a5-44a2-934c-90d052a5fdcf',
 }
 
 export const test_phrases = {
   RC_UseObjectToSetViewingDistanceTapePage1: {
-    en: `[[TT1]] GET READY
-[[SS1]] In the following steps, you'll use the on-screen tape (below) to measure the length of an object that you'll provide.
+    en: `[[TT1]]
+[[SS1]] In the following steps, you’ll use the on-screen tape (below) to measure the length of an object that you’ll provide.
 \nPress the ▼ key to step to next instruction. Press ▲ to go back.
 
-[[TT2]]STEP BY STEP
-[[SS1]] 1. Pick a common object about [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better (see picture). Avoid sharp objects (like pencils).
-[[LL9]]
-[[SS2]] 2. Line up your object's left end (←) with the tape's left end (←).
+[[TT2]]
+[[SS1]] 1. Find an object about [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better (see picture). Avoid sharp objects (like pencils).
+[[SS2]] 2. Line up your object’s left end (←) with the tape’s left end (←).
 [[LL1]]
-[[SS3]] 3. Repeat the following as long as the object's right end extends beyond the screen:
+[[SS3]] 3. Repeat the following as long as the object’s right end extends beyond the screen:
 [[LL10]]
-[[SS3.1]] ⭘ Use your thumbnail to mark your object at the tape's largest visible number. Remember the number.
+[[SS3.1]] ⭘ Use your thumbnail to mark your object at the tape’s largest visible number. Remember the number.
 [[LL2]]
-[[SS3.2]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS3.2]] ⭘ Click the big yellow :arrow_left: button, and wait for the ruler to slide and extend.
 [[SS3.3]] ⭘ Re-align your thumbnail (and object) with the number.
 [[LL4]]
 [[SS3.4]] ⭘ Repeat these moves until the object’s right end is on the screen.
 [[LL10]]
-[[SS4]] 4. Once the end is on the screen, use ◀ ▶ keys or drag the tape's right end to match your object's length.
+[[SS4]] 4. Once the end is on the screen, use :arrow_backward: :arrow_forward: keys or drag the tape’s right end to to match your object’s length.
 [[LL5]]
 [[SS5]] 5. Press SPACE to record the setting.
 \n6. 🔉 A “kerchunk” sound will confirm the setting.
 [[LL6]]`,
   },
   RC_UseObjectToSetViewingDistanceRulerPage1: {
-    en: `[[TT1]] GET READY
+    en: `[[TT1]] 
 [[SS1]] You’ll use the on-screen ruler (below) to measure an object you provide. The ruler’s numbers are intentionally spaced far apart.
-\nPress ▼ to go forward, ▲ to go back.
+\nPress ▼ to advance, ▲ to go back.
 
-[[TT2]] STEP BY STEP
+[[TT2]]
 [[SS1]] 1. Get an object [[IN1]]–[[IN2]] inches ([[CM1]]–[[CM2]] cm) long — longer is better (see picture). Avoid sharp objects.
 [[LL9]]
 [[SS2]] 2. Align your object’s left end (←) with the ruler’s left end (←).
@@ -77,7 +76,7 @@ export const test_phrases = {
 [[LL10]]
 [[SS3.1]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
 [[LL2]]
-[[SS3.2]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS3.2]] ⭘ Click the big yellow :arrow_left: button, and wait for the ruler to slide and extend.
 [[SS3.3]] ⭘ Re-align your thumbnail (and object) with the remembered number.
 [[LL4]]
 [[SS3.4]] ⭘ Repeat until the object’s right end is on the screen.
@@ -92,11 +91,10 @@ export const test_phrases = {
     en: `[[TT1]] REMEASURE FOR BEST ACCURACY
 [[SS1]] 1. Line up your object's left end with the tape's left end.
 [[LL1]]
-[[SS2]] 2. Repeat the following as long as the object's right end extends beyond the screen:
-[[LL10]]
+[[SS2]] 2. While the object extends off the right side, repeat:
 [[SS2.1]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
 [[LL2]]
-[[SS2.2]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS2.2]] ⭘ Click the big yellow ⬅ button, and wait for the ruler to slide and extend.
 [[SS2.3]] ⭘ Re-align your thumbnail (and object) with the number.
 [[LL4]]
 [[SS2.4]] ⭘ Repeat until the object’s right end is on the screen.
@@ -104,18 +102,18 @@ export const test_phrases = {
 [[SS3]] 3. Once the end is on the screen, use ◀ ▶ keys to align the tape’s right end with your object's right end.
 [[LL5]]
 [[SS4]] 4. Press SPACE to record the setting.
-\n5. 🔉 A “kerchunk” sound will confirm the setting.
+\n5. 🔉 The “kerchunk” sound confirms.
 [[LL6]]`,
   },
   RC_UseObjectToSetViewingDistanceRulerPage2: {
     en: `[[TT1]] REMEASURE FOR BEST ACCURACY
 [[SS1]] 1. Line up your object's left end with the ruler's left end.
 [[LL1]]
-[[SS2]] 2. Repeat the following as long as the object's right end extends beyond the screen:
+[[SS2]] 2. While the object extends off the right side, repeat:
 [[LL10]]
 [[SS2.1]] ⭘ Mark your object with your thumbnail at the largest visible number (initially “1”). Remember the number.
 [[LL2]]
-[[SS2.2]] ⭘ Click the big yellow ⬅ button, and see the ruler slide and extend.
+[[SS2.2]] ⭘ Click the big yellow ⬅ button, and wait for the ruler to slide and extend.
 [[SS2.3]] ⭘ Re-align your thumbnail (and object) with the number.
 [[LL4]]
 [[SS2.4]] ⭘ Repeat until the object’s right end is on the screen.
@@ -123,7 +121,7 @@ export const test_phrases = {
 [[SS3]] 3. Once the end is on the screen, use ◀ ▶ keys to align the ruler’s right end with your object's right end.
 [[LL5]]
 [[SS4]] 4. Press SPACE to record the setting.
-\n5. 🔉 A “kerchunk” sound will confirm the setting.
+\n5. 🔉 The “kerchunk” sound confirms.
 [[LL6]]`,
   },
   RC_UseObjectToSetViewingDistancePage3: {
