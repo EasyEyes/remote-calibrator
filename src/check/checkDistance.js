@@ -1381,7 +1381,7 @@ const checkSize = async (
     updateLengthDisplayDiv(cm, RC.equipment?.value?.unit)
 
     // Create and update instruction content
-    const updateInstructionText = currentLength => {
+    const updateInstructionText = (currentLength, yellowTapeRef = null) => {
       const instructionTitle = phrases.RC_SetLengthTitle[RC.language.value]
         .replace('[[N11]]', index)
         .replace('[[N22]]', processedLengthCm.length)
@@ -1411,6 +1411,11 @@ const checkSize = async (
           const screenWidth = window.innerWidth
           const videoLeftEdge = (screenWidth - videoRect.width) / 2
           instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
+        }
+
+        // Re-append yellow tape if it exists after background replacement
+        if (yellowTapeRef && yellowTapeRef.container && yellowTapeRef.container.parentNode !== RC.background) {
+          RC.background.appendChild(yellowTapeRef.container)
         }
       } else {
         const titleElement = document.getElementById('instruction-title')
@@ -1511,7 +1516,7 @@ const checkSize = async (
         if (isNaN(numeric)) return
         const clamped = Math.max(1, Math.min(100, numeric))
         e.target.value = `${clamped} ${RC.equipment?.value?.unit || ''}`
-        updateInstructionText(clamped)
+        updateInstructionText(clamped, yellowTape)
         adjustLengthFontSize(lengthDisplayInput)
       })
 
@@ -1520,11 +1525,11 @@ const checkSize = async (
         const numeric = parseNumeric(raw)
         if (e.target.value === '' || isNaN(numeric) || numeric < 1) {
           e.target.value = `1 ${RC.equipment?.value?.unit || ''}`
-          updateInstructionText(1)
+          updateInstructionText(1, yellowTape)
         } else {
           const clamped = Math.max(1, Math.min(100, numeric))
           e.target.value = `${clamped} ${RC.equipment?.value?.unit || ''}`
-          updateInstructionText(clamped)
+          updateInstructionText(clamped, yellowTape)
         }
         adjustLengthFontSize(lengthDisplayInput)
       })

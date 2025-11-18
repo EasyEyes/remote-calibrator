@@ -3533,7 +3533,7 @@ export async function objectTest(RC, options, callback = undefined) {
   const createArrowIndicators = targetXYPx => {
     const arrowSizeCm = 3
     const arrowSizePx = arrowSizeCm * pxPerCm
-    const lineThicknessPx = Math.max(2, arrowSizePx / 30) // Proportional thickness
+    const lineThicknessPx = 3 // Fixed 3-pixel line thickness
 
     // Calculate arrow positions on horizontal midline
     const midlineY = window.innerHeight / 2
@@ -3583,7 +3583,7 @@ export async function objectTest(RC, options, callback = undefined) {
       line.setAttribute('y2', endY)
       line.setAttribute('stroke', 'black')
       line.setAttribute('stroke-width', lineThicknessPx)
-      line.setAttribute('stroke-linecap', 'round')
+      line.setAttribute('stroke-linecap', 'butt')
       svg.appendChild(line)
 
       // Draw arrowhead (two lines forming a V)
@@ -3608,7 +3608,7 @@ export async function objectTest(RC, options, callback = undefined) {
       leftWing.setAttribute('y2', leftWingY)
       leftWing.setAttribute('stroke', 'black')
       leftWing.setAttribute('stroke-width', lineThicknessPx)
-      leftWing.setAttribute('stroke-linecap', 'round')
+      leftWing.setAttribute('stroke-linecap', 'butt')
       svg.appendChild(leftWing)
 
       // Right wing of arrowhead
@@ -3626,7 +3626,7 @@ export async function objectTest(RC, options, callback = undefined) {
       rightWing.setAttribute('y2', rightWingY)
       rightWing.setAttribute('stroke', 'black')
       rightWing.setAttribute('stroke-width', lineThicknessPx)
-      rightWing.setAttribute('stroke-linecap', 'round')
+      rightWing.setAttribute('stroke-linecap', 'butt')
       svg.appendChild(rightWing)
 
       return svg
@@ -5643,16 +5643,14 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide dontUseRuler column on page 3
       dontUseRulerColumn.style.display = 'none'
 
-      // ⚠️⚠️⚠️ ARROWS COMMENTED OUT - UNCOMMENT BELOW TO SHOW PAGE 3 ARROWS ⚠️⚠️⚠️
       // Show arrow indicators pointing to top-center of screen (camera position)
-      // if (arrowIndicators) {
-      //   arrowIndicators.remove()
-      // }
-      // const cameraXYPx = [window.innerWidth / 2, 0] // Top center
-      // arrowIndicators = createArrowIndicators(cameraXYPx)
-      // RC.background.appendChild(arrowIndicators)
-      // console.log('Arrow indicators added for page 3, pointing to top-center')
-      // ⚠️⚠️⚠️ END OF COMMENTED ARROW CODE ⚠️⚠️⚠️
+      if (arrowIndicators) {
+        arrowIndicators.remove()
+      }
+      const cameraXYPx = [window.innerWidth / 2, 0] // Top center
+      arrowIndicators = createArrowIndicators(cameraXYPx)
+      RC.background.appendChild(arrowIndicators)
+      console.log('Arrow indicators added for page 3, pointing to top-center')
 
       // Note: Face Mesh samples will be collected when space key is pressed
       console.log(
@@ -5748,16 +5746,14 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide dontUseRuler column on page 4
       dontUseRulerColumn.style.display = 'none'
 
-      // ⚠️⚠️⚠️ ARROWS COMMENTED OUT - UNCOMMENT BELOW TO SHOW PAGE 4 ARROWS ⚠️⚠️⚠️
       // Show arrow indicators pointing to lower-right corner of screen
-      // if (arrowIndicators) {
-      //   arrowIndicators.remove()
-      // }
-      // const lowerRightXYPx = [window.innerWidth, window.innerHeight] // Lower-right corner
-      // arrowIndicators = createArrowIndicators(lowerRightXYPx)
-      // RC.background.appendChild(arrowIndicators)
-      // console.log('Arrow indicators added for page 4, pointing to lower-right corner')
-      // ⚠️⚠️⚠️ END OF COMMENTED ARROW CODE ⚠️⚠️⚠️
+      if (arrowIndicators) {
+        arrowIndicators.remove()
+      }
+      const lowerRightXYPx = [window.innerWidth, window.innerHeight] // Lower-right corner
+      arrowIndicators = createArrowIndicators(lowerRightXYPx)
+      RC.background.appendChild(arrowIndicators)
+      console.log('Arrow indicators added for page 4, pointing to lower-right corner')
 
       // Note: Face Mesh samples will be collected when space key is pressed
       console.log(
