@@ -3969,12 +3969,12 @@ export async function objectTest(RC, options, callback = undefined) {
     })
 
     // Show/Hide Ruler-Shift button based on step and measurement iteration
-    // First measurement (iteration 1): show after step index 6
-    // Subsequent measurements (iteration 2+): show after step index 4
+    // First measurement (iteration 1): show after step index 5
+    // Subsequent measurements (iteration 2+): show after step index 3
     if (currentPage === 2 && stepInstructionModel) {
       if (typeof rulerShiftButton !== 'undefined' && rulerShiftButton) {
         const isFirstMeasurement = measurementState.currentIteration === 1
-        const showAfterIndex = isFirstMeasurement ? 6 : 4
+        const showAfterIndex = isFirstMeasurement ? 5 : 3
 
         if (currentStepFlatIndex >= showAfterIndex) {
           rulerShiftButton.style.display = 'flex'
