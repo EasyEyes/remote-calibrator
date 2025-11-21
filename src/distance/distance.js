@@ -3948,6 +3948,22 @@ export async function objectTest(RC, options, callback = undefined) {
   let currentStepFlatIndex = 0
 
   const renderCurrentStepView = () => {
+    const maxIdx = (stepInstructionModel?.flatSteps?.length || 1) - 1
+
+    const handlePrev = () => {
+      if (currentStepFlatIndex > 0) {
+        currentStepFlatIndex--
+        renderCurrentStepView()
+      }
+    }
+
+    const handleNext = () => {
+      if (currentStepFlatIndex < maxIdx) {
+        currentStepFlatIndex++
+        renderCurrentStepView()
+      }
+    }
+
     renderStepInstructions({
       model: stepInstructionModel,
       flatIndex: currentStepFlatIndex,
@@ -3963,6 +3979,8 @@ export async function objectTest(RC, options, callback = undefined) {
         useCurrentSectionOnly: true,
         resolveMediaUrl: resolveInstructionMediaUrl,
         stepperHistory: options.stepperHistory,
+        onPrev: handlePrev,
+        onNext: handleNext,
       },
       lang: RC.language.value,
       phrases: phrases,

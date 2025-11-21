@@ -267,7 +267,9 @@ export function renderStepInstructions({
     useCurrentSectionOnly = true,
     // How many *past* steps to keep visible when compacting.
     // If null/undefined, keep as many as fit (previous behavior).
-    stepperHistory = null,
+    // New behavior: integer number of past steps Stepper *tries* to show.
+    // Default 1, minimum 0. Can also be passed as options._stepperHistory.
+    stepperHistory: stepperHistoryOption = 1,
     layout = 'twoColumn', // 'twoColumn' | 'leftOnly'
   } = options
 
@@ -307,77 +309,158 @@ export function renderStepInstructions({
   }
 
   const { sections, flatSteps } = model
+
+  // Sanitize current flat index
+  const totalFlatSteps = flatSteps?.length || 0
+  const safeFlatIndex =
+    totalFlatSteps > 0
+      ? Math.max(0, Math.min(flatIndex, totalFlatSteps - 1))
+      : 0
   const { sectionIdx: curSectionIdx, stepIdx: curStepIdx } = flatSteps[
-    flatIndex
+    safeFlatIndex
   ] || { sectionIdx: 0, stepIdx: 0 }
 
-  // Build items up to current
-  const items = []
-  let orderIdx = 0
-  for (let s = 0; s <= curSectionIdx; s++) {
-    const section = sections[s]
-    const limit = s < curSectionIdx ? section.steps.length - 1 : curStepIdx
-    const titleText = (section?.title || '').trim()
-    if (titleText.length) {
-      items.push({
-        type: 'title',
-        text: titleText,
-        sectionIdx: s,
-        orderIdx: orderIdx++,
-        uid: `title|${s}|${titleText}`,
-      })
-    }
-    for (let i = 0; i <= limit; i++) {
-      const step = section.steps[i]
-      const state = s < curSectionIdx || i < curStepIdx ? 'past' : 'current'
-      const number = step.number
-      const level =
-        typeof step.level === 'number'
-          ? step.level
-          : Math.max(0, (String(number).match(/\./g) || []).length)
-      items.push({
-        type: 'step',
-        text: step.text,
-        state,
-        number,
-        level,
-        sectionIdx: s,
-        orderIdx: orderIdx++,
-        uid: `step|${s}|${number}|${step.text}`,
-      })
-    }
+  // If Stepper is called with no text, don't display anything: no box, nothing.
+  const hasAnyText =
+    Array.isArray(sections) &&
+    sections.some(
+      sec =>
+        Array.isArray(sec.steps) &&
+        sec.steps.some(st => st.text && String(st.text).trim().length > 0),
+    )
+
+  if (!hasAnyText || totalFlatSteps === 0) {
+    leftText.innerHTML = ''
+    if (rightText) rightText.innerHTML = ''
+    mediaContainer.innerHTML = ''
+    leftText.style.display = 'none'
+    return
   }
 
-  // Render and compact if needed
-  leftText.innerHTML = ''
-  if (rightText) rightText.innerHTML = ''
-  // Determine allotted space for text and media
-  const textAllottedPx = Math.floor(window.innerHeight * thresholdFraction)
+  // Ensure container is visible when we *do* have content
+  leftText.style.display = ''
+
+  // Resolve stepper history (integer, min 0). Allow options._stepperHistory alias.
+  const rawHistory =
+    (options && typeof options._stepperHistory !== 'undefined'
+      ? options._stepperHistory
+      : stepperHistoryOption) ?? 1
+  let history = parseInt(rawHistory, 10)
+  if (!Number.isFinite(history) || history < 0) history = 0
+
+  // Determine allotted space for media only; let the stepper box size itself.
   const mediaAllottedPx =
     layout === 'leftOnly'
       ? Math.max(0, Math.floor(window.innerHeight * (1 - thresholdFraction)))
       : Math.floor(window.innerHeight * thresholdFraction)
-  // Apply fixed sizes in leftOnly to prevent media from moving
-  if (layout === 'leftOnly') {
-    leftText.style.maxHeight = `${textAllottedPx}px`
-    leftText.style.minHeight = `${textAllottedPx}px`
-    leftText.style.overflow = 'hidden'
-    mediaContainer.style.height = `${mediaAllottedPx}px`
+
+  // Build Stepper box
+  leftText.innerHTML = ''
+  if (rightText) rightText.innerHTML = ''
+
+  const stepperBox = document.createElement('div')
+  stepperBox.style.position = 'relative'
+  // Very faint light blue background
+  stepperBox.style.backgroundColor = 'rgba(173, 216, 230, 0.25)'
+  // Thin black outline
+  stepperBox.style.border = '1px solid #000'
+  stepperBox.style.borderRadius = '4px'
+  stepperBox.style.padding = '0.75rem 2rem 0.75rem 0.75rem'
+  stepperBox.style.display = 'inline-block'
+  stepperBox.style.boxSizing = 'border-box'
+  stepperBox.style.maxWidth = '100%'
+
+  const contentContainer = document.createElement('div')
+  contentContainer.style.display = 'flex'
+  contentContainer.style.flexDirection = 'column'
+
+  stepperBox.appendChild(contentContainer)
+  leftText.appendChild(stepperBox)
+
+  // Decide which steps to show
+  const totalSteps = totalFlatSteps
+  const hasUnshownPast = safeFlatIndex > history
+  const hasUnshownFuture = safeFlatIndex < totalSteps - 1
+
+  const visibleStart = Math.max(0, safeFlatIndex - history)
+  const visibleEnd = safeFlatIndex // inclusive
+
+  // Helper to append a line into the Stepper content
+  const appendLine = (text, state, level = 0) => {
+    const node = buildLineNode(text, 'step', state, level || 0)
+    contentContainer.appendChild(node)
   }
-  const threshold = textAllottedPx
-  const renderItems = list => {
-    leftText.innerHTML = ''
-    list.forEach(item => {
-      if (item.type === 'title') {
-        leftText.appendChild(buildLineNode(item.text, 'title', 'normal', 0))
-      } else {
-        leftText.appendChild(
-          buildLineNode(item.text, 'step', item.state, item.level || 0),
-        )
+
+  // Past ellipsis (gray) if there are unshown past steps
+  if (hasUnshownPast) {
+    appendLine('…', 'past', 0)
+  }
+
+  // Visible past steps (gray) and current step (black)
+  for (let idx = visibleStart; idx <= visibleEnd; idx++) {
+    const entry = flatSteps[idx]
+    if (!entry) continue
+    const sec = sections[entry.sectionIdx]
+    const step = sec && sec.steps ? sec.steps[entry.stepIdx] : null
+    if (!step || !step.text) continue
+
+    const isPast = idx < safeFlatIndex
+    const level =
+      typeof step.level === 'number'
+        ? step.level
+        : Math.max(0, (String(step.number || '').match(/\./g) || []).length)
+    appendLine(step.text, isPast ? 'past' : 'current', level)
+  }
+
+  // Future ellipsis (black) if there are unshown future steps
+  if (hasUnshownFuture) {
+    appendLine('…', 'current', 0)
+  }
+
+  // On-screen ▲ / ▼ controls in upper-right / lower-right.
+  const arrowBaseStyle = el => {
+    el.style.position = 'absolute'
+    el.style.right = '0.5rem'
+    el.style.fontSize = '1.1em'
+    el.style.userSelect = 'none'
+  }
+
+  const arrowUp = document.createElement('div')
+  arrowUp.textContent = '▲'
+  arrowBaseStyle(arrowUp)
+  arrowUp.style.top = '0.35rem'
+
+  const arrowDown = document.createElement('div')
+  arrowDown.textContent = '▼'
+  arrowBaseStyle(arrowDown)
+  arrowDown.style.bottom = '0.35rem'
+
+  const wireArrow = (el, enabled, handler) => {
+    el.style.color = enabled ? '#000' : '#999'
+    el.style.cursor =
+      enabled && typeof handler === 'function' ? 'pointer' : 'default'
+    el.onclick = null
+    if (enabled && typeof handler === 'function') {
+      el.onclick = evt => {
+        evt.preventDefault()
+        evt.stopPropagation()
+        handler()
       }
-    })
+    }
   }
-  renderItems(items)
+
+  // Use callbacks if provided so the caller can update flatIndex and re-render
+  const onPrev =
+    options && typeof options.onPrev === 'function' ? options.onPrev : null
+  const onNext =
+    options && typeof options.onNext === 'function' ? options.onNext : null
+
+  wireArrow(arrowUp, hasUnshownPast, onPrev)
+  wireArrow(arrowDown, hasUnshownFuture, onNext)
+
+  stepperBox.appendChild(arrowUp)
+  stepperBox.appendChild(arrowDown)
+
   // Helper to build nav hint node; used for both measurement and final render
   const buildNavHintNode = () => {
     const navHint = document.createElement('div')
@@ -396,130 +479,8 @@ export function renderStepInstructions({
       'Use ▼ to advance through the instructions. Use ▲ to go back to the previous instruction.'
     return navHint
   }
-  // Decide on compaction based on instruction text only (nav hint is rendered separately)
-  let needsCompact =
-    leftText.scrollHeight > threshold ||
-    stepperHistory !== null ||
-    stepperHistory !== undefined
-  if (needsCompact) {
-    const stepsAll = items.filter(i => i.type === 'step')
-    const stepsSeq = useCurrentSectionOnly
-      ? stepsAll.filter(it => it.sectionIdx === curSectionIdx)
-      : stepsAll
-    const titleItem = items.find(
-      it => it.type === 'title' && it.sectionIdx === curSectionIdx,
-    )
-    const originalOrder = (a, b) => a.orderIdx - b.orderIdx
-    const buildWithParents = steps => {
-      const result = []
-      const byUid = new Set()
-      const ensurePush = it => {
-        if (!byUid.has(it.uid)) {
-          result.push(it)
-          byUid.add(it.uid)
-        }
-      }
-      const findNearestParentInSet = step => {
-        if (!step.number) return null
-        const parts = String(step.number).split('.')
-        while (parts.length > 1) {
-          parts.pop()
-          const parentNum = parts.join('.')
-          const found = steps
-            .slice()
-            .reverse()
-            .find(
-              cand =>
-                String(cand.number) === parentNum &&
-                cand.sectionIdx === step.sectionIdx,
-            )
-          if (found) return found
-        }
-        return null
-      }
-      steps.forEach(st => {
-        if (st.sectionIdx === curSectionIdx && st.level > 0) {
-          const parent = findNearestParentInSet(st)
-          if (parent) ensurePush(parent)
-        }
-        ensurePush(st)
-      })
-      result.sort(originalOrder)
-      return result
-    }
-    const totalSteps = stepsSeq.length
-    let bestStart = totalSteps > 0 ? totalSteps - 1 : 0
-    const measureFits = startIdx => {
-      const slice = stepsSeq.slice(startIdx)
-      const withParents = buildWithParents(slice)
-      const nodes = []
-      if (titleItem) nodes.push(buildLineNode(titleItem.text, 'title'))
-      withParents.forEach(it => {
-        nodes.push(buildLineNode(it.text, 'step', it.state, it.level || 0))
-      })
-      leftText.innerHTML = ''
-      nodes.forEach(n => leftText.appendChild(n))
-      // Measure only the instruction text; nav hint is positioned outside this container
-      const fits = leftText.scrollHeight <= threshold
-      return { fits, nodes }
-    }
-    if (totalSteps > 0) {
-      const hasHistoryLimit =
-        typeof stepperHistory === 'number' && stepperHistory >= 0
-      console.log('hasHistoryLimit..', hasHistoryLimit, stepperHistory)
-      if (!hasHistoryLimit) {
-        // Previous behavior: try to show as many steps as possible while fitting.
-        let low = 0
-        let high = totalSteps - 1
-        // Initial probe to short-circuit if everything fits
-        {
-          const test = measureFits(0)
-          if (test.fits) {
-            leftText.innerHTML = ''
-            test.nodes.forEach(n => leftText.appendChild(n))
-          }
-        }
-        while (low <= high) {
-          const mid = Math.floor((low + high) / 2)
-          const { fits } = measureFits(mid)
-          if (fits) {
-            bestStart = mid
-            high = mid - 1
-          } else {
-            low = mid + 1
-          }
-        }
-      } else {
-        // New behavior with stepperHistory:
-        // limit how many *past* steps can be shown, but still respect the height.
-        const maxPast = Math.floor(stepperHistory)
-        const minStart = Math.max(0, totalSteps - 1 - maxPast)
-        let low = minStart
-        let high = totalSteps - 1
-        console.log('maxPast..', maxPast)
-        console.log('minStart..', minStart)
-        console.log('low..', low)
-        console.log('high..', high)
-        while (low <= high) {
-          const mid = Math.floor((low + high) / 2)
-          const { fits } = measureFits(mid)
-          if (fits) {
-            bestStart = mid
-            high = mid - 1
-          } else {
-            low = mid + 1
-          }
-        }
-        console.log('bestStart..', bestStart)
-      }
-      // Always render the best-fitting slice after search to avoid leaving a temp state
-      {
-        const { nodes } = measureFits(bestStart)
-        leftText.innerHTML = ''
-        nodes.forEach(n => leftText.appendChild(n))
-      }
-    }
-  }
+  // (Compaction-by-height removed; Stepper box now sizes itself based on
+  // the current step and the configured history.)
 
   // Render navigation hint as its own row directly below the title row (not in the flex row)
   const titleEl =
