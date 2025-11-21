@@ -2050,6 +2050,22 @@ const trackDistanceCheck = async (
         try {
           const stepModel = parseInstructions(chosenStepText, { assetMap: test_assetMap })
           let stepIndex = 0
+          const maxIdx = (stepModel.flatSteps?.length || 1) - 1
+
+          const handlePrev = () => {
+            if (stepIndex > 0) {
+              stepIndex--
+              doRender()
+            }
+          }
+
+          const handleNext = () => {
+            if (stepIndex < maxIdx) {
+              stepIndex++
+              doRender()
+            }
+          }
+
           const doRender = () =>
             renderStepInstructions({
               model: stepModel,
@@ -2065,6 +2081,8 @@ const trackDistanceCheck = async (
                 resolveMediaUrl: resolveInstructionMediaUrl,
                 layout: 'leftOnly',
                 stepperHistory: stepperHistory,
+                onPrev: handlePrev,
+                onNext: handleNext,
               },
               lang: RC.language.value,
               phrases: phrases,
