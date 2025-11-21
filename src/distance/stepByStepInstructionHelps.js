@@ -281,11 +281,11 @@ export function renderStepInstructions({
     if (type === 'title') {
       div.style.marginTop = '0.75rem'
       div.style.fontWeight = '600'
-      div.textContent = text
+      div.innerHTML = text  // Changed from textContent to support HTML from Markdown
     } else {
       div.style.marginTop = '0.25rem'
       // Preserve original text with its numbering/bullets instead of adding generic bullet
-      div.textContent = text
+      div.innerHTML = text  // Changed from textContent to support HTML from Markdown
       if (indentLevel > 0) {
         div.style.paddingInlineStart = `${indentLevel * 1.25}em`
       }

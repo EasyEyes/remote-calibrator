@@ -46,6 +46,7 @@ import {
   createStepInstructionsUI,
   renderStepInstructions,
 } from './stepByStepInstructionHelps'
+import { parseInstructions } from './instructionParserAdapter'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { showTestPopup } from '../components/popup'
@@ -3769,41 +3770,36 @@ export async function objectTest(RC, options, callback = undefined) {
     const minInch = minCm / 2.54
     const maxInch = maxCm / 2.54
 
+    // Phrase key mapping for distance.js: bypass test_phrases timing issue
+    const phraseKeyMapping = {
+      RC_UseObjectToSetViewingDistanceTapePage1_MD: 'RC_UseObjectToSetViewingDistanceTapeStepperPage1',
+      RC_UseObjectToSetViewingDistanceRulerPage1_MD: 'RC_UseObjectToSetViewingDistanceRulerStepperPage1',
+      RC_UseObjectToSetViewingDistanceTapePage2_MD: 'RC_UseObjectToSetViewingDistanceTapeStepperPage2',
+      RC_UseObjectToSetViewingDistanceRulerPage2_MD: 'RC_UseObjectToSetViewingDistanceRulerStepperPage2',
+    }
+    
     // Use different phrase for first measurement vs subsequent measurements
+    // Use Markdown versions (with _MD suffix)
     const phraseKey =
       measurementState.currentIteration === 1
         ? showLength
-          ? 'RC_UseObjectToSetViewingDistanceTapePage1'
-          : 'RC_UseObjectToSetViewingDistanceRulerPage1'
+          ? 'RC_UseObjectToSetViewingDistanceTapePage1_MD'
+          : 'RC_UseObjectToSetViewingDistanceRulerPage1_MD'
         : showLength
-          ? 'RC_UseObjectToSetViewingDistanceTapePage2'
-          : 'RC_UseObjectToSetViewingDistanceRulerPage2'
+          ? 'RC_UseObjectToSetViewingDistanceTapePage2_MD'
+          : 'RC_UseObjectToSetViewingDistanceRulerPage2_MD'
 
-    // Prefer new test phrases from assetMap; fall back to legacy phrases if missing
-    const testText =
-      test_phrases?.[phraseKey]?.en ||
-      test_phrases?.[
-        showLength
-          ? 'RC_UseObjectToSetViewingDistanceTapePage1'
-          : 'RC_UseObjectToSetViewingDistanceRulerPage1'
-      ]?.en
-    const legacyText =
-      phrases[phraseKey]?.[RC.L] ||
-      phrases[
-        showLength
-          ? 'RC_UseObjectToSetViewingDistanceTapePage1'
-          : 'RC_UseObjectToSetViewingDistanceRulerPage1'
-      ]?.[RC.L]
-
-    const chosenText = (testText || legacyText || '')
+    // Get actual phrase key from main phrases system (bypasses test_phrases)
+    const actualPhraseKey = phraseKeyMapping[phraseKey]
+    const chosenText = (phrases[actualPhraseKey]?.[RC.L] || '')
       .replace('[[IN1]]', minInch.toFixed(0))
       .replace('[[IN2]]', maxInch.toFixed(0))
       .replace('[[CM1]]', minCm.toFixed(0))
       .replace('[[CM2]]', maxCm.toFixed(0))
 
-    // Build step-by-step model from chosenText; if parsing fails, fall back to plain text
+    // Parse with new Markdown parser adapter (auto-detects format)
     try {
-      stepInstructionModel = buildStepInstructions(chosenText, test_assetMap)
+      stepInstructionModel = parseInstructions(chosenText, { assetMap: test_assetMap })
       currentStepFlatIndex = 0
       currentInstructionText = chosenText
 
@@ -5660,13 +5656,11 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide explanation button on page 3
       explanationButton.style.display = 'block' //show explanation button on page 3
 
-      // Update instructions using step-by-step renderer
+      // Update instructions using step-by-step renderer with Markdown
       try {
-        const p3Text =
-          (test_phrases?.RC_UseObjectToSetViewingDistancePage3?.en ||
-            phrases.RC_UseObjectToSetViewingDistancePage3?.[RC.L] ||
-            '') + ''
-        stepInstructionModel = buildStepInstructions(p3Text, test_assetMap)
+        // Bypass test_phrases, use phrases directly
+        const p3Text = (phrases.RC_UseObjectToSetViewingDistancePage3?.[RC.L] || '') + ''
+        stepInstructionModel = parseInstructions(p3Text, { assetMap: test_assetMap })
         currentStepFlatIndex = 0
         renderCurrentStepView()
       } catch (e) {
@@ -5761,13 +5755,11 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide explanation button on page 4
       explanationButton.style.display = 'block' //show explanation button on page 4
 
-      // Update instructions using step-by-step renderer
+      // Update instructions using step-by-step renderer with Markdown
       try {
-        const p4Text =
-          (test_phrases?.RC_UseObjectToSetViewingDistanceLowerRightPage4?.en ||
-            phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4?.[RC.L] ||
-            '') + ''
-        stepInstructionModel = buildStepInstructions(p4Text, test_assetMap)
+        // Bypass test_phrases, use phrases directly
+        const p4Text = (phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4?.[RC.L] || '') + ''
+        stepInstructionModel = parseInstructions(p4Text, { assetMap: test_assetMap })
         currentStepFlatIndex = 0
         renderCurrentStepView()
       } catch (e) {

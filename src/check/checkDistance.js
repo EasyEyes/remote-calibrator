@@ -16,9 +16,18 @@ import {
   createStepInstructionsUI,
   renderStepInstructions,
 } from '../distance/stepByStepInstructionHelps'
+import { parseInstructions } from '../distance/instructionParserAdapter'
 import { resolveInstructionMediaUrl } from '../distance/instructionMediaCache'
 import { test_phrases, test_assetMap } from '../distance/assetMap'
 import { irisTrackingIsActive } from '../distance/distanceTrack'
+
+// Debug: Log what's imported
+console.log('📦 checkDistance.js imports:', {
+  test_phrases_exists: !!test_phrases,
+  test_phrases_keys: test_phrases ? Object.keys(test_phrases) : [],
+  test_phrases_sample: test_phrases?.RC_produceDistance_MD,
+  test_assetMap_exists: !!test_assetMap
+})
 import {
   calculateNearestPoints,
   getMeshData,
@@ -1939,8 +1948,16 @@ const trackDistanceCheck = async (
         }
       }
 
-      // Choose step-by-step phrase key using test_phrases if available
-      let phraseKeyForSteps = 'RC_produceDistance'
+      // Choose step-by-step phrase key
+      // Mapping for checkDistance.js: _MD keys → actual phrase keys in main system
+      const phraseKeyMapping = {
+        RC_produceDistanceCameraTiltAndSwivel_MD: 'RC_produceDistanceCameraTiltAndSwivel',
+        RC_produceDistanceCamera_MD: 'RC_produceDistanceCamera',
+        RC_produceDistanceTiltAndSwivel_MD: 'RC_produceDistanceTiltAndSwivel',
+        RC_produceDistance_MD: 'RC_produceDistance',
+      }
+      
+      let phraseKeyForSteps = 'RC_produceDistance_MD'
       if (checkingOptions && typeof checkingOptions === 'string') {
         const optionsArray = checkingOptions
           .toLowerCase()
@@ -1949,11 +1966,11 @@ const trackDistanceCheck = async (
         const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
         const hasCamera = optionsArray.includes('camera')
         if (hasTiltAndSwivel && hasCamera) {
-          phraseKeyForSteps = 'RC_produceDistanceCameraTiltAndSwivel'
+          phraseKeyForSteps = 'RC_produceDistanceCameraTiltAndSwivel_MD'
         } else if (hasTiltAndSwivel) {
-          phraseKeyForSteps = 'RC_produceDistanceTiltAndSwivel'
+          phraseKeyForSteps = 'RC_produceDistanceTiltAndSwivel_MD'
         } else if (hasCamera) {
-          phraseKeyForSteps = 'RC_produceDistanceCamera'
+          phraseKeyForSteps = 'RC_produceDistanceCamera_MD'
         }
       }
 
@@ -2009,16 +2026,29 @@ const trackDistanceCheck = async (
           fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
           lineHeight: '1.4',
         })
-        const rawStepText =
-          test_phrases?.[phraseKeyForSteps]?.en ||
-          phrases[phraseKeyForSteps]?.[RC.language.value] ||
-          ''
+        // For checkDistance.js: bypass test_phrases and access phrases directly using mapping
+        // This avoids module load timing issues
+        const actualPhraseKey = phraseKeyMapping[phraseKeyForSteps] || phraseKeyForSteps.replace('_MD', '')
+        const rawStepText = phrases[actualPhraseKey]?.[RC.language.value] || ''
+        
+        // Debug logging
+        console.log('🔍 checkDistance phrase debug:', {
+          phraseKeyRequested: phraseKeyForSteps,
+          actualPhraseKey: actualPhraseKey,
+          language: RC.language.value,
+          phraseExists: !!phrases[actualPhraseKey],
+          phraseValue: phrases[actualPhraseKey],
+          rawStepTextFound: !!rawStepText,
+          textLength: rawStepText.length,
+          textPreview: rawStepText.substring(0, 100)
+        })
+        
         const chosenStepText = String(rawStepText)
           .replace('[[N11]]', cm)
           .replace('[[UUU]]', RC.equipment?.value?.unit || '')
 
         try {
-          const stepModel = buildStepInstructions(chosenStepText, test_assetMap)
+          const stepModel = parseInstructions(chosenStepText, { assetMap: test_assetMap })
           let stepIndex = 0
           const doRender = () =>
             renderStepInstructions({
