@@ -1865,6 +1865,7 @@ const trackDistanceCheck = async (
     const pxPerCm = ppi / 2.54
 
     let cameraResolutionXY = ''
+    let cameraResolutionMaxXY = ''
     if (
       RC.gazeTracker &&
       RC.gazeTracker.webgazer &&
@@ -1872,7 +1873,10 @@ const trackDistanceCheck = async (
     ) {
       const height = RC.gazeTracker.webgazer.videoParamsToReport.height
       const width = RC.gazeTracker.webgazer.videoParamsToReport.width
+      const maxHeight = RC.gazeTracker.webgazer.videoParamsToReport.maxHeight
+      const maxWidth = RC.gazeTracker.webgazer.videoParamsToReport.maxWidth
       cameraResolutionXY = `${width}x${height}`
+      cameraResolutionMaxXY = `${maxWidth},${maxHeight}`
     }
 
     RC.distanceCheckJSON = {
@@ -1887,6 +1891,7 @@ const trackDistanceCheck = async (
       factorVpxCm:
         Math.round(Number(stdDist.current.calibrationFactor) * 10) / 10,
       cameraResolutionXY: cameraResolutionXY,
+      webcamMaxXYVpx: cameraResolutionMaxXY,
       requestedEyesToPointCm: [],
       eyesToCameraCm: [],
       eyesToPointCm: [],
