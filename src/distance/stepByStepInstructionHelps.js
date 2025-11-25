@@ -254,9 +254,10 @@ export function renderStepInstructions({
   elements,
   options = {},
   lang = 'en',
+  langDirection = 'LTR',
   phrases = {
     EE_UseKeysToStep: {
-      en: 'Press the ▼ key to step to the next instruction. Press ▲ to go back one step.',
+      en: ' ',
     },
   },
 }) {
@@ -375,6 +376,29 @@ export function renderStepInstructions({
   contentContainer.style.flexDirection = 'column'
 
   stepperBox.appendChild(contentContainer)
+  
+  // Add navigation hint on top of stepper box
+  const navHintContainer = document.createElement('div')
+  navHintContainer.style.marginBottom = '0.5rem'
+  
+  const navHint = document.createElement('div')
+  navHint.style.color = '#555'
+  navHint.style.fontSize = 'clamp(0.9em, 2vw, 1em)'
+  navHint.style.fontStyle = 'italic'
+  navHint.style.maxWidth = '100%'
+  navHint.style.whiteSpace = 'normal'
+  navHint.style.wordBreak = 'break-word'
+  navHint.style.overflowWrap = 'anywhere'
+  
+  // Align based on language direction
+  navHint.style.textAlign = langDirection === 'RTL' ? 'right' : 'left'
+  
+  navHint.textContent =
+    phrases.EE_UseKeysToStep?.[lang] ||
+    'Use ▼ to advance through the instructions. Use ▲ to go back to the previous instruction.'
+  
+  navHintContainer.appendChild(navHint)
+  leftText.appendChild(navHintContainer)
   leftText.appendChild(stepperBox)
 
   // Decide which steps to show
@@ -460,71 +484,6 @@ export function renderStepInstructions({
 
   stepperBox.appendChild(arrowUp)
   stepperBox.appendChild(arrowDown)
-
-  // Helper to build nav hint node; used for both measurement and final render
-  const buildNavHintNode = () => {
-    const navHint = document.createElement('div')
-    navHint.style.marginTop = '0.5rem'
-    navHint.style.color = '#555'
-    // Decreased font size by ~30% from previous values
-    navHint.style.fontSize = 'clamp(0.9em, 2vw, 1em)'
-    navHint.style.fontStyle = 'italic'
-    // Restrict width to ~1/3 of the viewport and allow wrapping
-    navHint.style.maxWidth = '33vw'
-    navHint.style.whiteSpace = 'normal'
-    navHint.style.wordBreak = 'break-word'
-    navHint.style.overflowWrap = 'anywhere'
-    navHint.textContent =
-      phrases.EE_UseKeysToStep?.[lang] ||
-      'Use ▼ to advance through the instructions. Use ▲ to go back to the previous instruction.'
-    return navHint
-  }
-  // (Compaction-by-height removed; Stepper box now sizes itself based on
-  // the current step and the configured history.)
-
-  // Render navigation hint as its own row directly below the title row (not in the flex row)
-  const titleEl =
-    document.getElementById('distance-tracking-title') ||
-    document.getElementById('check-distance-instruction-title')
-  if (titleEl && titleEl.id === 'distance-tracking-title') {
-    try {
-      if (titleEl.parentNode && titleEl.parentNode.parentNode) {
-        const titleRow = titleEl.parentNode
-        const container = titleRow.parentNode
-        // Remove any existing nav hint to avoid duplicates across re-renders
-        const existing = document.getElementById('distance-tracking-nav-hint')
-        if (existing && existing.parentNode) {
-          existing.parentNode.removeChild(existing)
-        }
-        const navHint = buildNavHintNode()
-        navHint.id = 'distance-tracking-nav-hint'
-        // Align with title's left padding (matches titleRow's paddingInlineStart)
-        navHint.style.paddingInlineStart = '3rem'
-        container.insertBefore(navHint, titleRow.nextSibling)
-      }
-    } catch (error) {
-      console.warn(
-        'Error adding navigation hint to distance tracking title:',
-        error,
-      )
-    }
-  } else if (titleEl && titleEl.id === 'check-distance-instruction-title') {
-    try {
-      // Remove any existing nav hint to avoid duplicates across re-renders
-      const existing = document.getElementById('distance-tracking-nav-hint')
-      if (existing && existing.parentNode) {
-        existing.parentNode.removeChild(existing)
-      }
-      const parent = titleEl.parentNode
-      titleEl.style.margin = 0
-      const thirdElement = parent.children[1]
-      const navHint = buildNavHintNode()
-      navHint.id = 'distance-tracking-nav-hint'
-      parent.insertBefore(navHint, thirdElement)
-    } catch (e) {
-      console.error('Error rendering navigation hint:', e)
-    }
-  }
 
   // Render media for current section
   mediaContainer.innerHTML = ''

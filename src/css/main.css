@@ -82,6 +82,12 @@
   z-index: 999999995;
   line-height: 1;
 }
+
+/* RTL: Move number display to left side */
+.calibration-trackDistance-check-viewingDistance-container.rtl {
+  right: auto;
+  left: 0;
+}
 .calibration-trackDistance-check-viewingDistance {
   font-size: 54vh;
   margin: 0;
@@ -134,6 +140,12 @@
   top: 0;
   bottom: 0;
   margin: auto;
+}
+
+/* RTL: Move instructions to right side */
+.calibration-instruction-left.rtl {
+  left: 50%;
+  right: 0;
 }
 
 .calibration-instruction h1 {

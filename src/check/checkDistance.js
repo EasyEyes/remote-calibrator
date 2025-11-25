@@ -112,6 +112,7 @@ const repositionVideoForCameraMonitoring = (
 
   const checkingOptions = calibrateTrackDistanceChecking
   let shouldPositionAtCamera = false
+  let shouldShowCross = false
 
   if (checkingOptions && typeof checkingOptions === 'string') {
     const optionsArray = checkingOptions
@@ -119,6 +120,7 @@ const repositionVideoForCameraMonitoring = (
       .split(',')
       .map(s => s.trim())
     shouldPositionAtCamera = optionsArray.includes('camera')
+    shouldShowCross = optionsArray.includes('tiltandswivel')
   }
 
   if (shouldPositionAtCamera) {
@@ -149,8 +151,12 @@ const repositionVideoForCameraMonitoring = (
       videoContainer.style.transform = 'none'
     }
 
-    // Add fixation cross centered on video
-    createFixationCrossOnVideo()
+    // Add fixation cross centered on video only if tiltandswivel is included
+    if (shouldShowCross) {
+      createFixationCrossOnVideo()
+    } else {
+      removeFixationCrossFromVideo()
+    }
   } else {
     // Default positioning (centered on screen)
     setDefaultVideoPosition(RC, videoContainer)
@@ -1414,6 +1420,12 @@ const checkSize = async (
         const instructionElement = document.querySelector(
           '.calibration-instruction',
         )
+        
+        // Add RTL class if language is RTL
+        if (RC.LD === RC._CONST.RTL && instructionElement) {
+          instructionElement.classList.add('rtl')
+        }
+        
         const video = document.getElementById('webgazerVideoContainer')
         if (instructionElement && video) {
           const videoRect = video.getBoundingClientRect()
@@ -1580,8 +1592,17 @@ const checkSize = async (
       // Remove fixation cross when not in camera mode
       removeFixationCrossFromVideo()
     } else {
-      // Re-create fixation cross when returning to camera mode
-      createFixationCrossOnVideo()
+      // Re-create fixation cross when returning to camera mode - only if tiltandswivel is included
+      const optionsArray = checkingOptions
+        .toLowerCase()
+        .split(',')
+        .map(s => s.trim())
+      const shouldShowCross = optionsArray.includes('tiltandswivel')
+      if (shouldShowCross) {
+        createFixationCrossOnVideo()
+      } else {
+        removeFixationCrossFromVideo()
+      }
     }
   }
 
@@ -1852,7 +1873,7 @@ const trackDistanceCheck = async (
     RC._removeBackground()
     RC.pauseNudger()
     createProgressBar(RC, calibrateTrackDistanceChecking)
-    createViewingDistanceDiv()
+    createViewingDistanceDiv(RC)
     RC.calibrateTrackDistanceMeasuredCm = []
     RC.calibrateTrackDistanceRequestedCm = []
     // Initialize IPD and requested distance arrays
@@ -2000,6 +2021,12 @@ const trackDistanceCheck = async (
       const instructionElement = document.querySelector(
         '.calibration-instruction',
       )
+      
+      // Add RTL class if language is RTL
+      if (RC.LD === RC._CONST.RTL && instructionElement) {
+        instructionElement.classList.add('rtl')
+      }
+      
       const video = document.getElementById('webgazerVideoContainer')
       if (instructionElement && video) {
         const videoRect = video.getBoundingClientRect()
@@ -2090,6 +2117,7 @@ const trackDistanceCheck = async (
                 onNext: handleNext,
               },
               lang: RC.language.value,
+              langDirection: RC.LD,
               phrases: phrases,
             })
           doRender()
@@ -2623,7 +2651,7 @@ const trackDistanceCheck = async (
 }
 
 // Function to create the div and start updating the value
-const createViewingDistanceDiv = () => {
+const createViewingDistanceDiv = (RC) => {
   // Check if the div already exists
   if (document.getElementById('viewing-distance-div')) {
     console.warn('Viewing distance div already exists.')
@@ -2635,6 +2663,11 @@ const createViewingDistanceDiv = () => {
     'calibration-trackDistance-check-viewingDistance-container'
   distanceContainer.className =
     'calibration-trackDistance-check-viewingDistance-container'
+  
+  // Add RTL class if language is RTL
+  if (RC.LD === RC._CONST.RTL) {
+    distanceContainer.className += ' rtl'
+  }
 
   // Create the div element
   const viewingDistanceDiv = document.createElement('p')

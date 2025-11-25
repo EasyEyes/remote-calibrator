@@ -3928,15 +3928,27 @@ export async function objectTest(RC, options, callback = undefined) {
   dontUseRulerColumn.id = 'dont-use-ruler-column'
   dontUseRulerColumn.style.position = 'fixed'
   dontUseRulerColumn.style.top = '12px'
-  dontUseRulerColumn.style.right = '12px'
   dontUseRulerColumn.style.zIndex = '999999999'
-  dontUseRulerColumn.style.textAlign = 'right'
   dontUseRulerColumn.style.whiteSpace = 'pre-line'
   dontUseRulerColumn.style.fontSize = '16pt'
   dontUseRulerColumn.style.lineHeight = '1.4'
   dontUseRulerColumn.style.display = 'none' // Hidden by default
   dontUseRulerColumn.style.width = '50vw'
   dontUseRulerColumn.style.maxWidth = '50vw'
+  
+  // Position and align based on language direction
+  if (RC.LD === RC._CONST.RTL) {
+    // RTL: position at top-left with left alignment
+    dontUseRulerColumn.style.left = '12px'
+    dontUseRulerColumn.style.right = 'auto'
+    dontUseRulerColumn.style.textAlign = 'left'
+  } else {
+    // LTR: position at top-right with right alignment
+    dontUseRulerColumn.style.right = '12px'
+    dontUseRulerColumn.style.left = 'auto'
+    dontUseRulerColumn.style.textAlign = 'right'
+  }
+  
   document.body.appendChild(dontUseRulerColumn)
 
   // Step-by-step instruction model and current index
@@ -3979,18 +3991,19 @@ export async function objectTest(RC, options, callback = undefined) {
         onNext: handleNext,
       },
       lang: RC.language.value,
+      langDirection: RC.LD,
       phrases: phrases,
     })
 
     // Show/Hide Ruler-Shift button based on step and measurement iteration
-    // First measurement (iteration 1): show after step index 5
-    // Subsequent measurements (iteration 2+): show after step index 3
+    // First measurement (iteration 1): show only at step index 5
+    // Subsequent measurements (iteration 2+): show only at step index 4
     if (currentPage === 2 && stepInstructionModel) {
       if (typeof rulerShiftButton !== 'undefined' && rulerShiftButton) {
         const isFirstMeasurement = measurementState.currentIteration === 1
-        const showAfterIndex = isFirstMeasurement ? 5 : 3
+        const showAtIndex = isFirstMeasurement ? 5 : 4
 
-        if (currentStepFlatIndex >= showAfterIndex) {
+        if (currentStepFlatIndex === showAtIndex) {
           rulerShiftButton.style.display = 'flex'
         } else {
           rulerShiftButton.style.display = 'none'
@@ -4685,6 +4698,8 @@ export async function objectTest(RC, options, callback = undefined) {
     e.preventDefault()
     e.stopPropagation()
     performRulerShift()
+    // Hide button after click
+    rulerShiftButton.style.display = 'none'
   })
 
   // Add button to container (only show on page 2)

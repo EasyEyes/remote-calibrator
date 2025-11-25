@@ -71,6 +71,13 @@
   align-self: center;
 }
 
+/* RTL: Flip alignment and padding for radio group */
+.rc-lang-rtl #custom-radio-group {
+  padding-left: 0;
+  padding-right: 1.75rem;
+  justify-content: right;
+}
+
 #custom-radio-group label {
   margin-right: 10px;
   display: flex;
@@ -78,10 +85,22 @@
   font-size: 1.4rem;
 }
 
+/* RTL: Flip margin for labels */
+.rc-lang-rtl #custom-radio-group label {
+  margin-right: 0;
+  margin-left: 10px;
+}
+
 /* input inside the label */
 #custom-radio-group input {
   width: auto;
   margin-right: 5px;
+}
+
+/* RTL: Flip margin for inputs */
+.rc-lang-rtl #custom-radio-group input {
+  margin-right: 0;
+  margin-left: 5px;
 }
 
 /* Camera selection popup specific positioning */
