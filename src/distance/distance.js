@@ -3149,6 +3149,29 @@ RemoteCalibrator.prototype.measureDistanceObject = async function (
   await objectTest(this, opts, callback)
 }
 
+RemoteCalibrator.prototype.measureDistanceKnown = async function (
+  options = {},
+  callback = undefined,
+) {
+  if (!this.checkInitialized()) return
+
+  const opts = Object.assign(
+    {
+      fullscreen: false,
+      repeatTesting: 1,
+      headline: `📏 ${phrases.RC_viewingDistanceTitle[this.L]}`,
+      description: phrases.RC_viewingDistanceIntroLiMethod[this.L],
+      showCancelButton: true,
+    },
+    options,
+  )
+
+  this.getFullscreen(opts.fullscreen)
+  blurAll()
+
+  await knownDistanceTest(this, opts, callback)
+}
+
 // Helper functions
 
 function _getDist(x, crossX, ppi) {
@@ -8371,6 +8394,1097 @@ export async function objectTest(RC, options, callback = undefined) {
   if (options.calibrateTrackDistanceCenterYourEyesBool) showPage(0)
   else showPage(2)
 }
+
+// ===================== KNOWN DISTANCE TEST SCHEME =====================
+// This function measures viewing distance using a known object length (credit card)
+// It skips the manual ruler measurement (pages 1-2) and goes straight to face mesh calibration
+export async function knownDistanceTest(RC, options, callback = undefined) {
+  RC._addBackground()
+
+  // ===================== PAGE STATE MANAGEMENT =====================
+  let currentPage = 3 // Start directly at page 3 (skip pages 1-2)
+  let savedMeasurementData = null
+  
+  // ===================== KNOWN DISTANCE (Credit Card Standard) =====================
+  const CREDIT_CARD_LENGTH_CM = 8.56 // Standard credit card length in cm
+  const knownObjectLengthCm = CREDIT_CARD_LENGTH_CM
+  
+  // ===================== MEASUREMENT STATE MANAGEMENT =====================
+  // Check how many measurements are requested (1 = page 3 only, 2+ = both pages with tolerance)
+  const measurementCount = Math.max(1, Math.floor(options.objectMeasurementCount || 1))
+  const useSinglePage = measurementCount === 1  // If 1, only use page 3
+  
+  console.log('=== Known Distance Test Configuration ===')
+  console.log('Measurement count (objectMeasurementCount):', measurementCount)
+  console.log('Mode:', useSinglePage ? 'Single Page (Page 3 only)' : 'Two Pages (Page 3 + 4 with tolerance)')
+  console.log('===========================================')
+  
+  const measurementState = {
+    totalIterations: measurementCount,
+    measurements: [],
+    rejectionCount: 0,
+    factorRejectionCount: 0,
+  }
+
+  const collectAllAssetUrls = () => {
+    const maps = [test_assetMap].filter(Boolean)
+    const urls = new Set()
+    maps.forEach(m => {
+      Object.values(m || {}).forEach(u => {
+        if (typeof u === 'string' && u) urls.add(u)
+      })
+    })
+    return Array.from(urls)
+  }
+
+  const buildInstructionMediaPreloadOrder = () => {
+    const allUrls = collectAllAssetUrls()
+    if (!allUrls.length) return []
+
+    const priorityKeys = [
+      'LL9',
+      'LL1',
+      'LL10',
+      'LL2',
+      'LL3',
+      'LL4',
+      'LL5',
+      'LL6',
+      'LL8',
+      'LL7',
+    ]
+    const seen = new Set()
+    const ordered = []
+
+    priorityKeys.forEach(key => {
+      const url = (test_assetMap && test_assetMap[key]) || null
+      if (url && allUrls.includes(url) && !seen.has(url)) {
+        ordered.push(url)
+        seen.add(url)
+      }
+    })
+
+    allUrls.forEach(url => {
+      if (!seen.has(url)) {
+        ordered.push(url)
+        seen.add(url)
+      }
+    })
+
+    return ordered
+  }
+
+  const preloadAllInstructionMedia = async () => {
+    const orderedUrls = buildInstructionMediaPreloadOrder()
+    console.log('orderedUrls...', orderedUrls)
+    if (!orderedUrls.length) return
+
+    const firstBlockingCount = 3
+    const firstBatch = orderedUrls.slice(0, firstBlockingCount)
+    const remaining = orderedUrls.slice(firstBlockingCount)
+
+    await Promise.all(firstBatch.map(fetchBlobOnce)).catch(error => {
+      console.error('error preloading initial media...', error)
+    })
+
+    if (remaining.length) {
+      if (!window.__eeInstructionMediaPreloaderPromise) {
+        window.__eeInstructionMediaPreloaderPromise = (async () => {
+          for (const url of remaining) {
+            try {
+              await fetchBlobOnce(url)
+            } catch (err) {
+              console.error('error preloading media url...', err)
+            }
+          }
+        })()
+      }
+    }
+  }
+
+  await preloadAllInstructionMedia()
+
+  // ===================== KNOWN DISTANCE TEST COMMON DATA =====================
+  const knownDistanceTestCommonData = {
+    objectLengthCm: knownObjectLengthCm,
+    method: 'knownDistance',
+    _calibrateTrackDistance: options.calibrateTrackDistance,
+    _calibrateTrackDistanceAllowedRangeCm:
+      options.calibrateTrackDistanceAllowedRangeCm,
+    _calibrateTrackDistanceAllowedRatio:
+      options.calibrateTrackDistanceAllowedRatio,
+    _calibrateTrackDistancePupil: options.calibrateTrackDistancePupil,
+    _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
+    _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+  }
+
+  // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
+  let viewingDistanceMeasurementCount = 0
+  let viewingDistanceTotalExpected = useSinglePage ? 1 : 2  // 1 page or 2 pages
+
+  // ===================== FACE MESH CALIBRATION SAMPLES =====================
+  let faceMeshSamplesPage3 = []
+  let faceMeshSamplesPage4 = []
+  let meshSamplesDuringPage3 = []
+  let meshSamplesDuringPage4 = []
+
+  // Helper to collect 5 samples of eye pixel distance using Face Mesh
+  async function collectFaceMeshSamples(RC, arr, ppi, meshSamples) {
+    arr.length = 0
+
+    for (let i = 0; i < 5; i++) {
+      try {
+        const pxDist = await measureIntraocularDistancePx(
+          RC,
+          options.calibrateTrackDistancePupil,
+          meshSamples,
+        )
+        if (pxDist && !isNaN(pxDist)) {
+          arr.push(pxDist)
+        } else {
+          arr.push(NaN)
+          console.warn(`Face Mesh measurement ${i + 1} failed, storing NaN`)
+        }
+      } catch (error) {
+        arr.push(NaN)
+        console.warn(`Face Mesh measurement ${i + 1} error:`, error)
+      }
+
+      await new Promise(res => setTimeout(res, 100))
+    }
+
+    const validSamples = arr.filter(sample => !isNaN(sample))
+    const failedSamples = arr.filter(sample => isNaN(sample))
+
+    console.log(
+      `Face Mesh samples collected: ${validSamples.length} valid, ${failedSamples.length} failed`,
+    )
+    console.log(
+      'All samples:',
+      arr.map(sample => (isNaN(sample) ? 'NaN' : sample.toFixed(2))),
+    )
+
+    if (arr.length !== 5) {
+      console.error(
+        `Expected 5 samples but got ${arr.length}. Padding with NaN.`,
+      )
+      while (arr.length < 5) {
+        arr.push(NaN)
+      }
+    }
+  }
+
+  // ===================== DRAWING THE KNOWN DISTANCE TEST UI =====================
+  let ppi = RC.screenPpi ? RC.screenPpi.value : 96 / 25.4
+  let pxPerMm = ppi / 25.4
+  const pxPerCm = ppi / 2.54
+
+  // ===================== ARROW INDICATORS FOR PAGES 3 & 4 =====================
+  const createArrowIndicators = targetXYPx => {
+    const arrowSizeCm = 3
+    const arrowSizePx = arrowSizeCm * pxPerCm
+    const lineThicknessPx = 3
+
+    const midlineY = window.innerHeight / 2
+    const leftArrowX = window.innerWidth / 3
+    const rightArrowX = (2 * window.innerWidth) / 3
+
+    const arrowContainer = document.createElement('div')
+    arrowContainer.id = 'known-distance-test-arrow-indicators'
+    arrowContainer.style.position = 'fixed'
+    arrowContainer.style.top = '0'
+    arrowContainer.style.left = '0'
+    arrowContainer.style.width = '100%'
+    arrowContainer.style.height = '100%'
+    arrowContainer.style.pointerEvents = 'none'
+    arrowContainer.style.zIndex = '999999998'
+
+    const createArrow = (fromX, fromY, toX, toY) => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      svg.style.position = 'absolute'
+      svg.style.top = '0'
+      svg.style.left = '0'
+      svg.style.width = '100%'
+      svg.style.height = '100%'
+      svg.style.overflow = 'visible'
+
+      const dx = toX - fromX
+      const dy = toY - fromY
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      const unitX = dx / distance
+      const unitY = dy / distance
+
+      const endX = fromX + unitX * arrowSizePx
+      const endY = fromY + unitY * arrowSizePx
+
+      const line = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'line',
+      )
+      line.setAttribute('x1', fromX)
+      line.setAttribute('y1', fromY)
+      line.setAttribute('x2', endX)
+      line.setAttribute('y2', endY)
+      line.setAttribute('stroke', 'black')
+      line.setAttribute('stroke-width', lineThicknessPx)
+      line.setAttribute('stroke-linecap', 'butt')
+      svg.appendChild(line)
+
+      const arrowheadLength = arrowSizePx * 0.35
+      const arrowheadAngle = 30 * (Math.PI / 180)
+      const angle = Math.atan2(dy, dx)
+
+      const leftWingX =
+        endX - arrowheadLength * Math.cos(angle - arrowheadAngle)
+      const leftWingY =
+        endY - arrowheadLength * Math.sin(angle - arrowheadAngle)
+      const leftWing = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'line',
+      )
+      leftWing.setAttribute('x1', endX)
+      leftWing.setAttribute('y1', endY)
+      leftWing.setAttribute('x2', leftWingX)
+      leftWing.setAttribute('y2', leftWingY)
+      leftWing.setAttribute('stroke', 'black')
+      leftWing.setAttribute('stroke-width', lineThicknessPx)
+      leftWing.setAttribute('stroke-linecap', 'butt')
+      svg.appendChild(leftWing)
+
+      const rightWingX =
+        endX - arrowheadLength * Math.cos(angle + arrowheadAngle)
+      const rightWingY =
+        endY - arrowheadLength * Math.sin(angle + arrowheadAngle)
+      const rightWing = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'line',
+      )
+      rightWing.setAttribute('x1', endX)
+      rightWing.setAttribute('y1', endY)
+      rightWing.setAttribute('x2', rightWingX)
+      rightWing.setAttribute('y2', rightWingY)
+      rightWing.setAttribute('stroke', 'black')
+      rightWing.setAttribute('stroke-width', lineThicknessPx)
+      rightWing.setAttribute('stroke-linecap', 'butt')
+      svg.appendChild(rightWing)
+
+      return svg
+    }
+
+    const leftArrow = createArrow(
+      leftArrowX,
+      midlineY,
+      targetXYPx[0],
+      targetXYPx[1],
+    )
+    arrowContainer.appendChild(leftArrow)
+
+    const rightArrow = createArrow(
+      rightArrowX,
+      midlineY,
+      targetXYPx[0],
+      targetXYPx[1],
+    )
+    arrowContainer.appendChild(rightArrow)
+
+    return arrowContainer
+  }
+
+  let arrowIndicators = null
+
+  let screenWidth = window.innerWidth
+  let screenHeight = window.innerHeight
+
+  const container = document.createElement('div')
+  container.style.position = 'fixed'
+  container.style.top = '0'
+  container.style.left = '0'
+  container.style.width = '100vw'
+  container.style.height = '100vh'
+  container.style.userSelect = 'none'
+  container.style.overflow = 'hidden'
+
+  // ===================== TITLE ROW =====================
+  const titleRow = document.createElement('div')
+  titleRow.style.display = 'flex'
+  titleRow.style.alignItems = 'baseline'
+  titleRow.style.gap = `${pxPerMm * 10}px`
+  titleRow.style.paddingInlineStart = '3rem'
+  titleRow.style.margin = '2rem 0 0rem 0'
+  titleRow.style.position = 'relative'
+  container.appendChild(titleRow)
+
+  const title = document.createElement('h1')
+  const totalPages = useSinglePage ? 1 : 2
+  const initialTitleText = phrases.RC_distanceTrackingN?.[RC.L]
+    .replace('[[N1]]', '1')
+    .replace('[[N2]]', totalPages.toString())
+  title.innerText = initialTitleText
+  title.style.whiteSpace = 'pre-line'
+  title.style.textAlign = 'start'
+  title.style.margin = '0'
+  title.dir = RC.LD.toLowerCase()
+  title.id = 'distance-tracking-title'
+  titleRow.appendChild(title)
+
+  // ===================== INSTRUCTIONS CONTAINER =====================
+  const instructionsContainer = document.createElement('div')
+  instructionsContainer.style.display = 'flex'
+  instructionsContainer.style.flexDirection = 'row'
+  instructionsContainer.style.width = '100%'
+  instructionsContainer.style.gap = '0'
+  instructionsContainer.style.margin = '2rem 0 5rem 0'
+  instructionsContainer.style.position = 'relative'
+  instructionsContainer.style.zIndex = '3'
+  container.appendChild(instructionsContainer)
+
+  const instructionsUI = createStepInstructionsUI(instructionsContainer, {
+    leftWidth: '50%',
+    rightWidth: '50%',
+    leftPaddingStart: '3rem',
+    leftPaddingEnd: '1rem',
+    rightPaddingStart: '1rem',
+    rightPaddingEnd: '3rem',
+    fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
+    lineHeight: '1.4',
+  })
+  const leftInstructionsText = instructionsUI.leftText
+  const rightInstructionsText = instructionsUI.rightText
+  const rightInstructions = instructionsUI.rightColumn
+  const sectionMediaContainer = instructionsUI.mediaContainer
+
+  let stepInstructionModel = null
+  let currentStepFlatIndex = 0
+
+  const renderCurrentStepView = () => {
+    const maxIdx = (stepInstructionModel?.flatSteps?.length || 1) - 1
+
+    const handlePrev = () => {
+      if (currentStepFlatIndex > 0) {
+        currentStepFlatIndex--
+        renderCurrentStepView()
+      }
+    }
+
+    const handleNext = () => {
+      if (currentStepFlatIndex < maxIdx) {
+        currentStepFlatIndex++
+        renderCurrentStepView()
+      }
+    }
+
+    renderStepInstructions({
+      model: stepInstructionModel,
+      flatIndex: currentStepFlatIndex,
+      elements: {
+        leftText: leftInstructionsText,
+        rightText: rightInstructionsText,
+        mediaContainer: sectionMediaContainer,
+      },
+      options: {
+        calibrateTrackDistanceCheckBool:
+          options.calibrateTrackDistanceCheckBool,
+        thresholdFraction: 0.6,
+        useCurrentSectionOnly: true,
+        resolveMediaUrl: resolveInstructionMediaUrl,
+        stepperHistory: options.stepperHistory,
+        onPrev: handlePrev,
+        onNext: handleNext,
+      },
+      lang: RC.language.value,
+      langDirection: RC.LD,
+      phrases: phrases,
+    })
+  }
+
+  const reflowInstructionsOnResize = () => renderCurrentStepView()
+  window.addEventListener('resize', reflowInstructionsOnResize)
+
+  const handleInstructionNav = e => {
+    if (![3, 4].includes(currentPage) || !stepInstructionModel) return
+    if (e.key === 'ArrowDown') {
+      const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
+      if (currentStepFlatIndex < maxIdx) {
+        currentStepFlatIndex++
+        renderCurrentStepView()
+      }
+      e.preventDefault()
+      e.stopPropagation()
+    } else if (e.key === 'ArrowUp') {
+      if (currentStepFlatIndex > 0) {
+        currentStepFlatIndex--
+        renderCurrentStepView()
+      }
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+  document.addEventListener('keydown', handleInstructionNav)
+
+  // ===================== PAGE NAVIGATION FUNCTIONS =====================
+
+  const showPage = async pageNumber => {
+    currentPage = pageNumber
+
+    if (pageNumber === 3) {
+      // ===================== PAGE 3: VIDEO AT TOP CENTER =====================
+      console.log('=== SHOWING PAGE 3: VIDEO AT TOP CENTER ===')
+
+      viewingDistanceMeasurementCount++
+
+      title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
+        ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
+        ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+
+      console.log(
+        `Page 3 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
+      )
+
+      RC.showVideo(true)
+
+      const videoContainer = document.getElementById('webgazerVideoContainer')
+      if (videoContainer) {
+        setDefaultVideoPosition(RC, videoContainer)
+      }
+
+      try {
+        const p3Text = (phrases.RC_UseObjectToSetViewingDistanceCreditCardPage3?.[RC.L] || '') + ''
+        stepInstructionModel = parseInstructions(p3Text, { assetMap: test_assetMap })
+        currentStepFlatIndex = 0
+        renderCurrentStepView()
+      } catch (e) {
+        console.warn(
+          'Failed to parse step instructions for Page 3; using plain text',
+          e,
+        )
+        leftInstructionsText.textContent = phrases.RC_UseObjectToSetViewingDistanceCreditCardPage3[RC.L]
+      }
+
+      if (arrowIndicators) {
+        arrowIndicators.remove()
+      }
+      const cameraXYPx = [window.innerWidth / 2, 0]
+      arrowIndicators = createArrowIndicators(cameraXYPx)
+      RC.background.appendChild(arrowIndicators)
+      console.log('Arrow indicators added for page 3, pointing to top-center')
+
+      console.log(
+        '=== PAGE 3 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
+      )
+    } else if (pageNumber === 4) {
+      // ===================== PAGE 4: VIDEO AT TOP CENTER (SAME AS PAGE 3) =====================
+      console.log('=== SHOWING PAGE 4: VIDEO AT TOP CENTER ===')
+
+      viewingDistanceMeasurementCount++
+
+      title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
+        ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
+        ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+
+      console.log(
+        `Page 4 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
+      )
+
+      RC.showVideo(true)
+
+      // Position video at TOP CENTER (same as page 3) instead of lower right
+      const videoContainer = document.getElementById('webgazerVideoContainer')
+      if (videoContainer) {
+        setDefaultVideoPosition(RC, videoContainer)
+      }
+
+      // Use the same instructions as page 3 for now (duplicate as requested)
+      try {
+        const p4Text = (phrases.RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4?.[RC.L] || '') + ''
+        stepInstructionModel = parseInstructions(p4Text, { assetMap: test_assetMap })
+        currentStepFlatIndex = 0
+        renderCurrentStepView()
+      } catch (e) {
+        console.warn(
+          'Failed to parse step instructions for Page 4; using plain text',
+          e,
+        )
+        leftInstructionsText.textContent = phrases.RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4[RC.L]
+      }
+
+      // Point arrows to TOP CENTER (same as page 3)
+      if (arrowIndicators) {
+        arrowIndicators.remove()
+      }
+      const cameraXYPx = [window.innerWidth / 2, 0]
+      arrowIndicators = createArrowIndicators(cameraXYPx)
+      RC.background.appendChild(arrowIndicators)
+      console.log(
+        'Arrow indicators added for page 4, pointing to top-center',
+      )
+
+      console.log(
+        '=== PAGE 4 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
+      )
+    }
+  }
+
+  const nextPage = async () => {
+    if (currentPage === 3) {
+      await showPage(4)
+    } else if (currentPage === 4) {
+      // ===================== FINISH KNOWN DISTANCE TEST =====================
+      console.log('=== FINISHING KNOWN DISTANCE TEST ===')
+
+      if (savedMeasurementData) {
+        console.log('Using saved measurement data:', savedMeasurementData)
+
+        measureIntraocularDistanceCm(
+          RC,
+          ppi,
+          options.calibrateTrackDistancePupil,
+        ).then(intraocularDistanceCm => {
+          if (intraocularDistanceCm) {
+            console.log(
+              'Measured intraocular distance (cm):',
+              intraocularDistanceCm,
+            )
+            savedMeasurementData.intraocularDistanceCm = intraocularDistanceCm
+          } else {
+            console.warn('Could not measure intraocular distance.')
+          }
+        })
+
+        RC.newKnownDistanceTestData = savedMeasurementData
+        RC.newViewingDistanceData = savedMeasurementData
+
+        document.removeEventListener('keydown', handleKeyPress)
+
+        RC._removeBackground()
+
+        if (typeof callback === 'function') {
+          callback(savedMeasurementData)
+        }
+      } else {
+        console.error('No measurement data found!')
+      }
+    }
+  }
+
+  // ===================== KNOWN DISTANCE TEST FINISH FUNCTION =====================
+  const knownDistanceTestFinishFunction = async () => {
+    document.removeEventListener('keydown', handleKeyPress)
+    document.removeEventListener('keyup', handleKeyPress)
+
+    if (arrowIndicators) {
+      arrowIndicators.remove()
+      arrowIndicators = null
+    }
+
+    if (!RC.gazeTracker.checkInitialized('distance')) {
+      RC.gazeTracker._init(
+        {
+          toFixedN: 1,
+          showVideo: true,
+          showFaceOverlay: false,
+        },
+        'distance',
+      )
+    }
+
+    // ===================== CREATE MEASUREMENT DATA OBJECT =====================
+    const data = {
+      value: toFixedNumber(knownObjectLengthCm, 1),
+      timestamp: performance.now(),
+      method: 'knownDistance',
+      raw: {
+        knownObjectLengthCm: knownObjectLengthCm,
+        ppi: ppi,
+      },
+      intraocularDistanceCm: null,
+      faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+        isNaN(sample) ? sample : Math.round(sample),
+      ),
+      faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
+        isNaN(sample) ? sample : Math.round(sample),
+      ),
+    }
+
+    // ===================== CALCULATE CALIBRATION FACTORS =====================
+    const validPage3Samples = faceMeshSamplesPage3.filter(
+      sample => !isNaN(sample),
+    )
+    const validPage4Samples = faceMeshSamplesPage4.filter(
+      sample => !isNaN(sample),
+    )
+
+    const page3Average = validPage3Samples.length
+      ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+      : 0
+    const page4Average = validPage4Samples.length
+      ? validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
+      : 0
+
+    const distance1FactorCmPx = page3Average * knownObjectLengthCm
+    RC.page3FactorCmPx = distance1FactorCmPx
+
+    // For page 4, since we're using top center (same as page 3), use simple calculation
+    const distance2FactorCmPx = page4Average * knownObjectLengthCm
+    RC.page4FactorCmPx = distance2FactorCmPx
+
+    const averageFactorCmPx = Math.round(
+      (distance1FactorCmPx + distance2FactorCmPx) / 2,
+    )
+
+    console.log('=== Known Distance Test Calibration Factors ===')
+    console.log('Known object distance:', data.value, 'cm')
+    console.log('Page 3 valid samples:', validPage3Samples.length, '/ 5')
+    console.log('Page 4 valid samples:', validPage4Samples.length, '/ 5')
+    console.log('Page 3 average Face Mesh:', page3Average, 'px')
+    console.log('Page 4 average Face Mesh:', page4Average, 'px')
+    console.log('Page 3 calibration factor:', distance1FactorCmPx)
+    console.log('Page 4 calibration factor:', distance2FactorCmPx)
+    console.log('Average calibration factor:', averageFactorCmPx)
+    console.log('==============================================')
+
+    data.calibrationFactor = averageFactorCmPx
+    data.distance1FactorCmPx = distance1FactorCmPx
+    data.distance2FactorCmPx = distance2FactorCmPx
+    data.viewingDistanceByKnownObject1Cm = data.value
+    data.viewingDistanceByKnownObject2Cm = data.value
+
+    data.page3Average = page3Average
+    data.page4Average = page4Average
+
+    RC.newKnownDistanceTestData = data
+    RC.newViewingDistanceData = data
+
+    if (options.calibrateTrackDistanceCheckBool) {
+      await RC._checkDistance(
+        callback,
+        data,
+        'trackDistance',
+        options.checkCallback,
+        options.calibrateTrackDistanceCheckCm,
+        options.callbackStatic,
+        options.calibrateTrackDistanceCheckSecs,
+        options.calibrateTrackDistanceCheckLengthCm,
+        options.calibrateTrackDistanceCenterYourEyesBool,
+        options.calibrateTrackDistancePupil,
+        options.calibrateTrackDistanceChecking,
+        options.calibrateTrackDistanceSpotXYDeg,
+        options.calibrateTrackDistance,
+        options.stepperHistory,
+      )
+    } else {
+      if (typeof callback === 'function') {
+        callback(data)
+      }
+    }
+
+    RC._removeBackground()
+  }
+
+  const cleanupKnownDistanceTest = () => {
+    document.removeEventListener('keydown', handleKeyPress)
+    document.removeEventListener('keyup', handleKeyPress)
+    document.removeEventListener('keydown', handleInstructionNav)
+
+    if (removeKeypadHandler) {
+      removeKeypadHandler()
+    }
+
+    if (typeof reflowInstructionsOnResize === 'function') {
+      window.removeEventListener('resize', reflowInstructionsOnResize)
+    }
+
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container)
+    }
+
+    RC._removeBackground()
+  }
+
+  const breakFunction = () => {
+    document.removeEventListener('keydown', handleKeyPress)
+    document.removeEventListener('keyup', handleKeyPress)
+    document.removeEventListener('keydown', handleInstructionNav)
+
+    knownDistanceTest(RC, options, callback)
+  }
+
+  // ===================== KEYPAD HANDLER =====================
+  let removeKeypadHandler = setUpEasyEyesKeypadHandler(
+    null,
+    RC.keypadHandler,
+    () => {
+      // Trigger space key action on Return
+      const spaceEvent = new KeyboardEvent('keydown', { key: ' ' })
+      document.dispatchEvent(spaceEvent)
+    },
+    false,
+    ['return'],
+    RC,
+  )
+
+  let lastCapturedFaceImage = null
+
+  // ===================== KEYBOARD EVENT HANDLER =====================
+  const handleKeyPress = e => {
+    if (e.key === ' ') {
+      if (currentPage === 3 || currentPage === 4) {
+        e.preventDefault()
+
+        if ((currentPage === 3 || currentPage === 4) && !irisTrackingIsActive) {
+          console.log('Iris tracking not active - ignoring space bar')
+          return
+        }
+
+        document.removeEventListener('keydown', handleKeyPress)
+
+        if (currentPage === 3 || currentPage === 4) {
+          if (env !== 'mocha' && cameraShutterSound) {
+            cameraShutterSound()
+          }
+        }
+
+        if (currentPage === 3 || currentPage === 4) {
+          lastCapturedFaceImage = captureVideoFrame(RC)
+        }
+
+        if (currentPage === 3) {
+          ;(async () => {
+            console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
+
+            await collectFaceMeshSamples(
+              RC,
+              faceMeshSamplesPage3,
+              ppi,
+              meshSamplesDuringPage3,
+            )
+            console.log(
+              'Face Mesh calibration samples (page 3):',
+              faceMeshSamplesPage3,
+            )
+
+            const validSamples = faceMeshSamplesPage3.filter(
+              sample => !isNaN(sample),
+            )
+            if (
+              validSamples.length < 5 ||
+              faceMeshSamplesPage3.some(sample => isNaN(sample))
+            ) {
+              const capturedImage = lastCapturedFaceImage
+
+              const result = await Swal.fire({
+                ...swalInfoOptions(RC, { showIcon: false }),
+                title: phrases.RC_FaceBlocked[RC.L],
+                html: `<div style="text-align: center;">
+                    <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
+                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
+                   </div>`,
+                confirmButtonText: phrases.EE_ok[RC.L],
+                allowEnterKey: true,
+              })
+
+              console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 3 ===')
+              lastCapturedFaceImage = null
+              document.addEventListener('keydown', handleKeyPress)
+            } else {
+              // Check if we should finish after page 3 only (single page mode)
+              if (useSinglePage) {
+                console.log(
+                  '=== ALL 5 FACE MESH SAMPLES VALID - FINISHING (SINGLE PAGE MODE) ===',
+                )
+                
+                // Calculate calibration factor using only page 3 data
+                const validPage3Samples = faceMeshSamplesPage3.filter(
+                  sample => !isNaN(sample),
+                )
+                const page3Average = validPage3Samples.length
+                  ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+                  : 0
+                
+                const calibrationFactorSinglePage = page3Average * knownObjectLengthCm
+                RC.page3FactorCmPx = calibrationFactorSinglePage
+                
+                // Build complete data object (same structure as dual page mode)
+                const singlePageData = {
+                  value: toFixedNumber(knownObjectLengthCm, 1),
+                  timestamp: performance.now(),
+                  method: 'knownDistance',
+                  intraocularDistanceCm: null,
+                  faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+                    isNaN(sample) ? sample : Math.round(sample),
+                  ),
+                  faceMeshSamplesPage4: [],  // Empty for single page
+                  calibrationFactor: Math.round(calibrationFactorSinglePage),
+                  distance1FactorCmPx: calibrationFactorSinglePage,
+                  distance2FactorCmPx: null,  // Not used in single page mode
+                  viewingDistanceByKnownObject1Cm: toFixedNumber(knownObjectLengthCm, 1),
+                  viewingDistanceByKnownObject2Cm: null,
+                  page3Average: page3Average,
+                  page4Average: null,  // Not used in single page mode
+                  raw: {
+                    knownObjectLengthCm: knownObjectLengthCm,
+                    ppi: ppi,
+                  },
+                }
+                
+                console.log('=== Single Page Mode Calibration ===')
+                console.log('Known object distance:', knownObjectLengthCm, 'cm')
+                console.log('Page 3 valid samples:', validPage3Samples.length, '/ 5')
+                console.log('Page 3 average Face Mesh:', page3Average, 'px')
+                console.log('Calibration factor:', Math.round(calibrationFactorSinglePage))
+                console.log('====================================')
+                
+                // Measure intraocular distance
+                measureIntraocularDistanceCm(
+                  RC,
+                  ppi,
+                  options.calibrateTrackDistancePupil,
+                ).then(intraocularDistanceCm => {
+                  if (intraocularDistanceCm) {
+                    singlePageData.intraocularDistanceCm = intraocularDistanceCm
+                  }
+                })
+                
+                // Store data in RC (same as dual page mode)
+                RC.newKnownDistanceTestData = singlePageData
+                RC.newViewingDistanceData = singlePageData
+                
+                // Clean up keyboard listener
+                document.removeEventListener('keydown', handleKeyPress)
+                
+                // Follow the SAME finish pattern as dual page mode
+                if (options.calibrateTrackDistanceCheckBool) {
+                  // Call _checkDistance (same as knownDistanceTestFinishFunction)
+                  await RC._checkDistance(
+                    callback,
+                    singlePageData,
+                    'trackDistance',
+                    options.checkCallback,
+                    options.calibrateTrackDistanceCheckCm,
+                    options.callbackStatic,
+                    options.calibrateTrackDistanceCheckSecs,
+                    options.calibrateTrackDistanceCheckLengthCm,
+                    options.calibrateTrackDistanceCenterYourEyesBool,
+                    options.calibrateTrackDistancePupil,
+                    options.calibrateTrackDistanceChecking,
+                    options.calibrateTrackDistanceSpotXYDeg,
+                    options.calibrateTrackDistance,
+                    options.stepperHistory,
+                  )
+                } else {
+                  // Call callback directly (same as knownDistanceTestFinishFunction)
+                  if (typeof callback === 'function') {
+                    callback(singlePageData)
+                  }
+                }
+                
+                // Clean up background (same as knownDistanceTestFinishFunction)
+                RC._removeBackground()
+                
+                lastCapturedFaceImage = null
+              } else {
+                console.log(
+                  '=== ALL 5 FACE MESH SAMPLES VALID - CONTINUING TO PAGE 4 ===',
+                )
+                
+                // Save measurement data before moving to page 4
+                savedMeasurementData = {
+                  value: toFixedNumber(knownObjectLengthCm, 1),
+                  timestamp: performance.now(),
+                  method: 'knownDistance',
+                  intraocularDistanceCm: null,
+                  faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+                    isNaN(sample) ? sample : Math.round(sample),
+                  ),
+                  faceMeshSamplesPage4: [],
+                  raw: {
+                    knownObjectLengthCm: knownObjectLengthCm,
+                    ppi: ppi,
+                  },
+                }
+                
+                await nextPage()
+                lastCapturedFaceImage = null
+
+                document.addEventListener('keydown', handleKeyPress)
+              }
+            }
+          })()
+        } else if (currentPage === 4) {
+          ;(async () => {
+            console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
+
+            await collectFaceMeshSamples(
+              RC,
+              faceMeshSamplesPage4,
+              ppi,
+              meshSamplesDuringPage4,
+            )
+            console.log(
+              'Face Mesh calibration samples (page 4):',
+              faceMeshSamplesPage4,
+            )
+
+            const validSamples = faceMeshSamplesPage4.filter(
+              sample => !isNaN(sample),
+            )
+            if (
+              validSamples.length < 5 ||
+              faceMeshSamplesPage4.some(sample => isNaN(sample))
+            ) {
+              const capturedImage = lastCapturedFaceImage
+
+              const result = await Swal.fire({
+                ...swalInfoOptions(RC, { showIcon: false }),
+                title: phrases.RC_FaceBlocked[RC.L],
+                html: `<div style="text-align: center;">
+                    <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
+                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
+                   </div>`,
+                confirmButtonText: phrases.EE_ok[RC.L],
+                allowEnterKey: true,
+              })
+
+              console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 4 ===')
+              lastCapturedFaceImage = null
+              document.addEventListener('keydown', handleKeyPress)
+            } else {
+              console.log(
+                '=== ALL 5 FACE MESH SAMPLES VALID - CALCULATING FACTORS ===',
+              )
+
+              const validPage3Samples = faceMeshSamplesPage3.filter(
+                sample => !isNaN(sample),
+              )
+              const validPage4Samples = faceMeshSamplesPage4.filter(
+                sample => !isNaN(sample),
+              )
+              const page3Average = validPage3Samples.length
+                ? validPage3Samples.reduce((a, b) => a + b, 0) /
+                  validPage3Samples.length
+                : 0
+              const page4Average = validPage4Samples.length
+                ? validPage4Samples.reduce((a, b) => a + b, 0) /
+                  validPage4Samples.length
+                : 0
+
+              const page3FactorCmPx = page3Average * knownObjectLengthCm
+              RC.page3FactorCmPx = page3FactorCmPx
+
+              // Since page 4 uses top center (same as page 3), use simple calculation
+              const page4FactorCmPx = page4Average * knownObjectLengthCm
+              RC.page4FactorCmPx = page4FactorCmPx
+              
+              RC.averageKnownDistanceTestCalibrationFactor = Math.round(
+                Math.sqrt(page3FactorCmPx * page4FactorCmPx),
+              )
+
+              console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')
+              const [
+                pass,
+                message,
+                min,
+                max,
+                RMin,
+                RMax,
+                maxRatio,
+                factorRatio,
+              ] = checkObjectTestTolerance(
+                RC,
+                faceMeshSamplesPage3,
+                faceMeshSamplesPage4,
+                options.calibrateTrackDistanceAllowedRatio,
+                options.calibrateTrackDistanceAllowedRangeCm,
+                knownObjectLengthCm,
+                page3FactorCmPx,
+                page4FactorCmPx,
+              )
+              if (RC.measurementHistory && message !== 'Pass')
+                RC.measurementHistory.push(message)
+              else if (message !== 'Pass') RC.measurementHistory = [message]
+
+              if (pass) {
+                console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
+
+                // Update saved measurement data with page 4 samples
+                savedMeasurementData.faceMeshSamplesPage4 = faceMeshSamplesPage4.map(sample =>
+                  isNaN(sample) ? sample : Math.round(sample),
+                )
+
+                await knownDistanceTestFinishFunction()
+                lastCapturedFaceImage = null
+              } else {
+                console.log('=== TOLERANCE CHECK FAILED - RESTARTING ===')
+                
+                // Calculate display values (same as object test)
+                const ipdpxRatio = Math.sqrt(
+                  faceMeshSamplesPage3[0] / faceMeshSamplesPage4[0],
+                )
+                const newMin = min.toFixed(1) * ipdpxRatio
+                const newMax = max.toFixed(1) / ipdpxRatio
+                const ratioText = factorRatio.toFixed(2) // Use factorRatio (F1/F2) for display
+                
+                // Use proper phrases (same as object test)
+                let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
+                  .replace('[[N11]]', ratioText)
+                  .replace('[[N22]]', '')
+                const reasonIsOutOfRange = message.includes(
+                  'out of allowed range',
+                )
+                if (reasonIsOutOfRange) {
+                  displayMessage = phrases.RC_viewingExceededRange[RC.L]
+                    .replace('[[N11]]', Math.round(newMin))
+                    .replace('[[N22]]', Math.round(newMax))
+                    .replace('[[N33]]', Math.round(RMin))
+                    .replace('[[N44]]', Math.round(RMax))
+                }
+                
+                // Show error message
+                await Swal.fire({
+                  ...swalInfoOptions(RC, { showIcon: false }),
+                  icon: undefined,
+                  html: displayMessage,
+                  allowEnterKey: true,
+                  confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
+                })
+
+                // Show pause
+                measurementState.factorRejectionCount++
+                await showPauseBeforeNewObject(RC, measurementState.factorRejectionCount)
+
+                // Reset and restart from page 3
+                faceMeshSamplesPage3.length = 0
+                faceMeshSamplesPage4.length = 0
+                meshSamplesDuringPage3.length = 0
+                meshSamplesDuringPage4.length = 0
+                savedMeasurementData = null
+                viewingDistanceMeasurementCount = 0
+
+                await showPage(3)
+                document.addEventListener('keydown', handleKeyPress)
+              }
+            }
+          })()
+        }
+      }
+    }
+  }
+
+  // ===================== ADD TO BACKGROUND =====================
+  RC._replaceBackground('')
+  RC.background.appendChild(container)
+
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  if (videoContainer) {
+    setDefaultVideoPosition(RC, videoContainer)
+  }
+
+  // ===================== INITIALIZE PAGE 3 =====================
+  showPage(3)
+
+  // Add keyboard event listener
+  document.addEventListener('keydown', handleKeyPress)
+}
+
 // ===================== FACE TRACKING VALIDATION =====================
 // This function checks if face tracking can return valid eye positions
 // Returns true if face mesh data is available and eye positions are valid
@@ -8558,6 +9672,43 @@ RemoteCalibrator.prototype.trackDistanceObject = function (
         {
           ...options,
           useObjectTestData: true,
+          showVideo: true,
+          desiredDistanceMonitor: true,
+        },
+        callbackStatic,
+        callbackTrack,
+      )
+    },
+  )
+}
+
+// ===================== KNOWN DISTANCE TEST TRACKING =====================
+// This function combines known distance test measurement with distance tracking
+// It's the main function that:
+// 1. Gets a reference point using the known distance test (credit card)
+// 2. Uses that reference point to start Face Mesh tracking
+RemoteCalibrator.prototype.trackDistanceKnown = function (
+  options = {},
+  callbackStatic = undefined,
+  callbackTrack = undefined,
+) {
+  if (!this.checkInitialized()) return
+
+  // First measure distance using known distance test
+  // This gives us our reference point for Face Mesh
+  this.measureDistanceKnown(
+    {
+      fullscreen: true,
+      showVideo: true,
+      ...options,
+    },
+    measurementData => {
+      // Then start tracking using the known distance test data
+      // This tells Face Mesh "this is what the facial landmarks look like at this distance"
+      this.trackDistance(
+        {
+          ...options,
+          useKnownDistanceTestData: true,
           showVideo: true,
           desiredDistanceMonitor: true,
         },

@@ -4,6 +4,7 @@ import {
   _getEyeToCameraCm,
   blindSpotTestNew,
   getLeftAndRightEyePointsFromMeshData,
+  knownDistanceTest,
   objectLengthCmGlobal,
   objectTest,
   solveEyeToScreenCm,
@@ -353,7 +354,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
       )
       // First run object test
       await objectTest(this, options, getStdDist)
-    } else if (options.useObjectTestData) {
+    } else if (options.useObjectTestData === 'creditCard') {
+      // Call knownDistanceTest directly for calibration
+      await knownDistanceTest(this, options, getStdDist)
+    }  
+    else if (options.useObjectTestData) {
       console.log('=== Starting Object Test Only ===')
       console.log('This will use object test calibration factor for tracking')
       // Call objectTest directly for calibration
