@@ -3795,12 +3795,16 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Phrase key mapping for distance.js: bypass test_phrases timing issue
     const phraseKeyMapping = {
-      RC_UseObjectToSetViewingDistanceTapePage1_MD: 'RC_UseObjectToSetViewingDistanceTapeStepperPage1',
-      RC_UseObjectToSetViewingDistanceRulerPage1_MD: 'RC_UseObjectToSetViewingDistanceRulerStepperPage1',
-      RC_UseObjectToSetViewingDistanceTapePage2_MD: 'RC_UseObjectToSetViewingDistanceTapeStepperPage2',
-      RC_UseObjectToSetViewingDistanceRulerPage2_MD: 'RC_UseObjectToSetViewingDistanceRulerStepperPage2',
+      RC_UseObjectToSetViewingDistanceTapePage1_MD:
+        'RC_UseObjectToSetViewingDistanceTapeStepperPage1',
+      RC_UseObjectToSetViewingDistanceRulerPage1_MD:
+        'RC_UseObjectToSetViewingDistanceRulerStepperPage1',
+      RC_UseObjectToSetViewingDistanceTapePage2_MD:
+        'RC_UseObjectToSetViewingDistanceTapeStepperPage2',
+      RC_UseObjectToSetViewingDistanceRulerPage2_MD:
+        'RC_UseObjectToSetViewingDistanceRulerStepperPage2',
     }
-    
+
     // Use different phrase for first measurement vs subsequent measurements
     // Use Markdown versions (with _MD suffix)
     const phraseKey =
@@ -3822,7 +3826,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Parse with new Markdown parser adapter (auto-detects format)
     try {
-      stepInstructionModel = parseInstructions(chosenText, { assetMap: test_assetMap })
+      stepInstructionModel = parseInstructions(chosenText, {
+        assetMap: test_assetMap,
+      })
       currentStepFlatIndex = 0
       currentInstructionText = chosenText
 
@@ -3958,7 +3964,7 @@ export async function objectTest(RC, options, callback = undefined) {
   dontUseRulerColumn.style.display = 'none' // Hidden by default
   dontUseRulerColumn.style.width = '50vw'
   dontUseRulerColumn.style.maxWidth = '50vw'
-  
+
   // Position and align based on language direction
   if (RC.LD === RC._CONST.RTL) {
     // RTL: position at top-left with left alignment
@@ -3971,7 +3977,7 @@ export async function objectTest(RC, options, callback = undefined) {
     dontUseRulerColumn.style.left = 'auto'
     dontUseRulerColumn.style.textAlign = 'right'
   }
-  
+
   document.body.appendChild(dontUseRulerColumn)
 
   // Step-by-step instruction model and current index
@@ -5715,8 +5721,11 @@ export async function objectTest(RC, options, callback = undefined) {
       // Update instructions using step-by-step renderer with Markdown
       try {
         // Bypass test_phrases, use phrases directly
-        const p3Text = (phrases.RC_UseObjectToSetViewingDistancePage3?.[RC.L] || '') + ''
-        stepInstructionModel = parseInstructions(p3Text, { assetMap: test_assetMap })
+        const p3Text =
+          (phrases.RC_UseObjectToSetViewingDistancePage3?.[RC.L] || '') + ''
+        stepInstructionModel = parseInstructions(p3Text, {
+          assetMap: test_assetMap,
+        })
         currentStepFlatIndex = 0
         renderCurrentStepView()
       } catch (e) {
@@ -5814,8 +5823,12 @@ export async function objectTest(RC, options, callback = undefined) {
       // Update instructions using step-by-step renderer with Markdown
       try {
         // Bypass test_phrases, use phrases directly
-        const p4Text = (phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4?.[RC.L] || '') + ''
-        stepInstructionModel = parseInstructions(p4Text, { assetMap: test_assetMap })
+        const p4Text =
+          (phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4?.[RC.L] ||
+            '') + ''
+        stepInstructionModel = parseInstructions(p4Text, {
+          assetMap: test_assetMap,
+        })
         currentStepFlatIndex = 0
         renderCurrentStepView()
       } catch (e) {
@@ -8404,21 +8417,29 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   // ===================== PAGE STATE MANAGEMENT =====================
   let currentPage = 3 // Start directly at page 3 (skip pages 1-2)
   let savedMeasurementData = null
-  
+
   // ===================== KNOWN DISTANCE (Credit Card Standard) =====================
   const CREDIT_CARD_LENGTH_CM = 8.56 // Standard credit card length in cm
   const knownObjectLengthCm = CREDIT_CARD_LENGTH_CM
-  
+
   // ===================== MEASUREMENT STATE MANAGEMENT =====================
   // Check how many measurements are requested (1 = page 3 only, 2+ = both pages with tolerance)
-  const measurementCount = Math.max(1, Math.floor(options.objectMeasurementCount || 1))
-  const useSinglePage = measurementCount === 1  // If 1, only use page 3
-  
+  const measurementCount = Math.max(
+    1,
+    Math.floor(options.objectMeasurementCount || 1),
+  )
+  const useSinglePage = measurementCount === 1 // If 1, only use page 3
+
   console.log('=== Known Distance Test Configuration ===')
   console.log('Measurement count (objectMeasurementCount):', measurementCount)
-  console.log('Mode:', useSinglePage ? 'Single Page (Page 3 only)' : 'Two Pages (Page 3 + 4 with tolerance)')
+  console.log(
+    'Mode:',
+    useSinglePage
+      ? 'Single Page (Page 3 only)'
+      : 'Two Pages (Page 3 + 4 with tolerance)',
+  )
   console.log('===========================================')
-  
+
   const measurementState = {
     totalIterations: measurementCount,
     measurements: [],
@@ -8520,7 +8541,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
   let viewingDistanceMeasurementCount = 0
-  let viewingDistanceTotalExpected = useSinglePage ? 1 : 2  // 1 page or 2 pages
+  let viewingDistanceTotalExpected = useSinglePage ? 1 : 2 // 1 page or 2 pages
 
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   let faceMeshSamplesPage3 = []
@@ -8848,8 +8869,12 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       }
 
       try {
-        const p3Text = (phrases.RC_UseObjectToSetViewingDistanceCreditCardPage3?.[RC.L] || '') + ''
-        stepInstructionModel = parseInstructions(p3Text, { assetMap: test_assetMap })
+        const p3Text =
+          (phrases.RC_UseObjectToSetViewingDistanceCreditCardPage3?.[RC.L] ||
+            '') + ''
+        stepInstructionModel = parseInstructions(p3Text, {
+          assetMap: test_assetMap,
+        })
         currentStepFlatIndex = 0
         renderCurrentStepView()
       } catch (e) {
@@ -8857,7 +8882,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
           'Failed to parse step instructions for Page 3; using plain text',
           e,
         )
-        leftInstructionsText.textContent = phrases.RC_UseObjectToSetViewingDistanceCreditCardPage3[RC.L]
+        leftInstructionsText.textContent =
+          phrases.RC_UseObjectToSetViewingDistanceCreditCardPage3[RC.L]
       }
 
       if (arrowIndicators) {
@@ -8895,8 +8921,13 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
 
       // Use the same instructions as page 3 for now (duplicate as requested)
       try {
-        const p4Text = (phrases.RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4?.[RC.L] || '') + ''
-        stepInstructionModel = parseInstructions(p4Text, { assetMap: test_assetMap })
+        const p4Text =
+          (phrases.RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4?.[
+            RC.L
+          ] || '') + ''
+        stepInstructionModel = parseInstructions(p4Text, {
+          assetMap: test_assetMap,
+        })
         currentStepFlatIndex = 0
         renderCurrentStepView()
       } catch (e) {
@@ -8904,7 +8935,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
           'Failed to parse step instructions for Page 4; using plain text',
           e,
         )
-        leftInstructionsText.textContent = phrases.RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4[RC.L]
+        leftInstructionsText.textContent =
+          phrases.RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4[RC.L]
       }
 
       // Point arrows to TOP CENTER (same as page 3)
@@ -8914,9 +8946,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       const cameraXYPx = [window.innerWidth / 2, 0]
       arrowIndicators = createArrowIndicators(cameraXYPx)
       RC.background.appendChild(arrowIndicators)
-      console.log(
-        'Arrow indicators added for page 4, pointing to top-center',
-      )
+      console.log('Arrow indicators added for page 4, pointing to top-center')
 
       console.log(
         '=== PAGE 4 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
@@ -9191,18 +9221,20 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 console.log(
                   '=== ALL 5 FACE MESH SAMPLES VALID - FINISHING (SINGLE PAGE MODE) ===',
                 )
-                
+
                 // Calculate calibration factor using only page 3 data
                 const validPage3Samples = faceMeshSamplesPage3.filter(
                   sample => !isNaN(sample),
                 )
                 const page3Average = validPage3Samples.length
-                  ? validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
+                  ? validPage3Samples.reduce((a, b) => a + b, 0) /
+                    validPage3Samples.length
                   : 0
-                
-                const calibrationFactorSinglePage = page3Average * knownObjectLengthCm
+
+                const calibrationFactorSinglePage =
+                  page3Average * knownObjectLengthCm
                 RC.page3FactorCmPx = calibrationFactorSinglePage
-                
+
                 // Build complete data object (same structure as dual page mode)
                 const singlePageData = {
                   value: toFixedNumber(knownObjectLengthCm, 1),
@@ -9212,27 +9244,37 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
                     isNaN(sample) ? sample : Math.round(sample),
                   ),
-                  faceMeshSamplesPage4: [],  // Empty for single page
+                  faceMeshSamplesPage4: [], // Empty for single page
                   calibrationFactor: Math.round(calibrationFactorSinglePage),
                   distance1FactorCmPx: calibrationFactorSinglePage,
-                  distance2FactorCmPx: null,  // Not used in single page mode
-                  viewingDistanceByKnownObject1Cm: toFixedNumber(knownObjectLengthCm, 1),
+                  distance2FactorCmPx: null, // Not used in single page mode
+                  viewingDistanceByKnownObject1Cm: toFixedNumber(
+                    knownObjectLengthCm,
+                    1,
+                  ),
                   viewingDistanceByKnownObject2Cm: null,
                   page3Average: page3Average,
-                  page4Average: null,  // Not used in single page mode
+                  page4Average: null, // Not used in single page mode
                   raw: {
                     knownObjectLengthCm: knownObjectLengthCm,
                     ppi: ppi,
                   },
                 }
-                
+
                 console.log('=== Single Page Mode Calibration ===')
                 console.log('Known object distance:', knownObjectLengthCm, 'cm')
-                console.log('Page 3 valid samples:', validPage3Samples.length, '/ 5')
+                console.log(
+                  'Page 3 valid samples:',
+                  validPage3Samples.length,
+                  '/ 5',
+                )
                 console.log('Page 3 average Face Mesh:', page3Average, 'px')
-                console.log('Calibration factor:', Math.round(calibrationFactorSinglePage))
+                console.log(
+                  'Calibration factor:',
+                  Math.round(calibrationFactorSinglePage),
+                )
                 console.log('====================================')
-                
+
                 // Measure intraocular distance
                 measureIntraocularDistanceCm(
                   RC,
@@ -9243,14 +9285,14 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                     singlePageData.intraocularDistanceCm = intraocularDistanceCm
                   }
                 })
-                
+
                 // Store data in RC (same as dual page mode)
                 RC.newKnownDistanceTestData = singlePageData
                 RC.newViewingDistanceData = singlePageData
-                
+
                 // Clean up keyboard listener
                 document.removeEventListener('keydown', handleKeyPress)
-                
+
                 // Follow the SAME finish pattern as dual page mode
                 if (options.calibrateTrackDistanceCheckBool) {
                   // Call _checkDistance (same as knownDistanceTestFinishFunction)
@@ -9276,16 +9318,16 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                     callback(singlePageData)
                   }
                 }
-                
+
                 // Clean up background (same as knownDistanceTestFinishFunction)
                 RC._removeBackground()
-                
+
                 lastCapturedFaceImage = null
               } else {
                 console.log(
                   '=== ALL 5 FACE MESH SAMPLES VALID - CONTINUING TO PAGE 4 ===',
                 )
-                
+
                 // Save measurement data before moving to page 4
                 savedMeasurementData = {
                   value: toFixedNumber(knownObjectLengthCm, 1),
@@ -9301,7 +9343,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                     ppi: ppi,
                   },
                 }
-                
+
                 await nextPage()
                 lastCapturedFaceImage = null
 
@@ -9373,7 +9415,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
               // Since page 4 uses top center (same as page 3), use simple calculation
               const page4FactorCmPx = page4Average * knownObjectLengthCm
               RC.page4FactorCmPx = page4FactorCmPx
-              
+
               RC.averageKnownDistanceTestCalibrationFactor = Math.round(
                 Math.sqrt(page3FactorCmPx * page4FactorCmPx),
               )
@@ -9406,15 +9448,16 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
 
                 // Update saved measurement data with page 4 samples
-                savedMeasurementData.faceMeshSamplesPage4 = faceMeshSamplesPage4.map(sample =>
-                  isNaN(sample) ? sample : Math.round(sample),
-                )
+                savedMeasurementData.faceMeshSamplesPage4 =
+                  faceMeshSamplesPage4.map(sample =>
+                    isNaN(sample) ? sample : Math.round(sample),
+                  )
 
                 await knownDistanceTestFinishFunction()
                 lastCapturedFaceImage = null
               } else {
                 console.log('=== TOLERANCE CHECK FAILED - RESTARTING ===')
-                
+
                 // Calculate display values (same as object test)
                 const ipdpxRatio = Math.sqrt(
                   faceMeshSamplesPage3[0] / faceMeshSamplesPage4[0],
@@ -9422,7 +9465,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 const newMin = min.toFixed(1) * ipdpxRatio
                 const newMax = max.toFixed(1) / ipdpxRatio
                 const ratioText = factorRatio.toFixed(2) // Use factorRatio (F1/F2) for display
-                
+
                 // Use proper phrases (same as object test)
                 let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
                   .replace('[[N11]]', ratioText)
@@ -9437,7 +9480,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                     .replace('[[N33]]', Math.round(RMin))
                     .replace('[[N44]]', Math.round(RMax))
                 }
-                
+
                 // Show error message
                 await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
@@ -9449,7 +9492,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
 
                 // Show pause
                 measurementState.factorRejectionCount++
-                await showPauseBeforeNewObject(RC, measurementState.factorRejectionCount)
+                await showPauseBeforeNewObject(
+                  RC,
+                  measurementState.factorRejectionCount,
+                )
 
                 // Reset and restart from page 3
                 faceMeshSamplesPage3.length = 0
