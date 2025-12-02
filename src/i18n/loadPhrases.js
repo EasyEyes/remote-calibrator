@@ -9,9 +9,9 @@ const loadPhrases = async customizedLanguagePhrasesJSON => {
   const module = await pRetry(
     async () => {
       try {
-        return await import(/* webpackIgnore: true */ PHRASES_URL);
+        return await import(/* webpackIgnore: true */ PHRASES_URL)
       } catch (err) {
-        throw new Error("Dynamic import failed: " + err.message);
+        throw new Error('Dynamic import failed: ' + err.message)
       }
     },
     {
@@ -21,14 +21,16 @@ const loadPhrases = async customizedLanguagePhrasesJSON => {
       onFailedAttempt(error) {
         console.error(
           `Attempt ${error.attemptNumber} failed: ${error.message}. ${
-            error.retriesLeft ? `${error.retriesLeft} retries left.` : "No more retries."
-          }`
-        );
-      }
-    }
-  );
+            error.retriesLeft
+              ? `${error.retriesLeft} retries left.`
+              : 'No more retries.'
+          }`,
+        )
+      },
+    },
+  )
 
-  const { remoteCalibratorPhrases } = module;
+  const { remoteCalibratorPhrases } = module
 
   // Merge CDN phrases
   Object.assign(phrases, remoteCalibratorPhrases)
