@@ -2,6 +2,11 @@ import { phrases } from '../i18n/schema'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setDefaultVideoPosition } from '../components/video'
+import {
+  createStepInstructionsUI,
+  renderStepInstructions,
+} from './stepByStepInstructionHelps'
+import { parseInstructions } from './instructionParserAdapter'
 
 // Constants for credit card size in centimeters
 const CREDIT_CARD_SHORT_CM = 5.398
@@ -56,9 +61,10 @@ function createDashedGuide() {
 }
 
 function positionGuide(guide, lineLengthPx, vRect) {
+  const usedLengthPx = Math.max(0, Math.min(lineLengthPx, vRect.width))
   const y = vRect.top + vRect.height * 0.9
-  const x = vRect.left + (vRect.width - lineLengthPx) / 2
-  guide.style.width = `${Math.max(0, Math.min(lineLengthPx, vRect.width))}px`
+  const x = vRect.left + (vRect.width - usedLengthPx) / 2
+  guide.style.width = `${usedLengthPx}px`
   guide.style.left = `${Math.round(x)}px`
   guide.style.top = `${Math.round(y)}px`
 }
@@ -73,10 +79,10 @@ function getInstructions(RC, isRepeat) {
   const fallbackPage4 = fallbackPage3
   const keyPage3 = phrases?.RC_UseCreditCardToCalibrateCameraPage3?.[RC.L]
   const keyPage4 = phrases?.RC_UseCreditCardToCalibrateCameraRepeatPage4?.[RC.L]
-  const html =
+  const text =
     (isRepeat ? keyPage4 : keyPage3) ||
     (isRepeat ? fallbackPage4 : fallbackPage3)
-  return String(html).replace(/\n/g, '<br />')
+  return text || ''
 }
 
 export async function justCreditCard(RC, options, callback = undefined) {
@@ -89,6 +95,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
   )
   let currentPage = 3
   let measurements = [] // { shortVPx, fVpx }
+  let stepInstructionModel = null
+  let currentStepFlatIndex = 0
 
   // Ensure video is visible and positioned
   RC.showVideo(true)
@@ -124,12 +132,21 @@ export async function justCreditCard(RC, options, callback = undefined) {
   title.id = 'just-credit-card-title'
   titleRow.appendChild(title)
 
-  const instructions = document.createElement('div')
-  instructions.style.margin = '1rem 3rem'
-  instructions.style.fontSize = 'clamp(1.05em, 2.2vw, 1.35em)'
-  instructions.style.lineHeight = '1.4'
-  instructions.style.zIndex = '3'
-  container.appendChild(instructions)
+  // Stepper UI: left column for instructions; right column reserved for video
+  const instructionsUI = createStepInstructionsUI(container, {
+    leftWidth: '50%',
+    rightWidth: '50%',
+    leftPaddingStart: '3rem',
+    leftPaddingEnd: '1rem',
+    rightPaddingStart: '1rem',
+    rightPaddingEnd: '3rem',
+    fontSize: 'clamp(1.05em, 2.2vw, 1.35em)',
+    lineHeight: '1.4',
+    layout: 'leftOnly',
+  })
+  const leftInstructionsText = instructionsUI.leftText
+  const rightColumn = instructionsUI.rightColumn
+  const mediaContainer = instructionsUI.mediaContainer
 
   // Overlay and guide line
   const overlay = createOverlayLayer()
@@ -140,6 +157,46 @@ export async function justCreditCard(RC, options, callback = undefined) {
   // Add to RC background (below overlay but above page)
   RC._replaceBackground('')
   RC.background.appendChild(container)
+
+  // Move video to the right half and maximize within that area; remember original style
+  let originalVideoCssText = null
+  const positionVideoRightHalf = () => {
+    const v = document.getElementById('webgazerVideoContainer')
+    if (!v) return
+    if (originalVideoCssText == null) {
+      originalVideoCssText = v.style.cssText || ''
+    }
+    v.style.position = 'fixed'
+    v.style.left = '50vw'
+    v.style.right = '0'
+    v.style.top = '0'
+    v.style.bottom = 'unset'
+    v.style.width = '50vw'
+    v.style.height = '100vh'
+    v.style.transform = 'none'
+    v.style.zIndex = '999999999999' // below overlay but above page
+  }
+  positionVideoRightHalf()
+
+  // Re-position the guide after layout settles so it's always at 10% from the bottom of the video
+  const scheduleGuideReposition = () => {
+    positionVideoRightHalf()
+    requestAnimationFrame(() => {
+      const v1 = getVideoContainerRect()
+      if (v1) {
+        if (state.lineLengthPx == null) {
+          state.lineLengthPx = v1.rect.width * 0.6
+        }
+        positionGuide(guide, state.lineLengthPx, v1.rect)
+      }
+      requestAnimationFrame(() => {
+        const v2 = getVideoContainerRect()
+        if (v2) {
+          positionGuide(guide, state.lineLengthPx, v2.rect)
+        }
+      })
+    })
+  }
 
   function updateTitle() {
     const idx = Math.min(measurements.length + 1, measurementCount)
@@ -153,7 +210,37 @@ export async function justCreditCard(RC, options, callback = undefined) {
   function renderPage() {
     updateTitle()
     const isRepeat = currentPage === 4
-    instructions.innerHTML = getInstructions(RC, isRepeat)
+
+    // Parse and render step instructions (Stepper in left column only)
+    try {
+      const text = getInstructions(RC, isRepeat)
+      stepInstructionModel = parseInstructions(text)
+      console.log('stepInstructionModel...', stepInstructionModel)
+      currentStepFlatIndex = 0
+      renderStepInstructions({
+        model: stepInstructionModel,
+        flatIndex: currentStepFlatIndex,
+        elements: {
+          leftText: leftInstructionsText,
+          rightText: null,
+          mediaContainer: mediaContainer,
+        },
+        options: {
+          thresholdFraction: 0.6,
+          useCurrentSectionOnly: true,
+          stepperHistory: options.stepperHistory,
+          layout: 'leftOnly', // 1-column Stepper on the left
+        },
+        lang: RC.language?.value || RC.L,
+        langDirection: RC.LD,
+        phrases,
+      })
+    } catch (e) {
+      leftInstructionsText.textContent = getInstructions(RC, isRepeat).replace(
+        /<br\s*\/?>/gi,
+        '\n',
+      )
+    }
 
     const v = getVideoContainerRect()
     if (!v) return
@@ -162,13 +249,13 @@ export async function justCreditCard(RC, options, callback = undefined) {
     if (state.lineLengthPx == null) {
       state.lineLengthPx = v.rect.width * 0.6
     }
-    positionGuide(guide, state.lineLengthPx, v.rect)
+    scheduleGuideReposition()
   }
 
   function resizeHandler() {
     const v = getVideoContainerRect()
     if (!v) return
-    positionGuide(guide, state.lineLengthPx, v.rect)
+    scheduleGuideReposition()
   }
 
   window.addEventListener('resize', resizeHandler)
@@ -176,6 +263,62 @@ export async function justCreditCard(RC, options, callback = undefined) {
   const state = {
     lineLengthPx: null, // in CSS px on screen
   }
+
+  // Up/Down to navigate Stepper
+  const handleInstructionNav = e => {
+    if (![3, 4].includes(currentPage) || !stepInstructionModel) return
+    if (e.key === 'ArrowDown') {
+      const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
+      if (currentStepFlatIndex < maxIdx) {
+        currentStepFlatIndex++
+        renderStepInstructions({
+          model: stepInstructionModel,
+          flatIndex: currentStepFlatIndex,
+          elements: {
+            leftText: leftInstructionsText,
+            rightText: null,
+            mediaContainer: mediaContainer,
+          },
+          options: {
+            thresholdFraction: 0.6,
+            useCurrentSectionOnly: true,
+            stepperHistory: options.stepperHistory,
+            layout: 'leftOnly',
+          },
+          lang: RC.language?.value || RC.L,
+          langDirection: RC.LD,
+          phrases,
+        })
+      }
+      e.preventDefault()
+      e.stopPropagation()
+    } else if (e.key === 'ArrowUp') {
+      if (currentStepFlatIndex > 0) {
+        currentStepFlatIndex--
+        renderStepInstructions({
+          model: stepInstructionModel,
+          flatIndex: currentStepFlatIndex,
+          elements: {
+            leftText: leftInstructionsText,
+            rightText: null,
+            mediaContainer: mediaContainer,
+          },
+          options: {
+            thresholdFraction: 0.6,
+            useCurrentSectionOnly: true,
+            stepperHistory: options.stepperHistory,
+            layout: 'leftOnly',
+          },
+          lang: RC.language?.value || RC.L,
+          langDirection: RC.LD,
+          phrases,
+        })
+      }
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+  document.addEventListener('keydown', handleInstructionNav)
 
   function getShortVPx() {
     const v = getVideoContainerRect()
@@ -238,7 +381,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
       10,
       Math.min(v.rect.width, state.lineLengthPx + delta * step),
     )
-    positionGuide(guide, state.lineLengthPx, v.rect)
+    scheduleGuideReposition()
   }
 
   function keyHandler(e) {
@@ -257,9 +400,19 @@ export async function justCreditCard(RC, options, callback = undefined) {
   function cleanup() {
     document.removeEventListener('keydown', keyHandler)
     window.removeEventListener('resize', resizeHandler)
+    document.removeEventListener('keydown', handleInstructionNav)
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay)
     if (container && container.parentNode)
       container.parentNode.removeChild(container)
+    // Restore camera preview size and position
+    const v = document.getElementById('webgazerVideoContainer')
+    if (v) {
+      if (originalVideoCssText != null) {
+        v.style.cssText = originalVideoCssText
+      } else {
+        setDefaultVideoPosition(RC, v)
+      }
+    }
   }
 
   function finish() {
