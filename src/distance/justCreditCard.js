@@ -131,6 +131,25 @@ function getInstructions(RC, isRepeat) {
 export async function justCreditCard(RC, options, callback = undefined) {
   RC._addBackground()
 
+  const commonCalibrationData = {
+    shortCm: CREDIT_CARD_SHORT_CM,
+    longCm: CREDIT_CARD_LONG_CM,
+    _calibrateTrackDistance: options.calibrateTrackDistance,
+    _calibrateTrackDistanceAllowedRangeCm:
+      options.calibrateTrackDistanceAllowedRangeCm,
+    _calibrateTrackDistanceAllowedRatio:
+      options.calibrateTrackDistanceAllowedRatio,
+    _calibrateTrackDistancePupil: options.calibrateTrackDistancePupil,
+    _calibrateTrackDistanceShowLengthBool:
+      options.calibrateTrackDistanceShowLengthBool,
+    _calibrateTrackDistanceTimes: options.objectMeasurementCount,
+    _showPerpendicularFeetBool: options.showNearestPointsBool,
+    _calibrateScreenSizeAllowedRatio: options.calibrateScreenSizeAllowedRatio,
+    _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
+    _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
+    _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+  }
+
   // Measurement count/pages: 1 (default) or 2 for repeat
   const measurementCount = Math.max(
     1,
@@ -648,8 +667,18 @@ export async function justCreditCard(RC, options, callback = undefined) {
     }
 
     const fVpx = (shortVPx * CREDIT_CARD_LONG_CM) / CREDIT_CARD_SHORT_CM
+    const factorVpxCm = fVpx * ASSUMED_IPD_CM
+    const cam = getCameraResolution(RC)
+    const fOverHorizontal = cam ? fVpx / cam.width : null
     const mode = state.useClickMeasurement ? 'clickPoints' : 'lineAdjust'
-    measurements.push({ shortVPx, fVpx, mode })
+    measurements.push({ shortVPx, fVpx, factorVpxCm, fOverHorizontal, mode })
+
+    saveCalibrationAttempt(
+      RC,
+      'justCreditCard',
+      { shortVPx, fVpx, factorVpxCm, fOverHorizontal, mode },
+      commonCalibrationData,
+    )
 
     // Clear click points after measurement so next page starts fresh
     clearClickPoints()
@@ -795,4 +824,83 @@ export async function justCreditCard(RC, options, callback = undefined) {
   // Initial render and listeners
   renderPage()
   document.addEventListener('keydown', keyHandler)
+}
+
+let calibrationNumber = 1
+const saveCalibrationAttempt = (
+  RC,
+  method = 'justCreditCard',
+  measurement,
+  commonCalibrationData = undefined,
+) => {
+  const _updateCalibrationAttemptsTransposed = (
+    RC,
+    calibrationObject,
+    COMMON,
+  ) => {
+    if (!RC.calibrationAttemptsT) RC.calibrationAttemptsT = {}
+    for (const [key, value] of Object.entries(calibrationObject)) {
+      const v = value === undefined ? null : value
+      if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = []
+      RC.calibrationAttemptsT[key].push(v)
+    }
+    if (COMMON) {
+      RC.calibrationAttemptsT.COMMON = COMMON
+    }
+  }
+
+  if (!RC.calibrationAttempts)
+    RC.calibrationAttempts = {
+      future: 'To be deleted by end of November 2025.',
+    }
+
+  while (RC.calibrationAttempts[`calibration${calibrationNumber}`]) {
+    calibrationNumber++
+  }
+
+  const safeRoundCm = value => {
+    if (value == null || isNaN(value)) return null
+    return Math.round(value * 10) / 10
+  }
+
+  const safeRoundXYPx = xyArray => {
+    if (!xyArray || !Array.isArray(xyArray) || xyArray.length < 2) return null
+    const x = safeRoundPx(xyArray[0])
+    const y = safeRoundPx(xyArray[1])
+    if (x === null || y === null) return null
+    return [x, y]
+  }
+
+  const safeToFixed = value => {
+    if (value == null || isNaN(value)) return null
+    return parseFloat(value).toFixed(1)
+  }
+  const safeRoundPx = (value, decimalPlaces = 0) => {
+    if (value == null || isNaN(value)) return null
+    // return parseFloat(value.toFixed(decimalPlaces))
+    return Math.round(value * 10 ** decimalPlaces) / 10 ** decimalPlaces
+  }
+
+  const pxPerCmValue = RC.screenPpi.value / 2.54
+  const cameraXYPxValue = [window.innerWidth / 2, 0] // Top center of screen
+  const centerXYPxValue = [window.innerWidth / 2, window.innerHeight / 2] // Screen center
+
+  const calibrationObject = {
+    method,
+    mode: measurement.mode || 'lineAdjust',
+    pxPerCm: safeRoundCm(pxPerCmValue),
+    cameraXYPx: safeRoundXYPx(cameraXYPxValue),
+    centerXYPx: safeRoundXYPx(centerXYPxValue),
+    fOverHorizontal: safeRoundCm(measurement.fOverHorizontal || 0),
+    fVpx: safeRoundPx(measurement.fVpx || 0),
+    factorVpxCm: safeRoundPx(measurement.factorVpxCm || 0),
+    ipdCm: safeRoundCm(ASSUMED_IPD_CM),
+    shortVPx: safeRoundPx(measurement.shortVPx || 0),
+  }
+  RC.calibrationAttempts[`calibration${calibrationNumber}`] = calibrationObject
+  _updateCalibrationAttemptsTransposed(
+    RC,
+    calibrationObject,
+    commonCalibrationData,
+  )
 }
