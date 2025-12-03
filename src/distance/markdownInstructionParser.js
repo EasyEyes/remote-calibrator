@@ -1,28 +1,28 @@
 /**
  * @fileoverview Markdown-based instruction parser for step-by-step instructions.
- * 
+ *
  * This module provides an alternative parsing strategy to the custom token-based
  * parser (buildStepInstructions). It uses standard Markdown syntax to create
  * structured instruction models compatible with the existing rendering system.
- * 
+ *
  * @module distance/markdownInstructionParser
  * @author Remote Calibrator Team
  * @version 1.0.0
- * 
+ *
  * @example
  * import { buildStepInstructionsFromMarkdown } from './markdownInstructionParser.js'
- * 
+ *
  * const markdown = `
  * # Setup Instructions
- * 
+ *
  * 1. Find a stiff object 6-12 inches long
  * 2. Place it against the screen
  *    - Mark with your thumbnail
  *    - Press SPACE when ready
- * 
+ *
  * ![Demo video](https://example.com/demo.mp4)
  * `
- * 
+ *
  * const model = buildStepInstructionsFromMarkdown(markdown)
  * // Returns: { sections: [...], flatSteps: [...] }
  */
@@ -61,55 +61,73 @@
  * Media file extensions supported by the parser.
  * @const {string[]}
  */
-const MEDIA_EXTENSIONS = ['mp4', 'mov', 'webm', 'png', 'jpg', 'jpeg', 'gif', 'svg']
+const MEDIA_EXTENSIONS = [
+  'mp4',
+  'mov',
+  'webm',
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'svg',
+]
 
 /**
  * Regular expression for matching media file extensions.
  * @const {RegExp}
  */
-const MEDIA_EXTENSION_REGEX = new RegExp(`\\.(${MEDIA_EXTENSIONS.join('|')})([?#]|$)`, 'i')
+const MEDIA_EXTENSION_REGEX = new RegExp(
+  `\\.(${MEDIA_EXTENSIONS.join('|')})([?#]|$)`,
+  'i',
+)
 
 /**
  * Extracts media URLs from Markdown text and returns cleaned text.
- * 
+ *
  * Supports:
  * - Image syntax: ![alt text](url)
  * - Link syntax to media: [text](media-url.mp4)
  * - Inline media references
- * 
+ *
  * @private
  * @param {string} text - Text containing potential Markdown media references
  * @returns {{cleanText: string, urls: string[]}} Cleaned text and extracted URLs
- * 
+ *
  * @example
  * extractMediaFromText('Step 1 ![demo](video.mp4) instructions')
  * // Returns: { cleanText: 'Step 1  instructions', urls: ['video.mp4'] }
  */
 function extractMediaFromText(text) {
   const urls = []
-  
+
   // Extract image syntax: ![alt](url)
-  let cleanText = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
-    urls.push(url.trim())
-    return '' // Remove from text
-  })
-  
-  // Extract link syntax pointing to media files: [text](media.mp4)
-  cleanText = cleanText.replace(/\[([^\]]*)\]\(([^)]+)\)/g, (match, linkText, url) => {
-    if (MEDIA_EXTENSION_REGEX.test(url)) {
+  let cleanText = text.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    (match, alt, url) => {
       urls.push(url.trim())
-      return linkText // Keep link text, remove link syntax
-    }
-    // Keep non-media links as HTML anchors
-    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${linkText}</a>`
-  })
-  
+      return '' // Remove from text
+    },
+  )
+
+  // Extract link syntax pointing to media files: [text](media.mp4)
+  cleanText = cleanText.replace(
+    /\[([^\]]*)\]\(([^)]+)\)/g,
+    (match, linkText, url) => {
+      if (MEDIA_EXTENSION_REGEX.test(url)) {
+        urls.push(url.trim())
+        return linkText // Keep link text, remove link syntax
+      }
+      // Keep non-media links as HTML anchors
+      return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${linkText}</a>`
+    },
+  )
+
   return { cleanText: cleanText.trim(), urls }
 }
 
 /**
  * Escapes HTML special characters to prevent XSS.
- * 
+ *
  * @private
  * @param {string} text - Text to escape
  * @returns {string} HTML-safe text
@@ -120,14 +138,14 @@ function escapeHtml(text) {
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
-    "'": '&#039;'
+    "'": '&#039;',
   }
   return text.replace(/[&<>"']/g, m => map[m])
 }
 
 /**
  * Processes inline Markdown formatting (bold, italic, code, etc).
- * 
+ *
  * Supports full standard Markdown inline syntax:
  * - **bold** or __bold__
  * - *italic* or _italic_
@@ -135,38 +153,40 @@ function escapeHtml(text) {
  * - ~~strikethrough~~
  * - <br> or double-space line breaks
  * - Escape characters (\)
- * 
+ *
  * @private
  * @param {string} text - Text with Markdown formatting
  * @returns {string} HTML-formatted text
- * 
+ *
  * @example
  * processInlineFormatting('This is **bold** and *italic*')
  * // Returns: 'This is <strong>bold</strong> and <em>italic</em>'
  */
 function processInlineFormatting(text) {
-  return text
-    // Escape sequences: \* \_ \` etc. → preserve literal characters
-    .replace(/\\([\\`*_{}[\]()#+\-.!])/g, '&#92;$1')
-    // Bold: **text** or __text__
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/__([^_]+)__/g, '<strong>$1</strong>')
-    // Italic: *text* or _text_
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/_([^_]+)_/g, '<em>$1</em>')
-    // Code: `text`
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Strikethrough: ~~text~~
-    .replace(/~~([^~]+)~~/g, '<del>$1</del>')
-    // Line breaks: <br> or <br/> (HTML-style)
-    .replace(/<br\s*\/?>/gi, '<br>')
-    // Line breaks: double space + newline (Markdown-style)
-    .replace(/  \n/g, '<br>')
+  return (
+    text
+      // Escape sequences: \* \_ \` etc. → preserve literal characters
+      .replace(/\\([\\`*_{}[\]()#+\-.!])/g, '&#92;$1')
+      // Bold: **text** or __text__
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+      // Italic: *text* or _text_
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/_([^_]+)_/g, '<em>$1</em>')
+      // Code: `text`
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Strikethrough: ~~text~~
+      .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+      // Line breaks: <br> or <br/> (HTML-style)
+      .replace(/<br\s*\/?>/gi, '<br>')
+      // Line breaks: double space + newline (Markdown-style)
+      .replace(/  \n/g, '<br>')
+  )
 }
 
 /**
  * Parses a single line as a list item.
- * 
+ *
  * @private
  * @param {string} line - Line to parse
  * @returns {{indent: number, marker: string, content: string, isTask: boolean, taskChecked: boolean}|null} Parsed list item or null
@@ -180,10 +200,10 @@ function parseListItem(line) {
       marker: numberedMatch[2],
       content: numberedMatch[3],
       isTask: false,
-      taskChecked: false
+      taskChecked: false,
     }
   }
-  
+
   // Match task list: "- [ ] text" or "- [x] text"
   const taskMatch = line.match(/^(\s*)([-*+])\s+\[([ xX])\]\s+(.+)$/)
   if (taskMatch) {
@@ -192,10 +212,10 @@ function parseListItem(line) {
       marker: taskMatch[2],
       content: taskMatch[4],
       isTask: true,
-      taskChecked: taskMatch[3].toLowerCase() === 'x'
+      taskChecked: taskMatch[3].toLowerCase() === 'x',
     }
   }
-  
+
   // Match bulleted list: "- text" or "  - text" or "* text"
   const bulletMatch = line.match(/^(\s*)([-*+])\s+(.+)$/)
   if (bulletMatch) {
@@ -204,16 +224,16 @@ function parseListItem(line) {
       marker: bulletMatch[2],
       content: bulletMatch[3],
       isTask: false,
-      taskChecked: false
+      taskChecked: false,
     }
   }
-  
+
   return null
 }
 
 /**
  * Determines the nesting level based on indentation.
- * 
+ *
  * @private
  * @param {number} indent - Number of leading spaces
  * @param {number} [spacesPerLevel=2] - Spaces per indentation level
@@ -225,10 +245,10 @@ function calculateNestingLevel(indent, spacesPerLevel = 2) {
 
 /**
  * Parses Markdown text into structured instruction model.
- * 
+ *
  * This function converts Markdown-formatted instructions into a data structure
  * compatible with the existing renderStepInstructions system. It supports:
- * 
+ *
  * - Headings (# and ##) as section titles
  * - Numbered lists (1., 2., etc.) as steps
  * - Bulleted lists (-, *, +) as steps without numbers
@@ -238,35 +258,35 @@ function calculateNestingLevel(indent, spacesPerLevel = 2) {
  * - Video links: [text](video.mp4)
  * - Regular links: [text](url)
  * - Media attachments at step or section level
- * 
+ *
  * @public
  * @param {string} markdownText - Markdown-formatted instruction text
  * @param {Object} [options={}] - Parser options
  * @param {number} [options.spacesPerLevel=2] - Spaces per indentation level
  * @param {boolean} [options.strictMode=false] - Throw on parsing errors vs. graceful fallback
  * @returns {InstructionModel} Structured instruction model
- * 
+ *
  * @throws {Error} If markdownText is not a string (in strict mode)
- * 
+ *
  * @example
  * const markdown = `
  * # Getting Started
- * 
+ *
  * 1. First step with **bold** text
  * 2. Second step with *italic* text
  *    - Nested sub-step
  *    - Another sub-step
- * 
+ *
  * ![Demo](https://example.com/demo.mp4)
- * 
+ *
  * ## Advanced Steps
- * 
+ *
  * 1. Click the [Next Button](https://example.com)
  * 2. Watch the video below
- * 
+ *
  * ![Tutorial](https://example.com/tutorial.mp4)
  * `
- * 
+ *
  * const model = buildStepInstructionsFromMarkdown(markdown)
  * console.log(model.sections.length) // 2
  * console.log(model.flatSteps.length) // 4
@@ -274,16 +294,18 @@ function calculateNestingLevel(indent, spacesPerLevel = 2) {
 export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
   // Validate input
   if (typeof markdownText !== 'string') {
-    const error = new Error('buildStepInstructionsFromMarkdown: markdownText must be a string')
+    const error = new Error(
+      'buildStepInstructionsFromMarkdown: markdownText must be a string',
+    )
     if (options.strictMode) {
       throw error
     }
     console.warn(error.message)
     return createEmptyModel()
   }
-  
+
   const { spacesPerLevel = 2 } = options
-  
+
   // Parse line by line
   const lines = markdownText.split(/\r?\n/)
   const sections = []
@@ -292,10 +314,10 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
   let inCodeBlock = false
   let codeBlockLines = []
   let codeBlockLanguage = ''
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trimEnd()
-    
+
     // Handle code blocks: ```language
     const codeBlockMatch = line.match(/^```(\w*)/)
     if (codeBlockMatch) {
@@ -312,40 +334,40 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
-        
+
         if (!currentSection) {
           currentSection = {
             index: sections.length.toString(),
             title: '',
             steps: [],
             mediaKeys: [],
-            mediaUrls: []
+            mediaUrls: [],
           }
           sections.push(currentSection)
         }
-        
+
         currentSection.steps.push({
           number: null,
           text: `<pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto;"><code>${escapedCode}</code></pre>`,
           level: 0,
-          isCodeBlock: true
+          isCodeBlock: true,
         })
         codeBlockLines = []
       }
       continue
     }
-    
+
     // If inside code block, collect lines
     if (inCodeBlock) {
       codeBlockLines.push(line)
       continue
     }
-    
+
     // Skip empty lines
     if (!line.trim()) {
       continue
     }
-    
+
     // Parse horizontal rules: ---, ***, ___
     const hrMatch = line.match(/^(\*{3,}|-{3,}|_{3,})\s*$/)
     if (hrMatch) {
@@ -356,7 +378,7 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
           title: '',
           steps: [],
           mediaKeys: [],
-          mediaUrls: []
+          mediaUrls: [],
         }
         sections.push(currentSection)
       }
@@ -364,27 +386,27 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
         number: null,
         text: '<hr style="border: 0; border-top: 1px solid #ddd; margin: 1rem 0;">',
         level: 0,
-        isHr: true
+        isHr: true,
       })
       continue
     }
-    
+
     // Parse blockquotes: > text
     const blockquoteMatch = line.match(/^>\s*(.+)$/)
     if (blockquoteMatch) {
       const quoteText = processInlineFormatting(blockquoteMatch[1])
-      
+
       if (!currentSection) {
         currentSection = {
           index: sections.length.toString(),
           title: '',
           steps: [],
           mediaKeys: [],
-          mediaUrls: []
+          mediaUrls: [],
         }
         sections.push(currentSection)
       }
-      
+
       // Check if previous step is also a blockquote to combine them
       const lastStep = currentSection.steps[currentSection.steps.length - 1]
       if (lastStep && lastStep.isBlockquote) {
@@ -394,37 +416,37 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
           number: null,
           text: `<blockquote style="border-left: 3px solid #ddd; padding-left: 1rem; margin: 0.5rem 0; color: #666;">${quoteText}</blockquote>`,
           level: 0,
-          isBlockquote: true
+          isBlockquote: true,
         })
       }
       continue
     }
-    
+
     // Parse headings: # Title or ## Title
     const headingMatch = line.match(/^(#{1,6})\s+(.+)$/)
     if (headingMatch) {
       const level = headingMatch[1].length
       const title = processInlineFormatting(headingMatch[2].trim())
-      
+
       // Create new section
       currentSection = {
         index: sections.length.toString(),
         title,
         steps: [],
         mediaKeys: [],
-        mediaUrls: []
+        mediaUrls: [],
       }
       sections.push(currentSection)
-      
+
       // Attach any pending media to this section
       if (pendingMedia.length > 0) {
         currentSection.mediaUrls.push(...pendingMedia)
         pendingMedia = []
       }
-      
+
       continue
     }
-    
+
     // Parse list items
     const listItem = parseListItem(line)
     if (listItem) {
@@ -435,23 +457,23 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
           title: '',
           steps: [],
           mediaKeys: [],
-          mediaUrls: []
+          mediaUrls: [],
         }
         sections.push(currentSection)
       }
-      
+
       const { indent, marker, content, isTask, taskChecked } = listItem
       const level = calculateNestingLevel(indent, spacesPerLevel)
-      
+
       // Extract media and format text
       const { cleanText, urls } = extractMediaFromText(content)
       const formattedText = processInlineFormatting(cleanText)
-      
+
       // Build display text based on item type
       let displayText
       if (isTask) {
         // Task list: show checkbox
-        const checkbox = taskChecked 
+        const checkbox = taskChecked
           ? '<input type="checkbox" checked disabled style="margin-right: 0.5rem;">'
           : '<input type="checkbox" disabled style="margin-right: 0.5rem;">'
         displayText = `${checkbox}${formattedText}`
@@ -462,33 +484,33 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
         // Bullet: "- text"
         displayText = `${marker} ${formattedText}`
       }
-      
+
       // Create step
       const step = {
         number: /^\d+$/.test(marker) ? marker : null,
         text: displayText,
         level,
         isTask,
-        taskChecked
+        taskChecked,
       }
-      
+
       // Attach media if present
       if (urls.length > 0) {
         step.mediaKeys = []
         step.mediaUrls = urls
       }
-      
+
       currentSection.steps.push(step)
-      
+
       // Attach any pending media to this step
       if (pendingMedia.length > 0) {
         step.mediaUrls = [...(step.mediaUrls || []), ...pendingMedia]
         pendingMedia = []
       }
-      
+
       continue
     }
-    
+
     // Parse standalone media lines
     const { urls } = extractMediaFromText(line)
     if (urls.length > 0) {
@@ -509,7 +531,7 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
       }
       continue
     }
-    
+
     // Parse plain text paragraphs (attach to previous step or create new step)
     const plainText = line.trim()
     if (plainText) {
@@ -526,21 +548,21 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
             title: '',
             steps: [],
             mediaKeys: [],
-            mediaUrls: []
+            mediaUrls: [],
           }
           sections.push(currentSection)
         }
-        
+
         const formattedText = processInlineFormatting(plainText)
         currentSection.steps.push({
           number: null,
           text: formattedText,
-          level: 0
+          level: 0,
         })
       }
     }
   }
-  
+
   // Fallback: create default section if nothing was parsed
   if (sections.length === 0) {
     sections.push({
@@ -550,23 +572,23 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
         {
           number: null,
           text: processInlineFormatting(markdownText),
-          level: 0
-        }
+          level: 0,
+        },
       ],
       mediaKeys: [],
-      mediaUrls: []
+      mediaUrls: [],
     })
   }
-  
+
   // Build flattened step index for navigation
   const flatSteps = buildFlatStepIndex(sections)
-  
+
   return { sections, flatSteps }
 }
 
 /**
  * Builds flattened navigation index from sections.
- * 
+ *
  * @private
  * @param {InstructionSection[]} sections - Parsed sections
  * @returns {FlatStep[]} Flattened step references
@@ -583,7 +605,7 @@ function buildFlatStepIndex(sections) {
 
 /**
  * Creates an empty instruction model (fallback).
- * 
+ *
  * @private
  * @returns {InstructionModel} Empty model
  */
@@ -595,22 +617,22 @@ function createEmptyModel() {
         title: '',
         steps: [],
         mediaKeys: [],
-        mediaUrls: []
-      }
+        mediaUrls: [],
+      },
     ],
-    flatSteps: []
+    flatSteps: [],
   }
 }
 
 /**
  * Validates that a model has the correct structure.
- * 
+ *
  * Useful for testing and debugging.
- * 
+ *
  * @public
  * @param {*} model - Model to validate
  * @returns {{valid: boolean, errors: string[]}} Validation result
- * 
+ *
  * @example
  * const model = buildStepInstructionsFromMarkdown(markdown)
  * const { valid, errors } = validateInstructionModel(model)
@@ -620,20 +642,20 @@ function createEmptyModel() {
  */
 export function validateInstructionModel(model) {
   const errors = []
-  
+
   if (!model || typeof model !== 'object') {
     errors.push('Model must be an object')
     return { valid: false, errors }
   }
-  
+
   if (!Array.isArray(model.sections)) {
     errors.push('Model must have sections array')
   }
-  
+
   if (!Array.isArray(model.flatSteps)) {
     errors.push('Model must have flatSteps array')
   }
-  
+
   if (model.sections) {
     model.sections.forEach((section, idx) => {
       if (typeof section.title !== 'string') {
@@ -647,26 +669,26 @@ export function validateInstructionModel(model) {
       }
     })
   }
-  
+
   return { valid: errors.length === 0, errors }
 }
 
 /**
  * Converts legacy token-based text to Markdown.
- * 
+ *
  * Provides a migration path from the old [[TT]], [[SS]], [[LL]] format.
- * 
+ *
  * @public
  * @param {string} tokenText - Text with legacy tokens
  * @param {Object} [linkMap={}] - Asset map for resolving [[LL]] references
  * @returns {string} Markdown-formatted text
- * 
+ *
  * @example
  * const legacy = `[[TT1]]
  * [[SS1]] Step one
  * [[LL1]]
  * [[SS2]] Step two`
- * 
+ *
  * const markdown = convertLegacyTokensToMarkdown(legacy, { LL1: 'video.mp4' })
  * // Returns: '# \n\n1. Step one\n\n![](video.mp4)\n\n2. Step two'
  */
@@ -674,15 +696,15 @@ export function convertLegacyTokensToMarkdown(tokenText, linkMap = {}) {
   if (typeof tokenText !== 'string') {
     return ''
   }
-  
+
   const lines = tokenText.split(/\r?\n/)
   const output = []
   let stepCounter = 0
-  
+
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
-    
+
     // Title: [[TTn]]
     if (/^\[\[TT\d+\]\]/.test(trimmed)) {
       const titleText = trimmed.replace(/^\[\[TT\d+\]\]\s*/, '')
@@ -690,7 +712,7 @@ export function convertLegacyTokensToMarkdown(tokenText, linkMap = {}) {
       output.push('') // Blank line
       continue
     }
-    
+
     // Link: [[LLn]]
     const linkMatch = trimmed.match(/^\[\[LL(\d+)\]\]$/)
     if (linkMatch) {
@@ -702,7 +724,7 @@ export function convertLegacyTokensToMarkdown(tokenText, linkMap = {}) {
       }
       continue
     }
-    
+
     // Step: [[SSn]] text
     const stepMatch = trimmed.match(/^\[\[SS[\d.]+\]\]\s*(.*)$/)
     if (stepMatch) {
@@ -710,11 +732,10 @@ export function convertLegacyTokensToMarkdown(tokenText, linkMap = {}) {
       output.push(`${stepCounter}. ${stepMatch[1]}`)
       continue
     }
-    
+
     // Plain text
     output.push(trimmed)
   }
-  
+
   return output.join('\n')
 }
-

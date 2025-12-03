@@ -284,11 +284,11 @@ export function renderStepInstructions({
     if (type === 'title') {
       div.style.marginTop = '0.75rem'
       div.style.fontWeight = '600'
-      div.innerHTML = text  // Changed from textContent to support HTML from Markdown
+      div.innerHTML = text // Changed from textContent to support HTML from Markdown
     } else {
       div.style.marginTop = '0.25rem'
       // Preserve original text with its numbering/bullets instead of adding generic bullet
-      div.innerHTML = text  // Changed from textContent to support HTML from Markdown
+      div.innerHTML = text // Changed from textContent to support HTML from Markdown
       if (indentLevel > 0) {
         div.style.paddingInlineStart = `${indentLevel * 1.25}em`
       }
@@ -376,11 +376,11 @@ export function renderStepInstructions({
   contentContainer.style.flexDirection = 'column'
 
   stepperBox.appendChild(contentContainer)
-  
+
   // Add navigation hint on top of stepper box
   const navHintContainer = document.createElement('div')
   navHintContainer.style.marginBottom = '0.5rem'
-  
+
   const navHint = document.createElement('div')
   navHint.style.color = '#555'
   navHint.style.fontSize = 'clamp(0.9em, 2vw, 1em)'
@@ -389,14 +389,14 @@ export function renderStepInstructions({
   navHint.style.whiteSpace = 'normal'
   navHint.style.wordBreak = 'break-word'
   navHint.style.overflowWrap = 'anywhere'
-  
+
   // Align based on language direction
   navHint.style.textAlign = langDirection === 'RTL' ? 'right' : 'left'
-  
+
   navHint.textContent =
     phrases.EE_UseKeysToStep?.[lang] ||
     'Use ▼ to advance through the instructions. Use ▲ to go back to the previous instruction.'
-  
+
   navHintContainer.appendChild(navHint)
   leftText.appendChild(navHintContainer)
   leftText.appendChild(stepperBox)

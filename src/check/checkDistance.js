@@ -26,7 +26,7 @@ console.log('📦 checkDistance.js imports:', {
   test_phrases_exists: !!test_phrases,
   test_phrases_keys: test_phrases ? Object.keys(test_phrases) : [],
   test_phrases_sample: test_phrases?.RC_produceDistance_MD,
-  test_assetMap_exists: !!test_assetMap
+  test_assetMap_exists: !!test_assetMap,
 })
 import {
   calculateNearestPoints,
@@ -1420,12 +1420,12 @@ const checkSize = async (
         const instructionElement = document.querySelector(
           '.calibration-instruction',
         )
-        
+
         // Add RTL class if language is RTL
         if (RC.LD === RC._CONST.RTL && instructionElement) {
           instructionElement.classList.add('rtl')
         }
-        
+
         const video = document.getElementById('webgazerVideoContainer')
         if (instructionElement && video) {
           const videoRect = video.getBoundingClientRect()
@@ -1977,12 +1977,13 @@ const trackDistanceCheck = async (
       // Choose step-by-step phrase key
       // Mapping for checkDistance.js: _MD keys → actual phrase keys in main system
       const phraseKeyMapping = {
-        RC_produceDistanceCameraTiltAndSwivel_MD: 'RC_produceDistanceCameraTiltAndSwivel',
+        RC_produceDistanceCameraTiltAndSwivel_MD:
+          'RC_produceDistanceCameraTiltAndSwivel',
         RC_produceDistanceCamera_MD: 'RC_produceDistanceCamera',
         RC_produceDistanceTiltAndSwivel_MD: 'RC_produceDistanceTiltAndSwivel',
         RC_produceDistance_MD: 'RC_produceDistance',
       }
-      
+
       let phraseKeyForSteps = 'RC_produceDistance_MD'
       if (checkingOptions && typeof checkingOptions === 'string') {
         const optionsArray = checkingOptions
@@ -2021,12 +2022,12 @@ const trackDistanceCheck = async (
       const instructionElement = document.querySelector(
         '.calibration-instruction',
       )
-      
+
       // Add RTL class if language is RTL
       if (RC.LD === RC._CONST.RTL && instructionElement) {
         instructionElement.classList.add('rtl')
       }
-      
+
       const video = document.getElementById('webgazerVideoContainer')
       if (instructionElement && video) {
         const videoRect = video.getBoundingClientRect()
@@ -2060,9 +2061,11 @@ const trackDistanceCheck = async (
         })
         // For checkDistance.js: bypass test_phrases and access phrases directly using mapping
         // This avoids module load timing issues
-        const actualPhraseKey = phraseKeyMapping[phraseKeyForSteps] || phraseKeyForSteps.replace('_MD', '')
+        const actualPhraseKey =
+          phraseKeyMapping[phraseKeyForSteps] ||
+          phraseKeyForSteps.replace('_MD', '')
         const rawStepText = phrases[actualPhraseKey]?.[RC.language.value] || ''
-        
+
         // Debug logging
         console.log('🔍 checkDistance phrase debug:', {
           phraseKeyRequested: phraseKeyForSteps,
@@ -2072,15 +2075,17 @@ const trackDistanceCheck = async (
           phraseValue: phrases[actualPhraseKey],
           rawStepTextFound: !!rawStepText,
           textLength: rawStepText.length,
-          textPreview: rawStepText.substring(0, 100)
+          textPreview: rawStepText.substring(0, 100),
         })
-        
+
         const chosenStepText = String(rawStepText)
           .replace('[[N11]]', cm)
           .replace('[[UUU]]', RC.equipment?.value?.unit || '')
 
         try {
-          const stepModel = parseInstructions(chosenStepText, { assetMap: test_assetMap })
+          const stepModel = parseInstructions(chosenStepText, {
+            assetMap: test_assetMap,
+          })
           let stepIndex = 0
           const maxIdx = (stepModel.flatSteps?.length || 1) - 1
 
@@ -2651,7 +2656,7 @@ const trackDistanceCheck = async (
 }
 
 // Function to create the div and start updating the value
-const createViewingDistanceDiv = (RC) => {
+const createViewingDistanceDiv = RC => {
   // Check if the div already exists
   if (document.getElementById('viewing-distance-div')) {
     console.warn('Viewing distance div already exists.')
@@ -2663,7 +2668,7 @@ const createViewingDistanceDiv = (RC) => {
     'calibration-trackDistance-check-viewingDistance-container'
   distanceContainer.className =
     'calibration-trackDistance-check-viewingDistance-container'
-  
+
   // Add RTL class if language is RTL
   if (RC.LD === RC._CONST.RTL) {
     distanceContainer.className += ' rtl'
