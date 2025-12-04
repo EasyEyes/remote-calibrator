@@ -718,11 +718,11 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
       )
 
       RC.newScreenData = screenData
-      const singlePpi = toFixedNumber(measurementState.measurements[0].ppi, 1)
+      const singlePxPerCm = toFixedNumber(measurementState.measurements[0].ppi / 2.54, 1)
       RC.screenSizeMeasurements = {
-        ppi: [singlePpi],
-        chosen: [singlePpi],
-        mean: singlePpi,
+        pxPerCm: [singlePxPerCm],
+        chosen: [singlePxPerCm],
+        mean: singlePxPerCm,
       }
       breakFunction()
 
@@ -766,10 +766,10 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         // ! Record data
         RC.newScreenData = screenData
         RC.screenSizeMeasurements = {
-          ppi: measurementState.measurements.map(m => toFixedNumber(m.ppi, 1)),
-          chosen: consistentPair.ppis.map(p => toFixedNumber(p, 1)),
+          pxPerCm: measurementState.measurements.map(m => toFixedNumber(m.ppi / 2.54, 1)),
+          chosen: consistentPair.ppis.map(p => toFixedNumber(p / 2.54, 1)),
           mean: toFixedNumber(
-            Math.sqrt(consistentPair.ppis[0] * consistentPair.ppis[1]),
+            Math.sqrt(consistentPair.ppis[0] * consistentPair.ppis[1]) / 2.54,
             1,
           ),
         }
