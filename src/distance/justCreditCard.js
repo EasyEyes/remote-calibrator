@@ -54,28 +54,82 @@ function createOverlayLayer() {
 }
 
 function createDashedGuide() {
-  const guide = document.createElement('div')
+  const guide = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   guide.id = 'just-credit-card-guide'
   guide.style.position = 'absolute'
-  guide.style.height = '0px'
-  guide.style.borderTop = '3px dashed rgba(0, 180, 0, 0.95)'
+  guide.style.overflow = 'visible'
   guide.style.pointerEvents = 'none'
   // Position off-screen initially to prevent flash at wrong position
   guide.style.left = '-9999px'
   guide.style.top = '-9999px'
   guide.style.opacity = '0'
   guide.style.transition = 'opacity 0.15s ease-in'
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  path.setAttribute('stroke', 'rgba(0, 180, 0, 0.95)')
+  path.setAttribute('stroke-width', '3')
+  path.setAttribute('stroke-dasharray', '8,4')
+  path.setAttribute('fill', 'none')
+  guide.appendChild(path)
+
   return guide
 }
 
-function positionGuide(guide, lineLengthPx, vRect) {
-  const usedLengthPx = Math.max(0, Math.min(lineLengthPx, vRect.width))
-  // 10% from the top of the video
-  const y = vRect.top + vRect.height * 0.1
-  const x = vRect.left + (vRect.width - usedLengthPx) / 2
-  guide.style.width = `${usedLengthPx}px`
-  guide.style.left = `${Math.round(x)}px`
-  guide.style.top = `${Math.round(y)}px`
+function positionGuide(guide, p1, p2) {
+  // Safety check
+  if (!p1 || !p2) return
+
+  // Calculate length and angle
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const length = Math.sqrt(dx * dx + dy * dy)
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI)
+
+  // Position SVG at p1 and rotate
+  guide.style.left = `${p1.x}px`
+  guide.style.top = `${p1.y}px`
+  guide.style.width = `${Math.max(0, length)}px`
+  guide.style.height = '30px' // Enough height for the curve
+  guide.style.transformOrigin = '0 0'
+  guide.style.transform = `rotate(${angle}deg)`
+
+  // Draw the rounded path
+  // radiusVpx = (0.318 / 5.398) * length
+  const rX = (0.318 / 5.398) * length
+  // Compressed Y by 0.707
+  const rY = rX * 0.707
+  const w = length
+
+  // Path logic: start at tip (0,0), curve up (negative Y) to straight edge, then down to other tip (w,0)
+  // Note: We position the SVG top at p1.y. But the curve goes "up" into negative relative space?
+  // Actually, if the card body is "below" the line visually (bottom edge of card), then the rounded corners go "up" into the card body.
+  // In the previous implementation (horizontal), we drew: M 0 rY Q 0 0 rX 0 L w-rX 0 Q w 0 w rY
+  // That was "down" curve relative to a top edge.
+  // Now we are matching the "bottom edge" of the card in the video?
+  // "Tilt the card slightly downward until, in the video, its bottom edge meets the green line."
+  // The card body is above the edge in the video (since it's the bottom edge).
+  // So the corners should curve UP into the card body.
+  // Using coordinates: Start (0,0). Curve to (rX, -rY). Line to (w-rX, -rY). Curve to (w, 0).
+  // Wait, let's verify the visual.
+  // If the line is the edge, and corners are rounded, the line length (w) is the straight part plus the curves?
+  // The standard says "corner radius of 3.18 mm". The width 53.98mm includes the corners.
+  // So the "tip" of the card is where the straight edge would end if it weren't rounded? No.
+  // The card width is the maximum width.
+  // The "green line" represents the card's edge.
+  // If we draw the edge, it's effectively the profile of the card.
+  // If we are looking at the bottom edge, the corners curve away from the edge.
+  // Visually:  /------------\  <-- Top edge
+  //            |            |
+  //            \____________/  <-- Bottom edge
+  // So the corners go "up" relative to the bottom edge line.
+
+  const d = `M 0 0 Q 0 -${rY} ${rX} -${rY} L ${w - rX} -${rY} Q ${w} -${rY} ${w} 0`
+
+  const path = guide.querySelector('path')
+  if (path) path.setAttribute('d', d)
+
+  // Ensure opacity is 1
+  guide.style.opacity = '1'
 }
 
 // Get the expected video rect based on known positioning (below camera, centered horizontally)
@@ -88,8 +142,8 @@ function getExpectedVideoRect(RC, videoTopOffsetPx) {
   const cam = getCameraResolution(RC)
   const camAspect = cam ? cam.width / cam.height : 16 / 9
 
-  // Available space: width capped to 40% of viewport, height below the desired top offset
-  const maxWidth = vw * 0.4
+  // Available space: width capped to 95% of viewport, height below the desired top offset
+  const maxWidth = vw * 0.95
   const availWidth = maxWidth
   const availHeight = Math.max(0, vh - (videoTopOffsetPx || 0))
 
@@ -121,10 +175,10 @@ function getInstructions(RC, isRepeat) {
     'Hold a credit card level with the floor, pressing one of its short edges firmly against the top center of your screen.\n' +
     'Slide the card left/right until it is left-right centered in the video.\n' +
     'Tilt the card slightly downward until, in the video, its bottom edge meets the green line.\n' +
-    "**Option A:** Use the ◀ ▶ keys to resize the green line until it matches the card's bottom edge.\n" +
-    '**Option B:** Click on the two ends of the card edge in the video to mark them (orange dots will appear).\n' +
-    "When the line matches the edge, press the SPACE bar. 🔉 You'll hear a shutter click.\n" +
-    '(Press ESC to clear click markers and start over.)'
+    "Adjust the green line to match the card's bottom edge:\n" +
+    '• Drag the ends of the green line with your mouse, OR\n' +
+    '• Use the ◀ ▶ keys to adjust the length.\n' +
+    "When the line matches the edge, press the SPACE bar. 🔉 You'll hear a shutter click."
   const fallbackPage4 = fallbackPage3
   const keyPage3 = phrases?.RC_UseCreditCardBelowToCalibrateCameraPage3?.[RC.L]
   const keyPage4 = phrases?.RC_UseCreditCardBelowToCalibrateCameraPage4?.[RC.L]
@@ -239,7 +293,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   const blueLabel = document.createElement('div')
   blueLabel.id = 'just-credit-card-blue-label'
   blueLabel.style.position = 'absolute'
-  blueLabel.style.color = 'rgba(0, 120, 255, 0.95)'
+  blueLabel.style.color = 'black'
   blueLabel.style.font =
     '600 14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
   blueLabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.25)'
@@ -255,7 +309,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   const greenLabel = document.createElement('div')
   greenLabel.id = 'just-credit-card-green-label'
   greenLabel.style.position = 'absolute'
-  greenLabel.style.color = 'rgba(0, 180, 0, 0.95)'
+  greenLabel.style.color = 'black'
   greenLabel.style.font =
     '600 14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
   greenLabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.25)'
@@ -294,10 +348,10 @@ export async function justCreditCard(RC, options, callback = undefined) {
     const cam = getCameraResolution(RC)
     const camAspect = cam ? cam.width / cam.height : 16 / 9 // default to 16:9
 
-    // Available space: width capped to 60% of viewport, start at videoTopOffsetPx
+    // Available space: width capped to 95% of viewport, start at videoTopOffsetPx
     const vw = window.innerWidth
     const vh = window.innerHeight
-    const maxWidth = vw * 0.6
+    const maxWidth = vw * 0.95
     const availWidth = maxWidth
     const availHeight = Math.max(0, vh - videoTopOffsetPx)
 
@@ -345,133 +399,80 @@ export async function justCreditCard(RC, options, callback = undefined) {
   }
   positionBlueGuideAndLabels()
 
-  // State for guide line and click-based measurement
+  // State for guide line
   const state = {
-    lineLengthPx: null, // in CSS px on screen
-    clickPoints: [], // [{x, y}] in CSS px relative to video container - max 2 points
-    useClickMeasurement: false, // true if user has placed 2 click points
+    p1: { x: 0, y: 0 }, // {x, y} relative to document (pageX/Y style) for positioning absolute elements
+    p2: { x: 0, y: 0 },
+    dragging: null, // 'left' | 'right' | null
+    lineLengthPx: null, // fallback store for initial width
   }
 
-  // Create click marker elements (circles to show where user clicked)
-  const clickMarkers = []
-  const clickLine = document.createElement('div')
-  clickLine.id = 'just-credit-card-click-line'
-  clickLine.style.position = 'absolute'
-  clickLine.style.height = '3px'
-  clickLine.style.backgroundColor = 'rgba(255, 100, 0, 0.95)'
-  clickLine.style.pointerEvents = 'none'
-  clickLine.style.display = 'none'
-  clickLine.style.transformOrigin = 'left center'
-  clickLine.style.zIndex = '1000000001'
-  overlay.appendChild(clickLine)
+  // Initialize drag handling
+  let dragStart = null // { x, y }
 
-  for (let i = 0; i < 2; i++) {
-    const marker = document.createElement('div')
-    marker.className = 'just-credit-card-click-marker'
-    marker.style.position = 'absolute'
-    marker.style.width = '16px'
-    marker.style.height = '16px'
-    marker.style.borderRadius = '50%'
-    marker.style.backgroundColor = 'rgba(255, 100, 0, 0.9)'
-    marker.style.border = '2px solid white'
-    marker.style.boxShadow = '0 0 4px rgba(0,0,0,0.5)'
-    marker.style.pointerEvents = 'none'
-    marker.style.display = 'none'
-    marker.style.transform = 'translate(-50%, -50%)'
-    marker.style.zIndex = '1000000002'
-    overlay.appendChild(marker)
-    clickMarkers.push(marker)
-  }
-
-  function updateClickVisuals() {
-    // Update marker positions
-    state.clickPoints.forEach((pt, i) => {
-      if (clickMarkers[i]) {
-        clickMarkers[i].style.left = `${pt.screenX}px`
-        clickMarkers[i].style.top = `${pt.screenY}px`
-        clickMarkers[i].style.display = 'block'
-      }
-    })
-    // Hide unused markers
-    for (let i = state.clickPoints.length; i < 2; i++) {
-      if (clickMarkers[i]) clickMarkers[i].style.display = 'none'
-    }
-
-    // Update connecting line
-    if (state.clickPoints.length === 2) {
-      const p1 = state.clickPoints[0]
-      const p2 = state.clickPoints[1]
-      const dx = p2.screenX - p1.screenX
-      const dy = p2.screenY - p1.screenY
-      const length = Math.sqrt(dx * dx + dy * dy)
-      const angle = Math.atan2(dy, dx) * (180 / Math.PI)
-
-      clickLine.style.left = `${p1.screenX}px`
-      clickLine.style.top = `${p1.screenY}px`
-      clickLine.style.width = `${length}px`
-      clickLine.style.transform = `rotate(${angle}deg)`
-      clickLine.style.display = 'block'
-
-      state.useClickMeasurement = true
-      // Hide the green guide line when using click measurement
-      guide.style.opacity = '0.3'
-    } else {
-      clickLine.style.display = 'none'
-      state.useClickMeasurement = false
-      guide.style.opacity = '1'
-    }
-  }
-
-  function clearClickPoints() {
-    state.clickPoints = []
-    state.useClickMeasurement = false
-    updateClickVisuals()
-  }
-
-  function handleVideoClick(e) {
+  function handlePointerDown(e) {
     const v = document.getElementById('webgazerVideoContainer')
     if (!v) return
 
-    const vRect = v.getBoundingClientRect()
-    const cam = getCameraResolution(RC)
-    if (!cam) return
+    const rect = v.getBoundingClientRect()
+    const relX = e.clientX - rect.left
 
-    // Get click position relative to video container
-    const clickX = e.clientX - vRect.left
-    const clickY = e.clientY - vRect.top
-
-    // Convert to virtual pixels (camera resolution)
-    const scaleX = cam.width / vRect.width
-    const scaleY = cam.height / vRect.height
-    const vPxX = clickX * scaleX
-    const vPxY = clickY * scaleY
-
-    // Store both screen coordinates and virtual pixel coordinates
-    const point = {
-      screenX: e.clientX,
-      screenY: e.clientY,
-      relX: clickX,
-      relY: clickY,
-      vPxX: vPxX,
-      vPxY: vPxY,
-    }
-
-    if (state.clickPoints.length >= 2) {
-      // Reset and start new measurement
-      state.clickPoints = [point]
+    // Check which half of the video
+    if (relX < rect.width / 2) {
+      state.dragging = 'left'
     } else {
-      state.clickPoints.push(point)
+      state.dragging = 'right'
     }
 
-    updateClickVisuals()
+    dragStart = { x: e.clientX, y: e.clientY }
+    e.preventDefault() // prevent selection
   }
 
-  // Make video container clickable
+  function handlePointerMove(e) {
+    if (!state.dragging) return
+
+    // Determine new coordinates
+    // The guide is absolutely positioned in document body (via overlay), so we use e.pageX/Y
+    // But we need to update the p1/p2 state
+
+    const pageX = e.pageX
+    const pageY = e.pageY
+
+    if (state.dragging === 'left') {
+      state.p1 = { x: pageX, y: pageY }
+    } else if (state.dragging === 'right') {
+      state.p2 = { x: pageX, y: pageY }
+    }
+
+    // Redraw immediately
+    positionGuide(guide, state.p1, state.p2)
+
+    // Update labels
+    // Green label centered above the green guide
+    const midX = (state.p1.x + state.p2.x) / 2
+    const midY = (state.p1.y + state.p2.y) / 2
+    // Approximate "above" by using min Y minus some offset
+    const minY = Math.min(state.p1.y, state.p2.y)
+
+    greenLabel.style.left = `${midX}px`
+    greenLabel.style.top = `${minY - 30}px`
+  }
+
+  function handlePointerUp(e) {
+    state.dragging = null
+  }
+
+  // Add global move/up listeners
+  document.addEventListener('pointermove', handlePointerMove)
+  document.addEventListener('pointerup', handlePointerUp)
+
+  // Make video container interactable
   const vContForClick = document.getElementById('webgazerVideoContainer')
   if (vContForClick) {
     vContForClick.style.cursor = 'crosshair'
     vContForClick.style.pointerEvents = 'auto'
-    vContForClick.addEventListener('click', handleVideoClick)
+    vContForClick.style.touchAction = 'none' // Prevent scrolling while dragging
+    vContForClick.addEventListener('pointerdown', handlePointerDown)
   }
 
   // === EDGE DETECTION FILTER ===
@@ -568,10 +569,19 @@ export async function justCreditCard(RC, options, callback = undefined) {
   // This ensures the guide is in the correct position before it becomes visible
   const expectedRectInitial = getExpectedVideoRect(RC, videoTopOffsetPx)
   state.lineLengthPx = expectedRectInitial.width * 0.6
-  positionGuide(guide, state.lineLengthPx, expectedRectInitial)
+
+  // Initialize p1 and p2 based on length and rect
+  const y = expectedRectInitial.top + expectedRectInitial.height * 0.1
+  const x =
+    expectedRectInitial.left +
+    (expectedRectInitial.width - state.lineLengthPx) / 2
+  state.p1 = { x: x, y: y }
+  state.p2 = { x: x + state.lineLengthPx, y: y }
+
+  positionGuide(guide, state.p1, state.p2)
   // Green label centered above the green guide
   greenLabel.style.left = `${Math.round(expectedRectInitial.left + expectedRectInitial.width / 2)}px`
-  greenLabel.style.top = `${Math.round(expectedRectInitial.top + expectedRectInitial.height * 0.1) - 8}px`
+  greenLabel.style.top = `${Math.round(y - 30)}px`
   // Ensure everything becomes visible and the Stepper is created immediately
   // (schedule handles guide opacity and lazy Stepper instantiation)
   requestAnimationFrame(() => {
@@ -590,11 +600,33 @@ export async function justCreditCard(RC, options, callback = undefined) {
     if (state.lineLengthPx == null) {
       state.lineLengthPx = expectedRect.width * 0.6
     }
-    positionGuide(guide, state.lineLengthPx, expectedRect)
+
+    // If p1/p2 aren't set yet or are default, update them to match potentially new rect
+    // Only if NOT dragging
+    if (!state.dragging) {
+      // Calculate center of current line
+      const currentMidX = (state.p1.x + state.p2.x) / 2
+      const currentY = state.p1.y // assume roughly horizontal or use mid
+
+      // If this is first run or re-layout, we might want to re-center
+      // But if user moved it, we should respect that?
+      // The user prompt implies we should keep user adjustments.
+      // However, initially (before user interaction), it should center.
+      // Let's just ensure it's visible.
+      // For now, re-center ONLY if it seems untouched (y is still initial 10%?)
+      // Actually, let's just trust state.p1/p2 if they exist, but ensure they are initialized.
+    }
+
+    positionGuide(guide, state.p1, state.p2)
     guide.style.opacity = '1'
-    // Position green label above green guide
-    greenLabel.style.left = `${Math.round(expectedRect.left + expectedRect.width / 2)}px`
-    greenLabel.style.top = `${Math.round(expectedRect.top + expectedRect.height * 0.1) - 8}px`
+
+    // Update green label
+    const midX = (state.p1.x + state.p2.x) / 2
+    const midY = (state.p1.y + state.p2.y) / 2
+    const minY = Math.min(state.p1.y, state.p2.y)
+    greenLabel.style.left = `${midX}px`
+    greenLabel.style.top = `${minY - 30}px`
+
     // Lazily create the anchored stepper only after video size/position is final
     if (!instructionsUI) {
       const videoRefForStepper = document.getElementById(
@@ -602,7 +634,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
       )
       if (videoRefForStepper) {
         instructionsUI = createAnchoredStepperUI(videoRefForStepper, {
-          placement: 'below',
+          placement: 'inside-bottom',
           offsetPx: 8,
           positionMode: 'absolute',
           layout: 'leftOnly',
@@ -655,7 +687,13 @@ export async function justCreditCard(RC, options, callback = undefined) {
       const offsetPx = 8
       ac.style.width = `${Math.round(expectedRect.width)}px`
       ac.style.left = `${Math.round(expectedRect.left + pageX)}px`
-      ac.style.top = `${Math.round(expectedRect.top + expectedRect.height + offsetPx + pageY)}px`
+
+      // inside-bottom: align bottom of stepper to bottom of video (minus offset)
+      // Accessing offsetHeight forces a reflow to ensure height is correct after width change
+      const height = ac.offsetHeight || 0
+      const top = expectedRect.top + expectedRect.height - height - offsetPx
+
+      ac.style.top = `${Math.round(top + pageY)}px`
       ac.style.visibility = 'visible'
     }
     // Do NOT call instructionsUI.reposition() here. The internal logic relies on getBoundingClientRect
@@ -711,6 +749,12 @@ export async function justCreditCard(RC, options, callback = undefined) {
     const expectedRect = getExpectedVideoRect(RC, videoTopOffsetPx)
     if (state.lineLengthPx == null) {
       state.lineLengthPx = expectedRect.width * 0.6
+      // Initialize p1/p2 if not set (e.g. page reload logic, though this is inside renderPage)
+      const y = expectedRect.top + expectedRect.height * 0.1
+      const x =
+        expectedRect.left + (expectedRect.width - state.lineLengthPx) / 2
+      state.p1 = { x: x, y: y }
+      state.p2 = { x: x + state.lineLengthPx, y: y }
     }
     scheduleGuideReposition()
   }
@@ -783,19 +827,16 @@ export async function justCreditCard(RC, options, callback = undefined) {
     const cam = getCameraResolution(RC)
     if (!v || !cam) return null
 
-    // If user has placed 2 click points, use the distance between them
-    if (state.useClickMeasurement && state.clickPoints.length === 2) {
-      const p1 = state.clickPoints[0]
-      const p2 = state.clickPoints[1]
-      // Calculate distance in virtual pixels
-      const dx = p2.vPxX - p1.vPxX
-      const dy = p2.vPxY - p1.vPxY
-      return Math.sqrt(dx * dx + dy * dy)
-    }
+    // Calculate length in screen pixels from p1/p2
+    const dx = state.p2.x - state.p1.x
+    const dy = state.p2.y - state.p1.y
+    const lengthPx = Math.sqrt(dx * dx + dy * dy)
 
     // Otherwise use the green line length
     const scaleX = cam.width / v.rect.width
-    return state.lineLengthPx * scaleX
+    // Note: This assumes isotropic scaling or that line angle doesn't matter for scale.
+    // Usually scaleX and scaleY are similar.
+    return lengthPx * scaleX
   }
 
   async function onSpace() {
@@ -827,7 +868,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     const factorVpxCm = fVpx * ASSUMED_IPD_CM
     const cam = getCameraResolution(RC)
     const fOverHorizontal = cam ? fVpx / cam.width : null
-    const mode = state.useClickMeasurement ? 'clickPoints' : 'lineAdjust'
+    const mode = 'lineAdjust' // merged mode
     measurements.push({
       shortVPx,
       fVpx,
@@ -894,10 +935,30 @@ export async function justCreditCard(RC, options, callback = undefined) {
   function onArrow(delta) {
     const expectedRect = getExpectedVideoRect(RC, videoTopOffsetPx)
     const step = Math.max(2, Math.round(expectedRect.width * 0.01))
-    state.lineLengthPx = Math.max(
-      10,
-      Math.min(expectedRect.width, state.lineLengthPx + delta * step),
-    )
+
+    // Calculate current center and length
+    const midX = (state.p1.x + state.p2.x) / 2
+    const midY = (state.p1.y + state.p2.y) / 2
+    const dx = state.p2.x - state.p1.x
+    const dy = state.p2.y - state.p1.y
+    const currentLen = Math.sqrt(dx * dx + dy * dy)
+
+    // New length (no max limit)
+    const newLen = Math.max(10, currentLen + delta * step)
+
+    // Preserve center and angle.
+    // Unit vector from p1 to p2
+    const ux = dx / currentLen
+    const uy = dy / currentLen
+
+    // New endpoints
+    state.p1.x = midX - (ux * newLen) / 2
+    state.p1.y = midY - (uy * newLen) / 2
+    state.p2.x = midX + (ux * newLen) / 2
+    state.p2.y = midY + (uy * newLen) / 2
+
+    state.lineLengthPx = newLen
+
     scheduleGuideReposition()
   }
 
@@ -912,13 +973,16 @@ export async function justCreditCard(RC, options, callback = undefined) {
       e.preventDefault()
       onSpace()
     } else if (e.key === 'Escape') {
-      // Clear click points and revert to line measurement
+      // Reset to initial horizontal position if needed?
+      // Or just do nothing as click points are gone.
       e.preventDefault()
-      clearClickPoints()
     }
   }
 
   function cleanup() {
+    document.removeEventListener('pointermove', handlePointerMove)
+    document.removeEventListener('pointerup', handlePointerUp)
+
     document.removeEventListener('keydown', keyHandler)
     window.removeEventListener('resize', resizeHandler)
     document.removeEventListener('keydown', handleInstructionNav)
@@ -944,12 +1008,16 @@ export async function justCreditCard(RC, options, callback = undefined) {
     }
     // Reset video filter
     const vContainerCleanup = document.getElementById('webgazerVideoContainer')
-    if (vContainerCleanup) vContainerCleanup.style.filter = ''
+    if (vContainerCleanup) {
+      vContainerCleanup.style.filter = ''
+      vContainerCleanup.removeEventListener('pointerdown', handlePointerDown)
+      vContainerCleanup.style.touchAction = ''
+    }
+
     // Restore camera preview size and position
     const v = document.getElementById('webgazerVideoContainer')
     if (v) {
       // Remove click handler and restore cursor
-      v.removeEventListener('click', handleVideoClick)
       v.style.cursor = ''
       if (originalVideoCssText != null) {
         v.style.cssText = originalVideoCssText
@@ -977,7 +1045,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
 
     const data = {
       method: 'justCreditCard',
-      measurementMode: state.useClickMeasurement ? 'clickPoints' : 'lineAdjust',
+      measurementMode: 'lineAdjust',
       timestamp: performance.now(),
       shortCm: CREDIT_CARD_SHORT_CM,
       longCm: CREDIT_CARD_LONG_CM,
@@ -985,7 +1053,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
         page: i === 0 ? 3 : 4,
         shortVPx: Math.round(m.shortVPx),
         fVpx: Math.round(m.fVpx),
-        mode: m.mode || 'lineAdjust',
+        mode: 'lineAdjust',
       })),
       fVpx: Math.round(avgFVpx),
       fOverHorizontal:
@@ -1075,7 +1143,7 @@ const saveCalibrationAttempt = (
 
   const calibrationObject = {
     method,
-    mode: measurement.mode || 'lineAdjust',
+    mode: 'lineAdjust', // merged mode
     pxPerCm: safeRoundCm(pxPerCmValue),
     cameraXYPx: safeRoundXYPx(cameraXYPxValue),
     centerXYPx: safeRoundXYPx(centerXYPxValue),

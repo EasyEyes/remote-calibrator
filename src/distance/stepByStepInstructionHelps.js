@@ -272,7 +272,7 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
 
   const anchored = document.createElement('div')
   anchored.style.position = positionMode // absolute relative to document or fixed to viewport
-  anchored.style.zIndex = '100000000000' // high above content but below overlays that use higher z
+  anchored.style.zIndex = '2000000000000' // high above content but below overlays that use higher z
   anchored.style.pointerEvents = 'auto'
   anchored.style.visibility = 'hidden' // hide until positioned
   document.body.appendChild(anchored)
@@ -306,9 +306,14 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
       positionMode === 'absolute' ? leftViewport + pageX : leftViewport
     let topPx =
       placement === 'below' ? bottomViewport + offsetPx : topViewport - offsetPx
+
+    if (placement === 'inside-bottom') {
+      topPx = bottomViewport - offsetPx
+    }
+
     topPx = positionMode === 'absolute' ? topPx + pageY : topPx
 
-    // If placement is 'above', we need the actual height to avoid overlap.
+    // If placement is 'above' or 'inside-bottom', we need the actual height to avoid overlap (or to align to bottom).
     // Temporarily make visible to measure, then adjust top.
     anchored.style.visibility = 'hidden'
     anchored.style.left = `${Math.round(leftPx)}px`
@@ -319,6 +324,15 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
       const h = anchored.offsetHeight || 0
       const adjustedTop =
         (positionMode === 'absolute' ? topViewport + pageY : topViewport) -
+        h -
+        offsetPx
+      anchored.style.top = `${Math.round(adjustedTop)}px`
+    } else if (placement === 'inside-bottom') {
+      const h = anchored.offsetHeight || 0
+      const adjustedTop =
+        (positionMode === 'absolute'
+          ? bottomViewport + pageY
+          : bottomViewport) -
         h -
         offsetPx
       anchored.style.top = `${Math.round(adjustedTop)}px`
@@ -488,7 +502,7 @@ export function renderStepInstructions({
   const stepperBox = document.createElement('div')
   stepperBox.style.position = 'relative'
   // Very faint light blue background
-  stepperBox.style.backgroundColor = 'rgba(173, 216, 230, 0.25)'
+  stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'
   // Thin black outline
   stepperBox.style.border = '1px solid #000'
   stepperBox.style.borderRadius = '4px'
@@ -508,7 +522,7 @@ export function renderStepInstructions({
   navHintContainer.style.marginBottom = '0.5rem'
 
   const navHint = document.createElement('div')
-  navHint.style.color = '#555'
+  navHint.style.color = 'black'
   navHint.style.fontSize = 'clamp(0.9em, 2vw, 1em)'
   navHint.style.fontStyle = 'italic'
   navHint.style.maxWidth = '100%'
