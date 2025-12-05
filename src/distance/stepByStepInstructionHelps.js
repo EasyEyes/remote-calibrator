@@ -523,6 +523,10 @@ export function renderStepInstructions({
 
   const navHint = document.createElement('div')
   navHint.style.color = 'black'
+  navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'
+  navHint.style.padding = '0.3rem'
+  navHint.style.borderRadius = '4px'
+  navHint.style.width = 'fit-content'
   navHint.style.fontSize = 'clamp(0.9em, 2vw, 1em)'
   navHint.style.fontStyle = 'italic'
   navHint.style.maxWidth = '100%'

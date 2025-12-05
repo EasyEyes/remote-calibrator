@@ -894,9 +894,6 @@ export async function justCreditCard(RC, options, callback = undefined) {
       commonCalibrationData,
     )
 
-    // Clear click points after measurement so next page starts fresh
-    clearClickPoints()
-
     if (measurements.length < measurementCount) {
       currentPage = 4
       renderPage()
