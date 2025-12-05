@@ -332,7 +332,10 @@ RemoteCalibrator.prototype.trackDistance = async function (
       )
     }
     // Start iris drawing with mesh data before calibration tests
-    if (options.showIrisesBool) {
+    if (
+      options.showIrisesBool &&
+      options.useObjectTestData !== 'justCreditCard'
+    ) {
       console.log('=== Starting iris drawing before calibration tests ===')
       await startIrisDrawingWithMesh(this)
     }
@@ -358,9 +361,9 @@ RemoteCalibrator.prototype.trackDistance = async function (
       await objectTest(this, options, getStdDist)
     } else if (options.useObjectTestData === 'creditCard') {
       // Call knownDistanceTest directly for calibration
+
       await knownDistanceTest(this, options, getStdDist)
     } else if (options.useObjectTestData === 'justCreditCard') {
-      console.log('=== Starting Just Credit Card (fVpx) Calibration ===')
       await justCreditCard(this, options, getStdDist)
     } else if (options.useObjectTestData) {
       console.log('=== Starting Object Test Only ===')
@@ -774,7 +777,7 @@ const updateSharedFaceData = (leftEye, rightEye, video, currentIPDDistance) => {
 }
 
 // Start iris drawing with continuous mesh data tracking
-const startIrisDrawingWithMesh = async RC => {
+export const startIrisDrawingWithMesh = async RC => {
   console.log('=== Starting iris drawing with continuous mesh tracking ===')
 
   // Check if iris drawing is enabled

@@ -247,6 +247,132 @@ export function createStepInstructionsUI(parent, options = {}) {
   }
 }
 
+// Create a Stepper UI anchored relative to a reference element in the DOM.
+// The Stepper container is absolutely positioned and inserted into document.body,
+// either below or above the reference element's bounding rect.
+export function createAnchoredStepperUI(referenceEl, options = {}) {
+  if (!referenceEl || typeof referenceEl.getBoundingClientRect !== 'function') {
+    throw new Error('createAnchoredStepperUI: referenceEl is required')
+  }
+  const {
+    placement = 'below', // 'below' | 'above'
+    offsetPx = 8,
+    positionMode = 'absolute', // 'absolute' | 'fixed'
+    // Pass-through styling/layout options for the inner Stepper UI
+    leftWidth = '100%',
+    rightWidth = '0%',
+    leftPaddingStart = '0.75rem',
+    leftPaddingEnd = '0.75rem',
+    rightPaddingStart = '0rem',
+    rightPaddingEnd = '0rem',
+    fontSize = 'clamp(1.05em, 2.2vw, 1.35em)',
+    lineHeight = '1.4',
+    layout = 'leftOnly',
+  } = options
+
+  const anchored = document.createElement('div')
+  anchored.style.position = positionMode // absolute relative to document or fixed to viewport
+  anchored.style.zIndex = '100000000000' // high above content but below overlays that use higher z
+  anchored.style.pointerEvents = 'auto'
+  anchored.style.visibility = 'hidden' // hide until positioned
+  document.body.appendChild(anchored)
+
+  // Build the inner stepper UI inside the anchored container
+  const inner = createStepInstructionsUI(anchored, {
+    leftWidth,
+    rightWidth,
+    leftPaddingStart,
+    leftPaddingEnd,
+    rightPaddingStart,
+    rightPaddingEnd,
+    fontSize,
+    lineHeight,
+    layout,
+  })
+
+  const computeAndApplyPosition = () => {
+    const rect = referenceEl.getBoundingClientRect()
+    // Determine left and width
+    const pageX = window.pageXOffset || document.documentElement.scrollLeft || 0
+    const pageY = window.pageYOffset || document.documentElement.scrollTop || 0
+    const leftViewport = rect.left
+    const topViewport = rect.top
+    const bottomViewport = rect.bottom
+    const width = rect.width
+    // Set container width to match reference
+    anchored.style.width = `${Math.max(0, Math.floor(width))}px`
+    // Choose coordinate system
+    const leftPx =
+      positionMode === 'absolute' ? leftViewport + pageX : leftViewport
+    let topPx =
+      placement === 'below' ? bottomViewport + offsetPx : topViewport - offsetPx
+    topPx = positionMode === 'absolute' ? topPx + pageY : topPx
+
+    // If placement is 'above', we need the actual height to avoid overlap.
+    // Temporarily make visible to measure, then adjust top.
+    anchored.style.visibility = 'hidden'
+    anchored.style.left = `${Math.round(leftPx)}px`
+    anchored.style.top = `${Math.round(topPx)}px`
+    // Force layout
+    void anchored.offsetWidth
+    if (placement === 'above') {
+      const h = anchored.offsetHeight || 0
+      const adjustedTop =
+        (positionMode === 'absolute' ? topViewport + pageY : topViewport) -
+        h -
+        offsetPx
+      anchored.style.top = `${Math.round(adjustedTop)}px`
+    }
+    anchored.style.visibility = 'visible'
+  }
+
+  const reposition = () => {
+    try {
+      computeAndApplyPosition()
+    } catch {}
+  }
+
+  // Initial position after one frame (ensure inner is rendered)
+  requestAnimationFrame(reposition)
+
+  // Keep in sync on resize and scroll
+  const onResize = () => reposition()
+  const onScroll = () => reposition()
+  window.addEventListener('resize', onResize)
+  window.addEventListener('scroll', onScroll, { passive: true })
+
+  // If the inner content size changes, reposition (for 'above' placement)
+  let resizeObserver = null
+  if ('ResizeObserver' in window) {
+    resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => reposition())
+    })
+    resizeObserver.observe(anchored)
+  }
+
+  const destroy = () => {
+    try {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('scroll', onScroll)
+      if (resizeObserver) resizeObserver.disconnect()
+      if (anchored && anchored.parentNode)
+        anchored.parentNode.removeChild(anchored)
+    } catch {}
+    if (inner && typeof inner.destroy === 'function') {
+      try {
+        inner.destroy()
+      } catch {}
+    }
+  }
+
+  return {
+    ...inner,
+    anchoredContainer: anchored,
+    reposition,
+    destroy,
+  }
+}
+
 // Render the step-by-step view into a given UI created by createStepInstructionsUI
 export function renderStepInstructions({
   model,

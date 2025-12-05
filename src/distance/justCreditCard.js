@@ -6,8 +6,10 @@ import { cameraShutterSound } from '../components/sound'
 import {
   createStepInstructionsUI,
   renderStepInstructions,
+  createAnchoredStepperUI,
 } from './stepByStepInstructionHelps'
 import { parseInstructions } from './instructionParserAdapter'
+import { startIrisDrawingWithMesh } from './distanceTrack'
 
 // Constants for credit card size in centimeters
 const CREDIT_CARD_SHORT_CM = 5.398
@@ -68,16 +70,17 @@ function createDashedGuide() {
 
 function positionGuide(guide, lineLengthPx, vRect) {
   const usedLengthPx = Math.max(0, Math.min(lineLengthPx, vRect.width))
-  const y = vRect.top + vRect.height * 0.9
+  // 10% from the top of the video
+  const y = vRect.top + vRect.height * 0.1
   const x = vRect.left + (vRect.width - usedLengthPx) / 2
   guide.style.width = `${usedLengthPx}px`
   guide.style.left = `${Math.round(x)}px`
   guide.style.top = `${Math.round(y)}px`
 }
 
-// Get the expected video rect based on known positioning (right half of screen)
+// Get the expected video rect based on known positioning (below camera, centered horizontally)
 // This avoids relying on getBoundingClientRect which may return stale values
-function getExpectedVideoRect(RC) {
+function getExpectedVideoRect(RC, videoTopOffsetPx) {
   const vw = window.innerWidth
   const vh = window.innerHeight
 
@@ -85,9 +88,10 @@ function getExpectedVideoRect(RC) {
   const cam = getCameraResolution(RC)
   const camAspect = cam ? cam.width / cam.height : 16 / 9
 
-  // Available space: right half of screen
-  const availWidth = vw / 2
-  const availHeight = vh
+  // Available space: width capped to 40% of viewport, height below the desired top offset
+  const maxWidth = vw * 0.4
+  const availWidth = maxWidth
+  const availHeight = Math.max(0, vh - (videoTopOffsetPx || 0))
 
   // Calculate size that fits while maintaining aspect ratio
   let videoW, videoH
@@ -99,8 +103,10 @@ function getExpectedVideoRect(RC) {
     videoH = videoW / camAspect
   }
 
-  const topOffset = (availHeight - videoH) / 2
-  const leftOffset = vw / 2 + (availWidth - videoW) / 2
+  // Top is pinned to the requested offset (0.5 cm below blue line)
+  const topOffset = Math.max(0, videoTopOffsetPx || 0)
+  // Horizontally centered on the camera (screen center)
+  const leftOffset = (vw - videoW) / 2
 
   return {
     left: leftOffset,
@@ -120,8 +126,8 @@ function getInstructions(RC, isRepeat) {
     "When the line matches the edge, press the SPACE bar. 🔉 You'll hear a shutter click.\n" +
     '(Press ESC to clear click markers and start over.)'
   const fallbackPage4 = fallbackPage3
-  const keyPage3 = phrases?.RC_UseCreditCardToCalibrateCameraPage3?.[RC.L]
-  const keyPage4 = phrases?.RC_UseCreditCardToCalibrateCameraRepeatPage4?.[RC.L]
+  const keyPage3 = phrases?.RC_UseCreditCardBelowToCalibrateCameraPage3?.[RC.L]
+  const keyPage4 = phrases?.RC_UseCreditCardBelowToCalibrateCameraPage4?.[RC.L]
   const text =
     (isRepeat ? keyPage4 : keyPage3) ||
     (isRepeat ? fallbackPage4 : fallbackPage3)
@@ -130,6 +136,16 @@ function getInstructions(RC, isRepeat) {
 
 export async function justCreditCard(RC, options, callback = undefined) {
   RC._addBackground()
+
+  // Unit conversions and configurable offsets
+  const pxPerCm = (RC?.screenPpi?.value ? RC.screenPpi.value : 96) / 2.54 // fallback to 96 DPI if missing
+  const cameraToCardOffsetCm =
+    options?.calibrateTrackDistanceCameraToCardCm ??
+    options?._calibrateTrackDistanceCameraToCardCm ??
+    4
+  const blueLineOffsetPx = cameraToCardOffsetCm * pxPerCm
+  // Video sits 0.5 cm below the blue line
+  const videoTopOffsetPx = blueLineOffsetPx + 0.5 * pxPerCm
 
   const commonCalibrationData = {
     shortCm: CREDIT_CARD_SHORT_CM,
@@ -148,6 +164,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+    _calibrateTrackDistanceCameraToCardCm: cameraToCardOffsetCm,
   }
 
   // Measurement count/pages: 1 (default) or 2 for repeat
@@ -194,20 +211,10 @@ export async function justCreditCard(RC, options, callback = undefined) {
   title.id = 'just-credit-card-title'
   titleRow.appendChild(title)
 
-  // Stepper UI: left column for instructions; right column reserved for video
-  const instructionsUI = createStepInstructionsUI(container, {
-    leftWidth: '50%',
-    rightWidth: '50%',
-    leftPaddingStart: '3rem',
-    leftPaddingEnd: '1rem',
-    rightPaddingStart: '1rem',
-    rightPaddingEnd: '3rem',
-    fontSize: 'clamp(1.05em, 2.2vw, 1.35em)',
-    lineHeight: '1.4',
-    layout: 'leftOnly',
-  })
-  const leftInstructionsText = instructionsUI.leftText
-  const mediaContainer = instructionsUI.mediaContainer
+  // Stepper UI: anchored relative to the video, placed below it
+  let instructionsUI = null
+  let leftInstructionsText = null
+  let mediaContainer = null
 
   // Overlay and guide line - remove any existing overlay first to prevent duplicates
   const existingOverlay = document.getElementById('just-credit-card-overlay')
@@ -219,14 +226,57 @@ export async function justCreditCard(RC, options, callback = undefined) {
   overlay.appendChild(guide)
   document.body.appendChild(overlay)
 
+  // Blue reference line (short edge length) and labels
+  const blueGuide = document.createElement('div')
+  blueGuide.id = 'just-credit-card-blue-guide'
+  blueGuide.style.position = 'absolute'
+  blueGuide.style.height = '0px'
+  blueGuide.style.borderTop = '3px dashed rgba(0, 120, 255, 0.95)'
+  blueGuide.style.pointerEvents = 'none'
+  blueGuide.style.zIndex = '1000000000'
+  overlay.appendChild(blueGuide)
+
+  const blueLabel = document.createElement('div')
+  blueLabel.id = 'just-credit-card-blue-label'
+  blueLabel.style.position = 'absolute'
+  blueLabel.style.color = 'rgba(0, 120, 255, 0.95)'
+  blueLabel.style.font =
+    '600 14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
+  blueLabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.25)'
+  blueLabel.style.pointerEvents = 'none'
+  blueLabel.style.transform = 'translate(-50%, -100%)'
+  blueLabel.style.whiteSpace = 'nowrap'
+  blueLabel.style.zIndex = '1000000001'
+  blueLabel.dir = RC.LD.toLowerCase()
+  blueLabel.textContent =
+    phrases?.RC_PlaceCreditCardHere?.[RC.L] || 'Place credit card here'
+  overlay.appendChild(blueLabel)
+
+  const greenLabel = document.createElement('div')
+  greenLabel.id = 'just-credit-card-green-label'
+  greenLabel.style.position = 'absolute'
+  greenLabel.style.color = 'rgba(0, 180, 0, 0.95)'
+  greenLabel.style.font =
+    '600 14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
+  greenLabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.25)'
+  greenLabel.style.pointerEvents = 'none'
+  greenLabel.style.transform = 'translate(-50%, -120%)'
+  greenLabel.style.whiteSpace = 'nowrap'
+  greenLabel.style.zIndex = '1000000001'
+  greenLabel.dir = RC.LD.toLowerCase()
+  greenLabel.textContent =
+    phrases?.RC_PlaceUpperCreditCardEdgeHere?.[RC.L] ||
+    'Place upper credit card edge here'
+  overlay.appendChild(greenLabel)
+
   // Add to RC background (below overlay but above page)
   RC._replaceBackground('')
   RC.background.appendChild(container)
 
-  // Move video to the right half and maximize within that area; remember original style
+  // Position video centered below the blue line; remember original style
   let originalVideoCssText = null
   let originalResizeHandler = null
-  const positionVideoRightHalf = () => {
+  const positionVideoBelowCamera = () => {
     const v = document.getElementById('webgazerVideoContainer')
     if (!v) return
     if (originalVideoCssText == null) {
@@ -244,9 +294,12 @@ export async function justCreditCard(RC, options, callback = undefined) {
     const cam = getCameraResolution(RC)
     const camAspect = cam ? cam.width / cam.height : 16 / 9 // default to 16:9
 
-    // Available space: right half of screen
-    const availWidth = window.innerWidth / 2
-    const availHeight = window.innerHeight
+    // Available space: width capped to 60% of viewport, start at videoTopOffsetPx
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const maxWidth = vw * 0.6
+    const availWidth = maxWidth
+    const availHeight = Math.max(0, vh - videoTopOffsetPx)
 
     // Calculate size that fits while maintaining aspect ratio
     let videoW, videoH
@@ -260,11 +313,11 @@ export async function justCreditCard(RC, options, callback = undefined) {
       videoH = videoW / camAspect
     }
 
-    // Center vertically in the right half
-    const topOffset = (availHeight - videoH) / 2
+    // Top is fixed at the desired offset, horizontally centered
+    const topOffset = Math.max(0, videoTopOffsetPx)
 
     v.style.position = 'fixed'
-    v.style.left = `${window.innerWidth / 2 + (availWidth - videoW) / 2}px`
+    v.style.left = `${(vw - videoW) / 2}px`
     v.style.top = `${topOffset}px`
     v.style.width = `${videoW}px`
     v.style.height = `${videoH}px`
@@ -276,7 +329,21 @@ export async function justCreditCard(RC, options, callback = undefined) {
     void v.offsetWidth
     return v
   }
-  positionVideoRightHalf()
+  positionVideoBelowCamera()
+
+  // Position blue guide and labels
+  const positionBlueGuideAndLabels = () => {
+    const blueLengthPx = CREDIT_CARD_SHORT_CM * pxPerCm
+    const xLeft = Math.round(window.innerWidth / 2 - blueLengthPx / 2)
+    const yTop = Math.round(blueLineOffsetPx)
+    blueGuide.style.width = `${Math.max(0, blueLengthPx)}px`
+    blueGuide.style.left = `${xLeft}px`
+    blueGuide.style.top = `${yTop}px`
+    // Blue label centered above the blue line
+    blueLabel.style.left = `${Math.round(window.innerWidth / 2)}px`
+    blueLabel.style.top = `${yTop - 6}px`
+  }
+  positionBlueGuideAndLabels()
 
   // State for guide line and click-based measurement
   const state = {
@@ -458,7 +525,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
 
   // Position button on top of video
   const positionEdgeToggle = () => {
-    const rect = getExpectedVideoRect(RC)
+    const rect = getExpectedVideoRect(RC, videoTopOffsetPx)
     edgeToggle.style.top = `${rect.top + 10}px`
     edgeToggle.style.left = `${rect.left + 10}px`
   }
@@ -499,21 +566,100 @@ export async function justCreditCard(RC, options, callback = undefined) {
 
   // Position the guide immediately using expected rect (right half of viewport)
   // This ensures the guide is in the correct position before it becomes visible
-  const expectedRectInitial = getExpectedVideoRect(RC)
+  const expectedRectInitial = getExpectedVideoRect(RC, videoTopOffsetPx)
   state.lineLengthPx = expectedRectInitial.width * 0.6
   positionGuide(guide, state.lineLengthPx, expectedRectInitial)
+  // Green label centered above the green guide
+  greenLabel.style.left = `${Math.round(expectedRectInitial.left + expectedRectInitial.width / 2)}px`
+  greenLabel.style.top = `${Math.round(expectedRectInitial.top + expectedRectInitial.height * 0.1) - 8}px`
+  // Ensure everything becomes visible and the Stepper is created immediately
+  // (schedule handles guide opacity and lazy Stepper instantiation)
+  requestAnimationFrame(() => {
+    scheduleGuideReposition()
+  })
 
-  // Re-position the guide after layout settles so it's always at 10% from the bottom of the video
-  const scheduleGuideReposition = () => {
-    positionVideoRightHalf()
-    // Use expected rect based on known positioning (right half of viewport)
+  // Stepper will be created after video is positioned (in scheduleGuideReposition)
+
+  // Re-position the guide after layout settles so it's always at 10% from the top of the video
+  function scheduleGuideReposition() {
+    positionVideoBelowCamera()
+    positionBlueGuideAndLabels()
+    // Use expected rect based on known positioning (centered below blue line)
     // This avoids issues with getBoundingClientRect returning stale values
-    const expectedRect = getExpectedVideoRect(RC)
+    const expectedRect = getExpectedVideoRect(RC, videoTopOffsetPx)
     if (state.lineLengthPx == null) {
       state.lineLengthPx = expectedRect.width * 0.6
     }
     positionGuide(guide, state.lineLengthPx, expectedRect)
     guide.style.opacity = '1'
+    // Position green label above green guide
+    greenLabel.style.left = `${Math.round(expectedRect.left + expectedRect.width / 2)}px`
+    greenLabel.style.top = `${Math.round(expectedRect.top + expectedRect.height * 0.1) - 8}px`
+    // Lazily create the anchored stepper only after video size/position is final
+    if (!instructionsUI) {
+      const videoRefForStepper = document.getElementById(
+        'webgazerVideoContainer',
+      )
+      if (videoRefForStepper) {
+        instructionsUI = createAnchoredStepperUI(videoRefForStepper, {
+          placement: 'below',
+          offsetPx: 8,
+          positionMode: 'absolute',
+          layout: 'leftOnly',
+          leftWidth: '100%',
+          leftPaddingStart: '0.75rem',
+          leftPaddingEnd: '0.75rem',
+          fontSize: 'clamp(1.05em, 2.2vw, 1.35em)',
+          lineHeight: '1.4',
+        })
+        leftInstructionsText = instructionsUI.leftText
+        mediaContainer = instructionsUI.mediaContainer
+        repositionInstructionsUI(instructionsUI, expectedRect)
+        renderPage()
+      } else {
+        // Fallback inside container if video element missing
+        instructionsUI = createStepInstructionsUI(container, {
+          leftWidth: '100%',
+          rightWidth: '0%',
+          leftPaddingStart: '3rem',
+          leftPaddingEnd: '3rem',
+          fontSize: 'clamp(1.05em, 2.2vw, 1.35em)',
+          lineHeight: '1.4',
+          layout: 'leftOnly',
+        })
+        leftInstructionsText = instructionsUI.leftText
+        mediaContainer = instructionsUI.mediaContainer
+        repositionInstructionsUI(instructionsUI, expectedRect)
+        renderPage()
+      }
+    }
+    repositionInstructionsUI(instructionsUI, expectedRect)
+    // Double RAF to ensure we apply the position AFTER the internal anchored stepper's
+    // initialization/listeners have fired (which might be using stale DOM rects).
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const rect3 = getExpectedVideoRect(RC, videoTopOffsetPx)
+        repositionInstructionsUI(instructionsUI, rect3)
+      })
+    })
+  }
+
+  function repositionInstructionsUI(instructionsUI, expectedRect) {
+    // Force anchored stepper width/position to match expectedRect immediately
+    if (instructionsUI && instructionsUI.anchoredContainer) {
+      const ac = instructionsUI.anchoredContainer
+      const pageX =
+        window.pageXOffset || document.documentElement.scrollLeft || 0
+      const pageY =
+        window.pageYOffset || document.documentElement.scrollTop || 0
+      const offsetPx = 8
+      ac.style.width = `${Math.round(expectedRect.width)}px`
+      ac.style.left = `${Math.round(expectedRect.left + pageX)}px`
+      ac.style.top = `${Math.round(expectedRect.top + expectedRect.height + offsetPx + pageY)}px`
+      ac.style.visibility = 'visible'
+    }
+    // Do NOT call instructionsUI.reposition() here. The internal logic relies on getBoundingClientRect
+    // which might be stale or incorrect during initialization. We trust expectedRect.
   }
 
   function updateTitle() {
@@ -526,6 +672,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
   }
 
   function renderPage() {
+    // If UI not initialized yet, skip; will be called again after creation
+    if (!leftInstructionsText || !mediaContainer) return
     updateTitle()
     const isRepeat = currentPage === 4
 
@@ -560,7 +708,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     }
 
     // Initial line length = 60% of video width (use expected rect for consistent positioning)
-    const expectedRect = getExpectedVideoRect(RC)
+    const expectedRect = getExpectedVideoRect(RC, videoTopOffsetPx)
     if (state.lineLengthPx == null) {
       state.lineLengthPx = expectedRect.width * 0.6
     }
@@ -666,17 +814,42 @@ export async function justCreditCard(RC, options, callback = undefined) {
       cameraShutterSound()
     }
 
-    const fVpx = (shortVPx * CREDIT_CARD_LONG_CM) / CREDIT_CARD_SHORT_CM
+    // Compute camera-to-card distance using the specified vertical offset (in cm) and card long edge
+    const cameraToCardCm = Math.sqrt(
+      Math.max(
+        0,
+        CREDIT_CARD_LONG_CM * CREDIT_CARD_LONG_CM -
+          cameraToCardOffsetCm * cameraToCardOffsetCm,
+      ),
+    )
+    // f (in vpx) derived from short edge in vpx and geometry
+    const fVpx = (shortVPx * cameraToCardCm) / CREDIT_CARD_SHORT_CM
     const factorVpxCm = fVpx * ASSUMED_IPD_CM
     const cam = getCameraResolution(RC)
     const fOverHorizontal = cam ? fVpx / cam.width : null
     const mode = state.useClickMeasurement ? 'clickPoints' : 'lineAdjust'
-    measurements.push({ shortVPx, fVpx, factorVpxCm, fOverHorizontal, mode })
+    measurements.push({
+      shortVPx,
+      fVpx,
+      factorVpxCm,
+      fOverHorizontal,
+      mode,
+      cameraToCardCm,
+      cameraToCardOffsetCm: cameraToCardOffsetCm,
+    })
 
     saveCalibrationAttempt(
       RC,
       'justCreditCard',
-      { shortVPx, fVpx, factorVpxCm, fOverHorizontal, mode },
+      {
+        shortVPx,
+        fVpx,
+        factorVpxCm,
+        fOverHorizontal,
+        mode,
+        cameraToCardCm,
+        cameraToCardOffsetCm: cameraToCardOffsetCm,
+      },
       commonCalibrationData,
     )
 
@@ -690,6 +863,9 @@ export async function justCreditCard(RC, options, callback = undefined) {
     }
 
     const data = finish()
+    if (options.showIrisesBool) {
+      await startIrisDrawingWithMesh(RC)
+    }
     if (options.calibrateTrackDistanceCheckBool) {
       await RC._checkDistance(
         callback,
@@ -716,7 +892,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   }
 
   function onArrow(delta) {
-    const expectedRect = getExpectedVideoRect(RC)
+    const expectedRect = getExpectedVideoRect(RC, videoTopOffsetPx)
     const step = Math.max(2, Math.round(expectedRect.width * 0.01))
     state.lineLengthPx = Math.max(
       10,
@@ -754,6 +930,18 @@ export async function justCreditCard(RC, options, callback = undefined) {
       svgFilter.parentNode.removeChild(svgFilter)
     if (edgeToggle && edgeToggle.parentNode)
       edgeToggle.parentNode.removeChild(edgeToggle)
+    // Remove blue/green labels if still attached (overlay removal usually covers them)
+    const blueLbl = document.getElementById('just-credit-card-blue-label')
+    if (blueLbl && blueLbl.parentNode) blueLbl.parentNode.removeChild(blueLbl)
+    const greenLbl = document.getElementById('just-credit-card-green-label')
+    if (greenLbl && greenLbl.parentNode)
+      greenLbl.parentNode.removeChild(greenLbl)
+    // Destroy anchored stepper if present
+    if (instructionsUI && typeof instructionsUI.destroy === 'function') {
+      try {
+        instructionsUI.destroy()
+      } catch {}
+    }
     // Reset video filter
     const vContainerCleanup = document.getElementById('webgazerVideoContainer')
     if (vContainerCleanup) vContainerCleanup.style.filter = ''
