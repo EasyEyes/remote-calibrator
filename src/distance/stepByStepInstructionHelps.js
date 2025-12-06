@@ -258,6 +258,10 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
     placement = 'below', // 'below' | 'above'
     offsetPx = 8,
     positionMode = 'absolute', // 'absolute' | 'fixed'
+    // When true, disables ALL internal positioning (initial, resize, scroll, ResizeObserver).
+    // Caller must handle positioning manually. Use this when the reference element's
+    // getBoundingClientRect() returns stale/incorrect values during initialization.
+    disableInternalPositioning = false,
     // Pass-through styling/layout options for the inner Stepper UI
     leftWidth = '100%',
     rightWidth = '0%',
@@ -346,28 +350,35 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
     } catch {}
   }
 
-  // Initial position after one frame (ensure inner is rendered)
-  requestAnimationFrame(reposition)
-
-  // Keep in sync on resize and scroll
-  const onResize = () => reposition()
-  const onScroll = () => reposition()
-  window.addEventListener('resize', onResize)
-  window.addEventListener('scroll', onScroll, { passive: true })
-
-  // If the inner content size changes, reposition (for 'above' placement)
+  // Internal positioning uses getBoundingClientRect() which can return stale values.
+  // When disableInternalPositioning is true, caller handles all positioning manually.
   let resizeObserver = null
-  if ('ResizeObserver' in window) {
-    resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => reposition())
-    })
-    resizeObserver.observe(anchored)
+  let onResize = null
+  let onScroll = null
+  
+  if (!disableInternalPositioning) {
+    // Initial position after one frame (ensure inner is rendered)
+    requestAnimationFrame(reposition)
+
+    // Keep in sync on resize and scroll
+    onResize = () => reposition()
+    onScroll = () => reposition()
+    window.addEventListener('resize', onResize)
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    // If the inner content size changes, reposition (for 'above' placement)
+    if ('ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver(() => {
+        requestAnimationFrame(() => reposition())
+      })
+      resizeObserver.observe(anchored)
+    }
   }
 
   const destroy = () => {
     try {
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onScroll)
+      if (onResize) window.removeEventListener('resize', onResize)
+      if (onScroll) window.removeEventListener('scroll', onScroll)
       if (resizeObserver) resizeObserver.disconnect()
       if (anchored && anchored.parentNode)
         anchored.parentNode.removeChild(anchored)
@@ -412,6 +423,8 @@ export function renderStepInstructions({
     // Default 1, minimum 0. Can also be passed as options._stepperHistory.
     stepperHistory: stepperHistoryOption = 1,
     layout = 'twoColumn', // 'twoColumn' | 'leftOnly'
+    // Show large "Instructions" heading above the stepper (for justCreditCard page)
+    showLargeHeading = false,
   } = options
 
   const { leftText, rightText, mediaContainer } = elements
@@ -502,7 +515,7 @@ export function renderStepInstructions({
   const stepperBox = document.createElement('div')
   stepperBox.style.position = 'relative'
   // Very faint light blue background
-  stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'
+  stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.25)'
   // Thin black outline
   stepperBox.style.border = '1px solid #000'
   stepperBox.style.borderRadius = '4px'
@@ -517,13 +530,25 @@ export function renderStepInstructions({
 
   stepperBox.appendChild(contentContainer)
 
+  // Add large "Instructions" heading above the stepper (only for justCreditCard page)
+  if (showLargeHeading) {
+    const instructionsHeading = document.createElement('div')
+    instructionsHeading.style.fontSize = '64px'
+    instructionsHeading.style.fontWeight = 'bold'
+    instructionsHeading.style.color = 'black'
+    instructionsHeading.style.marginBottom = '0.5rem'
+    instructionsHeading.style.textAlign = langDirection === 'RTL' ? 'right' : 'left'
+    instructionsHeading.textContent = phrases.RC_Instructions?.[lang] || 'Instructions'
+    leftText.appendChild(instructionsHeading)
+  }
+
   // Add navigation hint on top of stepper box
   const navHintContainer = document.createElement('div')
   navHintContainer.style.marginBottom = '0.5rem'
 
   const navHint = document.createElement('div')
   navHint.style.color = 'black'
-  navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.5)'
+  navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.25)'
   navHint.style.padding = '0.3rem'
   navHint.style.borderRadius = '4px'
   navHint.style.width = 'fit-content'

@@ -637,6 +637,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
           placement: 'inside-bottom',
           offsetPx: 8,
           positionMode: 'absolute',
+          disableInternalPositioning: true, // We handle positioning via repositionInstructionsUI with calculated expectedRect
           layout: 'leftOnly',
           leftWidth: '100%',
           leftPaddingStart: '0.75rem',
@@ -733,6 +734,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
           useCurrentSectionOnly: true,
           stepperHistory: options.stepperHistory,
           layout: 'leftOnly', // 1-column Stepper on the left
+          showLargeHeading: true, // Show big "Instructions" heading for justCreditCard
         },
         lang: RC.language?.value || RC.L,
         langDirection: RC.LD,
@@ -786,6 +788,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
             useCurrentSectionOnly: true,
             stepperHistory: options.stepperHistory,
             layout: 'leftOnly',
+            showLargeHeading: true,
           },
           lang: RC.language?.value || RC.L,
           langDirection: RC.LD,
@@ -810,6 +813,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
             useCurrentSectionOnly: true,
             stepperHistory: options.stepperHistory,
             layout: 'leftOnly',
+            showLargeHeading: true,
           },
           lang: RC.language?.value || RC.L,
           langDirection: RC.LD,
