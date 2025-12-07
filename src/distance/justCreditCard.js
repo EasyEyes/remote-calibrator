@@ -100,29 +100,6 @@ function positionGuide(guide, p1, p2) {
   const rY = rX * 0.707
   const w = length
 
-  // Path logic: start at tip (0,0), curve up (negative Y) to straight edge, then down to other tip (w,0)
-  // Note: We position the SVG top at p1.y. But the curve goes "up" into negative relative space?
-  // Actually, if the card body is "below" the line visually (bottom edge of card), then the rounded corners go "up" into the card body.
-  // In the previous implementation (horizontal), we drew: M 0 rY Q 0 0 rX 0 L w-rX 0 Q w 0 w rY
-  // That was "down" curve relative to a top edge.
-  // Now we are matching the "bottom edge" of the card in the video?
-  // "Tilt the card slightly downward until, in the video, its bottom edge meets the green line."
-  // The card body is above the edge in the video (since it's the bottom edge).
-  // So the corners should curve UP into the card body.
-  // Using coordinates: Start (0,0). Curve to (rX, -rY). Line to (w-rX, -rY). Curve to (w, 0).
-  // Wait, let's verify the visual.
-  // If the line is the edge, and corners are rounded, the line length (w) is the straight part plus the curves?
-  // The standard says "corner radius of 3.18 mm". The width 53.98mm includes the corners.
-  // So the "tip" of the card is where the straight edge would end if it weren't rounded? No.
-  // The card width is the maximum width.
-  // The "green line" represents the card's edge.
-  // If we draw the edge, it's effectively the profile of the card.
-  // If we are looking at the bottom edge, the corners curve away from the edge.
-  // Visually:  /------------\  <-- Top edge
-  //            |            |
-  //            \____________/  <-- Bottom edge
-  // So the corners go "up" relative to the bottom edge line.
-
   const d = `M 0 0 Q 0 -${rY} ${rX} -${rY} L ${w - rX} -${rY} Q ${w} -${rY} ${w} 0`
 
   const path = guide.querySelector('path')
@@ -201,6 +178,12 @@ export async function justCreditCard(RC, options, callback = undefined) {
   // Video sits 0.5 cm below the blue line
   const videoTopOffsetPx = blueLineOffsetPx + 0.5 * pxPerCm
 
+  // Initial position of green line as fraction of video height (0.0 = bottom, 1.0 = top)
+  const initialCardTopVideoFraction =
+    options?.calibrateTrackDistanceCardTopVideoFraction ??
+    options?._calibrateTrackDistanceCardTopVideoFraction ??
+    0.9
+
   const commonCalibrationData = {
     shortCm: CREDIT_CARD_SHORT_CM,
     longCm: CREDIT_CARD_LONG_CM,
@@ -219,6 +202,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
     _calibrateTrackDistanceCameraToCardCm: cameraToCardOffsetCm,
+    _calibrateTrackDistanceCardTopVideoFraction: initialCardTopVideoFraction,
   }
 
   // Measurement count/pages: 1 (default) or 2 for repeat
@@ -571,7 +555,10 @@ export async function justCreditCard(RC, options, callback = undefined) {
   state.lineLengthPx = expectedRectInitial.width * 0.6
 
   // Initialize p1 and p2 based on length and rect
-  const y = expectedRectInitial.top + expectedRectInitial.height * 0.1
+  // Use initialCardTopVideoFraction for the initial green line position (0.0 = bottom, 1.0 = top)
+  const y =
+    expectedRectInitial.top +
+    expectedRectInitial.height * (1 - initialCardTopVideoFraction)
   const x =
     expectedRectInitial.left +
     (expectedRectInitial.width - state.lineLengthPx) / 2
@@ -590,7 +577,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
 
   // Stepper will be created after video is positioned (in scheduleGuideReposition)
 
-  // Re-position the guide after layout settles so it's always at 10% from the top of the video
+  // Re-position the guide after layout settles
   function scheduleGuideReposition() {
     positionVideoBelowCamera()
     positionBlueGuideAndLabels()
@@ -752,7 +739,10 @@ export async function justCreditCard(RC, options, callback = undefined) {
     if (state.lineLengthPx == null) {
       state.lineLengthPx = expectedRect.width * 0.6
       // Initialize p1/p2 if not set (e.g. page reload logic, though this is inside renderPage)
-      const y = expectedRect.top + expectedRect.height * 0.1
+      // Use initialCardTopVideoFraction for the initial green line position (0.0 = bottom, 1.0 = top)
+      const y =
+        expectedRect.top +
+        expectedRect.height * (1 - initialCardTopVideoFraction)
       const x =
         expectedRect.left + (expectedRect.width - state.lineLengthPx) / 2
       state.p1 = { x: x, y: y }
@@ -859,28 +849,77 @@ export async function justCreditCard(RC, options, callback = undefined) {
       cameraShutterSound()
     }
 
-    // Compute camera-to-card distance using the specified vertical offset (in cm) and card long edge
-    const cameraToCardCm = Math.sqrt(
+    const cam = getCameraResolution(RC)
+    if (!cam) {
+      await Swal.fire({
+        ...swalInfoOptions(RC, { showIcon: false }),
+        html:
+          phrases.T_error?.[RC.L] || 'Error: Camera resolution not available.',
+        confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
+      })
+      return
+    }
+
+    // Get camera resolution (horizontalVpx and verticalVpx)
+    const horizontalVpx = cam.width
+    const verticalVpx = cam.height
+
+    // Calculate cardTopVideoFraction: the height of the green line center as a fraction of video height
+    // state.p1 and state.p2 are in page coordinates, need to convert to video fraction
+    // Coordinate system: 0.0 = bottom, 1.0 = top
+    const expectedRect = getExpectedVideoRect(RC, videoTopOffsetPx)
+    const greenLineMidY = (state.p1.y + state.p2.y) / 2
+    const cardTopVideoFraction =
+      1 - (greenLineMidY - expectedRect.top) / expectedRect.height
+
+    // NEW CORRECT FORMULAS FOR FOCAL LENGTH COMPUTATION
+    // See equations (1)-(5) in the documentation
+    //
+    // (1) edgeToCameraDeltaYCm = (cardTopVideoFraction - 0.5) * verticalVpx * (shortCm / shortVpx)
+    const edgeToCameraDeltaYCm =
+      (cardTopVideoFraction - 0.5) *
+      verticalVpx *
+      (CREDIT_CARD_SHORT_CM / shortVPx)
+
+    // (2) edgeToScreenCm = sqrt(longCm^2 - (edgeToCameraDeltaYCm + cameraToBlueLineCm)^2)
+    // cameraToBlueLineCm = cameraToCardOffsetCm (the _calibrateTrackDistanceCameraToCardCm parameter)
+    const edgeToScreenCm = Math.sqrt(
       Math.max(
         0,
-        CREDIT_CARD_LONG_CM * CREDIT_CARD_LONG_CM -
-          cameraToCardOffsetCm * cameraToCardOffsetCm,
+        CREDIT_CARD_LONG_CM ** 2 -
+          (edgeToCameraDeltaYCm + cameraToCardOffsetCm) ** 2,
       ),
     )
-    // f (in vpx) derived from short edge in vpx and geometry
-    const fVpx = (shortVPx * cameraToCardCm) / CREDIT_CARD_SHORT_CM
-    const factorVpxCm = fVpx * ASSUMED_IPD_CM
-    const cam = getCameraResolution(RC)
-    const fOverHorizontal = cam ? fVpx / cam.width : null
+
+    // (3) fVpx = (shortVpx / shortCm) * edgeToScreenCm
+    const fVpx = (shortVPx / CREDIT_CARD_SHORT_CM) * edgeToScreenCm
+
+    // (4) fRatio = fVpx / horizontalVpx
+    const fRatio = fVpx / horizontalVpx
+
+    RC.fRatio = fRatio
+    RC.getHorizontalVpx = () => {
+      const cam = getCameraResolution(RC)
+      return cam?.width || 0
+    }
+
+    // (5) factorVpxCm = fRatio * horizontalVpx * ipdCm
+    // Note: fRatio is stable across resolution changes; factorVpxCm should be recomputed each time
+    const factorVpxCm = fRatio * horizontalVpx * ASSUMED_IPD_CM
+
     const mode = 'lineAdjust' // merged mode
     measurements.push({
       shortVPx,
       fVpx,
       factorVpxCm,
-      fOverHorizontal,
+      fRatio,
+      cardTopVideoFraction,
+      edgeToCameraDeltaYCm,
+      edgeToScreenCm,
       mode,
-      cameraToCardCm,
       cameraToCardOffsetCm: cameraToCardOffsetCm,
+      verticalVpx: verticalVpx,
+      cameraToBlueLineCm: cameraToCardOffsetCm,
     })
 
     saveCalibrationAttempt(
@@ -890,10 +929,14 @@ export async function justCreditCard(RC, options, callback = undefined) {
         shortVPx,
         fVpx,
         factorVpxCm,
-        fOverHorizontal,
+        fRatio,
+        cardTopVideoFraction,
+        edgeToCameraDeltaYCm,
+        edgeToScreenCm,
         mode,
-        cameraToCardCm,
         cameraToCardOffsetCm: cameraToCardOffsetCm,
+        verticalVpx: verticalVpx,
+        cameraToBlueLineCm: cameraToCardOffsetCm,
       },
       commonCalibrationData,
     )
@@ -1039,10 +1082,17 @@ export async function justCreditCard(RC, options, callback = undefined) {
     const width = cam?.width || 0
     const height = cam?.height || 0
 
-    const avgFVpx =
-      measurements.reduce((s, m) => s + (m.fVpx || 0), 0) /
+    // Average fRatio (more stable than fVpx across resolution changes)
+    const avgFRatio =
+      measurements.reduce((s, m) => s + (m.fRatio || 0), 0) /
       (measurements.length || 1)
-    const fOverHorizontal = width ? avgFVpx / width : null
+
+    // Compute fVpx from fRatio for current resolution
+    const avgFVpx = avgFRatio * width
+
+    // Compute factorVpxCm fresh from fRatio, horizontalVpx, and ipdCm
+    // This should be recomputed on each page that uses it, using current resolution and ipdCm
+    const factorVpxCm = avgFRatio * width * ASSUMED_IPD_CM
 
     const data = {
       method: 'justCreditCard',
@@ -1054,20 +1104,29 @@ export async function justCreditCard(RC, options, callback = undefined) {
         page: i === 0 ? 3 : 4,
         shortVPx: Math.round(m.shortVPx),
         fVpx: Math.round(m.fVpx),
+        fRatio: m.fRatio != null ? Number(m.fRatio.toFixed(6)) : null,
+        cardTopVideoFraction:
+          m.cardTopVideoFraction != null
+            ? Number(m.cardTopVideoFraction.toFixed(4))
+            : null,
         mode: 'lineAdjust',
       })),
       fVpx: Math.round(avgFVpx),
-      fOverHorizontal:
-        fOverHorizontal != null ? Number(fOverHorizontal.toFixed(6)) : null,
+      // fRatio is stable across resolution changes; save and report this
+      fRatio: avgFRatio != null ? Number(avgFRatio.toFixed(6)) : null,
+      // Keep fOverHorizontal for backward compatibility (same as fRatio)
+      fOverHorizontal: avgFRatio != null ? Number(avgFRatio.toFixed(6)) : null,
       cameraResolutionXY: width && height ? `${width}x${height}` : '',
       // For downstream compatibility: provide a calibrationFactor = fVpx * ipdCm
-      calibrationFactor: Math.round(avgFVpx * ASSUMED_IPD_CM),
+      // Note: factorVpxCm should be recomputed each time using: fRatio * horizontalVpx * ipdCm
+      calibrationFactor: Math.round(factorVpxCm),
       value: CREDIT_CARD_LONG_CM, // use the long edge as the reference "distance" value
     }
 
     // Persist in RC for later CSV/log export
     RC.justCreditCardCalibration = data
-    RC.fOverHorizontal = data.fOverHorizontal
+    RC.fRatio = data.fRatio
+    RC.fOverHorizontal = data.fOverHorizontal // backward compatibility
     RC.fVpx = data.fVpx
 
     // Provide a uniform place similar to other flows so downstream uses can pick it up easily
@@ -1148,11 +1207,23 @@ const saveCalibrationAttempt = (
     pxPerCm: safeRoundCm(pxPerCmValue),
     cameraXYPx: safeRoundXYPx(cameraXYPxValue),
     centerXYPx: safeRoundXYPx(centerXYPxValue),
-    fOverHorizontal: safeRoundCm(measurement.fOverHorizontal || 0),
+    // fRatio is stable across resolution changes; this is the primary calibration value
+    fRatio:
+      measurement.fRatio != null ? Number(measurement.fRatio.toFixed(2)) : null,
+    fOverHorizontal:
+      measurement.fRatio != null ? Number(measurement.fRatio.toFixed(2)) : null, // backward compatibility
     fVpx: safeRoundPx(measurement.fVpx || 0),
     factorVpxCm: safeRoundPx(measurement.factorVpxCm || 0),
     ipdCm: safeRoundCm(ASSUMED_IPD_CM),
     shortVPx: safeRoundPx(measurement.shortVPx || 0),
+    cardTopVideoFraction:
+      measurement.cardTopVideoFraction != null
+        ? Number(measurement.cardTopVideoFraction.toFixed(4))
+        : null,
+    edgeToCameraDeltaYCm: safeRoundCm(measurement.edgeToCameraDeltaYCm || 0),
+    cameraToBlueLineCm: safeRoundCm(measurement.cameraToBlueLineCm || 0),
+    edgeToScreenCm: safeRoundCm(measurement.edgeToScreenCm || 0),
+    verticalVpx: safeRoundPx(measurement.verticalVpx || 0),
   }
   RC.calibrationAttempts[`calibration${calibrationNumber}`] = calibrationObject
   _updateCalibrationAttemptsTransposed(

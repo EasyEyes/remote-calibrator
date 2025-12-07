@@ -733,7 +733,15 @@ const captureIPDFromFaceMesh = async (
       const VpxPerCm = ipdPixels / RC._CONST.IPD_CM
       ipdCm = ipdPixels / VpxPerCm
     }
-    const webcamToEyeDistance = stdDist.current.calibrationFactor / ipdPixels
+    let webcamToEyeDistance = stdDist.current.calibrationFactor / ipdPixels
+    if (RC.useObjectTestData === 'justCreditCard') {
+      try {
+        webcamToEyeDistance =
+          (RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM) / ipdPixels
+      } catch (error) {
+        console.error('Error calculating webcamToEyeDistance:', error)
+      }
+    }
     const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
 
     const pxPerCm = ppi / 2.54
@@ -1910,7 +1918,11 @@ const trackDistanceCheck = async (
       centerXYPx: [window.innerWidth / 2, window.innerHeight / 2],
       pxPerCm: Math.round(pxPerCm * 10) / 10,
       factorVpxCm:
-        Math.round(Number(stdDist.current.calibrationFactor) * 10) / 10,
+        RC.useObjectTestData === 'justCreditCard'
+          ? Math.round(
+              Number(RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM) * 10,
+            ) / 10
+          : Math.round(Number(stdDist.current.calibrationFactor) * 10) / 10,
       cameraResolutionXY: cameraResolutionXY,
       webcamMaxXYVpx: cameraResolutionMaxXY,
       requestedEyesToPointCm: [],

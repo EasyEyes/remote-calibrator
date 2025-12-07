@@ -386,6 +386,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.nearPoint = options.nearPoint
   trackingOptions.showNearPoint = options.showNearPoint
   trackingOptions.showIrisesBool = options.showIrisesBool
+  trackingOptions.useObjectTestData = options.useObjectTestData
   trackingOptions.showNearestPointsBool = options.showNearestPointsBool
   trackingOptions.calibrateTrackDistanceShowLengthBool =
     options.calibrateTrackDistanceShowLengthBool
@@ -716,7 +717,15 @@ const startIrisDrawing = RC => {
           const eyeToCameraCm = Math.sqrt(
             eyeToFootCm ** 2 + footToCameraCm ** 2,
           )
-          const factorVpxCm = currentIPDDistance * eyeToCameraCm
+
+          let factorVpxCm = currentIPDDistance * eyeToCameraCm
+          if (trackingOptions.useObjectTestData === 'justCreditCard') {
+            try {
+              factorVpxCm = RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM
+            } catch (error) {
+              console.error('Error calculating factorVpxCm:', error)
+            }
+          }
           _drawNearestPoints(
             nearestPointsData.clampedNearestLeft,
             nearestPointsData.clampedNearestRight,
@@ -1199,7 +1208,16 @@ export const calculateNearestPoints = (
     eyeToFootCm * eyeToFootCm + footToPointCm * footToPointCm,
   )
 
-  const calibrationFactor = Math.round(eyeToCameraCm * ipdVpx)
+  let calibrationFactor = Math.round(eyeToCameraCm * ipdVpx)
+  if (trackingOptions.useObjectTestData === 'justCreditCard') {
+    try {
+      calibrationFactor = Math.round(
+        RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM,
+      )
+    } catch (error) {
+      console.error('Error calculating calibrationFactor:', error)
+    }
+  }
 
   // Clamp coordinates to stay within viewport bounds
   const clampedNearestLeft = [
@@ -1340,17 +1358,27 @@ const renderDistanceResult = async (
       if (!stdFactor) {
         // ! First time estimate
         // ALWAYS use the pre-calculated calibration factor from measurement tests
-        if (stdDist.current.calibrationFactor) {
-          console.log(
-            'Using pre-calculated calibration factor:',
-            stdDist.current.calibrationFactor,
-          )
-          console.log('Method used:', stdDist.current.method)
-          stdFactor = stdDist.current.calibrationFactor
+        if (trackingOptions.useObjectTestData === 'justCreditCard') {
+          try {
+            stdFactor = RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM
+          } catch (error) {
+            console.error('Error calculating stdFactor:', error)
+          }
         } else {
-          console.error('No calibration factor found! This should not happen.')
-          console.error('Measurement data:', stdDist.current)
-          return
+          if (stdDist.current.calibrationFactor) {
+            console.log(
+              'Using pre-calculated calibration factor:',
+              stdDist.current.calibrationFactor,
+            )
+            console.log('Method used:', stdDist.current.method)
+            stdFactor = stdDist.current.calibrationFactor
+          } else {
+            console.error(
+              'No calibration factor found! This should not happen.',
+            )
+            console.error('Measurement data:', stdDist.current)
+            return
+          }
         }
 
         // ! FINISH
