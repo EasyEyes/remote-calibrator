@@ -6360,14 +6360,14 @@ export async function objectTest(RC, options, callback = undefined) {
               <div>  eyeToFootCm = sqrt(${g.eyeToPointCm.toFixed(2)}² - ${g.pointToFootCm.toFixed(2)}²)</div>
               <div>  <strong>eyeToFootCm = ${g.eyeToFootCm.toFixed(2)} cm</strong></div>
               
-              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 6: Calculate eyeToCameraCm (Pythagorean theorem)</div>
-              <div>  eyeToCameraCm = sqrt(eyeToFootCm² + footToCameraCm²)</div>
-              <div>  eyeToCameraCm = sqrt(${g.eyeToFootCm.toFixed(2)}² + ${g.footToCameraCm.toFixed(2)}²)</div>
-              <div>  <strong>eyeToCameraCm = ${g.eyeToCameraCm.toFixed(2)} cm</strong></div>
+              <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 6: Calculate eyeToScreenCm (parallel to optical axis)</div>
+              <div>  eyeToScreenCm = eyeToFootCm</div>
+              <div>  eyeToScreenCm = ${g.eyeToFootCm.toFixed(2)}</div>
+              <div>  <strong>eyeToScreenCm = ${g.eyeToFootCm.toFixed(2)} cm</strong></div>
               
               <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 7: Calculate factorVpxCm</div>
-              <div>  factorVpxCm = ipdVpx × eyeToCameraCm</div>
-              <div>  factorVpxCm = ${g.ipdVpx.toFixed(2)} × ${g.eyeToCameraCm.toFixed(2)}</div>
+              <div>  factorVpxCm = ipdVpx × eyeToScreenCm</div>
+              <div>  factorVpxCm = ${g.ipdVpx.toFixed(2)} × ${g.eyeToFootCm.toFixed(2)}</div>
               <div style="color: #cc0000; font-weight: bold;">  ✓ page4FactorCmPx = ${g.page4FactorCmPx.toFixed(2)}</div>
             </div>
           </div>
@@ -6506,14 +6506,14 @@ export async function objectTest(RC, options, callback = undefined) {
                     <div>  eyeToFootCm = sqrt(${g.eyeToPointCm.toFixed(2)}² - ${g.pointToFootCm.toFixed(2)}²)</div>
                     <div>  <strong>eyeToFootCm = ${g.eyeToFootCm.toFixed(2)} cm</strong></div>
                     
-                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 6: Calculate eyeToCameraCm (Pythagorean theorem)</div>
-                    <div>  eyeToCameraCm = sqrt(eyeToFootCm² + footToCameraCm²)</div>
-                    <div>  eyeToCameraCm = sqrt(${g.eyeToFootCm.toFixed(2)}² + ${g.footToCameraCm.toFixed(2)}²)</div>
-                    <div>  <strong>eyeToCameraCm = ${g.eyeToCameraCm.toFixed(2)} cm</strong></div>
+                    <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 6: Calculate eyeToScreenCm (parallel to optical axis)</div>
+                    <div>  eyeToScreenCm = eyeToFootCm</div>
+                    <div>  eyeToScreenCm = ${g.eyeToFootCm.toFixed(2)}</div>
+                    <div>  <strong>eyeToScreenCm = ${g.eyeToFootCm.toFixed(2)} cm</strong></div>
                     
                     <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 7: Calculate factorVpxCm</div>
-                    <div>  factorVpxCm = ipdVpx × eyeToCameraCm</div>
-                    <div>  factorVpxCm = ${g.ipdVpx.toFixed(2)} × ${g.eyeToCameraCm.toFixed(2)}</div>
+                    <div>  factorVpxCm = ipdVpx × eyeToScreenCm</div>
+                    <div>  factorVpxCm = ${g.ipdVpx.toFixed(2)} × ${g.eyeToFootCm.toFixed(2)}</div>
                     <div style="color: #cc0000; font-weight: bold;">  ✓ page4FactorCmPx = ${g.page4FactorCmPx.toFixed(2)}</div>
                   </div>
                 </div>
@@ -7224,12 +7224,14 @@ export async function objectTest(RC, options, callback = undefined) {
                     const eyeToFootCm = Math.sqrt(
                       eyeToPointCm ** 2 - pointToFootCm ** 2,
                     )
-                    const eyeToCameraCm = Math.sqrt(
-                      eyeToFootCm ** 2 + footToCameraCm ** 2,
+                    const eyeToScreenCm = eyeToFootCm // parallel to optical axis (screen normal)
+                    const eyeToCameraCm = Math.hypot(
+                      eyeToScreenCm,
+                      footToCameraCm,
                     )
 
-                    // Calculate factorVpxCm using new formula
-                    page4FactorCmPx = ipdVpx * eyeToCameraCm
+                    // Calculate factorVpxCm using parallel-to-axis distance
+                    page4FactorCmPx = ipdVpx * eyeToScreenCm
 
                     // Store geometric calculation details for debugging
                     RC.page4GeometricCalc = {
@@ -7242,6 +7244,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       footToCameraCm: footToCameraCm,
                       eyeToPointCm: eyeToPointCm,
                       eyeToFootCm: eyeToFootCm,
+                      eyeToScreenCm: eyeToScreenCm,
                       eyeToCameraCm: eyeToCameraCm,
                       page4FactorCmPx: page4FactorCmPx,
                       nearestXYPx_left: nearestXYPx_left,
@@ -7949,12 +7952,11 @@ export async function objectTest(RC, options, callback = undefined) {
             const eyeToFootCm = Math.sqrt(
               eyeToPointCm ** 2 - pointToFootCm ** 2,
             )
-            const eyeToCameraCm = Math.sqrt(
-              eyeToFootCm ** 2 + footToCameraCm ** 2,
-            )
+            const eyeToScreenCm = eyeToFootCm // parallel to optical axis (screen normal)
+            const eyeToCameraCm = Math.hypot(eyeToScreenCm, footToCameraCm)
 
-            // Calculate factorVpxCm using new formula
-            page4FactorCmPx = ipdVpx * eyeToCameraCm
+            // Calculate factorVpxCm using parallel-to-axis distance
+            page4FactorCmPx = ipdVpx * eyeToScreenCm
 
             // Store geometric calculation details for debugging
             RC.page4GeometricCalc = {
@@ -7967,6 +7969,7 @@ export async function objectTest(RC, options, callback = undefined) {
               footToCameraCm: footToCameraCm,
               eyeToPointCm: eyeToPointCm,
               eyeToFootCm: eyeToFootCm,
+              eyeToScreenCm: eyeToScreenCm,
               eyeToCameraCm: eyeToCameraCm,
               page4FactorCmPx: page4FactorCmPx,
               nearestXYPx_left: nearestXYPx_left,

@@ -714,11 +714,10 @@ const startIrisDrawing = RC => {
           const footToPointCm = nearestPointsData.footToPointCm
           const footToCameraCm = nearestPointsData.footToCameraCm
           const eyeToFootCm = Math.sqrt(eyeToPointCm ** 2 - footToPointCm ** 2)
-          const eyeToCameraCm = Math.sqrt(
-            eyeToFootCm ** 2 + footToCameraCm ** 2,
-          )
+          const eyeToScreenCm = eyeToFootCm // parallel to optical axis (screen normal)
+          const eyeToCameraCm = Math.hypot(eyeToScreenCm, footToCameraCm)
 
-          let factorVpxCm = currentIPDDistance * eyeToCameraCm
+          let factorVpxCm = currentIPDDistance * eyeToScreenCm
           if (trackingOptions.useObjectTestData === 'justCreditCard') {
             try {
               factorVpxCm = RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM
@@ -1168,6 +1167,7 @@ export const calculateNearestPoints = (
     Math.hypot(pointXYPx[0] - footXYPx[0], pointXYPx[1] - footXYPx[1]) / pxPerCm
 
   let eyeToFootCm = 0
+  let eyeToScreenCm = 0 // distance parallel to optical axis (screen normal)
   let eyeToCameraCm = 0
 
   if (webcamToEyeDistance === 0) {
@@ -1181,7 +1181,8 @@ export const calculateNearestPoints = (
         pxPerCm,
       )
       eyeToFootCm = d_cm
-      eyeToCameraCm = Math.hypot(footToCameraCm, eyeToFootCm)
+      eyeToScreenCm = eyeToFootCm
+      eyeToCameraCm = Math.hypot(footToCameraCm, eyeToScreenCm)
       // TEMP: use _getEyeToCameraCm instead of solveEyeToScreenCm
       // eyeToFootCm = _getEyeToCameraCm(
       //   fixationToSpotCm,
@@ -1195,10 +1196,9 @@ export const calculateNearestPoints = (
       throw new Error(e)
     }
   } else {
-    eyeToCameraCm = webcamToEyeDistance // for distance check: calibration factor / ipdVpx
-    eyeToFootCm = Math.sqrt(
-      eyeToCameraCm * eyeToCameraCm - footToCameraCm * footToCameraCm,
-    )
+    eyeToScreenCm = webcamToEyeDistance // calibration factor / ipdVpx gives parallel-to-axis distance
+    eyeToCameraCm = Math.hypot(eyeToScreenCm, footToCameraCm)
+    eyeToFootCm = eyeToScreenCm
   }
 
   const eyeToCenterCm = Math.sqrt(
@@ -1208,7 +1208,7 @@ export const calculateNearestPoints = (
     eyeToFootCm * eyeToFootCm + footToPointCm * footToPointCm,
   )
 
-  let calibrationFactor = Math.round(eyeToCameraCm * ipdVpx)
+  let calibrationFactor = Math.round(eyeToScreenCm * ipdVpx)
   if (trackingOptions.useObjectTestData === 'justCreditCard') {
     try {
       calibrationFactor = Math.round(
