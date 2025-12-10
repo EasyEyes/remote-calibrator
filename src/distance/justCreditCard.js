@@ -133,7 +133,7 @@ function positionGuide(guide, p1, p2) {
   guide.style.transformOrigin = '0 0'
   guide.style.transform = `rotate(${angle}deg)`
 
-  // Draw the rounded path with a moderate curve (between the old big kink and flat).
+  // Draw the rounded path with a moderate curve.
   const rBase = (0.318 / 5.398) * length * 0.45
   const rX = Math.min(rBase, length * 0.2)
   const rY = rX * 0.4 // more bend than 0.7, less than the old kink
