@@ -18,6 +18,18 @@ const CREDIT_CARD_LONG_CM = 8.56
 // Assumed adult IPD in centimeters for deriving factorVpxCm to keep downstream code working
 const ASSUMED_IPD_CM = 6.3
 
+// Shared state holder for outline rendering
+let cardState = null
+
+function getCamParams(RC, videoTopOffsetPx = 0) {
+  const cam = getCameraResolution(RC)
+  if (!cam) return null
+  const rect = getExpectedVideoRect(RC, videoTopOffsetPx)
+  const cx = rect.left + rect.width / 2
+  const cy = rect.top + rect.height / 2
+  return { cam, cx, cy }
+}
+
 function getVideoContainerRect() {
   const v = document.getElementById('webgazerVideoContainer')
   if (!v) return null
@@ -75,6 +87,34 @@ function createDashedGuide() {
   return guide
 }
 
+function createCardOutline() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.id = 'just-credit-card-outline'
+  svg.style.position = 'absolute'
+  svg.style.overflow = 'visible'
+  svg.style.pointerEvents = 'none'
+  svg.style.left = '-9999px'
+  svg.style.top = '-9999px'
+  svg.style.opacity = '0'
+  svg.style.transition = 'opacity 0.1s ease-in'
+
+  const body = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  body.id = 'just-credit-card-outline-body'
+  body.setAttribute('stroke', 'rgba(0, 200, 0, 0.9)')
+  body.setAttribute('stroke-width', '3') // match dashed line thickness
+  body.setAttribute('fill', 'none')
+  svg.appendChild(body)
+
+  const top = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  top.id = 'just-credit-card-outline-top'
+  top.setAttribute('stroke', 'transparent')
+  top.setAttribute('stroke-width', '2')
+  top.setAttribute('fill', 'none')
+  svg.appendChild(top)
+
+  return svg
+}
+
 function positionGuide(guide, p1, p2) {
   // Safety check
   if (!p1 || !p2) return
@@ -93,20 +133,205 @@ function positionGuide(guide, p1, p2) {
   guide.style.transformOrigin = '0 0'
   guide.style.transform = `rotate(${angle}deg)`
 
-  // Draw the rounded path
-  // radiusVpx = (0.318 / 5.398) * length
-  const rX = (0.318 / 5.398) * length
-  // Compressed Y by 0.707
-  const rY = rX * 0.707
+  // Draw the rounded path with a moderate curve (between the old big kink and flat).
+  const rBase = (0.318 / 5.398) * length * 0.45
+  const rX = Math.min(rBase, length * 0.2)
+  const rY = rX * 0.4 // more bend than 0.7, less than the old kink
   const w = length
-
-  const d = `M 0 0 Q 0 -${rY} ${rX} -${rY} L ${w - rX} -${rY} Q ${w} -${rY} ${w} 0`
+  const d = `M 0 0 Q ${rX} -${rY} ${rX} -${rY} L ${w - rX} -${rY} Q ${w - rX} -${rY} ${w} 0`
 
   const path = guide.querySelector('path')
   if (path) path.setAttribute('d', d)
 
   // Ensure opacity is 1
   guide.style.opacity = '1'
+}
+
+function positionCardOutline() {
+  const cs = cardState
+  if (!cs || !cs.RCRef) return
+  const RCctx = cs.RCRef
+  const cardOutlineEl = cs.cardOutline
+  if (!cardOutlineEl) return
+  const bodyPath = cardOutlineEl.querySelector(
+    '#just-credit-card-outline-body',
+  )
+  const topPath = cardOutlineEl.querySelector(
+    '#just-credit-card-outline-top',
+  )
+  if (!bodyPath || !topPath) return
+
+  const camParams = getCamParams(RCctx, cs.videoTopOffsetPx || 0)
+  if (!camParams) return
+  const { cam, cx, cy } = camParams
+
+  const dx = cs.p2.x - cs.p1.x
+  const dy = cs.p2.y - cs.p1.y
+  const width = Math.max(0, Math.sqrt(dx * dx + dy * dy))
+  if (!width) return
+
+  const expectedRect = getExpectedVideoRect(RCctx, cs.videoTopOffsetPx || 0)
+  const scaleX = cam.width / expectedRect.width
+  const topLenPx = width
+  const topLenVpx = topLenPx * scaleX
+  const midTopX = (cs.p1.x + cs.p2.x) / 2
+  const topY = Math.min(cs.p1.y, cs.p2.y)
+  const yGreen = topY
+  const yBlueRect = document
+    .getElementById('just-credit-card-blue-guide')
+    ?.getBoundingClientRect()
+  if (!yBlueRect) return
+  const yBlue = yBlueRect.top
+
+  // Derive f from current geometry (same algebra as onSpace) and then zTop
+  const computeFvpx = () => {
+    const shortVPx = topLenVpx
+    const horizontalVpx = cam.width
+    const verticalVpx = cam.height
+    const cardTopVideoFraction =
+      1 - (topY - expectedRect.top) / expectedRect.height
+    const edgeToCameraDeltaYCm =
+      (cardTopVideoFraction - 0.5) *
+      verticalVpx *
+      (CREDIT_CARD_SHORT_CM / shortVPx)
+    const edgeToScreenCm = Math.sqrt(
+      Math.max(
+        0,
+        CREDIT_CARD_LONG_CM ** 2 -
+          (edgeToCameraDeltaYCm + (cs.cameraToCardOffsetCm || 0)) ** 2,
+      ),
+    )
+    return (shortVPx / CREDIT_CARD_SHORT_CM) * edgeToScreenCm
+  }
+
+  const f = computeFvpx()
+  if (!f || !isFinite(f)) return
+  // Top edge is the short side of the card. Use video px for depth.
+  const zTop = (f * CREDIT_CARD_SHORT_CM) / topLenVpx
+  // Camera-to-screen distance (blue line plane). Fixed to 4 cm unless overridden.
+  const zBottom = Math.max(1e-3, cs.cameraToCardOffsetCm || 4)
+
+  // Solve pitch using the visible blue line Y so bottom projects to yBlue.
+  const solveTheta = () => {
+    const Ytop = ((yGreen - cy) * zTop) / f
+    const H = CREDIT_CARD_SHORT_CM
+    const g = theta => {
+      const sinT = Math.sin(theta)
+      const cosT = Math.cos(theta)
+      const zB = zTop - H * sinT
+      if (zB <= 1e-3) return 1e6
+      const yBottomProj = cy + (f * (Ytop + H * cosT)) / zB
+      return yBottomProj - yBlue
+    }
+    let lo = -0.5
+    let hi = 1.2
+    let gLo = g(lo)
+    let gHi = g(hi)
+    if (gLo * gHi > 0) {
+      // Fallback to analytic using Zb if root not bracketed
+      let sinT = (zBottom - zTop) / CREDIT_CARD_SHORT_CM
+      sinT = Math.max(-0.95, Math.min(0.95, sinT))
+      if (zTop >= zBottom) sinT = 0.1
+      return Math.asin(sinT)
+    }
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2
+      const gm = g(mid)
+      if (Math.abs(gm) < 1e-3) return mid
+      if (gLo * gm <= 0) {
+        hi = mid
+        gHi = gm
+      } else {
+        lo = mid
+        gLo = gm
+      }
+    }
+    return (lo + hi) / 2
+  }
+
+  const theta = solveTheta()
+  const sinT = Math.sin(theta)
+  const cosT = Math.cos(theta)
+  cs.lastTheta = theta
+
+  const midTopCamX = ((midTopX - cx) * zTop) / f
+  // X-span corresponds to the short edge.
+  const halfWorld = CREDIT_CARD_SHORT_CM / 2
+  const leftX = midTopCamX - halfWorld
+  const rightX = midTopCamX + halfWorld
+
+  // Camera looks "downward" in image coords: higher in image = smaller y.
+  // Pivot around the hidden bottom edge (blue line); top edge is closer.
+  // Use negative Y for the top so it projects above the bottom; after shifting,
+  // the visible card extends downward from the green line.
+  const yBottomCam = 0
+  const yTopCam = -CREDIT_CARD_SHORT_CM * cosT
+
+  const project = (X, Z, Y) => ({
+    x: cx + (f * X) / Z,
+    y: cy + (f * Y) / Z,
+  })
+
+  let tl = project(leftX, zTop, yTopCam)
+  let tr = project(rightX, zTop, yTopCam)
+  let bl = project(leftX, zBottom, yBottomCam)
+  let br = project(rightX, zBottom, yBottomCam)
+
+  // Enforce top edge length to match the green line length in screen space
+  const desiredTopLen = width
+  const currentTopLen = Math.hypot(tr.x - tl.x, tr.y - tl.y)
+  if (currentTopLen > 0 && desiredTopLen > 0) {
+    const midTopProjX = (tl.x + tr.x) / 2
+    const scale = desiredTopLen / currentTopLen
+    const scaleX = val => midTopProjX + (val - midTopProjX) * scale
+    tl = { x: scaleX(tl.x), y: tl.y }
+    tr = { x: scaleX(tr.x), y: tr.y }
+    bl = { x: scaleX(bl.x), y: bl.y }
+    br = { x: scaleX(br.x), y: br.y }
+  }
+
+  // Shift so top edge center lands at the green line y
+  const midTopY = (tl.y + tr.y) / 2
+  const yShift = yGreen - midTopY
+  tl = { x: tl.x, y: tl.y + yShift }
+  tr = { x: tr.x, y: tr.y + yShift }
+  bl = { x: bl.x, y: bl.y + yShift }
+  br = { x: br.x, y: br.y + yShift }
+
+  // Snap the projected top edge to the dashed line endpoints to avoid gaps.
+  // Translate the whole trapezoid by the midpoint delta, then pin tl/tr exactly.
+  const desiredMid = { x: (cs.p1.x + cs.p2.x) / 2, y: (cs.p1.y + cs.p2.y) / 2 }
+  const currentMid = { x: (tl.x + tr.x) / 2, y: (tl.y + tr.y) / 2 }
+  const snapDx = desiredMid.x - currentMid.x
+  const snapDy = desiredMid.y - currentMid.y
+  tl = { x: tl.x + snapDx, y: tl.y + snapDy }
+  tr = { x: tr.x + snapDx, y: tr.y + snapDy }
+  bl = { x: bl.x + snapDx, y: bl.y + snapDy }
+  br = { x: br.x + snapDx, y: br.y + snapDy }
+  // Pin the top to the dashed endpoints
+  tl = { x: cs.p1.x, y: cs.p1.y }
+  tr = { x: cs.p2.x, y: cs.p2.y }
+
+  cardOutlineEl.setAttribute(
+    'viewBox',
+    `0 0 ${Math.max(1, window.innerWidth)} ${Math.max(
+      1,
+      window.innerHeight,
+    )}`,
+  )
+  cardOutlineEl.style.left = '0px'
+  cardOutlineEl.style.top = '0px'
+  cardOutlineEl.style.width = '100%'
+  cardOutlineEl.style.height = '100%'
+  cardOutlineEl.style.transform = 'none'
+
+  // Body: sides + bottom; Top: hidden but aligned to dashed line
+  bodyPath.setAttribute(
+    'd',
+    `M ${tl.x} ${tl.y} L ${bl.x} ${bl.y} L ${br.x} ${br.y} L ${tr.x} ${tr.y}`,
+  )
+  topPath.setAttribute('d', `M ${tl.x} ${tl.y} L ${tr.x} ${tr.y}`)
+  cardOutlineEl.style.opacity = '1'
 }
 
 // Get the expected video rect based on known positioning (below camera, centered horizontally)
@@ -261,7 +486,9 @@ export async function justCreditCard(RC, options, callback = undefined) {
   }
   const overlay = createOverlayLayer()
   const guide = createDashedGuide()
+  const cardOutline = createCardOutline()
   overlay.appendChild(guide)
+  overlay.appendChild(cardOutline)
   document.body.appendChild(overlay)
 
   // Blue reference line (short edge length) and labels
@@ -383,13 +610,18 @@ export async function justCreditCard(RC, options, callback = undefined) {
   }
   positionBlueGuideAndLabels()
 
-  // State for guide line
+  // State for guide line and outline
   const state = {
     p1: { x: 0, y: 0 }, // {x, y} relative to document (pageX/Y style) for positioning absolute elements
     p2: { x: 0, y: 0 },
     dragging: null, // 'left' | 'right' | null
     lineLengthPx: null, // fallback store for initial width
+    cardOutline, // store ref for convenience
+    RCRef: RC,
+    videoTopOffsetPx,
+    cameraToCardOffsetCm: cameraToCardOffsetCm,
   }
+  cardState = state
 
   // Initialize drag handling
   let dragStart = null // { x, y }
@@ -430,6 +662,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
 
     // Redraw immediately
     positionGuide(guide, state.p1, state.p2)
+    positionCardOutline()
+    positionCardOutline()
 
     // Update labels
     // Green label centered above the green guide
@@ -566,6 +800,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   state.p2 = { x: x + state.lineLengthPx, y: y }
 
   positionGuide(guide, state.p1, state.p2)
+  positionCardOutline()
   // Green label centered above the green guide
   greenLabel.style.left = `${Math.round(expectedRectInitial.left + expectedRectInitial.width / 2)}px`
   greenLabel.style.top = `${Math.round(y - 30)}px`
@@ -605,6 +840,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     }
 
     positionGuide(guide, state.p1, state.p2)
+    positionCardOutline()
     guide.style.opacity = '1'
 
     // Update green label
@@ -754,6 +990,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   function resizeHandler() {
     scheduleGuideReposition()
     positionEdgeToggle()
+    positionCardOutline()
   }
 
   window.addEventListener('resize', resizeHandler)
@@ -1004,6 +1241,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     state.lineLengthPx = newLen
 
     scheduleGuideReposition()
+    positionCardOutline()
   }
 
   function keyHandler(e) {
