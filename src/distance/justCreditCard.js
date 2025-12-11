@@ -17,6 +17,7 @@ const CREDIT_CARD_LONG_CM = 8.56
 
 // Assumed adult IPD in centimeters for deriving factorVpxCm to keep downstream code working
 const ASSUMED_IPD_CM = 6.3
+const QUAD_BASE_RATIO_DEFAULT = 1.3
 
 // Shared state holder for outline rendering
 let cardState = null
@@ -136,7 +137,7 @@ function positionGuide(guide, p1, p2) {
   // Draw the rounded path with a moderate curve.
   const rBase = (0.318 / 5.398) * length * 0.45
   const rX = Math.min(rBase, length * 0.2)
-  const rY = rX * 0.4 // more bend than 0.7, less than the old kink
+  const rY = rX * 0.01 // bend control
   const w = length
   const d = `M 0 0 Q ${rX} -${rY} ${rX} -${rY} L ${w - rX} -${rY} Q ${w - rX} -${rY} ${w} 0`
 
@@ -150,7 +151,6 @@ function positionGuide(guide, p1, p2) {
 function positionCardOutline() {
   const cs = cardState
   if (!cs || !cs.RCRef) return
-  const RCctx = cs.RCRef
   const cardOutlineEl = cs.cardOutline
   if (!cardOutlineEl) return
   const bodyPath = cardOutlineEl.querySelector(
@@ -161,156 +161,42 @@ function positionCardOutline() {
   )
   if (!bodyPath || !topPath) return
 
-  const camParams = getCamParams(RCctx, cs.videoTopOffsetPx || 0)
-  if (!camParams) return
-  const { cam, cx, cy } = camParams
-
   const dx = cs.p2.x - cs.p1.x
   const dy = cs.p2.y - cs.p1.y
-  const width = Math.max(0, Math.sqrt(dx * dx + dy * dy))
-  if (!width) return
+  const topWidthVpx = Math.max(0, Math.hypot(dx, dy))
+  if (!topWidthVpx) return
 
-  const expectedRect = getExpectedVideoRect(RCctx, cs.videoTopOffsetPx || 0)
-  const scaleX = cam.width / expectedRect.width
-  const topLenPx = width
-  const topLenVpx = topLenPx * scaleX
-  const midTopX = (cs.p1.x + cs.p2.x) / 2
-  const topY = Math.min(cs.p1.y, cs.p2.y)
-  const yGreen = topY
-  const yBlueRect = document
-    .getElementById('just-credit-card-blue-guide')
-    ?.getBoundingClientRect()
-  if (!yBlueRect) return
-  const yBlue = yBlueRect.top
-
-  // Derive f from current geometry (same algebra as onSpace) and then zTop
-  const computeFvpx = () => {
-    const shortVPx = topLenVpx
-    const horizontalVpx = cam.width
-    const verticalVpx = cam.height
-    const cardTopVideoFraction =
-      1 - (topY - expectedRect.top) / expectedRect.height
-    const edgeToCameraDeltaYCm =
-      (cardTopVideoFraction - 0.5) *
-      verticalVpx *
-      (CREDIT_CARD_SHORT_CM / shortVPx)
-    const edgeToScreenCm = Math.sqrt(
-      Math.max(
-        0,
-        CREDIT_CARD_LONG_CM ** 2 -
-          (edgeToCameraDeltaYCm + (cs.cameraToCardOffsetCm || 0)) ** 2,
-      ),
-    )
-    return (shortVPx / CREDIT_CARD_SHORT_CM) * edgeToScreenCm
+  const topUnit = { x: dx / topWidthVpx, y: dy / topWidthVpx }
+  let perpDown = { x: topUnit.y, y: -topUnit.x }
+  // Ensure the quadrilateral extends downward on screen (positive Y).
+  if (perpDown.y < 0) {
+    perpDown = { x: -perpDown.x, y: -perpDown.y }
   }
 
-  const f = computeFvpx()
-  if (!f || !isFinite(f)) return
-  // Top edge is the short side of the card. Use video px for depth.
-  const zTop = (f * CREDIT_CARD_SHORT_CM) / topLenVpx
-  // Camera-to-screen distance (blue line plane). Fixed to 4 cm unless overridden.
-  const zBottom = Math.max(1e-3, cs.cameraToCardOffsetCm || 4)
+  const quadBaseRatio =
+    typeof cs.quadBaseRatio === 'number'
+      ? cs.quadBaseRatio
+      : QUAD_BASE_RATIO_DEFAULT
+  const bottomWidthVpx = topWidthVpx * quadBaseRatio
+  const heightVpx = topWidthVpx / 2
+  const halfBottom = bottomWidthVpx / 2
 
-  // Solve pitch using the visible blue line Y so bottom projects to yBlue.
-  const solveTheta = () => {
-    const Ytop = ((yGreen - cy) * zTop) / f
-    const H = CREDIT_CARD_SHORT_CM
-    const g = theta => {
-      const sinT = Math.sin(theta)
-      const cosT = Math.cos(theta)
-      const zB = zTop - H * sinT
-      if (zB <= 1e-3) return 1e6
-      const yBottomProj = cy + (f * (Ytop + H * cosT)) / zB
-      return yBottomProj - yBlue
-    }
-    let lo = -0.5
-    let hi = 1.2
-    let gLo = g(lo)
-    let gHi = g(hi)
-    if (gLo * gHi > 0) {
-      // Fallback to analytic using Zb if root not bracketed
-      let sinT = (zBottom - zTop) / CREDIT_CARD_SHORT_CM
-      sinT = Math.max(-0.95, Math.min(0.95, sinT))
-      if (zTop >= zBottom) sinT = 0.1
-      return Math.asin(sinT)
-    }
-    for (let i = 0; i < 40; i++) {
-      const mid = (lo + hi) / 2
-      const gm = g(mid)
-      if (Math.abs(gm) < 1e-3) return mid
-      if (gLo * gm <= 0) {
-        hi = mid
-        gHi = gm
-      } else {
-        lo = mid
-        gLo = gm
-      }
-    }
-    return (lo + hi) / 2
+  const topMid = { x: (cs.p1.x + cs.p2.x) / 2, y: (cs.p1.y + cs.p2.y) / 2 }
+  const bottomMid = {
+    x: topMid.x + perpDown.x * heightVpx,
+    y: topMid.y + perpDown.y * heightVpx,
   }
 
-  const theta = solveTheta()
-  const sinT = Math.sin(theta)
-  const cosT = Math.cos(theta)
-  cs.lastTheta = theta
-
-  const midTopCamX = ((midTopX - cx) * zTop) / f
-  // X-span corresponds to the short edge.
-  const halfWorld = CREDIT_CARD_SHORT_CM / 2
-  const leftX = midTopCamX - halfWorld
-  const rightX = midTopCamX + halfWorld
-
-  // Camera looks "downward" in image coords: higher in image = smaller y.
-  // Pivot around the hidden bottom edge (blue line); top edge is closer.
-  // Use negative Y for the top so it projects above the bottom; after shifting,
-  // the visible card extends downward from the green line.
-  const yBottomCam = 0
-  const yTopCam = -CREDIT_CARD_SHORT_CM * cosT
-
-  const project = (X, Z, Y) => ({
-    x: cx + (f * X) / Z,
-    y: cy + (f * Y) / Z,
-  })
-
-  let tl = project(leftX, zTop, yTopCam)
-  let tr = project(rightX, zTop, yTopCam)
-  let bl = project(leftX, zBottom, yBottomCam)
-  let br = project(rightX, zBottom, yBottomCam)
-
-  // Enforce top edge length to match the green line length in screen space
-  const desiredTopLen = width
-  const currentTopLen = Math.hypot(tr.x - tl.x, tr.y - tl.y)
-  if (currentTopLen > 0 && desiredTopLen > 0) {
-    const midTopProjX = (tl.x + tr.x) / 2
-    const scale = desiredTopLen / currentTopLen
-    const scaleX = val => midTopProjX + (val - midTopProjX) * scale
-    tl = { x: scaleX(tl.x), y: tl.y }
-    tr = { x: scaleX(tr.x), y: tr.y }
-    bl = { x: scaleX(bl.x), y: bl.y }
-    br = { x: scaleX(br.x), y: br.y }
+  const tl = { x: cs.p1.x, y: cs.p1.y }
+  const tr = { x: cs.p2.x, y: cs.p2.y }
+  const bl = {
+    x: bottomMid.x - topUnit.x * halfBottom,
+    y: bottomMid.y - topUnit.y * halfBottom,
   }
-
-  // Shift so top edge center lands at the green line y
-  const midTopY = (tl.y + tr.y) / 2
-  const yShift = yGreen - midTopY
-  tl = { x: tl.x, y: tl.y + yShift }
-  tr = { x: tr.x, y: tr.y + yShift }
-  bl = { x: bl.x, y: bl.y + yShift }
-  br = { x: br.x, y: br.y + yShift }
-
-  // Snap the projected top edge to the dashed line endpoints to avoid gaps.
-  // Translate the whole trapezoid by the midpoint delta, then pin tl/tr exactly.
-  const desiredMid = { x: (cs.p1.x + cs.p2.x) / 2, y: (cs.p1.y + cs.p2.y) / 2 }
-  const currentMid = { x: (tl.x + tr.x) / 2, y: (tl.y + tr.y) / 2 }
-  const snapDx = desiredMid.x - currentMid.x
-  const snapDy = desiredMid.y - currentMid.y
-  tl = { x: tl.x + snapDx, y: tl.y + snapDy }
-  tr = { x: tr.x + snapDx, y: tr.y + snapDy }
-  bl = { x: bl.x + snapDx, y: bl.y + snapDy }
-  br = { x: br.x + snapDx, y: br.y + snapDy }
-  // Pin the top to the dashed endpoints
-  tl = { x: cs.p1.x, y: cs.p1.y }
-  tr = { x: cs.p2.x, y: cs.p2.y }
+  const br = {
+    x: bottomMid.x + topUnit.x * halfBottom,
+    y: bottomMid.y + topUnit.y * halfBottom,
+  }
 
   cardOutlineEl.setAttribute(
     'viewBox',
@@ -325,10 +211,10 @@ function positionCardOutline() {
   cardOutlineEl.style.height = '100%'
   cardOutlineEl.style.transform = 'none'
 
-  // Body: sides + bottom; Top: hidden but aligned to dashed line
+  // Body: draw only vertical sides; horizontals stay invisible.
   bodyPath.setAttribute(
     'd',
-    `M ${tl.x} ${tl.y} L ${bl.x} ${bl.y} L ${br.x} ${br.y} L ${tr.x} ${tr.y}`,
+    `M ${tl.x} ${tl.y} L ${bl.x} ${bl.y} M ${tr.x} ${tr.y} L ${br.x} ${br.y}`,
   )
   topPath.setAttribute('d', `M ${tl.x} ${tl.y} L ${tr.x} ${tr.y}`)
   cardOutlineEl.style.opacity = '1'
@@ -383,7 +269,7 @@ function getInstructions(RC, isRepeat) {
     "When the line matches the edge, press the SPACE bar. 🔉 You'll hear a shutter click."
   const fallbackPage4 = fallbackPage3
   const keyPage3 = phrases?.RC_UseCreditCardBelowToCalibrateCameraPage3?.[RC.L]
-  const keyPage4 = phrases?.RC_UseCreditCardBelowToCalibrateCameraPage4?.[RC.L]
+  const keyPage4 = phrases?.RC_UseCreditCardBelowToCalibrateCameraRepeatPage4?.[RC.L]
   const text =
     (isRepeat ? keyPage4 : keyPage3) ||
     (isRepeat ? fallbackPage4 : fallbackPage3)
@@ -620,6 +506,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
     RCRef: RC,
     videoTopOffsetPx,
     cameraToCardOffsetCm: cameraToCardOffsetCm,
+    quadBaseRatio:
+      options.calibrateTrackDistanceQuadBaseRatio
   }
   cardState = state
 
@@ -938,6 +826,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     if (!leftInstructionsText || !mediaContainer) return
     updateTitle()
     const isRepeat = currentPage === 4
+    const showAllSteps = currentPage === 3 || currentPage === 4
 
     // Parse and render step instructions (Stepper in left column only)
     try {
@@ -953,6 +842,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
           mediaContainer: mediaContainer,
         },
         options: {
+          showAllSteps, // show full text at once on pages 3 and 4
           thresholdFraction: 0.6,
           useCurrentSectionOnly: true,
           stepperHistory: options.stepperHistory,
@@ -998,6 +888,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   // Up/Down to navigate Stepper
   const handleInstructionNav = e => {
     if (![3, 4].includes(currentPage) || !stepInstructionModel) return
+    if (currentPage === 3 || currentPage === 4) return // these pages show all steps; skip navigation
     if (e.key === 'ArrowDown') {
       const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
       if (currentStepFlatIndex < maxIdx) {

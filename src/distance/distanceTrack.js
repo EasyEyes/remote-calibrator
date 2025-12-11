@@ -218,6 +218,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateTrackDistanceChecking: undefined,
       calibrateTrackDistanceShowLengthBool: false,
       calibrateTrackDistancePupil: 'iris',
+      calibrateTrackDistanceQuadBaseRatio: 2.0, // Default ratio for quadrilateral base
     },
     trackDistanceOptions,
   )

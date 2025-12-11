@@ -417,6 +417,7 @@ export function renderStepInstructions({
     thresholdFraction = 0.6,
     resolveMediaUrl = url => url,
     useCurrentSectionOnly = true,
+    showAllSteps = false,
     // How many *past* steps to keep visible when compacting.
     // If null/undefined, keep as many as fit (previous behavior).
     // New behavior: integer number of past steps Stepper *tries* to show.
@@ -523,6 +524,9 @@ export function renderStepInstructions({
   stepperBox.style.display = 'inline-block'
   stepperBox.style.boxSizing = 'border-box'
   stepperBox.style.maxWidth = '100%'
+  if (showAllSteps) {
+    stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.7)'
+  }
 
   const contentContainer = document.createElement('div')
   contentContainer.style.display = 'flex'
@@ -566,17 +570,26 @@ export function renderStepInstructions({
     phrases.EE_UseKeysToStep?.[lang] ||
     'Use ▼ to advance through the instructions. Use ▲ to go back to the previous instruction.'
 
+  if (showAllSteps) {
+    navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
+  }
+
   navHintContainer.appendChild(navHint)
+  if (showAllSteps) {
+    navHintContainer.style.display = 'none'
+  }
   leftText.appendChild(navHintContainer)
   leftText.appendChild(stepperBox)
 
   // Decide which steps to show
   const totalSteps = totalFlatSteps
-  const hasUnshownPast = safeFlatIndex > history
-  const hasUnshownFuture = safeFlatIndex < totalSteps - 1
+  const hasUnshownPast = showAllSteps ? false : safeFlatIndex > history
+  const hasUnshownFuture = showAllSteps ? false : safeFlatIndex < totalSteps - 1
 
-  const visibleStart = Math.max(0, safeFlatIndex - history)
-  const visibleEnd = safeFlatIndex // inclusive
+  const visibleStart = showAllSteps
+    ? 0
+    : Math.max(0, safeFlatIndex - history)
+  const visibleEnd = showAllSteps ? totalSteps - 1 : safeFlatIndex // inclusive
 
   // Helper to append a line into the Stepper content
   const appendLine = (text, state, level = 0) => {
@@ -602,7 +615,14 @@ export function renderStepInstructions({
       typeof step.level === 'number'
         ? step.level
         : Math.max(0, (String(step.number || '').match(/\./g) || []).length)
-    appendLine(step.text, isPast ? 'past' : 'current', level)
+    const state = showAllSteps
+      ? 'normal'
+      : isPast
+        ? 'past'
+        : idx === safeFlatIndex
+          ? 'current'
+          : 'future'
+    appendLine(step.text, state, level)
   }
 
   // Future ellipsis (black) if there are unshown future steps
@@ -627,6 +647,11 @@ export function renderStepInstructions({
   arrowDown.textContent = '▼'
   arrowBaseStyle(arrowDown)
   arrowDown.style.bottom = '0.35rem'
+
+  if (showAllSteps) {
+    arrowUp.style.display = 'none'
+    arrowDown.style.display = 'none'
+  }
 
   const wireArrow = (el, enabled, handler) => {
     el.style.color = enabled ? '#000' : '#999'
