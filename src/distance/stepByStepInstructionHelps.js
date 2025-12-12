@@ -255,7 +255,7 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
     throw new Error('createAnchoredStepperUI: referenceEl is required')
   }
   const {
-    placement = 'below', // 'below' | 'above'
+    placement = 'below', // 'below' | 'above' | 'inside-bottom' | 'inside-top'
     offsetPx = 8,
     positionMode = 'absolute', // 'absolute' | 'fixed'
     // When true, disables ALL internal positioning (initial, resize, scroll, ResizeObserver).
@@ -309,7 +309,11 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
     const leftPx =
       positionMode === 'absolute' ? leftViewport + pageX : leftViewport
     let topPx =
-      placement === 'below' ? bottomViewport + offsetPx : topViewport - offsetPx
+      placement === 'below'
+        ? bottomViewport + offsetPx
+        : placement === 'inside-top'
+        ? topViewport + offsetPx
+        : topViewport - offsetPx
 
     if (placement === 'inside-bottom') {
       topPx = bottomViewport - offsetPx
@@ -338,6 +342,11 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
           ? bottomViewport + pageY
           : bottomViewport) -
         h -
+        offsetPx
+      anchored.style.top = `${Math.round(adjustedTop)}px`
+    } else if (placement === 'inside-top') {
+      const adjustedTop =
+        (positionMode === 'absolute' ? topViewport + pageY : topViewport) +
         offsetPx
       anchored.style.top = `${Math.round(adjustedTop)}px`
     }
@@ -515,8 +524,8 @@ export function renderStepInstructions({
 
   const stepperBox = document.createElement('div')
   stepperBox.style.position = 'relative'
-  // Very faint light blue background
-  stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.25)'
+  // Light background (more opaque for readability)
+  stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.7)'
   // Thin black outline
   stepperBox.style.border = '1px solid #000'
   stepperBox.style.borderRadius = '4px'
@@ -525,7 +534,7 @@ export function renderStepInstructions({
   stepperBox.style.boxSizing = 'border-box'
   stepperBox.style.maxWidth = '100%'
   if (showAllSteps) {
-    stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.7)'
+    stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.8)'
   }
 
   const contentContainer = document.createElement('div')
@@ -552,7 +561,7 @@ export function renderStepInstructions({
 
   const navHint = document.createElement('div')
   navHint.style.color = 'black'
-  navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.25)'
+  navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.35)'
   navHint.style.padding = '0.3rem'
   navHint.style.borderRadius = '4px'
   navHint.style.width = 'fit-content'

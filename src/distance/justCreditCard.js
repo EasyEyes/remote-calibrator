@@ -10,6 +10,7 @@ import {
 } from './stepByStepInstructionHelps'
 import { parseInstructions } from './instructionParserAdapter'
 import { startIrisDrawingWithMesh } from './distanceTrack'
+import { getFullscreen, isFullscreen } from '../components/utils'
 
 // Constants for credit card size in centimeters
 const CREDIT_CARD_SHORT_CM = 5.398
@@ -66,6 +67,23 @@ function createOverlayLayer() {
   return layer
 }
 
+// Inject a subtle flicker animation for guide lines (once)
+function ensureFlickerStyle() {
+  const styleId = 'just-credit-card-flicker-style'
+  if (document.getElementById(styleId)) return
+  const s = document.createElement('style')
+  s.id = styleId
+  s.textContent = `
+    @keyframes jc-line-flicker {
+      0% { opacity: 0.1; }
+      45% { opacity: 1; }
+      55% { opacity: 1; }
+      100% { opacity: 0.1; }
+    }
+  `
+  document.head.appendChild(s)
+}
+
 function createDashedGuide() {
   const guide = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   guide.id = 'just-credit-card-guide'
@@ -83,6 +101,7 @@ function createDashedGuide() {
   path.setAttribute('stroke-width', '3')
   path.setAttribute('stroke-dasharray', '8,4')
   path.setAttribute('fill', 'none')
+  path.style.animation = 'jc-line-flicker 1.3s ease-in-out infinite'
   guide.appendChild(path)
 
   return guide
@@ -137,7 +156,7 @@ function positionGuide(guide, p1, p2) {
   // Draw the rounded path with a moderate curve.
   const rBase = (0.318 / 5.398) * length * 0.45
   const rX = Math.min(rBase, length * 0.2)
-  const rY = rX * 0.01 // bend control
+  const rY = rX * 0.4 // bend control
   const w = length
   const d = `M 0 0 Q ${rX} -${rY} ${rX} -${rY} L ${w - rX} -${rY} Q ${w - rX} -${rY} ${w} 0`
 
@@ -160,6 +179,20 @@ function positionCardOutline() {
     '#just-credit-card-outline-top',
   )
   if (!bodyPath || !topPath) return
+
+  // Clamp helper to keep outline within the expected video rect
+  const expectedRect = getExpectedVideoRect(cs.RCRef, cs.videoTopOffsetPx || 0)
+  if (!expectedRect) return
+  const clampToRect = ({ x, y }) => ({
+    x: Math.min(
+      Math.max(x, expectedRect.left),
+      expectedRect.left + expectedRect.width,
+    ),
+    y: Math.min(
+      Math.max(y, expectedRect.top),
+      expectedRect.top + expectedRect.height,
+    ),
+  })
 
   const dx = cs.p2.x - cs.p1.x
   const dy = cs.p2.y - cs.p1.y
@@ -187,6 +220,7 @@ function positionCardOutline() {
     y: topMid.y + perpDown.y * heightVpx,
   }
 
+  // Use the ideal quad based on current p1/p2 (no scaling). We'll clip via SVG.
   const tl = { x: cs.p1.x, y: cs.p1.y }
   const tr = { x: cs.p2.x, y: cs.p2.y }
   const bl = {
@@ -205,6 +239,27 @@ function positionCardOutline() {
       window.innerHeight,
     )}`,
   )
+  // Update clipPath to hide anything outside the video rect (cosmetic only)
+  let defs = cardOutlineEl.querySelector('defs')
+  if (!defs) {
+    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+    cardOutlineEl.prepend(defs)
+  }
+  let clip = defs.querySelector('#just-credit-card-clip')
+  if (!clip) {
+    clip = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath')
+    clip.id = 'just-credit-card-clip'
+    defs.appendChild(clip)
+  }
+  let clipRect = clip.querySelector('rect')
+  if (!clipRect) {
+    clipRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    clip.appendChild(clipRect)
+  }
+  clipRect.setAttribute('x', String(expectedRect.left))
+  clipRect.setAttribute('y', String(expectedRect.top))
+  clipRect.setAttribute('width', String(expectedRect.width))
+  clipRect.setAttribute('height', String(expectedRect.height))
   cardOutlineEl.style.left = '0px'
   cardOutlineEl.style.top = '0px'
   cardOutlineEl.style.width = '100%'
@@ -212,6 +267,8 @@ function positionCardOutline() {
   cardOutlineEl.style.transform = 'none'
 
   // Body: draw only vertical sides; horizontals stay invisible.
+  bodyPath.setAttribute('clip-path', 'url(#just-credit-card-clip)')
+  topPath.setAttribute('clip-path', 'url(#just-credit-card-clip)')
   bodyPath.setAttribute(
     'd',
     `M ${tl.x} ${tl.y} L ${bl.x} ${bl.y} M ${tr.x} ${tr.y} L ${br.x} ${br.y}`,
@@ -325,6 +382,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
   let measurements = [] // { shortVPx, fVpx }
   let stepInstructionModel = null
   let currentStepFlatIndex = 0
+  let fullscreenGuardInterval = null
+  let lastFullscreenAttempt = 0
 
   // Ensure video is visible and positioned
   RC.showVideo(true)
@@ -361,6 +420,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   titleRow.appendChild(title)
 
   // Stepper UI: anchored relative to the video, placed below it
+  const instructionsPlacement = 'inside-top'
   let instructionsUI = null
   let leftInstructionsText = null
   let mediaContainer = null
@@ -376,6 +436,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   overlay.appendChild(guide)
   overlay.appendChild(cardOutline)
   document.body.appendChild(overlay)
+  ensureFlickerStyle()
 
   // Blue reference line (short edge length) and labels
   const blueGuide = document.createElement('div')
@@ -383,6 +444,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   blueGuide.style.position = 'absolute'
   blueGuide.style.height = '0px'
   blueGuide.style.borderTop = '3px dashed rgba(0, 120, 255, 0.95)'
+  blueGuide.style.animation = 'jc-line-flicker 1.5s ease-in-out infinite'
   blueGuide.style.pointerEvents = 'none'
   blueGuide.style.zIndex = '1000000000'
   overlay.appendChild(blueGuide)
@@ -419,6 +481,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     phrases?.RC_PlaceUpperCreditCardEdgeHere?.[RC.L] ||
     'Place upper credit card edge here'
   overlay.appendChild(greenLabel)
+  const greenLabelOffsetPx = 21 // reduced gap (30% less than previous 30px)
 
   // Add to RC background (below overlay but above page)
   RC._replaceBackground('')
@@ -561,7 +624,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     const minY = Math.min(state.p1.y, state.p2.y)
 
     greenLabel.style.left = `${midX}px`
-    greenLabel.style.top = `${minY - 30}px`
+    greenLabel.style.top = `${minY - greenLabelOffsetPx}px`
   }
 
   function handlePointerUp(e) {
@@ -736,7 +799,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     const midY = (state.p1.y + state.p2.y) / 2
     const minY = Math.min(state.p1.y, state.p2.y)
     greenLabel.style.left = `${midX}px`
-    greenLabel.style.top = `${minY - 30}px`
+    greenLabel.style.top = `${minY - greenLabelOffsetPx}px`
 
     // Lazily create the anchored stepper only after video size/position is final
     if (!instructionsUI) {
@@ -745,7 +808,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
       )
       if (videoRefForStepper) {
         instructionsUI = createAnchoredStepperUI(videoRefForStepper, {
-          placement: 'inside-bottom',
+          placement: instructionsPlacement,
           offsetPx: 8,
           positionMode: 'absolute',
           disableInternalPositioning: true, // We handle positioning via repositionInstructionsUI with calculated expectedRect
@@ -800,16 +863,38 @@ export async function justCreditCard(RC, options, callback = undefined) {
       ac.style.width = `${Math.round(expectedRect.width)}px`
       ac.style.left = `${Math.round(expectedRect.left + pageX)}px`
 
-      // inside-bottom: align bottom of stepper to bottom of video (minus offset)
-      // Accessing offsetHeight forces a reflow to ensure height is correct after width change
-      const height = ac.offsetHeight || 0
-      const top = expectedRect.top + expectedRect.height - height - offsetPx
+      // Align instructions inside the video; position depends on requested placement
+      const height = ac.offsetHeight || 0 // force reflow for accurate height
+      const top =
+        instructionsPlacement === 'inside-top'
+          ? expectedRect.top + offsetPx
+          : expectedRect.top + expectedRect.height - height - offsetPx
 
       ac.style.top = `${Math.round(top + pageY)}px`
       ac.style.visibility = 'visible'
     }
     // Do NOT call instructionsUI.reposition() here. The internal logic relies on getBoundingClientRect
     // which might be stale or incorrect during initialization. We trust expectedRect.
+  }
+
+  function ensureFullscreenGuard() {
+    const shouldGuard = currentPage === 3 || currentPage === 4
+    if (shouldGuard) {
+      if (fullscreenGuardInterval) return
+      fullscreenGuardInterval = setInterval(async () => {
+        if (!(currentPage === 3 || currentPage === 4)) return
+        if (isFullscreen()) return
+        const now = Date.now()
+        if (now - lastFullscreenAttempt < 2000) return
+        lastFullscreenAttempt = now
+        try {
+          await getFullscreen(RC.language?.value || RC.L, RC)
+        } catch {}
+      }, 1500)
+    } else if (fullscreenGuardInterval) {
+      clearInterval(fullscreenGuardInterval)
+      fullscreenGuardInterval = null
+    }
   }
 
   function updateTitle() {
@@ -821,18 +906,19 @@ export async function justCreditCard(RC, options, callback = undefined) {
     title.innerText = t || `Measurement ${idx} of ${total}`
   }
 
-  function renderPage() {
-    // If UI not initialized yet, skip; will be called again after creation
-    if (!leftInstructionsText || !mediaContainer) return
-    updateTitle()
-    const isRepeat = currentPage === 4
-    const showAllSteps = currentPage === 3 || currentPage === 4
+  // Helper to clamp and render the stepper at the current index
+  function renderStepperAtCurrentIndex() {
+    if (!leftInstructionsText || !mediaContainer || !stepInstructionModel) return
+    const maxIdx = Math.max(
+      0,
+      (stepInstructionModel.flatSteps?.length || 1) - 1,
+    )
+    currentStepFlatIndex = Math.min(
+      Math.max(0, currentStepFlatIndex),
+      maxIdx,
+    )
 
-    // Parse and render step instructions (Stepper in left column only)
-    try {
-      const text = getInstructions(RC, isRepeat)
-      stepInstructionModel = parseInstructions(text)
-      currentStepFlatIndex = 0
+    const renderOnce = () =>
       renderStepInstructions({
         model: stepInstructionModel,
         flatIndex: currentStepFlatIndex,
@@ -842,17 +928,47 @@ export async function justCreditCard(RC, options, callback = undefined) {
           mediaContainer: mediaContainer,
         },
         options: {
-          showAllSteps, // show full text at once on pages 3 and 4
+          showAllSteps: false,
           thresholdFraction: 0.6,
           useCurrentSectionOnly: true,
           stepperHistory: options.stepperHistory,
           layout: 'leftOnly', // 1-column Stepper on the left
           showLargeHeading: true, // Show big "Instructions" heading for justCreditCard
+          onPrev: () => {
+            if (currentStepFlatIndex > 0) {
+              currentStepFlatIndex--
+              renderStepperAtCurrentIndex()
+            }
+          },
+          onNext: () => {
+            if (currentStepFlatIndex < maxIdx) {
+              currentStepFlatIndex++
+              renderStepperAtCurrentIndex()
+            }
+          },
         },
         lang: RC.language?.value || RC.L,
         langDirection: RC.LD,
         phrases,
       })
+
+    renderOnce()
+  }
+
+  function renderPage() {
+    // If UI not initialized yet, skip; will be called again after creation
+    if (!leftInstructionsText || !mediaContainer) return
+    ensureFullscreenGuard()
+    updateTitle()
+    const isRepeat = currentPage === 4
+    const showAllSteps = false
+
+    // Parse and render step instructions (Stepper in left column only)
+    try {
+      const text = getInstructions(RC, isRepeat)
+      stepInstructionModel = parseInstructions(text)
+      currentStepFlatIndex = 0
+      renderStepperAtCurrentIndex()
     } catch (e) {
       leftInstructionsText.textContent = getInstructions(RC, isRepeat).replace(
         /<br\s*\/?>/gi,
@@ -888,55 +1004,21 @@ export async function justCreditCard(RC, options, callback = undefined) {
   // Up/Down to navigate Stepper
   const handleInstructionNav = e => {
     if (![3, 4].includes(currentPage) || !stepInstructionModel) return
-    if (currentPage === 3 || currentPage === 4) return // these pages show all steps; skip navigation
     if (e.key === 'ArrowDown') {
-      const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
+      const maxIdx = Math.max(
+        0,
+        (stepInstructionModel.flatSteps?.length || 1) - 1,
+      )
       if (currentStepFlatIndex < maxIdx) {
         currentStepFlatIndex++
-        renderStepInstructions({
-          model: stepInstructionModel,
-          flatIndex: currentStepFlatIndex,
-          elements: {
-            leftText: leftInstructionsText,
-            rightText: null,
-            mediaContainer: mediaContainer,
-          },
-          options: {
-            thresholdFraction: 0.6,
-            useCurrentSectionOnly: true,
-            stepperHistory: options.stepperHistory,
-            layout: 'leftOnly',
-            showLargeHeading: true,
-          },
-          lang: RC.language?.value || RC.L,
-          langDirection: RC.LD,
-          phrases,
-        })
+        renderStepperAtCurrentIndex()
       }
       e.preventDefault()
       e.stopPropagation()
     } else if (e.key === 'ArrowUp') {
       if (currentStepFlatIndex > 0) {
         currentStepFlatIndex--
-        renderStepInstructions({
-          model: stepInstructionModel,
-          flatIndex: currentStepFlatIndex,
-          elements: {
-            leftText: leftInstructionsText,
-            rightText: null,
-            mediaContainer: mediaContainer,
-          },
-          options: {
-            thresholdFraction: 0.6,
-            useCurrentSectionOnly: true,
-            stepperHistory: options.stepperHistory,
-            layout: 'leftOnly',
-            showLargeHeading: true,
-          },
-          lang: RC.language?.value || RC.L,
-          langDirection: RC.LD,
-          phrases,
-        })
+        renderStepperAtCurrentIndex()
       }
       e.preventDefault()
       e.stopPropagation()
@@ -1070,6 +1152,10 @@ export async function justCreditCard(RC, options, callback = undefined) {
     )
 
     if (measurements.length < measurementCount) {
+      // Reset guide to initial length/position for the repeat pass (page 4)
+      state.lineLengthPx = null
+      state.p1 = { x: 0, y: 0 }
+      state.p2 = { x: 0, y: 0 }
       currentPage = 4
       renderPage()
       return
@@ -1167,6 +1253,10 @@ export async function justCreditCard(RC, options, callback = undefined) {
       svgFilter.parentNode.removeChild(svgFilter)
     if (edgeToggle && edgeToggle.parentNode)
       edgeToggle.parentNode.removeChild(edgeToggle)
+    if (fullscreenGuardInterval) {
+      clearInterval(fullscreenGuardInterval)
+      fullscreenGuardInterval = null
+    }
     // Remove blue/green labels if still attached (overlay removal usually covers them)
     const blueLbl = document.getElementById('just-credit-card-blue-label')
     if (blueLbl && blueLbl.parentNode) blueLbl.parentNode.removeChild(blueLbl)
