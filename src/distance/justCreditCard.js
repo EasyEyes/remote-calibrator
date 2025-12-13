@@ -339,8 +339,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
   // Unit conversions and configurable offsets
   const pxPerCm = (RC?.screenPpi?.value ? RC.screenPpi.value : 96) / 2.54 // fallback to 96 DPI if missing
   const cameraToCardOffsetCm =
-    options?.calibrateTrackDistanceCameraToCardCm ??
-    options?._calibrateTrackDistanceCameraToCardCm ??
+    options?.calibrateTrackDistanceCameraToBlueLineCm ??
+    options?._calibrateTrackDistanceCameraToBlueLineCm ??
     4
   const blueLineOffsetPx = cameraToCardOffsetCm * pxPerCm
   // Video sits 0.5 cm below the blue line
@@ -348,8 +348,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
 
   // Initial position of green line as fraction of video height (0.0 = bottom, 1.0 = top)
   const initialCardTopVideoFraction =
-    options?.calibrateTrackDistanceCardTopVideoFraction ??
-    options?._calibrateTrackDistanceCardTopVideoFraction ??
+    options?.calibrateTrackDistanceGreenLineVideoFraction??
+    options?._calibrateTrackDistanceGreenLineVideoFraction ??
     0.9
 
   const commonCalibrationData = {
@@ -369,8 +369,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
     _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
-    _calibrateTrackDistanceCameraToCardCm: cameraToCardOffsetCm,
-    _calibrateTrackDistanceCardTopVideoFraction: initialCardTopVideoFraction,
+    _calibrateTrackDistanceCameraToBlueLineCm: cameraToCardOffsetCm,
+    _calibrateTrackDistanceGreenLineVideoFraction: initialCardTopVideoFraction,
   }
 
   // Measurement count/pages: 1 (default) or 2 for repeat
@@ -1073,6 +1073,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
     // Get camera resolution (horizontalVpx and verticalVpx)
     const horizontalVpx = cam.width
     const verticalVpx = cam.height
+    // Expose camera width in COMMON for downstream consumers
+    commonCalibrationData.horizontalVpx = horizontalVpx
 
     // Calculate cardTopVideoFraction: the height of the green line center as a fraction of video height
     // state.p1 and state.p2 are in page coordinates, need to convert to video fraction
@@ -1124,7 +1126,6 @@ export async function justCreditCard(RC, options, callback = undefined) {
       factorVpxCm,
       fRatio,
       cardTopVideoFraction,
-      edgeToCameraDeltaYCm,
       edgeToScreenCm,
       mode,
       cameraToCardOffsetCm: cameraToCardOffsetCm,
@@ -1141,7 +1142,6 @@ export async function justCreditCard(RC, options, callback = undefined) {
         factorVpxCm,
         fRatio,
         cardTopVideoFraction,
-        edgeToCameraDeltaYCm,
         edgeToScreenCm,
         mode,
         cameraToCardOffsetCm: cameraToCardOffsetCm,
@@ -1420,12 +1420,25 @@ const saveCalibrationAttempt = (
   const cameraXYPxValue = [window.innerWidth / 2, 0] // Top center of screen
   const centerXYPxValue = [window.innerWidth / 2, window.innerHeight / 2] // Screen center
 
+  // Store single shared values in COMMON (not per-attempt) to avoid array growth
+  commonCalibrationData.pxPerCm = safeRoundCm(pxPerCmValue)
+  commonCalibrationData.cameraXYPx = safeRoundXYPx(cameraXYPxValue)
+  commonCalibrationData.centerXYPx = safeRoundXYPx(centerXYPxValue)
+  commonCalibrationData.greenLineVideoFraction =
+    measurement.cardTopVideoFraction != null
+      ? Number(measurement.cardTopVideoFraction.toFixed(4))
+      : null
+  commonCalibrationData.cameraToBlueLineCm = safeRoundCm(
+    measurement.cameraToBlueLineCm || 0,
+  )
+  commonCalibrationData.edgeToScreenCm = safeRoundCm(
+    measurement.edgeToScreenCm || 0,
+  )
+  commonCalibrationData.verticalVpx = safeRoundPx(measurement.verticalVpx || 0)
+
   const calibrationObject = {
     method,
     mode: 'lineAdjust', // merged mode
-    pxPerCm: safeRoundCm(pxPerCmValue),
-    cameraXYPx: safeRoundXYPx(cameraXYPxValue),
-    centerXYPx: safeRoundXYPx(centerXYPxValue),
     // fRatio is stable across resolution changes; this is the primary calibration value
     fRatio:
       measurement.fRatio != null ? Number(measurement.fRatio.toFixed(2)) : null,
@@ -1435,14 +1448,6 @@ const saveCalibrationAttempt = (
     factorVpxCm: safeRoundPx(measurement.factorVpxCm || 0),
     ipdCm: safeRoundCm(ASSUMED_IPD_CM),
     shortVPx: safeRoundPx(measurement.shortVPx || 0),
-    cardTopVideoFraction:
-      measurement.cardTopVideoFraction != null
-        ? Number(measurement.cardTopVideoFraction.toFixed(4))
-        : null,
-    edgeToCameraDeltaYCm: safeRoundCm(measurement.edgeToCameraDeltaYCm || 0),
-    cameraToBlueLineCm: safeRoundCm(measurement.cameraToBlueLineCm || 0),
-    edgeToScreenCm: safeRoundCm(measurement.edgeToScreenCm || 0),
-    verticalVpx: safeRoundPx(measurement.verticalVpx || 0),
   }
   RC.calibrationAttempts[`calibration${calibrationNumber}`] = calibrationObject
   _updateCalibrationAttemptsTransposed(
