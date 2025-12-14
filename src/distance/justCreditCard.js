@@ -10,7 +10,7 @@ import {
 } from './stepByStepInstructionHelps'
 import { parseInstructions } from './instructionParserAdapter'
 import { startIrisDrawingWithMesh } from './distanceTrack'
-import { getFullscreen, isFullscreen } from '../components/utils'
+import { getFullscreen, isFullscreen, toFixedNumber } from '../components/utils'
 
 // Constants for credit card size in centimeters
 const CREDIT_CARD_SHORT_CM = 5.398
@@ -101,7 +101,7 @@ function createDashedGuide() {
   path.setAttribute('stroke-width', '3')
   path.setAttribute('stroke-dasharray', '8,4')
   path.setAttribute('fill', 'none')
-  path.style.animation = 'jc-line-flicker 1.3s ease-in-out infinite'
+  path.style.animation = 'jc-line-flicker 0.125s ease-in-out infinite'
   guide.appendChild(path)
 
   return guide
@@ -172,12 +172,8 @@ function positionCardOutline() {
   if (!cs || !cs.RCRef) return
   const cardOutlineEl = cs.cardOutline
   if (!cardOutlineEl) return
-  const bodyPath = cardOutlineEl.querySelector(
-    '#just-credit-card-outline-body',
-  )
-  const topPath = cardOutlineEl.querySelector(
-    '#just-credit-card-outline-top',
-  )
+  const bodyPath = cardOutlineEl.querySelector('#just-credit-card-outline-body')
+  const topPath = cardOutlineEl.querySelector('#just-credit-card-outline-top')
   if (!bodyPath || !topPath) return
 
   // Clamp helper to keep outline within the expected video rect
@@ -234,10 +230,7 @@ function positionCardOutline() {
 
   cardOutlineEl.setAttribute(
     'viewBox',
-    `0 0 ${Math.max(1, window.innerWidth)} ${Math.max(
-      1,
-      window.innerHeight,
-    )}`,
+    `0 0 ${Math.max(1, window.innerWidth)} ${Math.max(1, window.innerHeight)}`,
   )
   // Update clipPath to hide anything outside the video rect (cosmetic only)
   let defs = cardOutlineEl.querySelector('defs')
@@ -326,7 +319,8 @@ function getInstructions(RC, isRepeat) {
     "When the line matches the edge, press the SPACE bar. 🔉 You'll hear a shutter click."
   const fallbackPage4 = fallbackPage3
   const keyPage3 = phrases?.RC_UseCreditCardBelowToCalibrateCameraPage3?.[RC.L]
-  const keyPage4 = phrases?.RC_UseCreditCardBelowToCalibrateCameraRepeatPage4?.[RC.L]
+  const keyPage4 =
+    phrases?.RC_UseCreditCardBelowToCalibrateCameraRepeatPage4?.[RC.L]
   const text =
     (isRepeat ? keyPage4 : keyPage3) ||
     (isRepeat ? fallbackPage4 : fallbackPage3)
@@ -348,7 +342,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
 
   // Initial position of green line as fraction of video height (0.0 = bottom, 1.0 = top)
   const initialCardTopVideoFraction =
-    options?.calibrateTrackDistanceGreenLineVideoFraction??
+    options?.calibrateTrackDistanceGreenLineVideoFraction ??
     options?._calibrateTrackDistanceGreenLineVideoFraction ??
     0.9
 
@@ -444,7 +438,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
   blueGuide.style.position = 'absolute'
   blueGuide.style.height = '0px'
   blueGuide.style.borderTop = '3px dashed rgba(0, 120, 255, 0.95)'
-  blueGuide.style.animation = 'jc-line-flicker 1.5s ease-in-out infinite'
+  blueGuide.style.animation = 'jc-line-flicker 0.125s ease-in-out infinite'
   blueGuide.style.pointerEvents = 'none'
   blueGuide.style.zIndex = '1000000000'
   overlay.appendChild(blueGuide)
@@ -569,8 +563,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     RCRef: RC,
     videoTopOffsetPx,
     cameraToCardOffsetCm: cameraToCardOffsetCm,
-    quadBaseRatio:
-      options.calibrateTrackDistanceQuadBaseRatio
+    quadBaseRatio: options.calibrateTrackDistanceQuadBaseRatio,
   }
   cardState = state
 
@@ -697,11 +690,11 @@ export async function justCreditCard(RC, options, callback = undefined) {
   const positionEdgeToggle = () => {
     const rect = getExpectedVideoRect(RC, videoTopOffsetPx)
     edgeToggle.style.top = `${rect.top + 10}px`
-    edgeToggle.style.left = `${rect.left + 10}px`
+    edgeToggle.style.right = `${rect.right - 10}px`
   }
   positionEdgeToggle()
   // Append to body instead of overlay to avoid pointer-events issues
-  document.body.appendChild(edgeToggle)
+  // document.body.appendChild(edgeToggle)
 
   let edgeDetectEnabled = false
 
@@ -908,15 +901,13 @@ export async function justCreditCard(RC, options, callback = undefined) {
 
   // Helper to clamp and render the stepper at the current index
   function renderStepperAtCurrentIndex() {
-    if (!leftInstructionsText || !mediaContainer || !stepInstructionModel) return
+    if (!leftInstructionsText || !mediaContainer || !stepInstructionModel)
+      return
     const maxIdx = Math.max(
       0,
       (stepInstructionModel.flatSteps?.length || 1) - 1,
     )
-    currentStepFlatIndex = Math.min(
-      Math.max(0, currentStepFlatIndex),
-      maxIdx,
-    )
+    currentStepFlatIndex = Math.min(Math.max(0, currentStepFlatIndex), maxIdx)
 
     const renderOnce = () =>
       renderStepInstructions({
@@ -933,7 +924,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
           useCurrentSectionOnly: true,
           stepperHistory: options.stepperHistory,
           layout: 'leftOnly', // 1-column Stepper on the left
-          showLargeHeading: true, // Show big "Instructions" heading for justCreditCard
+          showLargeHeading: false, // Removed "Instructions" heading - stepper is at top of video
           onPrev: () => {
             if (currentStepFlatIndex > 0) {
               currentStepFlatIndex--
@@ -1150,6 +1141,103 @@ export async function justCreditCard(RC, options, callback = undefined) {
       },
       commonCalibrationData,
     )
+
+    // Validate consistency of green line measurements when we have 2 or more
+    if (measurements.length >= 2) {
+      const lastIdx = measurements.length - 1
+      const secondLastIdx = measurements.length - 2
+      const M1 = measurements[secondLastIdx].shortVPx
+      const M2 = measurements[lastIdx].shortVPx
+      const ratio = M2 / M1
+
+      // Get the allowed ratio from options (default to 1.1 = 10% tolerance)
+      const allowedRatio = options.calibrateTrackDistanceAllowedRatio || 1.1
+      const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
+      const minAllowedRatio = Math.min(allowedRatio, 1 / allowedRatio)
+
+      // Check if ratio is outside the allowed range
+      if (ratio > maxAllowedRatio || ratio < minAllowedRatio) {
+        console.log(
+          `Green line consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`,
+        )
+        console.log(`M1=${M1}, M2=${M2}, ratio=${ratio}`)
+
+        const errorMessage =
+          phrases.RC_creditCardSizeMismatch?.[RC.L]?.replace(
+            '[[N1]]',
+            toFixedNumber(ratio, 2).toString(),
+          ) ||
+          phrases.RC_objectSizeMismatch?.[RC.L]?.replace(
+            '[[N1]]',
+            toFixedNumber(ratio, 2).toString(),
+          ) ||
+          `Green line measurements are inconsistent. Ratio: ${toFixedNumber(ratio, 2)}. Please try again.`
+
+        // Prevent spacebar from closing the popup
+        const preventSpacebar = e => {
+          if (e.key === ' ' || e.code === 'Space') {
+            e.preventDefault()
+            e.stopPropagation()
+          }
+        }
+
+        // Temporarily lower z-index of overlay, video, stepper, and other high-z elements so Swal popup is visible
+        const overlayEl = document.getElementById('just-credit-card-overlay')
+        const videoEl = document.getElementById('webgazerVideoContainer')
+        const edgeToggleEl = document.getElementById('edge-detect-toggle')
+        const stepperEl = instructionsUI?.anchoredContainer || null
+        const savedOverlayZIndex = overlayEl ? overlayEl.style.zIndex : null
+        const savedVideoZIndex = videoEl ? videoEl.style.zIndex : null
+        const savedEdgeToggleZIndex = edgeToggleEl
+          ? edgeToggleEl.style.zIndex
+          : null
+        const savedStepperZIndex = stepperEl ? stepperEl.style.zIndex : null
+        const savedStepperVisibility = stepperEl
+          ? stepperEl.style.visibility
+          : null
+        if (overlayEl) overlayEl.style.zIndex = '1'
+        if (videoEl) videoEl.style.zIndex = '1'
+        if (edgeToggleEl) edgeToggleEl.style.zIndex = '1'
+        if (stepperEl) stepperEl.style.visibility = 'hidden'
+
+        await Swal.fire({
+          ...swalInfoOptions(RC, { showIcon: false }),
+          icon: undefined,
+          html: errorMessage,
+          allowEnterKey: true,
+          confirmButtonText:
+            phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
+          didOpen: () => {
+            document.addEventListener('keydown', preventSpacebar, true)
+          },
+          willClose: () => {
+            document.removeEventListener('keydown', preventSpacebar, true)
+            // Restore z-index and visibility values
+            if (overlayEl && savedOverlayZIndex !== null) {
+              overlayEl.style.zIndex = savedOverlayZIndex
+            }
+            if (videoEl && savedVideoZIndex !== null) {
+              videoEl.style.zIndex = savedVideoZIndex
+            }
+            if (edgeToggleEl && savedEdgeToggleZIndex !== null) {
+              edgeToggleEl.style.zIndex = savedEdgeToggleZIndex
+            }
+            if (stepperEl && savedStepperVisibility !== null) {
+              stepperEl.style.visibility = savedStepperVisibility
+            }
+          },
+        })
+
+        // Reset measurements and restart calibration from page 3
+        measurements = []
+        state.lineLengthPx = null
+        state.p1 = { x: 0, y: 0 }
+        state.p2 = { x: 0, y: 0 }
+        currentPage = 3
+        renderPage()
+        return
+      }
+    }
 
     if (measurements.length < measurementCount) {
       // Reset guide to initial length/position for the repeat pass (page 4)
