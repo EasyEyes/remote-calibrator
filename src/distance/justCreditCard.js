@@ -372,6 +372,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
     1,
     Math.floor(options.objectMeasurementCount || 1),
   )
+  // Counts every attempt, even retries; used for display (1/2, 3/3, 4/4, ...)
+  let attemptCount = 0
   let currentPage = 3
   let measurements = [] // { shortVPx, fVpx }
   let stepInstructionModel = null
@@ -402,7 +404,13 @@ export async function justCreditCard(RC, options, callback = undefined) {
   titleRow.style.gap = '24px'
   titleRow.style.paddingInlineStart = '3rem'
   titleRow.style.margin = '2rem 0 0rem 0'
-  titleRow.style.position = 'relative'
+  titleRow.style.position = 'fixed'
+  titleRow.style.top = '0'
+  titleRow.style.left = '0'
+  titleRow.style.width = '100%'
+  // Keep the title visible even when fullscreen toggles reorder layers
+  titleRow.style.zIndex = '1000000000001'
+  titleRow.style.pointerEvents = 'none'
   container.appendChild(titleRow)
 
   const title = document.createElement('h1')
@@ -891,8 +899,9 @@ export async function justCreditCard(RC, options, callback = undefined) {
   }
 
   function updateTitle() {
-    const idx = Math.min(measurements.length + 1, measurementCount)
-    const total = measurementCount
+    // Show the attempt number; denominator grows with retries (e.g., 3/3, 4/4)
+    const idx = Math.max(1, attemptCount + 1)
+    const total = Math.max(idx, measurementCount)
     const t = phrases.RC_distanceTrackingN?.[RC.L]
       ?.replace('[[N1]]', String(idx))
       ?.replace('[[N2]]', String(total))
@@ -1111,6 +1120,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     const factorVpxCm = fRatio * horizontalVpx * ASSUMED_IPD_CM
 
     const mode = 'lineAdjust' // merged mode
+    attemptCount++
     measurements.push({
       shortVPx,
       fVpx,
@@ -1142,21 +1152,19 @@ export async function justCreditCard(RC, options, callback = undefined) {
       commonCalibrationData,
     )
 
-    // Validate consistency of green line measurements when we have 2 or more
-    if (measurements.length >= 2) {
+    const allowedRatio = options.calibrateTrackDistanceAllowedRatio || 1.1
+    const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
+
+    // Validate consistency only when multiple measurements are requested
+    if (measurementCount > 1 && measurements.length >= 2) {
       const lastIdx = measurements.length - 1
       const secondLastIdx = measurements.length - 2
       const M1 = measurements[secondLastIdx].shortVPx
       const M2 = measurements[lastIdx].shortVPx
-      const ratio = M2 / M1
-
-      // Get the allowed ratio from options (default to 1.1 = 10% tolerance)
-      const allowedRatio = options.calibrateTrackDistanceAllowedRatio || 1.1
-      const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
-      const minAllowedRatio = Math.min(allowedRatio, 1 / allowedRatio)
+      const ratio = Math.max(M2 / M1, M1 / M2)
 
       // Check if ratio is outside the allowed range
-      if (ratio > maxAllowedRatio || ratio < minAllowedRatio) {
+      if (ratio > maxAllowedRatio) {
         console.log(
           `Green line consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`,
         )
@@ -1228,15 +1236,19 @@ export async function justCreditCard(RC, options, callback = undefined) {
           },
         })
 
-        // Reset measurements and restart calibration from page 3
-        measurements = []
+        // Keep previous attempts but reset guide for a fresh retry on page 4
         state.lineLengthPx = null
         state.p1 = { x: 0, y: 0 }
         state.p2 = { x: 0, y: 0 }
-        currentPage = 3
+        currentPage = 4
         renderPage()
         return
       }
+    }
+
+    // If we gathered more than needed (due to retries), keep only the most recent set
+    if (measurementCount > 1 && measurements.length > measurementCount) {
+      measurements = measurements.slice(-measurementCount)
     }
 
     if (measurements.length < measurementCount) {
