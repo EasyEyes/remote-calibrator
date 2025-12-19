@@ -3355,6 +3355,84 @@ export async function objectTest(RC, options, callback = undefined) {
   let selectedUnit = 'inches' // Default to inches
   const showLength = !!options.calibrateTrackDistanceShowLengthBool
 
+  // ===================== PAPER SELECTION MODE =====================
+  const isPaperSelectionMode = options.useObjectTestData === 'paper'
+
+  const paperChoiceLengthMap = {
+    '24 inch ruler': 24 * 2.54,
+    '18 inch ruler': 18 * 2.54,
+    '12 inch ruler': 12 * 2.54,
+    'US Legal (8.5 × 14 inch)': 14 * 2.54,
+    'US Letter (8.5 × 11 inch)': 11 * 2.54,
+    '50 cm  ruler': 50,
+    '30 cm  ruler': 30,
+    '20 cm ruler': 20,
+    'A3 (297 × 420 mm)': 42,
+    'A4 (210 × 297 mm)': 29.7,
+    'A5 (148 × 210 mm)': 21,
+    'None of the above': null,
+  }
+
+  const fallbackPaperLengths = [
+    24 * 2.54,
+    18 * 2.54,
+    12 * 2.54,
+    14 * 2.54,
+    11 * 2.54,
+    50,
+    30,
+    20,
+    42,
+    29.7,
+    21,
+    null,
+  ]
+
+  const buildPaperSelectionOptions = () => {
+    try {
+      const raw = phrases.RC_PaperChoices?.[RC.L] || ''
+      const lines = raw
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length)
+      if (!lines.length) return null
+      return lines.map((label, idx) => {
+        const lengthCm =
+          label in paperChoiceLengthMap
+            ? paperChoiceLengthMap[label]
+            : fallbackPaperLengths[idx] ?? null
+        return {
+          key: `paper-${idx}`,
+          label,
+          lengthCm,
+        }
+      })
+    } catch (e) {
+      console.warn('Failed to build paper choices from phrases:', e)
+      return null
+    }
+  }
+
+  const paperSelectionOptions =
+    buildPaperSelectionOptions() ||
+    [
+      { key: 'ruler24in', label: '24 inch ruler', lengthCm: 24 * 2.54 },
+      { key: 'ruler18in', label: '18 inch ruler', lengthCm: 18 * 2.54 },
+      { key: 'ruler12in', label: '12 inch ruler', lengthCm: 12 * 2.54 },
+      { key: 'usLegal', label: 'US Legal (8.5 × 14 inch)', lengthCm: 14 * 2.54 },
+      { key: 'usLetter', label: 'US Letter (8.5 × 11 inch)', lengthCm: 11 * 2.54 },
+      { key: 'ruler50cm', label: '50 cm  ruler', lengthCm: 50 },
+      { key: 'ruler30cm', label: '30 cm  ruler', lengthCm: 30 },
+      { key: 'ruler20cm', label: '20 cm ruler', lengthCm: 20 },
+      { key: 'a3', label: 'A3 (297 × 420 mm)', lengthCm: 42 },
+      { key: 'a4', label: 'A4 (210 × 297 mm)', lengthCm: 29.7 },
+      { key: 'a5', label: 'A5 (148 × 210 mm)', lengthCm: 21 },
+      { key: 'none', label: 'None of the above', lengthCm: null },
+    ]
+  let selectedPaperOption = null
+  let selectedPaperLengthCm = null
+  let selectedPaperLabel = null
+
   // ===================== MEASUREMENT STATE MANAGEMENT =====================
   const measurementState = {
     currentIteration: 1,
@@ -3367,6 +3445,10 @@ export async function objectTest(RC, options, callback = undefined) {
     lastAttemptWasTooShort: false, // Track if previous attempt failed minimum length check
     rejectionCount: 0, // Track number of times user has been rejected (too short OR mismatched)
     factorRejectionCount: 0, // Track number of times page 3/4 factor mismatch occurred
+  }
+
+  if (isPaperSelectionMode) {
+    measurementState.totalIterations = 1
   }
 
   const collectAllAssetUrls = () => {
@@ -3463,6 +3545,7 @@ export async function objectTest(RC, options, callback = undefined) {
     objectRulerIntervalCm: [],
     objectMeasuredCm: [],
     objectMeasuredMsg: [],
+    objectName: [],
     objectLengthCm: null, // Geometric mean of the last two values of objectMeasuredCm, but only if the last value is “ok”, and it’s preceded by “ok” or “mismatch”.
     _calibrateTrackDistance: options.calibrateTrackDistance,
     _calibrateTrackDistanceAllowedRangeCm:
@@ -3931,6 +4014,7 @@ export async function objectTest(RC, options, callback = undefined) {
   instructionsContainer.style.flexDirection = 'row'
   instructionsContainer.style.width = '100%'
   instructionsContainer.style.gap = '0'
+  // Default margins; will be adjusted per-page in showPage
   instructionsContainer.style.margin = '2rem 0 5rem 0'
   instructionsContainer.style.position = 'relative'
   instructionsContainer.style.zIndex = '3'
@@ -4088,6 +4172,167 @@ export async function objectTest(RC, options, callback = undefined) {
   radioOverlay.style.zIndex = '9998'
   radioOverlay.style.display = 'none' // Hidden by default
   container.appendChild(radioOverlay)
+
+  // --- PAPER SELECTION UI (for useObjectTestData === "paper") ---
+  const paperSelectionContainer = document.createElement('div')
+  paperSelectionContainer.id = 'paper-selection-container'
+  paperSelectionContainer.style.position = 'relative'
+  paperSelectionContainer.style.display = 'none'
+  paperSelectionContainer.style.alignItems = 'flex-start'
+  paperSelectionContainer.style.justifyContent = 'flex-start'
+  paperSelectionContainer.style.backgroundColor = 'transparent'
+  paperSelectionContainer.style.zIndex = '10000000000'
+  paperSelectionContainer.style.color = '#111'
+  paperSelectionContainer.style.padding = '0'
+  paperSelectionContainer.style.marginLeft = '3rem'
+  paperSelectionContainer.style.marginRight = '3rem'
+  paperSelectionContainer.style.marginTop = '0.1rem'
+  paperSelectionContainer.style.boxSizing = 'border-box'
+  // Allow typing/clicking inside even when global listeners exist
+  paperSelectionContainer.style.pointerEvents = 'auto'
+  paperSelectionContainer.style.userSelect = 'auto'
+
+  const paperSelectionCard = document.createElement('div')
+  paperSelectionCard.style.maxWidth = '50vw'
+  paperSelectionCard.style.width = 'auto'
+  paperSelectionCard.style.background = 'transparent'
+  paperSelectionCard.style.border = 'none'
+  paperSelectionCard.style.borderRadius = '0'
+  paperSelectionCard.style.padding = '0'
+  paperSelectionCard.style.boxSizing = 'border-box'
+  paperSelectionCard.style.boxShadow = 'none'
+
+  const paperSelectionTitle = document.createElement('div')
+  paperSelectionTitle.textContent = phrases.RC_PaperChoicesInstructions[RC.L]
+  paperSelectionTitle.style.fontSize = '1.4rem'
+  paperSelectionTitle.style.fontWeight = '600'
+  paperSelectionTitle.style.color = '#111'
+  paperSelectionTitle.style.textAlign = 'left'
+  paperSelectionTitle.style.margin = '0rem 0px 1rem 0px'
+
+  const paperOptionsList = document.createElement('div')
+  paperOptionsList.style.display = 'flex'
+  paperOptionsList.style.flexDirection = 'column'
+  paperOptionsList.style.gap = '0.7rem'
+  paperOptionsList.style.alignItems = 'flex-start'
+
+  // Inline warning directly under radio buttons
+  const paperInlineWarning = document.createElement('div')
+  paperInlineWarning.textContent = phrases.RC_UseLongEdge[RC.L]
+  paperInlineWarning.style.marginTop = '3rem'
+  paperInlineWarning.style.fontSize = '1.3rem'
+  paperInlineWarning.style.lineHeight = '1.4'
+  paperInlineWarning.style.color = '#111'
+
+  // Suggestion input under first warning
+  const paperSuggestionWrapper = document.createElement('div')
+  paperSuggestionWrapper.style.display = 'flex'
+  paperSuggestionWrapper.style.flexDirection = 'column'
+  paperSuggestionWrapper.style.gap = '0.35rem'
+  paperSuggestionWrapper.style.marginTop = '1rem'
+
+  const paperSuggestionLabel = document.createElement('div')
+  paperSuggestionLabel.textContent = phrases.RC_SuggestObject[RC.L]
+  paperSuggestionLabel.style.fontSize = '1.3rem'
+  paperSuggestionLabel.style.lineHeight = '1.3'
+  paperSuggestionLabel.style.color = '#111'
+
+  const paperSuggestionInput = document.createElement('input')
+  paperSuggestionInput.type = 'text'
+  paperSuggestionInput.placeholder = ''
+  paperSuggestionInput.style.fontSize = '1.3rem'
+  paperSuggestionInput.style.padding = '4px 2px'
+  paperSuggestionInput.style.border = 'none'
+  paperSuggestionInput.style.borderBottom = '1px solid #555'
+  paperSuggestionInput.style.borderRadius = '0'
+  paperSuggestionInput.style.width = '320px'
+  paperSuggestionInput.style.maxWidth = '90vw'
+  paperSuggestionInput.style.outline = 'none'
+  paperSuggestionInput.style.background = 'transparent'
+  paperSuggestionInput.style.pointerEvents = 'auto'
+  paperSuggestionInput.style.userSelect = 'text'
+  let paperSuggestionValue = ''
+  paperSuggestionInput.oninput = e => {
+    paperSuggestionValue = e.target.value || ''
+  }
+  // Stop bubbling so global key handlers (space/enter) don't block typing here
+  paperSuggestionInput.addEventListener('keydown', e => {
+    e.stopPropagation()
+  })
+  paperSuggestionInput.addEventListener('click', e => e.stopPropagation())
+
+  paperSuggestionWrapper.appendChild(paperSuggestionLabel)
+  paperSuggestionWrapper.appendChild(paperSuggestionInput)
+
+  // Important warning under suggestion input
+  const paperImportantWarning = document.createElement('div')
+  paperImportantWarning.textContent =
+    ''
+  paperImportantWarning.style.marginTop = '1rem'
+  paperImportantWarning.style.fontSize = '1.3rem'
+  paperImportantWarning.style.lineHeight = '1.4'
+  paperImportantWarning.style.color = '#111'
+
+  const paperValidationMessage = document.createElement('div')
+  paperValidationMessage.style.color = '#ff9f43'
+  paperValidationMessage.style.marginTop = '1rem'
+  paperValidationMessage.style.display = 'none'
+  paperValidationMessage.style.fontSize = '0.95rem'
+
+  const createPaperOptionRow = option => {
+    const row = document.createElement('label')
+    row.style.display = 'flex'
+    //row.style.alignItems = 'center'
+    row.style.gap = '1px'
+    row.style.cursor = 'pointer'
+    row.style.fontSize = '1.3rem'
+    row.style.lineHeight = '0.8'
+    row.style.color = '#111'
+    row.style.textAlign = 'left'
+    row.style.padding = '0'
+
+    const radio = document.createElement('input')
+    radio.type = 'radio'
+    radio.name = 'paper-selection'
+    radio.value = option.key
+    radio.style.cursor = 'pointer'
+    radio.style.marginRight = '0.5rem'
+    radio.style.padding = '0'
+    radio.style.width = '16px'
+    radio.style.height = '16px'
+    radio.onchange = () => {
+      selectedPaperOption = option.key
+      selectedPaperLengthCm = option.lengthCm
+      selectedPaperLabel = option.label
+      paperValidationMessage.style.display = 'none'
+      if (isPaperSelectionMode && typeof proceedButton !== 'undefined') {
+        proceedButton.disabled = !selectedPaperLengthCm
+      }
+    }
+
+    const labelSpan = document.createElement('span')
+    labelSpan.textContent = option.label
+    labelSpan.style.fontSize = '1.3rem'
+
+    row.appendChild(radio)
+    row.appendChild(labelSpan)
+
+    return row
+  }
+
+  paperSelectionOptions.forEach(opt => {
+    const row = createPaperOptionRow(opt)
+    paperOptionsList.appendChild(row)
+  })
+
+  paperSelectionCard.appendChild(paperSelectionTitle)
+  paperSelectionCard.appendChild(paperOptionsList)
+  paperSelectionCard.appendChild(paperInlineWarning)
+  paperSelectionCard.appendChild(paperSuggestionWrapper)
+  paperSelectionCard.appendChild(paperImportantWarning)
+  paperSelectionCard.appendChild(paperValidationMessage)
+  paperSelectionContainer.appendChild(paperSelectionCard)
+  container.appendChild(paperSelectionContainer)
 
   // TODO: COMMENTED OUT - radioContainer logic will be integrated elsewhere
   // const radioContainer = document.createElement('div')
@@ -5559,9 +5804,13 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Hide dontUseRuler column on page 0
       dontUseRulerColumn.style.display = 'none'
+      paperSelectionContainer.style.display = 'none'
+      container.style.backgroundColor = ''
     } else if (pageNumber === 1) {
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
+      paperSelectionContainer.style.display = 'none'
+      container.style.backgroundColor = ''
 
       // Show video on page 1
       RC.showVideo(true)
@@ -5605,73 +5854,148 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 2: DIAGONAL TAPE =====================
       console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
 
-      // Update title with progress counter (for page 2 only)
-      updateTitleWithProgress()
+      // Hide paper selection unless we are in paper mode
+      if (!isPaperSelectionMode) paperSelectionContainer.style.display = 'none'
 
-      // Hide arrow indicators on page 2
-      if (arrowIndicators) {
-        arrowIndicators.remove()
-        arrowIndicators = null
-      }
+      if (isPaperSelectionMode) {
+        container.style.backgroundColor = ''
+        title.style.display = 'none'
+        // Tighten instructions margin only for paper mode on page 2
+        instructionsContainer.style.margin = '0 0 0 0'
 
-      // Hide video on page 2 (tape measurement)
-      RC.showVideo(false)
+        // IMPORTANT: When returning to page 2 from pages 3/4, the step-by-step
+        // instruction renderer may still be showing the tape/object UI content.
+        // In paper-selection mode, page 2 should ONLY show the paper selection UI.
+        stepInstructionModel = null
+        currentStepFlatIndex = 0
+        if (leftInstructionsText) leftInstructionsText.textContent = ''
+        if (rightInstructionsText) rightInstructionsText.textContent = ''
+        if (sectionMediaContainer) sectionMediaContainer.innerHTML = ''
 
-      // Show diagonal tape component and add labels to DOM
-      tape.container.style.display = 'block'
+        // Hide unused UI
+        if (arrowIndicators) {
+          arrowIndicators.remove()
+          arrowIndicators = null
+        }
+        RC.showVideo(false)
+        tape.container.style.display = 'none'
+        if (leftLabel.container.parentNode) {
+          leftLabel.container.parentNode.removeChild(leftLabel.container)
+        }
+        if (rightLabel.container.parentNode) {
+          rightLabel.container.parentNode.removeChild(rightLabel.container)
+        }
+        unitRadioContainer.style.display = 'none'
+        dontUseRulerColumn.style.display = 'none'
+        rulerShiftButton.style.display = 'none'
+        explanationButton.style.display = 'none'
 
-      // Re-add labels to container if not already present
-      if (!leftLabel.container.parentNode) {
-        container.appendChild(leftLabel.container)
-      }
-      leftLabel.container.style.display = 'block'
+        // Show paper selection UI
+        paperSelectionContainer.style.display = 'block'
+        paperValidationMessage.style.display = 'none'
+        proceedButton.style.display = 'block'
+        proceedButton.disabled = !selectedPaperLengthCm
 
-      if (!rightLabel.container.parentNode) {
-        container.appendChild(rightLabel.container)
-      }
-      rightLabel.container.style.display = 'block'
+        // Update instructions text with selection prompt placed under instructions
+        //setInstructionsText('Please select one (longer is better):')
+        // Keep the title hidden to avoid duplicate text; we rely on instruction area
+        //paperSelectionTitle.style.display = 'none'
 
-      // Update label positions
-      updateDiagonalLabels()
+        // Keep proceed button at lower right corner for paper mode
+        buttonContainer.style.bottom = '30px'
 
-      // Show unit selection radio buttons on page 2 only when length is shown
-      unitRadioContainer.style.display = showLength ? 'flex' : 'none'
+        // Clear right column so warnings render under radios instead
+        if (rightInstructionsText) {
+          rightInstructionsText.textContent = ''
+        }
+      } else {
+        container.style.backgroundColor = ''
+        // Restore default button position
+        buttonContainer.style.bottom = '230px'
+        // Hide paper mode warning if present
+        if (rightInstructionsText) {
+          rightInstructionsText.textContent = ''
+        }
+        // Restore title for non-paper modes
+        title.style.display = 'block'
+        updateTitleWithProgress()
 
-      // // Hide radio buttons on page 2
-      // radioContainer.style.display = 'none'
+        // Update title with progress counter (for page 2 only)
+        updateTitleWithProgress()
 
-      // Hide PROCEED button on page 2 - only allow space key
-      proceedButton.style.display = 'none'
+        // Restore default instructions margin
+        instructionsContainer.style.margin = '2rem 0 5rem 0'
 
-      // Hide explanation button on page 2
-      explanationButton.style.display = 'block' //show explanation button on page 2
+        // Hide arrow indicators on page 2
+        if (arrowIndicators) {
+          arrowIndicators.remove()
+          arrowIndicators = null
+        }
 
-      // Show dontUseRuler column on page 2 if calibrateTrackDistanceCheckBool is true
-      if (options.calibrateTrackDistanceCheckBool) {
-        dontUseRulerColumn.style.display = 'block'
-        dontUseRulerColumn.innerText = phrases.RC_DontUseYourRulerYet[RC.L]
-        dontUseRulerColumn.style.color = '#8B0000' // Dark red ink
-        dontUseRulerColumn.style.fontWeight = 'normal'
-        dontUseRulerColumn.style.userSelect = 'none'
-      }
+        // Hide video on page 2 (tape measurement)
+        RC.showVideo(false)
 
-      // Update all positions and colors after showing lines
-      updateDiagonalLabels()
+        // Show diagonal tape component and add labels to DOM
+        tape.container.style.display = 'block'
 
-      // Ruler-Shift button will be shown by renderCurrentStepView() after step 2.2
-      // Initially hide it when page 2 first loads
-      rulerShiftButton.style.display = 'none'
+        // Re-add labels to container if not already present
+        if (!leftLabel.container.parentNode) {
+          container.appendChild(leftLabel.container)
+        }
+        leftLabel.container.style.display = 'block'
 
-      // Update instructions based on current iteration (first vs subsequent)
-      updateInstructions()
-      // Initialize the randomized interval for this measurement if needed
-      if (!showLength) {
-        intervalCmCurrent = computeNewIntervalCm()
-        updateRulerMarkings()
+        if (!rightLabel.container.parentNode) {
+          container.appendChild(rightLabel.container)
+        }
+        rightLabel.container.style.display = 'block'
+
+        // Update label positions
+        updateDiagonalLabels()
+
+        // Show unit selection radio buttons on page 2 only when length is shown
+        unitRadioContainer.style.display = showLength ? 'flex' : 'none'
+
+        // // Hide radio buttons on page 2
+        // radioContainer.style.display = 'none'
+
+        // Hide PROCEED button on page 2 - only allow space key
+        proceedButton.style.display = 'none'
+
+        // Hide explanation button on page 2
+        explanationButton.style.display = 'block' //show explanation button on page 2
+
+        // Show dontUseRuler column on page 2 if calibrateTrackDistanceCheckBool is true
+        if (options.calibrateTrackDistanceCheckBool) {
+          dontUseRulerColumn.style.display = 'block'
+          dontUseRulerColumn.innerText = phrases.RC_DontUseYourRulerYet[RC.L]
+          dontUseRulerColumn.style.color = '#8B0000' // Dark red ink
+          dontUseRulerColumn.style.fontWeight = 'normal'
+          dontUseRulerColumn.style.userSelect = 'none'
+        }
+
+        // Update all positions and colors after showing lines
+        updateDiagonalLabels()
+
+        // Ruler-Shift button will be shown by renderCurrentStepView() after step 2.2
+        // Initially hide it when page 2 first loads
+        rulerShiftButton.style.display = 'none'
+
+        // Update instructions based on current iteration (first vs subsequent)
+        updateInstructions()
+        // Initialize the randomized interval for this measurement if needed
+        if (!showLength) {
+          intervalCmCurrent = computeNewIntervalCm()
+          updateRulerMarkings()
+        }
       }
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
+      paperSelectionContainer.style.display = 'none'
+      container.style.backgroundColor = ''
+      // Always show title from page 3 onward (even in paper mode) and restore margins
+      title.style.display = 'block'
+      instructionsContainer.style.margin = '2rem 0 5rem 0'
 
       // Increment measurement count for page 3
       viewingDistanceMeasurementCount++
@@ -5755,6 +6079,11 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
+      paperSelectionContainer.style.display = 'none'
+      container.style.backgroundColor = ''
+      // Always show title from page 4 onward (even in paper mode) and restore margins
+      title.style.display = 'block'
+      instructionsContainer.style.margin = '2rem 0 5rem 0'
 
       // Increment measurement count for page 4
       viewingDistanceMeasurementCount++
@@ -5883,6 +6212,70 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (currentPage === 1) {
       await showPage(2)
     } else if (currentPage === 2) {
+      if (isPaperSelectionMode) {
+        if (!selectedPaperOption || selectedPaperLengthCm === null) {
+          paperValidationMessage.textContent = phrases.RC_PleaseSelectAnOption[RC.L]
+          paperValidationMessage.style.display = 'block'
+          if (typeof proceedButton !== 'undefined') {
+            proceedButton.disabled = true
+          }
+          return false
+        }
+
+        const paperTimestamp = performance.now()
+        firstMeasurement = selectedPaperLengthCm
+        objectLengthCmGlobal.value = selectedPaperLengthCm
+
+        const roundedLength =
+          Math.round(Number(selectedPaperLengthCm) * 10) / 10
+        objectTestCommonData.objectMeasuredMsg.push('ok')
+        objectTestCommonData.objectMeasuredCm.push(roundedLength)
+        objectTestCommonData.objectName.push(
+          selectedPaperLabel ||
+            paperSelectionOptions.find(o => o.key === selectedPaperOption)
+              ?.label ||
+            null,
+        )
+        objectTestCommonData.objectLengthCm = roundedLength
+        objectTestCommonData.objectRulerIntervalCm.push(null)
+
+        measurementState.measurements.push({
+          objectLengthCm: selectedPaperLengthCm,
+          objectLengthPx: null,
+          objectLengthMm: selectedPaperLengthCm * 10,
+          timestamp: paperTimestamp,
+          selectedUnit: 'paper',
+          paperOption: selectedPaperOption,
+          objectSuggestion: paperSuggestionValue || null,
+        })
+        measurementState.currentIteration = measurementState.totalIterations
+
+        savedMeasurementData = {
+          value: toFixedNumber(selectedPaperLengthCm, 1),
+          timestamp: paperTimestamp,
+          method: 'object',
+          objectSuggestion: paperSuggestionValue || null,
+          intraocularDistanceCm: null,
+          faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+            isNaN(sample) ? sample : Math.round(sample),
+          ),
+          faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
+            isNaN(sample) ? sample : Math.round(sample),
+          ),
+          raw: {
+            paperOption: selectedPaperOption,
+            paperLabel:
+              paperSelectionOptions.find(o => o.key === selectedPaperOption)
+                ?.label || '',
+            paperLengthCm: selectedPaperLengthCm,
+            objectSuggestion: paperSuggestionValue || null,
+            ppi: ppi,
+          },
+        }
+
+        await showPage(3)
+        return true
+      }
       // ===================== SAVE MEASUREMENT DATA FROM PAGE 2 =====================
       console.log('=== SAVING MEASUREMENT DATA FROM PAGE 2 ===')
 
@@ -6203,23 +6596,29 @@ export async function objectTest(RC, options, callback = undefined) {
     }
 
     // ===================== CALCULATE PHYSICAL DISTANCE =====================
-    // Calculate the length of the object in pixels by finding the difference
-    // between the right and left line positions
-    const objectLengthPx = tape.helpers.getDistance(startX, startY, endX, endY)
+    // In paper-selection mode, page 2 is not a tape measurement. Avoid recording
+    // misleading tape-derived pixel/mm values in logs or raw output.
+    let objectLengthPx = null
+    let objectLengthMm = null
+    if (!isPaperSelectionMode) {
+      // Calculate the length of the object in pixels by finding the difference
+      // between the right and left line positions
+      objectLengthPx = tape.helpers.getDistance(startX, startY, endX, endY)
 
-    // Convert the pixel length to millimeters using the screen's PPI
-    // pxPerMm was calculated earlier as ppi/25.4 (pixels per inch / mm per inch)
-    const objectLengthMm = objectLengthPx / pxPerMm
+      // Convert the pixel length to millimeters using the screen's PPI
+      // pxPerMm was calculated earlier as ppi/25.4 (pixels per inch / mm per inch)
+      objectLengthMm = objectLengthPx / pxPerMm
 
-    // ===================== CONSOLE LOGGING =====================
-    // Log the measured distance in different units for debugging
-    console.log('=== Object Test Measurement Results ===')
-    console.log(`Distance in pixels: ${objectLengthPx.toFixed(2)}px`)
-    console.log(`Distance in millimeters: ${objectLengthMm.toFixed(2)}mm`)
-    console.log(
-      `Distance in centimeters: ${(objectLengthMm / 10).toFixed(2)}cm`,
-    )
-    console.log('=====================================')
+      // ===================== CONSOLE LOGGING =====================
+      // Log the measured distance in different units for debugging
+      console.log('=== Object Test Measurement Results ===')
+      console.log(`Distance in pixels: ${objectLengthPx.toFixed(2)}px`)
+      console.log(`Distance in millimeters: ${objectLengthMm.toFixed(2)}mm`)
+      console.log(
+        `Distance in centimeters: ${(objectLengthMm / 10).toFixed(2)}cm`,
+      )
+      console.log('=====================================')
+    }
 
     // ===================== CREATE MEASUREMENT DATA OBJECT =====================
     // Format the data object to match the blindspot mapping structure
@@ -6244,6 +6643,15 @@ export async function objectTest(RC, options, callback = undefined) {
         objectLengthMm, // Object length in millimeters
         ppi: ppi, // Screen's pixels per inch
         webcamToEyesCm: firstMeasurement, // Original webcam-to-eyes measurement
+        paperOption: isPaperSelectionMode ? selectedPaperOption : null,
+        paperLabel: isPaperSelectionMode
+          ? selectedPaperLabel ||
+            paperSelectionOptions.find(o => o.key === selectedPaperOption)
+              ?.label ||
+            null
+          : null,
+        paperLengthCm: isPaperSelectionMode ? selectedPaperLengthCm : null,
+        objectSuggestion: isPaperSelectionMode ? paperSuggestionValue : null,
       },
 
       // Add intraocular distance to the data object
@@ -6256,6 +6664,8 @@ export async function objectTest(RC, options, callback = undefined) {
       faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
         isNaN(sample) ? sample : Math.round(sample),
       ),
+      objectSuggestion: isPaperSelectionMode ? paperSuggestionValue : null,
+      objectName: selectedPaperOption ? paperSelectionOptions.find(o => o.key === selectedPaperOption)?.label || '' : null,
     }
 
     // ===================== VISUAL FEEDBACK =====================
@@ -6690,16 +7100,27 @@ export async function objectTest(RC, options, callback = undefined) {
   // Add keyboard event listener for Enter/Return key and Space key
   const handleKeyPress = e => {
     if (e.key === 'Enter' || e.key === 'Return') {
-      // On pages 2, 3 and 4, ignore return key - only allow space
-      if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
+      // In paper-selection mode on page 2, allow Enter/Return to "Proceed".
+      // On other modes/pages 2-4, ignore return key (space is used for capture/advance).
+      if (currentPage === 2) {
+        if (isPaperSelectionMode) {
+          e.preventDefault()
+          proceedButton.click()
+        }
         return
       }
+      if (currentPage === 3 || currentPage === 4) return
       // Always trigger Proceed button action since okButton is never used
       proceedButton.click()
     } else if (e.key === ' ') {
       // Space key - allow on pages 2, 3 and 4
       if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
         e.preventDefault()
+
+        // In paper-selection mode, require Enter/Return (space should not advance).
+        if (currentPage === 2 && isPaperSelectionMode) {
+          return
+        }
 
         // Cancel any ongoing ruler-shift animation on page 2
         if (currentPage === 2) {
@@ -6735,6 +7156,26 @@ export async function objectTest(RC, options, callback = undefined) {
         }
 
         if (currentPage === 2) {
+          if (isPaperSelectionMode) {
+            ;(async () => {
+              const advanced = await nextPage()
+
+              if (advanced && !RC.gazeTracker.checkInitialized('distance')) {
+                RC.gazeTracker._init(
+                  {
+                    toFixedN: 1,
+                    showVideo: true,
+                    showFaceOverlay: false,
+                  },
+                  'distance',
+                )
+              }
+
+              // Re-add listener after handling space key
+              document.addEventListener('keydown', handleKeyPress)
+            })()
+            return
+          }
           // Do exactly what the PROCEED button does on page 2
           ;(async () => {
             // Record first measurement - calculate diagonal distance
@@ -7618,12 +8059,28 @@ export async function objectTest(RC, options, callback = undefined) {
                     viewingDistanceMeasurementCount = 0
                     viewingDistanceTotalExpected = 2
 
-                    // Reset ruler/tape to initial position for new object
+                  if (isPaperSelectionMode) {
+                    // Reset paper-selection state so page 2 shows ONLY paper selection (no tape-mode leftovers)
+                    selectedPaperOption = null
+                    selectedPaperLengthCm = null
+                    selectedPaperLabel = null
+                    paperSuggestionValue = ''
+                    if (typeof paperSuggestionInput !== 'undefined')
+                      paperSuggestionInput.value = ''
+                    // Clear any checked radio buttons
+                    const checked = paperSelectionContainer?.querySelector(
+                      'input[name="paper-selection"]:checked',
+                    )
+                    if (checked) checked.checked = false
+                    if (paperValidationMessage)
+                      paperValidationMessage.style.display = 'none'
+                  } else {
+                    // Reset ruler/tape to initial position for new object (non-paper mode)
                     await resetPage2ForNextMeasurement()
+                  }
 
                     // Go back to page 2 to measure new object
-                    currentPage = 1 // Will advance to page 2
-                    await nextPage()
+                  await showPage(2)
 
                     // Re-add the event listener for the new page 2 instance
                     document.addEventListener('keydown', handleKeyPress)
@@ -7694,7 +8151,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // Add OK button first
   const proceedButton = document.createElement('button')
   proceedButton.className = 'rc-button'
-  proceedButton.textContent = 'Proceed'
+  proceedButton.textContent = phrases.T_proceed[RC.L]
   proceedButton.style.border = '2px solid #019267'
   proceedButton.style.backgroundColor = '#019267'
   proceedButton.style.color = 'white'
@@ -7715,6 +8172,20 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (currentPage === 1) {
       await nextPage()
     } else if (currentPage === 2) {
+      if (isPaperSelectionMode) {
+        const advanced = await nextPage()
+        if (advanced && !RC.gazeTracker.checkInitialized('distance')) {
+          RC.gazeTracker._init(
+            {
+              toFixedN: 1,
+              showVideo: true,
+              showFaceOverlay: false,
+            },
+            'distance',
+          )
+        }
+        return
+      }
       // Record first measurement - calculate diagonal distance
       const diagonalDistancePx = tape.helpers.getDistance(
         startX,
@@ -8322,12 +8793,27 @@ export async function objectTest(RC, options, callback = undefined) {
             viewingDistanceMeasurementCount = 0
             viewingDistanceTotalExpected = 2
 
-            // Reset ruler/tape to initial position for new object
-            await resetPage2ForNextMeasurement()
+            if (isPaperSelectionMode) {
+              // Reset paper-selection state so page 2 shows ONLY paper selection (no tape-mode leftovers)
+              selectedPaperOption = null
+              selectedPaperLengthCm = null
+              selectedPaperLabel = null
+              paperSuggestionValue = ''
+              if (typeof paperSuggestionInput !== 'undefined')
+                paperSuggestionInput.value = ''
+              // Clear any checked radio buttons
+              const checked = paperSelectionContainer?.querySelector(
+                'input[name="paper-selection"]:checked',
+              )
+              if (checked) checked.checked = false
+              if (paperValidationMessage) paperValidationMessage.style.display = 'none'
+            } else {
+              // Reset ruler/tape to initial position for new object
+              await resetPage2ForNextMeasurement()
+            }
 
             // Go back to page 2 to measure new object
-            currentPage = 1 // Will advance to page 2
-            await nextPage()
+            await showPage(2)
             return
           }
 

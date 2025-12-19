@@ -312,8 +312,8 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
       placement === 'below'
         ? bottomViewport + offsetPx
         : placement === 'inside-top'
-        ? topViewport + offsetPx
-        : topViewport - offsetPx
+          ? topViewport + offsetPx
+          : topViewport - offsetPx
 
     if (placement === 'inside-bottom') {
       topPx = bottomViewport - offsetPx
@@ -364,7 +364,7 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
   let resizeObserver = null
   let onResize = null
   let onScroll = null
-  
+
   if (!disableInternalPositioning) {
     // Initial position after one frame (ensure inner is rendered)
     requestAnimationFrame(reposition)
@@ -550,8 +550,10 @@ export function renderStepInstructions({
     instructionsHeading.style.fontWeight = 'bold'
     instructionsHeading.style.color = 'black'
     instructionsHeading.style.marginBottom = '0.5rem'
-    instructionsHeading.style.textAlign = langDirection === 'RTL' ? 'right' : 'left'
-    instructionsHeading.textContent = phrases.RC_Instructions?.[lang] || 'Instructions'
+    instructionsHeading.style.textAlign =
+      langDirection === 'RTL' ? 'right' : 'left'
+    instructionsHeading.textContent =
+      phrases.RC_Instructions?.[lang] || 'Instructions'
     leftText.appendChild(instructionsHeading)
   }
 
@@ -595,9 +597,7 @@ export function renderStepInstructions({
   const hasUnshownPast = showAllSteps ? false : safeFlatIndex > history
   const hasUnshownFuture = showAllSteps ? false : safeFlatIndex < totalSteps - 1
 
-  const visibleStart = showAllSteps
-    ? 0
-    : Math.max(0, safeFlatIndex - history)
+  const visibleStart = showAllSteps ? 0 : Math.max(0, safeFlatIndex - history)
   const visibleEnd = showAllSteps ? totalSteps - 1 : safeFlatIndex // inclusive
 
   // Helper to append a line into the Stepper content
