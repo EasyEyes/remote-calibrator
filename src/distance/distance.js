@@ -3564,9 +3564,26 @@ export async function objectTest(RC, options, callback = undefined) {
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
-  // Track page 3/4 measurement cycles (for dynamic title counter)
+  // Track progress title counter for the viewing-distance capture steps.
+  // In paper-selection mode, page 2 (paper choice) is treated as step 1, then pages 3 and 4.
   let viewingDistanceMeasurementCount = 0 // Total number of page 3/4 cycles completed
-  let viewingDistanceTotalExpected = 2 // Expected total (starts at 2, increments by 2 on retry)
+  // Expected total (starts at 2, increments by 2 on retry; +1 in paper-selection mode for the paper-choice step).
+  let viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
+
+  // Render the "Distance (N of X)" title safely (never show N > X).
+  const renderViewingDistanceProgressTitle = () => {
+    const n1 = Math.max(0, Math.floor(viewingDistanceMeasurementCount || 0))
+    const n2 = Math.max(
+      Math.floor(viewingDistanceTotalExpected || 0),
+      n1,
+      1,
+    )
+    const template =
+      phrases.RC_distanceTrackingN?.[RC.L] || 'Distance [[N1]] of [[N2]]'
+    title.innerText = template
+      .replace('[[N1]]', n1.toString())
+      .replace('[[N2]]', n2.toString())
+  }
 
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   // Arrays to store 5 samples per page for calibration
@@ -3574,6 +3591,9 @@ export async function objectTest(RC, options, callback = undefined) {
   let faceMeshSamplesPage4 = []
   let meshSamplesDuringPage3 = []
   let meshSamplesDuringPage4 = []
+  // For a seamless transition, remember how far down page 3 had to push the instructions
+  // to avoid the (top-centered) video, and apply at least that much on page 4.
+  let page3InstructionsMarginTopPx = null
 
   // Helper to collect 5 samples of eye pixel distance using Face Mesh
   async function collectFaceMeshSamples(RC, arr, ppi, meshSamples) {
@@ -3828,9 +3848,10 @@ export async function objectTest(RC, options, callback = undefined) {
   // --- TITLE  ---
   const title = document.createElement('h1')
   // Start with regular title (no progress counter)
-  const initialTitleText = phrases.RC_distanceTrackingN?.[RC.L]
+  const initialTitleText = (phrases.RC_distanceTrackingN?.[RC.L] ||
+    'Distance [[N1]] of [[N2]]')
     .replace('[[N1]]', '1')
-    .replace('[[N2]]', '2')
+    .replace('[[N2]]', viewingDistanceTotalExpected.toString())
   title.innerText = initialTitleText
   title.style.whiteSpace = 'pre-line'
   title.style.textAlign = 'start'
@@ -3857,9 +3878,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Helper function to reset title to default (for pages other than page 2)
   const resetTitleToDefault = () => {
-    title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
-      .replace('[[N1]]', '1')
-      .replace('[[N2]]', '2')
+    // Default to "1 of total"
+    viewingDistanceMeasurementCount = Math.max(1, viewingDistanceMeasurementCount)
+    renderViewingDistanceProgressTitle()
   }
 
   // Track and render instructions text with custom two-column flow
@@ -4208,7 +4229,7 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSelectionTitle.style.fontWeight = '600'
   paperSelectionTitle.style.color = '#111'
   paperSelectionTitle.style.textAlign = 'left'
-  paperSelectionTitle.style.margin = '0rem 0px 1rem 0px'
+  paperSelectionTitle.style.margin = '2rem 0px 1rem 0px'
 
   const paperOptionsList = document.createElement('div')
   paperOptionsList.style.display = 'flex'
@@ -4218,11 +4239,16 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Inline warning directly under radio buttons
   const paperInlineWarning = document.createElement('div')
-  paperInlineWarning.textContent = phrases.RC_UseLongEdge[RC.L]
+  const useLongEdgeRaw = phrases.RC_UseLongEdge?.[RC.L] || ''
+  // Support "/n" (and literal "\n") in the phrase by converting to real line breaks.
+  paperInlineWarning.textContent = useLongEdgeRaw
+    .replaceAll('/n', '\n')
+    .replaceAll('\\n', '\n')
   paperInlineWarning.style.marginTop = '3rem'
   paperInlineWarning.style.fontSize = '1.3rem'
   paperInlineWarning.style.lineHeight = '1.4'
   paperInlineWarning.style.color = '#111'
+  paperInlineWarning.style.whiteSpace = 'pre-line'
 
   // Suggestion input under first warning
   const paperSuggestionWrapper = document.createElement('div')
@@ -4239,12 +4265,12 @@ export async function objectTest(RC, options, callback = undefined) {
 
   const paperSuggestionInput = document.createElement('input')
   paperSuggestionInput.type = 'text'
-  paperSuggestionInput.placeholder = ''
-  paperSuggestionInput.style.fontSize = '1.3rem'
-  paperSuggestionInput.style.padding = '4px 2px'
-  paperSuggestionInput.style.border = 'none'
-  paperSuggestionInput.style.borderBottom = '1px solid #555'
-  paperSuggestionInput.style.borderRadius = '0'
+  paperSuggestionInput.placeholder = phrases.RC_SuggestObjectHere[RC.L]
+  paperSuggestionInput.style.fontSize = '1rem'
+  // Box style (transparent background, rounded corners)
+  paperSuggestionInput.style.padding = '10px 12px'
+  paperSuggestionInput.style.border = '1px solid rgba(85, 85, 85, 0.9)'
+  paperSuggestionInput.style.borderRadius = '10px'
   paperSuggestionInput.style.width = '320px'
   paperSuggestionInput.style.maxWidth = '90vw'
   paperSuggestionInput.style.outline = 'none'
@@ -5757,6 +5783,7 @@ export async function objectTest(RC, options, callback = undefined) {
   }
 
   const showPage = async pageNumber => {
+    const previousPage = currentPage
     currentPage = pageNumber
 
     if (pageNumber === 0) {
@@ -5859,7 +5886,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
       if (isPaperSelectionMode) {
         container.style.backgroundColor = ''
-        title.style.display = 'none'
+        // Show a "Distance (1 of X)" style title in paper-selection mode too.
+        title.style.display = 'block'
+        // Page 2 is always the first step in paper-selection mode.
+        viewingDistanceMeasurementCount = 1
+        renderViewingDistanceProgressTitle()
         // Tighten instructions margin only for paper mode on page 2
         instructionsContainer.style.margin = '0 0 0 0'
 
@@ -5997,13 +6028,11 @@ export async function objectTest(RC, options, callback = undefined) {
       title.style.display = 'block'
       instructionsContainer.style.margin = '2rem 0 5rem 0'
 
-      // Increment measurement count for page 3
-      viewingDistanceMeasurementCount++
-
-      // Set title with dynamic progress counter
-      title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
-        ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
-        ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+      // Increment measurement count only when *entering* page 3 (avoid double-counting on re-show).
+      if (previousPage !== 3) {
+        viewingDistanceMeasurementCount++
+      }
+      renderViewingDistanceProgressTitle()
 
       console.log(
         `Page 3 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
@@ -6017,6 +6046,42 @@ export async function objectTest(RC, options, callback = undefined) {
       if (videoContainer) {
         setDefaultVideoPosition(RC, videoContainer)
       }
+
+      // Ensure the video preview doesn't occlude the stepper/instructions (pages 3+).
+      // We only push the instructions down when the video is positioned above them.
+      const ensureInstructionsBelowVideo = (gapPx = 16) => {
+        const v = document.getElementById('webgazerVideoContainer')
+        if (!v) return
+        const apply = () => {
+          try {
+            // Reset to the default margin first (avoid compounding on repeated calls)
+            instructionsContainer.style.marginTop = ''
+            const vRect = v.getBoundingClientRect()
+            const iRect = instructionsContainer.getBoundingClientRect()
+            // Only adjust when the video is above the instructions (top overlap scenario)
+            if (vRect.top <= iRect.top + 1) {
+              const overlapPx = vRect.bottom + gapPx - iRect.top
+              if (overlapPx > 0) {
+                const baseTop =
+                  parseFloat(getComputedStyle(instructionsContainer).marginTop) ||
+                  0
+                instructionsContainer.style.marginTop = `${Math.ceil(
+                  baseTop + overlapPx,
+                )}px`
+              }
+            }
+            // Record the final marginTop so page 4 can match it for a seamless transition.
+            page3InstructionsMarginTopPx =
+              parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
+          } catch {}
+        }
+        requestAnimationFrame(() => {
+          apply()
+          // Run again shortly after in case the video container resizes/finishes layout
+          setTimeout(apply, 50)
+        })
+      }
+      ensureInstructionsBelowVideo(18)
 
       // Hide Ruler-Shift button on page 3
       rulerShiftButton.style.display = 'none'
@@ -6085,13 +6150,11 @@ export async function objectTest(RC, options, callback = undefined) {
       title.style.display = 'block'
       instructionsContainer.style.margin = '2rem 0 5rem 0'
 
-      // Increment measurement count for page 4
-      viewingDistanceMeasurementCount++
-
-      // Set title with dynamic progress counter
-      title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
-        ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
-        ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+      // Increment measurement count only when *entering* page 4 (avoid double-counting on re-show).
+      if (previousPage !== 4) {
+        viewingDistanceMeasurementCount++
+      }
+      renderViewingDistanceProgressTitle()
 
       console.log(
         `Page 4 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
@@ -6100,10 +6163,10 @@ export async function objectTest(RC, options, callback = undefined) {
       // Show video on page 4
       RC.showVideo(true)
 
-      // Position video at lower right corner for page 4
+      // Position video at screen center for page 4
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
-        // Position video's lower right corner at screen's lower right corner
+        // Position video centered within viewport
         const videoWidth =
           parseInt(videoContainer.style.width) ||
           parseInt(videoContainer.offsetWidth) ||
@@ -6118,12 +6181,58 @@ export async function objectTest(RC, options, callback = undefined) {
           window.innerHeight || document.documentElement.clientHeight
 
         videoContainer.style.zIndex = 999999999999
-        videoContainer.style.left = `${viewportWidth - videoWidth}px`
-        videoContainer.style.top = `${viewportHeight - videoHeight}px`
+        videoContainer.style.left = `${viewportWidth / 2 - videoWidth / 2}px`
+        videoContainer.style.top = `${viewportHeight / 2 - videoHeight / 2}px`
         videoContainer.style.right = 'unset'
         videoContainer.style.bottom = 'unset'
         videoContainer.style.transform = 'none'
       }
+
+      // Ensure the video preview doesn't occlude the stepper/instructions (only adjust if video is above instructions).
+      const ensureInstructionsBelowVideo = (gapPx = 16) => {
+        const v = document.getElementById('webgazerVideoContainer')
+        if (!v) return
+        const apply = () => {
+          try {
+            instructionsContainer.style.marginTop = ''
+            const vRect = v.getBoundingClientRect()
+            const iRect = instructionsContainer.getBoundingClientRect()
+            if (vRect.top <= iRect.top + 1) {
+              const overlapPx = vRect.bottom + gapPx - iRect.top
+              if (overlapPx > 0) {
+                const baseTop =
+                  parseFloat(getComputedStyle(instructionsContainer).marginTop) ||
+                  0
+                instructionsContainer.style.marginTop = `${Math.ceil(
+                  baseTop + overlapPx,
+                )}px`
+              }
+            }
+          } catch {}
+        }
+        requestAnimationFrame(() => {
+          apply()
+          setTimeout(apply, 50)
+        })
+      }
+      ensureInstructionsBelowVideo(18)
+
+      // Even though page 4's video is not top-centered, keep instructions at least as low as
+      // page 3 had them (visual continuity between pages).
+      const matchPage3InstructionsOffset = () => {
+        if (page3InstructionsMarginTopPx == null) return
+        const current =
+          parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
+        if (current < page3InstructionsMarginTopPx) {
+          instructionsContainer.style.marginTop = `${Math.ceil(
+            page3InstructionsMarginTopPx,
+          )}px`
+        }
+      }
+      requestAnimationFrame(() => {
+        matchPage3InstructionsOffset()
+        setTimeout(matchPage3InstructionsOffset, 60)
+      })
 
       // Hide Ruler-Shift button on page 4
       rulerShiftButton.style.display = 'none'
@@ -6152,6 +6261,8 @@ export async function objectTest(RC, options, callback = undefined) {
       // Update instructions using step-by-step renderer with Markdown
       try {
         // Bypass test_phrases, use phrases directly
+        // Prefer the generic stepper Page 4 text (so instructions don't hardcode a screen corner),
+        // but fall back to the legacy "LowerRight" key for backward compatibility.
         const p4Text =
           (phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4?.[RC.L] ||
             '') + ''
@@ -6166,22 +6277,24 @@ export async function objectTest(RC, options, callback = undefined) {
           e,
         )
         setInstructionsText(
-          phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4[RC.L],
+          phrases.RC_UseObjectToSetViewingDistanceStepperPage4?.[RC.L] ||
+            phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4?.[RC.L] ||
+            '',
         )
       }
 
       // Hide dontUseRuler column on page 4
       dontUseRulerColumn.style.display = 'none'
 
-      // Show arrow indicators pointing to lower-right corner of screen
+      // Show arrow indicators pointing to screen center
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const lowerRightXYPx = [window.innerWidth, window.innerHeight] // Lower-right corner
-      arrowIndicators = createArrowIndicators(lowerRightXYPx)
+      const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2] // Screen center
+      arrowIndicators = createArrowIndicators(centerXYPx)
       RC.background.appendChild(arrowIndicators)
       console.log(
-        'Arrow indicators added for page 4, pointing to lower-right corner',
+        'Arrow indicators added for page 4, pointing to screen center',
       )
 
       // Note: Face Mesh samples will be collected when space key is pressed
@@ -6746,7 +6859,7 @@ export async function objectTest(RC, options, callback = undefined) {
               <div>  nearestXYPx_left = [${g.nearestXYPx_left[0].toFixed(1)}, ${g.nearestXYPx_left[1].toFixed(1)}]</div>
               <div>  nearestXYPx_right = [${g.nearestXYPx_right[0].toFixed(1)}, ${g.nearestXYPx_right[1].toFixed(1)}]</div>
               <div>  cameraXYPx = [${g.cameraXYPx[0].toFixed(1)}, ${g.cameraXYPx[1].toFixed(1)}]</div>
-              <div>  pointXYPx (lower right) = [${g.pointXYPx[0].toFixed(1)}, ${g.pointXYPx[1].toFixed(1)}]</div>
+              <div>  pointXYPx (screen center) = [${g.pointXYPx[0].toFixed(1)}, ${g.pointXYPx[1].toFixed(1)}]</div>
               
               <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 1: Calculate foot position (mean of left & right eye feet)</div>
               <div>  footXYPx = mean(nearestXYPx_left, nearestXYPx_right)</div>
@@ -6892,7 +7005,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     <div>  nearestXYPx_left = [${g.nearestXYPx_left[0].toFixed(1)}, ${g.nearestXYPx_left[1].toFixed(1)}]</div>
                     <div>  nearestXYPx_right = [${g.nearestXYPx_right[0].toFixed(1)}, ${g.nearestXYPx_right[1].toFixed(1)}]</div>
                     <div>  cameraXYPx = [${g.cameraXYPx[0].toFixed(1)}, ${g.cameraXYPx[1].toFixed(1)}]</div>
-                    <div>  pointXYPx (lower right) = [${g.pointXYPx[0].toFixed(1)}, ${g.pointXYPx[1].toFixed(1)}]</div>
+                    <div>  pointXYPx (screen center) = [${g.pointXYPx[0].toFixed(1)}, ${g.pointXYPx[1].toFixed(1)}]</div>
                     
                     <div style="color: #0066cc; font-weight: bold; margin-top: 8px;">Step 1: Calculate foot position (mean of left & right eye feet)</div>
                     <div>  footXYPx = mean(nearestXYPx_left, nearestXYPx_right)</div>
@@ -7405,6 +7518,35 @@ export async function objectTest(RC, options, callback = undefined) {
                       meshSamplesDuringPage4.length = 0
                       firstMeasurement = null
 
+                      // Full reset of viewing-distance counter (so paper mode returns to "1 of 3")
+                      viewingDistanceMeasurementCount = 0
+                      viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
+
+                      // Reset object-measurement state for a fresh object
+                      savedMeasurementData = null
+                      measurementState.measurements = []
+                      measurementState.currentIteration = 1
+                      measurementState.consistentPair = null
+                      measurementState.lastAttemptWasTooShort = false
+                      measurementState.rejectionCount = 0
+                      measurementState.factorRejectionCount = 0
+
+                      if (isPaperSelectionMode) {
+                        // Reset paper-selection state too
+                        selectedPaperOption = null
+                        selectedPaperLengthCm = null
+                        selectedPaperLabel = null
+                        paperSuggestionValue = ''
+                        if (typeof paperSuggestionInput !== 'undefined')
+                          paperSuggestionInput.value = ''
+                        const checked = paperSelectionContainer?.querySelector(
+                          'input[name="paper-selection"]:checked',
+                        )
+                        if (checked) checked.checked = false
+                        if (paperValidationMessage)
+                          paperValidationMessage.style.display = 'none'
+                      }
+
                       // Reset to page 2 to restart object measurement (same as tolerance failure)
                       currentPage = 1
 
@@ -7552,6 +7694,35 @@ export async function objectTest(RC, options, callback = undefined) {
                       meshSamplesDuringPage4.length = 0
                       firstMeasurement = null
 
+                      // Full reset of viewing-distance counter (so paper mode returns to "1 of 3")
+                      viewingDistanceMeasurementCount = 0
+                      viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
+
+                      // Reset object-measurement state for a fresh object
+                      savedMeasurementData = null
+                      measurementState.measurements = []
+                      measurementState.currentIteration = 1
+                      measurementState.consistentPair = null
+                      measurementState.lastAttemptWasTooShort = false
+                      measurementState.rejectionCount = 0
+                      measurementState.factorRejectionCount = 0
+
+                      if (isPaperSelectionMode) {
+                        // Reset paper-selection state too
+                        selectedPaperOption = null
+                        selectedPaperLengthCm = null
+                        selectedPaperLabel = null
+                        paperSuggestionValue = ''
+                        if (typeof paperSuggestionInput !== 'undefined')
+                          paperSuggestionInput.value = ''
+                        const checked = paperSelectionContainer?.querySelector(
+                          'input[name="paper-selection"]:checked',
+                        )
+                        if (checked) checked.checked = false
+                        if (paperValidationMessage)
+                          paperValidationMessage.style.display = 'none'
+                      }
+
                       // Reset to page 2 to restart object measurement (same as tolerance failure)
                       currentPage = 1
 
@@ -7612,7 +7783,7 @@ export async function objectTest(RC, options, callback = undefined) {
               // For page 4, calculate factorVpxCm using new geometric formulas
               let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
 
-              // Calculate page4FactorCmPx using new geometry (lower right corner)
+              // Calculate page4FactorCmPx using new geometry (screen center)
               try {
                 if (meshSamplesDuringPage4.length) {
                   const mesh = await getMeshData(
@@ -7645,8 +7816,8 @@ export async function objectTest(RC, options, callback = undefined) {
                       (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
                     ]
 
-                    // Set pointXYPx to lower right corner of screen
-                    const pointXYPx = [window.innerWidth, window.innerHeight]
+                    // Set pointXYPx to screen center
+                    const pointXYPx = [window.innerWidth / 2, window.innerHeight / 2]
 
                     // Calculate distances using the new formulas
                     const pointToFootCm =
@@ -7966,12 +8137,12 @@ export async function objectTest(RC, options, callback = undefined) {
                     icon: undefined,
                     html: displayMessage,
                     showCancelButton: true,
-                    confirmButtonText: phrases.RC_UseOldObjectAgain?.[RC.L],
-                    cancelButtonText: phrases.RC_TryNewObject?.[RC.L],
+                    confirmButtonText: phrases.RC_ok?.[RC.L],
+                    cancelButtonText: phrases.RC_NewObjectButton?.[RC.L],
                     allowEnterKey: true,
                     allowEscapeKey: false, // Prevent ESC from dismissing
                     allowOutsideClick: false, // Require button click
-                    reverseButtons: true, // Put confirm (Use Old Object) on the right
+                    // Keep default order so confirm (Use Old Object) is on the left and cancel (Try New Object) is on the right
                     customClass: {
                       actions: 'rc-two-button-actions',
                       confirmButton: 'rc-two-button-confirm',
@@ -8019,18 +8190,23 @@ export async function objectTest(RC, options, callback = undefined) {
                         })
                       }
 
-                      // Center buttons with gap between them
+                      // Put the two buttons at the left/right corners of the popup action row
                       const actionsContainer = document.querySelector(
                         '.rc-two-button-actions',
                       )
                       if (actionsContainer) {
                         actionsContainer.style.cssText = `
                           display: flex !important;
-                          justify-content: center !important;
+                          justify-content: space-between !important;
+                          align-items: center !important;
                           width: 100% !important;
-                          gap: 20px !important;
+                          gap: 0px !important;
+                          padding: 0 16px !important;
                         `
                       }
+                      // Ensure buttons don't auto-center via margins
+                      if (confirmBtn) confirmBtn.style.margin = '0'
+                      if (cancelBtn) cancelBtn.style.margin = '0'
                     },
                   })
 
@@ -8057,7 +8233,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
                     // Reset viewing distance counters for fresh start
                     viewingDistanceMeasurementCount = 0
-                    viewingDistanceTotalExpected = 2
+                    viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
 
                   if (isPaperSelectionMode) {
                     // Reset paper-selection state so page 2 shows ONLY paper selection (no tape-mode leftovers)
@@ -8371,7 +8547,7 @@ export async function objectTest(RC, options, callback = undefined) {
       // For page 4, calculate factorVpxCm using new geometric formulas
       let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
 
-      // Calculate page4FactorCmPx using new geometry (lower right corner)
+      // Calculate page4FactorCmPx using new geometry (screen center)
       try {
         if (meshSamplesDuringPage4.length) {
           const mesh = await getMeshData(
@@ -8403,8 +8579,8 @@ export async function objectTest(RC, options, callback = undefined) {
               (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
             ]
 
-            // Set pointXYPx to lower right corner of screen
-            const pointXYPx = [window.innerWidth, window.innerHeight]
+            // Set pointXYPx to screen center
+            const pointXYPx = [window.innerWidth / 2, window.innerHeight / 2]
 
             // Calculate distances using the new formulas
             const pointToFootCm =
@@ -8707,7 +8883,7 @@ export async function objectTest(RC, options, callback = undefined) {
             allowEnterKey: true,
             allowEscapeKey: false, // Prevent ESC from dismissing
             allowOutsideClick: false, // Require button click
-            reverseButtons: true, // Put confirm (Use Old Object) on the right
+            // Keep default order so confirm (Use Old Object) is on the left and cancel (Try New Object) is on the right
             customClass: {
               actions: 'rc-two-button-actions',
               confirmButton: 'rc-two-button-confirm',
@@ -8753,18 +8929,22 @@ export async function objectTest(RC, options, callback = undefined) {
                 })
               }
 
-              // Center buttons with gap between them
+              // Put the two buttons at the left/right corners of the popup action row
               const actionsContainer = document.querySelector(
                 '.rc-two-button-actions',
               )
               if (actionsContainer) {
                 actionsContainer.style.cssText = `
                           display: flex !important;
-                          justify-content: center !important;
+                          justify-content: space-between !important;
+                          align-items: center !important;
                           width: 100% !important;
-                          gap: 20px !important;
+                          gap: 0px !important;
+                          padding: 0 16px !important;
                         `
               }
+              if (confirmBtn) confirmBtn.style.marginRight = '25'
+              if (cancelBtn) cancelBtn.style.marginLeft = '25'
             },
           })
 
@@ -8791,7 +8971,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
             // Reset viewing distance counters for fresh start
             viewingDistanceMeasurementCount = 0
-            viewingDistanceTotalExpected = 2
+            viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
 
             if (isPaperSelectionMode) {
               // Reset paper-selection state so page 2 shows ONLY paper selection (no tape-mode leftovers)
@@ -9032,6 +9212,21 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   let viewingDistanceMeasurementCount = 0
   let viewingDistanceTotalExpected = useSinglePage ? 1 : 2 // 1 page or 2 pages
 
+  // Render the "Distance (N of X)" title safely (never show N > X).
+  const renderViewingDistanceProgressTitle = () => {
+    const n1 = Math.max(0, Math.floor(viewingDistanceMeasurementCount || 0))
+    const n2 = Math.max(
+      Math.floor(viewingDistanceTotalExpected || 0),
+      n1,
+      1,
+    )
+    const template =
+      phrases.RC_distanceTrackingN?.[RC.L] || 'Distance [[N1]] of [[N2]]'
+    title.innerText = template
+      .replace('[[N1]]', n1.toString())
+      .replace('[[N2]]', n2.toString())
+  }
+
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   let faceMeshSamplesPage3 = []
   let faceMeshSamplesPage4 = []
@@ -9225,11 +9420,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   container.appendChild(titleRow)
 
   const title = document.createElement('h1')
-  const totalPages = useSinglePage ? 1 : 2
-  const initialTitleText = phrases.RC_distanceTrackingN?.[RC.L]
-    .replace('[[N1]]', '1')
-    .replace('[[N2]]', totalPages.toString())
-  title.innerText = initialTitleText
+  viewingDistanceMeasurementCount = 1
+  renderViewingDistanceProgressTitle()
   title.style.whiteSpace = 'pre-line'
   title.style.textAlign = 'start'
   title.style.margin = '0'
@@ -9334,17 +9526,46 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   // ===================== PAGE NAVIGATION FUNCTIONS =====================
 
   const showPage = async pageNumber => {
+    const previousPage = currentPage
     currentPage = pageNumber
+
+    // Ensure the video preview doesn't occlude the stepper/instructions on pages 3/4.
+    // Only adjusts when the video is positioned above the instructions (top overlap scenario).
+    const ensureInstructionsBelowVideo = (gapPx = 16) => {
+      const v = document.getElementById('webgazerVideoContainer')
+      if (!v) return
+      const apply = () => {
+        try {
+          // Reset to default marginTop first to avoid compounding across calls/pages
+          instructionsContainer.style.marginTop = ''
+          const vRect = v.getBoundingClientRect()
+          const iRect = instructionsContainer.getBoundingClientRect()
+          if (vRect.top <= iRect.top + 1) {
+            const overlapPx = vRect.bottom + gapPx - iRect.top
+            if (overlapPx > 0) {
+              const baseTop =
+                parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
+              instructionsContainer.style.marginTop = `${Math.ceil(
+                baseTop + overlapPx,
+              )}px`
+            }
+          }
+        } catch {}
+      }
+      requestAnimationFrame(() => {
+        apply()
+        setTimeout(apply, 50)
+      })
+    }
 
     if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO AT TOP CENTER =====================
       console.log('=== SHOWING PAGE 3: VIDEO AT TOP CENTER ===')
 
-      viewingDistanceMeasurementCount++
-
-      title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
-        ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
-        ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+      if (previousPage !== 3) {
+        viewingDistanceMeasurementCount++
+      }
+      renderViewingDistanceProgressTitle()
 
       console.log(
         `Page 3 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
@@ -9356,6 +9577,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       if (videoContainer) {
         setDefaultVideoPosition(RC, videoContainer)
       }
+      ensureInstructionsBelowVideo(18)
 
       try {
         const p3Text =
@@ -9390,11 +9612,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       // ===================== PAGE 4: VIDEO AT TOP CENTER (SAME AS PAGE 3) =====================
       console.log('=== SHOWING PAGE 4: VIDEO AT TOP CENTER ===')
 
-      viewingDistanceMeasurementCount++
-
-      title.innerText = phrases.RC_distanceTrackingN?.[RC.L]
-        ?.replace('[[N1]]', viewingDistanceMeasurementCount.toString())
-        ?.replace('[[N2]]', viewingDistanceTotalExpected.toString())
+      if (previousPage !== 4) {
+        viewingDistanceMeasurementCount++
+      }
+      renderViewingDistanceProgressTitle()
 
       console.log(
         `Page 4 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
@@ -9407,6 +9628,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       if (videoContainer) {
         setDefaultVideoPosition(RC, videoContainer)
       }
+      ensureInstructionsBelowVideo(18)
 
       // Use the same instructions as page 3 for now (duplicate as requested)
       try {
