@@ -3359,48 +3359,82 @@ export async function objectTest(RC, options, callback = undefined) {
   const isPaperSelectionMode = options.useObjectTestData === 'paper'
 
   const paperChoiceLengthMap = {
-    '24 inch ruler': 24 * 2.54,
-    '18 inch ruler': 18 * 2.54,
-    '12 inch ruler': 12 * 2.54,
-    'US Legal (8.5 × 14 inch)': 14 * 2.54,
-    'US Letter (8.5 × 11 inch)': 11 * 2.54,
-    '50 cm  ruler': 50,
-    '30 cm  ruler': 30,
-    '20 cm ruler': 20,
-    'A3 (297 × 420 mm)': 42,
-    'A4 (210 × 297 mm)': 29.7,
-    'A5 (148 × 210 mm)': 21,
+    // Prefer parsing lengths from the label text (see parseLengthCmFromLabel).
+    // Keep explicit overrides for any labels that intentionally map to null.
     'None of the above': null,
   }
 
-  const fallbackPaperLengths = [
-    24 * 2.54,
-    18 * 2.54,
-    12 * 2.54,
-    14 * 2.54,
-    11 * 2.54,
-    50,
-    30,
-    20,
-    42,
-    29.7,
-    21,
-    null,
-  ]
+  const unitToCmFactor = unitRaw => {
+    const unit = String(unitRaw || '')
+      .trim()
+      .toLowerCase()
+    if (unit === 'cm') return 1
+    if (unit === 'mm') return 0.1
+    if (unit === 'in' || unit === 'inch' || unit === 'inches') return 2.54
+    return null
+  }
 
-  const buildPaperSelectionOptions = () => {
+  const parseLengthCmFromLabel = labelRaw => {
+    const label = String(labelRaw || '').trim()
+    if (!label) return null
+
+    // 1) Prefer anything in parentheses: "(210 × 297 mm)", "(8.5 x 11 inch)", etc.
+    // Support both "×" and "x" as separators (case-insensitive).
+    const parenMatch = label.match(/\(([^)]+)\)/)
+    if (parenMatch && parenMatch[1]) {
+      const inside = parenMatch[1]
+      // Try a "a x b unit" pattern.
+      const dimMatch = inside.match(
+        /(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(mm|cm|inches?|inch|in)\b/i,
+      )
+      if (dimMatch) {
+        const a = Number(dimMatch[1])
+        const b = Number(dimMatch[2])
+        const factor = unitToCmFactor(dimMatch[3])
+        if (Number.isFinite(a) && Number.isFinite(b) && factor) {
+          return Math.max(a, b) * factor
+        }
+      }
+
+      // Fallback: single measurement inside parentheses: "(50 cm)".
+      const singleInside = inside.match(
+        /(\d+(?:\.\d+)?)\s*(mm|cm|inches?|inch|in)\b/i,
+      )
+      if (singleInside) {
+        const v = Number(singleInside[1])
+        const factor = unitToCmFactor(singleInside[2])
+        if (Number.isFinite(v) && factor) return v * factor
+      }
+    }
+
+    // 2) Anywhere in the label: "50 cm ruler", "24 inch ruler", etc.
+    const singleMatch = label.match(
+      /(\d+(?:\.\d+)?)\s*(mm|cm|inches?|inch|in)\b/i,
+    )
+    if (singleMatch) {
+      const v = Number(singleMatch[1])
+      const factor = unitToCmFactor(singleMatch[2])
+      if (Number.isFinite(v) && factor) return v * factor
+    }
+
+    return null
+  }
+
+  const buildPaperSelectionOptions = (rawChoices, fallbackLengths) => {
     try {
-      const raw = phrases.RC_PaperChoices?.[RC.L] || ''
+      const raw = rawChoices || ''
       const lines = raw
         .split('\n')
         .map(l => l.trim())
         .filter(l => l.length)
       if (!lines.length) return null
       return lines.map((label, idx) => {
-        const lengthCm =
-          label in paperChoiceLengthMap
-            ? paperChoiceLengthMap[label]
-            : fallbackPaperLengths[idx] ?? null
+        const lengthCm = (() => {
+          if (label in paperChoiceLengthMap) return paperChoiceLengthMap[label]
+          const parsed = parseLengthCmFromLabel(label)
+          if (parsed !== null) return parsed
+          return fallbackLengths?.[idx] ?? null
+        })()
         return {
           key: `paper-${idx}`,
           label,
@@ -3413,22 +3447,49 @@ export async function objectTest(RC, options, callback = undefined) {
     }
   }
 
+                                            // In paper-selection mode, optionally restrict page-2 choices to paper sizes only.
+  // When calibrateTrackDistanceCheckBool is true, we expect the phrase `RC_PaperChoices`
+  // (paper-only). Otherwise we use `RC_PaperAndRulerChoices` (paper + rulers).
+  const paperOnlyFallbackOptions = [
+    { key: 'usLegal', label: 'US Legal (8.5 × 14 inch)', lengthCm: 14 * 2.54 },
+    {
+      key: 'usLetter',
+      label: 'US Letter (8.5 × 11 inch)',
+      lengthCm: 11 * 2.54,
+    },
+    { key: 'a3', label: 'A3 (297 × 420 mm)', lengthCm: 42 },
+    { key: 'a4', label: 'A4 (210 × 297 mm)', lengthCm: 29.7 },
+    { key: 'a5', label: 'A5 (148 × 210 mm)', lengthCm: 21 },
+    { key: 'none', label: 'None of the above', lengthCm: null },
+  ]
+  const paperAndRulerFallbackOptions = [
+    { key: 'ruler24in', label: '24 inch ruler', lengthCm: 24 * 2.54 },
+    { key: 'ruler18in', label: '18 inch ruler', lengthCm: 18 * 2.54 },
+    { key: 'ruler12in', label: '12 inch ruler', lengthCm: 12 * 2.54 },
+    ...paperOnlyFallbackOptions.slice(0, 2),
+    { key: 'ruler50cm', label: '50 cm  ruler', lengthCm: 50 },
+    { key: 'ruler30cm', label: '30 cm  ruler', lengthCm: 30 },
+    { key: 'ruler20cm', label: '20 cm ruler', lengthCm: 20 },
+    ...paperOnlyFallbackOptions.slice(2),
+  ]
+
+  const usePaperOnlyChoices =
+    isPaperSelectionMode && options.calibrateTrackDistanceCheckBool === true
+  const paperChoicesPhraseKey = usePaperOnlyChoices
+    ? 'RC_PaperChoices'
+    : 'RC_PaperAndRulerChoices'
+  const rawPaperChoices = phrases?.[paperChoicesPhraseKey]?.[RC.L] || ''
+
+  const fallbackLengths = (usePaperOnlyChoices
+    ? paperOnlyFallbackOptions
+    : paperAndRulerFallbackOptions
+  ).map(o => o.lengthCm)
+
   const paperSelectionOptions =
-    buildPaperSelectionOptions() ||
-    [
-      { key: 'ruler24in', label: '24 inch ruler', lengthCm: 24 * 2.54 },
-      { key: 'ruler18in', label: '18 inch ruler', lengthCm: 18 * 2.54 },
-      { key: 'ruler12in', label: '12 inch ruler', lengthCm: 12 * 2.54 },
-      { key: 'usLegal', label: 'US Legal (8.5 × 14 inch)', lengthCm: 14 * 2.54 },
-      { key: 'usLetter', label: 'US Letter (8.5 × 11 inch)', lengthCm: 11 * 2.54 },
-      { key: 'ruler50cm', label: '50 cm  ruler', lengthCm: 50 },
-      { key: 'ruler30cm', label: '30 cm  ruler', lengthCm: 30 },
-      { key: 'ruler20cm', label: '20 cm ruler', lengthCm: 20 },
-      { key: 'a3', label: 'A3 (297 × 420 mm)', lengthCm: 42 },
-      { key: 'a4', label: 'A4 (210 × 297 mm)', lengthCm: 29.7 },
-      { key: 'a5', label: 'A5 (148 × 210 mm)', lengthCm: 21 },
-      { key: 'none', label: 'None of the above', lengthCm: null },
-    ]
+    buildPaperSelectionOptions(rawPaperChoices, fallbackLengths) ||
+    (usePaperOnlyChoices
+      ? paperOnlyFallbackOptions
+      : paperAndRulerFallbackOptions)
   let selectedPaperOption = null
   let selectedPaperLengthCm = null
   let selectedPaperLabel = null
@@ -3573,11 +3634,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // Render the "Distance (N of X)" title safely (never show N > X).
   const renderViewingDistanceProgressTitle = () => {
     const n1 = Math.max(0, Math.floor(viewingDistanceMeasurementCount || 0))
-    const n2 = Math.max(
-      Math.floor(viewingDistanceTotalExpected || 0),
-      n1,
-      1,
-    )
+    const n2 = Math.max(Math.floor(viewingDistanceTotalExpected || 0), n1, 1)
     const template =
       phrases.RC_distanceTrackingN?.[RC.L] || 'Distance [[N1]] of [[N2]]'
     title.innerText = template
@@ -3848,8 +3905,9 @@ export async function objectTest(RC, options, callback = undefined) {
   // --- TITLE  ---
   const title = document.createElement('h1')
   // Start with regular title (no progress counter)
-  const initialTitleText = (phrases.RC_distanceTrackingN?.[RC.L] ||
-    'Distance [[N1]] of [[N2]]')
+  const initialTitleText = (
+    phrases.RC_distanceTrackingN?.[RC.L] || 'Distance [[N1]] of [[N2]]'
+  )
     .replace('[[N1]]', '1')
     .replace('[[N2]]', viewingDistanceTotalExpected.toString())
   title.innerText = initialTitleText
@@ -3879,7 +3937,10 @@ export async function objectTest(RC, options, callback = undefined) {
   // Helper function to reset title to default (for pages other than page 2)
   const resetTitleToDefault = () => {
     // Default to "1 of total"
-    viewingDistanceMeasurementCount = Math.max(1, viewingDistanceMeasurementCount)
+    viewingDistanceMeasurementCount = Math.max(
+      1,
+      viewingDistanceMeasurementCount,
+    )
     renderViewingDistanceProgressTitle()
   }
 
@@ -4290,10 +4351,27 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSuggestionWrapper.appendChild(paperSuggestionLabel)
   paperSuggestionWrapper.appendChild(paperSuggestionInput)
 
+  // Optional note right under the suggestion input (only when calibrateTrackDistanceCheckBool is true)
+  const dontUseYourRulerNote = document.createElement('div')
+  const dontUseYourRulerRaw = phrases.RC_DontUseYourRulerYet?.[RC.L] || ''
+  dontUseYourRulerNote.textContent = dontUseYourRulerRaw
+    .replaceAll('/n', '\n')
+    .replaceAll('\\n', '\n')
+  dontUseYourRulerNote.style.marginTop = '1rem'
+  dontUseYourRulerNote.style.fontSize = '1.3rem'
+  dontUseYourRulerNote.style.lineHeight = '1.4'
+  dontUseYourRulerNote.style.color = '#111'
+  dontUseYourRulerNote.style.whiteSpace = 'pre-line'
+  dontUseYourRulerNote.style.display =
+    options.calibrateTrackDistanceCheckBool === true &&
+    dontUseYourRulerRaw.trim().length
+      ? 'block'
+      : 'none'
+  paperSuggestionWrapper.appendChild(dontUseYourRulerNote)
+
   // Important warning under suggestion input
   const paperImportantWarning = document.createElement('div')
-  paperImportantWarning.textContent =
-    ''
+  paperImportantWarning.textContent = ''
   paperImportantWarning.style.marginTop = '1rem'
   paperImportantWarning.style.fontSize = '1.3rem'
   paperImportantWarning.style.lineHeight = '1.4'
@@ -6063,8 +6141,9 @@ export async function objectTest(RC, options, callback = undefined) {
               const overlapPx = vRect.bottom + gapPx - iRect.top
               if (overlapPx > 0) {
                 const baseTop =
-                  parseFloat(getComputedStyle(instructionsContainer).marginTop) ||
-                  0
+                  parseFloat(
+                    getComputedStyle(instructionsContainer).marginTop,
+                  ) || 0
                 instructionsContainer.style.marginTop = `${Math.ceil(
                   baseTop + overlapPx,
                 )}px`
@@ -6201,8 +6280,9 @@ export async function objectTest(RC, options, callback = undefined) {
               const overlapPx = vRect.bottom + gapPx - iRect.top
               if (overlapPx > 0) {
                 const baseTop =
-                  parseFloat(getComputedStyle(instructionsContainer).marginTop) ||
-                  0
+                  parseFloat(
+                    getComputedStyle(instructionsContainer).marginTop,
+                  ) || 0
                 instructionsContainer.style.marginTop = `${Math.ceil(
                   baseTop + overlapPx,
                 )}px`
@@ -6327,7 +6407,8 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (currentPage === 2) {
       if (isPaperSelectionMode) {
         if (!selectedPaperOption || selectedPaperLengthCm === null) {
-          paperValidationMessage.textContent = phrases.RC_PleaseSelectAnOption[RC.L]
+          paperValidationMessage.textContent =
+            phrases.RC_PleaseSelectAnOption[RC.L]
           paperValidationMessage.style.display = 'block'
           if (typeof proceedButton !== 'undefined') {
             proceedButton.disabled = true
@@ -6778,7 +6859,10 @@ export async function objectTest(RC, options, callback = undefined) {
         isNaN(sample) ? sample : Math.round(sample),
       ),
       objectSuggestion: isPaperSelectionMode ? paperSuggestionValue : null,
-      objectName: selectedPaperOption ? paperSelectionOptions.find(o => o.key === selectedPaperOption)?.label || '' : null,
+      objectName: selectedPaperOption
+        ? paperSelectionOptions.find(o => o.key === selectedPaperOption)
+            ?.label || ''
+        : null,
     }
 
     // ===================== VISUAL FEEDBACK =====================
@@ -7520,7 +7604,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
                       // Full reset of viewing-distance counter (so paper mode returns to "1 of 3")
                       viewingDistanceMeasurementCount = 0
-                      viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
+                      viewingDistanceTotalExpected = isPaperSelectionMode
+                        ? 3
+                        : 2
 
                       // Reset object-measurement state for a fresh object
                       savedMeasurementData = null
@@ -7696,7 +7782,9 @@ export async function objectTest(RC, options, callback = undefined) {
 
                       // Full reset of viewing-distance counter (so paper mode returns to "1 of 3")
                       viewingDistanceMeasurementCount = 0
-                      viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
+                      viewingDistanceTotalExpected = isPaperSelectionMode
+                        ? 3
+                        : 2
 
                       // Reset object-measurement state for a fresh object
                       savedMeasurementData = null
@@ -7817,7 +7905,10 @@ export async function objectTest(RC, options, callback = undefined) {
                     ]
 
                     // Set pointXYPx to screen center
-                    const pointXYPx = [window.innerWidth / 2, window.innerHeight / 2]
+                    const pointXYPx = [
+                      window.innerWidth / 2,
+                      window.innerHeight / 2,
+                    ]
 
                     // Calculate distances using the new formulas
                     const pointToFootCm =
@@ -8235,28 +8326,28 @@ export async function objectTest(RC, options, callback = undefined) {
                     viewingDistanceMeasurementCount = 0
                     viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
 
-                  if (isPaperSelectionMode) {
-                    // Reset paper-selection state so page 2 shows ONLY paper selection (no tape-mode leftovers)
-                    selectedPaperOption = null
-                    selectedPaperLengthCm = null
-                    selectedPaperLabel = null
-                    paperSuggestionValue = ''
-                    if (typeof paperSuggestionInput !== 'undefined')
-                      paperSuggestionInput.value = ''
-                    // Clear any checked radio buttons
-                    const checked = paperSelectionContainer?.querySelector(
-                      'input[name="paper-selection"]:checked',
-                    )
-                    if (checked) checked.checked = false
-                    if (paperValidationMessage)
-                      paperValidationMessage.style.display = 'none'
-                  } else {
-                    // Reset ruler/tape to initial position for new object (non-paper mode)
-                    await resetPage2ForNextMeasurement()
-                  }
+                    if (isPaperSelectionMode) {
+                      // Reset paper-selection state so page 2 shows ONLY paper selection (no tape-mode leftovers)
+                      selectedPaperOption = null
+                      selectedPaperLengthCm = null
+                      selectedPaperLabel = null
+                      paperSuggestionValue = ''
+                      if (typeof paperSuggestionInput !== 'undefined')
+                        paperSuggestionInput.value = ''
+                      // Clear any checked radio buttons
+                      const checked = paperSelectionContainer?.querySelector(
+                        'input[name="paper-selection"]:checked',
+                      )
+                      if (checked) checked.checked = false
+                      if (paperValidationMessage)
+                        paperValidationMessage.style.display = 'none'
+                    } else {
+                      // Reset ruler/tape to initial position for new object (non-paper mode)
+                      await resetPage2ForNextMeasurement()
+                    }
 
                     // Go back to page 2 to measure new object
-                  await showPage(2)
+                    await showPage(2)
 
                     // Re-add the event listener for the new page 2 instance
                     document.addEventListener('keydown', handleKeyPress)
@@ -8986,7 +9077,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 'input[name="paper-selection"]:checked',
               )
               if (checked) checked.checked = false
-              if (paperValidationMessage) paperValidationMessage.style.display = 'none'
+              if (paperValidationMessage)
+                paperValidationMessage.style.display = 'none'
             } else {
               // Reset ruler/tape to initial position for new object
               await resetPage2ForNextMeasurement()
@@ -9215,11 +9307,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   // Render the "Distance (N of X)" title safely (never show N > X).
   const renderViewingDistanceProgressTitle = () => {
     const n1 = Math.max(0, Math.floor(viewingDistanceMeasurementCount || 0))
-    const n2 = Math.max(
-      Math.floor(viewingDistanceTotalExpected || 0),
-      n1,
-      1,
-    )
+    const n2 = Math.max(Math.floor(viewingDistanceTotalExpected || 0), n1, 1)
     const template =
       phrases.RC_distanceTrackingN?.[RC.L] || 'Distance [[N1]] of [[N2]]'
     title.innerText = template
@@ -9544,7 +9632,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
             const overlapPx = vRect.bottom + gapPx - iRect.top
             if (overlapPx > 0) {
               const baseTop =
-                parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
+                parseFloat(getComputedStyle(instructionsContainer).marginTop) ||
+                0
               instructionsContainer.style.marginTop = `${Math.ceil(
                 baseTop + overlapPx,
               )}px`
