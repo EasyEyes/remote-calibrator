@@ -12,6 +12,7 @@ import {
   emptyFunc,
   randn_bm,
   replaceNewlinesWithBreaks,
+  getCameraResolutionXY,
 } from '../components/utils'
 import { setDefaultVideoPosition } from '../components/video'
 import { irisTrackingIsActive } from './distanceTrack'
@@ -214,7 +215,9 @@ function saveCalibrationMeasurements(
       measurement.spotToFixationCm,
       measurement.eyesToFixationCm,
       measurement.eyesToSpotCm,
-      measurement.calibrateTrackDistanceSpotXYDeg,
+      measurement.calibrateDistanceSpotXYDeg,
+      measurement.cameraResolutionXYVpx,
+      measurement.pointXYPx,
       COMMON,
     )
   })
@@ -245,7 +248,9 @@ function saveCalibrationAttempt(
   spotToFixationCm = undefined,
   eyesToFixationCm = undefined,
   eyesToSpotCm = undefined,
-  calibrateTrackDistanceSpotXYDeg = undefined,
+  calibrateDistanceSpotXYDeg = undefined,
+  cameraResolutionXYVpx = undefined,
+  pointXYPx = undefined,
   COMMON = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
@@ -352,12 +357,14 @@ function saveCalibrationAttempt(
     centerXYPx: safeRoundXYPx(centerXYPxValue), // screen center
     rightEyeToCenterCm: safeRoundCm(rightEyeToCenterCmValue), //calcualted by trignometry from above
     leftEyeToCenterCm: safeRoundCm(leftEyeToCenterCmValue), //calcualted by trignometry from above
+    pointXYPx: safeRoundXYPx(pointXYPx), // point on the screen
+    cameraResolutionXYVpx: safeRoundXYPx(cameraResolutionXYVpx), // camera resolution
     spotDeg: safeToFixed(spotDeg), // Add spotDeg for blindspot calibrations
     // NEW FIELDS for edge-based blindspot test
-    _calibrateTrackDistanceSpotXYDeg: calibrateTrackDistanceSpotXYDeg
+    _calibrateDistanceSpotXYDeg: calibrateDistanceSpotXYDeg
       ? [
-          safeToFixed(calibrateTrackDistanceSpotXYDeg[0]),
-          safeToFixed(calibrateTrackDistanceSpotXYDeg[1]),
+          safeToFixed(calibrateDistanceSpotXYDeg[0]),
+          safeToFixed(calibrateDistanceSpotXYDeg[1]),
         ]
       : undefined,
     spotXYPx: safeRoundXYPx(spotXYPx), // Middle of red-green edge
@@ -394,11 +401,12 @@ async function processMeshDataAndCalculateNearestPoints(
   blindspotDeg = 0,
   fixationToSpotCm = 0,
   ipdVpx = 0,
-  calibrateTrackDistanceChecking = 'camera',
+  calibrateDistanceChecking = 'camera',
+  _pointXYPx = [window.innerWidth / 2, window.innerHeight / 2],
 ) {
   const mesh = await getMeshData(
     RC,
-    options.calibrateTrackDistancePupil,
+    options.calibrateDistancePupil,
     meshSamples,
   )
   const { leftEye, rightEye, video, currentIPDDistance } = mesh
@@ -424,7 +432,8 @@ async function processMeshDataAndCalculateNearestPoints(
     fixationToSpotCm,
     ipdVpx === 0 ? currentIPDDistance : ipdVpx,
     false,
-    calibrateTrackDistanceChecking,
+    calibrateDistanceChecking,
+    _pointXYPx,
   )
   return {
     nearestPointsData,
@@ -440,6 +449,7 @@ function createMeasurementObject(
   nearestPointsData,
   currentIPDDistance,
   ipdVpx = null,
+  cameraResolutionXYVpx = [0, 0],
 ) {
   const {
     nearestDistanceCm_left,
@@ -453,6 +463,7 @@ function createMeasurementObject(
     nearestXYPx,
     nearestXYPx_left,
     nearestXYPx_right,
+    pointXYPx,
   } = nearestPointsData
 
   const measurement = {
@@ -471,6 +482,8 @@ function createMeasurementObject(
     nearestXYPx,
     nearestXYPx_left,
     nearestXYPx_right,
+    pointXYPx,
+    cameraResolutionXYVpx: cameraResolutionXYVpx,
   }
 
   if (ipdVpx !== null) {
@@ -490,7 +503,7 @@ function calculateSpotXYPx(circleX, circleY, greenSide, fixationX, squareSize) {
 // Helper to get intraocular distance in pixels (not cm) - moved to global scope
 async function measureIntraocularDistancePx(
   RC,
-  calibrateTrackDistancePupil = 'iris',
+  calibrateDistancePupil = 'iris',
   meshSamples = [],
 ) {
   let video = document.getElementById('webgazerVideoCanvas')
@@ -501,7 +514,7 @@ async function measureIntraocularDistancePx(
   const mesh = faces[0].keypoints
   const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
     mesh,
-    calibrateTrackDistancePupil,
+    calibrateDistancePupil,
   )
   if (!leftEye || !rightEye) return null
   const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
@@ -711,7 +724,7 @@ export async function blindSpotTestNew(
     preSliderContainer.parentNode.removeChild(preSliderContainer)
 
   // Blindspot size range
-  let minMaxDeg = options.calibrateTrackDistanceSpotMinMaxDeg
+  let minMaxDeg = options.calibrateDistanceSpotMinMaxDeg
   if (typeof minMaxDeg === 'string')
     minMaxDeg = minMaxDeg.split(',').map(Number)
   if (!Array.isArray(minMaxDeg) || minMaxDeg.length < 2) minMaxDeg = [2.0, 8.0]
@@ -723,8 +736,8 @@ export async function blindSpotTestNew(
   blindSpotDiv.innerHTML = blindSpotHTML
   document.body.appendChild(blindSpotDiv)
 
-  // Determine which instruction to show based on calibrateTrackDistanceChecking option
-  const checkingOptions = options.calibrateTrackDistanceChecking
+  // Determine which instruction to show based on calibrateDistanceChecking option
+  const checkingOptions = options.calibrateDistanceChecking
   const shouldShowTiltAndSwivel =
     checkingOptions &&
     typeof checkingOptions === 'string' &&
@@ -805,7 +818,7 @@ export async function blindSpotTestNew(
   //     ? parseInt(vCont.style.width) || vCont.offsetWidth || 0
   //     : 0
 
-  //   // Use minimum spotDeg from calibrateTrackDistanceSpotMinMaxDeg for max eccentricity calculation
+  //   // Use minimum spotDeg from calibrateDistanceSpotMinMaxDeg for max eccentricity calculation
   //   const spotDegForMaxEcc = minDeg
   //   const tempCircleX = circleX || c.width / 2
   //   const tempCrossX = crossX || c.width / 2
@@ -1258,8 +1271,8 @@ export async function blindSpotTestNew(
     RC._setFloatInstructionElementPos(side, 16)
   }
 
-  let blindspotEccXDeg = options.calibrateTrackDistanceSpotXYDeg[0]
-  const blindspotEccYDeg = options.calibrateTrackDistanceSpotXYDeg[1]
+  let blindspotEccXDeg = options.calibrateDistanceSpotXYDeg[0]
+  const blindspotEccYDeg = options.calibrateDistanceSpotXYDeg[1]
   let spotDeg = minDeg
   const slider = document.getElementById('blindspot-size-slider')
   slider.value = 0
@@ -1333,8 +1346,8 @@ export async function blindSpotTestNew(
     eyeSide = side
     blindspotEccXDeg =
       side === 'left'
-        ? -options.calibrateTrackDistanceSpotXYDeg[0]
-        : options.calibrateTrackDistanceSpotXYDeg[0]
+        ? -options.calibrateDistanceSpotXYDeg[0]
+        : options.calibrateDistanceSpotXYDeg[0]
     // initial horizontal separation: 6cm total → half to each side
     const initialDistanceCm = 6
     const initialDistancePx = (initialDistanceCm * ppi) / 2.54
@@ -1552,7 +1565,7 @@ export async function blindSpotTestNew(
       c.height,
       circleX,
       constrainedSpotY,
-      options.calibrateTrackDistanceBlindspotDebugging,
+      options.calibrateDistanceBlindspotDebugging,
     )
 
     if (inTest) requestAnimationFrame(run)
@@ -2695,7 +2708,7 @@ export async function blindSpotTestNew(
           try {
             const pxDist = await measureIntraocularDistancePx(
               RC,
-              options.calibrateTrackDistancePupil,
+              options.calibrateDistancePupil,
               meshPoints,
             )
             samples.push(pxDist && !isNaN(pxDist) ? pxDist : NaN)
@@ -2710,7 +2723,7 @@ export async function blindSpotTestNew(
           : 0
 
         // Check basic validity: face present and range
-        // const range = options.calibrateTrackDistanceAllowedRangeCm || [30, 70]
+        // const range = options.calibrateDistanceAllowedRangeCm || [30, 70]
         // const inRange = eyeToCameraCm >= range[0] && eyeToCameraCm <= range[1]
         const faceOk = valid.length >= 3 && avgIPD > 0
         // console.log('faceOK', faceOk, 'inRange', inRange)
@@ -2763,8 +2776,8 @@ export async function blindSpotTestNew(
 
         try {
           const eccDeg = Math.sqrt(
-            options.calibrateTrackDistanceSpotXYDeg[0] ** 2 +
-              options.calibrateTrackDistanceSpotXYDeg[1] ** 2,
+            options.calibrateDistanceSpotXYDeg[0] ** 2 +
+              options.calibrateDistanceSpotXYDeg[1] ** 2,
           )
           const { nearestPointsData, currentIPDDistance } =
             await processMeshDataAndCalculateNearestPoints(
@@ -2782,7 +2795,7 @@ export async function blindSpotTestNew(
               eccDeg,
               fixationToSpotCm,
               avgIPD,
-              options.calibrateTrackDistanceChecking,
+              options.calibrateDistanceChecking,
             )
 
           // Calculate additional distances for new JSON fields
@@ -2812,6 +2825,7 @@ export async function blindSpotTestNew(
             nearestPointsData.nearestDistanceCm ** 2 + footToSpotCm ** 2,
           )
 
+          const cameraResolutionXYVpx = getCameraResolutionXY(RC)
           const measurement = createMeasurementObject(
             `${side}-eye-${edge}-edge`, // e.g., 'right-eye-near-edge'
             nearestPointsData.distanceCm,
@@ -2819,6 +2833,7 @@ export async function blindSpotTestNew(
             nearestPointsData,
             currentIPDDistance,
             avgIPD,
+            cameraResolutionXYVpx,
           )
 
           // Add new fields to measurement
@@ -2827,8 +2842,8 @@ export async function blindSpotTestNew(
           measurement.spotToFixationCm = fixationToSpotCm
           measurement.eyesToFixationCm = eyesToFixationCm
           measurement.eyesToSpotCm = eyesToSpotCm
-          measurement.calibrateTrackDistanceSpotXYDeg =
-            options.calibrateTrackDistanceSpotXYDeg
+          measurement.calibrateDistanceSpotXYDeg =
+            options.calibrateDistanceSpotXYDeg
 
           saveCalibrationMeasurements(RC, 'blindspot', [measurement], spotDeg)
           const snapshot = {
@@ -2914,8 +2929,8 @@ export async function blindSpotTestNew(
     leftEyeFactor / rightEyeFactor,
   )
   const maxAllowedRatio = Math.max(
-    options.calibrateTrackDistanceAllowedRatio || 1.1,
-    1 / (options.calibrateTrackDistanceAllowedRatio || 1.1),
+    options.calibrateDistanceAllowedRatio || 1.1,
+    1 / (options.calibrateDistanceAllowedRatio || 1.1),
   )
 
   const min = Math.min(
@@ -2930,11 +2945,11 @@ export async function blindSpotTestNew(
     leftNearSnapshot.distanceCm,
     leftFarSnapshot.distanceCm,
   )
-  const RMin = Array.isArray(options.calibrateTrackDistanceAllowedRangeCm)
-    ? options.calibrateTrackDistanceAllowedRangeCm[0]
+  const RMin = Array.isArray(options.calibrateDistanceAllowedRangeCm)
+    ? options.calibrateDistanceAllowedRangeCm[0]
     : -Infinity
-  const RMax = Array.isArray(options.calibrateTrackDistanceAllowedRangeCm)
-    ? options.calibrateTrackDistanceAllowedRangeCm[1]
+  const RMax = Array.isArray(options.calibrateDistanceAllowedRangeCm)
+    ? options.calibrateDistanceAllowedRangeCm[1]
     : Infinity
 
   if (min < RMin || max > RMax) {
@@ -3009,21 +3024,21 @@ export async function blindSpotTestNew(
 
   // Cleanup and callbacks
   cleanup(false)
-  if (options.calibrateTrackDistanceCheckBool)
+  if (options.calibrateDistanceCheckBool)
     await RC._checkDistance(
       callback,
       data,
       toTrackDistance ? 'trackDistance' : 'measureDistance',
       options.checkCallback,
-      options.calibrateTrackDistanceCheckCm,
+      options.calibrateDistanceCheckCm,
       options.callbackStatic,
-      options.calibrateTrackDistanceCheckSecs,
-      options.calibrateTrackDistanceCheckLengthCm,
-      options.calibrateTrackDistanceCenterYourEyesBool,
-      options.calibrateTrackDistancePupil,
-      options.calibrateTrackDistanceChecking,
-      options.calibrateTrackDistanceSpotXYDeg,
-      options.calibrateTrackDistance,
+      options.calibrateDistanceCheckSecs,
+      options.calibrateDistanceCheckLengthCm,
+      options.calibrateDistanceCenterYourEyesBool,
+      options.calibrateDistancePupil,
+      options.calibrateDistanceChecking,
+      options.calibrateDistanceSpotXYDeg,
+      options.calibrateDistance,
       options.stepperHistory,
     )
   else safeExecuteFunc(callback, data)
@@ -3181,11 +3196,10 @@ function _getDist(x, crossX, ppi) {
 
 export function _getEyeToCameraCm(
   fixationToSpotCm,
-  calibrateTrackDistanceSpotXYDeg,
+  calibrateDistanceSpotXYDeg,
 ) {
   const eccDeg = Math.sqrt(
-    calibrateTrackDistanceSpotXYDeg[0] ** 2 +
-      calibrateTrackDistanceSpotXYDeg[1] ** 2,
+    calibrateDistanceSpotXYDeg[0] ** 2 + calibrateDistanceSpotXYDeg[1] ** 2,
   )
   return (0.5 * fixationToSpotCm) / _getTanDeg(0.5 * eccDeg)
 }
@@ -3353,7 +3367,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== UNIT SELECTION STATE =====================
   let selectedUnit = 'inches' // Default to inches
-  const showLength = !!options.calibrateTrackDistanceShowLengthBool
+  const showLength = !!options.calibrateDistanceShowLengthBool
 
   // ===================== PAPER SELECTION MODE =====================
   const isPaperSelectionMode = options.useObjectTestData === 'paper'
@@ -3447,8 +3461,8 @@ export async function objectTest(RC, options, callback = undefined) {
     }
   }
 
-                                            // In paper-selection mode, optionally restrict page-2 choices to paper sizes only.
-  // When calibrateTrackDistanceCheckBool is true, we expect the phrase `RC_PaperChoices`
+  // In paper-selection mode, optionally restrict page-2 choices to paper sizes only.
+  // When calibrateDistanceCheckBool is true, we expect the phrase `RC_PaperChoices`
   // (paper-only). Otherwise we use `RC_PaperAndRulerChoices` (paper + rulers).
   const paperOnlyFallbackOptions = [
     { key: 'usLegal', label: 'US Legal (8.5 × 14 inch)', lengthCm: 14 * 2.54 },
@@ -3474,15 +3488,16 @@ export async function objectTest(RC, options, callback = undefined) {
   ]
 
   const usePaperOnlyChoices =
-    isPaperSelectionMode && options.calibrateTrackDistanceCheckBool === true
+    isPaperSelectionMode && options.calibrateDistanceCheckBool === true
   const paperChoicesPhraseKey = usePaperOnlyChoices
     ? 'RC_PaperChoices'
     : 'RC_PaperAndRulerChoices'
   const rawPaperChoices = phrases?.[paperChoicesPhraseKey]?.[RC.L] || ''
 
-  const fallbackLengths = (usePaperOnlyChoices
-    ? paperOnlyFallbackOptions
-    : paperAndRulerFallbackOptions
+  const fallbackLengths = (
+    usePaperOnlyChoices
+      ? paperOnlyFallbackOptions
+      : paperAndRulerFallbackOptions
   ).map(o => o.lengthCm)
 
   const paperSelectionOptions =
@@ -3608,15 +3623,12 @@ export async function objectTest(RC, options, callback = undefined) {
     objectMeasuredMsg: [],
     objectName: [],
     objectLengthCm: null, // Geometric mean of the last two values of objectMeasuredCm, but only if the last value is “ok”, and it’s preceded by “ok” or “mismatch”.
-    _calibrateTrackDistance: options.calibrateTrackDistance,
-    _calibrateTrackDistanceAllowedRangeCm:
-      options.calibrateTrackDistanceAllowedRangeCm,
-    _calibrateTrackDistanceAllowedRatio:
-      options.calibrateTrackDistanceAllowedRatio,
-    _calibrateTrackDistancePupil: options.calibrateTrackDistancePupil,
-    _calibrateTrackDistanceShowLengthBool:
-      options.calibrateTrackDistanceShowLengthBool,
-    _calibrateTrackDistanceTimes: options.objectMeasurementCount,
+    _calibrateDistance: options.calibrateDistance,
+    _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
+    _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
+    _calibrateDistancePupil: options.calibrateDistancePupil,
+    _calibrateDistanceShowLengthBool: options.calibrateDistanceShowLengthBool,
+    _calibrateDistanceTimes: options.objectMeasurementCount,
     _showPerpendicularFeetBool: options.showNearestPointsBool,
     _calibrateScreenSizeAllowedRatio: options.calibrateScreenSizeAllowedRatio,
     _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
@@ -3645,7 +3657,9 @@ export async function objectTest(RC, options, callback = undefined) {
   // ===================== FACE MESH CALIBRATION SAMPLES =====================
   // Arrays to store 5 samples per page for calibration
   let faceMeshSamplesPage3 = []
+  let cameraResolutionXYVpxPage3 = []
   let faceMeshSamplesPage4 = []
+  let cameraResolutionXYVpxPage4 = []
   let meshSamplesDuringPage3 = []
   let meshSamplesDuringPage4 = []
   // For a seamless transition, remember how far down page 3 had to push the instructions
@@ -3661,7 +3675,7 @@ export async function objectTest(RC, options, callback = undefined) {
       try {
         const pxDist = await measureIntraocularDistancePx(
           RC,
-          options.calibrateTrackDistancePupil,
+          options.calibrateDistancePupil,
           meshSamples,
         ) // Get raw pixel distance
         if (pxDist && !isNaN(pxDist)) {
@@ -3953,8 +3967,8 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Helper function to update instructions based on current iteration
   const updateInstructions = () => {
-    const minCm = options.calibrateTrackDistanceObjectMinMaxCm[0]
-    const maxCm = options.calibrateTrackDistanceObjectMinMaxCm[1]
+    const minCm = options.calibrateDistanceObjectMinMaxCm[0]
+    const maxCm = options.calibrateDistanceObjectMinMaxCm[1]
     const minInch = minCm / 2.54
     const maxInch = maxCm / 2.54
 
@@ -4176,8 +4190,7 @@ export async function objectTest(RC, options, callback = undefined) {
         mediaContainer: sectionMediaContainer,
       },
       options: {
-        calibrateTrackDistanceCheckBool:
-          options.calibrateTrackDistanceCheckBool,
+        calibrateDistanceCheckBool: options.calibrateDistanceCheckBool,
         thresholdFraction: 0.6,
         useCurrentSectionOnly: true,
         resolveMediaUrl: resolveInstructionMediaUrl,
@@ -4351,7 +4364,7 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSuggestionWrapper.appendChild(paperSuggestionLabel)
   paperSuggestionWrapper.appendChild(paperSuggestionInput)
 
-  // Optional note right under the suggestion input (only when calibrateTrackDistanceCheckBool is true)
+  // Optional note right under the suggestion input (only when calibrateDistanceCheckBool is true)
   const dontUseYourRulerNote = document.createElement('div')
   const dontUseYourRulerRaw = phrases.RC_DontUseYourRulerYet?.[RC.L] || ''
   dontUseYourRulerNote.textContent = dontUseYourRulerRaw
@@ -4363,7 +4376,7 @@ export async function objectTest(RC, options, callback = undefined) {
   dontUseYourRulerNote.style.color = '#111'
   dontUseYourRulerNote.style.whiteSpace = 'pre-line'
   dontUseYourRulerNote.style.display =
-    options.calibrateTrackDistanceCheckBool === true &&
+    options.calibrateDistanceCheckBool === true &&
     dontUseYourRulerRaw.trim().length
       ? 'block'
       : 'none'
@@ -5398,7 +5411,7 @@ export async function objectTest(RC, options, callback = undefined) {
     const objectLengthMm = distance / pxPerMm
     const objectLengthCm = objectLengthMm / 10
     objectLengthCmGlobal.value = objectLengthCm
-    const minDistanceCm = options.calibrateTrackDistanceMinCm || 10
+    const minDistanceCm = options.calibrateDistanceMinCm || 10
 
     const isShort = objectLengthCm <= minDistanceCm
     const color = isShort ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 0)'
@@ -6073,8 +6086,8 @@ export async function objectTest(RC, options, callback = undefined) {
         // Hide explanation button on page 2
         explanationButton.style.display = 'block' //show explanation button on page 2
 
-        // Show dontUseRuler column on page 2 if calibrateTrackDistanceCheckBool is true
-        if (options.calibrateTrackDistanceCheckBool) {
+        // Show dontUseRuler column on page 2 if calibrateDistanceCheckBool is true
+        if (options.calibrateDistanceCheckBool) {
           dontUseRulerColumn.style.display = 'block'
           dontUseRulerColumn.innerText = phrases.RC_DontUseYourRulerYet[RC.L]
           dontUseRulerColumn.style.color = '#8B0000' // Dark red ink
@@ -6705,7 +6718,7 @@ export async function objectTest(RC, options, callback = undefined) {
         measureIntraocularDistanceCm(
           RC,
           ppi,
-          options.calibrateTrackDistancePupil,
+          options.calibrateDistancePupil,
         ).then(intraocularDistanceCm => {
           if (intraocularDistanceCm) {
             console.log(
@@ -6767,7 +6780,7 @@ export async function objectTest(RC, options, callback = undefined) {
     }
 
     // Hide don't use ruler text if it was created
-    if (options.calibrateTrackDistanceCheckBool) {
+    if (options.calibrateDistanceCheckBool) {
       const dontUseRuler = document.querySelector(
         'div[style*="color: rgb(139, 0, 0)"]',
       )
@@ -7150,21 +7163,21 @@ export async function objectTest(RC, options, callback = undefined) {
 
           // Call callback with the data
           // Handle completion based on check settings
-          if (options.calibrateTrackDistanceCheckBool) {
+          if (options.calibrateDistanceCheckBool) {
             await RC._checkDistance(
               callback,
               data,
               'trackDistance', // Use 'object' instead of 'measureDistance'
               options.checkCallback,
-              options.calibrateTrackDistanceCheckCm,
+              options.calibrateDistanceCheckCm,
               options.callbackStatic,
-              options.calibrateTrackDistanceCheckSecs,
-              options.calibrateTrackDistanceCheckLengthCm,
-              options.calibrateTrackDistanceCenterYourEyesBool,
-              options.calibrateTrackDistancePupil,
-              options.calibrateTrackDistanceChecking,
-              options.calibrateTrackDistanceSpotXYDeg,
-              options.calibrateTrackDistance,
+              options.calibrateDistanceCheckSecs,
+              options.calibrateDistanceCheckLengthCm,
+              options.calibrateDistanceCenterYourEyesBool,
+              options.calibrateDistancePupil,
+              options.calibrateDistanceChecking,
+              options.calibrateDistanceSpotXYDeg,
+              options.calibrateDistance,
               options.stepperHistory,
             )
           } else {
@@ -7180,21 +7193,21 @@ export async function objectTest(RC, options, callback = undefined) {
       }, 500)
     } else {
       // Use the same check function as blindspot
-      if (options.calibrateTrackDistanceCheckBool) {
+      if (options.calibrateDistanceCheckBool) {
         await RC._checkDistance(
           callback,
           data,
           'trackDistance', // Use 'object' instead of 'measureDistance'
           options.checkCallback,
-          options.calibrateTrackDistanceCheckCm,
+          options.calibrateDistanceCheckCm,
           options.callbackStatic,
-          options.calibrateTrackDistanceCheckSecs,
-          options.calibrateTrackDistanceCheckLengthCm,
-          options.calibrateTrackDistanceCenterYourEyesBool,
-          options.calibrateTrackDistancePupil,
-          options.calibrateTrackDistanceChecking,
-          options.calibrateTrackDistanceSpotXYDeg,
-          options.calibrateTrackDistance,
+          options.calibrateDistanceCheckSecs,
+          options.calibrateDistanceCheckLengthCm,
+          options.calibrateDistanceCenterYourEyesBool,
+          options.calibrateDistancePupil,
+          options.calibrateDistanceChecking,
+          options.calibrateDistanceSpotXYDeg,
+          options.calibrateDistance,
           options.stepperHistory,
         )
       } else {
@@ -7386,8 +7399,7 @@ export async function objectTest(RC, options, callback = undefined) {
             console.log('First measurement:', firstMeasurement)
 
             // Validate object length - check if this is first measurement or if previous was too short
-            const minCm =
-              options.calibrateTrackDistanceObjectMinMaxCm?.[0] || 30
+            const minCm = options.calibrateDistanceObjectMinMaxCm?.[0] || 30
             const isFirstMeasurement =
               measurementState.measurements.length === 0
             const shouldEnforceMinimum =
@@ -7511,6 +7523,7 @@ export async function objectTest(RC, options, callback = undefined) {
               ppi,
               meshSamplesDuringPage3,
             )
+            cameraResolutionXYVpxPage3 = getCameraResolutionXY(RC)
             console.log(
               'Face Mesh calibration samples (page 3):',
               faceMeshSamplesPage3,
@@ -7689,6 +7702,7 @@ export async function objectTest(RC, options, callback = undefined) {
               ppi,
               meshSamplesDuringPage4,
             )
+            cameraResolutionXYVpxPage4 = getCameraResolutionXY(RC)
             console.log(
               'Face Mesh calibration samples (page 4):',
               faceMeshSamplesPage4,
@@ -7876,7 +7890,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 if (meshSamplesDuringPage4.length) {
                   const mesh = await getMeshData(
                     RC,
-                    options.calibrateTrackDistancePupil,
+                    options.calibrateDistancePupil,
                     meshSamplesDuringPage4,
                   )
                   if (mesh) {
@@ -7999,8 +8013,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 RC,
                 faceMeshSamplesPage3,
                 faceMeshSamplesPage4,
-                options.calibrateTrackDistanceAllowedRatio,
-                options.calibrateTrackDistanceAllowedRangeCm,
+                options.calibrateDistanceAllowedRatio,
+                options.calibrateDistanceAllowedRangeCm,
                 firstMeasurement,
                 page3FactorCmPx,
                 page4FactorCmPx,
@@ -8036,7 +8050,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           0,
                           0,
                           0,
-                          options.calibrateTrackDistanceChecking,
+                          options.calibrateDistanceChecking,
+                          [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
                         )
 
                       measurements.push(
@@ -8046,6 +8061,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           page3FactorCmPx,
                           nearestPointsData,
                           currentIPDDistance,
+                          null,
+                          cameraResolutionXYVpxPage3,
                         ),
                       )
                     }
@@ -8066,7 +8083,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           0,
                           0,
                           0,
-                          options.calibrateTrackDistanceChecking,
+                          options.calibrateDistanceChecking,
+                          [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
                         )
 
                       measurements.push(
@@ -8076,6 +8094,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           page4FactorCmPx,
                           nearestPointsData,
                           currentIPDDistance,
+                          null,
+                          cameraResolutionXYVpxPage4,
                         ),
                       )
                     }
@@ -8144,7 +8164,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           0,
                           0,
                           0,
-                          options.calibrateTrackDistanceChecking,
+                          options.calibrateDistanceChecking,
+                          [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
                         )
 
                       measurements.push(
@@ -8154,6 +8175,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           page3FactorCmPx,
                           nearestPointsData,
                           currentIPDDistance,
+                          null,
+                          cameraResolutionXYVpxPage3,
                         ),
                       )
                     }
@@ -8174,7 +8197,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           0,
                           0,
                           0,
-                          options.calibrateTrackDistanceChecking,
+                          options.calibrateDistanceChecking,
+                          [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
                         )
 
                       measurements.push(
@@ -8184,6 +8208,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           page4FactorCmPx,
                           nearestPointsData,
                           currentIPDDistance,
+                          null,
+                          cameraResolutionXYVpxPage4,
                         ),
                       )
                     }
@@ -8464,7 +8490,7 @@ export async function objectTest(RC, options, callback = undefined) {
       console.log('First measurement:', firstMeasurement)
 
       // Validate object length - check if this is first measurement or if previous was too short
-      const minCm = options.calibrateTrackDistanceObjectMinMaxCm?.[0] || 10
+      const minCm = options.calibrateDistanceObjectMinMaxCm?.[0] || 10
       const isFirstMeasurement = measurementState.measurements.length === 0
       const shouldEnforceMinimum =
         isFirstMeasurement || measurementState.lastAttemptWasTooShort
@@ -8586,6 +8612,7 @@ export async function objectTest(RC, options, callback = undefined) {
         ppi,
         meshSamplesDuringPage3,
       )
+      cameraResolutionXYVpxPage3 = getCameraResolutionXY(RC)
       console.log(
         'Face Mesh calibration samples (page 3):',
         faceMeshSamplesPage3,
@@ -8609,6 +8636,7 @@ export async function objectTest(RC, options, callback = undefined) {
         ppi,
         meshSamplesDuringPage4,
       )
+      cameraResolutionXYVpxPage4 = getCameraResolutionXY(RC)
       console.log(
         'Face Mesh calibration samples (page 4):',
         faceMeshSamplesPage4,
@@ -8643,7 +8671,7 @@ export async function objectTest(RC, options, callback = undefined) {
         if (meshSamplesDuringPage4.length) {
           const mesh = await getMeshData(
             RC,
-            options.calibrateTrackDistancePupil,
+            options.calibrateDistancePupil,
             meshSamplesDuringPage4,
           )
           if (mesh) {
@@ -8736,8 +8764,8 @@ export async function objectTest(RC, options, callback = undefined) {
           RC,
           faceMeshSamplesPage3,
           faceMeshSamplesPage4,
-          options.calibrateTrackDistanceAllowedRatio,
-          options.calibrateTrackDistanceAllowedRangeCm,
+          options.calibrateDistanceAllowedRatio,
+          options.calibrateDistanceAllowedRangeCm,
           firstMeasurement,
           page3FactorCmPx,
           page4FactorCmPx,
@@ -8769,7 +8797,8 @@ export async function objectTest(RC, options, callback = undefined) {
                   0,
                   0,
                   0,
-                  options.calibrateTrackDistanceChecking,
+                  options.calibrateDistanceChecking,
+                  [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
                 )
 
               measurements.push(
@@ -8779,6 +8808,8 @@ export async function objectTest(RC, options, callback = undefined) {
                   page3FactorCmPx,
                   nearestPointsData,
                   currentIPDDistance,
+                  null,
+                  cameraResolutionXYVpxPage3,
                 ),
               )
             }
@@ -8799,7 +8830,8 @@ export async function objectTest(RC, options, callback = undefined) {
                   0,
                   0,
                   0,
-                  options.calibrateTrackDistanceChecking,
+                  options.calibrateDistanceChecking,
+                  [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
                 )
 
               measurements.push(
@@ -8809,6 +8841,8 @@ export async function objectTest(RC, options, callback = undefined) {
                   page4FactorCmPx,
                   nearestPointsData,
                   currentIPDDistance,
+                  null,
+                  cameraResolutionXYVpxPage4,
                 ),
               )
             }
@@ -8855,7 +8889,7 @@ export async function objectTest(RC, options, callback = undefined) {
         try {
           const mesh = await getMeshData(
             RC,
-            options.calibrateTrackDistancePupil,
+            options.calibrateDistancePupil,
             meshSamples,
           )
           if (mesh) {
@@ -8884,7 +8918,7 @@ export async function objectTest(RC, options, callback = undefined) {
               0,
               currentIPDDistance,
               false,
-              options.calibrateTrackDistanceChecking,
+              options.calibrateDistanceChecking,
             )
             const {
               nearestXYPx_left,
@@ -9156,16 +9190,13 @@ export async function objectTest(RC, options, callback = undefined) {
   }
 
   // ===================== INITIALIZE PAGE 0 =====================
-  //hide webgazerFaceFeedbackBox if calibrateTrackDistanceCenterYourEyesBool is false
+  //hide webgazerFaceFeedbackBox if calibrateDistanceCenterYourEyesBool is false
   const webgazerFaceFeedbackBox = document.getElementById(
     'webgazerFaceFeedbackBox',
   )
-  if (
-    !options.calibrateTrackDistanceCenterYourEyesBool &&
-    webgazerFaceFeedbackBox
-  )
+  if (!options.calibrateDistanceCenterYourEyesBool && webgazerFaceFeedbackBox)
     webgazerFaceFeedbackBox.style.display = 'none'
-  if (options.calibrateTrackDistanceCenterYourEyesBool) showPage(0)
+  if (options.calibrateDistanceCenterYourEyesBool) showPage(0)
   else showPage(2)
 }
 
@@ -9290,12 +9321,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   const knownDistanceTestCommonData = {
     objectLengthCm: knownObjectLengthCm,
     method: 'knownDistance',
-    _calibrateTrackDistance: options.calibrateTrackDistance,
-    _calibrateTrackDistanceAllowedRangeCm:
-      options.calibrateTrackDistanceAllowedRangeCm,
-    _calibrateTrackDistanceAllowedRatio:
-      options.calibrateTrackDistanceAllowedRatio,
-    _calibrateTrackDistancePupil: options.calibrateTrackDistancePupil,
+    _calibrateDistance: options.calibrateDistance,
+    _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
+    _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
+    _calibrateDistancePupil: options.calibrateDistancePupil,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
   }
@@ -9329,7 +9358,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       try {
         const pxDist = await measureIntraocularDistancePx(
           RC,
-          options.calibrateTrackDistancePupil,
+          options.calibrateDistancePupil,
           meshSamples,
         )
         if (pxDist && !isNaN(pxDist)) {
@@ -9572,8 +9601,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         mediaContainer: sectionMediaContainer,
       },
       options: {
-        calibrateTrackDistanceCheckBool:
-          options.calibrateTrackDistanceCheckBool,
+        calibrateDistanceCheckBool: options.calibrateDistanceCheckBool,
         thresholdFraction: 0.6,
         useCurrentSectionOnly: true,
         resolveMediaUrl: resolveInstructionMediaUrl,
@@ -9767,7 +9795,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         measureIntraocularDistanceCm(
           RC,
           ppi,
-          options.calibrateTrackDistancePupil,
+          options.calibrateDistancePupil,
         ).then(intraocularDistanceCm => {
           if (intraocularDistanceCm) {
             console.log(
@@ -9884,21 +9912,21 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     RC.newKnownDistanceTestData = data
     RC.newViewingDistanceData = data
 
-    if (options.calibrateTrackDistanceCheckBool) {
+    if (options.calibrateDistanceCheckBool) {
       await RC._checkDistance(
         callback,
         data,
         'trackDistance',
         options.checkCallback,
-        options.calibrateTrackDistanceCheckCm,
+        options.calibrateDistanceCheckCm,
         options.callbackStatic,
-        options.calibrateTrackDistanceCheckSecs,
-        options.calibrateTrackDistanceCheckLengthCm,
-        options.calibrateTrackDistanceCenterYourEyesBool,
-        options.calibrateTrackDistancePupil,
-        options.calibrateTrackDistanceChecking,
-        options.calibrateTrackDistanceSpotXYDeg,
-        options.calibrateTrackDistance,
+        options.calibrateDistanceCheckSecs,
+        options.calibrateDistanceCheckLengthCm,
+        options.calibrateDistanceCenterYourEyesBool,
+        options.calibrateDistancePupil,
+        options.calibrateDistanceChecking,
+        options.calibrateDistanceSpotXYDeg,
+        options.calibrateDistance,
         options.stepperHistory,
       )
     } else {
@@ -9987,6 +10015,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
               ppi,
               meshSamplesDuringPage3,
             )
+            cameraResolutionXYVpxPage3 = getCameraResolutionXY(RC)
             console.log(
               'Face Mesh calibration samples (page 3):',
               faceMeshSamplesPage3,
@@ -10079,7 +10108,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 measureIntraocularDistanceCm(
                   RC,
                   ppi,
-                  options.calibrateTrackDistancePupil,
+                  options.calibrateDistancePupil,
                 ).then(intraocularDistanceCm => {
                   if (intraocularDistanceCm) {
                     singlePageData.intraocularDistanceCm = intraocularDistanceCm
@@ -10094,22 +10123,22 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 document.removeEventListener('keydown', handleKeyPress)
 
                 // Follow the SAME finish pattern as dual page mode
-                if (options.calibrateTrackDistanceCheckBool) {
+                if (options.calibrateDistanceCheckBool) {
                   // Call _checkDistance (same as knownDistanceTestFinishFunction)
                   await RC._checkDistance(
                     callback,
                     singlePageData,
                     'trackDistance',
                     options.checkCallback,
-                    options.calibrateTrackDistanceCheckCm,
+                    options.calibrateDistanceCheckCm,
                     options.callbackStatic,
-                    options.calibrateTrackDistanceCheckSecs,
-                    options.calibrateTrackDistanceCheckLengthCm,
-                    options.calibrateTrackDistanceCenterYourEyesBool,
-                    options.calibrateTrackDistancePupil,
-                    options.calibrateTrackDistanceChecking,
-                    options.calibrateTrackDistanceSpotXYDeg,
-                    options.calibrateTrackDistance,
+                    options.calibrateDistanceCheckSecs,
+                    options.calibrateDistanceCheckLengthCm,
+                    options.calibrateDistanceCenterYourEyesBool,
+                    options.calibrateDistancePupil,
+                    options.calibrateDistanceChecking,
+                    options.calibrateDistanceSpotXYDeg,
+                    options.calibrateDistance,
                     options.stepperHistory,
                   )
                 } else {
@@ -10161,6 +10190,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
               ppi,
               meshSamplesDuringPage4,
             )
+            cameraResolutionXYVpxPage4 = getCameraResolutionXY(RC)
             console.log(
               'Face Mesh calibration samples (page 4):',
               faceMeshSamplesPage4,
@@ -10234,8 +10264,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 RC,
                 faceMeshSamplesPage3,
                 faceMeshSamplesPage4,
-                options.calibrateTrackDistanceAllowedRatio,
-                options.calibrateTrackDistanceAllowedRangeCm,
+                options.calibrateDistanceAllowedRatio,
+                options.calibrateDistanceAllowedRangeCm,
                 knownObjectLengthCm,
                 page3FactorCmPx,
                 page4FactorCmPx,
@@ -10569,7 +10599,7 @@ RemoteCalibrator.prototype.trackDistanceKnown = function (
 async function measureIntraocularDistanceCm(
   RC,
   ppi,
-  calibrateTrackDistancePupil = 'iris',
+  calibrateDistancePupil = 'iris',
 ) {
   // Get the video element (use canvas only)
   let video = document.getElementById('webgazerVideoCanvas')
@@ -10584,7 +10614,7 @@ async function measureIntraocularDistanceCm(
   const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
   const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
     mesh,
-    calibrateTrackDistancePupil,
+    calibrateDistancePupil,
   )
   if (!leftEye || !rightEye) return null
 
@@ -10819,9 +10849,9 @@ function checkBlindspotTolerance(
 
 export const getLeftAndRightEyePointsFromMeshData = (
   mesh,
-  calibrateTrackDistancePupil = 'iris',
+  calibrateDistancePupil = 'iris',
 ) => {
-  if (calibrateTrackDistancePupil === 'iris') {
+  if (calibrateDistancePupil === 'iris') {
     if (mesh[468] && mesh[473]) {
       return {
         leftEye: { x: mesh[468].x, y: mesh[468].y, z: mesh[468].z },

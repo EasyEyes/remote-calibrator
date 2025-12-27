@@ -2,6 +2,7 @@ import RemoteCalibrator, { env } from '../core'
 import { takeInput } from '../components/checkInput'
 import {
   constructInstructions,
+  getCameraResolutionXY,
   safeExecuteFunc,
   sleep,
 } from '../components/utils'
@@ -101,16 +102,13 @@ const removeFixationCrossFromVideo = () => {
 }
 
 // Helper function to reposition video based on camera monitoring option
-const repositionVideoForCameraMonitoring = (
-  RC,
-  calibrateTrackDistanceChecking,
-) => {
-  if (!RC || !calibrateTrackDistanceChecking) return
+const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
+  if (!RC || !calibrateDistanceChecking) return
 
   const videoContainer = document.getElementById('webgazerVideoContainer')
   if (!videoContainer) return
 
-  const checkingOptions = calibrateTrackDistanceChecking
+  const checkingOptions = calibrateDistanceChecking
   let shouldPositionAtCamera = false
   let shouldShowCross = false
 
@@ -322,7 +320,7 @@ const adjustSizeCheckFontSize = () => {
 // Helper function to set up distance check font size adjustment
 const setupDistanceCheckFontAdjustment = (
   RC = null,
-  calibrateTrackDistanceChecking = undefined,
+  calibrateDistanceChecking = undefined,
 ) => {
   console.log('Setting up distance check font adjustment')
 
@@ -335,8 +333,8 @@ const setupDistanceCheckFontAdjustment = (
     adjustDistanceCheckFontSize()
 
     // Reposition video to maintain camera monitoring position after resize
-    if (RC && calibrateTrackDistanceChecking) {
-      repositionVideoForCameraMonitoring(RC, calibrateTrackDistanceChecking)
+    if (RC && calibrateDistanceChecking) {
+      repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
     }
   }
 
@@ -405,8 +403,8 @@ const captureVideoFrame = RC => {
 // Helper function to validate face mesh data (5 valid samples required)
 const validateFaceMeshSamples = async (
   RC,
-  calibrateTrackDistancePupil = 'iris',
-  calibrateTrackDistanceChecking = 'camera',
+  calibrateDistancePupil = 'iris',
+  calibrateDistanceChecking = 'camera',
 ) => {
   const samples = []
 
@@ -456,8 +454,8 @@ const validateFaceMeshSamples = async (
     try {
       const ipdData = await captureIPDFromFaceMesh(
         RC,
-        calibrateTrackDistancePupil,
-        calibrateTrackDistanceChecking,
+        calibrateDistancePupil,
+        calibrateDistanceChecking,
       )
       if (ipdData && ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
         samples.push(ipdData.ipdPixels)
@@ -697,8 +695,8 @@ const showFaceBlockedPopup = async (RC, capturedImage) => {
 // Helper function to capture IPD from face mesh data
 const captureIPDFromFaceMesh = async (
   RC,
-  calibrateTrackDistancePupil = 'iris',
-  calibrateTrackDistanceChecking = 'camera',
+  calibrateDistancePupil = 'iris',
+  calibrateDistanceChecking = 'camera',
 ) => {
   try {
     const video = document.getElementById('webgazerVideoCanvas')
@@ -721,7 +719,7 @@ const captureIPDFromFaceMesh = async (
     const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
     const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
       mesh,
-      calibrateTrackDistancePupil,
+      calibrateDistancePupil,
     )
 
     // Calculate IPD in pixels
@@ -766,7 +764,7 @@ const captureIPDFromFaceMesh = async (
       0,
       ipdPixels,
       true,
-      calibrateTrackDistanceChecking,
+      calibrateDistanceChecking,
     )
     const {
       nearestXYPx_left,
@@ -813,15 +811,15 @@ RemoteCalibrator.prototype._checkDistance = async function (
   distanceData,
   measureName, // 'measureDistance' OR 'trackDistance'
   checkCallback,
-  calibrateTrackDistanceCheckCm = [],
+  calibrateDistanceCheckCm = [],
   callbackStatic = () => {},
-  calibrateTrackDistanceCheckSecs = 0,
-  calibrateTrackDistanceCheckLengthCm = [],
-  calibrateTrackDistanceCenterYourEyesBool = true,
-  calibrateTrackDistancePupil = 'iris',
-  calibrateTrackDistanceChecking = undefined,
-  calibrateTrackDistanceSpotXYDeg = null,
-  calibrateTrackDistance = '',
+  calibrateDistanceCheckSecs = 0,
+  calibrateDistanceCheckLengthCm = [],
+  calibrateDistanceCenterYourEyesBool = true,
+  calibrateDistancePupil = 'iris',
+  calibrateDistanceChecking = undefined,
+  calibrateDistanceSpotXYDeg = null,
+  calibrateDistance = '',
   stepperHistory = 1,
 ) {
   await this.getEquipment(
@@ -832,15 +830,15 @@ RemoteCalibrator.prototype._checkDistance = async function (
         distanceData,
         measureName,
         checkCallback,
-        calibrateTrackDistanceCheckCm,
+        calibrateDistanceCheckCm,
         callbackStatic,
-        calibrateTrackDistanceCheckSecs,
-        calibrateTrackDistanceCheckLengthCm,
-        calibrateTrackDistanceCenterYourEyesBool,
-        calibrateTrackDistancePupil,
-        calibrateTrackDistanceChecking,
-        calibrateTrackDistanceSpotXYDeg,
-        calibrateTrackDistance,
+        calibrateDistanceCheckSecs,
+        calibrateDistanceCheckLengthCm,
+        calibrateDistanceCenterYourEyesBool,
+        calibrateDistancePupil,
+        calibrateDistanceChecking,
+        calibrateDistanceSpotXYDeg,
+        calibrateDistance,
         stepperHistory,
       )
     },
@@ -1342,8 +1340,8 @@ const stampOfApprovalSound = soundModule.stampOfApprovalSound
 
 const checkSize = async (
   RC,
-  calibrateTrackDistanceCheckLengthCm = [],
-  calibrateTrackDistanceChecking = undefined,
+  calibrateDistanceCheckLengthCm = [],
+  calibrateDistanceChecking = undefined,
 ) => {
   // Hide video during checkSize (yellow tape measurement)
   RC.showVideo(false)
@@ -1357,8 +1355,8 @@ const checkSize = async (
   const rulerLengthCm = RC.equipment?.value?.length
   const maxLengthCm = Math.min(rulerLengthCm, screenWidthCm)
 
-  // Process calibrateTrackDistanceCheckLengthCm the same way as calibrateTrackDistanceCheckCm
-  let processedLengthCm = calibrateTrackDistanceCheckLengthCm.map(cm =>
+  // Process calibrateDistanceCheckLengthCm the same way as calibrateDistanceCheckCm
+  let processedLengthCm = calibrateDistanceCheckLengthCm.map(cm =>
     RC.equipment?.value?.unit === 'inches'
       ? Math.floor(Number(cm) / 2.54)
       : Math.floor(Number(cm)),
@@ -1390,7 +1388,7 @@ const checkSize = async (
   // Initialize arrays to store length data (similar to distance tracking)
   RC.calibrateTrackLengthMeasuredCm = []
   RC.calibrateTrackLengthRequestedCm = []
-  RC.calibrateTrackDistancePxPerCm = []
+  RC.calibrateDistancePxPerCm = []
 
   // Create the length display div
   createLengthDisplayDiv(RC)
@@ -1505,7 +1503,7 @@ const checkSize = async (
               ? (editedLength * 2.54).toFixed(1)
               : editedLength.toFixed(1),
           )
-          RC.calibrateTrackDistancePxPerCm.push(
+          RC.calibrateDistancePxPerCm.push(
             (Number(measuredLength.toFixed(1)) / lengthInCm).toFixed(1),
           )
 
@@ -1579,11 +1577,11 @@ const checkSize = async (
   // Show video again after checkSize completes
   RC.showVideo(true)
 
-  // Position video properly based on calibrateTrackDistanceChecking option
+  // Position video properly based on calibrateDistanceChecking option
   const videoContainer = document.getElementById('webgazerVideoContainer')
   if (videoContainer) {
     // Check if option includes "camera" - if so, don't reposition (keep camera position)
-    const checkingOptions = calibrateTrackDistanceChecking
+    const checkingOptions = calibrateDistanceChecking
     let shouldPositionAtCamera = false
 
     if (checkingOptions && typeof checkingOptions === 'string') {
@@ -1715,15 +1713,15 @@ const trackDistanceCheck = async (
   distanceData,
   measureName,
   checkCallback,
-  calibrateTrackDistanceCheckCm, // list of distances to check
+  calibrateDistanceCheckCm, // list of distances to check
   callbackStatic,
-  calibrateTrackDistanceCheckSecs = 0,
-  calibrateTrackDistanceCheckLengthCm = [], // list of lengths to check
-  calibrateTrackDistanceCenterYourEyesBool = true,
-  calibrateTrackDistancePupil = 'iris',
-  calibrateTrackDistanceChecking = 'camera',
-  calibrateTrackDistanceSpotXYDeg = null,
-  calibrateTrackDistance = '',
+  calibrateDistanceCheckSecs = 0,
+  calibrateDistanceCheckLengthCm = [], // list of lengths to check
+  calibrateDistanceCenterYourEyesBool = true,
+  calibrateDistancePupil = 'iris',
+  calibrateDistanceChecking = 'camera',
+  calibrateDistanceSpotXYDeg = null,
+  calibrateDistance = '',
   stepperHistory = 1,
 ) => {
   const isTrack = measureName === 'trackDistance'
@@ -1761,7 +1759,7 @@ const trackDistanceCheck = async (
             const mesh = faces[0].keypoints || faces[0].scaledMesh
             const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
               mesh,
-              calibrateTrackDistancePupil,
+              calibrateDistancePupil,
             )
             if (leftEye && rightEye) {
               // Calculate IPD using the same method as in distanceTrack.js
@@ -1833,21 +1831,21 @@ const trackDistanceCheck = async (
   }
 
   //if participant has equipment
-  //if the unit is inches, convert calibrateTrackDistanceCheckCm to inches and round to integer
+  //if the unit is inches, convert calibrateDistanceCheckCm to inches and round to integer
   //discard negative, zero, and values exceeding equipment length
   if (RC.equipment?.value?.has) {
     // Show dummy test page right after equipment is confirmed
     RC.pauseNudger()
     await checkSize(
       RC,
-      calibrateTrackDistanceCheckLengthCm,
-      calibrateTrackDistanceChecking,
+      calibrateDistanceCheckLengthCm,
+      calibrateDistanceChecking,
     )
     RC.resumeNudger()
     // Start video trimming for screen center distance measurement
-    // only trim video if calibrateTrackDistanceCenterYourEyesBool is true AND not using camera positioning
+    // only trim video if calibrateDistanceCenterYourEyesBool is true AND not using camera positioning
     // Video trimming centers the video, which conflicts with camera positioning
-    const checkingOptions = calibrateTrackDistanceChecking
+    const checkingOptions = calibrateDistanceChecking
     let shouldPositionAtCamera = false
 
     if (checkingOptions && typeof checkingOptions === 'string') {
@@ -1858,21 +1856,21 @@ const trackDistanceCheck = async (
       shouldPositionAtCamera = optionsArray.includes('camera')
     }
 
-    if (calibrateTrackDistanceCenterYourEyesBool && !shouldPositionAtCamera) {
+    if (calibrateDistanceCenterYourEyesBool && !shouldPositionAtCamera) {
       startVideoTrimming()
     }
 
-    calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.map(cm =>
+    calibrateDistanceCheckCm = calibrateDistanceCheckCm.map(cm =>
       RC.equipment?.value?.unit === 'inches'
         ? Math.round(Number(cm) / 2.54)
         : Math.round(Number(cm)),
     )
 
-    calibrateTrackDistanceCheckCm = calibrateTrackDistanceCheckCm.filter(
+    calibrateDistanceCheckCm = calibrateDistanceCheckCm.filter(
       cm => cm > 0 && cm <= RC.equipment?.value?.length,
     )
 
-    if (calibrateTrackDistanceCheckCm.length === 0) {
+    if (calibrateDistanceCheckCm.length === 0) {
       console.warn('No valid distances to check.')
       quit()
       return
@@ -1880,14 +1878,14 @@ const trackDistanceCheck = async (
 
     RC._removeBackground()
     RC.pauseNudger()
-    createProgressBar(RC, calibrateTrackDistanceChecking)
+    createProgressBar(RC, calibrateDistanceChecking)
     createViewingDistanceDiv(RC)
-    RC.calibrateTrackDistanceMeasuredCm = []
-    RC.calibrateTrackDistanceRequestedCm = []
+    RC.calibrateDistanceMeasuredCm = []
+    RC.calibrateDistanceRequestedCm = []
     // Initialize IPD and requested distance arrays
-    RC.calibrateTrackDistanceIPDPixels = []
-    RC.calibrateTrackDistanceRequestedDistances = []
-    RC.calibrateTrackDistanceEyeFeetXYPx = []
+    RC.calibrateDistanceIPDPixels = []
+    RC.calibrateDistanceRequestedDistances = []
+    RC.calibrateDistanceEyeFeetXYPx = []
     let skippedDistancesCount = 0
     const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
 
@@ -1900,8 +1898,9 @@ const trackDistanceCheck = async (
       RC.gazeTracker.webgazer &&
       RC.gazeTracker.webgazer.videoParamsToReport
     ) {
-      const height = RC.gazeTracker.webgazer.videoParamsToReport.height
-      const width = RC.gazeTracker.webgazer.videoParamsToReport.width
+      const res = getCameraResolutionXY(RC)
+      const height = res[1]
+      const width = res[0]
       const maxHeight = RC.gazeTracker.webgazer.videoParamsToReport.maxHeight
       const maxWidth = RC.gazeTracker.webgazer.videoParamsToReport.maxWidth
       cameraResolutionXY = `${width}x${height}`
@@ -1909,11 +1908,11 @@ const trackDistanceCheck = async (
     }
 
     RC.distanceCheckJSON = {
-      _calibrateTrackDistanceChecking: calibrateTrackDistanceChecking,
-      _calibrateTrackDistance: calibrateTrackDistance,
-      _calibrateTrackDistanceSpotXYDeg: calibrateTrackDistanceSpotXYDeg,
-      _calibrateTrackDistancePupil: calibrateTrackDistancePupil,
-      pointXYPx: [window.innerWidth / 2, 0],
+      _calibrateDistanceChecking: calibrateDistanceChecking,
+      _calibrateDistance: calibrateDistance,
+      _calibrateDistanceSpotXYDeg: calibrateDistanceSpotXYDeg,
+      _calibrateDistancePupil: calibrateDistancePupil,
+      pointXYPx: [],
       cameraXYPx: [window.innerWidth / 2, 0],
       centerXYPx: [window.innerWidth / 2, window.innerHeight / 2],
       pxPerCm: Math.round(pxPerCm * 10) / 10,
@@ -1923,8 +1922,8 @@ const trackDistanceCheck = async (
               Number(RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM) * 10,
             ) / 10
           : Math.round(Number(stdDist.current.calibrationFactor) * 10) / 10,
-      cameraResolutionXY: cameraResolutionXY,
       webcamMaxXYVpx: cameraResolutionMaxXY,
+      cameraResolutionXYVpx: [],
       requestedEyesToPointCm: [],
       eyesToCameraCm: [],
       eyesToPointCm: [],
@@ -1940,23 +1939,23 @@ const trackDistanceCheck = async (
       medianFactorVpxCm: 0, //median of all measured factor camera pxcms
     }
 
-    for (let i = 0; i < calibrateTrackDistanceCheckCm.length; i++) {
+    for (let i = 0; i < calibrateDistanceCheckCm.length; i++) {
       let register = true
-      const cm = calibrateTrackDistanceCheckCm[i]
+      const cm = calibrateDistanceCheckCm[i]
       const index = i + 1
 
       // Track space bar listeners for this iteration
       const iterationListeners = []
 
       updateProgressBar(
-        (index / calibrateTrackDistanceCheckCm.length) * 100,
+        (index / calibrateDistanceCheckCm.length) * 100,
         index,
-        calibrateTrackDistanceCheckCm.length,
+        calibrateDistanceCheckCm.length,
       )
       updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
 
-      // Determine which instruction text to show based on calibrateTrackDistanceChecking option
-      const checkingOptions = calibrateTrackDistanceChecking
+      // Determine which instruction text to show based on calibrateDistanceChecking option
+      const checkingOptions = calibrateDistanceChecking
       let instructionBodyPhrase = phrases.RC_produceDistance[RC.language.value]
 
       if (checkingOptions && typeof checkingOptions === 'string') {
@@ -2018,7 +2017,7 @@ const trackDistanceCheck = async (
         const html = constructInstructions(
           phrases.RC_produceDistanceTitle[RC.language.value]
             .replace('[[N22]]', index)
-            .replace('[[N33]]', calibrateTrackDistanceCheckCm.length),
+            .replace('[[N33]]', calibrateDistanceCheckCm.length),
           '',
           false,
           'bodyText',
@@ -2168,8 +2167,7 @@ const trackDistanceCheck = async (
 
       //wait for return key press
       await new Promise(async resolve => {
-        if (!calibrateTrackDistanceCheckSecs)
-          calibrateTrackDistanceCheckSecs = 0
+        if (!calibrateDistanceCheckSecs) calibrateDistanceCheckSecs = 0
 
         setTimeout(async () => {
           // Store the last captured face image
@@ -2200,8 +2198,8 @@ const trackDistanceCheck = async (
               // Validate face mesh data with retry mechanism
               const faceValidation = await validateFaceMeshSamples(
                 RC,
-                calibrateTrackDistancePupil,
-                calibrateTrackDistanceChecking,
+                calibrateDistancePupil,
+                calibrateDistanceChecking,
               )
 
               if (!faceValidation.isValid) {
@@ -2236,14 +2234,14 @@ const trackDistanceCheck = async (
               // Track this listener for cleanup
               iterationListeners.push(keyupListener)
 
-              // Determine which distance to save based on calibrateTrackDistanceChecking option
+              // Determine which distance to save based on calibrateDistanceChecking option
               let measuredDistanceCm = RC.viewingDistanceCm.value // Default to eye-to-camera
 
               if (
-                calibrateTrackDistanceChecking &&
-                typeof calibrateTrackDistanceChecking === 'string'
+                calibrateDistanceChecking &&
+                typeof calibrateDistanceChecking === 'string'
               ) {
-                const optionsArray = calibrateTrackDistanceChecking
+                const optionsArray = calibrateDistanceChecking
                   .toLowerCase()
                   .split(',')
                   .map(s => s.trim())
@@ -2272,8 +2270,13 @@ const trackDistanceCheck = async (
 
               const distanceFromRC = Number(measuredDistanceCm.toFixed(1))
 
-              RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
-              RC.calibrateTrackDistanceRequestedCm.push(
+              const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+              RC.distanceCheckJSON.cameraResolutionXYVpx.push(
+                cameraResolutionXYVpx,
+              )
+
+              RC.calibrateDistanceMeasuredCm.push(distanceFromRC)
+              RC.calibrateDistanceRequestedCm.push(
                 Number(
                   RC.equipment?.value?.unit === 'inches'
                     ? (cm * 2.54).toFixed(1)
@@ -2284,12 +2287,12 @@ const trackDistanceCheck = async (
               const EyeFeetXYPxRight = faceValidation.nearestXYPx_right
 
               // Store the averaged IPD pixels from validation test
-              RC.calibrateTrackDistanceIPDPixels.push(faceValidation.ipdPixels)
-              RC.calibrateTrackDistanceEyeFeetXYPx.push(
+              RC.calibrateDistanceIPDPixels.push(faceValidation.ipdPixels)
+              RC.calibrateDistanceEyeFeetXYPx.push(
                 EyeFeetXYPxLeft,
                 EyeFeetXYPxRight,
               )
-              RC.calibrateTrackDistanceRequestedDistances.push(
+              RC.calibrateDistanceRequestedDistances.push(
                 Number(
                   RC.equipment?.value?.unit === 'inches'
                     ? (cm * 2.54).toFixed(1)
@@ -2320,10 +2323,10 @@ const trackDistanceCheck = async (
                     : cm * 10,
                 ) / 10,
               )
-              RC.distanceCheckJSON.pointXYPx = [
+              RC.distanceCheckJSON.pointXYPx.push([
                 faceValidation.pointXYPx[0],
                 faceValidation.pointXYPx[1],
-              ]
+              ])
               RC.distanceCheckJSON.eyesToCameraCm.push(
                 faceValidation.eyeToCameraCm,
               )
@@ -2381,7 +2384,7 @@ const trackDistanceCheck = async (
               register = false
               skippedDistancesCount++
               //remove distance from requested list
-              calibrateTrackDistanceCheckCm.splice(i, 1)
+              calibrateDistanceCheckCm.splice(i, 1)
               i--
               document.removeEventListener('keydown', keyupListener)
               removeKeypadHandler()
@@ -2416,7 +2419,7 @@ const trackDistanceCheck = async (
                 // Validate face mesh data with retry mechanism
                 const faceValidation = await validateFaceMeshSamples(
                   RC,
-                  calibrateTrackDistancePupil,
+                  calibrateDistancePupil,
                 )
 
                 if (!faceValidation.isValid) {
@@ -2440,14 +2443,14 @@ const trackDistanceCheck = async (
                   '=== KEYPAD: FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===',
                 )
 
-                // Determine which distance to save based on calibrateTrackDistanceChecking option
+                // Determine which distance to save based on calibrateDistanceChecking option
                 let measuredDistanceCm = RC.viewingDistanceCm.value // Default to eye-to-camera
 
                 if (
-                  calibrateTrackDistanceChecking &&
-                  typeof calibrateTrackDistanceChecking === 'string'
+                  calibrateDistanceChecking &&
+                  typeof calibrateDistanceChecking === 'string'
                 ) {
-                  const optionsArray = calibrateTrackDistanceChecking
+                  const optionsArray = calibrateDistanceChecking
                     .toLowerCase()
                     .split(',')
                     .map(s => s.trim())
@@ -2476,8 +2479,13 @@ const trackDistanceCheck = async (
 
                 const distanceFromRC = Number(measuredDistanceCm.toFixed(1))
 
-                RC.calibrateTrackDistanceMeasuredCm.push(distanceFromRC)
-                RC.calibrateTrackDistanceRequestedCm.push(
+                const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+                RC.distanceCheckJSON.cameraResolutionXYVpx.push(
+                  cameraResolutionXYVpx,
+                )
+
+                RC.calibrateDistanceMeasuredCm.push(distanceFromRC)
+                RC.calibrateDistanceRequestedCm.push(
                   Math.round(
                     RC.equipment?.value?.unit === 'inches'
                       ? cm * 2.54 * 10
@@ -2487,16 +2495,14 @@ const trackDistanceCheck = async (
 
                 const EyeFeetXYPxLeft = faceValidation.nearestXYPx_left
                 const EyeFeetXYPxRight = faceValidation.nearestXYPx_right
-                RC.calibrateTrackDistanceEyeFeetXYPx.push(
+                RC.calibrateDistanceEyeFeetXYPx.push(
                   EyeFeetXYPxLeft,
                   EyeFeetXYPxRight,
                 )
 
                 // Store the averaged IPD pixels from validation test
-                RC.calibrateTrackDistanceIPDPixels.push(
-                  faceValidation.ipdPixels,
-                )
-                RC.calibrateTrackDistanceRequestedDistances.push(
+                RC.calibrateDistanceIPDPixels.push(faceValidation.ipdPixels)
+                RC.calibrateDistanceRequestedDistances.push(
                   Math.round(
                     RC.equipment?.value?.unit === 'inches'
                       ? cm * 2.54 * 10
@@ -2521,10 +2527,10 @@ const trackDistanceCheck = async (
                 )
                 const measuredFactorVpxCm =
                   requestedEyesToCameraCm * parseFloat(faceValidation.ipdPixels)
-                RC.distanceCheckJSON.pointXYPx = [
+                RC.distanceCheckJSON.pointXYPx.push([
                   faceValidation.pointXYPx[0],
                   faceValidation.pointXYPx[1],
-                ]
+                ])
                 RC.distanceCheckJSON.requestedEyesToPointCm.push(
                   Math.round(
                     RC.equipment?.value?.unit === 'inches'
@@ -2585,7 +2591,7 @@ const trackDistanceCheck = async (
               else if (value === '❌') {
                 skippedDistancesCount++
                 //remove distance from requested list
-                calibrateTrackDistanceCheckCm.splice(i, 1)
+                calibrateDistanceCheckCm.splice(i, 1)
                 i--
                 removeKeypadHandler()
                 cleanupFontAdjustment() // Clean up font adjustment listeners
@@ -2602,11 +2608,11 @@ const trackDistanceCheck = async (
           document.addEventListener('keyup', keyupListener)
           // Track this listener for cleanup
           iterationListeners.push(keyupListener)
-        }, calibrateTrackDistanceCheckSecs * 1000)
+        }, calibrateDistanceCheckSecs * 1000)
       })
     }
 
-    removeProgressBar(RC, calibrateTrackDistanceChecking)
+    removeProgressBar(RC, calibrateDistanceChecking)
     removeViewingDistanceDiv()
 
     // Hide video container after all measurements are complete
@@ -2617,18 +2623,15 @@ const trackDistanceCheck = async (
 
     // Log the captured IPD data for debugging
     console.log('=== IPD Data Captured During Distance Checking ===')
-    console.log(
-      'Total measurements:',
-      RC.calibrateTrackDistanceIPDPixels.length,
-    )
-    console.log('IPD Pixels Array:', RC.calibrateTrackDistanceIPDPixels)
+    console.log('Total measurements:', RC.calibrateDistanceIPDPixels.length)
+    console.log('IPD Pixels Array:', RC.calibrateDistanceIPDPixels)
     console.log(
       'Requested Distances Array (cm):',
-      RC.calibrateTrackDistanceRequestedDistances,
+      RC.calibrateDistanceRequestedDistances,
     )
     console.log(
       'Measured Distances Array (cm):',
-      RC.calibrateTrackDistanceMeasuredCm,
+      RC.calibrateDistanceMeasuredCm,
     )
     console.log('=================================================')
 
@@ -2642,7 +2645,7 @@ const trackDistanceCheck = async (
         '<p class="heading2">' +
         phrases.RC_AllDistancesRecorded[RC.language.value].replace(
           '[[N11]]',
-          RC.calibrateTrackDistanceRequestedCm.length,
+          RC.calibrateDistanceRequestedCm.length,
         ) +
         '</p>',
       didOpen: () => {
@@ -2774,7 +2777,7 @@ const updateViewingDistanceDiv = (distance, units) => {
 }
 
 // Function to create the progress bar div
-const createProgressBar = (RC, calibrateTrackDistanceChecking = undefined) => {
+const createProgressBar = (RC, calibrateDistanceChecking = undefined) => {
   // Check if the progress bar already exists
   if (document.getElementById('custom-progress-bar')) {
     console.warn('Progress bar already exists.')
@@ -2801,8 +2804,8 @@ const createProgressBar = (RC, calibrateTrackDistanceChecking = undefined) => {
   progressBarContainer.appendChild(progressBarText)
   document.body.appendChild(progressBarContainer)
 
-  // Reposition video based on calibrateTrackDistanceChecking option
-  repositionVideoForCameraMonitoring(RC, calibrateTrackDistanceChecking)
+  // Reposition video based on calibrateDistanceChecking option
+  repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
 }
 
 // Function to update the progress
@@ -2829,16 +2832,16 @@ const updateProgressBar = (progress, current, total) => {
 }
 
 // Function to remove the progress bar
-const removeProgressBar = (RC, calibrateTrackDistanceChecking = undefined) => {
+const removeProgressBar = (RC, calibrateDistanceChecking = undefined) => {
   const progressBarContainer = document.getElementById('custom-progress-bar')
   if (progressBarContainer) {
     document.body.removeChild(progressBarContainer)
 
-    // Reposition video based on calibrateTrackDistanceChecking option
+    // Reposition video based on calibrateDistanceChecking option
     const videoContainer = document.getElementById('webgazerVideoContainer')
     if (videoContainer && RC) {
       // Check if option includes "camera" - if so, don't reposition (keep camera position)
-      const checkingOptions = calibrateTrackDistanceChecking
+      const checkingOptions = calibrateDistanceChecking
       let shouldPositionAtCamera = false
 
       if (checkingOptions && typeof checkingOptions === 'string') {

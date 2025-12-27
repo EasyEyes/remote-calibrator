@@ -422,7 +422,7 @@ export function renderStepInstructions({
   },
 }) {
   const {
-    calibrateTrackDistanceCheckBool = false,
+    calibrateDistanceCheckBool = false,
     thresholdFraction = 0.6,
     resolveMediaUrl = url => url,
     useCurrentSectionOnly = true,

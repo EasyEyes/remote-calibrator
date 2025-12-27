@@ -206,19 +206,19 @@ RemoteCalibrator.prototype.trackDistance = async function (
       callbackStatic,
       useObjectTestData: false, // New option to use object test data
       objecttestdebug: false, // New option to show debug feedback div in object test
-      calibrateTrackDistanceAllowedRatio: 1.1,
-      calibrateTrackDistanceAllowedRangeCm: [30, 70],
+      calibrateDistanceAllowedRatio: 1.1,
+      calibrateDistanceAllowedRangeCm: [30, 70],
       resolutionWarningThreshold: undefined,
-      calibrateTrackDistanceSpotCm: 0.5,
-      calibrateTrackDistanceBlindspotDiameterDeg: 2.0,
-      calibrateTrackDistanceSpotXYDeg: [15.5, -1.5],
+      calibrateDistanceSpotCm: 0.5,
+      calibrateDistanceBlindspotDiameterDeg: 2.0,
+      calibrateDistanceSpotXYDeg: [15.5, -1.5],
       viewingDistanceWhichEye: undefined,
       viewingDistanceWhichPoint: undefined,
-      calibrateTrackDistanceBlindspotDebugging: false, // Debug option to show anatomical line and diamond center
-      calibrateTrackDistanceChecking: undefined,
-      calibrateTrackDistanceShowLengthBool: false,
-      calibrateTrackDistancePupil: 'iris',
-      calibrateTrackDistanceQuadBaseRatio: 2.0, // Default ratio for quadrilateral base
+      calibrateDistanceBlindspotDebugging: false, // Debug option to show anatomical line and diamond center
+      calibrateDistanceChecking: undefined,
+      calibrateDistanceShowLengthBool: false,
+      calibrateDistancePupil: 'iris',
+      calibrateDistanceQuadBaseRatio: 2.0, // Default ratio for quadrilateral base
     },
     trackDistanceOptions,
   )
@@ -325,8 +325,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
     options.cameraSelectionDone = true
 
     console.log('showIrisesBool', options.showIrisesBool)
-    //calibrateTrackDistancePupil = iris, eyeCorners
-    if (options.calibrateTrackDistancePupil === 'eyeCorners') {
+    //calibrateDistancePupil = iris, eyeCorners
+    if (options.calibrateDistancePupil === 'eyeCorners') {
       // set the gaze tracker to TFFacemesh_unrefined_landmarks
       await this.gazeTracker.webgazer.setTracker(
         'TFFacemesh_unrefined_landmarks',
@@ -342,8 +342,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
     }
 
     // Show pre-calibration popup before starting any calibration methods
-    //only show if calibrateTrackDistanceIsCameraTopCenterBool is true
-    if (options.calibrateTrackDistanceIsCameraTopCenterBool) {
+    //only show if calibrateDistanceIsCameraTopCenterBool is true
+    if (options.calibrateDistanceIsCameraTopCenterBool) {
       const preCalibrationResult = await showPreCalibrationPopup(this)
       if (!preCalibrationResult) {
         // User cancelled or didn't select anything, exit gracefully
@@ -389,13 +389,12 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.showIrisesBool = options.showIrisesBool
   trackingOptions.useObjectTestData = options.useObjectTestData
   trackingOptions.showNearestPointsBool = options.showNearestPointsBool
-  trackingOptions.calibrateTrackDistanceShowLengthBool =
-    options.calibrateTrackDistanceShowLengthBool
+  trackingOptions.calibrateDistanceShowLengthBool =
+    options.calibrateDistanceShowLengthBool
   trackingOptions.objectMeasurementCount = options.objectMeasurementCount
   trackingOptions.objectMeasurementConsistencyThreshold =
     options.objectMeasurementConsistencyThreshold
-  trackingOptions.calibrateTrackDistancePupil =
-    options.calibrateTrackDistancePupil
+  trackingOptions.calibrateDistancePupil = options.calibrateDistancePupil
   trackingOptions.desiredDistanceCm = options.desiredDistanceCm
   trackingOptions.desiredDistanceTolerance = options.desiredDistanceTolerance
   trackingOptions.desiredDistanceMonitor = options.desiredDistanceMonitor
@@ -813,7 +812,7 @@ export const startIrisDrawingWithMesh = async RC => {
       // Get current mesh data
       const meshData = await getMeshData(
         RC,
-        trackingOptions.calibrateTrackDistancePupil,
+        trackingOptions.calibrateDistancePupil,
       )
       if (meshData && meshData.leftEye && meshData.rightEye) {
         // Update last time we saw a valid mesh
@@ -864,7 +863,7 @@ export const startIrisDrawingWithMesh = async RC => {
 // Factor out mesh data retrieval for reuse
 export const getMeshData = async (
   RC,
-  calibrateTrackDistancePupil = 'iris',
+  calibrateDistancePupil = 'iris',
   meshSamples = [],
 ) => {
   const video = document.getElementById('webgazerVideoCanvas')
@@ -900,7 +899,7 @@ export const getMeshData = async (
   if (mesh && mesh.length) {
     const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
       mesh,
-      calibrateTrackDistancePupil,
+      calibrateDistancePupil,
     )
     if (leftEye && rightEye) {
       const currentIPDDistance = eyeDist(leftEye, rightEye)
@@ -1114,7 +1113,8 @@ export const calculateNearestPoints = (
   fixationToSpotCm = 0,
   ipdVpx = 0,
   distanceCheck = false,
-  calibrateTrackDistanceChecking = 'camera',
+  calibrateDistanceChecking = 'camera',
+  _pointXYPx = [window.innerWidth / 2, window.innerHeight / 2],
 ) => {
   const {
     nearestXYPx_left,
@@ -1131,12 +1131,13 @@ export const calculateNearestPoints = (
     currentIPDDistance,
   )
   const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2]
-  let pointXYPx = cameraXYPx
+  let pointXYPx = distanceCheck ? cameraXYPx : _pointXYPx
   if (
-    calibrateTrackDistanceChecking &&
-    typeof calibrateTrackDistanceChecking === 'string'
+    distanceCheck &&
+    calibrateDistanceChecking &&
+    typeof calibrateDistanceChecking === 'string'
   ) {
-    const optionsArray = calibrateTrackDistanceChecking
+    const optionsArray = calibrateDistanceChecking
       .toLowerCase()
       .split(',')
       .map(s => s.trim())
@@ -1187,12 +1188,12 @@ export const calculateNearestPoints = (
       // TEMP: use _getEyeToCameraCm instead of solveEyeToScreenCm
       // eyeToFootCm = _getEyeToCameraCm(
       //   fixationToSpotCm,
-      //   options.calibrateTrackDistanceSpotXYDeg,
+      //   options.calibrateDistanceSpotXYDeg,
       // )
     } catch (e) {
       // eyeToFootCm = _getEyeToCameraCm(
       //   fixationToSpotCm,
-      //   options.calibrateTrackDistanceSpotXYDeg,
+      //   options.calibrateDistanceSpotXYDeg,
       // )
       throw new Error(e)
     }
@@ -1345,10 +1346,7 @@ const renderDistanceResult = async (
   const videoTimestamp = performance.now()
 
   // Use the factored out mesh data retrieval
-  const meshData = await getMeshData(
-    RC,
-    trackingOptions.calibrateTrackDistancePupil,
-  )
+  const meshData = await getMeshData(RC, trackingOptions.calibrateDistancePupil)
 
   if (meshData) {
     const { mesh, leftEye, rightEye, currentIPDDistance } = meshData
@@ -1383,7 +1381,7 @@ const renderDistanceResult = async (
         }
 
         // ! FINISH
-        if (trackingConfig.options.calibrateTrackDistanceCheckBool !== true)
+        if (trackingConfig.options.calibrateDistanceCheckBool !== true)
           RC._removeBackground() // Remove BG if no check
 
         RC._trackingSetupFinishedStatus.distance = true
@@ -1421,7 +1419,7 @@ const renderDistanceResult = async (
         0,
         currentIPDDistance,
         false,
-        trackingOptions.calibrateTrackDistanceChecking,
+        trackingOptions.calibrateDistanceChecking,
       )
 
       const {

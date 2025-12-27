@@ -333,8 +333,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
   // Unit conversions and configurable offsets
   const pxPerCm = (RC?.screenPpi?.value ? RC.screenPpi.value : 96) / 2.54 // fallback to 96 DPI if missing
   const cameraToCardOffsetCm =
-    options?.calibrateTrackDistanceCameraToBlueLineCm ??
-    options?._calibrateTrackDistanceCameraToBlueLineCm ??
+    options?.calibrateDistanceCameraToBlueLineCm ??
+    options?._calibrateDistanceCameraToBlueLineCm ??
     4
   const blueLineOffsetPx = cameraToCardOffsetCm * pxPerCm
   // Video sits 0.5 cm below the blue line
@@ -342,29 +342,26 @@ export async function justCreditCard(RC, options, callback = undefined) {
 
   // Initial position of green line as fraction of video height (0.0 = bottom, 1.0 = top)
   const initialCardTopVideoFraction =
-    options?.calibrateTrackDistanceGreenLineVideoFraction ??
-    options?._calibrateTrackDistanceGreenLineVideoFraction ??
+    options?.calibrateDistanceGreenLineVideoFraction ??
+    options?._calibrateDistanceGreenLineVideoFraction ??
     0.9
 
   const commonCalibrationData = {
     shortCm: CREDIT_CARD_SHORT_CM,
     longCm: CREDIT_CARD_LONG_CM,
-    _calibrateTrackDistance: options.calibrateTrackDistance,
-    _calibrateTrackDistanceAllowedRangeCm:
-      options.calibrateTrackDistanceAllowedRangeCm,
-    _calibrateTrackDistanceAllowedRatio:
-      options.calibrateTrackDistanceAllowedRatio,
-    _calibrateTrackDistancePupil: options.calibrateTrackDistancePupil,
-    _calibrateTrackDistanceShowLengthBool:
-      options.calibrateTrackDistanceShowLengthBool,
-    _calibrateTrackDistanceTimes: options.objectMeasurementCount,
+    _calibrateDistance: options.calibrateDistance,
+    _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
+    _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
+    _calibrateDistancePupil: options.calibrateDistancePupil,
+    _calibrateDistanceShowLengthBool: options.calibrateDistanceShowLengthBool,
+    _calibrateDistanceTimes: options.objectMeasurementCount,
     _showPerpendicularFeetBool: options.showNearestPointsBool,
     _calibrateScreenSizeAllowedRatio: options.calibrateScreenSizeAllowedRatio,
     _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
-    _calibrateTrackDistanceCameraToBlueLineCm: cameraToCardOffsetCm,
-    _calibrateTrackDistanceGreenLineVideoFraction: initialCardTopVideoFraction,
+    _calibrateDistanceCameraToBlueLineCm: cameraToCardOffsetCm,
+    _calibrateDistanceGreenLineVideoFraction: initialCardTopVideoFraction,
   }
 
   // Measurement count/pages: 1 (default) or 2 for repeat
@@ -571,7 +568,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
     RCRef: RC,
     videoTopOffsetPx,
     cameraToCardOffsetCm: cameraToCardOffsetCm,
-    quadBaseRatio: options.calibrateTrackDistanceQuadBaseRatio,
+    quadBaseRatio: options.calibrateDistanceQuadBaseRatio,
   }
   cardState = state
 
@@ -1094,7 +1091,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
       (CREDIT_CARD_SHORT_CM / shortVPx)
 
     // (2) edgeToScreenCm = sqrt(longCm^2 - (edgeToCameraDeltaYCm + cameraToBlueLineCm)^2)
-    // cameraToBlueLineCm = cameraToCardOffsetCm (the _calibrateTrackDistanceCameraToCardCm parameter)
+    // cameraToBlueLineCm = cameraToCardOffsetCm (the _calibrateDistanceCameraToCardCm parameter)
     const edgeToScreenCm = Math.sqrt(
       Math.max(
         0,
@@ -1152,7 +1149,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
       commonCalibrationData,
     )
 
-    const allowedRatio = options.calibrateTrackDistanceAllowedRatio || 1.1
+    const allowedRatio = options.calibrateDistanceAllowedRatio || 1.1
     const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
 
     // Validate consistency only when multiple measurements are requested
@@ -1265,21 +1262,21 @@ export async function justCreditCard(RC, options, callback = undefined) {
     if (options.showIrisesBool) {
       await startIrisDrawingWithMesh(RC)
     }
-    if (options.calibrateTrackDistanceCheckBool) {
+    if (options.calibrateDistanceCheckBool) {
       await RC._checkDistance(
         callback,
         data,
         'trackDistance',
         options.checkCallback,
-        options.calibrateTrackDistanceCheckCm,
+        options.calibrateDistanceCheckCm,
         options.callbackStatic,
-        options.calibrateTrackDistanceCheckSecs,
-        options.calibrateTrackDistanceCheckLengthCm,
-        options.calibrateTrackDistanceCenterYourEyesBool,
-        options.calibrateTrackDistancePupil,
-        options.calibrateTrackDistanceChecking,
-        options.calibrateTrackDistanceSpotXYDeg,
-        options.calibrateTrackDistance,
+        options.calibrateDistanceCheckSecs,
+        options.calibrateDistanceCheckLengthCm,
+        options.calibrateDistanceCenterYourEyesBool,
+        options.calibrateDistancePupil,
+        options.calibrateDistanceChecking,
+        options.calibrateDistanceSpotXYDeg,
+        options.calibrateDistance,
         options.stepperHistory,
       )
     } else {

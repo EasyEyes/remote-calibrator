@@ -288,3 +288,13 @@ export const getClickOrTouchLocation = e => {
 export function replaceNewlinesWithBreaks(str) {
   return str.replace(/\n/g, '<br/>')
 }
+
+export const getCameraResolutionXY = RC => {
+  try {
+    const cameraResolution = RC.gazeTracker?.webgazer?.getCameraResolutionXY()
+    return [cameraResolution.width, cameraResolution.height]
+  } catch (error) {
+    console.error('Error getting camera resolution:', error)
+    return [0, 0]
+  }
+}
