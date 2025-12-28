@@ -2062,6 +2062,11 @@ const trackDistanceCheck = async (
       }
       if (instructionBody) {
         instructionBody.innerHTML = ''
+        // Add bottom padding to prevent content from being occluded by progress bar
+        instructionBody.style.paddingBottom = '50px'
+        // Also ensure max-height accounts for progress bar
+        instructionBody.style.maxHeight = `calc(100vh - 50px)`
+        instructionBody.style.overflow = 'auto'
         const ui = createStepInstructionsUI(instructionBody, {
           layout: 'leftOnly',
           leftWidth: '100%',
@@ -2097,6 +2102,24 @@ const trackDistanceCheck = async (
           const stepModel = parseInstructions(chosenStepText, {
             assetMap: test_assetMap,
           })
+          
+          // Debug: Log the parsed model structure to find duplicate videos
+          console.log('🎬 stepModel structure:', {
+            sectionsCount: stepModel.sections?.length,
+            flatStepsCount: stepModel.flatSteps?.length,
+            sections: stepModel.sections?.map((s, i) => ({
+              sectionIdx: i,
+              title: s.title,
+              stepsCount: s.steps?.length,
+              sectionMediaUrls: s.mediaUrls,
+              steps: s.steps?.map((st, j) => ({
+                stepIdx: j,
+                textPreview: st.text?.substring(0, 50),
+                mediaUrls: st.mediaUrls,
+              })),
+            })),
+          })
+          
           let stepIndex = 0
           const maxIdx = (stepModel.flatSteps?.length || 1) - 1
 
@@ -2114,7 +2137,7 @@ const trackDistanceCheck = async (
             }
           }
 
-          const doRender = () =>
+          const doRender = () => {
             renderStepInstructions({
               model: stepModel,
               flatIndex: stepIndex,
@@ -2131,11 +2154,26 @@ const trackDistanceCheck = async (
                 stepperHistory: stepperHistory,
                 onPrev: handlePrev,
                 onNext: handleNext,
+                bottomOffset: 40, // Account for progress bar height
               },
               lang: RC.language.value,
               langDirection: RC.LD,
               phrases: phrases,
             })
+            
+            // Debug: Check DOM for all video/img elements after render
+            const allVideos = instructionBody.querySelectorAll('video')
+            const allImages = instructionBody.querySelectorAll('img')
+            console.log('🖼️ DOM media elements after render:', {
+              stepIndex,
+              videosCount: allVideos.length,
+              imagesCount: allImages.length,
+              videoSrcs: Array.from(allVideos).map(v => v.src?.substring(0, 80)),
+              imageSrcs: Array.from(allImages).map(i => i.src?.substring(0, 80)),
+              mediaContainerChildren: ui.mediaContainer.children.length,
+              leftTextChildren: ui.leftText.children.length,
+            })
+          }
           doRender()
           const navHandler = e => {
             if (e.key === 'ArrowDown') {

@@ -204,7 +204,7 @@ export function createStepInstructionsUI(parent, options = {}) {
   let rightColumn = null
   let rightText = null
   const mediaContainer = document.createElement('div')
-  mediaContainer.style.marginTop = '1rem'
+  mediaContainer.style.marginTop = '0.8rem' // Reduced by 20% to prevent video occlusion
   mediaContainer.style.display = 'block'
   mediaContainer.style.width = '100%'
 
@@ -435,6 +435,8 @@ export function renderStepInstructions({
     layout = 'twoColumn', // 'twoColumn' | 'leftOnly'
     // Show large "Instructions" heading above the stepper (for justCreditCard page)
     showLargeHeading = false,
+    // Offset from the bottom of the screen (e.g., for progress bar)
+    bottomOffset = 0,
   } = options
 
   const { leftText, rightText, mediaContainer } = elements
@@ -444,14 +446,22 @@ export function renderStepInstructions({
     div.style.whiteSpace = 'pre-wrap'
     div.style.wordBreak = 'break-word'
     div.style.overflowWrap = 'anywhere'
+    
+    // Sanitize text: remove any stray <img> and <video> HTML elements
+    // that might cause duplicate media display
+    const sanitizedText = text
+      .replace(/<video[^>]*>[\s\S]*?<\/video>/gi, '')
+      .replace(/<video[^>]*\/?>/gi, '')
+      .replace(/<img[^>]*\/?>/gi, '')
+    
     if (type === 'title') {
       div.style.marginTop = '0.75rem'
       div.style.fontWeight = '600'
-      div.innerHTML = text // Changed from textContent to support HTML from Markdown
+      div.innerHTML = sanitizedText // Changed from textContent to support HTML from Markdown
     } else {
       div.style.marginTop = '0.25rem'
       // Preserve original text with its numbering/bullets instead of adding generic bullet
-      div.innerHTML = text // Changed from textContent to support HTML from Markdown
+      div.innerHTML = sanitizedText // Changed from textContent to support HTML from Markdown
       if (indentLevel > 0) {
         div.style.paddingInlineStart = `${indentLevel * 1.25}em`
       }
@@ -513,10 +523,12 @@ export function renderStepInstructions({
   if (!Number.isFinite(history) || history < 0) history = 0
 
   // Determine allotted space for media only; let the stepper box size itself.
+  // Subtract bottomOffset to avoid overlap with fixed elements like progress bar
+  const availableHeight = window.innerHeight - bottomOffset
   const mediaAllottedPx =
     layout === 'leftOnly'
-      ? Math.max(0, Math.floor(window.innerHeight * (1 - thresholdFraction)))
-      : Math.floor(window.innerHeight * thresholdFraction)
+      ? Math.max(0, Math.floor(availableHeight * (1 - thresholdFraction)))
+      : Math.floor(availableHeight * thresholdFraction)
 
   // Build Stepper box
   leftText.innerHTML = ''
@@ -540,8 +552,22 @@ export function renderStepInstructions({
   const contentContainer = document.createElement('div')
   contentContainer.style.display = 'flex'
   contentContainer.style.flexDirection = 'column'
+  // Constrain any inline images/videos that might be in step text
+  contentContainer.style.overflow = 'hidden'
 
   stepperBox.appendChild(contentContainer)
+
+  // Add CSS to constrain any inline images/videos in step text
+  const inlineMediaStyle = document.createElement('style')
+  inlineMediaStyle.textContent = `
+    .step-instruction-text img, .step-instruction-text video {
+      max-height: ${mediaAllottedPx}px;
+      max-width: 100%;
+      object-fit: contain;
+    }
+  `
+  stepperBox.appendChild(inlineMediaStyle)
+  contentContainer.classList.add('step-instruction-text')
 
   // Add large "Instructions" heading above the stepper (only for justCreditCard page)
   if (showLargeHeading) {
@@ -693,6 +719,10 @@ export function renderStepInstructions({
   const mediaHeightPx = mediaAllottedPx
   mediaContainer.style.maxHeight = `${mediaHeightPx}px`
   mediaContainer.style.overflow = 'hidden'
+  // Add margin-bottom to ensure media stays above fixed elements like progress bar
+  if (bottomOffset > 0) {
+    mediaContainer.style.marginBottom = `${bottomOffset}px`
+  }
   // Prefer media linked to the current step; fallback to section-level media
   const currentStepObj = sections[curSectionIdx]?.steps?.[curStepIdx] || null
   const stepMediaUrls = (currentStepObj?.mediaUrls || []).filter(Boolean)
@@ -713,7 +743,8 @@ export function renderStepInstructions({
       vid.playsInline = true
       vid.controls = false
       vid.style.width = '100%'
-      vid.style.height = `${mediaHeightPx}px`
+      vid.style.maxHeight = `${mediaHeightPx}px` // Use maxHeight so video only takes space it needs
+      vid.style.height = 'auto'
       vid.style.objectFit = 'contain'
       mediaContainer.appendChild(vid)
     } else {
@@ -722,7 +753,8 @@ export function renderStepInstructions({
       img.src = srcUrl
       img.alt = ''
       img.style.width = '100%'
-      img.style.height = `${mediaHeightPx}px`
+      img.style.maxHeight = `${mediaHeightPx}px` // Use maxHeight so image only takes space it needs
+      img.style.height = 'auto'
       img.style.objectFit = 'contain'
       mediaContainer.appendChild(img)
     }

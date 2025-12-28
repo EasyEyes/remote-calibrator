@@ -1609,6 +1609,7 @@ let viewingDistanceWhichPointLabel = null
 let pointXYPxLabel = null
 let eyeToPointCmLabel = null
 let eyeToFootCmLabel = null
+let cameraResolutionXYLabel = null
 let eyePointDots = { left: null, right: null }
 let pupilDots = { left: null, right: null }
 let nearestPointCoordsLabels = { left: null, right: null }
@@ -2290,6 +2291,49 @@ const _drawNearestPoints = (
     eyeToFootCmLabel.style.left = `${labelLeft}px`
     eyeToFootCmLabel.style.top = `${labelTop}px`
   }
+
+  // Add cameraResolutionXY label below eyeToFootCm
+  // Get camera resolution from the video container
+  const webgazerVideoCanvas = document.getElementById('webgazerVideoCanvas')
+  if (webgazerVideoCanvas) {
+    const camWidth = webgazerVideoCanvas.width || 0
+    const camHeight = webgazerVideoCanvas.height || 0
+    if (camWidth && camHeight) {
+      cameraResolutionXYLabel = createOrUpdateElement(
+        cameraResolutionXYLabel,
+        'rc-camera-resolution-xy-label',
+        {
+          position: 'fixed',
+          fontSize: '16px',
+          color: '#333',
+          background: 'rgba(255, 255, 255, 0.9)',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          border: '1px solid #ddd',
+          zIndex: '2147483646',
+          pointerEvents: 'none',
+          fontFamily: 'Arial, sans-serif',
+          fontWeight: 'normal',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        },
+      )
+
+      cameraResolutionXYLabel.textContent = `cameraResolutionXY: ${camWidth}x${camHeight}`
+
+      let labelLeft = window.innerWidth / 2
+      const labelTop = 290
+      if (videoRect) {
+        const labelWidth = 80
+        labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+        if (labelLeft + labelWidth > window.innerWidth) {
+          labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+        }
+      }
+      labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+      cameraResolutionXYLabel.style.left = `${labelLeft}px`
+      cameraResolutionXYLabel.style.top = `${labelTop}px`
+    }
+  }
 }
 
 const cleanUpEyePoints = () => {
@@ -2353,6 +2397,10 @@ const cleanUpEyePoints = () => {
   if (eyeToFootCmLabel) {
     document.body.removeChild(eyeToFootCmLabel)
     eyeToFootCmLabel = null
+  }
+  if (cameraResolutionXYLabel) {
+    document.body.removeChild(cameraResolutionXYLabel)
+    cameraResolutionXYLabel = null
   }
   if (pupilDots.left) {
     document.body.removeChild(pupilDots.left)

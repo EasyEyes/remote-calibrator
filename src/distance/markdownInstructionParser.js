@@ -101,8 +101,11 @@ function extractMediaFromText(text) {
   const urls = []
 
   // Extract image syntax: ![alt](url)
+  // Pattern handles URLs with balanced parentheses (one level deep)
+  // e.g., "example.com/path(with)parens.mp4?query=value"
+  // This fixes URLs like "Instruction%204%20(Revis%202).mp4" from being truncated at the first ")"
   let cleanText = text.replace(
-    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    /!\[([^\]]*)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g,
     (match, alt, url) => {
       urls.push(url.trim())
       return '' // Remove from text
@@ -110,8 +113,9 @@ function extractMediaFromText(text) {
   )
 
   // Extract link syntax pointing to media files: [text](media.mp4)
+  // Updated to handle URLs containing parentheses
   cleanText = cleanText.replace(
-    /\[([^\]]*)\]\(([^)]+)\)/g,
+    /\[([^\]]*)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g,
     (match, linkText, url) => {
       if (MEDIA_EXTENSION_REGEX.test(url)) {
         urls.push(url.trim())

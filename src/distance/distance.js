@@ -6018,13 +6018,13 @@ export async function objectTest(RC, options, callback = undefined) {
         proceedButton.style.display = 'block'
         proceedButton.disabled = !selectedPaperLengthCm
 
-        // Update instructions text with selection prompt placed under instructions
-        //setInstructionsText('Please select one (longer is better):')
-        // Keep the title hidden to avoid duplicate text; we rely on instruction area
-        //paperSelectionTitle.style.display = 'none'
-
-        // Keep proceed button at lower right corner for paper mode
-        buttonContainer.style.bottom = '30px'
+        // Move proceed button into the left column, right under the paper selection content
+        buttonContainer.style.position = 'relative'
+        buttonContainer.style.bottom = ''
+        buttonContainer.style.right = ''
+        buttonContainer.style.marginTop = '1.5rem'
+        buttonContainer.style.justifyContent = 'flex-end'
+        paperSelectionCard.appendChild(buttonContainer)
 
         // Clear right column so warnings render under radios instead
         if (rightInstructionsText) {
@@ -6032,8 +6032,12 @@ export async function objectTest(RC, options, callback = undefined) {
         }
       } else {
         container.style.backgroundColor = ''
-        // Restore default button position
+        // Restore default button position (fixed at bottom right)
+        buttonContainer.style.position = 'fixed'
         buttonContainer.style.bottom = '230px'
+        buttonContainer.style.right = '20px'
+        buttonContainer.style.marginTop = ''
+        RC.background.appendChild(buttonContainer)
         // Hide paper mode warning if present
         if (rightInstructionsText) {
           rightInstructionsText.textContent = ''
@@ -6357,7 +6361,7 @@ export async function objectTest(RC, options, callback = undefined) {
         // Prefer the generic stepper Page 4 text (so instructions don't hardcode a screen corner),
         // but fall back to the legacy "LowerRight" key for backward compatibility.
         const p4Text =
-          (phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4?.[RC.L] ||
+          (phrases.RC_UseObjectToSetViewingDistanceCenterPage4?.[RC.L] ||
             '') + ''
         stepInstructionModel = parseInstructions(p4Text, {
           assetMap: test_assetMap,
@@ -6371,7 +6375,7 @@ export async function objectTest(RC, options, callback = undefined) {
         )
         setInstructionsText(
           phrases.RC_UseObjectToSetViewingDistanceStepperPage4?.[RC.L] ||
-            phrases.RC_UseObjectToSetViewingDistanceLowerRightPage4?.[RC.L] ||
+            phrases.RC_UseObjectToSetViewingDistanceCenterPage4?.[RC.L] ||
             '',
         )
       }
