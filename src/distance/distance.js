@@ -6361,8 +6361,8 @@ export async function objectTest(RC, options, callback = undefined) {
         // Prefer the generic stepper Page 4 text (so instructions don't hardcode a screen corner),
         // but fall back to the legacy "LowerRight" key for backward compatibility.
         const p4Text =
-          (phrases.RC_UseObjectToSetViewingDistanceCenterPage4?.[RC.L] ||
-            '') + ''
+          (phrases.RC_UseObjectToSetViewingDistanceCenterPage4?.[RC.L] || '') +
+          ''
         stepInstructionModel = parseInstructions(p4Text, {
           assetMap: test_assetMap,
         })

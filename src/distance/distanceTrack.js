@@ -22,6 +22,7 @@ import {
   emptyFunc,
   randn_bm,
   replaceNewlinesWithBreaks,
+  getCameraResolutionXY,
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n/schema'
@@ -576,9 +577,10 @@ const drawIrisAndPupil = () => {
 
   const rect = videoEl.getBoundingClientRect()
 
-  // Source coordinate space (facemesh/video canvas)
-  const srcW = video.width
-  const srcH = video.height
+  // Source coordinate space - use LIVE camera resolution, not stale canvas dimensions
+  const cameraRes = getCameraResolutionXY(RC_instance)
+  const srcW = cameraRes[0] || video.width
+  const srcH = cameraRes[1] || video.height
 
   // Account for CSS object-fit by computing scale and crop/letterbox offsets
   const containerW = rect.width
@@ -752,6 +754,7 @@ const startIrisDrawing = RC => {
             eyeToPointCm,
             eyeToFootCm,
             currentIPDDistance,
+            getCameraResolutionXY(RC),
           )
         }
       }
@@ -1040,14 +1043,18 @@ export const calculateFootXYPx = (
   pxPerCm,
   currentIPDDistance,
 ) => {
-  const centerXYVpx = getCenterXYVpx(video)
+  // Use LIVE camera resolution instead of stale canvas dimensions
+  const cameraRes = getCameraResolutionXY(RC)
+  const camWidth = cameraRes[0] || video.width
+  const camHeight = cameraRes[1] || video.height
+  const centerXYVpx = [camWidth / 2, camHeight / 2]
 
   // Mirror correction: Video is horizontally flipped, so flip X coordinates to match screen
   //left eye: 468
   //right eye: 473
-  const leftEyeX = video.width - leftEye.x // Flip X coordinate
+  const leftEyeX = camWidth - leftEye.x // Flip X coordinate
   const leftEyeY = leftEye.y // Y coordinate unchanged
-  const rightEyeX = video.width - rightEye.x // Flip X coordinate
+  const rightEyeX = camWidth - rightEye.x // Flip X coordinate
   const rightEyeY = rightEye.y // Y coordinate unchanged
 
   const ipdVpx = eyeDist(leftEye, rightEye)
@@ -1504,6 +1511,11 @@ const renderDistanceResult = async (
           nearestXYPx,
           distanceCm_left,
           distanceCm_right,
+          null, // pointXYPx
+          null, // eyeToPointCm
+          null, // eyeToFootCm
+          null, // ipdVpx
+          getCameraResolutionXY(RC),
         )
 
       if (readyToGetFirstData || desiredDistanceMonitor) {
@@ -1634,6 +1646,7 @@ const _drawNearestPoints = (
   eyeToPointCm = null,
   eyeToFootCm = null,
   ipdVpx = null,
+  cameraResolutionXY = null,
 ) => {
   // Get video container and its bounding rect once for reuse
   const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -1838,7 +1851,7 @@ const _drawNearestPoints = (
     )
 
     // Update content and position
-    webcamDistanceLabel.textContent = `${nearestEyeToWebcamDistanceCM.toFixed(decimalPlace || 1)} cm`
+    webcamDistanceLabel.textContent = `eyeToCameraCm: ${nearestEyeToWebcamDistanceCM.toFixed(decimalPlace || 1)} cm`
 
     // Calculate position: top center, offset right to avoid video
     let labelLeft = window.innerWidth / 2
@@ -2293,46 +2306,48 @@ const _drawNearestPoints = (
   }
 
   // Add cameraResolutionXY label below eyeToFootCm
-  // Get camera resolution from the video container
-  const webgazerVideoCanvas = document.getElementById('webgazerVideoCanvas')
-  if (webgazerVideoCanvas) {
-    const camWidth = webgazerVideoCanvas.width || 0
-    const camHeight = webgazerVideoCanvas.height || 0
-    if (camWidth && camHeight) {
-      cameraResolutionXYLabel = createOrUpdateElement(
-        cameraResolutionXYLabel,
-        'rc-camera-resolution-xy-label',
-        {
-          position: 'fixed',
-          fontSize: '16px',
-          color: '#333',
-          background: 'rgba(255, 255, 255, 0.9)',
-          padding: '4px 8px',
-          borderRadius: '6px',
-          border: '1px solid #ddd',
-          zIndex: '2147483646',
-          pointerEvents: 'none',
-          fontFamily: 'Arial, sans-serif',
-          fontWeight: 'normal',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        },
-      )
+  // Use the fresh camera resolution passed as parameter
+  if (
+    cameraResolutionXY !== null &&
+    Array.isArray(cameraResolutionXY) &&
+    cameraResolutionXY[0] &&
+    cameraResolutionXY[1]
+  ) {
+    const camWidth = cameraResolutionXY[0]
+    const camHeight = cameraResolutionXY[1]
+    cameraResolutionXYLabel = createOrUpdateElement(
+      cameraResolutionXYLabel,
+      'rc-camera-resolution-xy-label',
+      {
+        position: 'fixed',
+        fontSize: '16px',
+        color: '#333',
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        zIndex: '2147483646',
+        pointerEvents: 'none',
+        fontFamily: 'Arial, sans-serif',
+        fontWeight: 'normal',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      },
+    )
 
-      cameraResolutionXYLabel.textContent = `cameraResolutionXY: ${camWidth}x${camHeight}`
+    cameraResolutionXYLabel.textContent = `cameraResolutionXYVpx: [${camWidth}, ${camHeight}]`
 
-      let labelLeft = window.innerWidth / 2
-      const labelTop = 290
-      if (videoRect) {
-        const labelWidth = 80
-        labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-        if (labelLeft + labelWidth > window.innerWidth) {
-          labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-        }
+    let labelLeft = window.innerWidth / 2
+    const labelTop = 290
+    if (videoRect) {
+      const labelWidth = 80
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
       }
-      labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-      cameraResolutionXYLabel.style.left = `${labelLeft}px`
-      cameraResolutionXYLabel.style.top = `${labelTop}px`
     }
+    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+    cameraResolutionXYLabel.style.left = `${labelLeft}px`
+    cameraResolutionXYLabel.style.top = `${labelTop}px`
   }
 }
 
@@ -2663,6 +2678,10 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     if (eyeToFootCmLabel) {
       document.body.removeChild(eyeToFootCmLabel)
       eyeToFootCmLabel = null
+    }
+    if (cameraResolutionXYLabel) {
+      document.body.removeChild(cameraResolutionXYLabel)
+      cameraResolutionXYLabel = null
     }
 
     if (eyePointDots && eyePointDots.left) {

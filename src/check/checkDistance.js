@@ -2102,7 +2102,7 @@ const trackDistanceCheck = async (
           const stepModel = parseInstructions(chosenStepText, {
             assetMap: test_assetMap,
           })
-          
+
           // Debug: Log the parsed model structure to find duplicate videos
           console.log('🎬 stepModel structure:', {
             sectionsCount: stepModel.sections?.length,
@@ -2119,7 +2119,7 @@ const trackDistanceCheck = async (
               })),
             })),
           })
-          
+
           let stepIndex = 0
           const maxIdx = (stepModel.flatSteps?.length || 1) - 1
 
@@ -2160,7 +2160,7 @@ const trackDistanceCheck = async (
               langDirection: RC.LD,
               phrases: phrases,
             })
-            
+
             // Debug: Check DOM for all video/img elements after render
             const allVideos = instructionBody.querySelectorAll('video')
             const allImages = instructionBody.querySelectorAll('img')
@@ -2168,8 +2168,12 @@ const trackDistanceCheck = async (
               stepIndex,
               videosCount: allVideos.length,
               imagesCount: allImages.length,
-              videoSrcs: Array.from(allVideos).map(v => v.src?.substring(0, 80)),
-              imageSrcs: Array.from(allImages).map(i => i.src?.substring(0, 80)),
+              videoSrcs: Array.from(allVideos).map(v =>
+                v.src?.substring(0, 80),
+              ),
+              imageSrcs: Array.from(allImages).map(i =>
+                i.src?.substring(0, 80),
+              ),
               mediaContainerChildren: ui.mediaContainer.children.length,
               leftTextChildren: ui.leftText.children.length,
             })

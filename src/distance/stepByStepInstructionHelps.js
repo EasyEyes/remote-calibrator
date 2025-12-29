@@ -446,14 +446,14 @@ export function renderStepInstructions({
     div.style.whiteSpace = 'pre-wrap'
     div.style.wordBreak = 'break-word'
     div.style.overflowWrap = 'anywhere'
-    
+
     // Sanitize text: remove any stray <img> and <video> HTML elements
     // that might cause duplicate media display
     const sanitizedText = text
       .replace(/<video[^>]*>[\s\S]*?<\/video>/gi, '')
       .replace(/<video[^>]*\/?>/gi, '')
       .replace(/<img[^>]*\/?>/gi, '')
-    
+
     if (type === 'title') {
       div.style.marginTop = '0.75rem'
       div.style.fontWeight = '600'
