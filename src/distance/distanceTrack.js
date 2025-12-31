@@ -334,9 +334,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
       )
     }
     // Start iris drawing with mesh data before calibration tests
+    // Skip for justCreditCard and autoCreditCard modes
     if (
       options.showIrisesBool &&
-      options.useObjectTestData !== 'justCreditCard'
+      options.useObjectTestData !== 'justCreditCard' &&
+      options.useObjectTestData !== 'autoCreditCard'
     ) {
       console.log('=== Starting iris drawing before calibration tests ===')
       await startIrisDrawingWithMesh(this)
@@ -365,6 +367,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       // Call knownDistanceTest directly for calibration
 
       await knownDistanceTest(this, options, getStdDist)
+    } else if (options.useObjectTestData === 'autoCreditCard') {
+      await justCreditCard(this, options, getStdDist)
     } else if (options.useObjectTestData === 'justCreditCard') {
       await justCreditCard(this, options, getStdDist)
     } else if (options.useObjectTestData) {
@@ -720,7 +724,10 @@ const startIrisDrawing = RC => {
           const eyeToCameraCm = Math.hypot(eyeToScreenCm, footToCameraCm)
 
           let factorVpxCm = currentIPDDistance * eyeToScreenCm
-          if (trackingOptions.useObjectTestData === 'justCreditCard') {
+          if (
+            trackingOptions.useObjectTestData === 'justCreditCard' ||
+            trackingOptions.useObjectTestData === 'autoCreditCard'
+          ) {
             try {
               factorVpxCm = RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM
             } catch (error) {
@@ -1218,7 +1225,10 @@ export const calculateNearestPoints = (
   )
 
   let calibrationFactor = Math.round(eyeToScreenCm * ipdVpx)
-  if (trackingOptions.useObjectTestData === 'justCreditCard') {
+  if (
+    trackingOptions.useObjectTestData === 'justCreditCard' ||
+    trackingOptions.useObjectTestData === 'autoCreditCard'
+  ) {
     try {
       calibrationFactor = Math.round(
         RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM,
@@ -1364,7 +1374,10 @@ const renderDistanceResult = async (
       if (!stdFactor) {
         // ! First time estimate
         // ALWAYS use the pre-calculated calibration factor from measurement tests
-        if (trackingOptions.useObjectTestData === 'justCreditCard') {
+        if (
+          trackingOptions.useObjectTestData === 'justCreditCard' ||
+          trackingOptions.useObjectTestData === 'autoCreditCard'
+        ) {
           try {
             stdFactor = RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM
           } catch (error) {

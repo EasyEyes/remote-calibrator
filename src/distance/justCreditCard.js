@@ -62,31 +62,38 @@ function captureVideoFrameData() {
 
 /**
  * Calculate dynamic minimum edge length based on Y position
- * 
+ *
  * Geometry: Card pivots on blue line at bottom, tilted upward
  * - Lower Y (higher on screen) = more tilt = longer visible edge
  * - Higher Y (lower on screen) = less tilt = shorter visible edge
- * 
+ *
  * Formula: minLengthFraction = 0.50 - 0.35 * normalized_Y
  * - At top of search region (normalized_Y = 0): 50% of width
- * - At center of search region (normalized_Y = 0.5): ~33% of width  
+ * - At center of search region (normalized_Y = 0.5): ~33% of width
  * - At bottom of search region (normalized_Y = 1): 15% of width
  */
-function calculateDynamicMinLength(edgeY, width, height, regionTop, regionBottom) {
+function calculateDynamicMinLength(
+  edgeY,
+  width,
+  height,
+  regionTop,
+  regionBottom,
+) {
   if (edgeY === undefined || edgeY === null) {
     // Fallback if no Y detected yet
     return width * 0.25
   }
-  
+
   // Normalize Y within the search region (0 = top, 1 = bottom)
-  const normalizedY = Math.max(0, Math.min(1, 
-    (edgeY - regionTop) / (regionBottom - regionTop)
-  ))
-  
+  const normalizedY = Math.max(
+    0,
+    Math.min(1, (edgeY - regionTop) / (regionBottom - regionTop)),
+  )
+
   // Linear interpolation: more tilt (lower Y) = higher minimum
   // At top (normalizedY=0): 50%, at bottom (normalizedY=1): 15%
-  const minFraction = 0.50 - 0.35 * normalizedY
-  
+  const minFraction = 0.5 - 0.35 * normalizedY
+
   return width * minFraction
 }
 
@@ -179,7 +186,12 @@ function sobelGradients(gray, width, height) {
  * Find the strongest horizontal edge in a region of interest
  * Returns the Y position and endpoints of the detected edge
  */
-function detectHorizontalEdge(frameData, regionTop, regionBottom, minEdgeLength) {
+function detectHorizontalEdge(
+  frameData,
+  regionTop,
+  regionBottom,
+  minEdgeLength,
+) {
   const { imageData, width, height } = frameData
 
   // Clamp region to valid bounds
@@ -268,7 +280,10 @@ function detectHorizontalEdge(frameData, regionTop, regionBottom, minEdgeLength)
   // Extend left
   for (let x = best.startX - 1; x >= 0; x--) {
     const idx = y * width + x
-    if (magnitude[idx] > edgeThreshold * 0.7 && Math.abs(gradY[idx]) > magnitude[idx] * 0.4) {
+    if (
+      magnitude[idx] > edgeThreshold * 0.7 &&
+      Math.abs(gradY[idx]) > magnitude[idx] * 0.4
+    ) {
       leftX = x
     } else {
       break
@@ -278,7 +293,10 @@ function detectHorizontalEdge(frameData, regionTop, regionBottom, minEdgeLength)
   // Extend right
   for (let x = best.endX; x < width; x++) {
     const idx = y * width + x
-    if (magnitude[idx] > edgeThreshold * 0.7 && Math.abs(gradY[idx]) > magnitude[idx] * 0.4) {
+    if (
+      magnitude[idx] > edgeThreshold * 0.7 &&
+      Math.abs(gradY[idx]) > magnitude[idx] * 0.4
+    ) {
       rightX = x
     } else {
       break
@@ -303,7 +321,12 @@ function detectHorizontalEdge(frameData, regionTop, regionBottom, minEdgeLength)
  * Groups nearby edge pixels and finds the most prominent horizontal cluster
  * Uses weighted averaging and gradient interpolation for precision
  */
-function detectCardEdgeWithClustering(frameData, regionTop, regionBottom, expectedWidth) {
+function detectCardEdgeWithClustering(
+  frameData,
+  regionTop,
+  regionBottom,
+  expectedWidth,
+) {
   const { imageData, width, height } = frameData
 
   const yStart = Math.max(2, Math.floor(regionTop))
@@ -334,7 +357,7 @@ function detectCardEdgeWithClustering(frameData, regionTop, regionBottom, expect
         const idxBelow = (y + 1) * width + x
         const magAbove = Math.abs(gradY[idxAbove])
         const magBelow = Math.abs(gradY[idxBelow])
-        
+
         if (absGy >= magAbove && absGy >= magBelow) {
           // Sub-pixel Y refinement using parabolic interpolation
           let subPixelY = y
@@ -348,19 +371,19 @@ function detectCardEdgeWithClustering(frameData, regionTop, regionBottom, expect
               }
             }
           }
-          
-          edgePixels.push({ 
-            x, 
-            y: subPixelY, 
+
+          edgePixels.push({
+            x,
+            y: subPixelY,
             strength: absGy,
-            direction: Math.sign(gy) // positive = bright above, dark below
+            direction: Math.sign(gy), // positive = bright above, dark below
           })
         }
       }
     }
   }
 
-  if (edgePixels.length < 5) return null  // Reduced for better detection
+  if (edgePixels.length < 5) return null // Reduced for better detection
 
   // Cluster edge pixels by Y coordinate with finer bins
   const yBins = {}
@@ -390,30 +413,37 @@ function detectCardEdgeWithClustering(frameData, regionTop, regionBottom, expect
     let bestRun = null
 
     for (let i = 1; i <= pixels.length; i++) {
-      const shouldBreak = i === pixels.length || 
+      const shouldBreak =
+        i === pixels.length ||
         pixels[i].x - pixels[i - 1].x > 20 ||
         pixels[i].direction !== pixels[runStart].direction
 
       if (shouldBreak) {
         const runEnd = i - 1
         const runLength = pixels[runEnd].x - pixels[runStart].x
-        
+
         // Calculate run score: length * consistency * total strength
         const runPixels = pixels.slice(runStart, i)
         const totalStrength = runPixels.reduce((sum, p) => sum + p.strength, 0)
         const avgStrength = totalStrength / runPixels.length
-        const score = runLength * avgStrength / 100
+        const score = (runLength * avgStrength) / 100
 
         // Dynamic minimum based on Y position (more tilt = higher up = longer edge)
         const binYCenter = parseInt(binY) + binSize / 2
-        const minRunLength = calculateDynamicMinLength(binYCenter, width, height, yStart, yEnd)
-        
+        const minRunLength = calculateDynamicMinLength(
+          binYCenter,
+          width,
+          height,
+          yStart,
+          yEnd,
+        )
+
         // Check if edge center is close to video center (blue line is centered)
         const edgeCenter = (pixels[runStart].x + pixels[runEnd].x) / 2
         const videoCenter = width / 2
         const centerTolerance = width * 0.15 // Allow 15% deviation from center
         const isCentered = Math.abs(edgeCenter - videoCenter) <= centerTolerance
-        
+
         if (score > maxScore && runLength >= minRunLength && isCentered) {
           maxScore = score
           bestRun = {
@@ -424,7 +454,7 @@ function detectCardEdgeWithClustering(frameData, regionTop, regionBottom, expect
             direction: pixels[runStart].direction,
           }
         }
-        
+
         if (i < pixels.length) {
           runStart = i
         }
@@ -447,13 +477,13 @@ function detectCardEdgeWithClustering(frameData, regionTop, regionBottom, expect
   if (runPixels.length > 0) {
     let weightedY = 0
     let totalWeight = 0
-    
+
     for (const p of runPixels) {
       const weight = p.strength * p.strength // Square weight emphasizes strong edges
       weightedY += p.y * weight
       totalWeight += weight
     }
-    
+
     if (totalWeight > 0) {
       bestBin.y = weightedY / totalWeight
     }
@@ -462,22 +492,32 @@ function detectCardEdgeWithClustering(frameData, regionTop, regionBottom, expect
   // Refine edge extent using color consistency (much more accurate)
   // This looks at the actual card color and finds where it ends
   const refinedExtent = refineEdgeExtentByColor(
-    imageData, width, height,
-    bestBin.y, bestBin.leftX, bestBin.rightX
+    imageData,
+    width,
+    height,
+    bestBin.y,
+    bestBin.leftX,
+    bestBin.rightX,
   )
-  
+
   if (refinedExtent) {
     const refinedLength = refinedExtent.rightX - refinedExtent.leftX
-    
+
     // Re-check minimum length constraint after refinement
-    const minLength = calculateDynamicMinLength(bestBin.y, width, height, yStart, yEnd)
-    
+    const minLength = calculateDynamicMinLength(
+      bestBin.y,
+      width,
+      height,
+      yStart,
+      yEnd,
+    )
+
     // Re-check centering constraint after refinement
     const refinedCenter = (refinedExtent.leftX + refinedExtent.rightX) / 2
     const videoCenter = width / 2
     const centerTolerance = width * 0.15
     const isCentered = Math.abs(refinedCenter - videoCenter) <= centerTolerance
-    
+
     // Only use refined extent if it still meets BOTH constraints
     // Otherwise keep the original extent from edge detection
     if (refinedLength >= minLength && isCentered) {
@@ -491,14 +531,21 @@ function detectCardEdgeWithClustering(frameData, regionTop, regionBottom, expect
   // FINAL CONSTRAINT CHECK before returning
   // Ensure the result meets ALL constraints
   const finalLength = bestBin.rightX - bestBin.leftX
-  const finalMinLength = calculateDynamicMinLength(bestBin.y, width, height, yStart, yEnd)
+  const finalMinLength = calculateDynamicMinLength(
+    bestBin.y,
+    width,
+    height,
+    yStart,
+    yEnd,
+  )
   const finalCenter = (bestBin.leftX + bestBin.rightX) / 2
   const finalVideoCenter = width / 2
   const finalCenterTolerance = width * 0.15
-  const finalIsCentered = Math.abs(finalCenter - finalVideoCenter) <= finalCenterTolerance
-  
+  const finalIsCentered =
+    Math.abs(finalCenter - finalVideoCenter) <= finalCenterTolerance
+
   if (finalLength < finalMinLength || !finalIsCentered) {
-    return null  // Reject if constraints not met
+    return null // Reject if constraints not met
   }
 
   return bestBin
@@ -509,14 +556,21 @@ function detectCardEdgeWithClustering(frameData, regionTop, regionBottom, expect
  * The card has two tilted side edges going from the short edge to the blue line
  * We detect these diagonal edges and extrapolate to find the corners
  */
-function refineEdgeExtentByColor(imageData, width, height, edgeY, initialLeftX, initialRightX) {
+function refineEdgeExtentByColor(
+  imageData,
+  width,
+  height,
+  edgeY,
+  initialLeftX,
+  initialRightX,
+) {
   const data = imageData.data
   const y = Math.round(edgeY)
-  
+
   if (y < 5 || y >= height - 10) return null
-  
+
   const centerX = Math.floor((initialLeftX + initialRightX) / 2)
-  
+
   // Sample multiple rows below the horizontal edge to trace the side edges
   const sampleRows = []
   for (let dy = 5; dy <= 60; dy += 5) {
@@ -525,16 +579,16 @@ function refineEdgeExtentByColor(imageData, width, height, edgeY, initialLeftX, 
     }
   }
   if (sampleRows.length < 3) return null
-  
+
   // For each sample row, find the left and right side edges using gradient
   const leftEdgePoints = []
   const rightEdgePoints = []
-  
+
   for (const sy of sampleRows) {
     // Find left side edge: scan from center toward left, find strongest gradient
     let bestLeftX = null
     let bestLeftStrength = 0
-    
+
     for (let x = centerX - 10; x > 20; x--) {
       const strength = getHorizontalGradientStrength(data, width, x, sy)
       if (strength > 25 && strength > bestLeftStrength) {
@@ -544,15 +598,15 @@ function refineEdgeExtentByColor(imageData, width, height, edgeY, initialLeftX, 
       // Stop if we've gone 40px past the best find
       if (bestLeftX !== null && x < bestLeftX - 40) break
     }
-    
+
     if (bestLeftX !== null && bestLeftStrength > 30) {
       leftEdgePoints.push({ x: bestLeftX, y: sy })
     }
-    
+
     // Find right side edge: scan from center toward right
     let bestRightX = null
     let bestRightStrength = 0
-    
+
     for (let x = centerX + 10; x < width - 20; x++) {
       const strength = getHorizontalGradientStrength(data, width, x, sy)
       if (strength > 25 && strength > bestRightStrength) {
@@ -561,35 +615,35 @@ function refineEdgeExtentByColor(imageData, width, height, edgeY, initialLeftX, 
       }
       if (bestRightX !== null && x > bestRightX + 40) break
     }
-    
+
     if (bestRightX !== null && bestRightStrength > 30) {
       rightEdgePoints.push({ x: bestRightX, y: sy })
     }
   }
-  
+
   // Need at least 3 points to reliably estimate the side edge line
   let leftX = initialLeftX
   let rightX = initialRightX
-  
+
   if (leftEdgePoints.length >= 3) {
     const extrapolatedLeft = extrapolateSideEdgeToY(leftEdgePoints, y)
     if (extrapolatedLeft !== null) {
       leftX = extrapolatedLeft
     }
   }
-  
+
   if (rightEdgePoints.length >= 3) {
     const extrapolatedRight = extrapolateSideEdgeToY(rightEdgePoints, y)
     if (extrapolatedRight !== null) {
       rightX = extrapolatedRight
     }
   }
-  
+
   // Ensure result makes sense
   if (rightX <= leftX + 20) {
     return { leftX: initialLeftX, rightX: initialRightX }
   }
-  
+
   return { leftX, rightX }
 }
 
@@ -598,7 +652,7 @@ function refineEdgeExtentByColor(imageData, width, height, edgeY, initialLeftX, 
  */
 function getHorizontalGradientStrength(data, width, x, y) {
   if (x < 3 || x >= width - 3) return 0
-  
+
   // Use a small vertical window for robustness
   let totalGrad = 0
   for (let dy = -1; dy <= 1; dy++) {
@@ -606,12 +660,12 @@ function getHorizontalGradientStrength(data, width, x, y) {
     const idx = (yy * width + x) * 4
     const idxLeft = (yy * width + x - 2) * 4
     const idxRight = (yy * width + x + 2) * 4
-    
+
     totalGrad += Math.abs(data[idxRight] - data[idxLeft])
     totalGrad += Math.abs(data[idxRight + 1] - data[idxLeft + 1])
     totalGrad += Math.abs(data[idxRight + 2] - data[idxLeft + 2])
   }
-  
+
   return totalGrad / 3
 }
 
@@ -621,23 +675,26 @@ function getHorizontalGradientStrength(data, width, x, y) {
  */
 function extrapolateSideEdgeToY(points, targetY) {
   if (points.length < 2) return null
-  
+
   const n = points.length
-  let sumY = 0, sumX = 0, sumYY = 0, sumXY = 0
-  
+  let sumY = 0,
+    sumX = 0,
+    sumYY = 0,
+    sumXY = 0
+
   for (const p of points) {
     sumY += p.y
     sumX += p.x
     sumYY += p.y * p.y
     sumXY += p.x * p.y
   }
-  
+
   const denom = n * sumYY - sumY * sumY
   if (Math.abs(denom) < 0.001) return null
-  
+
   const slope = (n * sumXY - sumX * sumY) / denom
   const intercept = (sumX * sumYY - sumY * sumXY) / denom
-  
+
   // Extrapolate to target Y
   return slope * targetY + intercept
 }
@@ -646,8 +703,11 @@ function extrapolateSideEdgeToY(points, targetY) {
  * Get average color of a region
  */
 function getAverageColor(data, width, x1, x2, y1, y2) {
-  let r = 0, g = 0, b = 0, count = 0
-  
+  let r = 0,
+    g = 0,
+    b = 0,
+    count = 0
+
   for (let y = Math.max(0, y1); y <= y2; y++) {
     for (let x = Math.max(0, x1); x <= x2 && x < width; x++) {
       const idx = (y * width + x) * 4
@@ -657,7 +717,7 @@ function getAverageColor(data, width, x1, x2, y1, y2) {
       count++
     }
   }
-  
+
   if (count === 0) return { r: 128, g: 128, b: 128 }
   return { r: r / count, g: g / count, b: b / count }
 }
@@ -687,7 +747,12 @@ function colorDistance(c1, c2) {
  * Credit cards have uniform color, so we look for the transition from
  * uniform card color to non-uniform background
  */
-function detectCardEdgeByColorUniformity(frameData, regionTop, regionBottom, expectedWidth) {
+function detectCardEdgeByColorUniformity(
+  frameData,
+  regionTop,
+  regionBottom,
+  expectedWidth,
+) {
   const { imageData, width, height } = frameData
   const data = imageData.data
 
@@ -845,7 +910,12 @@ function calculateRowEdgeStrength(data, width, y) {
 /**
  * Combined detection using multiple methods for robustness
  */
-function detectCardEdgeCombined(frameData, regionTop, regionBottom, expectedWidth) {
+function detectCardEdgeCombined(
+  frameData,
+  regionTop,
+  regionBottom,
+  expectedWidth,
+) {
   // Try the clustering method first (works well for clear edges)
   const clustering = detectCardEdgeWithClustering(
     frameData,
@@ -908,7 +978,7 @@ class CardEdgeAutoDetector {
     this.enabled = false
     this.onUpdate = null // Callback when green line is updated
     this.onConfidenceChange = null
-    
+
     // Temporal smoothing buffer (reduced for faster response)
     this.recentDetections = []
     this.smoothingWindow = 3 // Average last 3 valid detections for faster tracking
@@ -923,11 +993,11 @@ class CardEdgeAutoDetector {
     this.running = true
     this.enabled = true
     this.recentDetections = []
-    
+
     if (this.onConfidenceChange) {
       this.onConfidenceChange('searching')
     }
-    
+
     this.detect()
   }
 
@@ -951,11 +1021,14 @@ class CardEdgeAutoDetector {
       }
 
       const { width, height } = frameData
-      const expectedRect = this.getExpectedVideoRect(this.RC, this.videoTopOffsetPx)
+      const expectedRect = this.getExpectedVideoRect(
+        this.RC,
+        this.videoTopOffsetPx,
+      )
 
       // Search region
       const regionTop = height * 0.05
-      const regionBottom = height * 0.70
+      const regionBottom = height * 0.7
       const expectedWidth = width * 0.25
 
       // Run detection
@@ -967,14 +1040,24 @@ class CardEdgeAutoDetector {
       )
 
       // Dynamic minimum length based on Y position
-      const minLength = calculateDynamicMinLength(detection?.y, width, height, regionTop, regionBottom)
-      
+      const minLength = calculateDynamicMinLength(
+        detection?.y,
+        width,
+        height,
+        regionTop,
+        regionBottom,
+      )
+
       // Check if edge center is close to video center
-      const edgeCenter = detection ? (detection.leftX + detection.rightX) / 2 : 0
+      const edgeCenter = detection
+        ? (detection.leftX + detection.rightX) / 2
+        : 0
       const videoCenter = width / 2
       const centerTolerance = width * 0.15
-      const isCentered = detection ? Math.abs(edgeCenter - videoCenter) <= centerTolerance : false
-      
+      const isCentered = detection
+        ? Math.abs(edgeCenter - videoCenter) <= centerTolerance
+        : false
+
       // Valid detection passes all constraints
       if (detection && detection.length >= minLength && isCentered) {
         // Add to smoothing buffer
@@ -986,20 +1069,24 @@ class CardEdgeAutoDetector {
           frameData: frameData,
           expectedRect: expectedRect,
         })
-        
+
         // Keep only recent detections
         if (this.recentDetections.length > this.smoothingWindow) {
           this.recentDetections.shift()
         }
-        
+
         // Update green line with smoothed result (show immediately with 1 detection)
         if (this.recentDetections.length >= 1) {
           const smoothed = this.getSmoothedDetection()
           this.updateGreenLine(smoothed, frameData, expectedRect)
-          
+
           // Update confidence
-          const confidence = detection.length > width * 0.35 ? 'high' : 
-                            detection.length > width * 0.25 ? 'medium' : 'low'
+          const confidence =
+            detection.length > width * 0.35
+              ? 'high'
+              : detection.length > width * 0.25
+                ? 'medium'
+                : 'low'
           if (confidence !== this.lastConfidence) {
             this.lastConfidence = confidence
             if (this.onConfidenceChange) {
@@ -1029,13 +1116,16 @@ class CardEdgeAutoDetector {
     // Use median for robustness
     const ys = this.recentDetections.map(d => d.y).sort((a, b) => a - b)
     const leftXs = this.recentDetections.map(d => d.leftX).sort((a, b) => a - b)
-    const rightXs = this.recentDetections.map(d => d.rightX).sort((a, b) => a - b)
+    const rightXs = this.recentDetections
+      .map(d => d.rightX)
+      .sort((a, b) => a - b)
 
     const mid = Math.floor(n / 2)
     return {
       y: n % 2 === 0 ? (ys[mid - 1] + ys[mid]) / 2 : ys[mid],
       leftX: n % 2 === 0 ? (leftXs[mid - 1] + leftXs[mid]) / 2 : leftXs[mid],
-      rightX: n % 2 === 0 ? (rightXs[mid - 1] + rightXs[mid]) / 2 : rightXs[mid],
+      rightX:
+        n % 2 === 0 ? (rightXs[mid - 1] + rightXs[mid]) / 2 : rightXs[mid],
     }
   }
 
@@ -1049,8 +1139,10 @@ class CardEdgeAutoDetector {
     const scaleY = expectedRect.height / videoHeight
 
     // Note: The video is mirrored, so we flip X coordinates
-    const screenLeftX = expectedRect.left + (videoWidth - detection.rightX) * scaleX
-    const screenRightX = expectedRect.left + (videoWidth - detection.leftX) * scaleX
+    const screenLeftX =
+      expectedRect.left + (videoWidth - detection.rightX) * scaleX
+    const screenRightX =
+      expectedRect.left + (videoWidth - detection.leftX) * scaleX
     const screenY = expectedRect.top + detection.y * scaleY
 
     // Update state
@@ -1803,10 +1895,10 @@ export async function justCreditCard(RC, options, callback = undefined) {
   }
   document.addEventListener('keydown', handleEdgeKey)
 
-  // === AUTO-DETECT BUTTON (only shown when showNearestPointsBool is enabled) ===
-  const showAutoDetect = options.showNearestPointsBool === true
+  // === AUTO-DETECT BUTTON (only shown when useObjectTestData is 'autoCreditCard') ===
+  const showAutoDetect = options.useObjectTestData === 'autoCreditCard'
   let autoDetectBtn = null
-  
+
   if (showAutoDetect) {
     autoDetectBtn = document.createElement('button')
     autoDetectBtn.id = 'auto-detect-toggle'
@@ -1880,7 +1972,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
       RC,
     )
     autoDetector.onUpdate = onAutoDetectUpdate
-    
+
     // Handle confidence updates during live detection
     autoDetector.onConfidenceChange = confidence => {
       if (!autoDetectEnabled || !autoDetectBtn) return
@@ -1888,7 +1980,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
         case 'searching':
           autoDetectBtn.style.backgroundColor = 'rgba(33, 150, 243, 0.9)'
           autoDetectBtn.textContent = '🔍 Searching...'
-          autoDetectBtn.style.animation = 'jc-line-flicker 1s ease-in-out infinite'
+          autoDetectBtn.style.animation =
+            'jc-line-flicker 1s ease-in-out infinite'
           break
         case 'high':
           autoDetectBtn.style.backgroundColor = 'rgba(76, 175, 80, 0.9)'
@@ -1913,15 +2006,16 @@ export async function justCreditCard(RC, options, callback = undefined) {
   function toggleAutoDetect() {
     if (!showAutoDetect) return
     initAutoDetector()
-    
+
     autoDetectEnabled = autoDetector.toggle()
-    
+
     if (autoDetectBtn) {
       if (autoDetectEnabled) {
         autoDetectBtn.style.backgroundColor = 'rgba(33, 150, 243, 0.9)'
         autoDetectBtn.style.borderColor = 'rgba(255, 255, 255, 0.5)'
         autoDetectBtn.textContent = '🔍 Searching...'
-        autoDetectBtn.style.animation = 'jc-line-flicker 1s ease-in-out infinite'
+        autoDetectBtn.style.animation =
+          'jc-line-flicker 1s ease-in-out infinite'
       } else {
         autoDetectBtn.style.backgroundColor = 'rgba(0, 100, 200, 0.7)'
         autoDetectBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)'
@@ -2169,10 +2263,10 @@ export async function justCreditCard(RC, options, callback = undefined) {
   function renderPage() {
     // If UI not initialized yet, skip; will be called again after creation
     if (!leftInstructionsText || !mediaContainer) return
-    
+
     // Reset auto-detector on every page render (fresh start for each attempt)
     resetAutoDetector()
-    
+
     ensureFullscreenGuard()
     updateTitle()
     const isRepeat = currentPage === 4

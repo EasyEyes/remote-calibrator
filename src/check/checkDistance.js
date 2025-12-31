@@ -732,7 +732,10 @@ const captureIPDFromFaceMesh = async (
       ipdCm = ipdPixels / VpxPerCm
     }
     let webcamToEyeDistance = stdDist.current.calibrationFactor / ipdPixels
-    if (RC.useObjectTestData === 'justCreditCard') {
+    if (
+      RC.useObjectTestData === 'justCreditCard' ||
+      RC.useObjectTestData === 'autoCreditCard'
+    ) {
       try {
         webcamToEyeDistance =
           (RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM) / ipdPixels
@@ -1917,7 +1920,8 @@ const trackDistanceCheck = async (
       centerXYPx: [window.innerWidth / 2, window.innerHeight / 2],
       pxPerCm: Math.round(pxPerCm * 10) / 10,
       factorVpxCm:
-        RC.useObjectTestData === 'justCreditCard'
+        RC.useObjectTestData === 'justCreditCard' ||
+        RC.useObjectTestData === 'autoCreditCard'
           ? Math.round(
               Number(RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM) * 10,
             ) / 10
