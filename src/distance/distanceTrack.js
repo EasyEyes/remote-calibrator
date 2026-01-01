@@ -1212,7 +1212,7 @@ export const calculateNearestPoints = (
       throw new Error(e)
     }
   } else {
-    eyeToScreenCm = webcamToEyeDistance // calibration factor / ipdVpx gives parallel-to-axis distance
+    eyeToScreenCm = webcamToEyeDistance // = fVpx * ipdCm / ipdVpx
     eyeToCameraCm = Math.hypot(eyeToScreenCm, footToCameraCm)
     eyeToFootCm = eyeToScreenCm
   }
@@ -1302,10 +1302,9 @@ export const calculateNearestPoints = (
   )
 
   const nearestEyeToWebcamDistanceCM =
-    method === 'blindspot' ? eyeToCameraCm : webcamToEyeDistance
+    method === 'blindspot' ? eyeToCameraCm : eyeToPointCm
 
-  const distanceCm =
-    method === 'blindspot' ? eyeToCameraCm : webcamToEyeDistance
+  const distanceCm = method === 'blindspot' ? eyeToCameraCm : eyeToPointCm
 
   return {
     nearestXYPx_left,
