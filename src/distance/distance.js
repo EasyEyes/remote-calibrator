@@ -7881,9 +7881,58 @@ export async function objectTest(RC, options, callback = undefined) {
                 ? validPage4Samples.reduce((a, b) => a + b, 0) /
                   validPage4Samples.length
                 : 0
-
+              
               // Calculate separate calibration factors for page3 and page4
-              const page3FactorCmPx = page3Average * firstMeasurement
+              //TODO: clean up later
+              let page3FactorCmPx = page3Average * firstMeasurement // Default calculation
+
+              // Calculate page3FactorCmPx using new geometry (camera position)
+              try {
+                if (meshSamplesDuringPage3.length) {
+                  const mesh = await getMeshData(
+                    RC,
+                    options.calibrateDistancePupil,
+                    meshSamplesDuringPage3,
+                  )
+                  if (mesh) {
+                    const { leftEye, rightEye, video, currentIPDDistance } = mesh
+                    const pxPerCm = ppi / 2.54
+                    const ipdVpx = currentIPDDistance
+
+                    // Get foot positions using calculateFootXYPx
+                    const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } =
+                      calculateFootXYPx(
+                        RC,
+                        video,
+                        leftEye,
+                        rightEye,
+                        pxPerCm,
+                        currentIPDDistance,
+                      )
+
+                    // Calculate average foot position
+                    const footXYPx = [
+                      (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
+                      (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
+                    ]
+
+                    // Calculate distances using the geometric formulas
+                    const footToCameraCm =
+                      Math.hypot(
+                        footXYPx[0] - cameraXYPx[0],
+                        footXYPx[1] - cameraXYPx[1],
+                      ) / pxPerCm
+
+                    const eyeToCameraCm = firstMeasurement
+                    const eyeToFootCm = Math.sqrt(eyeToCameraCm ** 2 - footToCameraCm ** 2)
+                    page3FactorCmPx = ipdVpx * eyeToFootCm
+                  }
+                }
+              } catch (error) {
+                console.warn('Error calculating page3FactorCmPx with geometry, using default:', error)
+              }
+
+              //const page3FactorCmPx = page3Average * firstMeasurement
               RC.page3FactorCmPx = page3FactorCmPx
 
               // For page 4, calculate factorVpxCm using new geometric formulas
