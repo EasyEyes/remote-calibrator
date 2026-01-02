@@ -7879,7 +7879,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 ? validPage4Samples.reduce((a, b) => a + b, 0) /
                   validPage4Samples.length
                 : 0
-              
+
               // Calculate separate calibration factors for page3 and page4
               //TODO: clean up later
               let page3FactorCmPx = page3Average * firstMeasurement // Default calculation
@@ -7893,7 +7893,8 @@ export async function objectTest(RC, options, callback = undefined) {
                     meshSamplesDuringPage3,
                   )
                   if (mesh) {
-                    const { leftEye, rightEye, video, currentIPDDistance } = mesh
+                    const { leftEye, rightEye, video, currentIPDDistance } =
+                      mesh
                     const pxPerCm = ppi / 2.54
                     const ipdVpx = currentIPDDistance
 
@@ -7922,12 +7923,17 @@ export async function objectTest(RC, options, callback = undefined) {
                       ) / pxPerCm
 
                     const eyeToCameraCm = firstMeasurement
-                    const eyeToFootCm = Math.sqrt(eyeToCameraCm ** 2 - footToCameraCm ** 2)
+                    const eyeToFootCm = Math.sqrt(
+                      eyeToCameraCm ** 2 - footToCameraCm ** 2,
+                    )
                     page3FactorCmPx = ipdVpx * eyeToFootCm
                   }
                 }
               } catch (error) {
-                console.warn('Error calculating page3FactorCmPx with geometry, using default:', error)
+                console.warn(
+                  'Error calculating page3FactorCmPx with geometry, using default:',
+                  error,
+                )
               }
 
               //const page3FactorCmPx = page3Average * firstMeasurement
