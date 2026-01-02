@@ -218,6 +218,8 @@ function saveCalibrationMeasurements(
       measurement.calibrateDistanceSpotXYDeg,
       measurement.cameraResolutionXYVpx,
       measurement.pointXYPx,
+      measurement.eyesToFootCm,
+      measurement.objectLengthCm,
       COMMON,
     )
   })
@@ -251,6 +253,8 @@ function saveCalibrationAttempt(
   calibrateDistanceSpotXYDeg = undefined,
   cameraResolutionXYVpx = undefined,
   pointXYPx = undefined,
+  eyesToFootCm = undefined,
+  objectLengthCm = undefined,
   COMMON = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
@@ -372,6 +376,8 @@ function saveCalibrationAttempt(
     spotToFixationCm: safeRoundCm(spotToFixationCm), // Distance between spot and fixation
     eyesToFixationCm: safeRoundCm(eyesToFixationCm), // Distance from participant to fixation
     eyesToSpotCm: safeRoundCm(eyesToSpotCm), // Distance from participant to spot
+    eyesToFootCm: safeRoundCm(eyesToFootCm), // Distance from participant to foot
+    objectLengthCm: safeRoundCm(objectLengthCm), // Distance from participant to object
   }
 
   console.log('factorVpxCm', calibrationObject.factorVpxCm)
@@ -464,6 +470,7 @@ function createMeasurementObject(
     nearestXYPx_left,
     nearestXYPx_right,
     pointXYPx,
+    eyeToFootCm,
   } = nearestPointsData
 
   const measurement = {
@@ -484,6 +491,8 @@ function createMeasurementObject(
     nearestXYPx_right,
     pointXYPx,
     cameraResolutionXYVpx: cameraResolutionXYVpx,
+    eyesToFootCm: eyeToFootCm,
+    objectLengthCm: distance,
   }
 
   if (ipdVpx !== null) {
@@ -3619,7 +3628,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // ===================== OBJECT TEST COMMON DATA TO BE SAVED IN RC.calibrationAttempts.COMMON =====================
   const objectTestCommonData = {
     objectRulerIntervalCm: [],
-    objectLengthCm: [],
+    // objectLengthCm: [],
     objectMeasuredMsg: [],
     objectName: [],
     _calibrateDistance: options.calibrateDistance,
@@ -6439,7 +6448,7 @@ export async function objectTest(RC, options, callback = undefined) {
         const roundedLength =
           Math.round(Number(selectedPaperLengthCm) * 10) / 10
         objectTestCommonData.objectMeasuredMsg.push('ok')
-        objectTestCommonData.objectLengthCm.push(roundedLength)
+        // objectTestCommonData.objectLengthCm.push(roundedLength)
         objectTestCommonData.objectName.push(
           selectedPaperLabel ||
             paperSelectionOptions.find(o => o.key === selectedPaperOption)
@@ -6543,8 +6552,8 @@ export async function objectTest(RC, options, callback = undefined) {
         }
         console.log('Single measurement accepted:', savedMeasurementData)
         objectTestCommonData.objectMeasuredMsg.push('ok')
-        objectTestCommonData.objectLengthCm =
-          Math.round(Number(objectLengthCm) * 10) / 10
+        // objectTestCommonData.objectLengthCm =
+        //   Math.round(Number(objectLengthCm) * 10) / 10
         await showPage(3)
         return
       }
@@ -6578,8 +6587,8 @@ export async function objectTest(RC, options, callback = undefined) {
         )
         measurementState.consistentPair = consistentPair
         objectTestCommonData.objectMeasuredMsg.push('ok')
-        objectTestCommonData.objectLengthCm =
-          Math.round(Number(geoMean) * 10) / 10
+        // objectTestCommonData.objectLengthCm =
+        //   Math.round(Number(geoMean) * 10) / 10
 
         console.log(
           'Found consistent pair:',
@@ -7407,9 +7416,9 @@ export async function objectTest(RC, options, callback = undefined) {
             const shouldEnforceMinimum =
               isFirstMeasurement || measurementState.lastAttemptWasTooShort
 
-            objectTestCommonData.objectLengthCm.push(
-              Math.round(Number(firstMeasurement) * 10) / 10,
-            )
+            // objectTestCommonData.objectLengthCm.push(
+            //   Math.round(Number(firstMeasurement) * 10) / 10,
+            // )
             objectTestCommonData.objectRulerIntervalCm.push(
               Math.round(Number(intervalCmCurrent) * 10) / 10,
             )
@@ -8552,9 +8561,9 @@ export async function objectTest(RC, options, callback = undefined) {
       const shouldEnforceMinimum =
         isFirstMeasurement || measurementState.lastAttemptWasTooShort
 
-      objectTestCommonData.objectLengthCm.push(
-        Math.round(Number(firstMeasurement) * 10) / 10,
-      )
+      // objectTestCommonData.objectLengthCm.push(
+      //   Math.round(Number(firstMeasurement) * 10) / 10,
+      // )
       objectTestCommonData.objectRulerIntervalCm.push(
         Math.round(Number(intervalCmCurrent) * 10) / 10,
       )
