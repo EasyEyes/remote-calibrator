@@ -3619,10 +3619,9 @@ export async function objectTest(RC, options, callback = undefined) {
   // ===================== OBJECT TEST COMMON DATA TO BE SAVED IN RC.calibrationAttempts.COMMON =====================
   const objectTestCommonData = {
     objectRulerIntervalCm: [],
-    objectMeasuredCm: [],
+    objectLengthCm: [],
     objectMeasuredMsg: [],
     objectName: [],
-    objectLengthCm: null, // Geometric mean of the last two values of objectMeasuredCm, but only if the last value is “ok”, and it’s preceded by “ok” or “mismatch”.
     _calibrateDistance: options.calibrateDistance,
     _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
     _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
@@ -6440,14 +6439,13 @@ export async function objectTest(RC, options, callback = undefined) {
         const roundedLength =
           Math.round(Number(selectedPaperLengthCm) * 10) / 10
         objectTestCommonData.objectMeasuredMsg.push('ok')
-        objectTestCommonData.objectMeasuredCm.push(roundedLength)
+        objectTestCommonData.objectLengthCm.push(roundedLength)
         objectTestCommonData.objectName.push(
           selectedPaperLabel ||
             paperSelectionOptions.find(o => o.key === selectedPaperOption)
               ?.label ||
             null,
         )
-        objectTestCommonData.objectLengthCm = roundedLength
         objectTestCommonData.objectRulerIntervalCm.push(null)
 
         measurementState.measurements.push({
@@ -7409,7 +7407,7 @@ export async function objectTest(RC, options, callback = undefined) {
             const shouldEnforceMinimum =
               isFirstMeasurement || measurementState.lastAttemptWasTooShort
 
-            objectTestCommonData.objectMeasuredCm.push(
+            objectTestCommonData.objectLengthCm.push(
               Math.round(Number(firstMeasurement) * 10) / 10,
             )
             objectTestCommonData.objectRulerIntervalCm.push(
@@ -8548,7 +8546,7 @@ export async function objectTest(RC, options, callback = undefined) {
       const shouldEnforceMinimum =
         isFirstMeasurement || measurementState.lastAttemptWasTooShort
 
-      objectTestCommonData.objectMeasuredCm.push(
+      objectTestCommonData.objectLengthCm.push(
         Math.round(Number(firstMeasurement) * 10) / 10,
       )
       objectTestCommonData.objectRulerIntervalCm.push(
