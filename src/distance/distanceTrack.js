@@ -1334,6 +1334,7 @@ export const calculateNearestPoints = (
     footToPointCm,
     eyeToPointCm,
     pointXYPx,
+    eyeToFootCm,
   }
 }
 

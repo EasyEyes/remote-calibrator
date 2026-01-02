@@ -429,6 +429,9 @@ const validateFaceMeshSamples = async (
   let eyeToPointSum = 0
   let eyeToPointCount = 0
 
+  let eyeToFootSum = 0
+  let eyeToFootCount = 0
+
   let footToCameraSum = 0
   let footToCameraCount = 0
 
@@ -518,6 +521,11 @@ const validateFaceMeshSamples = async (
           calibrationFactorCount++
         }
 
+        if (ipdData.eyeToFootCm && !isNaN(ipdData.eyeToFootCm)) {
+          eyeToFootSum += Number(ipdData.eyeToFootCm)
+          eyeToFootCount++
+        }
+
         if (
           ipdData.footXYPx &&
           !isNaN(ipdData.footXYPx[0]) &&
@@ -601,6 +609,11 @@ const validateFaceMeshSamples = async (
       ? Math.round(calibrationFactorSum / calibrationFactorCount)
       : null
 
+  const eyeToFootCm =
+    eyeToFootCount > 0
+      ? Math.round((eyeToFootSum / eyeToFootCount) * 10) / 10
+      : null
+
   const footXYPx =
     footXYCount > 0
       ? [
@@ -636,6 +649,7 @@ const validateFaceMeshSamples = async (
     footXYPx,
     ipdPixels,
     pointXYPx,
+    eyeToFootCm,
   }
 }
 
@@ -781,6 +795,7 @@ const captureIPDFromFaceMesh = async (
       calibrationFactor,
       footXYPx,
       pointXYPx,
+      eyeToFootCm,
     } = nearestPoints
 
     return {
@@ -802,6 +817,7 @@ const captureIPDFromFaceMesh = async (
       footToPointCm,
       footXYPx,
       pointXYPx,
+      eyeToFootCm,
     }
   } catch (error) {
     console.error('Error capturing IPD from face mesh:', error)
@@ -1932,6 +1948,7 @@ const trackDistanceCheck = async (
       eyesToCameraCm: [],
       eyesToPointCm: [],
       eyesToCenterCm: [],
+      eyesToFootCm: [],
       footToCameraCm: [],
       footToCenterCm: [],
       footToPointCm: [],
@@ -2382,6 +2399,7 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.eyesToCenterCm.push(
                 faceValidation.eyeToCenterCm,
               )
+              RC.distanceCheckJSON.eyesToFootCm.push(faceValidation.eyeToFootCm)
               RC.distanceCheckJSON.footToCameraCm.push(
                 faceValidation.footToCameraCm,
               )
@@ -2592,6 +2610,9 @@ const trackDistanceCheck = async (
                 )
                 RC.distanceCheckJSON.eyesToCenterCm.push(
                   faceValidation.eyeToCenterCm,
+                )
+                RC.distanceCheckJSON.eyesToFootCm.push(
+                  faceValidation.eyeToFootCm,
                 )
                 RC.distanceCheckJSON.footToCameraCm.push(
                   faceValidation.footToCameraCm,
