@@ -4,6 +4,7 @@ import { safeExecuteFunc } from '../components/utils'
 import RemoteCalibrator from '../core'
 import { _setDebugControl } from './panelDebugControl'
 import { phrases } from '../i18n/schema'
+import { PanelState } from './panelState'
 
 // Icons from Google Material UI
 import Camera from '../media/photo-camera.svg'
@@ -24,6 +25,14 @@ RemoteCalibrator.prototype.removePanel = function () {
   this._panel.panelOptions = {}
   this._panel.panelCallback = null
   this._panel.panelResolve = null
+
+  // clear panel state
+  if (this._panelState) {
+    console.log('[PanelState] Panel being removed')
+    this._panelState.logState('Panel removed')
+    this._panelState.reset()
+    this._panelState = null
+  }
 
   this._panelStatus.hasPanel = false
   this._panelStatus.panelFinished = false
@@ -108,6 +117,15 @@ RemoteCalibrator.prototype.panel = async function (
   )
 
   this.getFullscreen(options.fullscreen)
+
+  // initialize panel state for tracking
+  this._panelState = new PanelState()
+  this._panelState.initFromTasks(tasks)
+  console.log(
+    '[PanelState] Panel initialized with tasks:',
+    tasks.map(t => (typeof t === 'string' ? t : t.name)),
+  )
+  this._panelState.logState('Panel initialized')
 
   // Set theme color
   const darkerColor = tinycolor(options.color).darken(20).toString()
@@ -340,6 +358,8 @@ const _setStepsClassesSL = (steps, panelWidth, LD) => {
 }
 
 const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
+  const panelState = RC._panelState
+
   document.querySelectorAll('.rc-panel-step').forEach((e, ind) => {
     const eIndex = Number(e.dataset.index)
 
@@ -353,17 +373,41 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
           if (eIndex === tasks.length - 1 && !options.showNextButton) {
             // Last task without next button
             e.onclick = () => {
-              RC[_getTaskName(tasks[current.index])](
+              const currentTaskId = _getTaskName(tasks[current.index])
+
+              // Mark task as active
+              if (panelState) {
+                console.log(`[PanelState] Starting task: ${currentTaskId}`)
+                panelState.setActive(currentTaskId)
+                panelState.logState(`Task started: ${currentTaskId}`)
+              }
+
+              RC[currentTaskId](
                 ..._getTaskOptionsCallbacks(
                   tasks[current.index],
-                  // Fixed task callback
-                  () => {
+                  // Fixed task callback - receives data from task
+                  data => {
                     _finishStepAt(current.index)
+
+                    // Track completion and log state
+                    if (panelState) {
+                      console.log(
+                        `[PanelState] Task completed: ${currentTaskId}`,
+                      )
+                      panelState.completeTask(currentTaskId, data)
+                      panelState.logState(`Task completed: ${currentTaskId}`)
+                    }
                   },
                   finalCallback,
                   // Fixed final callback
                   () => {
+                    console.log(
+                      '[PanelState] All tasks completed - panel finished',
+                    )
                     RC._panelStatus.panelFinished = true
+                    if (panelState) {
+                      panelState.logState('All tasks completed')
+                    }
                   },
                 ),
               )
@@ -371,12 +415,31 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
           } else {
             // Interim tasks
             e.onclick = () => {
-              RC[_getTaskName(tasks[current.index])](
+              const currentTaskId = _getTaskName(tasks[current.index])
+
+              // Mark task as active
+              if (panelState) {
+                console.log(`[PanelState] Starting task: ${currentTaskId}`)
+                panelState.setActive(currentTaskId)
+                panelState.logState(`Task started: ${currentTaskId}`)
+              }
+
+              RC[currentTaskId](
                 ..._getTaskOptionsCallbacks(
                   tasks[current.index],
-                  // Fixed task callback
-                  () => {
+                  // Fixed task callback - receives data from task
+                  data => {
                     _finishStepAt(current.index)
+
+                    // Track completion and log state
+                    if (panelState) {
+                      console.log(
+                        `[PanelState] Task completed: ${currentTaskId}`,
+                      )
+                      panelState.completeTask(currentTaskId, data)
+                      panelState.logState(`Task completed: ${currentTaskId}`)
+                    }
+
                     current.index++
                     _activateStepAt(RC, current, tasks, options, finalCallback)
                   },
@@ -480,9 +543,9 @@ const _getTaskOptionsCallbacks = (
       name: task,
     }
 
-  const getFinalCallbacks = () => {
-    // Task
-    safeExecuteFunc(fixedTaskCallback)
+  const getFinalCallbacks = data => {
+    // Task - pass data for state tracking
+    safeExecuteFunc(fixedTaskCallback, data)
     // Panel
     safeExecuteFunc(finalCallback, { timestamp: performance.now() })
     safeExecuteFunc(fixedFinalCallback)
@@ -493,7 +556,7 @@ const _getTaskOptionsCallbacks = (
       task.options || {},
       data => {
         safeExecuteFunc(task.callback, data)
-        getFinalCallbacks()
+        getFinalCallbacks(data)
       },
     ]
   }
@@ -503,7 +566,7 @@ const _getTaskOptionsCallbacks = (
       task.options || {},
       data => {
         safeExecuteFunc(task.callbackOnCalibrationEnd, data)
-        getFinalCallbacks()
+        getFinalCallbacks(data)
       },
       task.callbackTrack || null,
     ]
@@ -514,7 +577,7 @@ const _getTaskOptionsCallbacks = (
       task.options || {},
       data => {
         safeExecuteFunc(task.callbackStatic, data)
-        getFinalCallbacks()
+        getFinalCallbacks(data)
       },
       task.callbackTrack || null,
     ]

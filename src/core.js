@@ -55,6 +55,9 @@ class RemoteCalibrator {
       panelResolve: null,
     }
 
+    // Panel state tracking
+    this._panelState = null
+
     // Calibration check
     this._participantCheckEquipment = {
       has: null,
@@ -439,6 +442,13 @@ class RemoteCalibrator {
 
   get checkData() {
     return this._checkData
+  }
+
+  /**
+   * Get the current panel state (for tracking task progress)
+   */
+  get panelState() {
+    return this._panelState
   }
 
   /* --------------------------------- SETTERS -------------------------------- */

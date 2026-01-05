@@ -1752,7 +1752,7 @@ const trackDistanceCheck = async (
     stopVideoTrimming()
     RC._removeBackground()
     if (!isTrack) safeExecuteFunc(distanceCallback, distanceData, false)
-    callbackStatic()
+    callbackStatic(distanceData)
   }
 
   // Start tracking right away
