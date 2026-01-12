@@ -217,7 +217,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       viewingDistanceWhichPoint: undefined,
       calibrateDistanceBlindspotDebugging: false, // Debug option to show anatomical line and diamond center
       calibrateDistanceChecking: undefined,
-      calibrateDistanceShowLengthBool: false,
+      calibrateDistanceShowRulerUnitsBool: false,
       calibrateDistancePupil: 'iris',
       calibrateDistanceQuadBaseRatio: 2.0, // Default ratio for quadrilateral base
     },
@@ -394,8 +394,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.showIrisesBool = options.showIrisesBool
   trackingOptions.useObjectTestData = options.useObjectTestData
   trackingOptions.showNearestPointsBool = options.showNearestPointsBool
-  trackingOptions.calibrateDistanceShowLengthBool =
-    options.calibrateDistanceShowLengthBool
+  trackingOptions.calibrateDistanceShowRulerUnitsBool =
+    options.calibrateDistanceShowRulerUnitsBool
   trackingOptions.objectMeasurementCount = options.objectMeasurementCount
   trackingOptions.objectMeasurementConsistencyThreshold =
     options.objectMeasurementConsistencyThreshold
@@ -762,6 +762,9 @@ const startIrisDrawing = RC => {
             eyeToFootCm,
             currentIPDDistance,
             getCameraResolutionXY(RC),
+            pxPerCm,
+            nearestPointsData.footXYPx,
+            RC._CONST.IPD_CM,
           )
         }
       }
@@ -1524,11 +1527,14 @@ const renderDistanceResult = async (
           nearestXYPx,
           distanceCm_left,
           distanceCm_right,
-          null, // pointXYPx
-          null, // eyeToPointCm
-          null, // eyeToFootCm
-          null, // ipdVpx
+          nearestPointsData.pointXYPx, // pointXYPx
+          nearestPointsData.eyeToPointCm, // eyeToPointCm
+          nearestPointsData.eyeToFootCm, // eyeToFootCm
+          currentIPDDistance, // ipdVpx
           getCameraResolutionXY(RC),
+          pxPerCm, // pxPerCm
+          nearestPointsData.footXYPx, // footXYPx
+          RC._CONST.IPD_CM, // ipdCm
         )
 
       if (readyToGetFirstData || desiredDistanceMonitor) {
@@ -1625,16 +1631,18 @@ const _calculateLabelPosition = (dotX, dotY, eyeSide) => {
 // Debug function to draw nearest points on screen
 let nearestPointDots = { left: null, right: null }
 let nearestPointLabels = { left: null, right: null }
-let webcamDistanceLabel = null
-let factorLabel = null
+let cameraResolutionXYLabel = null
+let pxPerCmLabel = null
+let ipdCmLabel = null
 let ipdLabel = null
-let cameraXYPxLabel = null
+let fVpxLabel = null
+let eyesToFootCmLabel = null
+let eyesToPointCmLabel = null
+let footToPointCmLabel = null
+let footXYPxLabel = null
+let pointXYPxLabel = null
 let viewingDistanceWhichEyeLabel = null
 let viewingDistanceWhichPointLabel = null
-let pointXYPxLabel = null
-let eyeToPointCmLabel = null
-let eyeToFootCmLabel = null
-let cameraResolutionXYLabel = null
 let eyePointDots = { left: null, right: null }
 let pupilDots = { left: null, right: null }
 let nearestPointCoordsLabels = { left: null, right: null }
@@ -1660,6 +1668,9 @@ const _drawNearestPoints = (
   eyeToFootCm = null,
   ipdVpx = null,
   cameraResolutionXY = null,
+  pxPerCm = null,
+  footXYPx = null,
+  ipdCm = 6.3,
 ) => {
   // Get video container and its bounding rect once for reuse
   const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -1842,212 +1853,181 @@ const _drawNearestPoints = (
 
   // NOTE: Iris and pupil drawing is now handled by the separate canvas-based function
 
-  // Add webcam-to-eye distance label at top center, offset to avoid video
-  if (nearestEyeToWebcamDistanceCM !== undefined) {
-    webcamDistanceLabel = createOrUpdateElement(
-      webcamDistanceLabel,
-      'rc-webcam-distance-label',
-      {
-        position: 'fixed',
-        fontSize: '16px',
-        color: '#333',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '4px 8px',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'normal',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      },
+  // Helper function to calculate label position
+  const calculateLabelLeft = () => {
+    let labelLeft = window.innerWidth / 2
+    if (videoRect) {
+      const labelWidth = 80
+      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
+      if (labelLeft + labelWidth > window.innerWidth) {
+        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
+      }
+    }
+    return Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
+  }
+
+  const labelBaseStyles = {
+    position: 'fixed',
+    fontSize: '16px',
+    color: '#333',
+    background: 'rgba(255, 255, 255, 0.9)',
+    padding: '4px 8px',
+    borderRadius: '6px',
+    border: '1px solid #ddd',
+    zIndex: '2147483646',
+    pointerEvents: 'none',
+    fontFamily: 'Arial, sans-serif',
+    fontWeight: 'normal',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+  }
+
+  const labelLeft = calculateLabelLeft()
+
+  // 1. cameraResolutionXYVpx label (top 20px)
+  if (
+    cameraResolutionXY !== null &&
+    Array.isArray(cameraResolutionXY) &&
+    cameraResolutionXY[0] &&
+    cameraResolutionXY[1]
+  ) {
+    cameraResolutionXYLabel = createOrUpdateElement(
+      cameraResolutionXYLabel,
+      'rc-camera-resolution-xy-label',
+      labelBaseStyles,
     )
-
-    // Update content and position
-    webcamDistanceLabel.textContent = `eyeToCameraCm: ${nearestEyeToWebcamDistanceCM.toFixed(decimalPlace || 1)} cm`
-
-    // Calculate position: top center, offset right to avoid video
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 20 // 20px from top
-
-    // If video container exists, offset to avoid overlap
-    if (videoRect) {
-      const labelWidth = 80 // Approximate label width
-
-      // Position to the right of the video with some padding
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-
-      // If that would push it off screen, position to the left of video
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-      }
-    }
-
-    // Ensure label stays within screen bounds
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-
-    webcamDistanceLabel.style.left = `${labelLeft}px`
-    webcamDistanceLabel.style.top = `${labelTop}px`
+    cameraResolutionXYLabel.textContent = `cameraResolutionXYVpx: [${cameraResolutionXY[0]}, ${cameraResolutionXY[1]}]`
+    cameraResolutionXYLabel.style.left = `${labelLeft}px`
+    cameraResolutionXYLabel.style.top = '20px'
   }
 
-  // Add factor label right below the webcam distance label
-  if (factorVpxCm !== undefined) {
-    factorLabel = createOrUpdateElement(factorLabel, 'rc-factor-label', {
-      position: 'fixed',
-      fontSize: '16px',
-      color: '#333',
-      background: 'rgba(255, 255, 255, 0.9)',
-      padding: '4px 8px',
-      borderRadius: '6px',
-      border: '1px solid #ddd',
-      zIndex: '2147483646',
-      pointerEvents: 'none',
-      fontFamily: 'Arial, sans-serif',
-      fontWeight: 'normal',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    })
-
-    // Update content and position
-    factorLabel.textContent = `factorVpxCm: ${factorVpxCm.toFixed(0)}`
-
-    // Calculate position: same horizontal position as webcam label, but below it
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 50 // 50px from top (30px below the webcam label)
-
-    // If video container exists, offset to avoid overlap (same logic as webcam label)
-    if (videoRect) {
-      const labelWidth = 80 // Approximate label width
-
-      // Position to the right of the video with some padding
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-
-      // If that would push it off screen, position to the left of video
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-      }
-    }
-
-    // Ensure label stays within screen bounds
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-
-    factorLabel.style.left = `${labelLeft}px`
-    factorLabel.style.top = `${labelTop}px`
+  // 2. pxPerCm label (top 50px)
+  if (pxPerCm !== null && pxPerCm !== undefined) {
+    pxPerCmLabel = createOrUpdateElement(
+      pxPerCmLabel,
+      'rc-px-per-cm-label',
+      labelBaseStyles,
+    )
+    pxPerCmLabel.textContent = `pxPerCm: ${pxPerCm.toFixed(1)}`
+    pxPerCmLabel.style.left = `${labelLeft}px`
+    pxPerCmLabel.style.top = '50px'
   }
 
-  // Add IPD label right below the factor label
+  // 3. ipdCm label (top 80px)
+  if (ipdCm !== null && ipdCm !== undefined) {
+    ipdCmLabel = createOrUpdateElement(
+      ipdCmLabel,
+      'rc-ipd-cm-label',
+      labelBaseStyles,
+    )
+    ipdCmLabel.textContent = `ipdCm: ${ipdCm.toFixed(1)} cm`
+    ipdCmLabel.style.left = `${labelLeft}px`
+    ipdCmLabel.style.top = '80px'
+  }
+
+  // 4. ipdVpx label (top 110px)
   {
     const ipdValue = ipdVpx ?? averageDist
     if (ipdValue !== undefined) {
-      ipdLabel = createOrUpdateElement(ipdLabel, 'rc-ipd-label', {
-        position: 'fixed',
-        fontSize: '16px',
-        color: '#333',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '4px 8px',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'normal',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      })
-
-      // Update content and position
+      ipdLabel = createOrUpdateElement(
+        ipdLabel,
+        'rc-ipd-label',
+        labelBaseStyles,
+      )
       ipdLabel.textContent = `ipdVpx: ${Math.round(ipdValue)}`
-
-      // Calculate position: same horizontal position as factor label, but below it
-      let labelLeft = window.innerWidth / 2
-      const labelTop = 80 // 80px from top (30px below the factor label)
-
-      // If video container exists, offset to avoid overlap (same logic as other labels)
-      if (videoRect) {
-        const labelWidth = 80 // Approximate label width
-
-        // Position to the right of the video with some padding
-        labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-
-        // If that would push it off screen, position to the left of video
-        if (labelLeft + labelWidth > window.innerWidth) {
-          labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-        }
-      }
-
-      // Ensure label stays within screen bounds
-      labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-
       ipdLabel.style.left = `${labelLeft}px`
-      ipdLabel.style.top = `${labelTop}px`
+      ipdLabel.style.top = '110px'
     }
   }
 
-  // Add cameraXYPx label right below the IPD label
-  if (cameraXYPx !== undefined) {
-    cameraXYPxLabel = createOrUpdateElement(
-      cameraXYPxLabel,
-      'rc-camera-xy-px-label',
-      {
-        position: 'fixed',
-        fontSize: '16px',
-        color: '#333',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '4px 8px',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'normal',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      },
+  // 5. fVpx label (top 140px) - factorVpxCm / ipdCm
+  if (factorVpxCm !== undefined && ipdCm !== null && ipdCm !== undefined) {
+    fVpxLabel = createOrUpdateElement(
+      fVpxLabel,
+      'rc-f-vpx-label',
+      labelBaseStyles,
     )
-
-    // Update content and position
-    cameraXYPxLabel.textContent = `cameraXYPx: [${Math.round(cameraXYPx[0])}, ${Math.round(cameraXYPx[1])}]`
-
-    // Calculate position: same horizontal position as IPD label, but below it
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 110 // 110px from top (30px below the IPD label)
-
-    // If video container exists, offset to avoid overlap (same logic as other labels)
-    if (videoRect) {
-      const labelWidth = 80 // Approximate label width
-
-      // Position to the right of the video with some padding
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-
-      // If that would push it off screen, position to the left of video
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-      }
-    }
-
-    // Ensure label stays within screen bounds
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-
-    cameraXYPxLabel.style.left = `${labelLeft}px`
-    cameraXYPxLabel.style.top = `${labelTop}px`
+    const fVpx = factorVpxCm / ipdCm
+    fVpxLabel.textContent = `fVpx: ${Math.round(fVpx)}`
+    fVpxLabel.style.left = `${labelLeft}px`
+    fVpxLabel.style.top = '140px'
   }
 
-  // Add viewingDistanceWhichEye label right below the cameraXYPx label
+  // 6. eyesToFootCm label (top 170px)
+  if (eyeToFootCm !== null && eyeToFootCm !== undefined) {
+    eyesToFootCmLabel = createOrUpdateElement(
+      eyesToFootCmLabel,
+      'rc-eyes-to-foot-cm-label',
+      labelBaseStyles,
+    )
+    eyesToFootCmLabel.textContent = `eyesToFootCm: ${eyeToFootCm.toFixed(decimalPlace || 1)} cm`
+    eyesToFootCmLabel.style.left = `${labelLeft}px`
+    eyesToFootCmLabel.style.top = '170px'
+  }
+
+  // 7. eyesToPointCm label (top 200px)
+  if (eyeToPointCm !== null && eyeToPointCm !== undefined) {
+    eyesToPointCmLabel = createOrUpdateElement(
+      eyesToPointCmLabel,
+      'rc-eyes-to-point-cm-label',
+      labelBaseStyles,
+    )
+    eyesToPointCmLabel.textContent = `eyesToPointCm: ${eyeToPointCm.toFixed(decimalPlace || 1)} cm`
+    eyesToPointCmLabel.style.left = `${labelLeft}px`
+    eyesToPointCmLabel.style.top = '200px'
+  }
+
+  // 8. footToPointCm label (top 230px)
+  if (footXYPx !== null && pointXYPx !== null && pxPerCm !== null) {
+    footToPointCmLabel = createOrUpdateElement(
+      footToPointCmLabel,
+      'rc-foot-to-point-cm-label',
+      labelBaseStyles,
+    )
+    const footToPointCm =
+      Math.sqrt(
+        (footXYPx[0] - pointXYPx[0]) ** 2 + (footXYPx[1] - pointXYPx[1]) ** 2,
+      ) / pxPerCm
+    footToPointCmLabel.textContent = `footToPointCm: ${footToPointCm.toFixed(decimalPlace || 1)} cm`
+    footToPointCmLabel.style.left = `${labelLeft}px`
+    footToPointCmLabel.style.top = '230px'
+  }
+
+  // 9. footXYPx label (top 260px)
+  if (footXYPx !== null && footXYPx !== undefined) {
+    footXYPxLabel = createOrUpdateElement(
+      footXYPxLabel,
+      'rc-foot-xy-px-label',
+      labelBaseStyles,
+    )
+    const xyText = Array.isArray(footXYPx)
+      ? `[${Math.round(footXYPx[0])}, ${Math.round(footXYPx[1])}]`
+      : `${footXYPx}`
+    footXYPxLabel.textContent = `footXYPx: ${xyText}`
+    footXYPxLabel.style.left = `${labelLeft}px`
+    footXYPxLabel.style.top = '260px'
+  }
+
+  // 10. pointXYPx label (top 290px)
+  if (pointXYPx !== null && pointXYPx !== undefined) {
+    pointXYPxLabel = createOrUpdateElement(
+      pointXYPxLabel,
+      'rc-point-xy-px-label',
+      labelBaseStyles,
+    )
+    const xyText = Array.isArray(pointXYPx)
+      ? `[${Math.round(pointXYPx[0])}, ${Math.round(pointXYPx[1])}]`
+      : `${pointXYPx}`
+    pointXYPxLabel.textContent = `pointXYPx: ${xyText}`
+    pointXYPxLabel.style.left = `${labelLeft}px`
+    pointXYPxLabel.style.top = '290px'
+  }
+
+  // 11. viewingDistanceWhichEye label (top 320px)
   if (viewingDistanceWhichEye !== undefined) {
     viewingDistanceWhichEyeLabel = createOrUpdateElement(
       viewingDistanceWhichEyeLabel,
       'rc-viewing-distance-which-eye-label',
-      {
-        position: 'fixed',
-        fontSize: '16px',
-        color: '#333',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '4px 8px',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'normal',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      },
+      labelBaseStyles,
     )
 
     // Calculate viewing distance based on eye selection
@@ -2076,52 +2056,17 @@ const _drawNearestPoints = (
       distanceCm_right,
     )
 
-    // Update content and position
-    viewingDistanceWhichEyeLabel.textContent = `viewingDistanceWhichEye: ${viewingDistanceWhichEye} (${viewingDistanceCm.toFixed(1)} cm)`
-
-    // Calculate position: same horizontal position as cameraXYPx label, but below it
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 140 // 140px from top (30px below the cameraXYPx label)
-
-    // If video container exists, offset to avoid overlap (same logic as other labels)
-    if (videoRect) {
-      const labelWidth = 80 // Approximate label width
-
-      // Position to the right of the video with some padding
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-
-      // If that would push it off screen, position to the left of video
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-      }
-    }
-
-    // Ensure label stays within screen bounds
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-
+    viewingDistanceWhichEyeLabel.textContent = `viewingDistanceWhichEye: ${viewingDistanceWhichEye} (${typeof viewingDistanceCm === 'number' ? viewingDistanceCm.toFixed(1) : viewingDistanceCm} cm)`
     viewingDistanceWhichEyeLabel.style.left = `${labelLeft}px`
-    viewingDistanceWhichEyeLabel.style.top = `${labelTop}px`
+    viewingDistanceWhichEyeLabel.style.top = '320px'
   }
 
-  // Add viewingDistanceWhichPoint label right below the viewingDistanceWhichEye label
+  // 12. viewingDistanceWhichPoint label (top 350px)
   if (viewingDistanceWhichPoint !== undefined) {
     viewingDistanceWhichPointLabel = createOrUpdateElement(
       viewingDistanceWhichPointLabel,
       'rc-viewing-distance-which-point-label',
-      {
-        position: 'fixed',
-        fontSize: '16px',
-        color: '#333',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '4px 8px',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'normal',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      },
+      labelBaseStyles,
     )
 
     // Interpret viewingDistanceWhichPoint based on category
@@ -2157,7 +2102,6 @@ const _drawNearestPoints = (
       return pointXYDeg
     }
 
-    // Update content and position
     const interpretedValue = interpretViewingDistanceWhichPoint(
       viewingDistanceWhichPoint,
       nearestXYPx,
@@ -2165,7 +2109,6 @@ const _drawNearestPoints = (
       viewingDistanceWhichEye,
     )
 
-    // Format the display value properly
     let displayValue
     if (Array.isArray(interpretedValue)) {
       displayValue = `[${interpretedValue.join(', ')}]`
@@ -2174,193 +2117,8 @@ const _drawNearestPoints = (
     }
 
     viewingDistanceWhichPointLabel.textContent = `viewingDistanceWhichPoint: ${displayValue}`
-
-    // Calculate position: same horizontal position as viewingDistanceWhichEye label, but below it
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 170 // 170px from top (30px below the viewingDistanceWhichEye label)
-
-    // If video container exists, offset to avoid overlap (same logic as other labels)
-    if (videoRect) {
-      const labelWidth = 80 // Approximate label width
-
-      // Position to the right of the video with some padding
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-
-      // If that would push it off screen, position to the left of video
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-      }
-    }
-
-    // Ensure label stays within screen bounds
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-
     viewingDistanceWhichPointLabel.style.left = `${labelLeft}px`
-    viewingDistanceWhichPointLabel.style.top = `${labelTop}px`
-  }
-
-  // Add pointXYPx label right below the viewingDistanceWhichPoint label
-  if (pointXYPx !== null && pointXYPx !== undefined) {
-    pointXYPxLabel = createOrUpdateElement(
-      pointXYPxLabel,
-      'rc-point-xy-px-label',
-      {
-        position: 'fixed',
-        fontSize: '16px',
-        color: '#333',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '4px 8px',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'normal',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      },
-    )
-
-    // Update content and position
-    const xyText = Array.isArray(pointXYPx)
-      ? `[${Math.round(pointXYPx[0])}, ${Math.round(pointXYPx[1])}]`
-      : `${pointXYPx}`
-    pointXYPxLabel.textContent = `pointXYPx: ${xyText}`
-
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 200
-    if (videoRect) {
-      const labelWidth = 80
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-      }
-    }
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-    pointXYPxLabel.style.left = `${labelLeft}px`
-    pointXYPxLabel.style.top = `${labelTop}px`
-  }
-
-  // Add eyeToPointCm label below pointXYPx
-  if (eyeToPointCm !== null && eyeToPointCm !== undefined) {
-    eyeToPointCmLabel = createOrUpdateElement(
-      eyeToPointCmLabel,
-      'rc-eye-to-point-cm-label',
-      {
-        position: 'fixed',
-        fontSize: '16px',
-        color: '#333',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '4px 8px',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'normal',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      },
-    )
-
-    eyeToPointCmLabel.textContent = `eyeToPointCm: ${eyeToPointCm.toFixed(
-      decimalPlace || 1,
-    )} cm`
-
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 230
-    if (videoRect) {
-      const labelWidth = 80
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-      }
-    }
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-    eyeToPointCmLabel.style.left = `${labelLeft}px`
-    eyeToPointCmLabel.style.top = `${labelTop}px`
-  }
-
-  // Add eyeToFootCm label below eyeToPointCm
-  if (eyeToFootCm !== null && eyeToFootCm !== undefined) {
-    eyeToFootCmLabel = createOrUpdateElement(
-      eyeToFootCmLabel,
-      'rc-eye-to-foot-cm-label',
-      {
-        position: 'fixed',
-        fontSize: '16px',
-        color: '#333',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '4px 8px',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'normal',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      },
-    )
-
-    eyeToFootCmLabel.textContent = `eyeToFootCm: ${eyeToFootCm.toFixed(
-      decimalPlace || 1,
-    )} cm`
-
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 260
-    if (videoRect) {
-      const labelWidth = 80
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-      }
-    }
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-    eyeToFootCmLabel.style.left = `${labelLeft}px`
-    eyeToFootCmLabel.style.top = `${labelTop}px`
-  }
-
-  // Add cameraResolutionXY label below eyeToFootCm
-  // Use the fresh camera resolution passed as parameter
-  if (
-    cameraResolutionXY !== null &&
-    Array.isArray(cameraResolutionXY) &&
-    cameraResolutionXY[0] &&
-    cameraResolutionXY[1]
-  ) {
-    const camWidth = cameraResolutionXY[0]
-    const camHeight = cameraResolutionXY[1]
-    cameraResolutionXYLabel = createOrUpdateElement(
-      cameraResolutionXYLabel,
-      'rc-camera-resolution-xy-label',
-      {
-        position: 'fixed',
-        fontSize: '16px',
-        color: '#333',
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '4px 8px',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        fontFamily: 'Arial, sans-serif',
-        fontWeight: 'normal',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      },
-    )
-
-    cameraResolutionXYLabel.textContent = `cameraResolutionXYVpx: [${camWidth}, ${camHeight}]`
-
-    let labelLeft = window.innerWidth / 2
-    const labelTop = 290
-    if (videoRect) {
-      const labelWidth = 80
-      labelLeft = Math.max(window.innerWidth / 2, videoRect.right + 20)
-      if (labelLeft + labelWidth > window.innerWidth) {
-        labelLeft = Math.max(20, videoRect.left - labelWidth - 20)
-      }
-    }
-    labelLeft = Math.max(20, Math.min(labelLeft, window.innerWidth - 100))
-    cameraResolutionXYLabel.style.left = `${labelLeft}px`
-    cameraResolutionXYLabel.style.top = `${labelTop}px`
+    viewingDistanceWhichPointLabel.style.top = '350px'
   }
 }
 
@@ -2382,21 +2140,45 @@ const cleanUpEyePoints = () => {
     document.body.removeChild(nearestPointLabels.right)
     nearestPointLabels.right = null
   }
-  if (webcamDistanceLabel) {
-    document.body.removeChild(webcamDistanceLabel)
-    webcamDistanceLabel = null
+  if (cameraResolutionXYLabel) {
+    document.body.removeChild(cameraResolutionXYLabel)
+    cameraResolutionXYLabel = null
   }
-  if (factorLabel) {
-    document.body.removeChild(factorLabel)
-    factorLabel = null
+  if (pxPerCmLabel) {
+    document.body.removeChild(pxPerCmLabel)
+    pxPerCmLabel = null
+  }
+  if (ipdCmLabel) {
+    document.body.removeChild(ipdCmLabel)
+    ipdCmLabel = null
   }
   if (ipdLabel) {
     document.body.removeChild(ipdLabel)
     ipdLabel = null
   }
-  if (cameraXYPxLabel) {
-    document.body.removeChild(cameraXYPxLabel)
-    cameraXYPxLabel = null
+  if (fVpxLabel) {
+    document.body.removeChild(fVpxLabel)
+    fVpxLabel = null
+  }
+  if (eyesToFootCmLabel) {
+    document.body.removeChild(eyesToFootCmLabel)
+    eyesToFootCmLabel = null
+  }
+  if (eyesToPointCmLabel) {
+    document.body.removeChild(eyesToPointCmLabel)
+    eyesToPointCmLabel = null
+  }
+  if (footToPointCmLabel) {
+    document.body.removeChild(footToPointCmLabel)
+    footToPointCmLabel = null
+  }
+  if (footXYPxLabel) {
+    document.body.removeChild(footXYPxLabel)
+    footXYPxLabel = null
+  }
+  if (pointXYPxLabel) {
+    document.body.removeChild(pointXYPxLabel)
+    pointXYPxLabel = null
   }
   if (viewingDistanceWhichEyeLabel) {
     document.body.removeChild(viewingDistanceWhichEyeLabel)
@@ -2413,22 +2195,6 @@ const cleanUpEyePoints = () => {
   if (nearestPointCoordsLabels.right) {
     document.body.removeChild(nearestPointCoordsLabels.right)
     nearestPointCoordsLabels.right = null
-  }
-  if (pointXYPxLabel) {
-    document.body.removeChild(pointXYPxLabel)
-    pointXYPxLabel = null
-  }
-  if (eyeToPointCmLabel) {
-    document.body.removeChild(eyeToPointCmLabel)
-    eyeToPointCmLabel = null
-  }
-  if (eyeToFootCmLabel) {
-    document.body.removeChild(eyeToFootCmLabel)
-    eyeToFootCmLabel = null
-  }
-  if (cameraResolutionXYLabel) {
-    document.body.removeChild(cameraResolutionXYLabel)
-    cameraResolutionXYLabel = null
   }
   if (pupilDots.left) {
     document.body.removeChild(pupilDots.left)
@@ -2648,21 +2414,45 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
       document.body.removeChild(nearestPointLabels.right)
       nearestPointLabels.right = null
     }
-    if (webcamDistanceLabel) {
-      document.body.removeChild(webcamDistanceLabel)
-      webcamDistanceLabel = null
+    if (cameraResolutionXYLabel) {
+      document.body.removeChild(cameraResolutionXYLabel)
+      cameraResolutionXYLabel = null
     }
-    if (factorLabel) {
-      document.body.removeChild(factorLabel)
-      factorLabel = null
+    if (pxPerCmLabel) {
+      document.body.removeChild(pxPerCmLabel)
+      pxPerCmLabel = null
+    }
+    if (ipdCmLabel) {
+      document.body.removeChild(ipdCmLabel)
+      ipdCmLabel = null
     }
     if (ipdLabel) {
       document.body.removeChild(ipdLabel)
       ipdLabel = null
     }
-    if (cameraXYPxLabel) {
-      document.body.removeChild(cameraXYPxLabel)
-      cameraXYPxLabel = null
+    if (fVpxLabel) {
+      document.body.removeChild(fVpxLabel)
+      fVpxLabel = null
+    }
+    if (eyesToFootCmLabel) {
+      document.body.removeChild(eyesToFootCmLabel)
+      eyesToFootCmLabel = null
+    }
+    if (eyesToPointCmLabel) {
+      document.body.removeChild(eyesToPointCmLabel)
+      eyesToPointCmLabel = null
+    }
+    if (footToPointCmLabel) {
+      document.body.removeChild(footToPointCmLabel)
+      footToPointCmLabel = null
+    }
+    if (footXYPxLabel) {
+      document.body.removeChild(footXYPxLabel)
+      footXYPxLabel = null
+    }
+    if (pointXYPxLabel) {
+      document.body.removeChild(pointXYPxLabel)
+      pointXYPxLabel = null
     }
     if (viewingDistanceWhichEyeLabel) {
       document.body.removeChild(viewingDistanceWhichEyeLabel)
@@ -2679,22 +2469,6 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     if (nearestPointCoordsLabels.right) {
       document.body.removeChild(nearestPointCoordsLabels.right)
       nearestPointCoordsLabels.right = null
-    }
-    if (pointXYPxLabel) {
-      document.body.removeChild(pointXYPxLabel)
-      pointXYPxLabel = null
-    }
-    if (eyeToPointCmLabel) {
-      document.body.removeChild(eyeToPointCmLabel)
-      eyeToPointCmLabel = null
-    }
-    if (eyeToFootCmLabel) {
-      document.body.removeChild(eyeToFootCmLabel)
-      eyeToFootCmLabel = null
-    }
-    if (cameraResolutionXYLabel) {
-      document.body.removeChild(cameraResolutionXYLabel)
-      cameraResolutionXYLabel = null
     }
 
     if (eyePointDots && eyePointDots.left) {

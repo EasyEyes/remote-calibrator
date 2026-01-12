@@ -1504,7 +1504,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
     _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
     _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
     _calibrateDistancePupil: options.calibrateDistancePupil,
-    _calibrateDistanceShowLengthBool: options.calibrateDistanceShowLengthBool,
+    _calibrateDistanceShowRulerUnitsBool:
+      options.calibrateDistanceShowRulerUnitsBool,
     _calibrateDistanceTimes: options.objectMeasurementCount,
     _showPerpendicularFeetBool: options.showNearestPointsBool,
     _calibrateScreenSizeAllowedRatio: options.calibrateScreenSizeAllowedRatio,

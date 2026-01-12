@@ -3376,7 +3376,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== UNIT SELECTION STATE =====================
   let selectedUnit = 'inches' // Default to inches
-  const showLength = !!options.calibrateDistanceShowLengthBool
+  const showLength = !!options.calibrateDistanceShowRulerUnitsBool
 
   // ===================== PAPER SELECTION MODE =====================
   const isPaperSelectionMode = options.useObjectTestData === 'paper'
@@ -3635,7 +3635,8 @@ export async function objectTest(RC, options, callback = undefined) {
     _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
     _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
     _calibrateDistancePupil: options.calibrateDistancePupil,
-    _calibrateDistanceShowLengthBool: options.calibrateDistanceShowLengthBool,
+    _calibrateDistanceShowRulerUnitsBool:
+      options.calibrateDistanceShowRulerUnitsBool,
     _calibrateDistanceTimes: options.objectMeasurementCount,
     _showPerpendicularFeetBool: options.showNearestPointsBool,
     _calibrateScreenSizeAllowedRatio: options.calibrateScreenSizeAllowedRatio,
@@ -5466,6 +5467,10 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Function to update triangular labels when tape changes
   function updateDiagonalLabels() {
+    if (isPaperSelectionMode) {
+      objectLengthCmGlobal.value = 27.94
+      return
+    }
     // Check if left tape end is off-screen (left side can go negative)
     const leftOffScreen = startX < 0
 
