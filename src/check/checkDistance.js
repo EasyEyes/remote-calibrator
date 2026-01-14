@@ -1208,6 +1208,15 @@ const createYellowTapeRectangle = RC => {
   document.addEventListener('keydown', arrowDownFunction)
   document.addEventListener('keyup', arrowUpFunction)
 
+  // Prevent Tab key from moving focus during checkSize measurement
+  // This ensures arrow keys continue to control the yellow tape
+  const preventTabHandler = e => {
+    if (e.key === 'Tab') {
+      e.preventDefault()
+    }
+  }
+  document.addEventListener('keydown', preventTabHandler)
+
   // Add window resize event listener to handle fullscreen exit and window size changes
   window.addEventListener('resize', updatePositionsOnResize)
 
@@ -1220,6 +1229,7 @@ const createYellowTapeRectangle = RC => {
     window.removeEventListener('resize', updatePositionsOnResize)
     document.removeEventListener('keydown', arrowDownFunction)
     document.removeEventListener('keyup', arrowUpFunction)
+    document.removeEventListener('keydown', preventTabHandler)
     if (arrowIntervalFunction) {
       clearInterval(arrowIntervalFunction)
     }
@@ -1356,6 +1366,15 @@ const updateLengthDisplayDiv = (length, units) => {
 
 const soundModule = require('../components/sound')
 const stampOfApprovalSound = soundModule.stampOfApprovalSound
+
+
+// Helper function to check if two values are within a percentage of each other
+const areValuesWithinPercent = (val1, val2, percent) => {
+  if (val1 === 0 && val2 === 0) return true
+  const larger = Math.max(Math.abs(val1), Math.abs(val2))
+  const diff = Math.abs(val1 - val2)
+  return diff / larger <= percent / 100
+}
 
 const checkSize = async (
   RC,
@@ -1588,6 +1607,83 @@ const checkSize = async (
       // Track this listener for cleanup
       checkSizeListeners.push(keyupListener)
     })
+
+    // COMPLIANCE CHECK: Starting from the second setting, check for non-compliance
+    // (user pressing space without actually adjusting the tape)
+    if (i >= 1) {
+      const currentRequestedLength = processedLengthCm[i]
+      const previousRequestedLength = processedLengthCm[i - 1]
+
+      // Only run compliance check if the REQUESTS differ by at least 20%
+      // (skip if requests are within 20% of being equal)
+      const requestsDifferEnough = !areValuesWithinPercent(
+        currentRequestedLength,
+        previousRequestedLength,
+        20,
+      )
+
+      if (requestsDifferEnough) {
+        // Compare the user's SETTINGS (measured lengths from yellow tape)
+        const currentMeasuredLength =
+          RC.calibrateTrackLengthMeasuredCm[
+            RC.calibrateTrackLengthMeasuredCm.length - 1
+          ]
+        const previousMeasuredLength =
+          RC.calibrateTrackLengthMeasuredCm[
+            RC.calibrateTrackLengthMeasuredCm.length - 2
+          ]
+
+        // If settings are within 10% of being equal, this is invalid (non-compliance)
+        const settingsTooSimilar = areValuesWithinPercent(
+          currentMeasuredLength,
+          previousMeasuredLength,
+          10,
+        )
+
+        if (settingsTooSimilar) {
+          console.warn(
+            `Compliance check failed: User set similar lengths (${previousMeasuredLength} vs ${currentMeasuredLength}) ` +
+              `despite different requests (${previousRequestedLength} vs ${currentRequestedLength})`,
+          )
+
+          // Discard all length settings so far
+          RC.calibrateTrackLengthMeasuredCm = []
+          RC.calibrateTrackLengthRequestedCm = []
+          RC.calibrateDistancePxPerCm = []
+
+          // Get the error message (use fallback if phrase not available)
+          const errorMessage =
+            phrases.RC_RejectEqualLengths?.[RC.language.value]
+
+          // Show popup error message and wait for OK
+          await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: '', //no icon
+            title: '', //no title
+            html: errorMessage,
+            allowEnterKey: true,
+            focusConfirm: true, // Focus OK button so Enter key works
+            confirmButtonText: phrases.RC_ok?.[RC.L],
+            didOpen: () => {
+              // Prevent Space key from triggering the OK button (only allow Return/Enter)
+              const confirmBtn = Swal.getConfirmButton()
+              if (confirmBtn) {
+                confirmBtn.addEventListener('keydown', e => {
+                  if (e.key === ' ' || e.code === 'Space') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }
+                })
+              }
+            },
+          })
+
+          // Reset loop to start from the first setting
+          // Set i to -1 so the next iteration starts at i = 0
+          i = -1
+        }
+      }
+    }
   }
 
   // Clean up the length display div when done
@@ -2677,6 +2773,105 @@ const trackDistanceCheck = async (
           iterationListeners.push(keyupListener)
         }, calibrateDistanceCheckSecs * 1000)
       })
+
+      // COMPLIANCE CHECK: Starting from the second setting, check for non-compliance
+      // (user pressing space without actually moving to the requested distance)
+      if (i >= 1 && RC.calibrateDistanceMeasuredCm.length >= 2) {
+        const currentRequestedDistance = calibrateDistanceCheckCm[i]
+        const previousRequestedDistance = calibrateDistanceCheckCm[i - 1]
+
+        // Only run compliance check if the REQUESTS differ by at least 20%
+        // (skip if requests are within 20% of being equal)
+        const requestsDifferEnough = !areValuesWithinPercent(
+          currentRequestedDistance,
+          previousRequestedDistance,
+          20,
+        )
+
+        if (requestsDifferEnough) {
+          // Compare the MEASURED distances (what the system detected via face tracking)
+          const currentMeasuredDistance =
+            RC.calibrateDistanceMeasuredCm[
+              RC.calibrateDistanceMeasuredCm.length - 1
+            ]
+          const previousMeasuredDistance =
+            RC.calibrateDistanceMeasuredCm[
+              RC.calibrateDistanceMeasuredCm.length - 2
+            ]
+
+          // If measured distances are within 10% of being equal, this is invalid (non-compliance)
+          // The user didn't actually move despite different distance requests
+          const measurementsTooSimilar = areValuesWithinPercent(
+            currentMeasuredDistance,
+            previousMeasuredDistance,
+            10,
+          )
+
+          if (measurementsTooSimilar) {
+            console.warn(
+              `Distance compliance check failed: User at similar distances (${previousMeasuredDistance} vs ${currentMeasuredDistance} cm) ` +
+                `despite different requests (${previousRequestedDistance} vs ${currentRequestedDistance})`,
+            )
+
+            // Discard all distance settings so far
+            RC.calibrateDistanceMeasuredCm = []
+            RC.calibrateDistanceRequestedCm = []
+            RC.calibrateDistanceIPDPixels = []
+            RC.calibrateDistanceRequestedDistances = []
+            RC.calibrateDistanceEyeFeetXYPx = []
+
+            // Reset distanceCheckJSON arrays
+            RC.distanceCheckJSON.pointXYPx = []
+            RC.distanceCheckJSON.cameraResolutionXYVpx = []
+            RC.distanceCheckJSON.requestedEyesToPointCm = []
+            RC.distanceCheckJSON.eyesToCameraCm = []
+            RC.distanceCheckJSON.eyesToPointCm = []
+            RC.distanceCheckJSON.eyesToCenterCm = []
+            RC.distanceCheckJSON.eyesToFootCm = []
+            RC.distanceCheckJSON.footToCameraCm = []
+            RC.distanceCheckJSON.footToCenterCm = []
+            RC.distanceCheckJSON.footToPointCm = []
+            RC.distanceCheckJSON.ipdVpx = []
+            RC.distanceCheckJSON.rightEyeFootXYPx = []
+            RC.distanceCheckJSON.leftEyeFootXYPx = []
+            RC.distanceCheckJSON.footXYPx = []
+            RC.distanceCheckJSON.measuredFactorVpxCm = []
+            RC.distanceCheckJSON.medianFactorVpxCm = 0
+
+            // Get the error message (use same phrase as length check for consistency)
+            const errorMessage =
+              phrases.RC_RejectEqualDistances?.[RC.language.value] ||
+              phrases.RC_RejectEqualLengths?.[RC.language.value]
+
+            // Show popup error message and wait for OK
+            await Swal.fire({
+              ...swalInfoOptions(RC, { showIcon: false }),
+              icon: '', //no icon
+              title: '', //no title
+              html: errorMessage,
+              allowEnterKey: true,
+              focusConfirm: true, // Focus OK button so Enter key works
+              confirmButtonText: phrases.RC_ok?.[RC.L],
+              didOpen: () => {
+                // Prevent Space key from triggering the OK button (only allow Return/Enter)
+                const confirmBtn = Swal.getConfirmButton()
+                if (confirmBtn) {
+                  confirmBtn.addEventListener('keydown', e => {
+                    if (e.key === ' ' || e.code === 'Space') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }
+                  })
+                }
+              },
+            })
+
+            // Reset loop to start from the first setting
+            // Set i to -1 so the next iteration starts at i = 0
+            i = -1
+          }
+        }
+      }
     }
 
     removeProgressBar(RC, calibrateDistanceChecking)
