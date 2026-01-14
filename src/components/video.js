@@ -14,7 +14,7 @@ export function addVideoElementsToBody() {
   vC.id = 'video-canvas'
   document.body.appendChild(vC)
 
-  return [v, vC, vC.getContext('2d')]
+  return [v, vC, vC.getContext('2d', { willReadFrequently: true })]
   // ? Should return the already existed elements if already has video
 }
 
