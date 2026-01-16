@@ -8129,7 +8129,13 @@ export async function objectTest(RC, options, callback = undefined) {
                           currentIPDDistance,
                           null,
                           cameraResolutionXYVpxPage3,
-                          isPaperSelectionMode ? selectedPaperOption : null,
+                          isPaperSelectionMode
+                            ? selectedPaperLabel ||
+                                paperSelectionOptions.find(
+                                  o => o.key === selectedPaperOption,
+                                )?.label ||
+                                null
+                            : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
                         ),
                       )
@@ -8164,7 +8170,13 @@ export async function objectTest(RC, options, callback = undefined) {
                           currentIPDDistance,
                           null,
                           cameraResolutionXYVpxPage4,
-                          isPaperSelectionMode ? selectedPaperOption : null,
+                          isPaperSelectionMode
+                            ? selectedPaperLabel ||
+                                paperSelectionOptions.find(
+                                  o => o.key === selectedPaperOption,
+                                )?.label ||
+                                null
+                            : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
                         ),
                       )
@@ -8247,7 +8259,13 @@ export async function objectTest(RC, options, callback = undefined) {
                           currentIPDDistance,
                           null,
                           cameraResolutionXYVpxPage3,
-                          isPaperSelectionMode ? selectedPaperOption : null,
+                          isPaperSelectionMode
+                            ? selectedPaperLabel ||
+                                paperSelectionOptions.find(
+                                  o => o.key === selectedPaperOption,
+                                )?.label ||
+                                null
+                            : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
                         ),
                       )
@@ -8282,7 +8300,13 @@ export async function objectTest(RC, options, callback = undefined) {
                           currentIPDDistance,
                           null,
                           cameraResolutionXYVpxPage4,
-                          isPaperSelectionMode ? selectedPaperOption : null,
+                          isPaperSelectionMode
+                            ? selectedPaperLabel ||
+                                paperSelectionOptions.find(
+                                  o => o.key === selectedPaperOption,
+                                )?.label ||
+                                null
+                            : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
                         ),
                       )
@@ -8884,7 +8908,13 @@ export async function objectTest(RC, options, callback = undefined) {
                   currentIPDDistance,
                   null,
                   cameraResolutionXYVpxPage3,
-                  isPaperSelectionMode ? selectedPaperOption : null,
+                  isPaperSelectionMode
+                    ? selectedPaperLabel ||
+                        paperSelectionOptions.find(
+                          o => o.key === selectedPaperOption,
+                        )?.label ||
+                        null
+                    : null,
                   isPaperSelectionMode ? paperSuggestionValue : null,
                 ),
               )
@@ -8919,7 +8949,13 @@ export async function objectTest(RC, options, callback = undefined) {
                   currentIPDDistance,
                   null,
                   cameraResolutionXYVpxPage4,
-                  isPaperSelectionMode ? selectedPaperOption : null,
+                  isPaperSelectionMode
+                    ? selectedPaperLabel ||
+                        paperSelectionOptions.find(
+                          o => o.key === selectedPaperOption,
+                        )?.label ||
+                        null
+                    : null,
                   isPaperSelectionMode ? paperSuggestionValue : null,
                 ),
               )
