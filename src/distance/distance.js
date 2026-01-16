@@ -220,6 +220,10 @@ function saveCalibrationMeasurements(
       measurement.pointXYPx,
       measurement.eyesToFootCm,
       measurement.objectLengthCm,
+      measurement.footXYPx,
+      measurement.footToPointCm,
+      measurement.object,
+      measurement.objectSuggestion,
       COMMON,
     )
   })
@@ -255,6 +259,10 @@ function saveCalibrationAttempt(
   pointXYPx = undefined,
   eyesToFootCm = undefined,
   objectLengthCm = undefined,
+  footXYPx = undefined,
+  footToPointCm = undefined,
+  object = undefined,
+  objectSuggestion = undefined,
   COMMON = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
@@ -271,7 +279,11 @@ function saveCalibrationAttempt(
       RC.calibrationAttemptsT[key].push(v)
     }
     if (COMMON) {
-      RC.calibrationAttemptsT.COMMON = COMMON
+      for (const [key, value] of Object.entries(COMMON)) {
+        const v = value === undefined ? null : value
+        if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = []
+        RC.calibrationAttemptsT[key].push(v)
+      }
     }
   }
 
@@ -281,14 +293,6 @@ function saveCalibrationAttempt(
       future: 'To be deleted by end of November 2025.',
     }
   }
-
-  // Trim values to 1 decimal place, handle NaN gracefully
-  const trimmedDistance = isNaN(distanceCm)
-    ? NaN
-    : parseFloat(distanceCm.toFixed(1))
-  const trimmedCalibrationFactor = isNaN(calibrationFactor)
-    ? NaN
-    : parseFloat(calibrationFactor.toFixed(1))
 
   // Find the next available calibration number
   let calibrationNumber = 1
@@ -326,41 +330,22 @@ function saveCalibrationAttempt(
   // Calculate missing values
   const ppi = RC.screenPpi.value
   const pxPerCmValue = ppi / 2.54 // Convert PPI to pixels per cm
-  const cameraXYPxValue = [window.innerWidth / 2, 0] // Top center of screen
-  const centerXYPxValue = [window.innerWidth / 2, window.innerHeight / 2] // Screen center
   const ipdCmValue = RC._CONST.IPD_CM // Standard IPD in cm (6.3cm)
-
-  // Calculate eye-to-center distances using trigonometry
-  // Use Pythagorean theorem: distance to center = sqrt(distance to nearest² + (nearest to center)²)
-  const halfScreenHeightCm = _calculateDistanceFromCenterToTop(ppi)
-
-  // Calculate distances from nearest points to screen center for each eye
-  const leftEyeToCenterCmValue =
-    nearestDistanceCm_left != null && !isNaN(nearestDistanceCm_left)
-      ? Math.sqrt(nearestDistanceCm_left ** 2 + halfScreenHeightCm ** 2)
-      : null
-
-  const rightEyeToCenterCmValue =
-    nearestDistanceCm_right != null && !isNaN(nearestDistanceCm_right)
-      ? Math.sqrt(nearestDistanceCm_right ** 2 + halfScreenHeightCm ** 2)
-      : null
+  const fVpx = (currentIPDDistance * eyesToFootCm) / ipdCmValue
 
   // Create the calibration object
   const calibrationObject = {
     method: method,
     pxPerCm: safeRoundCm(pxPerCmValue), //measured in size phase of rc
-    cameraXYPx: safeRoundXYPx(cameraXYPxValue), //top center of the screen
-    eyesToCameraCm: safeRoundCm(nearestEyeToWebcamDistanceCM),
     ipdVpx: safeRoundPx(currentIPDDistance, 1),
-    factorVpxCm: safeRoundPx(trimmedCalibrationFactor),
     ipdCm: safeRoundCm(ipdCmValue), //calculated from age
+    fVpx: safeRoundPx(fVpx),
+    footXYPx: safeRoundXYPx(footXYPx),
+    footToPointCm: safeRoundCm(footToPointCm),
     leftEyeFootXYPx: safeRoundXYPx(nearestXYPx_left),
     rightEyeFootXYPx: safeRoundXYPx(nearestXYPx_right),
     rightEyeToFootCm: safeRoundCm(nearestDistanceCm_right),
     leftEyeToFootCm: safeRoundCm(nearestDistanceCm_left),
-    centerXYPx: safeRoundXYPx(centerXYPxValue), // screen center
-    rightEyeToCenterCm: safeRoundCm(rightEyeToCenterCmValue), //calcualted by trignometry from above
-    leftEyeToCenterCm: safeRoundCm(leftEyeToCenterCmValue), //calcualted by trignometry from above
     pointXYPx: safeRoundXYPx(pointXYPx), // point on the screen
     cameraResolutionXYVpx: safeRoundXYPx(cameraResolutionXYVpx), // camera resolution
     spotDeg: safeToFixed(spotDeg), // Add spotDeg for blindspot calibrations
@@ -372,11 +357,11 @@ function saveCalibrationAttempt(
         ]
       : undefined,
     spotXYPx: safeRoundXYPx(spotXYPx), // Middle of red-green edge
-    fixationXYPx: safeRoundXYPx(fixationXYPx), // Position of fixation cross
-    spotToFixationCm: safeRoundCm(spotToFixationCm), // Distance between spot and fixation
     eyesToFixationCm: safeRoundCm(eyesToFixationCm), // Distance from participant to fixation
     eyesToSpotCm: safeRoundCm(eyesToSpotCm), // Distance from participant to spot
     eyesToFootCm: safeRoundCm(eyesToFootCm), // Distance from participant to foot
+    object: object,
+    objectSuggestion: objectSuggestion,
     objectLengthCm: safeRoundCm(objectLengthCm), // Distance from participant to object
   }
 
@@ -456,6 +441,8 @@ function createMeasurementObject(
   currentIPDDistance,
   ipdVpx = null,
   cameraResolutionXYVpx = [0, 0],
+  object = undefined,
+  objectSuggestion = undefined,
 ) {
   const {
     nearestDistanceCm_left,
@@ -471,6 +458,8 @@ function createMeasurementObject(
     nearestXYPx_right,
     pointXYPx,
     eyeToFootCm,
+    footXYPx,
+    footToPointCm,
   } = nearestPointsData
 
   const measurement = {
@@ -492,6 +481,10 @@ function createMeasurementObject(
     pointXYPx,
     cameraResolutionXYVpx: cameraResolutionXYVpx,
     eyesToFootCm: eyeToFootCm,
+    footXYPx: footXYPx,
+    footToPointCm: footToPointCm,
+    object: object,
+    objectSuggestion: objectSuggestion,
     objectLengthCm: distance,
   }
 
@@ -2843,6 +2836,8 @@ export async function blindSpotTestNew(
             currentIPDDistance,
             avgIPD,
             cameraResolutionXYVpx,
+            null,
+            null,
           )
 
           // Add new fields to measurement
@@ -8134,6 +8129,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           currentIPDDistance,
                           null,
                           cameraResolutionXYVpxPage3,
+                          isPaperSelectionMode ? selectedPaperOption : null,
+                          isPaperSelectionMode ? paperSuggestionValue : null,
                         ),
                       )
                     }
@@ -8167,6 +8164,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           currentIPDDistance,
                           null,
                           cameraResolutionXYVpxPage4,
+                          isPaperSelectionMode ? selectedPaperOption : null,
+                          isPaperSelectionMode ? paperSuggestionValue : null,
                         ),
                       )
                     }
@@ -8248,6 +8247,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           currentIPDDistance,
                           null,
                           cameraResolutionXYVpxPage3,
+                          isPaperSelectionMode ? selectedPaperOption : null,
+                          isPaperSelectionMode ? paperSuggestionValue : null,
                         ),
                       )
                     }
@@ -8281,6 +8282,8 @@ export async function objectTest(RC, options, callback = undefined) {
                           currentIPDDistance,
                           null,
                           cameraResolutionXYVpxPage4,
+                          isPaperSelectionMode ? selectedPaperOption : null,
+                          isPaperSelectionMode ? paperSuggestionValue : null,
                         ),
                       )
                     }
@@ -8881,6 +8884,8 @@ export async function objectTest(RC, options, callback = undefined) {
                   currentIPDDistance,
                   null,
                   cameraResolutionXYVpxPage3,
+                  isPaperSelectionMode ? selectedPaperOption : null,
+                  isPaperSelectionMode ? paperSuggestionValue : null,
                 ),
               )
             }
@@ -8914,6 +8919,8 @@ export async function objectTest(RC, options, callback = undefined) {
                   currentIPDDistance,
                   null,
                   cameraResolutionXYVpxPage4,
+                  isPaperSelectionMode ? selectedPaperOption : null,
+                  isPaperSelectionMode ? paperSuggestionValue : null,
                 ),
               )
             }
