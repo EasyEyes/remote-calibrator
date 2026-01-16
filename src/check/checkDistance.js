@@ -1613,6 +1613,191 @@ const checkSize = async (
       checkSizeListeners.push(keyupListener)
     })
 
+    // RULER UNIT MISMATCH DETECTION
+    // Detect if user selected wrong ruler units (inches vs cm)
+    const detectRulerUnitMismatch = () => {
+      // Local median helper
+      const computeMedian = arr => {
+        if (!arr || arr.length === 0) return 0
+        const sorted = arr.slice().sort((a, b) => a - b)
+        const middle = Math.floor(sorted.length / 2)
+        return sorted.length % 2 === 0
+          ? (sorted[middle - 1] + sorted[middle]) / 2
+          : sorted[middle]
+      }
+
+      // Get calibration pxPerCm (from credit card/screen size calibration)
+      const calibrationPxPerCm = RC.screenSizeMeasurements?.mean
+      if (!calibrationPxPerCm || calibrationPxPerCm <= 0) {
+        console.log('[Unit Detection] No calibration pxPerCm available')
+        return null
+      }
+
+      // Get check pxPerCm values (from yellow tape measurements so far)
+      const checkPxPerCmArray = RC.calibrateDistancePxPerCm.map(v =>
+        parseFloat(v),
+      )
+      if (!checkPxPerCmArray || checkPxPerCmArray.length === 0) {
+        console.log('[Unit Detection] No check pxPerCm values available')
+        return null
+      }
+
+      // Compute medians
+      const medianCalibration = calibrationPxPerCm
+      const medianCheck = computeMedian(checkPxPerCmArray)
+
+      if (medianCheck <= 0) {
+        console.log('[Unit Detection] Invalid medianCheck:', medianCheck)
+        return null
+      }
+
+      // Compute ratio r = median(calibration) / median(check)
+      const r = medianCalibration / medianCheck
+      const log10_1_2 = Math.log10(1.2) // ~0.079
+      const log10_1_1 = Math.log10(1.1) // ~0.041
+
+      const selectedUnit = RC.equipment?.value?.unit
+
+      console.log('[Unit Detection] ===== Measurement', i + 1, '=====')
+      console.log('[Unit Detection] Selected unit:', selectedUnit)
+      console.log('[Unit Detection] Calibration pxPerCm:', medianCalibration)
+      console.log('[Unit Detection] Check pxPerCm array:', checkPxPerCmArray)
+      console.log('[Unit Detection] Median check pxPerCm:', medianCheck)
+      console.log('[Unit Detection] Ratio r:', r)
+      console.log('[Unit Detection] log10(r):', Math.log10(r))
+      console.log('[Unit Detection] log10(r/2.54):', Math.log10(r / 2.54))
+      console.log('[Unit Detection] log10(r*2.54):', Math.log10(r * 2.54))
+
+      let mismatchType = null
+
+      // If "inches" selected and abs(log10(r/2.54)) < log10(1.2), they probably used cm ruler
+      if (
+        selectedUnit === 'inches' &&
+        Math.abs(Math.log10(r / 2.54)) < log10_1_2
+      ) {
+        mismatchType = 'notInches'
+        console.log(
+          '[Unit Detection] MISMATCH DETECTED: User selected inches but likely used cm ruler',
+        )
+      }
+      // If "cm" selected and abs(log10(r*2.54)) < log10(1.2), they probably used inch ruler
+      else if (
+        selectedUnit === 'cm' &&
+        Math.abs(Math.log10(r * 2.54)) < log10_1_2
+      ) {
+        mismatchType = 'notCm'
+        console.log(
+          '[Unit Detection] MISMATCH DETECTED: User selected cm but likely used inch ruler',
+        )
+      }
+      // General inconsistency: abs(log10(r)) > log10(1.1)
+      else if (Math.abs(Math.log10(r)) > log10_1_1) {
+        mismatchType = 'inconsistent'
+        console.log(
+          '[Unit Detection] MISMATCH DETECTED: Inconsistent measurements (ratio too far from 1)',
+        )
+      } else {
+        console.log(
+          '[Unit Detection] No mismatch detected - measurements consistent',
+        )
+      }
+
+      return mismatchType ? { type: mismatchType, ratio: r } : null
+    }
+
+    // Run detection after each measurement
+    const mismatchResult = detectRulerUnitMismatch()
+    if (mismatchResult) {
+      console.log(
+        '[Unit Detection] RESULT:',
+        mismatchResult.type,
+        '| Ratio:',
+        mismatchResult.ratio.toFixed(3),
+      )
+
+      // Determine the appropriate error message based on mismatch type
+      let errorMessage = ''
+      switch (mismatchResult.type) {
+        case 'notInches':
+          // User selected inches but likely used cm ruler
+          errorMessage =
+            phrases.RC_screenSizeNotInches?.[RC.language.value] ||
+            'Oops. You selected "inches" but it appears that your ruler or tape is marked in centimeters. Please try again. Click OK or press RETURN.'
+          break
+        case 'notCm':
+          // User selected cm but likely used inch ruler
+          errorMessage =
+            phrases.RC_screenSizeNotCm?.[RC.language.value] ||
+            'Oops. You selected "cm" but it appears that your ruler or tape is marked in inches. Please try again. Click OK or press RETURN.'
+          break
+        case 'inconsistent':
+        default:
+          // General inconsistency
+          errorMessage =
+            phrases.RC_screenSizeInconsistent?.[RC.language.value] ||
+            "These settings don't match earlier ones (credit card, etc.). Try again. Click OK or press RETURN."
+          break
+      }
+
+      // Show popup and wait for OK or RETURN
+      await Swal.fire({
+        ...swalInfoOptions(RC, { showIcon: false }),
+        icon: '',
+        title: '',
+        html: errorMessage,
+        allowEnterKey: true,
+        focusConfirm: true,
+        confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
+        didOpen: () => {
+          // Prevent Space key from triggering OK (only allow Return/Enter)
+          const confirmBtn = Swal.getConfirmButton()
+          if (confirmBtn) {
+            confirmBtn.addEventListener('keydown', e => {
+              if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault()
+                e.stopPropagation()
+              }
+            })
+          }
+        },
+      })
+
+      // Reset all measurements
+      RC.calibrateTrackLengthMeasuredCm = []
+      RC.calibrateTrackLengthRequestedCm = []
+      RC.calibrateDistancePxPerCm = []
+
+      // Clean up current UI
+      removeLengthDisplayDiv()
+
+      // Go back to unit selection page by calling getEquipment with forcedGet=true
+      await RC.getEquipment(null, true, 'version2')
+
+      // Check if user selected "no ruler" - if so, exit checkSize
+      if (!RC.equipment?.value?.has) {
+        console.log('[Unit Detection] User selected no ruler, exiting checkSize')
+        removeLengthDisplayDiv()
+        RC.showVideo(true)
+        return
+      }
+
+      // Recalculate processedLengthCm based on newly selected unit
+      processedLengthCm = calibrateDistanceCheckLengthCm.map(cm =>
+        RC.equipment?.value?.unit === 'inches'
+          ? Math.floor(Number(cm) / 2.54)
+          : Math.floor(Number(cm)),
+      )
+      processedLengthCm = processedLengthCm.filter(cm => cm > 0)
+
+      // Restart the checkSize loop from the beginning
+      // Re-create the length display div
+      createLengthDisplayDiv(RC)
+
+      // Reset loop counter to start from first measurement
+      i = -1
+      continue
+    }
+
     // COMPLIANCE CHECK: Starting from the second setting, check for non-compliance
     // (user pressing space without actually adjusting the tape)
     if (i >= 1) {
