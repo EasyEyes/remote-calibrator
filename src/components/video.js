@@ -109,6 +109,11 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
 }
 
 export function setDefaultVideoPosition(RC, v) {
+  // Skip repositioning if video is in camera mode (managed by repositionVideoForCameraMonitoring)
+  if (v.dataset.cameraMode === 'true') {
+    return
+  }
+
   // Check if we're on a page with progress bar (distance check pages)
   const hasProgressBar = document.getElementById('custom-progress-bar') !== null
   v.style.zIndex = 999999999999

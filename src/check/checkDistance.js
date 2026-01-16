@@ -122,6 +122,9 @@ const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
   }
 
   if (shouldPositionAtCamera) {
+    // Mark video container as being in camera mode (prevents setDefaultVideoPosition from overriding)
+    videoContainer.dataset.cameraMode = 'true'
+
     // Position video at cameraXYPx (top center of screen)
     const cameraXYPx = [window.innerWidth / 2, 0]
 
@@ -156,6 +159,9 @@ const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
       removeFixationCrossFromVideo()
     }
   } else {
+    // Clear camera mode flag
+    delete videoContainer.dataset.cameraMode
+
     // Default positioning (centered on screen)
     setDefaultVideoPosition(RC, videoContainer)
     // Remove cross if not in camera mode

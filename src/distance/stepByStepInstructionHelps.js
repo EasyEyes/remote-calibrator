@@ -545,6 +545,8 @@ export function renderStepInstructions({
   stepperBox.style.display = 'inline-block'
   stepperBox.style.boxSizing = 'border-box'
   stepperBox.style.maxWidth = '100%'
+  // Enable pointer events so stepper is interactive even when parent has pointer-events: none
+  stepperBox.style.pointerEvents = 'auto'
   if (showAllSteps) {
     stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.8)'
   }
@@ -671,6 +673,8 @@ export function renderStepInstructions({
     el.style.right = '0.5rem'
     el.style.fontSize = '1.1em'
     el.style.userSelect = 'none'
+    // Enable pointer events so arrows are clickable even when parent has pointer-events: none
+    el.style.pointerEvents = 'auto'
   }
 
   const arrowUp = document.createElement('div')
