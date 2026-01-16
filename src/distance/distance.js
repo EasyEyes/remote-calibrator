@@ -4277,22 +4277,28 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSelectionContainer.id = 'paper-selection-container'
   paperSelectionContainer.style.position = 'relative'
   paperSelectionContainer.style.display = 'none'
+  paperSelectionContainer.style.flexDirection = 'column'
   paperSelectionContainer.style.alignItems = 'flex-start'
   paperSelectionContainer.style.justifyContent = 'flex-start'
   paperSelectionContainer.style.backgroundColor = 'transparent'
   paperSelectionContainer.style.zIndex = '10000000000'
   paperSelectionContainer.style.color = '#111'
   paperSelectionContainer.style.padding = '0'
-  paperSelectionContainer.style.marginLeft = '3rem'
-  paperSelectionContainer.style.marginRight = '3rem'
-  paperSelectionContainer.style.marginTop = '0.1rem'
+  paperSelectionContainer.style.paddingLeft = 'clamp(1rem, 5vw, 3rem)'
+  paperSelectionContainer.style.paddingRight = 'clamp(1rem, 5vw, 3rem)'
+  paperSelectionContainer.style.paddingTop = '0.1rem'
+  paperSelectionContainer.style.paddingBottom = '1rem'
   paperSelectionContainer.style.boxSizing = 'border-box'
+  // Calculate remaining viewport height below title (approx 4rem for title row)
+  paperSelectionContainer.style.maxHeight = 'calc(100vh - 5rem)'
+  paperSelectionContainer.style.overflowY = 'auto' // Enable scrolling as fallback
+  paperSelectionContainer.style.overflowX = 'hidden'
   // Allow typing/clicking inside even when global listeners exist
   paperSelectionContainer.style.pointerEvents = 'auto'
   paperSelectionContainer.style.userSelect = 'auto'
 
   const paperSelectionCard = document.createElement('div')
-  paperSelectionCard.style.maxWidth = '50vw'
+  paperSelectionCard.style.maxWidth = 'min(50vw, 100% - 2rem)'
   paperSelectionCard.style.width = 'auto'
   paperSelectionCard.style.background = 'transparent'
   paperSelectionCard.style.border = 'none'
@@ -4300,46 +4306,51 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSelectionCard.style.padding = '0'
   paperSelectionCard.style.boxSizing = 'border-box'
   paperSelectionCard.style.boxShadow = 'none'
+  paperSelectionCard.style.display = 'flex'
+  paperSelectionCard.style.flexDirection = 'column'
+  paperSelectionCard.style.minHeight = '0' // Allow shrinking in flex context
+  paperSelectionCard.style.flexGrow = '1' // Allow card to grow to fill available space
 
   const paperSelectionTitle = document.createElement('div')
   paperSelectionTitle.textContent = phrases.RC_PaperChoicesInstructions[RC.L]
-  paperSelectionTitle.style.fontSize = '1.4rem'
+  paperSelectionTitle.style.fontSize = 'clamp(1rem, 3vmin, 1.4rem)'
   paperSelectionTitle.style.fontWeight = '600'
   paperSelectionTitle.style.color = '#111'
   paperSelectionTitle.style.textAlign = 'left'
-  paperSelectionTitle.style.margin = '2rem 0px 1rem 0px'
+  paperSelectionTitle.style.margin =
+    'clamp(0.5rem, 3vmin, 2rem) 0px clamp(0.5rem, 2vmin, 1rem) 0px'
 
   const paperOptionsList = document.createElement('div')
   paperOptionsList.style.display = 'flex'
   paperOptionsList.style.flexDirection = 'column'
-  paperOptionsList.style.gap = '0.7rem'
+  paperOptionsList.style.gap = 'clamp(0.3rem, 1.5vmin, 0.7rem)'
   paperOptionsList.style.alignItems = 'flex-start'
 
-  // Inline warning directly under radio buttons
+  // Inline warning directly under radio buttons (footnote - smaller on small screens)
   const paperInlineWarning = document.createElement('div')
   const useLongEdgeRaw = phrases.RC_UseLongEdge?.[RC.L] || ''
   // Support "/n" (and literal "\n") in the phrase by converting to real line breaks.
   paperInlineWarning.textContent = useLongEdgeRaw
     .replaceAll('/n', '\n')
     .replaceAll('\\n', '\n')
-  paperInlineWarning.style.marginTop = '3rem'
-  paperInlineWarning.style.fontSize = '1.3rem'
+  paperInlineWarning.style.marginTop = 'clamp(0.75rem, 4vmin, 3rem)'
+  paperInlineWarning.style.fontSize = 'clamp(0.85rem, 2.5vmin, 1.3rem)'
   paperInlineWarning.style.lineHeight = '1.4'
-  paperInlineWarning.style.color = '#111'
+  paperInlineWarning.style.color = '#555'
   paperInlineWarning.style.whiteSpace = 'pre-line'
 
   // Suggestion input under first warning
   const paperSuggestionWrapper = document.createElement('div')
   paperSuggestionWrapper.style.display = 'flex'
   paperSuggestionWrapper.style.flexDirection = 'column'
-  paperSuggestionWrapper.style.gap = '0.35rem'
-  paperSuggestionWrapper.style.marginTop = '1rem'
+  paperSuggestionWrapper.style.gap = 'clamp(0.2rem, 1vmin, 0.35rem)'
+  paperSuggestionWrapper.style.marginTop = 'clamp(0.5rem, 2vmin, 1rem)'
 
   const paperSuggestionLabel = document.createElement('div')
   paperSuggestionLabel.textContent = phrases.RC_SuggestObject[RC.L]
-  paperSuggestionLabel.style.fontSize = '1.3rem'
+  paperSuggestionLabel.style.fontSize = 'clamp(0.85rem, 2.5vmin, 1.3rem)'
   paperSuggestionLabel.style.lineHeight = '1.3'
-  paperSuggestionLabel.style.color = '#111'
+  paperSuggestionLabel.style.color = '#555'
 
   const paperSuggestionInput = document.createElement('input')
   paperSuggestionInput.type = 'text'
@@ -4368,16 +4379,17 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSuggestionWrapper.appendChild(paperSuggestionLabel)
   paperSuggestionWrapper.appendChild(paperSuggestionInput)
 
-  // Optional note right under the suggestion input (only when calibrateDistanceCheckBool is true)
+  // Optional note right under the suggestion input (footnote - smaller on small screens)
+  // (only when calibrateDistanceCheckBool is true)
   const dontUseYourRulerNote = document.createElement('div')
   const dontUseYourRulerRaw = phrases.RC_DontUseYourRulerYet?.[RC.L] || ''
   dontUseYourRulerNote.textContent = dontUseYourRulerRaw
     .replaceAll('/n', '\n')
     .replaceAll('\\n', '\n')
-  dontUseYourRulerNote.style.marginTop = '1rem'
-  dontUseYourRulerNote.style.fontSize = '1.3rem'
+  dontUseYourRulerNote.style.marginTop = 'clamp(0.5rem, 2vmin, 1rem)'
+  dontUseYourRulerNote.style.fontSize = 'clamp(0.85rem, 2.5vmin, 1.3rem)'
   dontUseYourRulerNote.style.lineHeight = '1.4'
-  dontUseYourRulerNote.style.color = '#111'
+  dontUseYourRulerNote.style.color = '#555'
   dontUseYourRulerNote.style.whiteSpace = 'pre-line'
   dontUseYourRulerNote.style.display =
     options.calibrateDistanceCheckBool === true &&
@@ -4389,25 +4401,25 @@ export async function objectTest(RC, options, callback = undefined) {
   // Important warning under suggestion input
   const paperImportantWarning = document.createElement('div')
   paperImportantWarning.textContent = ''
-  paperImportantWarning.style.marginTop = '1rem'
-  paperImportantWarning.style.fontSize = '1.3rem'
+  paperImportantWarning.style.marginTop = 'clamp(0.5rem, 2vmin, 1rem)'
+  paperImportantWarning.style.fontSize = 'clamp(0.9rem, 2.5vmin, 1.3rem)'
   paperImportantWarning.style.lineHeight = '1.4'
   paperImportantWarning.style.color = '#111'
 
   const paperValidationMessage = document.createElement('div')
   paperValidationMessage.style.color = '#ff9f43'
-  paperValidationMessage.style.marginTop = '1rem'
+  paperValidationMessage.style.marginTop = 'clamp(0.5rem, 2vmin, 1rem)'
   paperValidationMessage.style.display = 'none'
-  paperValidationMessage.style.fontSize = '0.95rem'
+  paperValidationMessage.style.fontSize = 'clamp(0.8rem, 2vmin, 0.95rem)'
 
   const createPaperOptionRow = option => {
     const row = document.createElement('label')
     row.style.display = 'flex'
-    //row.style.alignItems = 'center'
+    row.style.alignItems = 'center'
     row.style.gap = '1px'
     row.style.cursor = 'pointer'
-    row.style.fontSize = '1.3rem'
-    row.style.lineHeight = '0.8'
+    row.style.fontSize = 'clamp(1rem, 2.5vmin, 1.3rem)'
+    row.style.lineHeight = '1.2'
     row.style.color = '#111'
     row.style.textAlign = 'left'
     row.style.padding = '0'
@@ -4419,8 +4431,9 @@ export async function objectTest(RC, options, callback = undefined) {
     radio.style.cursor = 'pointer'
     radio.style.marginRight = '0.5rem'
     radio.style.padding = '0'
-    radio.style.width = '16px'
-    radio.style.height = '16px'
+    radio.style.width = 'clamp(14px, 3vmin, 16px)'
+    radio.style.height = 'clamp(14px, 3vmin, 16px)'
+    radio.style.flexShrink = '0'
     radio.onchange = () => {
       selectedPaperOption = option.key
       selectedPaperLengthCm = option.lengthCm
@@ -4433,7 +4446,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
     const labelSpan = document.createElement('span')
     labelSpan.textContent = option.label
-    labelSpan.style.fontSize = '1.3rem'
+    labelSpan.style.fontSize = 'clamp(1rem, 2.5vmin, 1.3rem)'
 
     row.appendChild(radio)
     row.appendChild(labelSpan)
@@ -6021,18 +6034,22 @@ export async function objectTest(RC, options, callback = undefined) {
         explanationButton.style.display = 'none'
 
         // Show paper selection UI
-        paperSelectionContainer.style.display = 'block'
+        paperSelectionContainer.style.display = 'flex'
         paperValidationMessage.style.display = 'none'
         proceedButton.style.display = 'block'
         proceedButton.disabled = !selectedPaperLengthCm
 
-        // Move proceed button into the left column, right under the paper selection content
-        buttonContainer.style.position = 'relative'
-        buttonContainer.style.bottom = ''
-        buttonContainer.style.right = ''
-        buttonContainer.style.marginTop = '1.5rem'
-        buttonContainer.style.justifyContent = 'flex-end'
-        paperSelectionCard.appendChild(buttonContainer)
+        // Keep proceed button fixed at bottom right of screen
+        buttonContainer.style.position = 'fixed'
+        buttonContainer.style.bottom = '20px'
+        if (RC.LD === RC._CONST.RTL) {
+          buttonContainer.style.left = '20px'
+          buttonContainer.style.right = ''
+        } else {
+          buttonContainer.style.right = '20px'
+          buttonContainer.style.left = ''
+        }
+        RC.background.appendChild(buttonContainer)
 
         // Clear right column so warnings render under radios instead
         if (rightInstructionsText) {
@@ -6043,8 +6060,13 @@ export async function objectTest(RC, options, callback = undefined) {
         // Restore default button position (fixed at bottom right)
         buttonContainer.style.position = 'fixed'
         buttonContainer.style.bottom = '230px'
-        buttonContainer.style.right = '20px'
-        buttonContainer.style.marginTop = ''
+        if (RC.LD === RC._CONST.RTL) {
+          buttonContainer.style.left = '20px'
+          buttonContainer.style.right = ''
+        } else {
+          buttonContainer.style.right = '20px'
+          buttonContainer.style.left = ''
+        }
         RC.background.appendChild(buttonContainer)
         // Hide paper mode warning if present
         if (rightInstructionsText) {
