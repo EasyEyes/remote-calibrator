@@ -1833,9 +1833,33 @@ const checkSize = async (
         )
 
         if (settingsTooSimilar) {
+          // Get user's chosen units
+          const userUnits = RC.equipment?.value?.unit || 'cm'
+          const isInches = userUnits === 'inches'
+
+          // Convert measured lengths from pixels to user units
+          // First convert pixels to cm using pxPerCm, then to inches if needed
+          const previousMeasuredInCm = previousMeasuredLength / pxPerCm
+          const currentMeasuredInCm = currentMeasuredLength / pxPerCm
+          const previousMeasuredInUserUnits = isInches
+            ? previousMeasuredInCm / 2.54
+            : previousMeasuredInCm
+          const currentMeasuredInUserUnits = isInches
+            ? currentMeasuredInCm / 2.54
+            : currentMeasuredInCm
+
+          // Format measured values with 1 decimal place (never suppress zeros)
+          const prevMeasuredStr = previousMeasuredInUserUnits.toFixed(1)
+          const currMeasuredStr = currentMeasuredInUserUnits.toFixed(1)
+
+          // Requested values are already in user units (processedLengthCm is in user units despite the name)
+          // Format as integers
+          const prevRequestedStr = Math.round(previousRequestedLength).toString()
+          const currRequestedStr = Math.round(currentRequestedLength).toString()
+
           console.warn(
-            `Compliance check failed: User set similar lengths (${previousMeasuredLength} vs ${currentMeasuredLength}) ` +
-              `despite different requests (${previousRequestedLength} vs ${currentRequestedLength})`,
+            `Compliance check failed: User set similar lengths (${prevMeasuredStr} vs ${currMeasuredStr} ${userUnits}) ` +
+              `despite different requests (${prevRequestedStr} vs ${currRequestedStr} ${userUnits})`,
           )
 
           // Discard all length settings so far
@@ -1843,9 +1867,19 @@ const checkSize = async (
           RC.calibrateTrackLengthRequestedCm = []
           RC.calibrateDistancePxPerCm = []
 
-          // Get the error message (use fallback if phrase not available)
-          const errorMessage =
-            phrases.RC_RejectEqualLengths?.[RC.language.value]
+          // Get the error message and fill in the values
+          // [[N11]] = previous measured, [[N22]] = current measured
+          // [[N33]] = previous requested, [[N44]] = current requested
+          // [[AAA]] = units
+          let errorMessage =
+            phrases.RC_RejectEqualLengths?.[RC.language.value] || ''
+          errorMessage = errorMessage
+            .replace('[[N11]]', prevMeasuredStr)
+            .replace('[[N22]]', currMeasuredStr)
+            .replace('[[N33]]', prevRequestedStr)
+            .replace('[[N44]]', currRequestedStr)
+            .replace('[N44]]', currRequestedStr) // Handle typo in phrase (missing opening bracket)
+            .replace(/\[\[AAA\]\]/g, userUnits)
 
           // Show popup error message and wait for OK
           await Swal.fire({
@@ -2994,18 +3028,40 @@ const trackDistanceCheck = async (
               RC.calibrateDistanceMeasuredCm.length - 2
             ]
 
-          // If measured distances are within 10% of being equal, this is invalid (non-compliance)
+          // If measured distances are within 5% of being equal, this is invalid (non-compliance)
           // The user didn't actually move despite different distance requests
+          // (Using 5% instead of 10% to reduce false alarms)
           const measurementsTooSimilar = areValuesWithinPercent(
             currentMeasuredDistance,
             previousMeasuredDistance,
-            10,
+            5,
           )
 
           if (measurementsTooSimilar) {
+            // Get user's chosen units
+            const userUnits = RC.equipment?.value?.unit || 'cm'
+            const isInches = userUnits === 'inches'
+
+            // Convert measured distances from cm to user units
+            const previousMeasuredInUserUnits = isInches
+              ? previousMeasuredDistance / 2.54
+              : previousMeasuredDistance
+            const currentMeasuredInUserUnits = isInches
+              ? currentMeasuredDistance / 2.54
+              : currentMeasuredDistance
+
+            // Format measured values with 1 decimal place (never suppress zeros)
+            const prevMeasuredStr = previousMeasuredInUserUnits.toFixed(1)
+            const currMeasuredStr = currentMeasuredInUserUnits.toFixed(1)
+
+            // Requested values are already in user units (calibrateDistanceCheckCm is in user units despite the name)
+            // Format as integers
+            const prevRequestedStr = Math.round(previousRequestedDistance).toString()
+            const currRequestedStr = Math.round(currentRequestedDistance).toString()
+
             console.warn(
-              `Distance compliance check failed: User at similar distances (${previousMeasuredDistance} vs ${currentMeasuredDistance} cm) ` +
-                `despite different requests (${previousRequestedDistance} vs ${currentRequestedDistance})`,
+              `Distance compliance check failed: User at similar distances (${prevMeasuredStr} vs ${currMeasuredStr} ${userUnits}) ` +
+                `despite different requests (${prevRequestedStr} vs ${currRequestedStr} ${userUnits})`,
             )
 
             // Discard all distance settings so far
@@ -3029,10 +3085,21 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.leftEyeFootXYPx = []
             RC.distanceCheckJSON.footXYPx = []
 
-            // Get the error message (use same phrase as length check for consistency)
-            const errorMessage =
+            // Get the error message and fill in the values
+            // [[N11]] = previous measured, [[N22]] = current measured
+            // [[N33]] = previous requested, [[N44]] = current requested
+            // [[AAA]] = units
+            let errorMessage =
               phrases.RC_RejectEqualDistances?.[RC.language.value] ||
-              phrases.RC_RejectEqualLengths?.[RC.language.value]
+              phrases.RC_RejectEqualLengths?.[RC.language.value] ||
+              ''
+            errorMessage = errorMessage
+              .replace('[[N11]]', prevMeasuredStr)
+              .replace('[[N22]]', currMeasuredStr)
+              .replace('[[N33]]', prevRequestedStr)
+              .replace('[[N44]]', currRequestedStr)
+              .replace('[N44]]', currRequestedStr) // Handle typo in phrase (missing opening bracket)
+              .replace(/\[\[AAA\]\]/g, userUnits)
 
             // Show popup error message and wait for OK
             await Swal.fire({
