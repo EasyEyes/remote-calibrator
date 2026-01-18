@@ -281,8 +281,15 @@ function saveCalibrationAttempt(
     if (COMMON) {
       for (const [key, value] of Object.entries(COMMON)) {
         const v = value === undefined ? null : value
-        if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = []
-        RC.calibrationAttemptsT[key].push(v)
+        //for fields: objectRulerIntervalCm: ,objectLengthCm: , objectMeasuredMsg: , objectName: ,
+        // push to array if array, otherwise set to value
+        if (Array.isArray(v)) {
+          if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = []
+          RC.calibrationAttemptsT[key].push(...v)
+        } else {
+          if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = v
+        }
+        // if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = v
       }
     }
   }
@@ -299,6 +306,10 @@ function saveCalibrationAttempt(
   while (RC.calibrationAttempts[`calibration${calibrationNumber}`]) {
     calibrationNumber++
   }
+
+  const isBlindspot = method.toLowerCase().includes('blindspot')
+  const isObject = method.toLowerCase().includes('object')
+  const isPaper = COMMON?._calibrateDistance === 'paper'
 
   // Helper function to safely round centimeter values (1 decimal place)
   const safeRoundCm = value => {
@@ -332,6 +343,10 @@ function saveCalibrationAttempt(
   const pxPerCmValue = ppi / 2.54 // Convert PPI to pixels per cm
   const ipdCmValue = RC._CONST.IPD_CM // Standard IPD in cm (6.3cm)
   const fVpx = (currentIPDDistance * eyesToFootCm) / ipdCmValue
+  const imageBasedEyesToFootCm = (fVpx * ipdCmValue) / currentIPDDistance
+  const imageBasedEyesToPointCm = Math.sqrt(
+    imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
+  )
 
   // Create the calibration object
   const calibrationObject = {
@@ -348,27 +363,41 @@ function saveCalibrationAttempt(
     leftEyeToFootCm: safeRoundCm(nearestDistanceCm_left),
     pointXYPx: safeRoundXYPx(pointXYPx), // point on the screen
     cameraResolutionXYVpx: safeRoundXYPx(cameraResolutionXYVpx), // camera resolution
-    spotDeg: safeToFixed(spotDeg), // Add spotDeg for blindspot calibrations
-    // NEW FIELDS for edge-based blindspot test
-    _calibrateDistanceSpotXYDeg: calibrateDistanceSpotXYDeg
+    object: object,
+    objectSuggestion: objectSuggestion,
+    objectLengthCm: safeRoundCm(objectLengthCm), // Distance from participant to object
+    rulerBasedEyesToPointCm: safeRoundCm(objectLengthCm),
+    rulerBasedEyesToFootCm: safeRoundCm(
+      Math.sqrt(objectLengthCm ** 2 - footToPointCm ** 2),
+    ),
+    imageBasedEyesToFootCm: safeRoundCm(imageBasedEyesToFootCm),
+    imageBasedEyesToPointCm: safeRoundCm(imageBasedEyesToPointCm),
+  }
+
+  if (isBlindspot) {
+    calibrationObject.spotDeg = safeToFixed(spotDeg)
+    calibrationObject.spotXYPx = safeRoundXYPx(spotXYPx)
+    calibrationObject.eyesToSpotCm = safeRoundCm(eyesToSpotCm)
+    calibrationObject._calibrateDistanceSpotXYDeg = calibrateDistanceSpotXYDeg
       ? [
           safeToFixed(calibrateDistanceSpotXYDeg[0]),
           safeToFixed(calibrateDistanceSpotXYDeg[1]),
         ]
-      : undefined,
-    spotXYPx: safeRoundXYPx(spotXYPx), // Middle of red-green edge
-    eyesToFixationCm: safeRoundCm(eyesToFixationCm), // Distance from participant to fixation
-    eyesToSpotCm: safeRoundCm(eyesToSpotCm), // Distance from participant to spot
-    eyesToFootCm: safeRoundCm(eyesToFootCm), // Distance from participant to foot
-    object: object,
-    objectSuggestion: objectSuggestion,
-    objectLengthCm: safeRoundCm(objectLengthCm), // Distance from participant to object
+      : undefined
+    calibrationObject.eyesToFixationCm = safeRoundCm(eyesToFixationCm)
   }
 
   console.log('factorVpxCm', calibrationObject.factorVpxCm)
 
   // Store in the new JSON format
   RC.calibrationAttempts[`calibration${calibrationNumber}`] = calibrationObject
+
+  //unless isObject, delete objectRulerIntervalCm from Common
+  if (!isObject || isPaper) {
+    if (COMMON.objectRulerIntervalCm) {
+      delete COMMON.objectRulerIntervalCm
+    }
+  }
 
   // Also maintain a transposed structure for easier consumption
   _updateCalibrationAttemptsTransposed(RC, calibrationObject, COMMON)
