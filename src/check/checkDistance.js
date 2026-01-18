@@ -1825,11 +1825,11 @@ const checkSize = async (
             RC.calibrateTrackLengthMeasuredCm.length - 2
           ]
 
-        // If settings are within 10% of being equal, this is invalid (non-compliance)
+        // If settings are within 3% of being equal, this is invalid (non-compliance)
         const settingsTooSimilar = areValuesWithinPercent(
           currentMeasuredLength,
           previousMeasuredLength,
-          10,
+          3,
         )
 
         if (settingsTooSimilar) {
@@ -1854,7 +1854,9 @@ const checkSize = async (
 
           // Requested values are already in user units (processedLengthCm is in user units despite the name)
           // Format as integers
-          const prevRequestedStr = Math.round(previousRequestedLength).toString()
+          const prevRequestedStr = Math.round(
+            previousRequestedLength,
+          ).toString()
           const currRequestedStr = Math.round(currentRequestedLength).toString()
 
           console.warn(
@@ -3028,13 +3030,13 @@ const trackDistanceCheck = async (
               RC.calibrateDistanceMeasuredCm.length - 2
             ]
 
-          // If measured distances are within 5% of being equal, this is invalid (non-compliance)
+          // If measured distances are within 3% of being equal, this is invalid (non-compliance)
           // The user didn't actually move despite different distance requests
-          // (Using 5% instead of 10% to reduce false alarms)
+          // (Using 3% to reduce false alarms)
           const measurementsTooSimilar = areValuesWithinPercent(
             currentMeasuredDistance,
             previousMeasuredDistance,
-            5,
+            3,
           )
 
           if (measurementsTooSimilar) {
@@ -3056,8 +3058,12 @@ const trackDistanceCheck = async (
 
             // Requested values are already in user units (calibrateDistanceCheckCm is in user units despite the name)
             // Format as integers
-            const prevRequestedStr = Math.round(previousRequestedDistance).toString()
-            const currRequestedStr = Math.round(currentRequestedDistance).toString()
+            const prevRequestedStr = Math.round(
+              previousRequestedDistance,
+            ).toString()
+            const currRequestedStr = Math.round(
+              currentRequestedDistance,
+            ).toString()
 
             console.warn(
               `Distance compliance check failed: User at similar distances (${prevMeasuredStr} vs ${currMeasuredStr} ${userUnits}) ` +
