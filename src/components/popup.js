@@ -194,26 +194,17 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
 
   try {
     console.log(
-      `Applying ideal resolution constraints to device ${deviceId}...`,
+      `Applying optimized resolution constraints to device ${deviceId}...`,
     )
 
-    // Use webgazer constraints with explicit deviceId to prevent camera switching
-    const idealConstraints = {
+    // Use min constraints to force best resolution (same technique as preview loading)
+    // setCameraConstraints will use progressive fallback: min 1920 → 1280 → ideal-only
+    await RC.gazeTracker.webgazer.setCameraConstraints({
       video: {
         deviceId: { exact: deviceId },
-        width: { ideal: 1920, max: 1920 },
-        height: { ideal: 1080, max: 1080 },
-        aspectRatio: { ideal: 1.77778 }, // 16:9 ratio
-        frameRate: { ideal: 30, max: 30 },
         facingMode: 'user',
       },
-    }
-
-    // Apply constraints through webgazer
-    await RC.gazeTracker.webgazer.setCameraConstraints(idealConstraints)
-
-    // Give time for constraints to take effect
-    await new Promise(resolve => setTimeout(resolve, 800))
+    })
 
     // Check what resolution we actually got
     const videoParams = RC.gazeTracker.webgazer.videoParamsToReport
@@ -228,7 +219,7 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
 
     return false
   } catch (error) {
-    console.warn('Failed to apply ideal resolution constraints:', error)
+    console.warn('Failed to apply optimized resolution constraints:', error)
     return false
   }
 }
@@ -248,53 +239,14 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
     webgazerFaceFeedbackBox.style.display = 'none'
   }
 
-  // Give minimal time for camera to initialize after selection
-  await new Promise(resolve => setTimeout(resolve, 300))
-
-  // Check current resolution
-  let videoParams = RC.gazeTracker?.webgazer?.videoParamsToReport
+  // Resolution is already optimized during preview loading - just check the result
+  const videoParams = RC.gazeTracker?.webgazer?.videoParamsToReport
   if (videoParams && videoParams.width && videoParams.height) {
-    let { width, height } = videoParams
+    const { width, height } = videoParams
     console.log(`Selected camera resolution: ${width}x${height}`)
 
     // Get threshold from options (if undefined, don't show popup)
     const threshold = options.resolutionWarningThreshold
-
-    // If threshold is defined and resolution is low, try to improve it automatically first
-    if (
-      threshold !== undefined &&
-      width < threshold &&
-      !RC.resolutionWarningShown
-    ) {
-      console.log(
-        `Resolution ${width}x${height} is below threshold ${threshold}. Attempting automatic improvement...`,
-      )
-
-      // Get current camera info for improvement attempt
-      const activeCamera = RC.gazeTracker?.webgazer?.params?.activeCamera
-      if (activeCamera?.id) {
-        const improved = await applyIdealResolutionConstraints(
-          RC,
-          activeCamera.id,
-        )
-
-        if (improved) {
-          // Re-check resolution after improvement
-          videoParams = RC.gazeTracker?.webgazer?.videoParamsToReport
-          if (videoParams && videoParams.width && videoParams.height) {
-            width = videoParams.width
-            height = videoParams.height
-            console.log(`After automatic improvement: ${width}x${height}`)
-
-            // If we now meet the threshold, no need to show popup
-            if (width >= threshold) {
-              console.log('Automatic improvement successful, no popup needed')
-              return true
-            }
-          }
-        }
-      }
-    }
 
     // Show popup if threshold is defined AND width < threshold AND we haven't shown it before
     if (
@@ -432,31 +384,27 @@ const switchToCamera = async (RC, selectedCamera) => {
   }
 
   try {
-    console.log(
-      `Switching to camera: ${selectedCamera.label} with ideal resolution optimization`,
-    )
-
     // Update webgazer camera parameters
     RC.gazeTracker.webgazer.params.activeCamera.label = selectedCamera.label
     RC.gazeTracker.webgazer.params.activeCamera.id = selectedCamera.deviceId
 
     // Update camera constraints if webgazer is already running
     if (RC.gazeTracker.webgazer.params.videoIsOn) {
-      // Apply ideal resolution constraints to get 1920x1080 and prevent zooming/cropping
-      const constraintsApplied = await applyIdealResolutionConstraints(
-        RC,
-        selectedCamera.deviceId,
-      )
-
-      if (!constraintsApplied) {
-        // Fallback to basic constraints if ideal constraints failed
-        console.log('Ideal constraints failed, applying basic constraints...')
-        await RC.gazeTracker.webgazer.setCameraConstraints({
+      // Use known resolution from preview to skip re-probing
+      const knownRes = selectedCamera.resolution || null
+      
+      console.log(`Switching to camera: ${selectedCamera.label}` + 
+        (knownRes ? ` (known: ${knownRes.width}x${knownRes.height})` : ' (probing)'))
+      
+      await RC.gazeTracker.webgazer.setCameraConstraints(
+        {
           video: {
             deviceId: { exact: selectedCamera.deviceId },
+            facingMode: 'user',
           },
-        })
-      }
+        },
+        knownRes // Pass known resolution to skip probing
+      )
     }
 
     return true
@@ -517,8 +465,8 @@ const createCameraPreviews = async (
           muted 
           playsinline
         ></video>
-        <div style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${isActive ? '#28a745' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'};">
-          ${camera.label || `Camera ${i + 1}`} ${isActive ? '(Current)' : ''}
+        <div style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; word-wrap: break-word; white-space: normal; color: ${isActive ? '#28a745' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'};">
+          ${camera.label || `Camera ${i + 1}`}
         </div>
       </div>
     `
@@ -526,31 +474,68 @@ const createCameraPreviews = async (
 
   previewsHTML += '</div>'
 
-  // Start video streams for all cameras
-  setTimeout(async () => {
-    for (let i = 0; i < cameras.length; i++) {
-      const camera = cameras[i]
+  // Start video streams for all cameras in PARALLEL with optimized resolution
+  setTimeout(() => {
+    cameras.forEach(async (camera, i) => {
       const videoElement = document.getElementById(`camera-preview-${i}`)
+      const container = document.getElementById(`camera-preview-container-${i}`)
+      const labelDiv = container?.querySelector('div[style*="font-size: 12px"]')
 
       if (videoElement) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              deviceId: { exact: camera.deviceId },
-            },
-          })
+          // Use optimized constraints: min 1920, fallback to 1280, then ideal-only
+          let stream
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: camera.deviceId },
+                width: { min: 1920, ideal: 7680 },
+                height: { min: 1080, ideal: 4320 },
+                aspectRatio: { min: 1.33, ideal: 1.78, max: 2.33 },
+              },
+            })
+          } catch (fullHDError) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                  deviceId: { exact: camera.deviceId },
+                  width: { min: 1280, ideal: 7680 },
+                  height: { min: 720, ideal: 4320 },
+                  aspectRatio: { min: 1.33, ideal: 1.78, max: 2.33 },
+                },
+              })
+            } catch (hdError) {
+              stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                  deviceId: { exact: camera.deviceId },
+                  width: { ideal: 1920 },
+                  height: { ideal: 1080 },
+                },
+              })
+            }
+          }
+          
           videoElement.srcObject = stream
+          
+          // Get resolution and update label
+          const videoTrack = stream.getVideoTracks()[0]
+          if (videoTrack && labelDiv) {
+            const settings = videoTrack.getSettings()
+            const width = settings.width || 0
+            const height = settings.height || 0
+            const currentLabel = camera.label || `Camera ${i + 1}`
+            labelDiv.textContent = `${currentLabel}, ${width}×${height}`
+            
+            // Store resolution for camera switching (skip re-probing)
+            camera.resolution = { width, height }
+          }
         } catch (error) {
-          console.error(
-            `Failed to get stream for camera ${camera.label}:`,
-            error,
-          )
-          // Show error state
+          console.error(`Failed to get stream for camera ${camera.label}:`, error)
           videoElement.style.border = '2px solid #dc3545'
           videoElement.style.backgroundColor = '#f8d7da'
         }
       }
-    }
+    })
   }, 100)
 
   return previewsHTML
@@ -719,9 +704,6 @@ const updateCameraPreviews = async (
         // Call the same function that OK button would call
         await window.selectCamera(deviceId, label)
 
-        // Add delay to account for video switching time
-        await new Promise(resolve => setTimeout(resolve, 800))
-
         // Remove loading text
         const loadingTextElement = document.getElementById(
           'camera-loading-text',
@@ -781,7 +763,8 @@ export const showCameraSelectionPopup = async (
 
   // Hide the main video preview when camera selection popup opens
   const mainVideoContainer = document.getElementById('webgazerVideoContainer')
-  const originalMainVideoDisplay = mainVideoContainer?.style?.display || 'block'
+  // Always restore to 'block' after popup closes (video may be hidden during init)
+  const originalMainVideoDisplay = 'block'
   if (mainVideoContainer) {
     mainVideoContainer.style.display = 'none'
   }
@@ -918,23 +901,21 @@ export const showCameraSelectionPopup = async (
                           camera.deviceId === selectedCamera.deviceId
 
                         if (container) {
+                          const label = camera.label || `Camera ${index + 1}`
+                          const res = camera.resolution ? `, ${camera.resolution.width}×${camera.resolution.height}` : ''
+                          
                           if (isActive) {
                             container.style.backgroundColor = '#e8f5e8'
                             container.style.border = '2px solid #28a745'
-                            container.querySelector('div').style.color =
-                              '#28a745'
-                            container.querySelector('div').style.fontWeight =
-                              'bold'
-                            container.querySelector('div').textContent =
-                              `${camera.label || `Camera ${index + 1}`} (Current)`
+                            container.querySelector('div').style.color = '#28a745'
+                            container.querySelector('div').style.fontWeight = 'bold'
+                            container.querySelector('div').textContent = `${label}${res}`
                           } else {
                             container.style.backgroundColor = 'transparent'
                             container.style.border = '2px solid transparent'
                             container.querySelector('div').style.color = '#666'
-                            container.querySelector('div').style.fontWeight =
-                              'normal'
-                            container.querySelector('div').textContent =
-                              camera.label || `Camera ${index + 1}`
+                            container.querySelector('div').style.fontWeight = 'normal'
+                            container.querySelector('div').textContent = `${label}${res}`
                           }
                         }
                       })
@@ -1022,19 +1003,16 @@ export const showCameraSelectionPopup = async (
             previewContainer.appendChild(loadingText)
           }
 
-          // Add 1500ms delay to account for video switching time
-          setTimeout(async () => {
-            // Remove loading text
-            const loadingTextElement = document.getElementById(
-              'camera-loading-text',
-            )
-            if (loadingTextElement) {
-              loadingTextElement.remove()
-            }
+          // Remove loading text
+          const loadingTextElement = document.getElementById(
+            'camera-loading-text',
+          )
+          if (loadingTextElement) {
+            loadingTextElement.remove()
+          }
 
-            // Close the popup
-            Swal.clickConfirm()
-          }, 1500)
+          // Close the popup
+          Swal.clickConfirm()
         }
       }
 
@@ -1087,20 +1065,21 @@ export const showCameraSelectionPopup = async (
                 const isActive = camera.deviceId === selectedCamera.deviceId
 
                 if (container) {
+                  const label = camera.label || `Camera ${index + 1}`
+                  const res = camera.resolution ? `, ${camera.resolution.width}×${camera.resolution.height}` : ''
+                  
                   if (isActive) {
                     container.style.backgroundColor = '#e8f5e8'
                     container.style.border = '2px solid #28a745'
                     container.querySelector('div').style.color = '#28a745'
                     container.querySelector('div').style.fontWeight = 'bold'
-                    container.querySelector('div').textContent =
-                      `${camera.label || `Camera ${index + 1}`} (Current)`
+                    container.querySelector('div').textContent = `${label}${res}`
                   } else {
                     container.style.backgroundColor = 'transparent'
                     container.style.border = '2px solid transparent'
                     container.querySelector('div').style.color = '#666'
                     container.querySelector('div').style.fontWeight = 'normal'
-                    container.querySelector('div').textContent =
-                      camera.label || `Camera ${index + 1}`
+                    container.querySelector('div').textContent = `${label}${res}`
                   }
                 }
               })
@@ -1214,9 +1193,6 @@ export const showCameraSelectionPopup = async (
             // Call the same function that OK button would call
             await window.selectCamera(deviceId, label)
 
-            // Add delay to account for video switching time
-            await new Promise(resolve => setTimeout(resolve, 800))
-
             // Remove loading text
             const loadingTextElement = document.getElementById(
               'camera-loading-text',
@@ -1317,9 +1293,6 @@ export const showCameraSelectionPopup = async (
               // Store the selected camera for return
               RC.selectedCamera = selectedCamera
 
-              // Add delay to account for video switching time
-              await new Promise(resolve => setTimeout(resolve, 800))
-
               // Remove loading text
               const loadingTextElement = document.getElementById(
                 'camera-loading-text',
@@ -1408,10 +1381,8 @@ export const showCameraSelectionPopup = async (
         delete window.selectAndCommitCamera
       }
 
-      // Show the main video preview again when the popup closes
-      if (mainVideoContainer) {
-        mainVideoContainer.style.display = originalMainVideoDisplay
-      }
+      // DON'T restore video container here - let the next step handle it
+      // This prevents the blank page flash between popup close and next UI render
 
       // If no camera was explicitly selected, restore the original camera
       if (!RC.selectedCamera && RC.gazeTracker?.webgazer) {
@@ -1438,10 +1409,8 @@ export const showCameraSelectionPopup = async (
         }
       })
 
-      // Show the main video preview again when the popup closes
-      if (mainVideoContainer) {
-        mainVideoContainer.style.display = originalMainVideoDisplay
-      }
+      // DON'T restore video container here - let the next step handle it
+      // This prevents the blank page flash between popup close and next UI render
     },
   })
 
@@ -1562,7 +1531,8 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
 
   // Hide the main video preview immediately to prevent flash
   const mainVideoContainer = document.getElementById('webgazerVideoContainer')
-  const originalMainVideoDisplay = mainVideoContainer?.style?.display || 'block'
+  // Always restore to 'block' after popup closes (video may be hidden during init)
+  const originalMainVideoDisplay = 'block'
   if (mainVideoContainer) {
     mainVideoContainer.style.display = 'none'
   }

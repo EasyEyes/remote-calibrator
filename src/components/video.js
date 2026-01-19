@@ -79,6 +79,10 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
     if (v) {
       clearInterval(c)
 
+      // Hide video container initially - popup or next step will show it when ready
+      // This prevents the blank page with just video on top
+      v.style.display = 'none'
+
       v.style.height = `${
         (pipWidthPx / Number.parseInt(v.style.width)) *
         Number.parseInt(v.style.height)
@@ -93,17 +97,17 @@ export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
       // Set position
       setDefaultVideoPosition(RC, v)
 
-      // Give callback after 0.7 sec
-      setTimeout(() => {
-        RC.videoOpacity()
-        if (RC.isMobile.value)
-          v.style.transition =
-            'right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
-        else
-          v.style.transition =
-            'left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
-        safeExecuteFunc(callback)
-      }, 700)
+      // Set video opacity and transitions
+      RC.videoOpacity()
+      if (RC.isMobile.value)
+        v.style.transition =
+          'right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
+      else
+        v.style.transition =
+          'left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
+      
+      // Call callback immediately (was 700ms delay)
+      safeExecuteFunc(callback)
     }
   }, 100)
 }
