@@ -2814,9 +2814,16 @@ const saveCalibrationAttempt = (
     calibrationNumber++
   }
 
+  // Helper function to safely round centimeter values (2 decimal places, preserves trailing zeros)
   const safeRoundCm = value => {
     if (value == null || isNaN(value)) return null
-    return Math.round(value * 10) / 10
+    return parseFloat(value).toFixed(2)
+  }
+
+  // Helper function to safely round ratio values (4 decimal places)
+  const safeRoundRatio = value => {
+    if (value == null || isNaN(value)) return null
+    return Math.round(value * 10000) / 10000
   }
 
   const safeRoundXYPx = xyArray => {
@@ -2865,7 +2872,7 @@ const saveCalibrationAttempt = (
       measurement.fRatio != null ? Number(measurement.fRatio.toFixed(2)) : null,
     fOverHorizontal:
       measurement.fRatio != null ? Number(measurement.fRatio.toFixed(2)) : null, // backward compatibility
-    fVpx: safeRoundPx(measurement.fVpx || 0),
+    fOverWidth: safeRoundRatio((measurement.fVpx || 0) / window.innerWidth),
     factorVpxCm: safeRoundPx(measurement.factorVpxCm || 0),
     ipdCm: safeRoundCm(ASSUMED_IPD_CM),
     shortVPx: safeRoundPx(measurement.shortVPx || 0),

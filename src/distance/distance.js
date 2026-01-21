@@ -311,10 +311,16 @@ function saveCalibrationAttempt(
   const isObject = method.toLowerCase().includes('object')
   const isPaper = COMMON?._calibrateDistance === 'paper'
 
-  // Helper function to safely round centimeter values (1 decimal place)
+  // Helper function to safely round centimeter values (2 decimal places, preserves trailing zeros)
   const safeRoundCm = value => {
     if (value == null || isNaN(value)) return null
-    return Math.round(value * 10) / 10
+    return parseFloat(value).toFixed(2)
+  }
+
+  // Helper function to safely round ratio values (4 decimal places)
+  const safeRoundRatio = value => {
+    if (value == null || isNaN(value)) return null
+    return Math.round(value * 10000) / 10000
   }
 
   // Helper function to safely round pixel values (integer)
@@ -343,6 +349,8 @@ function saveCalibrationAttempt(
   const pxPerCmValue = ppi / 2.54 // Convert PPI to pixels per cm
   const ipdCmValue = RC._CONST.IPD_CM // Standard IPD in cm (6.3cm)
   const fVpx = (currentIPDDistance * eyesToFootCm) / ipdCmValue
+  const fOverWidth = fVpx / window.innerWidth
+  const ipdOverWidth = currentIPDDistance / window.innerWidth
   const imageBasedEyesToFootCm = (fVpx * ipdCmValue) / currentIPDDistance
   const imageBasedEyesToPointCm = Math.sqrt(
     imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
@@ -352,15 +360,16 @@ function saveCalibrationAttempt(
   const calibrationObject = {
     method: method,
     pxPerCm: safeRoundCm(pxPerCmValue), //measured in size phase of rc
-    ipdVpx: safeRoundPx(currentIPDDistance, 1),
+    ipdOverWidth: safeRoundRatio(ipdOverWidth),
     ipdCm: safeRoundCm(ipdCmValue), //calculated from age
-    fVpx: safeRoundPx(fVpx),
+    fOverWidth: safeRoundRatio(fOverWidth),
     footXYPx: safeRoundXYPx(footXYPx),
     footToPointCm: safeRoundCm(footToPointCm),
     leftEyeFootXYPx: safeRoundXYPx(nearestXYPx_left),
     rightEyeFootXYPx: safeRoundXYPx(nearestXYPx_right),
-    rightEyeToFootCm: safeRoundCm(nearestDistanceCm_right),
-    leftEyeToFootCm: safeRoundCm(nearestDistanceCm_left),
+    objectBasedRightEyeToFootCm: safeRoundCm(nearestDistanceCm_right),
+    objectBasedLeftEyeToFootCm: safeRoundCm(nearestDistanceCm_left),
+    objectBasedEyesToFootCm: safeRoundCm(eyesToFootCm),
     pointXYPx: safeRoundXYPx(pointXYPx), // point on the screen
     cameraResolutionXYVpx: safeRoundXYPx(cameraResolutionXYVpx), // camera resolution
     object: object,
@@ -374,16 +383,21 @@ function saveCalibrationAttempt(
     imageBasedEyesToPointCm: safeRoundCm(imageBasedEyesToPointCm),
   }
 
-  if (isBlindspot) {
+  // Include spot parameters only if _calibrateDistance === 'blindspot'
+  if (COMMON?._calibrateDistance === 'blindspot') {
     calibrationObject.spotDeg = safeToFixed(spotDeg)
-    calibrationObject.spotXYPx = safeRoundXYPx(spotXYPx)
-    calibrationObject.eyesToSpotCm = safeRoundCm(eyesToSpotCm)
     calibrationObject._calibrateDistanceSpotXYDeg = calibrateDistanceSpotXYDeg
       ? [
           safeToFixed(calibrateDistanceSpotXYDeg[0]),
           safeToFixed(calibrateDistanceSpotXYDeg[1]),
         ]
       : undefined
+    calibrationObject.spotXYPx = safeRoundXYPx(spotXYPx)
+    calibrationObject.eyesToSpotCm = safeRoundCm(eyesToSpotCm)
+  }
+
+  // Include eyesToFixationCm only if fixationXYPx is defined
+  if (fixationXYPx) {
     calibrationObject.eyesToFixationCm = safeRoundCm(eyesToFixationCm)
   }
 

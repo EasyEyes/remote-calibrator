@@ -2253,40 +2253,57 @@ const trackDistanceCheck = async (
       cameraResolutionMaxXY = `${w},${h}`
     }
 
+    // Helper function to safely round centimeter values (2 decimal places)
+    const safeRoundCm = value => {
+      if (value == null || isNaN(value)) return null
+      return parseFloat(value).toFixed(2)
+    }
+
+    // Helper function to safely round ratio values (4 decimal places)
+    const safeRoundRatio = value => {
+      if (value == null || isNaN(value)) return null
+      return Math.round(value * 10000) / 10000
+    }
+
     let calibrationFVpx = null
+    let calibrationFOverWidth = null
     try {
       if (stdDist.current && stdDist.current.calibrationFactor) {
         calibrationFVpx = stdDist.current.calibrationFactor / RC._CONST.IPD_CM
-        calibrationFVpx = Math.round(calibrationFVpx * 10) / 10
+        calibrationFOverWidth = safeRoundRatio(calibrationFVpx / window.innerWidth)
       }
     } catch (e) {}
 
     RC.distanceCheckJSON = {
+      // Text parameters first
+      _calibrateDistanceChecking: calibrateDistanceChecking,
+      _calibrateDistance: calibrateDistance,
+      _calibrateDistancePupil: calibrateDistancePupil,
+      // Parameters with few values (before arrays with 8 values)
+      cameraXYPx: [window.innerWidth / 2, 0],
+      pxPerCm: safeRoundCm(pxPerCm),
+      webcamMaxXYVpx: cameraResolutionMaxXY,
+      ipdCm: safeRoundCm(RC._CONST.IPD_CM),
+      calibrationFOverWidth: calibrationFOverWidth, // median(calibration) as ratio
       rulerUnit: RC.equipment?.value?.unit,
-      calibrationFVpx: calibrationFVpx, // median(calibration)
+      // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
-      ipdCm: RC._CONST.IPD_CM,
+      ipdOverWidth: [], // ipdVpx / window.innerWidth
       imageBasedEyesToFootCm: [], //calibrationFVpx * ipdCm / ipdVpx
       imageBasedEyesToPointCm: [], //sqrt(imageBasedEyesToFootCm**2 + footToPoint**2)
       rulerBasedEyesToPointCm: [], //requestedEyesToPointCm
       rulerBasedEyesToFootCm: [], //sqrt(rulerBasedEyesToPointCm**2 - footToPoint**2)
-      _calibrateDistanceChecking: calibrateDistanceChecking,
-      _calibrateDistance: calibrateDistance,
-      _calibrateDistancePupil: calibrateDistancePupil,
       pointXYPx: [],
-      cameraXYPx: [window.innerWidth / 2, 0],
-      pxPerCm: Math.round(pxPerCm * 10) / 10,
-      webcamMaxXYVpx: cameraResolutionMaxXY,
       cameraResolutionXYVpx: [],
       requestedEyesToPointCm: [],
       footToPointCm: [],
-      ipdVpx: [],
       rightEyeFootXYPx: [],
       leftEyeFootXYPx: [],
       footXYPx: [],
     }
 
-    if (isBlindspot) {
+    // Include spot parameter only if _calibrateDistance === 'blindspot'
+    if (calibrateDistance === 'blindspot') {
       RC.distanceCheckJSON._calibrateDistanceSpotXYDeg =
         calibrateDistanceSpotXYDeg
     }
@@ -2708,7 +2725,7 @@ const trackDistanceCheck = async (
                   (calibrationFVpx * RC._CONST.IPD_CM) /
                   faceValidation.ipdPixels
                 RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
-                  Math.round(imageBasedEyesToFootCm * 10) / 10,
+                  safeRoundCm(imageBasedEyesToFootCm),
                 )
                 const imageBasedEyesToPointCm = Math.sqrt(
                   imageBasedEyesToFootCm ** 2 +
@@ -2716,23 +2733,23 @@ const trackDistanceCheck = async (
                 )
 
                 RC.distanceCheckJSON.imageBasedEyesToPointCm.push(
-                  Math.round(imageBasedEyesToPointCm * 10) / 10,
+                  safeRoundCm(imageBasedEyesToPointCm),
                 )
                 RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
-                  Math.round(imageBasedEyesToFootCm * 10) / 10,
+                  safeRoundCm(imageBasedEyesToFootCm),
                 )
               } catch (e) {
                 RC.distanceCheckJSON.imageBasedEyesToFootCm.push(null)
                 RC.distanceCheckJSON.imageBasedEyesToPointCm.push(null)
               }
               RC.distanceCheckJSON.rulerBasedEyesToFootCm.push(
-                Math.round(rulerBasedEyesToFootCm * 10) / 10,
+                safeRoundCm(rulerBasedEyesToFootCm),
               )
               RC.distanceCheckJSON.rulerBasedEyesToPointCm.push(
-                requestedEyesToPointCm,
+                safeRoundCm(requestedEyesToPointCm),
               )
               RC.distanceCheckJSON.requestedEyesToPointCm.push(
-                requestedEyesToPointCm,
+                safeRoundCm(requestedEyesToPointCm),
               )
               RC.distanceCheckJSON.fVpx.push(
                 Math.round(
@@ -2746,9 +2763,9 @@ const trackDistanceCheck = async (
                 faceValidation.pointXYPx[1],
               ])
               RC.distanceCheckJSON.footToPointCm.push(
-                faceValidation.footToPointCm,
+                safeRoundCm(faceValidation.footToPointCm),
               )
-              RC.distanceCheckJSON.ipdVpx.push(faceValidation.ipdPixels)
+              RC.distanceCheckJSON.ipdOverWidth.push(safeRoundRatio(faceValidation.ipdPixels / window.innerWidth))
               RC.distanceCheckJSON.rightEyeFootXYPx.push([
                 faceValidation.nearestXYPx_right[0],
                 faceValidation.nearestXYPx_right[1],
@@ -2913,7 +2930,7 @@ const trackDistanceCheck = async (
                     (calibrationFVpx * RC._CONST.IPD_CM) /
                     faceValidation.ipdPixels
                   RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
-                    Math.round(imageBasedEyesToFootCm * 10) / 10,
+                    safeRoundCm(imageBasedEyesToFootCm),
                   )
                   const imageBasedEyesToPointCm = Math.sqrt(
                     imageBasedEyesToFootCm ** 2 +
@@ -2921,33 +2938,31 @@ const trackDistanceCheck = async (
                   )
 
                   RC.distanceCheckJSON.imageBasedEyesToPointCm.push(
-                    Math.round(imageBasedEyesToPointCm * 10) / 10,
+                    safeRoundCm(imageBasedEyesToPointCm),
                   )
                   RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
-                    Math.round(imageBasedEyesToFootCm * 10) / 10,
+                    safeRoundCm(imageBasedEyesToFootCm),
                   )
                 } catch (e) {
                   RC.distanceCheckJSON.imageBasedEyesToFootCm.push(null)
                   RC.distanceCheckJSON.imageBasedEyesToPointCm.push(null)
                 }
                 const requestedEyesToPointCm =
-                  Math.round(
-                    RC.equipment?.value?.unit === 'inches'
-                      ? cm * 2.54 * 10
-                      : cm * 10,
-                  ) / 10
+                  RC.equipment?.value?.unit === 'inches'
+                    ? cm * 2.54
+                    : cm
                 const rulerBasedEyesToFootCm = Math.sqrt(
                   requestedEyesToPointCm ** 2 -
                     faceValidation.footToPointCm ** 2,
                 )
                 RC.distanceCheckJSON.rulerBasedEyesToPointCm.push(
-                  requestedEyesToPointCm,
+                  safeRoundCm(requestedEyesToPointCm),
                 )
                 RC.distanceCheckJSON.rulerBasedEyesToFootCm.push(
-                  Math.round(rulerBasedEyesToFootCm * 10) / 10,
+                  safeRoundCm(rulerBasedEyesToFootCm),
                 )
                 RC.distanceCheckJSON.requestedEyesToPointCm.push(
-                  requestedEyesToPointCm,
+                  safeRoundCm(requestedEyesToPointCm),
                 )
                 RC.distanceCheckJSON.fVpx.push(
                   Math.round(
@@ -2957,9 +2972,9 @@ const trackDistanceCheck = async (
                   ) / 10,
                 )
                 RC.distanceCheckJSON.footToPointCm.push(
-                  faceValidation.footToPointCm,
+                  safeRoundCm(faceValidation.footToPointCm),
                 )
-                RC.distanceCheckJSON.ipdVpx.push(faceValidation.ipdPixels)
+                RC.distanceCheckJSON.ipdOverWidth.push(safeRoundRatio(faceValidation.ipdPixels / window.innerWidth))
                 RC.distanceCheckJSON.rightEyeFootXYPx.push([
                   faceValidation.nearestXYPx_right[0],
                   faceValidation.nearestXYPx_right[1],
@@ -3086,7 +3101,7 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.cameraResolutionXYVpx = []
             RC.distanceCheckJSON.requestedEyesToPointCm = []
             RC.distanceCheckJSON.footToPointCm = []
-            RC.distanceCheckJSON.ipdVpx = []
+            RC.distanceCheckJSON.ipdOverWidth = []
             RC.distanceCheckJSON.rightEyeFootXYPx = []
             RC.distanceCheckJSON.leftEyeFootXYPx = []
             RC.distanceCheckJSON.footXYPx = []
