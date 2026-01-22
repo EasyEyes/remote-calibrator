@@ -1165,8 +1165,7 @@ export const calculateNearestPoints = (
     (nearestXYPx_right[0] + nearestXYPx_left[0]) / 2,
     (nearestXYPx_right[1] + nearestXYPx_left[1]) / 2,
   ]
-  const footXYPx = distanceCheck
-    ? avgFootXYPx
+  const footXYPx = (distanceCheck || method !== 'blindspot') ? avgFootXYPx
     : order === 1
       ? nearestXYPx_right
       : nearestXYPx_left

@@ -356,29 +356,33 @@ function saveCalibrationAttempt(
     imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
   )
 
+  const screenResolutionXYVpx = [window.innerWidth, window.innerHeight]
+  
+
   // Create the calibration object
   const calibrationObject = {
     method: method,
+    object: object,
+    objectMeasuredMsg: COMMON?.objectMeasuredMsg,
+    objectSuggestion: objectSuggestion,
+    cameraResolutionXYVpx: safeRoundXYPx(cameraResolutionXYVpx), // camera resolution
+    screenResolutionXYVpx: safeRoundXYPx(screenResolutionXYVpx), // screen resolution
     pxPerCm: safeRoundCm(pxPerCmValue), //measured in size phase of rc
-    ipdOverWidth: safeRoundRatio(ipdOverWidth),
     ipdCm: safeRoundCm(ipdCmValue), //calculated from age
-    fOverWidth: safeRoundRatio(fOverWidth),
-    footXYPx: safeRoundXYPx(footXYPx),
-    footToPointCm: safeRoundCm(footToPointCm),
     leftEyeFootXYPx: safeRoundXYPx(nearestXYPx_left),
     rightEyeFootXYPx: safeRoundXYPx(nearestXYPx_right),
-    objectBasedRightEyeToFootCm: safeRoundCm(nearestDistanceCm_right),
-    objectBasedLeftEyeToFootCm: safeRoundCm(nearestDistanceCm_left),
-    objectBasedEyesToFootCm: safeRoundCm(eyesToFootCm),
+    footXYPx: safeRoundXYPx(footXYPx),
     pointXYPx: safeRoundXYPx(pointXYPx), // point on the screen
-    cameraResolutionXYVpx: safeRoundXYPx(cameraResolutionXYVpx), // camera resolution
-    object: object,
-    objectSuggestion: objectSuggestion,
+    footToPointCm: safeRoundCm(footToPointCm),
     objectLengthCm: safeRoundCm(objectLengthCm), // Distance from participant to object
-    rulerBasedEyesToPointCm: safeRoundCm(objectLengthCm),
+    ipdOverWidth: safeRoundRatio(ipdOverWidth),
+    fOverWidth: safeRoundRatio(fOverWidth),
+    rulerBasedRightEyeToFootCm: safeRoundCm(nearestDistanceCm_right),
+    rulerBasedLeftEyeToFootCm: safeRoundCm(nearestDistanceCm_left),
     rulerBasedEyesToFootCm: safeRoundCm(
       Math.sqrt(objectLengthCm ** 2 - footToPointCm ** 2),
     ),
+    rulerBasedEyesToPointCm: safeRoundCm(objectLengthCm),
     imageBasedEyesToFootCm: safeRoundCm(imageBasedEyesToFootCm),
     imageBasedEyesToPointCm: safeRoundCm(imageBasedEyesToPointCm),
   }
@@ -411,6 +415,10 @@ function saveCalibrationAttempt(
     if (COMMON.objectRulerIntervalCm) {
       delete COMMON.objectRulerIntervalCm
     }
+  }
+
+  if(COMMON?.objectMeasuredMsg) {
+    delete COMMON.objectMeasuredMsg
   }
 
   // Also maintain a transposed structure for easier consumption
@@ -3665,10 +3673,6 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== OBJECT TEST COMMON DATA TO BE SAVED IN RC.calibrationAttempts.COMMON =====================
   const objectTestCommonData = {
-    objectRulerIntervalCm: [],
-    // objectLengthCm: [],
-    objectMeasuredMsg: [],
-    objectName: [],
     _calibrateDistance: options.calibrateDistance,
     _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
     _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
@@ -3676,11 +3680,14 @@ export async function objectTest(RC, options, callback = undefined) {
     _calibrateDistanceShowRulerUnitsBool:
       options.calibrateDistanceShowRulerUnitsBool,
     _calibrateDistanceTimes: options.objectMeasurementCount,
-    _showPerpendicularFeetBool: options.showNearestPointsBool,
     _calibrateScreenSizeAllowedRatio: options.calibrateScreenSizeAllowedRatio,
     _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
+    _showPerpendicularFeetBool: options.showNearestPointsBool,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+    objectRulerIntervalCm: [],
+    // objectLengthCm: [],
+    objectMeasuredMsg: [],    
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
@@ -6514,12 +6521,7 @@ export async function objectTest(RC, options, callback = undefined) {
           Math.round(Number(selectedPaperLengthCm) * 10) / 10
         objectTestCommonData.objectMeasuredMsg.push('ok')
         // objectTestCommonData.objectLengthCm.push(roundedLength)
-        objectTestCommonData.objectName.push(
-          selectedPaperLabel ||
-            paperSelectionOptions.find(o => o.key === selectedPaperOption)
-              ?.label ||
-            null,
-        )
+
         objectTestCommonData.objectRulerIntervalCm.push(null)
 
         measurementState.measurements.push({
