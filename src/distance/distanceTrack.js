@@ -220,6 +220,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateDistanceShowRulerUnitsBool: false,
       calibrateDistancePupil: 'iris',
       calibrateDistanceQuadBaseRatio: 2.0, // Default ratio for quadrilateral base
+      calibrateDistanceIpdUsesZBool: true, // Use z coordinate from FaceMesh in IPD calculation (false = 2D only)
     },
     trackDistanceOptions,
   )
@@ -400,6 +401,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.objectMeasurementConsistencyThreshold =
     options.objectMeasurementConsistencyThreshold
   trackingOptions.calibrateDistancePupil = options.calibrateDistancePupil
+  trackingOptions.calibrateDistanceIpdUsesZBool =
+    options.calibrateDistanceIpdUsesZBool
+  // Store on RC instance for access from other modules
+  this.calibrateDistanceIpdUsesZBool =
+    options.calibrateDistanceIpdUsesZBool !== false
   trackingOptions.desiredDistanceCm = options.desiredDistanceCm
   trackingOptions.desiredDistanceTolerance = options.desiredDistanceTolerance
   trackingOptions.desiredDistanceMonitor = options.desiredDistanceMonitor
@@ -468,8 +474,13 @@ const startTrackingPupils = async (
   })
 }
 
-const eyeDist = (a, b) => {
-  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+const eyeDist = (a, b, useZ = true) => {
+  if (useZ) {
+    console.log('[distanceTrack.js] eyeDist using 3D formula (with Z)')
+    return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+  }
+  console.log('[distanceTrack.js] eyeDist using 2D formula (NO Z)')
+  return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
 const cyclopean = (video, a, b) => {
@@ -915,7 +926,8 @@ export const getMeshData = async (
       calibrateDistancePupil,
     )
     if (leftEye && rightEye) {
-      const currentIPDDistance = eyeDist(leftEye, rightEye)
+      const useZ = trackingOptions.calibrateDistanceIpdUsesZBool !== false
+      const currentIPDDistance = eyeDist(leftEye, rightEye, useZ)
 
       return {
         mesh,
@@ -1067,7 +1079,8 @@ export const calculateFootXYPx = (
   const rightEyeX = camWidth - rightEye.x // Flip X coordinate
   const rightEyeY = rightEye.y // Y coordinate unchanged
 
-  const ipdVpx = eyeDist(leftEye, rightEye)
+  const useZ = trackingOptions.calibrateDistanceIpdUsesZBool !== false
+  const ipdVpx = eyeDist(leftEye, rightEye, useZ)
 
   const offsetXYVpx_left = [
     leftEyeX - centerXYVpx[0],
@@ -2505,6 +2518,7 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
 
   if (f.length) {
     const mesh = f[0].scaledMesh
+    const useZ = trackingOptions.calibrateDistanceIpdUsesZBool !== false
     const dist = eyeDist(
       {
         x: mesh[468].x,
@@ -2516,6 +2530,7 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
         y: mesh[473].y,
         z: mesh[473].z,
       },
+      useZ,
     )
 
     const timestamp = performance.now()

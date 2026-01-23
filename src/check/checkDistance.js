@@ -411,6 +411,7 @@ const validateFaceMeshSamples = async (
   RC,
   calibrateDistancePupil = 'iris',
   calibrateDistanceChecking = 'camera',
+  calibrateDistanceIpdUsesZBool = true,
 ) => {
   const samples = []
 
@@ -465,6 +466,7 @@ const validateFaceMeshSamples = async (
         RC,
         calibrateDistancePupil,
         calibrateDistanceChecking,
+        calibrateDistanceIpdUsesZBool,
       )
       if (ipdData && ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
         samples.push(ipdData.ipdPixels)
@@ -717,6 +719,7 @@ const captureIPDFromFaceMesh = async (
   RC,
   calibrateDistancePupil = 'iris',
   calibrateDistanceChecking = 'camera',
+  calibrateDistanceIpdUsesZBool = true,
 ) => {
   try {
     const video = document.getElementById('webgazerVideoCanvas')
@@ -736,14 +739,17 @@ const captureIPDFromFaceMesh = async (
     // Get face mesh keypoints
     const mesh = faces[0].keypoints || faces[0].scaledMesh
     // Calculate eye positions using same logic as distanceTrack.js
-    const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+    const eyeDist = (a, b, useZ = true) =>
+      useZ
+        ? Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+        : Math.hypot(a.x - b.x, a.y - b.y)
     const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
       mesh,
       calibrateDistancePupil,
     )
 
     // Calculate IPD in pixels
-    const ipdPixels = eyeDist(leftEye, rightEye)
+    const ipdPixels = eyeDist(leftEye, rightEye, calibrateDistanceIpdUsesZBool)
     // Convert to cm if we have screen PPI
     let ipdCm = null
     if (RC.screenPpi && RC.screenPpi.value) {
@@ -2611,6 +2617,7 @@ const trackDistanceCheck = async (
                 RC,
                 calibrateDistancePupil,
                 calibrateDistanceChecking,
+                RC.calibrateDistanceIpdUsesZBool !== false,
               )
 
               if (!faceValidation.isValid) {
@@ -2831,6 +2838,8 @@ const trackDistanceCheck = async (
                 const faceValidation = await validateFaceMeshSamples(
                   RC,
                   calibrateDistancePupil,
+                  'camera',
+                  RC.calibrateDistanceIpdUsesZBool !== false,
                 )
 
                 if (!faceValidation.isValid) {

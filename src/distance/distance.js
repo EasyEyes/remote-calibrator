@@ -558,6 +558,7 @@ async function measureIntraocularDistancePx(
   RC,
   calibrateDistancePupil = 'iris',
   meshSamples = [],
+  calibrateDistanceIpdUsesZBool = true,
 ) {
   let video = document.getElementById('webgazerVideoCanvas')
   if (!video) return null
@@ -570,15 +571,22 @@ async function measureIntraocularDistancePx(
     calibrateDistancePupil,
   )
   if (!leftEye || !rightEye) return null
-  const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+  const eyeDist = (a, b, useZ = true) => {
+    if (useZ) {
+      console.log('[distance.js - measureIntraocularDistancePx] eyeDist using 3D formula (with Z)')
+      return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+    }
+    console.log('[distance.js - measureIntraocularDistancePx] eyeDist using 2D formula (NO Z)')
+    return Math.hypot(a.x - b.x, a.y - b.y)
+  }
 
   console.log(
     'Eye distance measureIntraocularDistancePx',
-    eyeDist(leftEye, rightEye),
+    eyeDist(leftEye, rightEye, calibrateDistanceIpdUsesZBool),
   )
   meshSamples.length = 0
   meshSamples.push(...mesh)
-  return eyeDist(leftEye, rightEye)
+  return eyeDist(leftEye, rightEye, calibrateDistanceIpdUsesZBool)
 }
 
 // Helper to capture current video frame as base64 image
@@ -2763,6 +2771,7 @@ export async function blindSpotTestNew(
               RC,
               options.calibrateDistancePupil,
               meshPoints,
+              RC.calibrateDistanceIpdUsesZBool !== false,
             )
             samples.push(pxDist && !isNaN(pxDist) ? pxDist : NaN)
           } catch (e) {
@@ -3731,6 +3740,7 @@ export async function objectTest(RC, options, callback = undefined) {
           RC,
           options.calibrateDistancePupil,
           meshSamples,
+          RC.calibrateDistanceIpdUsesZBool !== false,
         ) // Get raw pixel distance
         if (pxDist && !isNaN(pxDist)) {
           arr.push(pxDist)
@@ -6797,6 +6807,7 @@ export async function objectTest(RC, options, callback = undefined) {
           RC,
           ppi,
           options.calibrateDistancePupil,
+          RC.calibrateDistanceIpdUsesZBool !== false,
         ).then(intraocularDistanceCm => {
           if (intraocularDistanceCm) {
             console.log(
@@ -9541,6 +9552,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
           RC,
           options.calibrateDistancePupil,
           meshSamples,
+          RC.calibrateDistanceIpdUsesZBool !== false,
         )
         if (pxDist && !isNaN(pxDist)) {
           arr.push(pxDist)
@@ -9977,6 +9989,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
           RC,
           ppi,
           options.calibrateDistancePupil,
+          RC.calibrateDistanceIpdUsesZBool !== false,
         ).then(intraocularDistanceCm => {
           if (intraocularDistanceCm) {
             console.log(
@@ -10290,6 +10303,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   RC,
                   ppi,
                   options.calibrateDistancePupil,
+                  RC.calibrateDistanceIpdUsesZBool !== false,
                 ).then(intraocularDistanceCm => {
                   if (intraocularDistanceCm) {
                     singlePageData.intraocularDistanceCm = intraocularDistanceCm
@@ -10781,6 +10795,7 @@ async function measureIntraocularDistanceCm(
   RC,
   ppi,
   calibrateDistancePupil = 'iris',
+  calibrateDistanceIpdUsesZBool = true,
 ) {
   // Get the video element (use canvas only)
   let video = document.getElementById('webgazerVideoCanvas')
@@ -10792,14 +10807,21 @@ async function measureIntraocularDistanceCm(
   // Use keypoints 133 (right eye outer) and 362 (left eye outer)
   const mesh = faces[0].keypoints || faces[0].scaledMesh
   // Use eyeDist from distanceTrack.js logic
-  const eyeDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+  const eyeDist = (a, b, useZ = true) => {
+    if (useZ) {
+      console.log('[distance.js - measureIntraocularDistanceCm] eyeDist using 3D formula (with Z)')
+      return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
+    }
+    console.log('[distance.js - measureIntraocularDistanceCm] eyeDist using 2D formula (NO Z)')
+    return Math.hypot(a.x - b.x, a.y - b.y)
+  }
   const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
     mesh,
     calibrateDistancePupil,
   )
   if (!leftEye || !rightEye) return null
 
-  const pxDist = eyeDist(leftEye, rightEye)
+  const pxDist = eyeDist(leftEye, rightEye, calibrateDistanceIpdUsesZBool)
   console.log('Eye distance measureIntraocularDistanceCm..', pxDist)
   // Convert to mm, then cm
   const pxPerMm = ppi / 25.4
