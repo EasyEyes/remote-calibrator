@@ -2793,7 +2793,9 @@ const trackDistanceCheck = async (
                 safeRoundCm(faceValidation.footToPointCm),
               )
               RC.distanceCheckJSON.ipdOverWidth.push(
-                safeRoundRatio(faceValidation.ipdPixels / cameraResolutionXYVpx[0]),
+                safeRoundRatio(
+                  faceValidation.ipdPixels / cameraResolutionXYVpx[0],
+                ),
               )
               RC.distanceCheckJSON.ipdOverWidthXYZ.push(
                 safeRoundRatio(
@@ -3009,7 +3011,9 @@ const trackDistanceCheck = async (
                   safeRoundCm(faceValidation.footToPointCm),
                 )
                 RC.distanceCheckJSON.ipdOverWidth.push(
-                  safeRoundRatio(faceValidation.ipdPixels / cameraResolutionXYVpx[0]),
+                  safeRoundRatio(
+                    faceValidation.ipdPixels / cameraResolutionXYVpx[0],
+                  ),
                 )
                 RC.distanceCheckJSON.ipdOverWidthXYZ.push(
                   safeRoundRatio(

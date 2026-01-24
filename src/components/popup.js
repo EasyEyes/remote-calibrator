@@ -392,10 +392,14 @@ const switchToCamera = async (RC, selectedCamera) => {
     if (RC.gazeTracker.webgazer.params.videoIsOn) {
       // Use known resolution from preview to skip re-probing
       const knownRes = selectedCamera.resolution || null
-      
-      console.log(`Switching to camera: ${selectedCamera.label}` + 
-        (knownRes ? ` (known: ${knownRes.width}x${knownRes.height})` : ' (probing)'))
-      
+
+      console.log(
+        `Switching to camera: ${selectedCamera.label}` +
+          (knownRes
+            ? ` (known: ${knownRes.width}x${knownRes.height})`
+            : ' (probing)'),
+      )
+
       await RC.gazeTracker.webgazer.setCameraConstraints(
         {
           video: {
@@ -403,7 +407,7 @@ const switchToCamera = async (RC, selectedCamera) => {
             facingMode: 'user',
           },
         },
-        knownRes // Pass known resolution to skip probing
+        knownRes, // Pass known resolution to skip probing
       )
     }
 
@@ -514,9 +518,9 @@ const createCameraPreviews = async (
               })
             }
           }
-          
+
           videoElement.srcObject = stream
-          
+
           // Get resolution and update label
           const videoTrack = stream.getVideoTracks()[0]
           if (videoTrack && labelDiv) {
@@ -525,12 +529,15 @@ const createCameraPreviews = async (
             const height = settings.height || 0
             const currentLabel = camera.label || `Camera ${i + 1}`
             labelDiv.textContent = `${currentLabel}, ${width}×${height}`
-            
+
             // Store resolution for camera switching (skip re-probing)
             camera.resolution = { width, height }
           }
         } catch (error) {
-          console.error(`Failed to get stream for camera ${camera.label}:`, error)
+          console.error(
+            `Failed to get stream for camera ${camera.label}:`,
+            error,
+          )
           videoElement.style.border = '2px solid #dc3545'
           videoElement.style.backgroundColor = '#f8d7da'
         }
@@ -902,20 +909,27 @@ export const showCameraSelectionPopup = async (
 
                         if (container) {
                           const label = camera.label || `Camera ${index + 1}`
-                          const res = camera.resolution ? `, ${camera.resolution.width}×${camera.resolution.height}` : ''
-                          
+                          const res = camera.resolution
+                            ? `, ${camera.resolution.width}×${camera.resolution.height}`
+                            : ''
+
                           if (isActive) {
                             container.style.backgroundColor = '#e8f5e8'
                             container.style.border = '2px solid #28a745'
-                            container.querySelector('div').style.color = '#28a745'
-                            container.querySelector('div').style.fontWeight = 'bold'
-                            container.querySelector('div').textContent = `${label}${res}`
+                            container.querySelector('div').style.color =
+                              '#28a745'
+                            container.querySelector('div').style.fontWeight =
+                              'bold'
+                            container.querySelector('div').textContent =
+                              `${label}${res}`
                           } else {
                             container.style.backgroundColor = 'transparent'
                             container.style.border = '2px solid transparent'
                             container.querySelector('div').style.color = '#666'
-                            container.querySelector('div').style.fontWeight = 'normal'
-                            container.querySelector('div').textContent = `${label}${res}`
+                            container.querySelector('div').style.fontWeight =
+                              'normal'
+                            container.querySelector('div').textContent =
+                              `${label}${res}`
                           }
                         }
                       })
@@ -1066,20 +1080,24 @@ export const showCameraSelectionPopup = async (
 
                 if (container) {
                   const label = camera.label || `Camera ${index + 1}`
-                  const res = camera.resolution ? `, ${camera.resolution.width}×${camera.resolution.height}` : ''
-                  
+                  const res = camera.resolution
+                    ? `, ${camera.resolution.width}×${camera.resolution.height}`
+                    : ''
+
                   if (isActive) {
                     container.style.backgroundColor = '#e8f5e8'
                     container.style.border = '2px solid #28a745'
                     container.querySelector('div').style.color = '#28a745'
                     container.querySelector('div').style.fontWeight = 'bold'
-                    container.querySelector('div').textContent = `${label}${res}`
+                    container.querySelector('div').textContent =
+                      `${label}${res}`
                   } else {
                     container.style.backgroundColor = 'transparent'
                     container.style.border = '2px solid transparent'
                     container.querySelector('div').style.color = '#666'
                     container.querySelector('div').style.fontWeight = 'normal'
-                    container.querySelector('div').textContent = `${label}${res}`
+                    container.querySelector('div').textContent =
+                      `${label}${res}`
                   }
                 }
               })

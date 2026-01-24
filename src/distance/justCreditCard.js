@@ -2864,6 +2864,8 @@ const saveCalibrationAttempt = (
   )
   commonCalibrationData.verticalVpx = safeRoundPx(measurement.verticalVpx || 0)
 
+  // Use camera width for fOverWidth to be consistent with camera-space measurements
+  const cameraWidth = commonCalibrationData?.horizontalVpx || 0
   const calibrationObject = {
     method,
     mode: 'lineAdjust', // merged mode
@@ -2872,7 +2874,9 @@ const saveCalibrationAttempt = (
       measurement.fRatio != null ? Number(measurement.fRatio.toFixed(2)) : null,
     fOverHorizontal:
       measurement.fRatio != null ? Number(measurement.fRatio.toFixed(2)) : null, // backward compatibility
-    fOverWidth: safeRoundRatio((measurement.fVpx || 0) / window.innerWidth),
+    fOverWidth: safeRoundRatio(
+      cameraWidth ? (measurement.fVpx || 0) / cameraWidth : null,
+    ),
     factorVpxCm: safeRoundPx(measurement.factorVpxCm || 0),
     ipdCm: safeRoundCm(ASSUMED_IPD_CM),
     shortVPx: safeRoundPx(measurement.shortVPx || 0),

@@ -351,9 +351,9 @@ function saveCalibrationAttempt(
   const pxPerCmValue = ppi / 2.54 // Convert PPI to pixels per cm
   const ipdCmValue = RC._CONST.IPD_CM // Standard IPD in cm (6.3cm)
   const fVpx = (currentIPDDistance * eyesToFootCm) / ipdCmValue
-  const fOverWidth = fVpx / window.innerWidth
-  // Calculate ipdOverWidth and ipdOverWidthXYZ: both use camera width for consistency
+  // Use camera width for all ratios since fVpx, ipdOverWidth are derived from camera-space measurements
   const cameraWidth = cameraResolutionXYVpx ? cameraResolutionXYVpx[0] : null
+  const fOverWidth = fVpx && cameraWidth ? fVpx / cameraWidth : null
   const ipdOverWidth =
     currentIPDDistance && cameraWidth ? currentIPDDistance / cameraWidth : null
   const ipdOverWidthXYZ =
