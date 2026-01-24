@@ -928,6 +928,8 @@ export const getMeshData = async (
     if (leftEye && rightEye) {
       const useZ = trackingOptions.calibrateDistanceIpdUsesZBool !== false
       const currentIPDDistance = eyeDist(leftEye, rightEye, useZ)
+      // Always calculate 3D IPD for ipdOverWidthXYZ
+      const ipdXYZVpx = eyeDist(leftEye, rightEye, true)
 
       return {
         mesh,
@@ -935,6 +937,7 @@ export const getMeshData = async (
         rightEye,
         video,
         currentIPDDistance,
+        ipdXYZVpx, // Always 3D IPD
         meshSource,
       }
     }
@@ -1178,10 +1181,12 @@ export const calculateNearestPoints = (
     (nearestXYPx_right[0] + nearestXYPx_left[0]) / 2,
     (nearestXYPx_right[1] + nearestXYPx_left[1]) / 2,
   ]
-  const footXYPx = (distanceCheck || method !== 'blindspot') ? avgFootXYPx
-    : order === 1
-      ? nearestXYPx_right
-      : nearestXYPx_left
+  const footXYPx =
+    distanceCheck || method !== 'blindspot'
+      ? avgFootXYPx
+      : order === 1
+        ? nearestXYPx_right
+        : nearestXYPx_left
 
   const cameraToCenterCm =
     Math.hypot(centerXYPx[0] - cameraXYPx[0], centerXYPx[1] - cameraXYPx[1]) /

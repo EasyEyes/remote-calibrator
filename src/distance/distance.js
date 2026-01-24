@@ -225,6 +225,7 @@ function saveCalibrationMeasurements(
       measurement.object,
       measurement.objectSuggestion,
       COMMON,
+      measurement.ipdXYZVpx, // 3D IPD in pixels
     )
   })
 }
@@ -264,6 +265,7 @@ function saveCalibrationAttempt(
   object = undefined,
   objectSuggestion = undefined,
   COMMON = undefined,
+  ipdXYZVpx = undefined, // 3D IPD in pixels (always with Z coordinate)
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
   // arrays of values across attempts for easier downstream analysis.
@@ -351,13 +353,16 @@ function saveCalibrationAttempt(
   const fVpx = (currentIPDDistance * eyesToFootCm) / ipdCmValue
   const fOverWidth = fVpx / window.innerWidth
   const ipdOverWidth = currentIPDDistance / window.innerWidth
+  // Calculate ipdOverWidthXYZ: 3D IPD / camera width
+  const cameraWidth = cameraResolutionXYVpx ? cameraResolutionXYVpx[0] : null
+  const ipdOverWidthXYZ =
+    ipdXYZVpx && cameraWidth ? ipdXYZVpx / cameraWidth : null
   const imageBasedEyesToFootCm = (fVpx * ipdCmValue) / currentIPDDistance
   const imageBasedEyesToPointCm = Math.sqrt(
     imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
   )
 
   const screenResolutionXYVpx = [window.innerWidth, window.innerHeight]
-  
 
   // Create the calibration object
   const calibrationObject = {
@@ -376,6 +381,7 @@ function saveCalibrationAttempt(
     footToPointCm: safeRoundCm(footToPointCm),
     objectLengthCm: safeRoundCm(objectLengthCm), // Distance from participant to object
     ipdOverWidth: safeRoundRatio(ipdOverWidth),
+    ipdOverWidthXYZ: safeRoundRatio(ipdOverWidthXYZ), // 3D IPD / camera width
     fOverWidth: safeRoundRatio(fOverWidth),
     rulerBasedRightEyeToFootCm: safeRoundCm(nearestDistanceCm_right),
     rulerBasedLeftEyeToFootCm: safeRoundCm(nearestDistanceCm_left),
@@ -417,7 +423,7 @@ function saveCalibrationAttempt(
     }
   }
 
-  if(COMMON?.objectMeasuredMsg) {
+  if (COMMON?.objectMeasuredMsg) {
     delete COMMON.objectMeasuredMsg
   }
 
@@ -451,7 +457,7 @@ async function processMeshDataAndCalculateNearestPoints(
     options.calibrateDistancePupil,
     meshSamples,
   )
-  const { leftEye, rightEye, video, currentIPDDistance } = mesh
+  const { leftEye, rightEye, video, currentIPDDistance, ipdXYZVpx } = mesh
   const webcamToEyeDistance = calibrationFactor / currentIPDDistance
   const pxPerCm = ppi / 2.54
   const nearestPointsData = calculateNearestPoints(
@@ -480,6 +486,7 @@ async function processMeshDataAndCalculateNearestPoints(
   return {
     nearestPointsData,
     currentIPDDistance,
+    ipdXYZVpx, // Always 3D IPD
   }
 }
 
@@ -494,6 +501,7 @@ function createMeasurementObject(
   cameraResolutionXYVpx = [0, 0],
   object = undefined,
   objectSuggestion = undefined,
+  ipdXYZVpx = null, // Always 3D IPD for ipdOverWidthXYZ
 ) {
   const {
     nearestDistanceCm_left,
@@ -537,6 +545,7 @@ function createMeasurementObject(
     object: object,
     objectSuggestion: objectSuggestion,
     objectLengthCm: distance,
+    ipdXYZVpx: ipdXYZVpx, // Always 3D IPD for ipdOverWidthXYZ
   }
 
   if (ipdVpx !== null) {
@@ -573,10 +582,14 @@ async function measureIntraocularDistancePx(
   if (!leftEye || !rightEye) return null
   const eyeDist = (a, b, useZ = true) => {
     if (useZ) {
-      console.log('[distance.js - measureIntraocularDistancePx] eyeDist using 3D formula (with Z)')
+      console.log(
+        '[distance.js - measureIntraocularDistancePx] eyeDist using 3D formula (with Z)',
+      )
       return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
     }
-    console.log('[distance.js - measureIntraocularDistancePx] eyeDist using 2D formula (NO Z)')
+    console.log(
+      '[distance.js - measureIntraocularDistancePx] eyeDist using 2D formula (NO Z)',
+    )
     return Math.hypot(a.x - b.x, a.y - b.y)
   }
 
@@ -2841,7 +2854,7 @@ export async function blindSpotTestNew(
             options.calibrateDistanceSpotXYDeg[0] ** 2 +
               options.calibrateDistanceSpotXYDeg[1] ** 2,
           )
-          const { nearestPointsData, currentIPDDistance } =
+          const { nearestPointsData, currentIPDDistance, ipdXYZVpx } =
             await processMeshDataAndCalculateNearestPoints(
               RC,
               options,
@@ -2898,6 +2911,7 @@ export async function blindSpotTestNew(
             cameraResolutionXYVpx,
             null,
             null,
+            ipdXYZVpx,
           )
 
           // Add new fields to measurement
@@ -3696,7 +3710,7 @@ export async function objectTest(RC, options, callback = undefined) {
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
     objectRulerIntervalCm: [],
     // objectLengthCm: [],
-    objectMeasuredMsg: [],    
+    objectMeasuredMsg: [],
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
@@ -8178,25 +8192,28 @@ export async function objectTest(RC, options, callback = undefined) {
                   ) {
                     const measurements = []
                     if (meshSamplesDuringPage3.length) {
-                      const { nearestPointsData, currentIPDDistance } =
-                        await processMeshDataAndCalculateNearestPoints(
-                          RC,
-                          options,
-                          meshSamplesDuringPage3,
-                          page3FactorCmPx,
-                          ppi,
-                          0,
-                          0,
-                          'object',
-                          1,
-                          [0, 0], // fixPoint - fixation cross position
-                          [0, 0], // spotPoint - MUST be shared border, not red center
-                          0,
-                          0,
-                          0,
-                          options.calibrateDistanceChecking,
-                          [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
-                        )
+                      const {
+                        nearestPointsData,
+                        currentIPDDistance,
+                        ipdXYZVpx: ipdXYZVpxPage3,
+                      } = await processMeshDataAndCalculateNearestPoints(
+                        RC,
+                        options,
+                        meshSamplesDuringPage3,
+                        page3FactorCmPx,
+                        ppi,
+                        0,
+                        0,
+                        'object',
+                        1,
+                        [0, 0], // fixPoint - fixation cross position
+                        [0, 0], // spotPoint - MUST be shared border, not red center
+                        0,
+                        0,
+                        0,
+                        options.calibrateDistanceChecking,
+                        [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
+                      )
 
                       measurements.push(
                         createMeasurementObject(
@@ -8215,29 +8232,33 @@ export async function objectTest(RC, options, callback = undefined) {
                                 null
                             : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
+                          ipdXYZVpxPage3,
                         ),
                       )
                     }
                     if (meshSamplesDuringPage4.length) {
-                      const { nearestPointsData, currentIPDDistance } =
-                        await processMeshDataAndCalculateNearestPoints(
-                          RC,
-                          options,
-                          meshSamplesDuringPage4,
-                          page4FactorCmPx,
-                          ppi,
-                          0,
-                          0,
-                          'object',
-                          2,
-                          [0, 0], // fixPoint - fixation cross position
-                          [0, 0], // spotPoint - MUST be shared border, not red center
-                          0,
-                          0,
-                          0,
-                          options.calibrateDistanceChecking,
-                          [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
-                        )
+                      const {
+                        nearestPointsData,
+                        currentIPDDistance,
+                        ipdXYZVpx: ipdXYZVpxPage4,
+                      } = await processMeshDataAndCalculateNearestPoints(
+                        RC,
+                        options,
+                        meshSamplesDuringPage4,
+                        page4FactorCmPx,
+                        ppi,
+                        0,
+                        0,
+                        'object',
+                        2,
+                        [0, 0], // fixPoint - fixation cross position
+                        [0, 0], // spotPoint - MUST be shared border, not red center
+                        0,
+                        0,
+                        0,
+                        options.calibrateDistanceChecking,
+                        [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
+                      )
 
                       measurements.push(
                         createMeasurementObject(
@@ -8256,6 +8277,7 @@ export async function objectTest(RC, options, callback = undefined) {
                                 null
                             : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
+                          ipdXYZVpxPage4,
                         ),
                       )
                     }
@@ -8308,25 +8330,28 @@ export async function objectTest(RC, options, callback = undefined) {
                   ) {
                     const measurements = []
                     if (meshSamplesDuringPage3.length) {
-                      const { nearestPointsData, currentIPDDistance } =
-                        await processMeshDataAndCalculateNearestPoints(
-                          RC,
-                          options,
-                          meshSamplesDuringPage3,
-                          page3FactorCmPx,
-                          ppi,
-                          0,
-                          0,
-                          'object',
-                          1,
-                          [0, 0], // fixPoint - fixation cross position
-                          [0, 0], // spotPoint - MUST be shared border, not red center
-                          0,
-                          0,
-                          0,
-                          options.calibrateDistanceChecking,
-                          [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
-                        )
+                      const {
+                        nearestPointsData,
+                        currentIPDDistance,
+                        ipdXYZVpx: ipdXYZVpxPage3,
+                      } = await processMeshDataAndCalculateNearestPoints(
+                        RC,
+                        options,
+                        meshSamplesDuringPage3,
+                        page3FactorCmPx,
+                        ppi,
+                        0,
+                        0,
+                        'object',
+                        1,
+                        [0, 0], // fixPoint - fixation cross position
+                        [0, 0], // spotPoint - MUST be shared border, not red center
+                        0,
+                        0,
+                        0,
+                        options.calibrateDistanceChecking,
+                        [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
+                      )
 
                       measurements.push(
                         createMeasurementObject(
@@ -8345,29 +8370,33 @@ export async function objectTest(RC, options, callback = undefined) {
                                 null
                             : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
+                          ipdXYZVpxPage3,
                         ),
                       )
                     }
                     if (meshSamplesDuringPage4.length) {
-                      const { nearestPointsData, currentIPDDistance } =
-                        await processMeshDataAndCalculateNearestPoints(
-                          RC,
-                          options,
-                          meshSamplesDuringPage4,
-                          page4FactorCmPx,
-                          ppi,
-                          0,
-                          0,
-                          'object',
-                          2,
-                          [0, 0], // fixPoint - fixation cross position
-                          [0, 0], // spotPoint - MUST be shared border, not red center
-                          0,
-                          0,
-                          0,
-                          options.calibrateDistanceChecking,
-                          [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
-                        )
+                      const {
+                        nearestPointsData,
+                        currentIPDDistance,
+                        ipdXYZVpx: ipdXYZVpxPage4,
+                      } = await processMeshDataAndCalculateNearestPoints(
+                        RC,
+                        options,
+                        meshSamplesDuringPage4,
+                        page4FactorCmPx,
+                        ppi,
+                        0,
+                        0,
+                        'object',
+                        2,
+                        [0, 0], // fixPoint - fixation cross position
+                        [0, 0], // spotPoint - MUST be shared border, not red center
+                        0,
+                        0,
+                        0,
+                        options.calibrateDistanceChecking,
+                        [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
+                      )
 
                       measurements.push(
                         createMeasurementObject(
@@ -8386,6 +8415,7 @@ export async function objectTest(RC, options, callback = undefined) {
                                 null
                             : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
+                          ipdXYZVpxPage4,
                         ),
                       )
                     }
@@ -8957,25 +8987,28 @@ export async function objectTest(RC, options, callback = undefined) {
           if (meshSamplesDuringPage3.length && meshSamplesDuringPage4.length) {
             const measurements = []
             if (meshSamplesDuringPage3.length) {
-              const { nearestPointsData, currentIPDDistance } =
-                await processMeshDataAndCalculateNearestPoints(
-                  RC,
-                  options,
-                  meshSamplesDuringPage3,
-                  page3FactorCmPx,
-                  ppi,
-                  0,
-                  0,
-                  'object',
-                  1,
-                  [0, 0], // fixPoint - fixation cross position
-                  [0, 0], // spotPoint - MUST be shared border, not red center
-                  0,
-                  0,
-                  0,
-                  options.calibrateDistanceChecking,
-                  [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
-                )
+              const {
+                nearestPointsData,
+                currentIPDDistance,
+                ipdXYZVpx: ipdXYZVpxPage3,
+              } = await processMeshDataAndCalculateNearestPoints(
+                RC,
+                options,
+                meshSamplesDuringPage3,
+                page3FactorCmPx,
+                ppi,
+                0,
+                0,
+                'object',
+                1,
+                [0, 0], // fixPoint - fixation cross position
+                [0, 0], // spotPoint - MUST be shared border, not red center
+                0,
+                0,
+                0,
+                options.calibrateDistanceChecking,
+                [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
+              )
 
               measurements.push(
                 createMeasurementObject(
@@ -8994,29 +9027,33 @@ export async function objectTest(RC, options, callback = undefined) {
                         null
                     : null,
                   isPaperSelectionMode ? paperSuggestionValue : null,
+                  ipdXYZVpxPage3,
                 ),
               )
             }
             if (meshSamplesDuringPage4.length) {
-              const { nearestPointsData, currentIPDDistance } =
-                await processMeshDataAndCalculateNearestPoints(
-                  RC,
-                  options,
-                  meshSamplesDuringPage4,
-                  page4FactorCmPx,
-                  ppi,
-                  0,
-                  0,
-                  'object',
-                  2,
-                  [0, 0], // fixPoint - fixation cross position
-                  [0, 0], // spotPoint - MUST be shared border, not red center
-                  0,
-                  0,
-                  0,
-                  options.calibrateDistanceChecking,
-                  [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
-                )
+              const {
+                nearestPointsData,
+                currentIPDDistance,
+                ipdXYZVpx: ipdXYZVpxPage4,
+              } = await processMeshDataAndCalculateNearestPoints(
+                RC,
+                options,
+                meshSamplesDuringPage4,
+                page4FactorCmPx,
+                ppi,
+                0,
+                0,
+                'object',
+                2,
+                [0, 0], // fixPoint - fixation cross position
+                [0, 0], // spotPoint - MUST be shared border, not red center
+                0,
+                0,
+                0,
+                options.calibrateDistanceChecking,
+                [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
+              )
 
               measurements.push(
                 createMeasurementObject(
@@ -9035,6 +9072,7 @@ export async function objectTest(RC, options, callback = undefined) {
                         null
                     : null,
                   isPaperSelectionMode ? paperSuggestionValue : null,
+                  ipdXYZVpxPage4,
                 ),
               )
             }
@@ -10809,10 +10847,14 @@ async function measureIntraocularDistanceCm(
   // Use eyeDist from distanceTrack.js logic
   const eyeDist = (a, b, useZ = true) => {
     if (useZ) {
-      console.log('[distance.js - measureIntraocularDistanceCm] eyeDist using 3D formula (with Z)')
+      console.log(
+        '[distance.js - measureIntraocularDistanceCm] eyeDist using 3D formula (with Z)',
+      )
       return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
     }
-    console.log('[distance.js - measureIntraocularDistanceCm] eyeDist using 2D formula (NO Z)')
+    console.log(
+      '[distance.js - measureIntraocularDistanceCm] eyeDist using 2D formula (NO Z)',
+    )
     return Math.hypot(a.x - b.x, a.y - b.y)
   }
   const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(

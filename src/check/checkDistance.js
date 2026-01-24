@@ -419,6 +419,9 @@ const validateFaceMeshSamples = async (
   let ipdPixelsSum = 0
   let ipdPixelsCount = 0
 
+  let ipdXYZPixelsSum = 0
+  let ipdXYZPixelsCount = 0
+
   let leftXSum = 0
   let leftYSum = 0
   let leftCount = 0
@@ -472,6 +475,12 @@ const validateFaceMeshSamples = async (
         samples.push(ipdData.ipdPixels)
         ipdPixelsSum += ipdData.ipdPixels
         ipdPixelsCount++
+
+        // Accumulate 3D IPD (ipdXYZPixels) separately
+        if (ipdData.ipdXYZPixels && !isNaN(ipdData.ipdXYZPixels)) {
+          ipdXYZPixelsSum += ipdData.ipdXYZPixels
+          ipdXYZPixelsCount++
+        }
 
         if (
           ipdData.nearestXYPx_left &&
@@ -640,6 +649,10 @@ const validateFaceMeshSamples = async (
     ipdPixelsCount > 0
       ? Math.round((ipdPixelsSum / ipdPixelsCount) * 10) / 10
       : null
+  const ipdXYZPixels =
+    ipdXYZPixelsCount > 0
+      ? Math.round((ipdXYZPixelsSum / ipdXYZPixelsCount) * 10) / 10
+      : null
 
   return {
     isValid,
@@ -656,6 +669,7 @@ const validateFaceMeshSamples = async (
     calibrationFactor,
     footXYPx,
     ipdPixels,
+    ipdXYZPixels, // Always 3D IPD
     pointXYPx,
     eyeToFootCm,
   }
@@ -750,6 +764,8 @@ const captureIPDFromFaceMesh = async (
 
     // Calculate IPD in pixels
     const ipdPixels = eyeDist(leftEye, rightEye, calibrateDistanceIpdUsesZBool)
+    // Always calculate 3D IPD for ipdOverWidthXYZ (uses Z coordinate)
+    const ipdXYZPixels = eyeDist(leftEye, rightEye, true)
     // Convert to cm if we have screen PPI
     let ipdCm = null
     if (RC.screenPpi && RC.screenPpi.value) {
@@ -812,6 +828,7 @@ const captureIPDFromFaceMesh = async (
 
     return {
       ipdPixels: ipdPixels ? Number(ipdPixels.toFixed(1)) : null,
+      ipdXYZPixels: ipdXYZPixels ? Number(ipdXYZPixels.toFixed(1)) : null, // Always 3D
       ipdCm: ipdCm ? Number(ipdCm.toFixed(2)) : null,
       timestamp: performance.now(),
       eyePositions: {
@@ -2276,7 +2293,9 @@ const trackDistanceCheck = async (
     try {
       if (stdDist.current && stdDist.current.calibrationFactor) {
         calibrationFVpx = stdDist.current.calibrationFactor / RC._CONST.IPD_CM
-        calibrationFOverWidth = safeRoundRatio(calibrationFVpx / window.innerWidth)
+        calibrationFOverWidth = safeRoundRatio(
+          calibrationFVpx / window.innerWidth,
+        )
       }
     } catch (e) {}
 
@@ -2295,6 +2314,7 @@ const trackDistanceCheck = async (
       // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
       ipdOverWidth: [], // ipdVpx / window.innerWidth
+      ipdOverWidthXYZ: [], // ipdXYZVpx / cameraWidthVpx (always 3D)
       imageBasedEyesToFootCm: [], //calibrationFVpx * ipdCm / ipdVpx
       imageBasedEyesToPointCm: [], //sqrt(imageBasedEyesToFootCm**2 + footToPoint**2)
       rulerBasedEyesToPointCm: [], //requestedEyesToPointCm
@@ -2772,7 +2792,14 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.footToPointCm.push(
                 safeRoundCm(faceValidation.footToPointCm),
               )
-              RC.distanceCheckJSON.ipdOverWidth.push(safeRoundRatio(faceValidation.ipdPixels / window.innerWidth))
+              RC.distanceCheckJSON.ipdOverWidth.push(
+                safeRoundRatio(faceValidation.ipdPixels / window.innerWidth),
+              )
+              RC.distanceCheckJSON.ipdOverWidthXYZ.push(
+                safeRoundRatio(
+                  faceValidation.ipdXYZPixels / cameraResolutionXYVpx[0],
+                ),
+              )
               RC.distanceCheckJSON.rightEyeFootXYPx.push([
                 faceValidation.nearestXYPx_right[0],
                 faceValidation.nearestXYPx_right[1],
@@ -2957,9 +2984,7 @@ const trackDistanceCheck = async (
                   RC.distanceCheckJSON.imageBasedEyesToPointCm.push(null)
                 }
                 const requestedEyesToPointCm =
-                  RC.equipment?.value?.unit === 'inches'
-                    ? cm * 2.54
-                    : cm
+                  RC.equipment?.value?.unit === 'inches' ? cm * 2.54 : cm
                 const rulerBasedEyesToFootCm = Math.sqrt(
                   requestedEyesToPointCm ** 2 -
                     faceValidation.footToPointCm ** 2,
@@ -2983,7 +3008,14 @@ const trackDistanceCheck = async (
                 RC.distanceCheckJSON.footToPointCm.push(
                   safeRoundCm(faceValidation.footToPointCm),
                 )
-                RC.distanceCheckJSON.ipdOverWidth.push(safeRoundRatio(faceValidation.ipdPixels / window.innerWidth))
+                RC.distanceCheckJSON.ipdOverWidth.push(
+                  safeRoundRatio(faceValidation.ipdPixels / window.innerWidth),
+                )
+                RC.distanceCheckJSON.ipdOverWidthXYZ.push(
+                  safeRoundRatio(
+                    faceValidation.ipdXYZPixels / cameraResolutionXYVpx[0],
+                  ),
+                )
                 RC.distanceCheckJSON.rightEyeFootXYPx.push([
                   faceValidation.nearestXYPx_right[0],
                   faceValidation.nearestXYPx_right[1],
@@ -3111,6 +3143,7 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.requestedEyesToPointCm = []
             RC.distanceCheckJSON.footToPointCm = []
             RC.distanceCheckJSON.ipdOverWidth = []
+            RC.distanceCheckJSON.ipdOverWidthXYZ = []
             RC.distanceCheckJSON.rightEyeFootXYPx = []
             RC.distanceCheckJSON.leftEyeFootXYPx = []
             RC.distanceCheckJSON.footXYPx = []
