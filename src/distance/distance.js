@@ -352,9 +352,10 @@ function saveCalibrationAttempt(
   const ipdCmValue = RC._CONST.IPD_CM // Standard IPD in cm (6.3cm)
   const fVpx = (currentIPDDistance * eyesToFootCm) / ipdCmValue
   const fOverWidth = fVpx / window.innerWidth
-  const ipdOverWidth = currentIPDDistance / window.innerWidth
-  // Calculate ipdOverWidthXYZ: 3D IPD / camera width
+  // Calculate ipdOverWidth and ipdOverWidthXYZ: both use camera width for consistency
   const cameraWidth = cameraResolutionXYVpx ? cameraResolutionXYVpx[0] : null
+  const ipdOverWidth =
+    currentIPDDistance && cameraWidth ? currentIPDDistance / cameraWidth : null
   const ipdOverWidthXYZ =
     ipdXYZVpx && cameraWidth ? ipdXYZVpx / cameraWidth : null
   const imageBasedEyesToFootCm = (fVpx * ipdCmValue) / currentIPDDistance
@@ -7002,9 +7003,9 @@ export async function objectTest(RC, options, callback = undefined) {
     const distance1FactorCmPx = RC.page3FactorCmPx
     const distance2FactorCmPx = RC.page4FactorCmPx
 
-    // Calculate average of the two factors
+    // Calculate geometric mean of the two factors (appropriate for ratio data)
     const averageFactorCmPx = Math.round(
-      (distance1FactorCmPx + distance2FactorCmPx) / 2,
+      Math.sqrt(distance1FactorCmPx * distance2FactorCmPx),
     )
 
     console.log('=== Object Test Calibration Factors ===')
@@ -8151,10 +8152,9 @@ export async function objectTest(RC, options, callback = undefined) {
               }
 
               RC.page4FactorCmPx = page4FactorCmPx
-              const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
-              RC.averageObjectTestCalibrationFactor = Math.round(
-                Math.sqrt(page3FactorCmPx * page4FactorCmPx),
-              )
+              // Calculate geometric mean of the two factors (appropriate for ratio data)
+              const averageFactorCmPx = Math.sqrt(page3FactorCmPx * page4FactorCmPx)
+              RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
 
               // Now check tolerance with the calculated factors
               console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')
@@ -8958,7 +8958,8 @@ export async function objectTest(RC, options, callback = undefined) {
         //page4FactorCmPx = page4Average * firstMeasurement
       }
 
-      const averageFactorCmPx = (page3FactorCmPx + page4FactorCmPx) / 2
+      // Calculate geometric mean of the two factors (appropriate for ratio data)
+      const averageFactorCmPx = Math.sqrt(page3FactorCmPx * page4FactorCmPx)
       //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
 
       // Now check tolerance with the calculated factors
@@ -10117,8 +10118,9 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     const distance2FactorCmPx = page4Average * knownObjectLengthCm
     RC.page4FactorCmPx = distance2FactorCmPx
 
+    // Calculate geometric mean of the two factors (appropriate for ratio data)
     const averageFactorCmPx = Math.round(
-      (distance1FactorCmPx + distance2FactorCmPx) / 2,
+      Math.sqrt(distance1FactorCmPx * distance2FactorCmPx),
     )
 
     console.log('=== Known Distance Test Calibration Factors ===')
