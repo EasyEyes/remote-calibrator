@@ -226,6 +226,7 @@ function saveCalibrationMeasurements(
       measurement.objectSuggestion,
       COMMON,
       measurement.ipdXYZVpx, // 3D IPD in pixels
+      measurement.fOverWidth,
     )
   })
 }
@@ -266,6 +267,7 @@ function saveCalibrationAttempt(
   objectSuggestion = undefined,
   COMMON = undefined,
   ipdXYZVpx = undefined, // 3D IPD in pixels (always with Z coordinate)
+  _fOverWidth = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
   // arrays of values across attempts for easier downstream analysis.
@@ -363,7 +365,7 @@ function saveCalibrationAttempt(
     imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
   )
 
-  const screenResolutionXYVpx = [window.innerWidth, window.innerHeight]
+  const screenResolutionXYVpx = [window.screen.width, window.screen.height]
 
   // Create the calibration object
   const calibrationObject = {
@@ -445,13 +447,14 @@ async function processMeshDataAndCalculateNearestPoints(
   _rightMean = null, // retained for API stability (unused)
   method = 'blindspot',
   order = 1,
-  fixPoint = [window.innerWidth / 2, window.innerHeight / 2],
-  spotPoint = [window.innerWidth / 2, window.innerHeight / 2],
+  fixPoint = [window.screen.width / 2, window.screen.height / 2],
+  spotPoint = [window.screen.width / 2, window.screen.height / 2],
   blindspotDeg = 0,
   fixationToSpotCm = 0,
   ipdVpx = 0,
   calibrateDistanceChecking = 'camera',
-  _pointXYPx = [window.innerWidth / 2, window.innerHeight / 2],
+  _pointXYPx = [window.screen.width / 2, window.screen.height / 2],
+  objectLengthCm = null,
 ) {
   const mesh = await getMeshData(
     RC,
@@ -466,7 +469,7 @@ async function processMeshDataAndCalculateNearestPoints(
     leftEye,
     rightEye,
     currentIPDDistance,
-    webcamToEyeDistance,
+    objectLengthCm,
     pxPerCm,
     ppi,
     RC,
@@ -503,6 +506,7 @@ function createMeasurementObject(
   object = undefined,
   objectSuggestion = undefined,
   ipdXYZVpx = null, // Always 3D IPD for ipdOverWidthXYZ
+  fOverWidth = null,
 ) {
   const {
     nearestDistanceCm_left,
@@ -547,6 +551,7 @@ function createMeasurementObject(
     objectSuggestion: objectSuggestion,
     objectLengthCm: distance,
     ipdXYZVpx: ipdXYZVpx, // Always 3D IPD for ipdOverWidthXYZ
+    fOverWidth: fOverWidth,
   }
 
   if (ipdVpx !== null) {
@@ -6333,7 +6338,7 @@ export async function objectTest(RC, options, callback = undefined) {
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const cameraXYPx = [window.innerWidth / 2, 0] // Top center
+      const cameraXYPx = [window.screen.width / 2, 0] // Top center
       arrowIndicators = createArrowIndicators(cameraXYPx)
       RC.background.appendChild(arrowIndicators)
       console.log('Arrow indicators added for page 3, pointing to top-center')
@@ -6492,7 +6497,7 @@ export async function objectTest(RC, options, callback = undefined) {
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2] // Screen center
+      const centerXYPx = [window.screen.width / 2, window.screen.height / 2] // Screen center
       arrowIndicators = createArrowIndicators(centerXYPx)
       RC.background.appendChild(arrowIndicators)
       console.log(
@@ -8018,17 +8023,19 @@ export async function objectTest(RC, options, callback = undefined) {
                     ]
 
                     // Calculate distances using the geometric formulas
-                    const footToCameraCm =
-                      Math.hypot(
-                        footXYPx[0] - cameraXYPx[0],
-                        footXYPx[1] - cameraXYPx[1],
-                      ) / pxPerCm
 
-                    const eyeToCameraCm = firstMeasurement
-                    const eyeToFootCm = Math.sqrt(
-                      eyeToCameraCm ** 2 - footToCameraCm ** 2,
+                    const pointXYPx = cameraXYPx
+
+                    const footToPointCm = Math.hypot(
+                      footXYPx[0] - pointXYPx[0],
+                      footXYPx[1] - pointXYPx[1],
+                    ) / pxPerCm
+
+                    const rulerBasedEyesToPointCm = firstMeasurement
+                    const rulerBasedEyesToFootCm = Math.sqrt(
+                      rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
                     )
-                    page3FactorCmPx = ipdVpx * eyeToFootCm
+                    page3FactorCmPx = ipdVpx * rulerBasedEyesToFootCm
                   }
                 }
               } catch (error) {
@@ -8040,6 +8047,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
               //const page3FactorCmPx = page3Average * firstMeasurement
               RC.page3FactorCmPx = page3FactorCmPx
+              RC.fOverWidth1 = (page3FactorCmPx / cameraResolutionXYVpxPage3[0]) / RC._CONST.IPD_CM
 
               // For page 4, calculate factorVpxCm using new geometric formulas
               let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
@@ -8079,67 +8087,48 @@ export async function objectTest(RC, options, callback = undefined) {
 
                     // Set pointXYPx to screen center
                     const pointXYPx = [
-                      window.innerWidth / 2,
-                      window.innerHeight / 2,
+                      window.screen.width / 2,
+                      window.screen.height / 2,
                     ]
 
                     // Calculate distances using the new formulas
-                    const pointToFootCm =
-                      Math.hypot(
-                        pointXYPx[0] - footXYPx[0],
-                        pointXYPx[1] - footXYPx[1],
-                      ) / pxPerCm
+                    // const pointToFootCm =
+                    //   Math.hypot(
+                    //     pointXYPx[0] - footXYPx[0],
+                    //     pointXYPx[1] - footXYPx[1],
+                    //   ) / pxPerCm
 
-                    const footToCameraCm =
-                      Math.hypot(
-                        footXYPx[0] - cameraXYPx[0],
-                        footXYPx[1] - cameraXYPx[1],
-                      ) / pxPerCm
+                    // const footToCameraCm =
+                    //   Math.hypot(
+                    //     footXYPx[0] - cameraXYPx[0],
+                    //     footXYPx[1] - cameraXYPx[1],
+                    //   ) / pxPerCm
 
-                    const eyeToPointCm = objectLengthCm
-                    const eyeToFootCm = Math.sqrt(
-                      eyeToPointCm ** 2 - pointToFootCm ** 2,
-                    )
-                    const eyeToScreenCm = eyeToFootCm // parallel to optical axis (screen normal)
-                    const eyeToCameraCm = Math.hypot(
-                      eyeToScreenCm,
-                      footToCameraCm,
-                    )
+                    // const eyeToPointCm = objectLengthCm
+                    // const eyeToFootCm = Math.sqrt(
+                    //   eyeToPointCm ** 2 - pointToFootCm ** 2,
+                    // )
+                    // const eyeToScreenCm = eyeToFootCm // parallel to optical axis (screen normal)
+                    // const eyeToCameraCm = Math.hypot(
+                    //   eyeToScreenCm,
+                    //   footToCameraCm,
+                    // )
 
                     // Calculate factorVpxCm using parallel-to-axis distance
-                    page4FactorCmPx = ipdVpx * eyeToScreenCm
+                    // page4FactorCmPx = ipdVpx * eyeToScreenCm
 
-                    // Store geometric calculation details for debugging
-                    RC.page4GeometricCalc = {
-                      objectLengthCm: objectLengthCm,
-                      ipdVpx: ipdVpx,
-                      footXYPx: footXYPx,
-                      pointXYPx: pointXYPx,
-                      cameraXYPx: cameraXYPx,
-                      pointToFootCm: pointToFootCm,
-                      footToCameraCm: footToCameraCm,
-                      eyeToPointCm: eyeToPointCm,
-                      eyeToFootCm: eyeToFootCm,
-                      eyeToScreenCm: eyeToScreenCm,
-                      eyeToCameraCm: eyeToCameraCm,
-                      page4FactorCmPx: page4FactorCmPx,
-                      nearestXYPx_left: nearestXYPx_left,
-                      nearestXYPx_right: nearestXYPx_right,
-                    }
+                    const footToPointCm = Math.hypot(
+                      footXYPx[0] - pointXYPx[0],
+                      footXYPx[1] - pointXYPx[1],
+                    ) / pxPerCm
 
-                    console.log('=== Page 4 Geometric Calculation ===')
-                    console.log('objectLengthCm:', objectLengthCm)
-                    console.log('ipdVpx:', ipdVpx)
-                    console.log('footXYPx:', footXYPx)
-                    console.log('pointXYPx:', pointXYPx)
-                    console.log('cameraXYPx:', cameraXYPx)
-                    console.log('pointToFootCm:', pointToFootCm)
-                    console.log('footToCameraCm:', footToCameraCm)
-                    console.log('eyeToPointCm:', eyeToPointCm)
-                    console.log('eyeToFootCm:', eyeToFootCm)
-                    console.log('eyeToCameraCm:', eyeToCameraCm)
-                    console.log('page4FactorCmPx:', page4FactorCmPx)
-                    console.log('====================================')
+                    const rulerBasedEyesToPointCm = objectLengthCm
+                    const rulerBasedEyesToFootCm = Math.sqrt(
+                      rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
+                    )
+                    page4FactorCmPx = ipdVpx * rulerBasedEyesToFootCm
+
+                    
                   }
                 }
               } catch (error) {
@@ -8152,6 +8141,8 @@ export async function objectTest(RC, options, callback = undefined) {
               }
 
               RC.page4FactorCmPx = page4FactorCmPx
+              RC.fOverWidth2 = (page4FactorCmPx / cameraResolutionXYVpxPage4[0]) / RC._CONST.IPD_CM
+              RC.calibrationFOverWidth = Math.sqrt(RC.fOverWidth1 * RC.fOverWidth2)
               // Calculate geometric mean of the two factors (appropriate for ratio data)
               const averageFactorCmPx = Math.sqrt(
                 page3FactorCmPx * page4FactorCmPx,
@@ -8215,7 +8206,8 @@ export async function objectTest(RC, options, callback = undefined) {
                         0,
                         0,
                         options.calibrateDistanceChecking,
-                        [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
+                        [window.screen.width / 2, 0], // pointXYPx = cameraXYPx
+                        firstMeasurement,
                       )
 
                       measurements.push(
@@ -8236,6 +8228,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
                           ipdXYZVpxPage3,
+                          RC.fOverWidth1,
                         ),
                       )
                     }
@@ -8260,7 +8253,8 @@ export async function objectTest(RC, options, callback = undefined) {
                         0,
                         0,
                         options.calibrateDistanceChecking,
-                        [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
+                        [window.screen.width / 2, window.screen.height / 2], // pointXYPx = screen center
+                        firstMeasurement,
                       )
 
                       measurements.push(
@@ -8281,6 +8275,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
                           ipdXYZVpxPage4,
+                          RC.fOverWidth2,
                         ),
                       )
                     }
@@ -8353,7 +8348,9 @@ export async function objectTest(RC, options, callback = undefined) {
                         0,
                         0,
                         options.calibrateDistanceChecking,
-                        [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
+                        [window.screen.width / 2, 0], // pointXYPx = cameraXYPx
+                        firstMeasurement,
+
                       )
 
                       measurements.push(
@@ -8374,6 +8371,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
                           ipdXYZVpxPage3,
+                          RC.fOverWidth1,
                         ),
                       )
                     }
@@ -8398,7 +8396,8 @@ export async function objectTest(RC, options, callback = undefined) {
                         0,
                         0,
                         options.calibrateDistanceChecking,
-                        [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
+                        [window.screen.width / 2, window.screen.height / 2], // pointXYPx = screen center
+                        firstMeasurement,
                       )
 
                       measurements.push(
@@ -8419,6 +8418,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             : null,
                           isPaperSelectionMode ? paperSuggestionValue : null,
                           ipdXYZVpxPage4,
+                          RC.fOverWidth2,
                         ),
                       )
                     }
@@ -8908,7 +8908,7 @@ export async function objectTest(RC, options, callback = undefined) {
             ]
 
             // Set pointXYPx to screen center
-            const pointXYPx = [window.innerWidth / 2, window.innerHeight / 2]
+            const pointXYPx = [window.screen.width / 2, window.screen.height / 2]
 
             // Calculate distances using the new formulas
             const pointToFootCm =
@@ -9011,7 +9011,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 0,
                 0,
                 options.calibrateDistanceChecking,
-                [window.innerWidth / 2, 0], // pointXYPx = cameraXYPx
+                [window.screen.width / 2, 0], // pointXYPx = cameraXYPx
+                firstMeasurement,
               )
 
               measurements.push(
@@ -9032,6 +9033,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     : null,
                   isPaperSelectionMode ? paperSuggestionValue : null,
                   ipdXYZVpxPage3,
+                  RC.fOverWidth1,
                 ),
               )
             }
@@ -9056,7 +9058,8 @@ export async function objectTest(RC, options, callback = undefined) {
                 0,
                 0,
                 options.calibrateDistanceChecking,
-                [window.innerWidth / 2, window.innerHeight / 2], // pointXYPx = screen center
+                [window.screen.width / 2, window.screen.height / 2], // pointXYPx = screen center
+                firstMeasurement,
               )
 
               measurements.push(
@@ -9077,6 +9080,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     : null,
                   isPaperSelectionMode ? paperSuggestionValue : null,
                   ipdXYZVpxPage4,
+                  RC.fOverWidth2,
                 ),
               )
             }
@@ -9952,7 +9956,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const cameraXYPx = [window.innerWidth / 2, 0]
+      const cameraXYPx = [window.screen.width / 2, 0]
       arrowIndicators = createArrowIndicators(cameraXYPx)
       RC.background.appendChild(arrowIndicators)
       console.log('Arrow indicators added for page 3, pointing to top-center')
@@ -10006,7 +10010,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const cameraXYPx = [window.innerWidth / 2, 0]
+      const cameraXYPx = [window.screen.width / 2, 0]
       arrowIndicators = createArrowIndicators(cameraXYPx)
       RC.background.appendChild(arrowIndicators)
       console.log('Arrow indicators added for page 4, pointing to top-center')

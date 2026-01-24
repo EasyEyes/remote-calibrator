@@ -126,7 +126,7 @@ const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
     videoContainer.dataset.cameraMode = 'true'
 
     // Position video at cameraXYPx (top center of screen)
-    const cameraXYPx = [window.innerWidth / 2, 0]
+    const cameraXYPx = [window.screen.width / 2, 0]
 
     videoContainer.style.zIndex = '999999999999'
     videoContainer.style.position = 'fixed'
@@ -773,13 +773,16 @@ const captureIPDFromFaceMesh = async (
       const VpxPerCm = ipdPixels / RC._CONST.IPD_CM
       ipdCm = ipdPixels / VpxPerCm
     }
-    let webcamToEyeDistance = stdDist.current.calibrationFactor / ipdPixels
+    const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+    const horizontalVpx = cameraResolutionXYVpx[0]
+    const ipdOverWidth = ipdPixels / horizontalVpx
+    let eyesToFootCm = (RC.calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
     if (
       RC.useObjectTestData === 'justCreditCard' ||
       RC.useObjectTestData === 'autoCreditCard'
     ) {
       try {
-        webcamToEyeDistance =
+        eyesToFootCm =
           (RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM) / ipdPixels
       } catch (error) {
         console.error('Error calculating webcamToEyeDistance:', error)
@@ -794,7 +797,7 @@ const captureIPDFromFaceMesh = async (
       leftEye,
       rightEye,
       ipdPixels,
-      webcamToEyeDistance,
+      eyesToFootCm,
       pxPerCm,
       RC.screenPpi.value,
       RC,
@@ -2260,6 +2263,7 @@ const trackDistanceCheck = async (
 
     let cameraResolutionXY = ''
     let cameraResolutionMaxXY = ''
+    let horizontalVpx = null
     if (
       RC.gazeTracker &&
       RC.gazeTracker.webgazer &&
@@ -2274,6 +2278,7 @@ const trackDistanceCheck = async (
       const h = Math.min(maxHeight, maxWidth)
       cameraResolutionXY = `${width}x${height}`
       cameraResolutionMaxXY = `${w},${h}`
+      horizontalVpx = width
     }
 
     // Helper function to safely round centimeter values (2 decimal places)
@@ -2294,7 +2299,7 @@ const trackDistanceCheck = async (
       if (stdDist.current && stdDist.current.calibrationFactor) {
         calibrationFVpx = stdDist.current.calibrationFactor / RC._CONST.IPD_CM
         calibrationFOverWidth = safeRoundRatio(
-          calibrationFVpx / window.innerWidth,
+          calibrationFVpx / horizontalVpx,
         )
       }
     } catch (e) {}
@@ -2305,7 +2310,7 @@ const trackDistanceCheck = async (
       _calibrateDistance: calibrateDistance,
       _calibrateDistancePupil: calibrateDistancePupil,
       // Parameters with few values (before arrays with 8 values)
-      cameraXYPx: [window.innerWidth / 2, 0],
+      cameraXYPx: [window.screen.width / 2, 0],
       pxPerCm: safeRoundCm(pxPerCm),
       webcamMaxXYVpx: cameraResolutionMaxXY,
       ipdCm: safeRoundCm(RC._CONST.IPD_CM),
@@ -2748,9 +2753,10 @@ const trackDistanceCheck = async (
                 requestedEyesToPointCm ** 2 - faceValidation.footToPointCm ** 2,
               )
               try {
-                const imageBasedEyesToFootCm =
-                  (calibrationFVpx * RC._CONST.IPD_CM) /
-                  faceValidation.ipdPixels
+                const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+                const horizontalVpx = cameraResolutionXYVpx[0]
+                const ipdOverWidth = faceValidation.ipdPixels / horizontalVpx
+                const imageBasedEyesToFootCm = (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
                 RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
                   safeRoundCm(imageBasedEyesToFootCm),
                 )
@@ -2964,9 +2970,10 @@ const trackDistanceCheck = async (
                   faceValidation.pointXYPx[1],
                 ])
                 try {
-                  const imageBasedEyesToFootCm =
-                    (calibrationFVpx * RC._CONST.IPD_CM) /
-                    faceValidation.ipdPixels
+                  const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+                  const horizontalVpx = cameraResolutionXYVpx[0]
+                  const ipdOverWidth = faceValidation.ipdPixels / horizontalVpx
+                  const imageBasedEyesToFootCm = (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
                   RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
                     safeRoundCm(imageBasedEyesToFootCm),
                   )

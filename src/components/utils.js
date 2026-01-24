@@ -292,7 +292,9 @@ export function replaceNewlinesWithBreaks(str) {
 export const getCameraResolutionXY = RC => {
   try {
     const cameraResolution = RC.gazeTracker?.webgazer?.getCameraResolutionXY()
-    return [cameraResolution.width, cameraResolution.height]
+    const width = Math.max(cameraResolution.width, cameraResolution.height)
+    const height = Math.min(cameraResolution.width, cameraResolution.height)
+    return [width, height]
   } catch (error) {
     console.error('Error getting camera resolution:', error)
     return [0, 0]

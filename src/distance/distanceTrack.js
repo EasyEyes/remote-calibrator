@@ -724,8 +724,9 @@ const startIrisDrawing = RC => {
             0,
             0,
             currentIPDDistance,
-            true,
+            false,
             'camera',
+            [window.screen.width / 2, 0],
           )
 
           const footToPointCm = nearestPointsData.footToPointCm
@@ -745,6 +746,19 @@ const startIrisDrawing = RC => {
               console.error('Error calculating factorVpxCm:', error)
             }
           }
+
+          const rulerBasedEyesToPointCm = objectLengthCmGlobal.value
+          const rulerBasedEyesToFootCm = Math.sqrt(
+            rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
+          )
+          const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+          const horizontalVpx = cameraResolutionXYVpx[0]
+          const ipdOverWidth = currentIPDDistance / horizontalVpx
+          const fOverWidth = (rulerBasedEyesToFootCm * ipdOverWidth ) / RC._CONST.IPD_CM 
+          const imageBasedEyesToFootCm = (fOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
+          const imageBasedEyesToPointCm = Math.sqrt(
+            imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
+          )
           _drawNearestPoints(
             nearestPointsData.clampedNearestLeft,
             nearestPointsData.clampedNearestRight,
@@ -769,10 +783,14 @@ const startIrisDrawing = RC => {
             nearestPointsData.distanceCm_left,
             nearestPointsData.distanceCm_right,
             nearestPointsData.pointXYPx,
-            eyeToPointCm,
-            eyeToFootCm,
-            currentIPDDistance,
+            imageBasedEyesToPointCm,
+            imageBasedEyesToFootCm,
+            rulerBasedEyesToPointCm,
+            rulerBasedEyesToFootCm,
+            ipdOverWidth,
+            fOverWidth,
             getCameraResolutionXY(RC),
+            [window.screen.width, window.screen.height],
             pxPerCm,
             nearestPointsData.footXYPx,
             RC._CONST.IPD_CM,
@@ -1098,7 +1116,7 @@ export const calculateFootXYPx = (
     (offsetXYVpx_right[1] * RC._CONST.IPD_CM) / currentIPDDistance,
   ]
 
-  const cameraXYPx = [window.innerWidth / 2, 0]
+  const cameraXYPx = [window.screen.width / 2, 0]
 
   const nearestXYPx_left = [
     cameraXYPx[0] + offsetXYCm_left[0] * pxPerCm,
@@ -1135,14 +1153,14 @@ export const calculateNearestPoints = (
   rightMean = 0,
   method = 'object',
   order = 1, // 1 for first measurement (right-eye for blindspot, page3 for object), 2 for second measurement (left-eye for blindspot, page4 for object)
-  fixPoint = [window.innerWidth / 2, window.innerHeight / 2],
-  spotPoint = [window.innerWidth / 2, window.innerHeight / 2],
+  fixPoint = [window.screen.width / 2, window.screen.height / 2],
+  spotPoint = [window.screen.width / 2, window.screen.height / 2],
   blindspotDeg = 0,
   fixationToSpotCm = 0,
   ipdVpx = 0,
   distanceCheck = false,
   calibrateDistanceChecking = 'camera',
-  _pointXYPx = [window.innerWidth / 2, window.innerHeight / 2],
+  _pointXYPx = [window.screen.width / 2, window.screen.height / 2],
 ) => {
   const {
     nearestXYPx_left,
@@ -1158,7 +1176,7 @@ export const calculateNearestPoints = (
     pxPerCm,
     currentIPDDistance,
   )
-  const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2]
+  const centerXYPx = [window.screen.width / 2, window.screen.height / 2]
   let pointXYPx = distanceCheck ? cameraXYPx : _pointXYPx
   if (
     distanceCheck &&
@@ -1200,6 +1218,7 @@ export const calculateNearestPoints = (
   let eyeToFootCm = 0
   let eyeToScreenCm = 0 // distance parallel to optical axis (screen normal)
   let eyeToCameraCm = 0
+  let eyeToPointCm = 0
 
   if (webcamToEyeDistance === 0) {
     //blindspot
@@ -1226,20 +1245,25 @@ export const calculateNearestPoints = (
       // )
       throw new Error(e)
     }
+  } else if(distanceCheck){
+    eyeToFootCm = webcamToEyeDistance
+    eyeToPointCm = Math.sqrt(eyeToFootCm ** 2 + footToPointCm ** 2)
   } else {
-    eyeToScreenCm = webcamToEyeDistance // = fVpx * ipdCm / ipdVpx
-    eyeToCameraCm = Math.hypot(eyeToScreenCm, footToCameraCm)
-    eyeToFootCm = eyeToScreenCm
+    // eyeToScreenCm = webcamToEyeDistance // = fVpx * ipdCm / ipdVpx
+    // eyeToCameraCm = Math.hypot(eyeToScreenCm, footToCameraCm)
+    // eyeToFootCm = eyeToScreenCm
+    eyeToPointCm = webcamToEyeDistance // objectLengthCm
+    eyeToFootCm = Math.sqrt(eyeToPointCm ** 2 - footToPointCm ** 2)
   }
 
   const eyeToCenterCm = Math.sqrt(
     eyeToFootCm * eyeToFootCm + footToCenterCm * footToCenterCm,
   )
-  const eyeToPointCm = Math.sqrt(
-    eyeToFootCm * eyeToFootCm + footToPointCm * footToPointCm,
-  )
+  // const eyeToPointCm = Math.sqrt(
+  //   eyeToFootCm * eyeToFootCm + footToPointCm * footToPointCm,
+  // )
 
-  let calibrationFactor = Math.round(eyeToScreenCm * ipdVpx)
+  let calibrationFactor = Math.round(eyeToFootCm * ipdVpx)
   if (
     trackingOptions.useObjectTestData === 'justCreditCard' ||
     trackingOptions.useObjectTestData === 'autoCreditCard'
@@ -1272,8 +1296,7 @@ export const calculateNearestPoints = (
     offsetXYCm_right[0],
     offsetXYCm_right[1],
   )
-  const cameraToEyeDistance =
-    method === 'blindspot' ? eyeToCameraCm : webcamToEyeDistance
+  const cameraToEyeDistance = webcamToEyeDistance
 
   const nearestDistanceCm_left = Math.sqrt(
     cameraToEyeDistance ** 2 - norm_offsetXYCm_left ** 2,
@@ -1285,13 +1308,13 @@ export const calculateNearestPoints = (
   const eyeToScreenCenterDistance_left = getEyeToDesiredDistance(
     nearestXYPx_left,
     nearestDistanceCm_left,
-    [window.innerWidth / 2, window.innerHeight / 2],
+    [window.screen.width / 2, window.screen.height / 2],
     pxPerCm,
   )
   const eyeToScreenCenterDistance_right = getEyeToDesiredDistance(
     nearestXYPx_right,
     nearestDistanceCm_right,
-    [window.innerWidth / 2, window.innerHeight / 2],
+    [window.screen.width / 2, window.screen.height / 2],
     pxPerCm,
   )
   //choose the nearest eye to screen center distance
@@ -1306,20 +1329,19 @@ export const calculateNearestPoints = (
   const distanceCm_left = getEyeToDesiredDistance(
     nearestXYPx_left,
     nearestDistanceCm_left,
-    [window.innerWidth / 2, window.innerHeight / 2],
+    [window.screen.width / 2, window.screen.height / 2],
     pxPerCm,
   )
   const distanceCm_right = getEyeToDesiredDistance(
     nearestXYPx_right,
     nearestDistanceCm_right,
-    [window.innerWidth / 2, window.innerHeight / 2],
+    [window.screen.width / 2, window.screen.height / 2],
     pxPerCm,
   )
 
-  const nearestEyeToWebcamDistanceCM =
-    method === 'blindspot' ? eyeToCameraCm : eyeToPointCm
+  const nearestEyeToWebcamDistanceCM = eyeToFootCm
 
-  const distanceCm = method === 'blindspot' ? eyeToCameraCm : eyeToPointCm
+  const distanceCm = eyeToFootCm
 
   return {
     nearestXYPx_left,
@@ -1430,8 +1452,13 @@ const renderDistanceResult = async (
         timestamp - RC._trackingVideoFrameTimestamps.distance,
       )
 
-      const webcamToEyeDistance = stdFactor / currentIPDDistance
-      const VpxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+      // const webcamToEyeDistance = stdFactor / currentIPDDistance
+      // const VpxPerCm = currentIPDDistance / RC._CONST.IPD_CM
+
+      const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+      const horizontalVpx = cameraResolutionXYVpx[0]
+      const ipdOverWidth = currentIPDDistance / horizontalVpx
+      const eyesToFootCm = (RC.calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
 
       // Calculate nearest points using the factored function
       const nearestPointsData = calculateNearestPoints(
@@ -1439,7 +1466,7 @@ const renderDistanceResult = async (
         leftEye,
         rightEye,
         currentIPDDistance,
-        webcamToEyeDistance,
+        eyesToFootCm,
         pxPerCm,
         ppi,
         RC,
@@ -1453,7 +1480,7 @@ const renderDistanceResult = async (
         0,
         0,
         currentIPDDistance,
-        false,
+        true,
         trackingOptions.calibrateDistanceChecking,
       )
 
@@ -1474,13 +1501,14 @@ const renderDistanceResult = async (
         cameraXYPx,
         viewingDistanceWhichEye,
         viewingDistanceWhichPoint,
+        footToPointCm
       } = nearestPointsData
 
       // Apply trigonometric adjustment to get screen-center-to-eye distance
-      const screenCenterToEyeDistance = _adjustDistanceToScreenCenter(
-        webcamToEyeDistance,
-        ppi,
-      )
+      // const screenCenterToEyeDistance = _adjustDistanceToScreenCenter(
+      //   eyesToFootCm,
+      //   ppi,
+      // )
 
       RC.improvedDistanceTrackingData = {
         left: {
@@ -1497,7 +1525,7 @@ const renderDistanceResult = async (
         distanceCm: distanceCm,
         nearestXYPx: nearestXYPx,
         nearestDistanceCm: nearestDistanceCm,
-        oldDistanceCm: screenCenterToEyeDistance,
+        // oldDistanceCm: screenCenterToEyeDistance,
         ipdDistancePx: currentIPDDistance,
       }
 
@@ -1515,7 +1543,20 @@ const renderDistanceResult = async (
       updateSharedFaceData(leftEye, rightEye, video, currentIPDDistance)
 
       // Debug: Draw nearest points on screen using clamped coordinates
-      if (trackingConfig.options.showNearestPointsBool)
+      if (trackingConfig.options.showNearestPointsBool) {
+        const rulerBasedEyesToPointCm = objectLengthCmGlobal.value
+          const rulerBasedEyesToFootCm = Math.sqrt(
+            rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
+          )
+          const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+          const horizontalVpx = cameraResolutionXYVpx[0]
+          const ipdOverWidth = currentIPDDistance / horizontalVpx
+          const fOverWidth = (rulerBasedEyesToFootCm * RC._CONST.IPD_CM) / ipdOverWidth
+          const imageBasedEyesToFootCm = (fOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
+          const imageBasedEyesToPointCm = Math.sqrt(
+            imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
+          )
+
         _drawNearestPoints(
           clampedNearestLeft,
           clampedNearestRight,
@@ -1540,14 +1581,19 @@ const renderDistanceResult = async (
           distanceCm_left,
           distanceCm_right,
           nearestPointsData.pointXYPx, // pointXYPx
-          nearestPointsData.eyeToPointCm, // eyeToPointCm
-          nearestPointsData.eyeToFootCm, // eyeToFootCm
-          currentIPDDistance, // ipdVpx
+          imageBasedEyesToPointCm, // imageBasedEyesToPointCm
+          imageBasedEyesToFootCm, // imageBasedEyesToFootCm
+          rulerBasedEyesToPointCm, // rulerBasedEyesToPointCm
+          rulerBasedEyesToFootCm, // rulerBasedEyesToFootCm
+          ipdOverWidth, // ipdOverWidth
+          fOverWidth, // fOverWidth
           getCameraResolutionXY(RC),
+          [window.screen.width, window.screen.height], // screenResolutionXYVpx
           pxPerCm, // pxPerCm
           nearestPointsData.footXYPx, // footXYPx
           RC._CONST.IPD_CM, // ipdCm
         )
+      }
 
       if (readyToGetFirstData || desiredDistanceMonitor) {
         // ! Check distance
@@ -1644,12 +1690,15 @@ const _calculateLabelPosition = (dotX, dotY, eyeSide) => {
 let nearestPointDots = { left: null, right: null }
 let nearestPointLabels = { left: null, right: null }
 let cameraResolutionXYLabel = null
+let screenResolutionXYVpxLabel = null
 let pxPerCmLabel = null
 let ipdCmLabel = null
 let ipdLabel = null
-let fVpxLabel = null
-let eyesToFootCmLabel = null
-let eyesToPointCmLabel = null
+let fOverWidthLabel = null
+let imageBasedEyesToFootCmLabel = null
+let imageBasedEyesToPointCmLabel = null
+let rulerBasedEyesToFootCmLabel = null
+let rulerBasedEyesToPointCmLabel = null
 let footToPointCmLabel = null
 let footXYPxLabel = null
 let pointXYPxLabel = null
@@ -1676,10 +1725,14 @@ const _drawNearestPoints = (
   distanceCm_left,
   distanceCm_right,
   pointXYPx = null,
-  eyeToPointCm = null,
-  eyeToFootCm = null,
-  ipdVpx = null,
+  imageBasedEyesToPointCm = null,
+  imageBasedEyesToFootCm = null,
+  rulerBasedEyesToPointCm = null,
+  rulerBasedEyesToFootCm = null,
+  ipdOverWidth = null,
+  fOverWidth = null,
   cameraResolutionXY = null,
+  screenResolutionXYVpx = null,
   pxPerCm = null,
   footXYPx = null,
   ipdCm = 6.3,
@@ -1912,7 +1965,24 @@ const _drawNearestPoints = (
     cameraResolutionXYLabel.style.top = '20px'
   }
 
-  // 2. pxPerCm label (top 50px)
+  // 1b. screenResolutionXYVpx label (top 50px)
+  if (
+    screenResolutionXYVpx !== null &&
+    Array.isArray(screenResolutionXYVpx) &&
+    screenResolutionXYVpx[0] &&
+    screenResolutionXYVpx[1]
+  ) {
+    screenResolutionXYVpxLabel = createOrUpdateElement(
+      screenResolutionXYVpxLabel,
+      'rc-screen-resolution-xy-vpx-label',
+      labelBaseStyles,
+    )
+    screenResolutionXYVpxLabel.textContent = `screenResolutionXYVpx: [${screenResolutionXYVpx[0]}, ${screenResolutionXYVpx[1]}]`
+    screenResolutionXYVpxLabel.style.left = `${labelLeft}px`
+    screenResolutionXYVpxLabel.style.top = '50px'
+  }
+
+  // 2. pxPerCm label (top 80px)
   if (pxPerCm !== null && pxPerCm !== undefined) {
     pxPerCmLabel = createOrUpdateElement(
       pxPerCmLabel,
@@ -1921,10 +1991,10 @@ const _drawNearestPoints = (
     )
     pxPerCmLabel.textContent = `pxPerCm: ${pxPerCm.toFixed(1)}`
     pxPerCmLabel.style.left = `${labelLeft}px`
-    pxPerCmLabel.style.top = '50px'
+    pxPerCmLabel.style.top = '80px'
   }
 
-  // 3. ipdCm label (top 80px)
+  // 3. ipdCm label (top 110px)
   if (ipdCm !== null && ipdCm !== undefined) {
     ipdCmLabel = createOrUpdateElement(
       ipdCmLabel,
@@ -1933,62 +2003,85 @@ const _drawNearestPoints = (
     )
     ipdCmLabel.textContent = `ipdCm: ${ipdCm.toFixed(1)} cm`
     ipdCmLabel.style.left = `${labelLeft}px`
-    ipdCmLabel.style.top = '80px'
+    ipdCmLabel.style.top = '110px'
   }
 
-  // 4. ipdVpx label (top 110px)
+  // 4. ipdOverWidth label (top 140px)
   {
-    const ipdValue = ipdVpx ?? averageDist
+    const ipdValue = ipdOverWidth ?? averageDist
     if (ipdValue !== undefined) {
       ipdLabel = createOrUpdateElement(
         ipdLabel,
         'rc-ipd-label',
         labelBaseStyles,
       )
-      ipdLabel.textContent = `ipdVpx: ${Math.round(ipdValue)}`
+      ipdLabel.textContent = `ipdOverWidth: ${Math.round(ipdValue)}`
       ipdLabel.style.left = `${labelLeft}px`
-      ipdLabel.style.top = '110px'
+      ipdLabel.style.top = '140px'
     }
   }
 
-  // 5. fVpx label (top 140px) - factorVpxCm / ipdCm
-  if (factorVpxCm !== undefined && ipdCm !== null && ipdCm !== undefined) {
-    fVpxLabel = createOrUpdateElement(
-      fVpxLabel,
-      'rc-f-vpx-label',
+  // 5. fOverWidth label (top 170px)
+  if (fOverWidth !== null && fOverWidth !== undefined) {
+    fOverWidthLabel = createOrUpdateElement(
+      fOverWidthLabel,
+      'rc-f-over-width-label',
       labelBaseStyles,
     )
-    const fVpx = factorVpxCm / ipdCm
-    fVpxLabel.textContent = `fVpx: ${Math.round(fVpx)}`
-    fVpxLabel.style.left = `${labelLeft}px`
-    fVpxLabel.style.top = '140px'
+    fOverWidthLabel.textContent = `fOverWidth: ${Math.round(fOverWidth)}`
+    fOverWidthLabel.style.left = `${labelLeft}px`
+    fOverWidthLabel.style.top = '170px'
   }
 
-  // 6. eyesToFootCm label (top 170px)
-  if (eyeToFootCm !== null && eyeToFootCm !== undefined) {
-    eyesToFootCmLabel = createOrUpdateElement(
-      eyesToFootCmLabel,
-      'rc-eyes-to-foot-cm-label',
+  // 6. imageBasedEyesToFootCm label (top 200px)
+  if (imageBasedEyesToFootCm !== null && imageBasedEyesToFootCm !== undefined) {
+    imageBasedEyesToFootCmLabel = createOrUpdateElement(
+      imageBasedEyesToFootCmLabel,
+      'rc-image-based-eyes-to-foot-cm-label',
       labelBaseStyles,
     )
-    eyesToFootCmLabel.textContent = `eyesToFootCm: ${eyeToFootCm.toFixed(decimalPlace || 1)} cm`
-    eyesToFootCmLabel.style.left = `${labelLeft}px`
-    eyesToFootCmLabel.style.top = '170px'
+    imageBasedEyesToFootCmLabel.textContent = `imageBasedEyesToFootCm: ${imageBasedEyesToFootCm.toFixed(decimalPlace || 1)} cm`
+    imageBasedEyesToFootCmLabel.style.left = `${labelLeft}px`
+    imageBasedEyesToFootCmLabel.style.top = '200px'
   }
 
-  // 7. eyesToPointCm label (top 200px)
-  if (eyeToPointCm !== null && eyeToPointCm !== undefined) {
-    eyesToPointCmLabel = createOrUpdateElement(
-      eyesToPointCmLabel,
-      'rc-eyes-to-point-cm-label',
+  // 7. imageBasedEyesToPointCm label (top 230px)
+  if (imageBasedEyesToPointCm !== null && imageBasedEyesToPointCm !== undefined) {
+    imageBasedEyesToPointCmLabel = createOrUpdateElement(
+      imageBasedEyesToPointCmLabel,
+      'rc-image-based-eyes-to-point-cm-label',
       labelBaseStyles,
     )
-    eyesToPointCmLabel.textContent = `eyesToPointCm: ${eyeToPointCm.toFixed(decimalPlace || 1)} cm`
-    eyesToPointCmLabel.style.left = `${labelLeft}px`
-    eyesToPointCmLabel.style.top = '200px'
+    imageBasedEyesToPointCmLabel.textContent = `imageBasedEyesToPointCm: ${imageBasedEyesToPointCm.toFixed(decimalPlace || 1)} cm`
+    imageBasedEyesToPointCmLabel.style.left = `${labelLeft}px`
+    imageBasedEyesToPointCmLabel.style.top = '230px'
   }
 
-  // 8. footToPointCm label (top 230px)
+  // 7b. rulerBasedEyesToFootCm label (top 260px)
+  if (rulerBasedEyesToFootCm !== null && rulerBasedEyesToFootCm !== undefined) {
+    rulerBasedEyesToFootCmLabel = createOrUpdateElement(
+      rulerBasedEyesToFootCmLabel,
+      'rc-ruler-based-eyes-to-foot-cm-label',
+      labelBaseStyles,
+    )
+    rulerBasedEyesToFootCmLabel.textContent = `rulerBasedEyesToFootCm: ${rulerBasedEyesToFootCm.toFixed(decimalPlace || 1)} cm`
+    rulerBasedEyesToFootCmLabel.style.left = `${labelLeft}px`
+    rulerBasedEyesToFootCmLabel.style.top = '260px'
+  }
+
+  // 7c. rulerBasedEyesToPointCm label (top 290px)
+  if (rulerBasedEyesToPointCm !== null && rulerBasedEyesToPointCm !== undefined) {
+    rulerBasedEyesToPointCmLabel = createOrUpdateElement(
+      rulerBasedEyesToPointCmLabel,
+      'rc-ruler-based-eyes-to-point-cm-label',
+      labelBaseStyles,
+    )
+    rulerBasedEyesToPointCmLabel.textContent = `rulerBasedEyesToPointCm: ${rulerBasedEyesToPointCm.toFixed(decimalPlace || 1)} cm`
+    rulerBasedEyesToPointCmLabel.style.left = `${labelLeft}px`
+    rulerBasedEyesToPointCmLabel.style.top = '290px'
+  }
+
+  // 8. footToPointCm label (top 320px)
   if (footXYPx !== null && pointXYPx !== null && pxPerCm !== null) {
     footToPointCmLabel = createOrUpdateElement(
       footToPointCmLabel,
@@ -2001,10 +2094,10 @@ const _drawNearestPoints = (
       ) / pxPerCm
     footToPointCmLabel.textContent = `footToPointCm: ${footToPointCm.toFixed(decimalPlace || 1)} cm`
     footToPointCmLabel.style.left = `${labelLeft}px`
-    footToPointCmLabel.style.top = '230px'
+    footToPointCmLabel.style.top = '320px'
   }
 
-  // 9. footXYPx label (top 260px)
+  // 9. footXYPx label (top 350px)
   if (footXYPx !== null && footXYPx !== undefined) {
     footXYPxLabel = createOrUpdateElement(
       footXYPxLabel,
@@ -2016,10 +2109,10 @@ const _drawNearestPoints = (
       : `${footXYPx}`
     footXYPxLabel.textContent = `footXYPx: ${xyText}`
     footXYPxLabel.style.left = `${labelLeft}px`
-    footXYPxLabel.style.top = '260px'
+    footXYPxLabel.style.top = '350px'
   }
 
-  // 10. pointXYPx label (top 290px)
+  // 10. pointXYPx label (top 380px)
   if (pointXYPx !== null && pointXYPx !== undefined) {
     pointXYPxLabel = createOrUpdateElement(
       pointXYPxLabel,
@@ -2031,10 +2124,10 @@ const _drawNearestPoints = (
       : `${pointXYPx}`
     pointXYPxLabel.textContent = `pointXYPx: ${xyText}`
     pointXYPxLabel.style.left = `${labelLeft}px`
-    pointXYPxLabel.style.top = '290px'
+    pointXYPxLabel.style.top = '380px'
   }
 
-  // 11. viewingDistanceWhichEye label (top 320px)
+  // 11. viewingDistanceWhichEye label (top 410px)
   if (viewingDistanceWhichEye !== undefined) {
     viewingDistanceWhichEyeLabel = createOrUpdateElement(
       viewingDistanceWhichEyeLabel,
@@ -2070,10 +2163,10 @@ const _drawNearestPoints = (
 
     viewingDistanceWhichEyeLabel.textContent = `viewingDistanceWhichEye: ${viewingDistanceWhichEye} (${typeof viewingDistanceCm === 'number' ? viewingDistanceCm.toFixed(1) : viewingDistanceCm} cm)`
     viewingDistanceWhichEyeLabel.style.left = `${labelLeft}px`
-    viewingDistanceWhichEyeLabel.style.top = '320px'
+    viewingDistanceWhichEyeLabel.style.top = '410px'
   }
 
-  // 12. viewingDistanceWhichPoint label (top 350px)
+  // 12. viewingDistanceWhichPoint label (top 440px)
   if (viewingDistanceWhichPoint !== undefined) {
     viewingDistanceWhichPointLabel = createOrUpdateElement(
       viewingDistanceWhichPointLabel,
@@ -2130,7 +2223,7 @@ const _drawNearestPoints = (
 
     viewingDistanceWhichPointLabel.textContent = `viewingDistanceWhichPoint: ${displayValue}`
     viewingDistanceWhichPointLabel.style.left = `${labelLeft}px`
-    viewingDistanceWhichPointLabel.style.top = '350px'
+    viewingDistanceWhichPointLabel.style.top = '440px'
   }
 }
 
@@ -2156,6 +2249,10 @@ const cleanUpEyePoints = () => {
     document.body.removeChild(cameraResolutionXYLabel)
     cameraResolutionXYLabel = null
   }
+  if (screenResolutionXYVpxLabel) {
+    document.body.removeChild(screenResolutionXYVpxLabel)
+    screenResolutionXYVpxLabel = null
+  }
   if (pxPerCmLabel) {
     document.body.removeChild(pxPerCmLabel)
     pxPerCmLabel = null
@@ -2168,17 +2265,25 @@ const cleanUpEyePoints = () => {
     document.body.removeChild(ipdLabel)
     ipdLabel = null
   }
-  if (fVpxLabel) {
-    document.body.removeChild(fVpxLabel)
-    fVpxLabel = null
+  if (fOverWidthLabel) {
+    document.body.removeChild(fOverWidthLabel)
+    fOverWidthLabel = null
   }
-  if (eyesToFootCmLabel) {
-    document.body.removeChild(eyesToFootCmLabel)
-    eyesToFootCmLabel = null
+  if (imageBasedEyesToFootCmLabel) {
+    document.body.removeChild(imageBasedEyesToFootCmLabel)
+    imageBasedEyesToFootCmLabel = null
   }
-  if (eyesToPointCmLabel) {
-    document.body.removeChild(eyesToPointCmLabel)
-    eyesToPointCmLabel = null
+  if (imageBasedEyesToPointCmLabel) {
+    document.body.removeChild(imageBasedEyesToPointCmLabel)
+    imageBasedEyesToPointCmLabel = null
+  }
+  if (rulerBasedEyesToFootCmLabel) {
+    document.body.removeChild(rulerBasedEyesToFootCmLabel)
+    rulerBasedEyesToFootCmLabel = null
+  }
+  if (rulerBasedEyesToPointCmLabel) {
+    document.body.removeChild(rulerBasedEyesToPointCmLabel)
+    rulerBasedEyesToPointCmLabel = null
   }
   if (footToPointCmLabel) {
     document.body.removeChild(footToPointCmLabel)
@@ -2430,6 +2535,10 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
       document.body.removeChild(cameraResolutionXYLabel)
       cameraResolutionXYLabel = null
     }
+    if (screenResolutionXYVpxLabel) {
+      document.body.removeChild(screenResolutionXYVpxLabel)
+      screenResolutionXYVpxLabel = null
+    }
     if (pxPerCmLabel) {
       document.body.removeChild(pxPerCmLabel)
       pxPerCmLabel = null
@@ -2442,17 +2551,25 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
       document.body.removeChild(ipdLabel)
       ipdLabel = null
     }
-    if (fVpxLabel) {
-      document.body.removeChild(fVpxLabel)
-      fVpxLabel = null
+    if (fOverWidthLabel) {
+      document.body.removeChild(fOverWidthLabel)
+      fOverWidthLabel = null
     }
-    if (eyesToFootCmLabel) {
-      document.body.removeChild(eyesToFootCmLabel)
-      eyesToFootCmLabel = null
+    if (imageBasedEyesToFootCmLabel) {
+      document.body.removeChild(imageBasedEyesToFootCmLabel)
+      imageBasedEyesToFootCmLabel = null
     }
-    if (eyesToPointCmLabel) {
-      document.body.removeChild(eyesToPointCmLabel)
-      eyesToPointCmLabel = null
+    if (imageBasedEyesToPointCmLabel) {
+      document.body.removeChild(imageBasedEyesToPointCmLabel)
+      imageBasedEyesToPointCmLabel = null
+    }
+    if (rulerBasedEyesToFootCmLabel) {
+      document.body.removeChild(rulerBasedEyesToFootCmLabel)
+      rulerBasedEyesToFootCmLabel = null
+    }
+    if (rulerBasedEyesToPointCmLabel) {
+      document.body.removeChild(rulerBasedEyesToPointCmLabel)
+      rulerBasedEyesToPointCmLabel = null
     }
     if (footToPointCmLabel) {
       document.body.removeChild(footToPointCmLabel)
