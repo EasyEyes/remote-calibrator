@@ -8153,8 +8153,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
               RC.page4FactorCmPx = page4FactorCmPx
               // Calculate geometric mean of the two factors (appropriate for ratio data)
-              const averageFactorCmPx = Math.sqrt(page3FactorCmPx * page4FactorCmPx)
-              RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
+              const averageFactorCmPx = Math.sqrt(
+                page3FactorCmPx * page4FactorCmPx,
+              )
+              RC.averageObjectTestCalibrationFactor =
+                Math.round(averageFactorCmPx)
 
               // Now check tolerance with the calculated factors
               console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')

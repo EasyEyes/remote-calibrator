@@ -885,6 +885,7 @@ export const startIrisDrawingWithMesh = async RC => {
 }
 
 // Factor out mesh data retrieval for reuse
+// Always uses fresh estimateFaces() for consistency with checkDistance
 export const getMeshData = async (
   RC,
   calibrateDistancePupil = 'iris',
@@ -895,30 +896,25 @@ export const getMeshData = async (
     console.log('Video canvas not ready for mesh data retrieval')
     return null
   }
-  let mesh = meshSamples.length
-    ? meshSamples
-    : RC.gazeTracker.webgazer.getTracker().getPositions()
-  // Try to use WebGazer's mesh data first, but fallback to our own detection if stale
-  let meshSource = 'webgazer'
 
-  // Check if WebGazer mesh data is stale (WebGazer might be paused)
-  //console.log('paused', RC.gazeTracker.webgazer.params.paused)
-  if (!mesh || mesh.length === 0 || RC.gazeTracker.webgazer.params.paused) {
-    //console.log('WebGazer mesh stale or paused, using own face detection')
+  let mesh = null
+
+  // Use provided meshSamples if available, otherwise get fresh face detection
+  if (meshSamples.length) {
+    mesh = meshSamples
+  } else {
+    // Always use fresh estimateFaces() for accurate, consistent measurements
     try {
       const model = await RC.gazeTracker.webgazer.getTracker().model
       const faces = await model.estimateFaces(video)
       if (faces.length) {
         mesh = faces[0].keypoints
-        meshSource = 'own'
       }
     } catch (error) {
-      console.warn('Own face detection failed:', error)
+      console.warn('Face detection failed:', error)
       mesh = null
     }
   }
-
-  //console.log('Mesh source:', meshSource, 'length:', mesh && mesh.length)
 
   if (mesh && mesh.length) {
     const { leftEye, rightEye } = getLeftAndRightEyePointsFromMeshData(
@@ -938,7 +934,6 @@ export const getMeshData = async (
         video,
         currentIPDDistance,
         ipdXYZVpx, // Always 3D IPD
-        meshSource,
       }
     }
   }
