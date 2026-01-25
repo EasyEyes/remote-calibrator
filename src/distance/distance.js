@@ -8026,10 +8026,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
                     const pointXYPx = cameraXYPx
 
-                    const footToPointCm = Math.hypot(
-                      footXYPx[0] - pointXYPx[0],
-                      footXYPx[1] - pointXYPx[1],
-                    ) / pxPerCm
+                    const footToPointCm =
+                      Math.hypot(
+                        footXYPx[0] - pointXYPx[0],
+                        footXYPx[1] - pointXYPx[1],
+                      ) / pxPerCm
 
                     const rulerBasedEyesToPointCm = firstMeasurement
                     const rulerBasedEyesToFootCm = Math.sqrt(
@@ -8047,7 +8048,10 @@ export async function objectTest(RC, options, callback = undefined) {
 
               //const page3FactorCmPx = page3Average * firstMeasurement
               RC.page3FactorCmPx = page3FactorCmPx
-              RC.fOverWidth1 = (page3FactorCmPx / cameraResolutionXYVpxPage3[0]) / RC._CONST.IPD_CM
+              RC.fOverWidth1 =
+                page3FactorCmPx /
+                cameraResolutionXYVpxPage3[0] /
+                RC._CONST.IPD_CM
 
               // For page 4, calculate factorVpxCm using new geometric formulas
               let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
@@ -8117,18 +8121,17 @@ export async function objectTest(RC, options, callback = undefined) {
                     // Calculate factorVpxCm using parallel-to-axis distance
                     // page4FactorCmPx = ipdVpx * eyeToScreenCm
 
-                    const footToPointCm = Math.hypot(
-                      footXYPx[0] - pointXYPx[0],
-                      footXYPx[1] - pointXYPx[1],
-                    ) / pxPerCm
+                    const footToPointCm =
+                      Math.hypot(
+                        footXYPx[0] - pointXYPx[0],
+                        footXYPx[1] - pointXYPx[1],
+                      ) / pxPerCm
 
                     const rulerBasedEyesToPointCm = objectLengthCm
                     const rulerBasedEyesToFootCm = Math.sqrt(
                       rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
                     )
                     page4FactorCmPx = ipdVpx * rulerBasedEyesToFootCm
-
-                    
                   }
                 }
               } catch (error) {
@@ -8141,8 +8144,13 @@ export async function objectTest(RC, options, callback = undefined) {
               }
 
               RC.page4FactorCmPx = page4FactorCmPx
-              RC.fOverWidth2 = (page4FactorCmPx / cameraResolutionXYVpxPage4[0]) / RC._CONST.IPD_CM
-              RC.calibrationFOverWidth = Math.sqrt(RC.fOverWidth1 * RC.fOverWidth2)
+              RC.fOverWidth2 =
+                page4FactorCmPx /
+                cameraResolutionXYVpxPage4[0] /
+                RC._CONST.IPD_CM
+              RC.calibrationFOverWidth = Math.sqrt(
+                RC.fOverWidth1 * RC.fOverWidth2,
+              )
               // Calculate geometric mean of the two factors (appropriate for ratio data)
               const averageFactorCmPx = Math.sqrt(
                 page3FactorCmPx * page4FactorCmPx,
@@ -8350,7 +8358,6 @@ export async function objectTest(RC, options, callback = undefined) {
                         options.calibrateDistanceChecking,
                         [window.screen.width / 2, 0], // pointXYPx = cameraXYPx
                         firstMeasurement,
-
                       )
 
                       measurements.push(
@@ -8908,7 +8915,10 @@ export async function objectTest(RC, options, callback = undefined) {
             ]
 
             // Set pointXYPx to screen center
-            const pointXYPx = [window.screen.width / 2, window.screen.height / 2]
+            const pointXYPx = [
+              window.screen.width / 2,
+              window.screen.height / 2,
+            ]
 
             // Calculate distances using the new formulas
             const pointToFootCm =

@@ -776,7 +776,8 @@ const captureIPDFromFaceMesh = async (
     const cameraResolutionXYVpx = getCameraResolutionXY(RC)
     const horizontalVpx = cameraResolutionXYVpx[0]
     const ipdOverWidth = ipdPixels / horizontalVpx
-    let eyesToFootCm = (RC.calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
+    let eyesToFootCm =
+      (RC.calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
     if (
       RC.useObjectTestData === 'justCreditCard' ||
       RC.useObjectTestData === 'autoCreditCard'
@@ -2298,9 +2299,7 @@ const trackDistanceCheck = async (
     try {
       if (stdDist.current && stdDist.current.calibrationFactor) {
         calibrationFVpx = stdDist.current.calibrationFactor / RC._CONST.IPD_CM
-        calibrationFOverWidth = safeRoundRatio(
-          calibrationFVpx / horizontalVpx,
-        )
+        calibrationFOverWidth = safeRoundRatio(calibrationFVpx / horizontalVpx)
       }
     } catch (e) {}
 
@@ -2756,7 +2755,8 @@ const trackDistanceCheck = async (
                 const cameraResolutionXYVpx = getCameraResolutionXY(RC)
                 const horizontalVpx = cameraResolutionXYVpx[0]
                 const ipdOverWidth = faceValidation.ipdPixels / horizontalVpx
-                const imageBasedEyesToFootCm = (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
+                const imageBasedEyesToFootCm =
+                  (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
                 RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
                   safeRoundCm(imageBasedEyesToFootCm),
                 )
@@ -2970,7 +2970,8 @@ const trackDistanceCheck = async (
                   const cameraResolutionXYVpx = getCameraResolutionXY(RC)
                   const horizontalVpx = cameraResolutionXYVpx[0]
                   const ipdOverWidth = faceValidation.ipdPixels / horizontalVpx
-                  const imageBasedEyesToFootCm = (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
+                  const imageBasedEyesToFootCm =
+                    (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
                   RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
                     safeRoundCm(imageBasedEyesToFootCm),
                   )

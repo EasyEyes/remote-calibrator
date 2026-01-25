@@ -754,8 +754,10 @@ const startIrisDrawing = RC => {
           const cameraResolutionXYVpx = getCameraResolutionXY(RC)
           const horizontalVpx = cameraResolutionXYVpx[0]
           const ipdOverWidth = currentIPDDistance / horizontalVpx
-          const fOverWidth = (rulerBasedEyesToFootCm * ipdOverWidth ) / RC._CONST.IPD_CM 
-          const imageBasedEyesToFootCm = (fOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
+          const fOverWidth =
+            (rulerBasedEyesToFootCm * ipdOverWidth) / RC._CONST.IPD_CM
+          const imageBasedEyesToFootCm =
+            (fOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
           const imageBasedEyesToPointCm = Math.sqrt(
             imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
           )
@@ -1245,7 +1247,7 @@ export const calculateNearestPoints = (
       // )
       throw new Error(e)
     }
-  } else if(distanceCheck){
+  } else if (distanceCheck) {
     eyeToFootCm = webcamToEyeDistance
     eyeToPointCm = Math.sqrt(eyeToFootCm ** 2 + footToPointCm ** 2)
   } else {
@@ -1458,7 +1460,8 @@ const renderDistanceResult = async (
       const cameraResolutionXYVpx = getCameraResolutionXY(RC)
       const horizontalVpx = cameraResolutionXYVpx[0]
       const ipdOverWidth = currentIPDDistance / horizontalVpx
-      const eyesToFootCm = (RC.calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
+      const eyesToFootCm =
+        (RC.calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
 
       // Calculate nearest points using the factored function
       const nearestPointsData = calculateNearestPoints(
@@ -1501,7 +1504,7 @@ const renderDistanceResult = async (
         cameraXYPx,
         viewingDistanceWhichEye,
         viewingDistanceWhichPoint,
-        footToPointCm
+        footToPointCm,
       } = nearestPointsData
 
       // Apply trigonometric adjustment to get screen-center-to-eye distance
@@ -1545,17 +1548,19 @@ const renderDistanceResult = async (
       // Debug: Draw nearest points on screen using clamped coordinates
       if (trackingConfig.options.showNearestPointsBool) {
         const rulerBasedEyesToPointCm = objectLengthCmGlobal.value
-          const rulerBasedEyesToFootCm = Math.sqrt(
-            rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
-          )
-          const cameraResolutionXYVpx = getCameraResolutionXY(RC)
-          const horizontalVpx = cameraResolutionXYVpx[0]
-          const ipdOverWidth = currentIPDDistance / horizontalVpx
-          const fOverWidth = (rulerBasedEyesToFootCm * RC._CONST.IPD_CM) / ipdOverWidth
-          const imageBasedEyesToFootCm = (fOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
-          const imageBasedEyesToPointCm = Math.sqrt(
-            imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
-          )
+        const rulerBasedEyesToFootCm = Math.sqrt(
+          rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
+        )
+        const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+        const horizontalVpx = cameraResolutionXYVpx[0]
+        const ipdOverWidth = currentIPDDistance / horizontalVpx
+        const fOverWidth =
+          (rulerBasedEyesToFootCm * ipdOverWidth) / RC._CONST.IPD_CM
+        const imageBasedEyesToFootCm =
+          (fOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
+        const imageBasedEyesToPointCm = Math.sqrt(
+          imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
+        )
 
         _drawNearestPoints(
           clampedNearestLeft,
@@ -1707,6 +1712,10 @@ let viewingDistanceWhichPointLabel = null
 let eyePointDots = { left: null, right: null }
 let pupilDots = { left: null, right: null }
 let nearestPointCoordsLabels = { left: null, right: null }
+
+// Throttle for label updates - prevents too-rapid updates making labels unreadable
+const LABEL_UPDATE_INTERVAL_MS = 150
+let lastLabelUpdateTime = 0
 const _drawNearestPoints = (
   nearestLeft,
   nearestRight,
@@ -1994,6 +2003,13 @@ const _drawNearestPoints = (
     pxPerCmLabel.style.top = '80px'
   }
 
+  // Check if enough time has passed to update dynamic labels (throttle for readability)
+  const currentTime = Date.now()
+  const shouldUpdateLabels = currentTime - lastLabelUpdateTime >= LABEL_UPDATE_INTERVAL_MS
+  if (shouldUpdateLabels) {
+    lastLabelUpdateTime = currentTime
+  }
+
   // 3. ipdCm label (top 110px)
   if (ipdCm !== null && ipdCm !== undefined) {
     ipdCmLabel = createOrUpdateElement(
@@ -2015,7 +2031,9 @@ const _drawNearestPoints = (
         'rc-ipd-label',
         labelBaseStyles,
       )
-      ipdLabel.textContent = `ipdOverWidth: ${Math.round(ipdValue)}`
+      if (shouldUpdateLabels) {
+        ipdLabel.textContent = `ipdOverWidth: ${ipdValue.toFixed(3)}`
+      }
       ipdLabel.style.left = `${labelLeft}px`
       ipdLabel.style.top = '140px'
     }
@@ -2028,7 +2046,9 @@ const _drawNearestPoints = (
       'rc-f-over-width-label',
       labelBaseStyles,
     )
-    fOverWidthLabel.textContent = `fOverWidth: ${Math.round(fOverWidth)}`
+    if (shouldUpdateLabels) {
+      fOverWidthLabel.textContent = `fOverWidth: ${fOverWidth.toFixed(3)}`
+    }
     fOverWidthLabel.style.left = `${labelLeft}px`
     fOverWidthLabel.style.top = '170px'
   }
@@ -2040,19 +2060,26 @@ const _drawNearestPoints = (
       'rc-image-based-eyes-to-foot-cm-label',
       labelBaseStyles,
     )
-    imageBasedEyesToFootCmLabel.textContent = `imageBasedEyesToFootCm: ${imageBasedEyesToFootCm.toFixed(decimalPlace || 1)} cm`
+    if (shouldUpdateLabels) {
+      imageBasedEyesToFootCmLabel.textContent = `imageBasedEyesToFootCm: ${imageBasedEyesToFootCm.toFixed(decimalPlace || 1)} cm`
+    }
     imageBasedEyesToFootCmLabel.style.left = `${labelLeft}px`
     imageBasedEyesToFootCmLabel.style.top = '200px'
   }
 
   // 7. imageBasedEyesToPointCm label (top 230px)
-  if (imageBasedEyesToPointCm !== null && imageBasedEyesToPointCm !== undefined) {
+  if (
+    imageBasedEyesToPointCm !== null &&
+    imageBasedEyesToPointCm !== undefined
+  ) {
     imageBasedEyesToPointCmLabel = createOrUpdateElement(
       imageBasedEyesToPointCmLabel,
       'rc-image-based-eyes-to-point-cm-label',
       labelBaseStyles,
     )
-    imageBasedEyesToPointCmLabel.textContent = `imageBasedEyesToPointCm: ${imageBasedEyesToPointCm.toFixed(decimalPlace || 1)} cm`
+    if (shouldUpdateLabels) {
+      imageBasedEyesToPointCmLabel.textContent = `imageBasedEyesToPointCm: ${imageBasedEyesToPointCm.toFixed(decimalPlace || 1)} cm`
+    }
     imageBasedEyesToPointCmLabel.style.left = `${labelLeft}px`
     imageBasedEyesToPointCmLabel.style.top = '230px'
   }
@@ -2070,7 +2097,10 @@ const _drawNearestPoints = (
   }
 
   // 7c. rulerBasedEyesToPointCm label (top 290px)
-  if (rulerBasedEyesToPointCm !== null && rulerBasedEyesToPointCm !== undefined) {
+  if (
+    rulerBasedEyesToPointCm !== null &&
+    rulerBasedEyesToPointCm !== undefined
+  ) {
     rulerBasedEyesToPointCmLabel = createOrUpdateElement(
       rulerBasedEyesToPointCmLabel,
       'rc-ruler-based-eyes-to-point-cm-label',
@@ -2104,10 +2134,12 @@ const _drawNearestPoints = (
       'rc-foot-xy-px-label',
       labelBaseStyles,
     )
-    const xyText = Array.isArray(footXYPx)
-      ? `[${Math.round(footXYPx[0])}, ${Math.round(footXYPx[1])}]`
-      : `${footXYPx}`
-    footXYPxLabel.textContent = `footXYPx: ${xyText}`
+    if (shouldUpdateLabels) {
+      const xyText = Array.isArray(footXYPx)
+        ? `[${Math.round(footXYPx[0])}, ${Math.round(footXYPx[1])}]`
+        : `${footXYPx}`
+      footXYPxLabel.textContent = `footXYPx: ${xyText}`
+    }
     footXYPxLabel.style.left = `${labelLeft}px`
     footXYPxLabel.style.top = '350px'
   }
@@ -2161,7 +2193,9 @@ const _drawNearestPoints = (
       distanceCm_right,
     )
 
-    viewingDistanceWhichEyeLabel.textContent = `viewingDistanceWhichEye: ${viewingDistanceWhichEye} (${typeof viewingDistanceCm === 'number' ? viewingDistanceCm.toFixed(1) : viewingDistanceCm} cm)`
+    if (shouldUpdateLabels) {
+      viewingDistanceWhichEyeLabel.textContent = `viewingDistanceWhichEye: ${viewingDistanceWhichEye} (${typeof viewingDistanceCm === 'number' ? viewingDistanceCm.toFixed(1) : viewingDistanceCm} cm)`
+    }
     viewingDistanceWhichEyeLabel.style.left = `${labelLeft}px`
     viewingDistanceWhichEyeLabel.style.top = '410px'
   }
