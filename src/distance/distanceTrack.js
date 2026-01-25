@@ -2005,7 +2005,8 @@ const _drawNearestPoints = (
 
   // Check if enough time has passed to update dynamic labels (throttle for readability)
   const currentTime = Date.now()
-  const shouldUpdateLabels = currentTime - lastLabelUpdateTime >= LABEL_UPDATE_INTERVAL_MS
+  const shouldUpdateLabels =
+    currentTime - lastLabelUpdateTime >= LABEL_UPDATE_INTERVAL_MS
   if (shouldUpdateLabels) {
     lastLabelUpdateTime = currentTime
   }
@@ -2032,7 +2033,7 @@ const _drawNearestPoints = (
         labelBaseStyles,
       )
       if (shouldUpdateLabels) {
-        ipdLabel.textContent = `ipdOverWidth: ${ipdValue.toFixed(3)}`
+        ipdLabel.textContent = `ipdOverWidth: ${ipdValue.toFixed(4)}`
       }
       ipdLabel.style.left = `${labelLeft}px`
       ipdLabel.style.top = '140px'
@@ -2047,7 +2048,7 @@ const _drawNearestPoints = (
       labelBaseStyles,
     )
     if (shouldUpdateLabels) {
-      fOverWidthLabel.textContent = `fOverWidth: ${fOverWidth.toFixed(3)}`
+      fOverWidthLabel.textContent = `fOverWidth: ${fOverWidth.toFixed(4)}`
     }
     fOverWidthLabel.style.left = `${labelLeft}px`
     fOverWidthLabel.style.top = '170px'
