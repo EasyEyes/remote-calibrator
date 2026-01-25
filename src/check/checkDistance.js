@@ -2768,9 +2768,6 @@ const trackDistanceCheck = async (
                 RC.distanceCheckJSON.imageBasedEyesToPointCm.push(
                   safeRoundCm(imageBasedEyesToPointCm),
                 )
-                RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
-                  safeRoundCm(imageBasedEyesToFootCm),
-                )
               } catch (e) {
                 RC.distanceCheckJSON.imageBasedEyesToFootCm.push(null)
                 RC.distanceCheckJSON.imageBasedEyesToPointCm.push(null)
@@ -2984,9 +2981,6 @@ const trackDistanceCheck = async (
 
                   RC.distanceCheckJSON.imageBasedEyesToPointCm.push(
                     safeRoundCm(imageBasedEyesToPointCm),
-                  )
-                  RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
-                    safeRoundCm(imageBasedEyesToFootCm),
                   )
                 } catch (e) {
                   RC.distanceCheckJSON.imageBasedEyesToFootCm.push(null)
