@@ -1589,8 +1589,16 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       'RC_NeedCameraTitle',
     )
 
-    // After camera selection, check resolution if a camera was selected
+    // After camera selection, force fullscreen and check resolution if a camera was selected
     if (result.selectedCamera) {
+      // Force fullscreen when camera is selected
+      try {
+        await getFullscreen(RC.L, RC)
+        console.log('Entered fullscreen after camera selection')
+      } catch (error) {
+        console.warn('Failed to enter fullscreen after camera selection:', error)
+      }
+
       await checkResolutionAfterSelection(RC, options)
     }
 
@@ -1612,8 +1620,16 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     'RC_ChooseCameraTitle',
   )
 
-  // After camera selection, check resolution if a camera was selected
+  // After camera selection, force fullscreen and check resolution if a camera was selected
   if (result.selectedCamera) {
+    // Force fullscreen when camera is selected
+    try {
+      await getFullscreen(RC.L, RC)
+      console.log('Entered fullscreen after camera selection')
+    } catch (error) {
+      console.warn('Failed to enter fullscreen after camera selection:', error)
+    }
+
     await checkResolutionAfterSelection(RC, options)
   }
 
