@@ -88,7 +88,7 @@ export function sleep(time) {
 /* -------------------------------------------------------------------------- */
 
 // Enter fullscreen
-export async function getFullscreen(L = 'en-US', RC = null) {
+export async function getFullscreen(L = 'en', RC = null) {
   if (isFullscreen()) {
     return true
   }
