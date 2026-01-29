@@ -31,7 +31,10 @@ import { checkPermissions } from '../components/mediaPermission'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
-import { showTestPopup, hideResolutionSettingMessage } from '../components/popup'
+import {
+  showTestPopup,
+  hideResolutionSettingMessage,
+} from '../components/popup'
 
 const originalStyles = {
   video: false,

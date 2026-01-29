@@ -148,9 +148,10 @@ function escapeHtml(text) {
 }
 
 /**
- * Processes inline Markdown formatting (bold, italic, code, etc).
+ * Processes inline Markdown formatting (bold, italic, code, headings, etc).
  *
  * Supports full standard Markdown inline syntax:
+ * - # to ###### headings (at start of line)
  * - **bold** or __bold__
  * - *italic* or _italic_
  * - `code`
@@ -158,17 +159,28 @@ function escapeHtml(text) {
  * - <br> or double-space line breaks
  * - Escape characters (\)
  *
- * @private
+ * @public
  * @param {string} text - Text with Markdown formatting
  * @returns {string} HTML-formatted text
  *
  * @example
  * processInlineFormatting('This is **bold** and *italic*')
  * // Returns: 'This is <strong>bold</strong> and <em>italic</em>'
+ *
+ * @example
+ * processInlineFormatting('#### Heading 4\nSome text')
+ * // Returns: '<h4>Heading 4</h4>\nSome text'
  */
-function processInlineFormatting(text) {
+export function processInlineFormatting(text) {
   return (
     text
+      // Headings: # to ###### at start of line → <h1> to <h6>
+      .replace(/^######\s+(.+)$/gm, '<h6 style="margin: 0.5em 0;">$1</h6>')
+      .replace(/^#####\s+(.+)$/gm, '<h5 style="margin: 0.5em 0;">$1</h5>')
+      .replace(/^####\s+(.+)$/gm, '<h4 style="margin: 0.5em 0;">$1</h4>')
+      .replace(/^###\s+(.+)$/gm, '<h3 style="margin: 0.5em 0;">$1</h3>')
+      .replace(/^##\s+(.+)$/gm, '<h2 style="margin: 0.5em 0;">$1</h2>')
+      .replace(/^#\s+(.+)$/gm, '<h1 style="margin: 0.5em 0;">$1</h1>')
       // Escape sequences: \* \_ \` etc. → preserve literal characters
       .replace(/\\([\\`*_{}[\]()#+\-.!])/g, '&#92;$1')
       // Bold: **text** or __text__

@@ -160,7 +160,9 @@ export const showResolutionSettingMessage = RC => {
  * Hides the "Setting webcam resolution" message from the page
  */
 export const hideResolutionSettingMessage = () => {
-  const messageElement = document.getElementById('rc-resolution-setting-message')
+  const messageElement = document.getElementById(
+    'rc-resolution-setting-message',
+  )
   if (messageElement) {
     messageElement.remove()
     console.log('📹 Hiding resolution setting message')
@@ -1135,22 +1137,25 @@ export const showCameraSelectionPopup = async (
             }
 
             // Call selectCamera and wait for it to complete (same as click handler)
-            window.selectCamera(hoveredCamera.deviceId, hoveredCamera.label).then(() => {
-              // Remove loading text
-              const loadingTextElement = document.getElementById(
-                'camera-loading-text',
-              )
-              if (loadingTextElement) {
-                loadingTextElement.remove()
-              }
+            window
+              .selectCamera(hoveredCamera.deviceId, hoveredCamera.label)
+              .then(() => {
+                // Remove loading text
+                const loadingTextElement = document.getElementById(
+                  'camera-loading-text',
+                )
+                if (loadingTextElement) {
+                  loadingTextElement.remove()
+                }
 
-              // Close the popup
-              Swal.clickConfirm()
-            }).catch(error => {
-              console.error('Error selecting camera via Enter key:', error)
-              // Still close the popup on error
-              Swal.clickConfirm()
-            })
+                // Close the popup
+                Swal.clickConfirm()
+              })
+              .catch(error => {
+                console.error('Error selecting camera via Enter key:', error)
+                // Still close the popup on error
+                Swal.clickConfirm()
+              })
           } else {
             // No camera available, just close
             Swal.clickConfirm()
@@ -1729,7 +1734,10 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
         await getFullscreen(RC.L, RC)
         console.log('Entered fullscreen after camera selection')
       } catch (error) {
-        console.warn('Failed to enter fullscreen after camera selection:', error)
+        console.warn(
+          'Failed to enter fullscreen after camera selection:',
+          error,
+        )
       }
 
       await checkResolutionAfterSelection(RC, options)

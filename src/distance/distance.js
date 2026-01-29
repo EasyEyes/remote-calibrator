@@ -48,9 +48,13 @@ import {
   renderStepInstructions,
 } from './stepByStepInstructionHelps'
 import { parseInstructions } from './instructionParserAdapter'
+import { processInlineFormatting } from './markdownInstructionParser'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
-import { showTestPopup, hideResolutionSettingMessage } from '../components/popup'
+import {
+  showTestPopup,
+  hideResolutionSettingMessage,
+} from '../components/popup'
 import { ppiToPxPerCm } from '../components/converters'
 import {
   calculateFootXYPx,
@@ -4395,7 +4399,10 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSelectionCard.style.flexGrow = '1' // Allow card to grow to fill available space
 
   const paperSelectionTitle = document.createElement('div')
-  paperSelectionTitle.textContent = phrases.RC_PaperChoicesInstructions[RC.L]
+  // Support markdown formatting (bold, italic, etc.) in paper mode instructions
+  paperSelectionTitle.innerHTML = processInlineFormatting(
+    phrases.RC_PaperChoicesInstructions[RC.L] || '',
+  )
   paperSelectionTitle.style.fontSize = 'clamp(1rem, 3vmin, 1.4rem)'
   paperSelectionTitle.style.fontWeight = '600'
   paperSelectionTitle.style.color = '#111'
@@ -4412,10 +4419,10 @@ export async function objectTest(RC, options, callback = undefined) {
   // Inline warning directly under radio buttons (footnote - smaller on small screens)
   const paperInlineWarning = document.createElement('div')
   const useLongEdgeRaw = phrases.RC_UseLongEdge?.[RC.L] || ''
-  // Support "/n" (and literal "\n") in the phrase by converting to real line breaks.
-  paperInlineWarning.textContent = useLongEdgeRaw
-    .replaceAll('/n', '\n')
-    .replaceAll('\\n', '\n')
+  // Support markdown formatting and "/n" (and literal "\n") for line breaks.
+  paperInlineWarning.innerHTML = processInlineFormatting(
+    useLongEdgeRaw.replaceAll('/n', '<br>').replaceAll('\\n', '<br>'),
+  )
   paperInlineWarning.style.marginTop = 'clamp(0.75rem, 4vmin, 3rem)'
   paperInlineWarning.style.fontSize = 'clamp(0.85rem, 2.5vmin, 1.3rem)'
   paperInlineWarning.style.lineHeight = '1.4'
@@ -4430,7 +4437,10 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSuggestionWrapper.style.marginTop = 'clamp(0.5rem, 2vmin, 1rem)'
 
   const paperSuggestionLabel = document.createElement('div')
-  paperSuggestionLabel.textContent = phrases.RC_SuggestObject[RC.L]
+  // Support markdown formatting in suggestion label
+  paperSuggestionLabel.innerHTML = processInlineFormatting(
+    phrases.RC_SuggestObject?.[RC.L] || '',
+  )
   paperSuggestionLabel.style.fontSize = 'clamp(0.85rem, 2.5vmin, 1.3rem)'
   paperSuggestionLabel.style.lineHeight = '1.3'
   paperSuggestionLabel.style.color = '#555'
@@ -4466,9 +4476,10 @@ export async function objectTest(RC, options, callback = undefined) {
   // (only when calibrateDistanceCheckBool is true)
   const dontUseYourRulerNote = document.createElement('div')
   const dontUseYourRulerRaw = phrases.RC_DontUseYourRulerYet?.[RC.L] || ''
-  dontUseYourRulerNote.textContent = dontUseYourRulerRaw
-    .replaceAll('/n', '\n')
-    .replaceAll('\\n', '\n')
+  // Support markdown formatting and "/n" (and literal "\n") for line breaks.
+  dontUseYourRulerNote.innerHTML = processInlineFormatting(
+    dontUseYourRulerRaw.replaceAll('/n', '<br>').replaceAll('\\n', '<br>'),
+  )
   dontUseYourRulerNote.style.marginTop = 'clamp(0.5rem, 2vmin, 1rem)'
   dontUseYourRulerNote.style.fontSize = 'clamp(0.85rem, 2.5vmin, 1.3rem)'
   dontUseYourRulerNote.style.lineHeight = '1.4'
