@@ -11,6 +11,7 @@ import {
 import { parseInstructions } from './instructionParserAdapter'
 import { startIrisDrawingWithMesh } from './distanceTrack'
 import { getFullscreen, isFullscreen, toFixedNumber } from '../components/utils'
+import { hideResolutionSettingMessage } from '../components/popup'
 
 // Constants for credit card size in centimeters
 const CREDIT_CARD_SHORT_CM = 5.398
@@ -1633,6 +1634,9 @@ export async function justCreditCard(RC, options, callback = undefined) {
     'Place upper credit card edge here'
   overlay.appendChild(greenLabel)
   const greenLabelOffsetPx = 21 // reduced gap (30% less than previous 30px)
+
+  // Hide the resolution setting message now that we're ready to show the UI
+  hideResolutionSettingMessage()
 
   // Add to RC background (below overlay but above page)
   RC._replaceBackground('')

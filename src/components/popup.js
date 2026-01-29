@@ -59,6 +59,115 @@ export const hideCameraTitleFromTopRight = () => {
 }
 
 /**
+ * Gets the current camera info (name, resolution, frame rate) from the video stream
+ * @param {Object} RC - RemoteCalibrator instance
+ * @returns {Object} - Camera info with name, width, height, frameRate
+ */
+const getCameraInfo = RC => {
+  const info = {
+    name: '',
+    width: 0,
+    height: 0,
+    frameRate: 0,
+  }
+
+  try {
+    // Get camera name from active camera
+    const activeCamera = RC?.gazeTracker?.webgazer?.params?.activeCamera
+    if (activeCamera?.label) {
+      info.name = activeCamera.label
+    }
+
+    // Get resolution and frame rate from the video stream
+    const video = document.getElementById('webgazerVideoFeed')
+    if (video && video.srcObject) {
+      const stream = video.srcObject
+      const videoTrack = stream.getVideoTracks()[0]
+      if (videoTrack) {
+        const settings = videoTrack.getSettings()
+        info.width = settings.width || video.videoWidth || 0
+        info.height = settings.height || video.videoHeight || 0
+        info.frameRate = settings.frameRate ? Math.round(settings.frameRate) : 0
+      }
+    }
+  } catch (error) {
+    console.warn('Could not get camera info:', error)
+  }
+
+  return info
+}
+
+/**
+ * Shows the "Setting webcam resolution" message below the video
+ * Displays camera name, resolution, and frame rate
+ * @param {Object} RC - RemoteCalibrator instance
+ */
+export const showResolutionSettingMessage = RC => {
+  try {
+    // Remove any existing message first
+    hideResolutionSettingMessage()
+
+    // Get camera info
+    const cameraInfo = getCameraInfo(RC)
+
+    // Create the message container - plain text, centered on screen
+    const messageContainer = document.createElement('div')
+    messageContainer.id = 'rc-resolution-setting-message'
+    messageContainer.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 9999999999;
+      text-align: center;
+      color: #666;
+      font-style: italic;
+      font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      pointer-events: none;
+      user-select: none;
+    `
+
+    // Build the text with camera info
+    const lang = RC?.L || RC?.language?.value || 'en-US'
+    let text =
+      phrases?.RC_SettingWebcamResolution?.[lang] ||
+      phrases?.RC_SettingWebcamResolution?.['en-US'] ||
+      'Setting webcam resolution → [[M11]]×[[M22]], [[M33]] Hz ...'
+
+    // Replace placeholders with actual values
+    text = text
+      .replace('[[M11]]', cameraInfo.width || '?')
+      .replace('[[M22]]', cameraInfo.height || '?')
+      .replace('[[M33]]', cameraInfo.frameRate || '?')
+
+    // Add camera name on a separate line if available
+    if (cameraInfo.name) {
+      messageContainer.innerHTML = `${cameraInfo.name}<br>${text}`
+    } else {
+      messageContainer.textContent = text
+    }
+
+    // Always append to body to ensure highest z-index stacking context
+    document.body.appendChild(messageContainer)
+    console.log('📹 Showing resolution setting message:', cameraInfo)
+  } catch (error) {
+    console.error('📹 Error showing resolution setting message:', error)
+  }
+}
+
+/**
+ * Hides the "Setting webcam resolution" message from the page
+ */
+export const hideResolutionSettingMessage = () => {
+  const messageElement = document.getElementById('rc-resolution-setting-message')
+  if (messageElement) {
+    messageElement.remove()
+    console.log('📹 Hiding resolution setting message')
+  }
+}
+
+/**
  * Shows a simple popup with an OK button
  * @param {Object} RC - RemoteCalibrator instance
  * @param {string} title - Popup title
@@ -259,6 +368,9 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
       // Mark that we've shown the warning
       RC.resolutionWarningShown = true
 
+      // Hide the resolution setting message before showing the popup
+      hideResolutionSettingMessage()
+
       // Store fullscreen state and exit fullscreen before showing popup
       const wasInFullscreen = isFullscreen()
       if (wasInFullscreen) {
@@ -350,6 +462,10 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
       if (operations.length > 0) {
         await Promise.allSettled(operations)
       }
+
+      // Re-show the resolution setting message after the popup closes
+      // This will stay visible until the calling code hides it
+      showResolutionSettingMessage(RC)
     }
   }
 
@@ -978,55 +1094,67 @@ export const showCameraSelectionPopup = async (
             )
           }
 
-          // Store the hovered camera as selected
+          // If no camera is highlighted, use the first camera as default
+          if (!hoveredCamera && cameras.length > 0) {
+            hoveredCamera = cameras[0]
+          }
+
           if (hoveredCamera) {
-            RC.selectedCamera = hoveredCamera
-          }
+            // Set loading state
+            RC.cameraSelectionLoading = true
 
-          // Set loading state
-          RC.cameraSelectionLoading = true
+            // Disable all camera previews during loading
+            cameras.forEach((camera, index) => {
+              const container = document.getElementById(
+                `camera-preview-container-${index}`,
+              )
+              if (container) {
+                container.style.pointerEvents = 'none'
+                container.style.opacity = '0.6'
+              }
+            })
 
-          // Disable all camera previews during loading
-          cameras.forEach((camera, index) => {
-            const container = document.getElementById(
-              `camera-preview-container-${index}`,
+            // Add loading text between preview and instruction
+            const loadingText = document.createElement('div')
+            loadingText.id = 'camera-loading-text'
+            loadingText.style.cssText = `
+              text-align: center;
+              color: #666;
+              font-style: italic;
+              margin: 10px 0;
+              font-size: 14px;
+            `
+            loadingText.textContent = phrases.RC_LoadingVideo[RC.L]
+
+            // Insert loading text after the preview container
+            const previewContainer = document.querySelector(
+              '.camera-selection-popup .swal2-html-container',
             )
-            if (container) {
-              container.style.pointerEvents = 'none'
-              container.style.opacity = '0.6'
+            if (previewContainer) {
+              previewContainer.appendChild(loadingText)
             }
-          })
 
-          // Add loading text between preview and instruction
-          const loadingText = document.createElement('div')
-          loadingText.id = 'camera-loading-text'
-          loadingText.style.cssText = `
-            text-align: center;
-            color: #666;
-            font-style: italic;
-            margin: 10px 0;
-            font-size: 14px;
-          `
-          loadingText.textContent = phrases.RC_LoadingVideo[RC.L]
+            // Call selectCamera and wait for it to complete (same as click handler)
+            window.selectCamera(hoveredCamera.deviceId, hoveredCamera.label).then(() => {
+              // Remove loading text
+              const loadingTextElement = document.getElementById(
+                'camera-loading-text',
+              )
+              if (loadingTextElement) {
+                loadingTextElement.remove()
+              }
 
-          // Insert loading text after the preview container
-          const previewContainer = document.querySelector(
-            '.camera-selection-popup .swal2-html-container',
-          )
-          if (previewContainer) {
-            previewContainer.appendChild(loadingText)
+              // Close the popup
+              Swal.clickConfirm()
+            }).catch(error => {
+              console.error('Error selecting camera via Enter key:', error)
+              // Still close the popup on error
+              Swal.clickConfirm()
+            })
+          } else {
+            // No camera available, just close
+            Swal.clickConfirm()
           }
-
-          // Remove loading text
-          const loadingTextElement = document.getElementById(
-            'camera-loading-text',
-          )
-          if (loadingTextElement) {
-            loadingTextElement.remove()
-          }
-
-          // Close the popup
-          Swal.clickConfirm()
         }
       }
 
@@ -1591,6 +1719,11 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
 
     // After camera selection, force fullscreen and check resolution if a camera was selected
     if (result.selectedCamera) {
+      // Show the resolution setting message on the white page
+      // This message will stay visible until the calling code (e.g., objectTest, blindSpotTestNew)
+      // explicitly hides it when they're ready to display their UI
+      showResolutionSettingMessage(RC)
+
       // Force fullscreen when camera is selected
       try {
         await getFullscreen(RC.L, RC)
@@ -1600,6 +1733,8 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       }
 
       await checkResolutionAfterSelection(RC, options)
+      // Note: Resolution message is intentionally NOT hidden here
+      // It will be hidden by the calling code when they're ready to display UI
     }
 
     // Final safety cleanup - ensure camera polling is stopped
@@ -1622,6 +1757,11 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
 
   // After camera selection, force fullscreen and check resolution if a camera was selected
   if (result.selectedCamera) {
+    // Show the resolution setting message on the white page
+    // This message will stay visible until the calling code (e.g., objectTest, blindSpotTestNew)
+    // explicitly hides it when they're ready to display their UI
+    showResolutionSettingMessage(RC)
+
     // Force fullscreen when camera is selected
     try {
       await getFullscreen(RC.L, RC)
@@ -1631,6 +1771,8 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     }
 
     await checkResolutionAfterSelection(RC, options)
+    // Note: Resolution message is intentionally NOT hidden here
+    // It will be hidden by the calling code when they're ready to display UI
   }
 
   // Final safety cleanup - ensure camera polling is stopped

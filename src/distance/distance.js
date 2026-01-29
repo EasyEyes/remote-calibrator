@@ -50,7 +50,7 @@ import {
 import { parseInstructions } from './instructionParserAdapter'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
-import { showTestPopup } from '../components/popup'
+import { showTestPopup, hideResolutionSettingMessage } from '../components/popup'
 import { ppiToPxPerCm } from '../components/converters'
 import {
   calculateFootXYPx,
@@ -810,6 +810,9 @@ export async function blindSpotTestNew(
   if (!Array.isArray(minMaxDeg) || minMaxDeg.length < 2) minMaxDeg = [2.0, 8.0]
   const minDeg = Math.max(0.1, parseFloat(minMaxDeg[0]))
   const maxDeg = Math.max(minDeg + 0.1, parseFloat(minMaxDeg[1]))
+
+  // Hide the resolution setting message now that we're ready to show the UI
+  hideResolutionSettingMessage()
 
   // Build overlay
   const blindSpotDiv = document.createElement('div')
@@ -9438,6 +9441,9 @@ export async function objectTest(RC, options, callback = undefined) {
   }
 
   // ===================== INITIALIZE PAGE 0 =====================
+  // Hide the resolution setting message now that we're ready to show the UI
+  hideResolutionSettingMessage()
+
   //hide webgazerFaceFeedbackBox if calibrateDistanceCenterYourEyesBool is false
   const webgazerFaceFeedbackBox = document.getElementById(
     'webgazerFaceFeedbackBox',
@@ -10598,6 +10604,9 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   }
 
   // ===================== ADD TO BACKGROUND =====================
+  // Hide the resolution setting message now that we're ready to show the UI
+  hideResolutionSettingMessage()
+
   RC._replaceBackground('')
   RC.background.appendChild(container)
 

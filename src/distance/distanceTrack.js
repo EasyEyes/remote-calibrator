@@ -31,7 +31,7 @@ import { checkPermissions } from '../components/mediaPermission'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
-import { showTestPopup } from '../components/popup'
+import { showTestPopup, hideResolutionSettingMessage } from '../components/popup'
 
 const originalStyles = {
   video: false,
@@ -39,6 +39,9 @@ const originalStyles = {
 
 // Pre-calibration popup similar to equipment popup
 const showPreCalibrationPopup = async RC => {
+  // Hide the resolution setting message before showing this popup
+  hideResolutionSettingMessage()
+
   const html = `
     <p style="text-align: left; margin-top: 1rem; font-size: 1.4rem; line-height: 1.6;">
       ${phrases.RC_IsCameraTopCenter[RC.L].replace('\n', '<br />').replace('\n', '<br />')}
