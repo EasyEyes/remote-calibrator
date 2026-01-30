@@ -150,6 +150,10 @@ function escapeHtml(text) {
 /**
  * Processes inline Markdown formatting (bold, italic, code, headings, etc).
  *
+ * This function is IDEMPOTENT - it's safe to call multiple times on the same text.
+ * If the text already contains HTML tags from previous processing (strong, em, code,
+ * del, h1-h6), it will be returned unchanged to prevent double-processing.
+ *
  * Supports full standard Markdown inline syntax:
  * - # to ###### headings (at start of line)
  * - **bold** or __bold__
@@ -170,8 +174,26 @@ function escapeHtml(text) {
  * @example
  * processInlineFormatting('#### Heading 4\nSome text')
  * // Returns: '<h4>Heading 4</h4>\nSome text'
+ *
+ * @example
+ * // Idempotent - safe to call twice
+ * const once = processInlineFormatting('**bold**')
+ * const twice = processInlineFormatting(once)
+ * // once === twice === '<strong>bold</strong>'
  */
 export function processInlineFormatting(text) {
+  // Safety check: if text is not a string, return empty
+  if (typeof text !== 'string') {
+    return ''
+  }
+
+  // Idempotency check: skip if text already contains HTML tags from previous processing.
+  // This prevents double-processing which would escape HTML entities incorrectly.
+  // We check for tags that this function produces: strong, em, code, del, h1-h6
+  if (/<(strong|em|code|del|h[1-6])\b/i.test(text)) {
+    return text
+  }
+
   return (
     text
       // Headings: # to ###### at start of line → <h1> to <h6>

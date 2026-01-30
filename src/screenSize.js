@@ -22,6 +22,7 @@ import {
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
 import { phrases } from './i18n/schema'
+import { processInlineFormatting } from './distance/markdownInstructionParser'
 import { setUpEasyEyesKeypadHandler } from './extensions/keypadHandler'
 import { swalInfoOptions } from './components/swalOptions'
 import { showPauseBeforeNewObject } from './distance/distance'
@@ -515,7 +516,10 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
 
   // Add "please measure carefully" text below slider (never moves horizontally)
   const measureText = document.createElement('div')
-  measureText.innerText = phrases.RC_screenSizeMatters[RC.L]
+  // Support markdown formatting in instruction text
+  measureText.innerHTML = processInlineFormatting(
+    phrases.RC_screenSizeMatters?.[RC.L] || '',
+  )
   measureText.style.position = 'absolute'
   measureText.style.left = '50%' // Start at center of screen
   measureText.style.width = 'calc(50% - 2rem)' // Extend from center to right margin

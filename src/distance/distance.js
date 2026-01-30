@@ -6217,7 +6217,10 @@ export async function objectTest(RC, options, callback = undefined) {
         // Show dontUseRuler column on page 2 if calibrateDistanceCheckBool is true
         if (options.calibrateDistanceCheckBool) {
           dontUseRulerColumn.style.display = 'block'
-          dontUseRulerColumn.innerText = phrases.RC_DontUseYourRulerYet[RC.L]
+          // Support markdown formatting in warning text
+          dontUseRulerColumn.innerHTML = processInlineFormatting(
+            phrases.RC_DontUseYourRulerYet?.[RC.L] || '',
+          )
           dontUseRulerColumn.style.color = '#8B0000' // Dark red ink
           dontUseRulerColumn.style.fontWeight = 'normal'
           dontUseRulerColumn.style.userSelect = 'none'
