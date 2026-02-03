@@ -1412,6 +1412,7 @@ const checkSize = async (
   RC,
   calibrateDistanceCheckLengthCm = [],
   calibrateDistanceChecking = undefined,
+  stepperHistory = 1,
 ) => {
   // Hide video during checkSize (yellow tape measurement)
   RC.showVideo(false)
@@ -1463,6 +1464,14 @@ const checkSize = async (
   // Create the length display div
   createLengthDisplayDiv(RC)
 
+  // Shared stepper state for RC_SetLength instructions
+  const lengthStepperState = {
+    ui: null,
+    model: null,
+    stepIndex: 0,
+    navHandler: null,
+  }
+
   // Loop through each length value to create dynamic pages
   for (let i = 0; i < processedLengthCm.length; i++) {
     const cm = processedLengthCm[i]
@@ -1472,25 +1481,36 @@ const checkSize = async (
     updateLengthDisplayDiv(cm, RC.equipment?.value?.unit)
 
     // Create and update instruction content
-    const updateInstructionText = (currentLength, yellowTapeRef = null) => {
+    const updateInstructionText = (
+      currentLength,
+      yellowTapeRef = null,
+      resetStepper = false,
+    ) => {
       const instructionTitle = phrases.RC_SetLengthTitle[RC.language.value]
         .replace('[[N11]]', index)
         .replace('[[N22]]', processedLengthCm.length)
 
-      const instructionBody = phrases.RC_SetLength[RC.language.value]
+      const instructionBodyText = phrases.RC_SetLength[RC.language.value]
         .replace('[[N33]]', currentLength)
         .replace('[[UUU]]', RC.equipment?.value?.unit)
-        .replace(/(?:\r\n|\r|\n)/g, '<br>')
 
       if (!document.getElementById('instruction-title')) {
         const html = constructInstructions(
           instructionTitle,
-          instructionBody,
+          '',
           false,
           'bodyText',
           'left',
         )
         RC._replaceBackground(html)
+
+        // Reset stepper state when the instruction container is replaced
+        if (lengthStepperState.navHandler) {
+          document.removeEventListener('keydown', lengthStepperState.navHandler)
+          lengthStepperState.navHandler = null
+        }
+        lengthStepperState.ui = null
+        lengthStepperState.model = null
 
         // Set max-width to avoid video overlap
         const instructionElement = document.querySelector(
@@ -1518,15 +1538,124 @@ const checkSize = async (
         ) {
           RC.background.appendChild(yellowTapeRef.container)
         }
-      } else {
-        const titleElement = document.getElementById('instruction-title')
-        const bodyElement = document.getElementById('instruction-body')
-        if (titleElement) titleElement.innerHTML = instructionTitle
-        if (bodyElement) bodyElement.innerHTML = instructionBody
+      }
+
+      const titleElement = document.getElementById('instruction-title')
+      if (titleElement) titleElement.innerHTML = instructionTitle
+
+      // Ensure a body container exists (constructInstructions omits it when body is empty)
+      let instructionBody = document.getElementById('instruction-body')
+      if (!instructionBody) {
+        const container = document.querySelector('.calibration-instruction')
+        if (container) {
+          instructionBody = document.createElement('div')
+          instructionBody.id = 'instruction-body'
+          instructionBody.className = 'calibration-description bodyText'
+          container.appendChild(instructionBody)
+        }
+      }
+
+      if (!instructionBody) return
+
+      if (!lengthStepperState.ui) {
+        instructionBody.innerHTML = ''
+        lengthStepperState.ui = createStepInstructionsUI(instructionBody, {
+          layout: 'leftOnly',
+          leftWidth: '100%',
+          leftPaddingStart: '0rem',
+          leftPaddingEnd: '1rem',
+          fontSize: 'inherit',
+          lineHeight: 'inherit',
+        })
+      }
+
+      if (resetStepper) {
+        lengthStepperState.stepIndex = 0
+      }
+
+      try {
+        lengthStepperState.model = parseInstructions(instructionBodyText, {
+          assetMap: test_assetMap,
+        })
+        const maxIdx = (lengthStepperState.model.flatSteps?.length || 1) - 1
+        if (lengthStepperState.stepIndex > maxIdx) {
+          lengthStepperState.stepIndex = Math.max(0, maxIdx)
+        }
+
+        const handlePrev = () => {
+          if (lengthStepperState.stepIndex > 0) {
+            lengthStepperState.stepIndex--
+            doRender()
+          }
+        }
+
+        const handleNext = () => {
+          const maxStep = (lengthStepperState.model.flatSteps?.length || 1) - 1
+          if (lengthStepperState.stepIndex < maxStep) {
+            lengthStepperState.stepIndex++
+            doRender()
+          }
+        }
+
+        const doRender = () => {
+          renderStepInstructions({
+            model: lengthStepperState.model,
+            flatIndex: lengthStepperState.stepIndex,
+            elements: {
+              leftText: lengthStepperState.ui.leftText,
+              rightText: lengthStepperState.ui.rightText,
+              mediaContainer: lengthStepperState.ui.mediaContainer,
+            },
+            options: {
+              thresholdFraction: 0.4,
+              useCurrentSectionOnly: true,
+              resolveMediaUrl: resolveInstructionMediaUrl,
+              layout: 'leftOnly',
+              stepperHistory: stepperHistory,
+              onPrev: handlePrev,
+              onNext: handleNext,
+            },
+            lang: RC.language.value,
+            langDirection: RC.LD,
+            phrases: phrases,
+          })
+        }
+
+        doRender()
+
+        if (lengthStepperState.navHandler) {
+          document.removeEventListener('keydown', lengthStepperState.navHandler)
+          lengthStepperState.navHandler = null
+        }
+
+        const navHandler = e => {
+          if (!lengthStepperState.model) return
+          if (e.key === 'ArrowDown') {
+            const maxStep =
+              (lengthStepperState.model.flatSteps?.length || 1) - 1
+            if (lengthStepperState.stepIndex < maxStep) {
+              lengthStepperState.stepIndex++
+              doRender()
+            }
+            e.preventDefault()
+            e.stopPropagation()
+          } else if (e.key === 'ArrowUp') {
+            if (lengthStepperState.stepIndex > 0) {
+              lengthStepperState.stepIndex--
+              doRender()
+            }
+            e.preventDefault()
+            e.stopPropagation()
+          }
+        }
+        lengthStepperState.navHandler = navHandler
+        document.addEventListener('keydown', lengthStepperState.navHandler)
+      } catch (e) {
+        instructionBody.innerText = instructionBodyText
       }
     }
 
-    updateInstructionText(cm)
+    updateInstructionText(cm, null, true)
 
     const yellowTape = createYellowTapeRectangle(RC)
     RC.background.appendChild(yellowTape.container)
@@ -1584,6 +1713,13 @@ const checkSize = async (
           removeKeypadHandler()
           cleanupFontAdjustment() // Clean up font adjustment listeners
           yellowTape.cleanup() // Clean up the yellow tape
+          if (lengthStepperState.navHandler) {
+            document.removeEventListener(
+              'keydown',
+              lengthStepperState.navHandler,
+            )
+            lengthStepperState.navHandler = null
+          }
           resolve()
         }
       }
@@ -1716,13 +1852,6 @@ const checkSize = async (
         console.log(
           '[Unit Detection] MISMATCH DETECTED: User selected cm but likely used inch ruler',
         )
-      }
-      // General inconsistency: abs(log10(r)) > log10(1.1)
-      else if (Math.abs(Math.log10(r)) > log10_1_1) {
-        mismatchType = 'inconsistent'
-        console.log(
-          '[Unit Detection] MISMATCH DETECTED: Inconsistent measurements (ratio too far from 1)',
-        )
       } else {
         console.log(
           '[Unit Detection] No mismatch detected - measurements consistent',
@@ -1756,13 +1885,6 @@ const checkSize = async (
           errorMessage =
             phrases.RC_screenSizeNotCm?.[RC.language.value] ||
             'Oops. You selected "cm" but it appears that your ruler or tape is marked in inches. Please try again. Click OK or press RETURN.'
-          break
-        case 'inconsistent':
-        default:
-          // General inconsistency
-          errorMessage =
-            phrases.RC_screenSizeInconsistent?.[RC.language.value] ||
-            "These settings don't match earlier ones (credit card, etc.). Try again. Click OK or press RETURN."
           break
       }
 
@@ -1833,12 +1955,12 @@ const checkSize = async (
       const currentRequestedLength = processedLengthCm[i]
       const previousRequestedLength = processedLengthCm[i - 1]
 
-      // Only run compliance check if the REQUESTS differ by at least 20%
-      // (skip if requests are within 20% of being equal)
+      // Only run compliance check if the REQUESTS differ by at least 8%
+      // (skip if requests are within 8% of being equal)
       const requestsDifferEnough = !areValuesWithinPercent(
         currentRequestedLength,
         previousRequestedLength,
-        20,
+        8,
       )
 
       if (requestsDifferEnough) {
@@ -2211,6 +2333,7 @@ const trackDistanceCheck = async (
       RC,
       calibrateDistanceCheckLengthCm,
       calibrateDistanceChecking,
+      stepperHistory,
     )
     RC.resumeNudger()
     // Start video trimming for screen center distance measurement
@@ -3073,12 +3196,12 @@ const trackDistanceCheck = async (
         const currentRequestedDistance = calibrateDistanceCheckCm[i]
         const previousRequestedDistance = calibrateDistanceCheckCm[i - 1]
 
-        // Only run compliance check if the REQUESTS differ by at least 20%
-        // (skip if requests are within 20% of being equal)
+        // Only run compliance check if the REQUESTS differ by at least 8%
+        // (skip if requests are within 8% of being equal)
         const requestsDifferEnough = !areValuesWithinPercent(
           currentRequestedDistance,
           previousRequestedDistance,
-          20,
+          8,
         )
 
         if (requestsDifferEnough) {

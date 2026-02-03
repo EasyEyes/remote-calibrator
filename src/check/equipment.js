@@ -44,7 +44,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
   } else {
     const video = document.querySelector('#webgazerVideoContainer')
     if (video) video.style.zIndex = 9999999999
-    title = `<p style="text-align:justify; margin:0" class="heading1">${phrases.RC_TestDistances[
+    title = `<p style="text-align:justify; margin:0" class="heading1">${phrases.RC_ChooseInchesOrCm[
       this.language.value
     ].replace(/(?:\r\n|\r|\n)/g, '<br>')}<p/>`
     html = `

@@ -118,6 +118,11 @@ export function setDefaultVideoPosition(RC, v) {
     return
   }
 
+  // Skip repositioning if video is in screen-center mode (managed by custom positioning)
+  if (v.dataset.screenCenterMode === 'true') {
+    return
+  }
+
   // Check if we're on a page with progress bar (distance check pages)
   const hasProgressBar = document.getElementById('custom-progress-bar') !== null
   v.style.zIndex = 999999999999

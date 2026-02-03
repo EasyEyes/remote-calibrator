@@ -66,6 +66,9 @@ import woodSvg from '../media/AdobeStock_1568677429.svg'
 export const objectLengthCmGlobal = {
   value: null,
 }
+export const globalPointXYPx = {
+  value: [window.screen.width / 2, 0],
+}
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
 let cameraShutterSound
@@ -4217,11 +4220,31 @@ export async function objectTest(RC, options, callback = undefined) {
     rightPaddingEnd: '3rem',
     fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
     lineHeight: '1.4',
+    mediaAlignment: 'bottom',
+    mediaPositionMode: 'viewport',
+    mediaZIndex: '2147483000',
   })
   const leftInstructionsText = instructionsUI.leftText
   const rightInstructionsText = instructionsUI.rightText
   const rightInstructions = instructionsUI.rightColumn
   const sectionMediaContainer = instructionsUI.mediaContainer
+
+  const cleanupBeforeCheckDistance = () => {
+    // Remove stepper UI and media before transitioning to _checkDistance.
+    if (instructionsUI?.destroy) {
+      instructionsUI.destroy()
+    }
+    if (
+      typeof buttonContainer !== 'undefined' &&
+      buttonContainer &&
+      buttonContainer.parentNode
+    ) {
+      buttonContainer.parentNode.removeChild(buttonContainer)
+    }
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container)
+    }
+  }
 
   // --- FOLLOW-UP BANNER fixed at upper-right (dontUseRuler) ---
   const dontUseRulerColumn = document.createElement('div')
@@ -4416,18 +4439,169 @@ export async function objectTest(RC, options, callback = undefined) {
   paperOptionsList.style.gap = 'clamp(0.3rem, 1.5vmin, 0.7rem)'
   paperOptionsList.style.alignItems = 'flex-start'
 
-  // Inline warning directly under radio buttons (footnote - smaller on small screens)
-  const paperInlineWarning = document.createElement('div')
-  const useLongEdgeRaw = phrases.RC_UseLongEdge?.[RC.L] || ''
-  // Support markdown formatting and "/n" (and literal "\n") for line breaks.
-  paperInlineWarning.innerHTML = processInlineFormatting(
-    useLongEdgeRaw.replaceAll('/n', '<br>').replaceAll('\\n', '<br>'),
-  )
-  paperInlineWarning.style.marginTop = 'clamp(0.75rem, 4vmin, 3rem)'
-  paperInlineWarning.style.fontSize = 'clamp(0.85rem, 2.5vmin, 1.3rem)'
-  paperInlineWarning.style.lineHeight = '1.4'
-  paperInlineWarning.style.color = '#555'
-  paperInlineWarning.style.whiteSpace = 'pre-line'
+  // Step-by-step instruction UI for RC_UseLongEdge (stepper under radio buttons)
+  const paperStepperContainer = document.createElement('div')
+  paperStepperContainer.style.marginTop = 'clamp(0.75rem, 4vmin, 3rem)'
+  paperStepperContainer.style.fontSize = 'clamp(0.85rem, 2.5vmin, 1.3rem)'
+  paperStepperContainer.style.lineHeight = '1.4'
+  paperStepperContainer.style.color = '#555'
+  paperStepperContainer.style.width = '100%'
+  paperStepperContainer.style.maxWidth = '100%'
+
+  // Create the elements expected by renderStepInstructions
+  const paperStepperLeftText = document.createElement('div')
+  paperStepperLeftText.style.textAlign =
+    RC.LD === RC._CONST.RTL ? 'right' : 'left'
+  const paperStepperRightText = document.createElement('div')
+
+  // Create media container OUTSIDE paperSelectionContainer so it can be on the right half
+  const paperStepperMediaContainer = document.createElement('div')
+  paperStepperMediaContainer.id = 'paper-stepper-media-container'
+  paperStepperMediaContainer.style.position = 'fixed'
+  paperStepperMediaContainer.style.top = '50%'
+  paperStepperMediaContainer.style.transform = 'translateY(-50%)'
+  // Position on right half of screen (swap for RTL)
+  if (RC.LD === RC._CONST.RTL) {
+    paperStepperMediaContainer.style.left = '0'
+    paperStepperMediaContainer.style.right = 'auto'
+  } else {
+    paperStepperMediaContainer.style.right = '0'
+    paperStepperMediaContainer.style.left = 'auto'
+  }
+  paperStepperMediaContainer.style.width = '50vw'
+  paperStepperMediaContainer.style.height = 'auto'
+  paperStepperMediaContainer.style.maxHeight = '80vh'
+  paperStepperMediaContainer.style.display = 'none' // Hidden by default, shown when paper selection is active
+  // Use z-index below the button container (2147483647) but above most content
+  paperStepperMediaContainer.style.zIndex = '2147483600'
+  paperStepperMediaContainer.style.padding = '1rem'
+  paperStepperMediaContainer.style.boxSizing = 'border-box'
+  paperStepperMediaContainer.style.pointerEvents = 'none' // Don't block clicks
+  container.appendChild(paperStepperMediaContainer)
+
+  paperStepperContainer.appendChild(paperStepperLeftText)
+  paperStepperContainer.appendChild(paperStepperRightText)
+
+  // State for paper selection stepper
+  let paperStepInstructionModel = null
+  let paperCurrentStepFlatIndex = 0
+
+  // Render function for the paper selection stepper
+  const renderPaperStepperView = () => {
+    if (!paperStepInstructionModel) {
+      paperStepperLeftText.innerHTML = ''
+      paperStepperRightText.innerHTML = ''
+      paperStepperMediaContainer.innerHTML = ''
+      return
+    }
+
+    const maxIdx = (paperStepInstructionModel?.flatSteps?.length || 1) - 1
+
+    const handlePaperPrev = () => {
+      if (paperCurrentStepFlatIndex > 0) {
+        paperCurrentStepFlatIndex--
+        renderPaperStepperView()
+      }
+    }
+
+    const handlePaperNext = () => {
+      if (paperCurrentStepFlatIndex < maxIdx) {
+        paperCurrentStepFlatIndex++
+        renderPaperStepperView()
+      }
+    }
+
+    renderStepInstructions({
+      model: paperStepInstructionModel,
+      flatIndex: paperCurrentStepFlatIndex,
+      elements: {
+        leftText: paperStepperLeftText,
+        rightText: paperStepperRightText,
+        mediaContainer: paperStepperMediaContainer,
+      },
+      options: {
+        calibrateDistanceCheckBool: options.calibrateDistanceCheckBool,
+        thresholdFraction: 0.6,
+        useCurrentSectionOnly: true,
+        resolveMediaUrl: resolveInstructionMediaUrl,
+        stepperHistory: options.stepperHistory,
+        onPrev: handlePaperPrev,
+        onNext: handlePaperNext,
+        layout: 'twoColumn',
+      },
+      lang: RC.language.value,
+      langDirection: RC.LD,
+      phrases: phrases,
+    })
+  }
+
+  // Initialize the paper stepper with RC_UseLongEdge content
+  const initPaperStepper = () => {
+    try {
+      const useLongEdgeRaw = phrases.RC_UseLongEdge?.[RC.L] || ''
+      // Support "/n" and literal "\n" for line breaks by converting to actual newlines
+      const normalizedText = useLongEdgeRaw
+        .replaceAll('/n', '\n')
+        .replaceAll('\\n', '\n')
+
+      paperStepInstructionModel = parseInstructions(normalizedText, {
+        format: 'markdown',
+        assetMap: test_assetMap,
+      })
+      paperCurrentStepFlatIndex = 0
+      renderPaperStepperView()
+    } catch (e) {
+      console.warn(
+        'Failed to parse RC_UseLongEdge as step instructions; using plain text',
+        e,
+      )
+      // Fallback to plain text display
+      paperStepInstructionModel = null
+      const useLongEdgeRaw = phrases.RC_UseLongEdge?.[RC.L] || ''
+      paperStepperLeftText.innerHTML = processInlineFormatting(
+        useLongEdgeRaw.replaceAll('/n', '<br>').replaceAll('\\n', '<br>'),
+      )
+      paperStepperLeftText.style.whiteSpace = 'pre-line'
+    }
+  }
+
+  // Initialize stepper on load
+  initPaperStepper()
+
+  // Up/Down navigation for paper selection stepper (page 2, paper mode only)
+  const handlePaperStepperNav = e => {
+    // Only handle navigation when in paper selection mode on page 2
+    if (
+      currentPage !== 2 ||
+      !isPaperSelectionMode ||
+      !paperStepInstructionModel
+    )
+      return
+    // Don't navigate if focus is in an input field
+    if (
+      document.activeElement &&
+      ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)
+    )
+      return
+
+    if (e.key === 'ArrowDown') {
+      const maxIdx = (paperStepInstructionModel.flatSteps?.length || 1) - 1
+      if (paperCurrentStepFlatIndex < maxIdx) {
+        paperCurrentStepFlatIndex++
+        renderPaperStepperView()
+      }
+      e.preventDefault()
+      e.stopPropagation()
+    } else if (e.key === 'ArrowUp') {
+      if (paperCurrentStepFlatIndex > 0) {
+        paperCurrentStepFlatIndex--
+        renderPaperStepperView()
+      }
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+  document.addEventListener('keydown', handlePaperStepperNav)
 
   // Suggestion input under first warning
   const paperSuggestionWrapper = document.createElement('div')
@@ -4555,129 +4729,13 @@ export async function objectTest(RC, options, callback = undefined) {
 
   paperSelectionCard.appendChild(paperSelectionTitle)
   paperSelectionCard.appendChild(paperOptionsList)
-  paperSelectionCard.appendChild(paperInlineWarning)
+  paperSelectionCard.appendChild(paperStepperContainer)
   paperSelectionCard.appendChild(paperSuggestionWrapper)
   paperSelectionCard.appendChild(paperImportantWarning)
   paperSelectionCard.appendChild(paperValidationMessage)
   paperSelectionContainer.appendChild(paperSelectionCard)
   container.appendChild(paperSelectionContainer)
 
-  // TODO: COMMENTED OUT - radioContainer logic will be integrated elsewhere
-  // const radioContainer = document.createElement('div')
-  // radioContainer.id = 'custom-radio-group'
-  // radioContainer.style.position = 'relative' // Changed from fixed to relative
-  // radioContainer.style.marginTop = '0.5rem' // Decreased from 2rem to 1rem for smaller gap
-  // radioContainer.style.marginLeft = '3rem' // Match instructions padding
-  // radioContainer.style.backgroundColor = 'transparent'
-  // radioContainer.style.borderRadius = '0.5rem'
-  // radioContainer.style.padding = '0' // Remove padding since we're using margin
-  // radioContainer.style.zIndex = '9999'
-  // radioContainer.style.width = '45vw' // Match instructions maxWidth
-  // radioContainer.style.maxWidth = '45vw' // Match instructions maxWidth
-  // radioContainer.style.textAlign = 'left'
-  // radioContainer.style.display = 'none' // Hidden by default
-  // //padding when its rtl/ltr
-  // radioContainer.style.paddingInlineStart = '3rem'
-  // container.appendChild(radioContainer)
-
-  // // Create radio button options
-  // const radioOptions = [
-  //   { value: 'yes', label: phrases.RC_Yes[RC.L] },
-  //   { value: 'no', label: phrases.RC_No[RC.L] },
-  //   { value: 'dontknow', label: phrases.RC_DontKnow[RC.L] },
-  // ]
-
-  // // Create a flex container for side-by-side layout
-  // const radioFlexContainer = document.createElement('div')
-  // radioFlexContainer.style.display = 'flex'
-  // radioFlexContainer.style.justifyContent = 'flex-start'
-  // radioFlexContainer.style.alignItems = 'center'
-  // radioFlexContainer.style.gap = '0.5em'
-  // radioContainer.appendChild(radioFlexContainer)
-
-  // // --- Validation message for radio selection ---
-  // const validationMessage = document.createElement('div')
-  // validationMessage.style.color = 'red'
-  // validationMessage.style.fontSize = 'clamp(0.9em, 2vw, 0.95em)' // Responsive font size
-  // validationMessage.style.marginTop = '0.5em'
-  // validationMessage.style.display = 'none'
-  // validationMessage.style.textAlign = 'left'
-  // validationMessage.textContent = phrases.RC_PleaseSelectAnOption[RC.L]
-  // radioContainer.appendChild(validationMessage)
-
-  // radioOptions.forEach(option => {
-  //   const container = document.createElement('div')
-  //   container.style.display = 'flex'
-  //   container.style.flexDirection = 'row'
-  //   container.style.alignItems = 'center'
-  //   container.style.gap = '0.2em'
-
-  //   const radio = document.createElement('input')
-  //   radio.type = 'radio'
-  //   radio.name = 'page0option'
-  //   radio.value = option.value
-  //   radio.style.cursor = 'pointer'
-  //   radio.style.transform = 'scale(1.2)'
-  //   radio.className = 'custom-input-class' // Add class for keyboard handling
-  //   // Hide validation message when any radio is selected
-  //   radio.addEventListener('change', () => {
-  //     validationMessage.style.display = 'none'
-  //   })
-
-  //   const span = document.createElement('span')
-  //   span.textContent = option.label
-  //   span.style.fontSize = 'clamp(1.1em, 2.5vw, 1.4em)' // Responsive font size
-  //   span.style.lineHeight = '1.6'
-  //   span.style.whiteSpace = 'nowrap'
-  //   span.style.userSelect = 'none' // Prevent text selection
-
-  //   container.appendChild(radio)
-  //   container.appendChild(span)
-  //   radioFlexContainer.appendChild(container)
-  // })
-
-  // // Add keyboard event listeners for radio buttons
-  // const customInputs = radioContainer.querySelectorAll('.custom-input-class')
-  // const keydownListener = event => {
-  //   if (event.key === 'Enter') {
-  //     // Check if a radio button is selected before proceeding
-  //     const selectedRadio = document.querySelector(
-  //       'input[name="page0option"]:checked',
-  //     )
-  //     if (selectedRadio) {
-  //       nextPage() // Simulate the "PROCEED" button click
-  //     }
-  //   }
-  // }
-
-  // customInputs.forEach(input => {
-  //   input.addEventListener('keyup', keydownListener)
-  // })
-
-  // // Add EasyEyes keypad handler support
-  // if (RC.keypadHandler) {
-  //   const removeKeypadHandler = setUpEasyEyesKeypadHandler(
-  //     null,
-  //     RC.keypadHandler,
-  //     () => {
-  //       removeKeypadHandler()
-  //       // Check if a radio button is selected before proceeding
-  //       const selectedRadio = document.querySelector(
-  //         'input[name="page0option"]:checked',
-  //       )
-  //       if (selectedRadio) {
-  //         nextPage() // Simulate the "PROCEED" button click
-  //       }
-  //     },
-  //     false,
-  //     ['return'],
-  //     RC,
-  //   )
-  // }
-
-  // ===================== HORIZONTAL TAPE MEASUREMENT COMPONENT =====================
-
-  // Create a horizontal tape component that groups all elements
   const createDiagonalTapeComponent = () => {
     // Calculate dimensions
     const tapeWidth = Math.round(0.75 * ppi) // 3/4 inch width for horizontal tape
@@ -6005,6 +6063,8 @@ export async function objectTest(RC, options, callback = undefined) {
       // Position video properly
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
+        // Clear screen-center mode flag (used on page 4)
+        delete videoContainer.dataset.screenCenterMode
         setDefaultVideoPosition(RC, videoContainer)
       }
 
@@ -6038,11 +6098,17 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide dontUseRuler column on page 0
       dontUseRulerColumn.style.display = 'none'
       paperSelectionContainer.style.display = 'none'
+      paperStepperMediaContainer.style.display = 'none'
+      // Clean up paper stepper media content
+      if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
       container.style.backgroundColor = ''
     } else if (pageNumber === 1) {
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
       paperSelectionContainer.style.display = 'none'
+      paperStepperMediaContainer.style.display = 'none'
+      // Clean up paper stepper media content
+      if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
       container.style.backgroundColor = ''
 
       // Show video on page 1
@@ -6051,6 +6117,8 @@ export async function objectTest(RC, options, callback = undefined) {
       // Position video properly
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
+        // Clear screen-center mode flag (used on page 4)
+        delete videoContainer.dataset.screenCenterMode
         setDefaultVideoPosition(RC, videoContainer)
       }
 
@@ -6088,7 +6156,10 @@ export async function objectTest(RC, options, callback = undefined) {
       console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
 
       // Hide paper selection unless we are in paper mode
-      if (!isPaperSelectionMode) paperSelectionContainer.style.display = 'none'
+      if (!isPaperSelectionMode) {
+        paperSelectionContainer.style.display = 'none'
+        paperStepperMediaContainer.style.display = 'none'
+      }
 
       if (isPaperSelectionMode) {
         container.style.backgroundColor = ''
@@ -6129,9 +6200,15 @@ export async function objectTest(RC, options, callback = undefined) {
 
         // Show paper selection UI
         paperSelectionContainer.style.display = 'flex'
+        paperStepperMediaContainer.style.display = 'block'
         paperValidationMessage.style.display = 'none'
         proceedButton.style.display = 'block'
         proceedButton.disabled = !selectedPaperLengthCm
+
+        // Re-initialize the paper stepper when showing paper selection UI
+        // (resets to first step when returning from other pages)
+        paperCurrentStepFlatIndex = 0
+        initPaperStepper()
 
         // Keep proceed button fixed at bottom right of screen
         buttonContainer.style.position = 'fixed'
@@ -6143,7 +6220,7 @@ export async function objectTest(RC, options, callback = undefined) {
           buttonContainer.style.right = '20px'
           buttonContainer.style.left = ''
         }
-        RC.background.appendChild(buttonContainer)
+        document.body.appendChild(buttonContainer)
 
         // Clear right column so warnings render under radios instead
         if (rightInstructionsText) {
@@ -6151,6 +6228,13 @@ export async function objectTest(RC, options, callback = undefined) {
         }
       } else {
         container.style.backgroundColor = ''
+        // Clean up paper stepper media when in non-paper mode
+        if (paperStepperMediaContainer)
+          paperStepperMediaContainer.innerHTML = ''
+        // Also clean up paper stepper text elements
+        if (paperStepperLeftText) paperStepperLeftText.innerHTML = ''
+        if (paperStepperRightText) paperStepperRightText.innerHTML = ''
+
         // Restore default button position (fixed at bottom right)
         buttonContainer.style.position = 'fixed'
         buttonContainer.style.bottom = '230px'
@@ -6161,7 +6245,7 @@ export async function objectTest(RC, options, callback = undefined) {
           buttonContainer.style.right = '20px'
           buttonContainer.style.left = ''
         }
-        RC.background.appendChild(buttonContainer)
+        document.body.appendChild(buttonContainer)
         // Hide paper mode warning if present
         if (rightInstructionsText) {
           rightInstructionsText.textContent = ''
@@ -6245,6 +6329,9 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
       paperSelectionContainer.style.display = 'none'
+      paperStepperMediaContainer.style.display = 'none'
+      // Clean up paper stepper media content
+      if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
       container.style.backgroundColor = ''
       // Always show title from page 3 onward (even in paper mode) and restore margins
       title.style.display = 'block'
@@ -6266,6 +6353,8 @@ export async function objectTest(RC, options, callback = undefined) {
       // Position video properly
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
+        // Clear screen-center mode flag (used on page 4)
+        delete videoContainer.dataset.screenCenterMode
         setDefaultVideoPosition(RC, videoContainer)
       }
 
@@ -6355,7 +6444,7 @@ export async function objectTest(RC, options, callback = undefined) {
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const cameraXYPx = [window.screen.width / 2, 0] // Top center
+      const cameraXYPx = [window.screen.width / 2, 0] // Top center (logical screen)
       arrowIndicators = createArrowIndicators(cameraXYPx)
       RC.background.appendChild(arrowIndicators)
       console.log('Arrow indicators added for page 3, pointing to top-center')
@@ -6368,6 +6457,9 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
       paperSelectionContainer.style.display = 'none'
+      paperStepperMediaContainer.style.display = 'none'
+      // Clean up paper stepper media content
+      if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
       container.style.backgroundColor = ''
       // Always show title from page 4 onward (even in paper mode) and restore margins
       title.style.display = 'block'
@@ -6389,26 +6481,106 @@ export async function objectTest(RC, options, callback = undefined) {
       // Position video at screen center for page 4
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
-        // Position video centered within viewport
+        videoContainer.dataset.screenCenterMode = 'true'
+      }
+
+      // Position video at screen center for page 4 (use screen dimensions, not viewport)
+      const positionVideoAtScreenCenter = () => {
+        const videoContainer = document.getElementById('webgazerVideoContainer')
+        if (!videoContainer) return
+
         const videoWidth =
           parseInt(videoContainer.style.width) ||
-          parseInt(videoContainer.offsetWidth) ||
+          videoContainer.offsetWidth ||
           0
         const videoHeight =
           parseInt(videoContainer.style.height) ||
-          parseInt(videoContainer.offsetHeight) ||
+          videoContainer.offsetHeight ||
           0
-        const viewportWidth =
-          window.innerWidth || document.documentElement.clientWidth
-        const viewportHeight =
-          window.innerHeight || document.documentElement.clientHeight
+
+        const centerX =
+          (window.innerWidth || document.documentElement.clientWidth) / 2
+        const centerY =
+          (window.innerHeight || document.documentElement.clientHeight) / 2
+
+        // Ensure flag is set
+        videoContainer.dataset.screenCenterMode = 'true'
+
+        console.log(
+          '...videoWidth',
+          videoWidth,
+          'videoHeight',
+          videoHeight,
+          'screenWidth',
+          window.screen.width,
+          'screenHeight',
+          window.screen.height,
+          'innerWidth',
+          window.innerWidth,
+          'innerHeight',
+          window.innerHeight,
+          'centerX',
+          centerX,
+          'centerY',
+          centerY,
+        )
 
         videoContainer.style.zIndex = 999999999999
-        videoContainer.style.left = `${viewportWidth / 2 - videoWidth / 2}px`
-        videoContainer.style.top = `${viewportHeight / 2 - videoHeight / 2}px`
+        videoContainer.style.left = `${centerX - videoWidth / 2}px`
+        videoContainer.style.top = `${centerY - videoHeight / 2}px`
         videoContainer.style.right = 'unset'
         videoContainer.style.bottom = 'unset'
         videoContainer.style.transform = 'none'
+      }
+
+      // Position immediately and then again after layout stabilizes
+      positionVideoAtScreenCenter()
+      requestAnimationFrame(() => {
+        positionVideoAtScreenCenter()
+        setTimeout(positionVideoAtScreenCenter, 50)
+      })
+
+      // Re-position video and arrows when fullscreen state changes (only add listener once)
+      if (!window._page4FullscreenListenerAdded) {
+        window._page4FullscreenListenerAdded = true
+        const handleFullscreenChange = () => {
+          const isFullscreen = !!(
+            document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement
+          )
+          console.log(
+            '*** Fullscreen change detected, currentPage:',
+            currentPage,
+            'isFullscreen:',
+            isFullscreen,
+          )
+          if (currentPage === 4) {
+            updatePage4Arrows()
+            positionVideoAtScreenCenter()
+            // Call again after layout stabilizes (multiple times to ensure it takes)
+            requestAnimationFrame(() => {
+              positionVideoAtScreenCenter()
+              setTimeout(() => {
+                positionVideoAtScreenCenter()
+              }, 50)
+              setTimeout(() => {
+                positionVideoAtScreenCenter()
+              }, 150)
+              setTimeout(() => {
+                positionVideoAtScreenCenter()
+              }, 300)
+            })
+          }
+        }
+        document.addEventListener('fullscreenchange', handleFullscreenChange)
+        document.addEventListener(
+          'webkitfullscreenchange',
+          handleFullscreenChange,
+        )
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange)
       }
 
       // Ensure the video preview doesn't occlude the stepper/instructions (only adjust if video is above instructions).
@@ -6510,16 +6682,18 @@ export async function objectTest(RC, options, callback = undefined) {
       // Hide dontUseRuler column on page 4
       dontUseRulerColumn.style.display = 'none'
 
-      // Show arrow indicators pointing to screen center
-      if (arrowIndicators) {
-        arrowIndicators.remove()
+      // Function to update arrow indicators for page 4
+      const updatePage4Arrows = () => {
+        if (arrowIndicators) {
+          arrowIndicators.remove()
+        }
+        const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2]
+        arrowIndicators = createArrowIndicators(centerXYPx)
+        RC.background.appendChild(arrowIndicators)
       }
-      const centerXYPx = [window.screen.width / 2, window.screen.height / 2] // Screen center
-      arrowIndicators = createArrowIndicators(centerXYPx)
-      RC.background.appendChild(arrowIndicators)
-      console.log(
-        'Arrow indicators added for page 4, pointing to screen center',
-      )
+
+      // Show arrow indicators pointing to screen center
+      updatePage4Arrows()
 
       // Note: Face Mesh samples will be collected when space key is pressed
       console.log(
@@ -6889,6 +7063,8 @@ export async function objectTest(RC, options, callback = undefined) {
       arrowIndicators.remove()
       arrowIndicators = null
     }
+
+    globalPointXYPx.value = null
 
     // // Clean up radio button event listeners
     // if (customInputs) {
@@ -7290,6 +7466,7 @@ export async function objectTest(RC, options, callback = undefined) {
           // Call callback with the data
           // Handle completion based on check settings
           if (options.calibrateDistanceCheckBool) {
+            cleanupBeforeCheckDistance()
             await RC._checkDistance(
               callback,
               data,
@@ -7320,6 +7497,7 @@ export async function objectTest(RC, options, callback = undefined) {
     } else {
       // Use the same check function as blindspot
       if (options.calibrateDistanceCheckBool) {
+        cleanupBeforeCheckDistance()
         await RC._checkDistance(
           callback,
           data,
@@ -7384,6 +7562,13 @@ export async function objectTest(RC, options, callback = undefined) {
     if (container && container.parentNode) {
       container.parentNode.removeChild(container)
     }
+    if (buttonContainer && buttonContainer.parentNode) {
+      buttonContainer.parentNode.removeChild(buttonContainer)
+    }
+    // Remove stepper UI (including viewport-positioned media container)
+    if (instructionsUI?.destroy) {
+      instructionsUI.destroy()
+    }
 
     // Clean up background
     RC._removeBackground()
@@ -7411,6 +7596,9 @@ export async function objectTest(RC, options, callback = undefined) {
     }
     if (rightLabel.container.parentNode) {
       rightLabel.container.parentNode.removeChild(rightLabel.container)
+    }
+    if (buttonContainer && buttonContainer.parentNode) {
+      buttonContainer.parentNode.removeChild(buttonContainer)
     }
 
     // Restart: reset right line to initial position
@@ -7638,6 +7826,7 @@ export async function objectTest(RC, options, callback = undefined) {
             document.addEventListener('keydown', handleKeyPress)
           })()
         } else if (currentPage === 3) {
+          globalPointXYPx.value = [window.screen.width / 2, 0]
           // Collect 5 Face Mesh samples for calibration on page 3
           ;(async () => {
             console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
@@ -7817,6 +8006,10 @@ export async function objectTest(RC, options, callback = undefined) {
             }
           })()
         } else if (currentPage === 4) {
+          globalPointXYPx.value = [
+            window.screen.width / 2,
+            window.screen.height / 2,
+          ]
           // Collect 5 Face Mesh samples for calibration on page 4
           ;(async () => {
             console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
@@ -8669,10 +8862,10 @@ export async function objectTest(RC, options, callback = undefined) {
   } else {
     buttonContainer.style.right = '20px'
   }
-  buttonContainer.style.zIndex = '9999999999'
+  buttonContainer.style.zIndex = '2147483647'
   buttonContainer.style.display = 'flex'
   buttonContainer.style.gap = '10px'
-  RC.background.appendChild(buttonContainer)
+  document.body.appendChild(buttonContainer)
 
   // Add OK button first
   const proceedButton = document.createElement('button')
@@ -8830,6 +9023,7 @@ export async function objectTest(RC, options, callback = undefined) {
         )
       }
     } else if (currentPage === 3) {
+      globalPointXYPx.value = [window.screen.width / 2, 0]
       // Play camera shutter sound on page 3
       if (env !== 'mocha' && cameraShutterSound) {
         cameraShutterSound()
@@ -8854,6 +9048,10 @@ export async function objectTest(RC, options, callback = undefined) {
       // Move to page 4
       await nextPage()
     } else if (currentPage === 4) {
+      globalPointXYPx.value = [
+        window.screen.width / 2,
+        window.screen.height / 2,
+      ]
       // Play camera shutter sound on page 4
       if (env !== 'mocha' && cameraShutterSound) {
         cameraShutterSound()
@@ -9841,6 +10039,15 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   const rightInstructions = instructionsUI.rightColumn
   const sectionMediaContainer = instructionsUI.mediaContainer
 
+  const cleanupBeforeCheckDistance = () => {
+    if (instructionsUI?.destroy) {
+      instructionsUI.destroy()
+    }
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container)
+    }
+  }
+
   let stepInstructionModel = null
   let currentStepFlatIndex = 0
 
@@ -9986,7 +10193,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const cameraXYPx = [window.screen.width / 2, 0]
+      const cameraXYPx = [window.innerWidth / 2, 0]
       arrowIndicators = createArrowIndicators(cameraXYPx)
       RC.background.appendChild(arrowIndicators)
       console.log('Arrow indicators added for page 3, pointing to top-center')
@@ -10040,7 +10247,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const cameraXYPx = [window.screen.width / 2, 0]
+      const cameraXYPx = [window.innerWidth / 2, 0]
       arrowIndicators = createArrowIndicators(cameraXYPx)
       RC.background.appendChild(arrowIndicators)
       console.log('Arrow indicators added for page 4, pointing to top-center')
@@ -10184,6 +10391,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     RC.newViewingDistanceData = data
 
     if (options.calibrateDistanceCheckBool) {
+      cleanupBeforeCheckDistance()
       await RC._checkDistance(
         callback,
         data,
@@ -10224,6 +10432,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
 
     if (container && container.parentNode) {
       container.parentNode.removeChild(container)
+    }
+    // Remove stepper UI (including viewport-positioned media container)
+    if (instructionsUI?.destroy) {
+      instructionsUI.destroy()
     }
 
     RC._removeBackground()

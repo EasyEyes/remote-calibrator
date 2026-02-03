@@ -177,6 +177,10 @@ export function createStepInstructionsUI(parent, options = {}) {
     fontSize = 'clamp(1.1em, 2.5vw, 1.4em)',
     lineHeight = '1.4',
     layout = 'twoColumn', // 'twoColumn' | 'leftOnly'
+    mediaAlignment = 'auto', // 'top' | 'center' | 'bottom' | 'auto'
+    mediaPositionMode = 'flow', // 'flow' | 'viewport'
+    langDirection = 'LTR', // 'LTR' | 'RTL' - needed for viewport positioning
+    mediaZIndex = '2147483600', // z-index for viewport-positioned media (below button at 2147483647)
   } = options
 
   const wrapper = document.createElement('div')
@@ -223,7 +227,67 @@ export function createStepInstructionsUI(parent, options = {}) {
     rightText.style.overflowWrap = 'anywhere'
     rightColumn.appendChild(rightText)
     wrapper.appendChild(rightColumn)
-    rightColumn.appendChild(mediaContainer)
+
+    // Viewport mode: media is fixed-positioned relative to viewport
+    if (mediaPositionMode === 'viewport') {
+      mediaContainer.style.position = 'fixed'
+      mediaContainer.style.width = '50vw'
+      mediaContainer.style.maxWidth = '50vw'
+      mediaContainer.style.marginTop = '0'
+      mediaContainer.style.padding = '1rem'
+      mediaContainer.style.boxSizing = 'border-box'
+      // Use z-index below the button container (2147483647) but above most content
+      mediaContainer.style.zIndex = mediaZIndex
+      mediaContainer.style.pointerEvents = 'none' // Don't block clicks
+
+      // Horizontal position: right half for LTR, left half for RTL
+      if (langDirection === 'RTL') {
+        mediaContainer.style.left = '0'
+        mediaContainer.style.right = 'auto'
+      } else {
+        mediaContainer.style.right = '0'
+        mediaContainer.style.left = 'auto'
+      }
+
+      // Vertical position based on mediaAlignment
+      if (mediaAlignment === 'top') {
+        mediaContainer.style.top = '0'
+        mediaContainer.style.bottom = 'auto'
+        mediaContainer.style.transform = 'none'
+      } else if (mediaAlignment === 'center' || mediaAlignment === 'auto') {
+        mediaContainer.style.top = '50%'
+        mediaContainer.style.bottom = 'auto'
+        mediaContainer.style.transform = 'translateY(-50%)'
+      } else if (mediaAlignment === 'bottom') {
+        mediaContainer.style.top = 'auto'
+        mediaContainer.style.bottom = '0'
+        mediaContainer.style.transform = 'none'
+      }
+
+      // Append to document.body for viewport positioning
+      document.body.appendChild(mediaContainer)
+    } else {
+      // Flow mode: media is in normal document flow within right column
+      if (mediaAlignment !== 'auto') {
+        rightColumn.style.display = 'flex'
+        rightColumn.style.flexDirection = 'column'
+        rightColumn.style.height = '100%'
+        rightText.style.flex = '0 0 auto'
+
+        if (mediaAlignment === 'top') {
+          mediaContainer.style.marginTop = '0'
+          mediaContainer.style.flex = '0 0 auto'
+        } else if (mediaAlignment === 'center') {
+          mediaContainer.style.marginTop = 'auto'
+          mediaContainer.style.marginBottom = 'auto'
+          mediaContainer.style.flex = '0 0 auto'
+        } else if (mediaAlignment === 'bottom') {
+          mediaContainer.style.marginTop = 'auto'
+          mediaContainer.style.flex = '0 0 auto'
+        }
+      }
+      rightColumn.appendChild(mediaContainer)
+    }
   } else {
     // leftOnly layout: media goes under the left text inside left column
     leftColumn.style.display = 'flex'
@@ -231,6 +295,10 @@ export function createStepInstructionsUI(parent, options = {}) {
     leftText.style.flex = '0 0 auto'
     leftColumn.appendChild(mediaContainer)
   }
+
+  // Track if media was appended to body for cleanup
+  const mediaInViewportMode =
+    layout === 'twoColumn' && mediaPositionMode === 'viewport'
 
   return {
     wrapper,
@@ -243,6 +311,12 @@ export function createStepInstructionsUI(parent, options = {}) {
       try {
         parent.removeChild(wrapper)
       } catch {}
+      // Also remove viewport-positioned media container from body
+      if (mediaInViewportMode) {
+        try {
+          document.body.removeChild(mediaContainer)
+        } catch {}
+      }
     },
   }
 }
@@ -419,6 +493,9 @@ export function renderStepInstructions({
     EE_UseKeysToStep: {
       en: ' ',
     },
+    EE_UseKeysToStepWithVideo: {
+      en: '',
+    },
   },
 }) {
   const {
@@ -501,6 +578,14 @@ export function renderStepInstructions({
       sec =>
         Array.isArray(sec.steps) &&
         sec.steps.some(st => st.text && String(st.text).trim().length > 0),
+    )
+
+  const hasAnyVideo =
+    Array.isArray(sections) &&
+    sections.some(
+      sec =>
+        Array.isArray(sec.steps) &&
+        sec.steps.some(st => st.mediaUrls && st.mediaUrls.length > 0),
     )
 
   if (!hasAnyText || totalFlatSteps === 0) {
@@ -605,9 +690,9 @@ export function renderStepInstructions({
   // Align based on language direction
   navHint.style.textAlign = langDirection === 'RTL' ? 'right' : 'left'
 
-  navHint.textContent =
-    phrases.EE_UseKeysToStep?.[lang] ||
-    'Use ▼ to advance through the instructions. Use ▲ to go back to the previous instruction.'
+  navHint.textContent = hasAnyVideo
+    ? phrases.EE_UseKeysToStepWithVideo?.[lang]
+    : phrases.EE_UseKeysToStep?.[lang]
 
   if (showAllSteps) {
     navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'

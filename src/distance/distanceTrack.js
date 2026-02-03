@@ -4,6 +4,7 @@ import {
   _getEyeToCameraCm,
   blindSpotTestNew,
   getLeftAndRightEyePointsFromMeshData,
+  globalPointXYPx,
   knownDistanceTest,
   // objectLengthCmGlobal, objectTest, solveEyeToScreenCm already below
   objectLengthCmGlobal,
@@ -1197,6 +1198,10 @@ export const calculateNearestPoints = (
       .map(s => s.trim())
     if (optionsArray.includes('camera')) pointXYPx = cameraXYPx
     else if (optionsArray.includes('center')) pointXYPx = centerXYPx
+  }
+  //if globalPointXYPx is not null, override pointXYPx with globalPointXYPx
+  if (globalPointXYPx.value !== null) {
+    pointXYPx = globalPointXYPx.value
   }
   const avgFootXYPx = [
     (nearestXYPx_right[0] + nearestXYPx_left[0]) / 2,
