@@ -218,7 +218,7 @@ export function constructInstructions(
   position = null,
   headline2 = null,
   useDescriptionClassOnly = false,
-  headlineId = null,
+  headlineId = 'instruction-title',
 ) {
   return `<div class="calibration-instruction${
     scrollable ? ' calibration-instruction-scrollable' : ''
