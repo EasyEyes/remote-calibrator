@@ -1,3 +1,5 @@
+import { processInlineFormatting } from './markdownInstructionParser.js'
+
 export function buildStepInstructions(phraseText, linkMap = {}) {
   if (typeof phraseText !== 'string') {
     throw new Error('buildStepInstructions: phraseText must be a string')
@@ -188,6 +190,8 @@ export function createStepInstructionsUI(parent, options = {}) {
   if (layout === 'twoColumn') wrapper.style.flexDirection = 'row'
   wrapper.style.width = '100%'
   wrapper.style.maxWidth = '100%'
+  // Enable pointer events so stepper is clickable even when ancestor has pointer-events: none
+  wrapper.style.pointerEvents = 'auto'
   parent.appendChild(wrapper)
 
   const leftColumn = document.createElement('div')
@@ -198,10 +202,14 @@ export function createStepInstructionsUI(parent, options = {}) {
   leftColumn.style.textAlign = 'start'
   leftColumn.style.fontSize = fontSize
   leftColumn.style.lineHeight = lineHeight
+  // Enable pointer events so stepper is clickable even when ancestor has pointer-events: none
+  leftColumn.style.pointerEvents = 'auto'
   const leftText = document.createElement('div')
   leftText.style.whiteSpace = 'pre-line'
   leftText.style.wordBreak = 'break-word'
   leftText.style.overflowWrap = 'anywhere'
+  // Enable pointer events so stepper is clickable even when ancestor has pointer-events: none
+  leftText.style.pointerEvents = 'auto'
   leftColumn.appendChild(leftText)
   wrapper.appendChild(leftColumn)
 
@@ -221,10 +229,14 @@ export function createStepInstructionsUI(parent, options = {}) {
     rightColumn.style.textAlign = 'start'
     rightColumn.style.fontSize = fontSize
     rightColumn.style.lineHeight = lineHeight
+    // Enable pointer events so stepper is clickable even when ancestor has pointer-events: none
+    rightColumn.style.pointerEvents = 'auto'
     rightText = document.createElement('div')
     rightText.style.whiteSpace = 'pre-line'
     rightText.style.wordBreak = 'break-word'
     rightText.style.overflowWrap = 'anywhere'
+    // Enable pointer events so stepper is clickable even when ancestor has pointer-events: none
+    rightText.style.pointerEvents = 'auto'
     rightColumn.appendChild(rightText)
     wrapper.appendChild(rightColumn)
 
@@ -724,6 +736,9 @@ export function renderStepInstructions({
     appendLine('…', 'past', 0)
   }
 
+  // Track last rendered section to show section titles when transitioning
+  let lastRenderedSectionIdx = -1
+
   // Visible past steps (gray) and current step (black)
   for (let idx = visibleStart; idx <= visibleEnd; idx++) {
     const entry = flatSteps[idx]
@@ -731,6 +746,20 @@ export function renderStepInstructions({
     const sec = sections[entry.sectionIdx]
     const step = sec && sec.steps ? sec.steps[entry.stepIdx] : null
     if (!step || !step.text) continue
+
+    // Render section title when entering a new section (if title exists)
+    if (entry.sectionIdx !== lastRenderedSectionIdx && sec.title) {
+      const titleState = showAllSteps
+        ? 'normal'
+        : idx < safeFlatIndex
+          ? 'past'
+          : 'current'
+      // Apply markdown formatting to the section title
+      const formattedTitle = processInlineFormatting(sec.title)
+      const titleNode = buildLineNode(formattedTitle, 'title', titleState, 0)
+      contentContainer.appendChild(titleNode)
+      lastRenderedSectionIdx = entry.sectionIdx
+    }
 
     const isPast = idx < safeFlatIndex
     const level =
@@ -777,12 +806,13 @@ export function renderStepInstructions({
     arrowDown.style.display = 'none'
   }
 
-  const wireArrow = (el, enabled, handler) => {
-    el.style.color = enabled ? '#000' : '#999'
-    el.style.cursor =
-      enabled && typeof handler === 'function' ? 'pointer' : 'default'
+  const wireArrow = (el, handler) => {
+    // Always enable arrows when handler is provided (even if only one step)
+    const hasHandler = typeof handler === 'function'
+    el.style.color = hasHandler ? '#000' : '#999'
+    el.style.cursor = hasHandler ? 'pointer' : 'default'
     el.onclick = null
-    if (enabled && typeof handler === 'function') {
+    if (hasHandler) {
       el.onclick = evt => {
         evt.preventDefault()
         evt.stopPropagation()
@@ -797,8 +827,8 @@ export function renderStepInstructions({
   const onNext =
     options && typeof options.onNext === 'function' ? options.onNext : null
 
-  wireArrow(arrowUp, hasUnshownPast, onPrev)
-  wireArrow(arrowDown, hasUnshownFuture, onNext)
+  wireArrow(arrowUp, onPrev)
+  wireArrow(arrowDown, onNext)
 
   stepperBox.appendChild(arrowUp)
   stepperBox.appendChild(arrowDown)

@@ -24,6 +24,7 @@ import {
   randn_bm,
   replaceNewlinesWithBreaks,
   getCameraResolutionXY,
+  forceFullscreen,
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n/schema'
@@ -241,7 +242,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
 
   /* -------------------------------------------------------------------------- */
 
-  this.getFullscreen(options.fullscreen)
+  // Force fullscreen unconditionally on "Set your viewing distance" page arrival
+  forceFullscreen(this.L, this)
 
   if (this.gazeTracker.checkInitialized('distance')) {
     // ! Initialized

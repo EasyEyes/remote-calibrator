@@ -180,6 +180,34 @@ export async function exitFullscreen() {
   }
 }
 
+// Force fullscreen unconditionally (for page arrival)
+// Uses getFullscreen with the language and RC instance
+export async function forceFullscreen(L = 'en', RC = null) {
+  return await getFullscreen(L, RC)
+}
+
+// Enforce fullscreen on SPACE key press
+// If not in fullscreen:
+//   1. Flush the key press (return false)
+//   2. Force fullscreen
+//   3. Pause 4 seconds
+// Returns true if in fullscreen (key press should be processed)
+// Returns false if was not in fullscreen (key press should be ignored)
+export async function enforceFullscreenOnSpacePress(L = 'en', RC = null) {
+  if (isFullscreen()) {
+    // Already in fullscreen, allow the key press to proceed
+    return true
+  }
+
+  // Not in fullscreen - force it and wait
+  console.log('Not in fullscreen - forcing fullscreen and waiting 4 seconds')
+  await getFullscreen(L, RC)
+  await sleep(4000)
+
+  // Return false to indicate the key press should be flushed (ignored)
+  return false
+}
+
 /* -------------------------------------------------------------------------- */
 
 export function constructInstructions(

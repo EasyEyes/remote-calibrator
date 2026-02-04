@@ -7,6 +7,9 @@ import {
   blurAll,
   remap,
   safeExecuteFunc,
+  forceFullscreen,
+  enforceFullscreenOnSpacePress,
+  isFullscreen,
 } from './components/utils'
 
 import Card from './media/card.svg'
@@ -126,7 +129,8 @@ RemoteCalibrator.prototype.screenSize = function (
     screenSizeOptions,
   )
 
-  this.getFullscreen(options.fullscreen)
+  // Force fullscreen unconditionally on Size page arrival
+  forceFullscreen(this.L, this)
 
   // Validate and normalize screenSizeMeasurementCount
   if (
@@ -196,6 +200,7 @@ function getSize(RC, parent, options, callback) {
 }
 
 // Helper function to check if the last 2 consecutive measurements are consistent
+// Uses log10 ratio comparison: abs(log10(newPxPerCm/oldPxPerCm)) > log10(threshold)
 function checkLastTwoMeasurements(measurements, threshold) {
   // Need at least 2 measurements to compare
   if (measurements.length < 2) return null
@@ -204,14 +209,15 @@ function checkLastTwoMeasurements(measurements, threshold) {
   const lastIdx = measurements.length - 1
   const secondLastIdx = measurements.length - 2
 
-  const M1 = measurements[secondLastIdx].ppi
-  const M2 = measurements[lastIdx].ppi
+  const M1 = measurements[secondLastIdx].ppi // oldPxPerCm (as PPI)
+  const M2 = measurements[lastIdx].ppi // newPxPerCm (as PPI)
 
-  // Calculate max(M1/M2, M2/M1)
-  const ratio = Math.max(M1 / M2, M2 / M1)
+  // Calculate using log10 ratio: abs(log10(M2/M1)) <= log10(threshold)
+  // Test passes if logRatio <= logThreshold
+  const logRatio = Math.abs(Math.log10(M2 / M1))
+  const logThreshold = Math.log10(threshold)
 
-  // Test passes if ratio <= threshold
-  if (ratio <= threshold) {
+  if (logRatio <= logThreshold) {
     // Found consistent last two measurements!
     return { indices: [secondLastIdx, lastIdx], ppis: [M1, M2] }
   }
@@ -679,6 +685,14 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
   // Call when SPACE pressed
   // ! RETURN & BREAK
   const finishFunction = async () => {
+    // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
+    const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
+    if (!canProceed) {
+      // Key press flushed - not in fullscreen, now in fullscreen after 4 second wait
+      // Wait for a new key press (do nothing, just return)
+      return
+    }
+
     //play stamp of approval sound
     const soundModule = require('./components/sound')
     const stampOfApprovalSound = soundModule.stampOfApprovalSound
@@ -793,70 +807,87 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
 
         return
       } else {
-        // Consistency check failed
-        // If screenSizeMeasurementCount is 2, show popup with error message
-        if (options.screenSizeMeasurementCount === 2) {
-          const lastIdx = measurementState.measurements.length - 1
-          const secondLastIdx = measurementState.measurements.length - 2
-          const M1 = measurementState.measurements[secondLastIdx].ppi
-          const M2 = measurementState.measurements[lastIdx].ppi
-          const ratio = M2 / M1 // Show actual ratio (current / previous) to indicate direction
+        // Consistency check failed - reject BOTH measurements
+        const lastIdx = measurementState.measurements.length - 1
+        const secondLastIdx = measurementState.measurements.length - 2
+        const oldPxPerCm = measurementState.measurements[secondLastIdx].ppi / 2.54
+        const newPxPerCm = measurementState.measurements[lastIdx].ppi / 2.54
+        
+        // Calculate ratio as percentage: (100 * oldPxPerCm / newPxPerCm)
+        const ratioPercent = (100 * oldPxPerCm / newPxPerCm).toFixed(0)
 
-          console.log(
-            `Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Continuing to next measurement.`,
-          )
+        console.log(
+          `Consistency check failed. New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,
+        )
 
-          const errorMessage =
-            phrases.RC_objectSizeMismatch?.[RC.L]?.replace(
-              '[[N1]]',
-              toFixedNumber(ratio, 2).toString(),
-            ) ||
-            `Measurements are inconsistent. Ratio: ${toFixedNumber(ratio, 2)}`
+        const errorMessage =
+          phrases.RC_pixelDensityMismatch?.[RC.L]?.replace(
+            '[[N1]]',
+            ratioPercent,
+          ) ||
+          `❌ The last two length settings are inconsistent. The new length is ${ratioPercent}% of that expected from the previous one. Let's try again. Click OK or press RETURN.`
 
-          // Show popup (only accept Return/Enter, not spacebar)
-          const preventSpacebar = e => {
-            if (e.key === ' ' || e.code === 'Space') {
-              e.preventDefault()
-              e.stopPropagation()
-            }
+        // Show popup (only accept Return/Enter, not spacebar)
+        const preventSpacebar = e => {
+          if (e.key === ' ' || e.code === 'Space') {
+            e.preventDefault()
+            e.stopPropagation()
           }
-
-          await Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: undefined,
-            html: errorMessage,
-            allowEnterKey: true,
-            confirmButtonText:
-              phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
-            didOpen: () => {
-              // Prevent spacebar from closing the popup
-              document.addEventListener('keydown', preventSpacebar, true)
-            },
-            willClose: () => {
-              // Clean up the event listener
-              document.removeEventListener('keydown', preventSpacebar, true)
-            },
-          })
-
-          // Increment rejection counter for mismatched measurements
-          measurementState.rejectionCount++
-          console.log(
-            `Rejection count (screen size mismatch): ${measurementState.rejectionCount}`,
-          )
-
-          // Show pause before allowing new measurement (with exponentially growing duration)
-          await showPauseBeforeNewObject(
-            RC,
-            measurementState.rejectionCount,
-            'RC_PauseBeforeRemeasuringCreditCard',
-          )
-
-          // After popup and pause, continue to next measurement (don't reset)
-          cleanupMeasurement()
-          measurementState.currentIteration++
-          performMeasurement(RC, parent, options, callback, measurementState)
-          return
         }
+
+        await Swal.fire({
+          ...swalInfoOptions(RC, { showIcon: false }),
+          icon: undefined,
+          html: errorMessage,
+          allowEnterKey: true,
+          confirmButtonText:
+            phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
+          didOpen: () => {
+            // Prevent spacebar from closing the popup
+            document.addEventListener('keydown', preventSpacebar, true)
+          },
+          willClose: () => {
+            // Clean up the event listener
+            document.removeEventListener('keydown', preventSpacebar, true)
+          },
+        })
+
+        // Increment rejection counter for mismatched measurements
+        measurementState.rejectionCount++
+        console.log(
+          `Rejection count (screen size mismatch): ${measurementState.rejectionCount}`,
+        )
+
+        // Reject BOTH measurements - remove them from the array
+        measurementState.measurements.pop() // Remove last (new)
+        measurementState.measurements.pop() // Remove second-to-last (old)
+        
+        // Reduce the iteration count appropriately (need 2 more measurements)
+        // Go back to iteration count matching current measurements length + 1
+        measurementState.currentIteration = measurementState.measurements.length + 1
+        
+        // Update totalIterations to ensure we still need at least 2 measurements
+        measurementState.totalIterations = Math.max(
+          measurementState.totalIterations,
+          measurementState.currentIteration + 1,
+        )
+
+        console.log(
+          `After rejection: ${measurementState.measurements.length} measurements remaining, ` +
+          `continuing from iteration ${measurementState.currentIteration} of ${measurementState.totalIterations}`,
+        )
+
+        // Show pause before allowing new measurement (with exponentially growing duration)
+        await showPauseBeforeNewObject(
+          RC,
+          measurementState.rejectionCount,
+          'RC_PauseBeforeRemeasuringCreditCard',
+        )
+
+        // After popup and pause, restart measurement
+        cleanupMeasurement()
+        performMeasurement(RC, parent, options, callback, measurementState)
+        return
       }
     }
 

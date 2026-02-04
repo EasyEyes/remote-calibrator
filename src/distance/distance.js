@@ -13,6 +13,9 @@ import {
   randn_bm,
   replaceNewlinesWithBreaks,
   getCameraResolutionXY,
+  forceFullscreen,
+  enforceFullscreenOnSpacePress,
+  isFullscreen,
 } from '../components/utils'
 import { setDefaultVideoPosition } from '../components/video'
 import { irisTrackingIsActive } from './distanceTrack'
@@ -3134,6 +3137,7 @@ export async function blindSpotTestNew(
       options.calibrateDistanceSpotXYDeg,
       options.calibrateDistance,
       options.stepperHistory,
+      options.calibrateScreenSizeAllowedRatio,
     )
   else safeExecuteFunc(callback, data)
 
@@ -3224,8 +3228,8 @@ RemoteCalibrator.prototype.measureDistance = async function (
     },
     measureDistanceOptions,
   )
-  // Fullscreen
-  this.getFullscreen(options.fullscreen)
+  // Force fullscreen unconditionally on Distance page arrival
+  forceFullscreen(this.L, this)
   // Add HTML
   this._addBackground()
 
@@ -3252,7 +3256,8 @@ RemoteCalibrator.prototype.measureDistanceObject = async function (
     options,
   )
 
-  this.getFullscreen(opts.fullscreen)
+  // Force fullscreen unconditionally on Distance page arrival
+  forceFullscreen(this.L, this)
   blurAll()
 
   await objectTest(this, opts, callback)
@@ -3275,7 +3280,8 @@ RemoteCalibrator.prototype.measureDistanceKnown = async function (
     options,
   )
 
-  this.getFullscreen(opts.fullscreen)
+  // Force fullscreen unconditionally on Distance page arrival
+  forceFullscreen(this.L, this)
   blurAll()
 
   await knownDistanceTest(this, opts, callback)
@@ -3841,7 +3847,7 @@ export async function objectTest(RC, options, callback = undefined) {
     arrowContainer.style.width = '100%'
     arrowContainer.style.height = '100%'
     arrowContainer.style.pointerEvents = 'none'
-    arrowContainer.style.zIndex = '999999998' // Below video but above most elements
+    arrowContainer.style.zIndex = '1000000000001' // Above video to ensure arrows are never obscured
 
     // Helper function to create a single arrow
     const createArrow = (fromX, fromY, toX, toY) => {
@@ -4355,15 +4361,17 @@ export async function objectTest(RC, options, callback = undefined) {
       const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
       if (currentStepFlatIndex < maxIdx) {
         currentStepFlatIndex++
-        renderCurrentStepView()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderCurrentStepView()
       e.preventDefault()
       e.stopPropagation()
     } else if (e.key === 'ArrowUp') {
       if (currentStepFlatIndex > 0) {
         currentStepFlatIndex--
-        renderCurrentStepView()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderCurrentStepView()
       e.preventDefault()
       e.stopPropagation()
     }
@@ -4447,12 +4455,18 @@ export async function objectTest(RC, options, callback = undefined) {
   paperStepperContainer.style.color = '#555'
   paperStepperContainer.style.width = '100%'
   paperStepperContainer.style.maxWidth = '100%'
+  // Enable pointer events so stepper arrows are clickable
+  paperStepperContainer.style.pointerEvents = 'auto'
 
   // Create the elements expected by renderStepInstructions
   const paperStepperLeftText = document.createElement('div')
+  // Enable pointer events so stepper arrows are clickable
+  paperStepperLeftText.style.pointerEvents = 'auto'
   paperStepperLeftText.style.textAlign =
     RC.LD === RC._CONST.RTL ? 'right' : 'left'
   const paperStepperRightText = document.createElement('div')
+  // Enable pointer events so stepper arrows are clickable
+  paperStepperRightText.style.pointerEvents = 'auto'
 
   // Create media container OUTSIDE paperSelectionContainer so it can be on the right half
   const paperStepperMediaContainer = document.createElement('div')
@@ -4500,15 +4514,17 @@ export async function objectTest(RC, options, callback = undefined) {
     const handlePaperPrev = () => {
       if (paperCurrentStepFlatIndex > 0) {
         paperCurrentStepFlatIndex--
-        renderPaperStepperView()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderPaperStepperView()
     }
 
     const handlePaperNext = () => {
       if (paperCurrentStepFlatIndex < maxIdx) {
         paperCurrentStepFlatIndex++
-        renderPaperStepperView()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderPaperStepperView()
     }
 
     renderStepInstructions({
@@ -4588,15 +4604,17 @@ export async function objectTest(RC, options, callback = undefined) {
       const maxIdx = (paperStepInstructionModel.flatSteps?.length || 1) - 1
       if (paperCurrentStepFlatIndex < maxIdx) {
         paperCurrentStepFlatIndex++
-        renderPaperStepperView()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderPaperStepperView()
       e.preventDefault()
       e.stopPropagation()
     } else if (e.key === 'ArrowUp') {
       if (paperCurrentStepFlatIndex > 0) {
         paperCurrentStepFlatIndex--
-        renderPaperStepperView()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderPaperStepperView()
       e.preventDefault()
       e.stopPropagation()
     }
@@ -6689,7 +6707,9 @@ export async function objectTest(RC, options, callback = undefined) {
         }
         const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2]
         arrowIndicators = createArrowIndicators(centerXYPx)
-        RC.background.appendChild(arrowIndicators)
+        if (arrowIndicators && RC.background) {
+          RC.background.appendChild(arrowIndicators)
+        }
       }
 
       // Show arrow indicators pointing to screen center
@@ -7482,6 +7502,7 @@ export async function objectTest(RC, options, callback = undefined) {
               options.calibrateDistanceSpotXYDeg,
               options.calibrateDistance,
               options.stepperHistory,
+              options.calibrateScreenSizeAllowedRatio,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -7513,6 +7534,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateDistanceSpotXYDeg,
           options.calibrateDistance,
           options.stepperHistory,
+          options.calibrateScreenSizeAllowedRatio,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
@@ -7646,42 +7668,54 @@ export async function objectTest(RC, options, callback = undefined) {
           return
         }
 
-        // Cancel any ongoing ruler-shift animation on page 2
-        if (currentPage === 2) {
-          cancelRulerShiftAnimation()
-        }
-
-        // Check if iris tracking is active before proceeding (for pages 3 and 4)
-        if ((currentPage === 3 || currentPage === 4) && !irisTrackingIsActive) {
-          console.log('Iris tracking not active - ignoring space bar')
-          return
-        }
-
-        // Remove the event listener immediately to prevent multiple rapid presses
-        document.removeEventListener('keydown', handleKeyPress)
-
-        // Play camera shutter sound on pages 3 and 4
-        if (currentPage === 3 || currentPage === 4) {
-          if (env !== 'mocha' && cameraShutterSound) {
-            cameraShutterSound()
+        // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
+        ;(async () => {
+          const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
+          if (!canProceed) {
+            // Key press flushed - not in fullscreen, now in fullscreen after 4 second wait
+            // Wait for a new key press (do nothing, just return)
+            return
           }
-        }
 
-        //play stamp of approval sound on page 2
-        if (currentPage === 2) {
-          if (env !== 'mocha' && stampOfApprovalSound) {
-            stampOfApprovalSound()
+          // Cancel any ongoing ruler-shift animation on page 2
+          if (currentPage === 2) {
+            cancelRulerShiftAnimation()
           }
-        }
 
-        // Capture the video frame immediately on space press (for 3 and 4)
-        if (currentPage === 3 || currentPage === 4) {
-          lastCapturedFaceImage = captureVideoFrame(RC)
-        }
+          // Check if iris tracking is active before proceeding (for pages 3 and 4)
+          if (
+            (currentPage === 3 || currentPage === 4) &&
+            !irisTrackingIsActive
+          ) {
+            console.log('Iris tracking not active - ignoring space bar')
+            return
+          }
 
-        if (currentPage === 2) {
-          if (isPaperSelectionMode) {
-            ;(async () => {
+          // Remove the event listener immediately to prevent multiple rapid presses
+          document.removeEventListener('keydown', handleKeyPress)
+
+          // Play camera shutter sound on pages 3 and 4
+          if (currentPage === 3 || currentPage === 4) {
+            if (env !== 'mocha' && cameraShutterSound) {
+              cameraShutterSound()
+            }
+          }
+
+          //play stamp of approval sound on page 2
+          if (currentPage === 2) {
+            if (env !== 'mocha' && stampOfApprovalSound) {
+              stampOfApprovalSound()
+            }
+          }
+
+          // Capture the video frame immediately on space press (for 3 and 4)
+          if (currentPage === 3 || currentPage === 4) {
+            lastCapturedFaceImage = captureVideoFrame(RC)
+          }
+
+          if (currentPage === 2) {
+            if (isPaperSelectionMode) {
+              ;(async () => {
               const advanced = await nextPage()
 
               if (advanced && !RC.gazeTracker.checkInitialized('distance')) {
@@ -8516,23 +8550,39 @@ export async function objectTest(RC, options, callback = undefined) {
                 )
                 const newMin = min.toFixed(1) * ipdpxRatio
                 const newMax = max.toFixed(1) / ipdpxRatio
-                const ratioText = factorRatio.toFixed(2) // Use factorRatio (F1/F2) for display
-                let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-                  .replace('[[N11]]', ratioText)
-                  .replace('[[N22]]', '')
                 const reasonIsOutOfRange = message.includes(
                   'out of allowed range',
                 )
+                
+                // For fOverWidth mismatch: ratio = (100 * oldFOverWidth / newFOverWidth).toFixed(0)
+                // oldFOverWidth = RC.fOverWidth1, newFOverWidth = RC.fOverWidth2
+                const fOverWidthRatioPercent = RC.fOverWidth1 && RC.fOverWidth2
+                  ? (100 * RC.fOverWidth1 / RC.fOverWidth2).toFixed(0)
+                  : (100 * factorRatio).toFixed(0) // fallback to factorRatio if fOverWidth not available
+                
+                let displayMessage = ''
                 if (reasonIsOutOfRange) {
                   displayMessage = phrases.RC_viewingExceededRange[RC.L]
                     .replace('[[N11]]', Math.round(newMin))
                     .replace('[[N22]]', Math.round(newMax))
                     .replace('[[N33]]', Math.round(RMin))
                     .replace('[[N44]]', Math.round(RMax))
+                } else {
+                  // fOverWidth mismatch - use RC_focalLengthMismatch
+                  displayMessage =
+                    phrases.RC_focalLengthMismatch?.[RC.L]?.replace(
+                      '[[N1]]',
+                      fOverWidthRatioPercent,
+                    ) ||
+                    `❌ The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
                 }
+                
                 // Tolerance check failed - show error and restart Face Mesh collection
                 console.log(
                   '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
+                )
+                console.log(
+                  `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
                 )
 
                 // Note: validPage3Samples, validPage4Samples, page3Average, page4Average,
@@ -8674,139 +8724,19 @@ export async function objectTest(RC, options, callback = undefined) {
                   })
                   return // Exit early to prevent the normal restart flow
                 } else {
-                  // Show popup with two buttons: Use Old Object Again or Try New Object
-                  const result = await Swal.fire({
+                  // Show simple popup with centered OK button
+                  await Swal.fire({
                     ...swalInfoOptions(RC, { showIcon: false }),
                     icon: undefined,
                     html: displayMessage,
-                    showCancelButton: true,
-                    confirmButtonText: phrases.RC_ok?.[RC.L],
-                    cancelButtonText: phrases.RC_NewObjectButton?.[RC.L],
+                    showCancelButton: false,
+                    confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
                     allowEnterKey: true,
-                    allowEscapeKey: false, // Prevent ESC from dismissing
-                    allowOutsideClick: false, // Require button click
-                    // Keep default order so confirm (Use Old Object) is on the left and cancel (Try New Object) is on the right
-                    customClass: {
-                      actions: 'rc-two-button-actions',
-                      confirmButton: 'rc-two-button-confirm',
-                      cancelButton: 'rc-two-button-cancel',
-                    },
-                    didOpen: () => {
-                      // Style buttons to be the same
-                      const confirmBtn = document.querySelector(
-                        '.rc-two-button-confirm',
-                      )
-                      const cancelBtn = document.querySelector(
-                        '.rc-two-button-cancel',
-                      )
-
-                      const buttonStyle = `
-                        background-color: #019267 !important;
-                        color: white !important;
-                        border: none !important;
-                        padding: 12px 24px !important;
-                        font-size: 16px !important;
-                        cursor: pointer !important;
-                        border-radius: 7px !important;
-                        min-width: 150px !important;
-                        font-weight: 700 !important;
-                      `
-
-                      if (confirmBtn) {
-                        confirmBtn.style.cssText = buttonStyle
-                        // Add hover effect
-                        confirmBtn.addEventListener('mouseenter', () => {
-                          confirmBtn.style.backgroundColor = '#016b4a'
-                        })
-                        confirmBtn.addEventListener('mouseleave', () => {
-                          confirmBtn.style.backgroundColor = '#019267'
-                        })
-                      }
-                      if (cancelBtn) {
-                        cancelBtn.style.cssText = buttonStyle
-                        // Add hover effect
-                        cancelBtn.addEventListener('mouseenter', () => {
-                          cancelBtn.style.backgroundColor = '#016b4a'
-                        })
-                        cancelBtn.addEventListener('mouseleave', () => {
-                          cancelBtn.style.backgroundColor = '#019267'
-                        })
-                      }
-
-                      // Put the two buttons at the left/right corners of the popup action row
-                      const actionsContainer = document.querySelector(
-                        '.rc-two-button-actions',
-                      )
-                      if (actionsContainer) {
-                        actionsContainer.style.cssText = `
-                          display: flex !important;
-                          justify-content: space-between !important;
-                          align-items: center !important;
-                          width: 100% !important;
-                          gap: 0px !important;
-                          padding: 0 16px !important;
-                        `
-                      }
-                      // Ensure buttons don't auto-center via margins
-                      if (confirmBtn) confirmBtn.style.margin = '0'
-                      if (cancelBtn) cancelBtn.style.margin = '0'
-                    },
+                    allowEscapeKey: false,
+                    allowOutsideClick: false,
                   })
 
-                  if (
-                    result.dismiss === Swal.DismissReason.cancel ||
-                    !result.isConfirmed
-                  ) {
-                    // User clicked "Try New Object" (cancel button) - go back to page 2
-                    console.log(
-                      'User chose to try new object - returning to page 2',
-                    )
-
-                    // Reset rejection counter when starting fresh with new object
-                    measurementState.factorRejectionCount = 0
-                    console.log(
-                      'Reset factor rejection count to 0 (new object)',
-                    )
-
-                    // Clear the saved measurement data to start fresh
-                    savedMeasurementData = null
-                    measurementState.measurements = []
-                    measurementState.currentIteration = 1
-                    measurementState.consistentPair = null
-
-                    // Reset viewing distance counters for fresh start
-                    viewingDistanceMeasurementCount = 0
-                    viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
-
-                    if (isPaperSelectionMode) {
-                      // Reset paper-selection state so page 2 shows ONLY paper selection (no tape-mode leftovers)
-                      selectedPaperOption = null
-                      selectedPaperLengthCm = null
-                      selectedPaperLabel = null
-                      paperSuggestionValue = ''
-                      if (typeof paperSuggestionInput !== 'undefined')
-                        paperSuggestionInput.value = ''
-                      // Clear any checked radio buttons
-                      const checked = paperSelectionContainer?.querySelector(
-                        'input[name="paper-selection"]:checked',
-                      )
-                      if (checked) checked.checked = false
-                      if (paperValidationMessage)
-                        paperValidationMessage.style.display = 'none'
-                    } else {
-                      // Reset ruler/tape to initial position for new object (non-paper mode)
-                      await resetPage2ForNextMeasurement()
-                    }
-
-                    // Go back to page 2 to measure new object
-                    await showPage(2)
-
-                    // Re-add the event listener for the new page 2 instance
-                    document.addEventListener('keydown', handleKeyPress)
-                    return
-                  }
-
-                  // User chose "Use Old Object Again" - increment counter and show pause
+                  // Increment rejection counter and show pause
                   measurementState.factorRejectionCount++
                   console.log(
                     `Factor rejection count: ${measurementState.factorRejectionCount}`,
@@ -8821,17 +8751,27 @@ export async function objectTest(RC, options, callback = undefined) {
                 }
 
                 // Reset to page 3 to restart snapshots (keep same object measurement)
-                // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
-
-                // Increment expected total by 2 (one more page 3/4 cycle)
-                viewingDistanceTotalExpected += 2
+                // Per spec: Reject BOTH measurements, go back to first snapshot page
+                
+                // Clear Face Mesh samples for fresh start
+                faceMeshSamplesPage3.length = 0
+                faceMeshSamplesPage4.length = 0
+                meshSamplesDuringPage3.length = 0
+                meshSamplesDuringPage4.length = 0
+                
+                // Reset measurement count - showPage(3) will increment by 1
+                // In paper mode: page 2 is count 1, page 3 is count 2, page 4 is count 3
+                // In non-paper mode: page 3 is count 1, page 4 is count 2
+                viewingDistanceMeasurementCount = isPaperSelectionMode ? 1 : 0
+                viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
+                
                 console.log(
-                  `Retrying with same object. Expected total now: ${viewingDistanceTotalExpected}`,
+                  `Rejected BOTH measurements. Restarting from page 3. Count reset to: ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
                 )
 
-                currentPage = 2 // Will advance to page 3
+                // Go directly to page 3 (don't use nextPage() which runs paper selection logic again)
                 // Keep firstMeasurement - DO NOT set to null
-                await nextPage()
+                await showPage(3)
 
                 // Re-add the event listener for the new page 3 instance
                 document.addEventListener('keydown', handleKeyPress)
@@ -8847,6 +8787,7 @@ export async function objectTest(RC, options, callback = undefined) {
             }
           })()
         }
+        })() // Close the fullscreen enforcement async IIFE
       }
     }
   }
@@ -9329,20 +9270,35 @@ export async function objectTest(RC, options, callback = undefined) {
         )
         const newMin = min.toFixed(1) * ipdpxRatio
         const newMax = max.toFixed(1) / ipdpxRatio
-        const ratioText = factorRatio.toFixed(2) // Use factorRatio (F1/F2) for display
-        let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-          .replace('[[N11]]', ratioText)
-          .replace('[[N22]]', '')
         const reasonIsOutOfRange = message.includes('out of allowed range')
+        
+        // For fOverWidth mismatch: ratio = (100 * oldFOverWidth / newFOverWidth).toFixed(0)
+        const fOverWidthRatioPercent = RC.fOverWidth1 && RC.fOverWidth2
+          ? (100 * RC.fOverWidth1 / RC.fOverWidth2).toFixed(0)
+          : (100 * factorRatio).toFixed(0)
+        
+        let displayMessage = ''
         if (reasonIsOutOfRange) {
           displayMessage = phrases.RC_viewingExceededRange[RC.L]
             .replace('[[N11]]', Math.round(newMin))
             .replace('[[N22]]', Math.round(newMax))
             .replace('[[N33]]', Math.round(RMin))
             .replace('[[N44]]', Math.round(RMax))
+        } else {
+          // fOverWidth mismatch - use RC_focalLengthMismatch
+          displayMessage =
+            phrases.RC_focalLengthMismatch?.[RC.L]?.replace(
+              '[[N1]]',
+              fOverWidthRatioPercent,
+            ) ||
+            `❌ The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
         }
+        
         console.log(
           '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION (Proceed button) ===',
+        )
+        console.log(
+          `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
         )
 
         // Note: validPage3Samples, validPage4Samples, page3Average, page4Average, page3FactorCmPx, page4FactorCmPx
@@ -9458,135 +9414,19 @@ export async function objectTest(RC, options, callback = undefined) {
           })
           return // Exit early to prevent the normal restart flow
         } else {
-          // Show popup with two buttons: Use Old Object Again or Try New Object
-          const result = await Swal.fire({
+          // Show simple popup with centered OK button
+          await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
             icon: undefined,
             html: displayMessage,
-            showCancelButton: true,
-            confirmButtonText:
-              phrases.RC_UseOldObjectAgain?.[RC.L] || 'Use Old Object Again',
-            cancelButtonText:
-              phrases.RC_TryNewObject?.[RC.L] || 'Try New Object',
+            showCancelButton: false,
+            confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
             allowEnterKey: true,
-            allowEscapeKey: false, // Prevent ESC from dismissing
-            allowOutsideClick: false, // Require button click
-            // Keep default order so confirm (Use Old Object) is on the left and cancel (Try New Object) is on the right
-            customClass: {
-              actions: 'rc-two-button-actions',
-              confirmButton: 'rc-two-button-confirm',
-              cancelButton: 'rc-two-button-cancel',
-            },
-            didOpen: () => {
-              // Style buttons to be the same
-              const confirmBtn = document.querySelector(
-                '.rc-two-button-confirm',
-              )
-              const cancelBtn = document.querySelector('.rc-two-button-cancel')
-
-              const buttonStyle = `
-                        background-color: #019267 !important;
-                        color: white !important;
-                        border: none !important;
-                        padding: 12px 24px !important;
-                        font-size: 16px !important;
-                        cursor: pointer !important;
-                        border-radius: 7px !important;
-                        min-width: 150px !important;
-                        font-weight: 700 !important;
-                      `
-
-              if (confirmBtn) {
-                confirmBtn.style.cssText = buttonStyle
-                // Add hover effect
-                confirmBtn.addEventListener('mouseenter', () => {
-                  confirmBtn.style.backgroundColor = '#016b4a'
-                })
-                confirmBtn.addEventListener('mouseleave', () => {
-                  confirmBtn.style.backgroundColor = '#019267'
-                })
-              }
-              if (cancelBtn) {
-                cancelBtn.style.cssText = buttonStyle
-                // Add hover effect
-                cancelBtn.addEventListener('mouseenter', () => {
-                  cancelBtn.style.backgroundColor = '#016b4a'
-                })
-                cancelBtn.addEventListener('mouseleave', () => {
-                  cancelBtn.style.backgroundColor = '#019267'
-                })
-              }
-
-              // Put the two buttons at the left/right corners of the popup action row
-              const actionsContainer = document.querySelector(
-                '.rc-two-button-actions',
-              )
-              if (actionsContainer) {
-                actionsContainer.style.cssText = `
-                          display: flex !important;
-                          justify-content: space-between !important;
-                          align-items: center !important;
-                          width: 100% !important;
-                          gap: 0px !important;
-                          padding: 0 16px !important;
-                        `
-              }
-              if (confirmBtn) confirmBtn.style.marginRight = '25'
-              if (cancelBtn) cancelBtn.style.marginLeft = '25'
-            },
+            allowEscapeKey: false,
+            allowOutsideClick: false,
           })
 
-          if (
-            result.dismiss === Swal.DismissReason.cancel ||
-            !result.isConfirmed
-          ) {
-            // User clicked "Try New Object" (cancel button) - go back to page 2
-            console.log(
-              'User chose to try new object (Proceed button path) - returning to page 2',
-            )
-
-            // Reset rejection counter when starting fresh with new object
-            measurementState.factorRejectionCount = 0
-            console.log(
-              'Reset factor rejection count to 0 (new object, Proceed button path)',
-            )
-
-            // Clear the saved measurement data to start fresh
-            savedMeasurementData = null
-            measurementState.measurements = []
-            measurementState.currentIteration = 1
-            measurementState.consistentPair = null
-
-            // Reset viewing distance counters for fresh start
-            viewingDistanceMeasurementCount = 0
-            viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
-
-            if (isPaperSelectionMode) {
-              // Reset paper-selection state so page 2 shows ONLY paper selection (no tape-mode leftovers)
-              selectedPaperOption = null
-              selectedPaperLengthCm = null
-              selectedPaperLabel = null
-              paperSuggestionValue = ''
-              if (typeof paperSuggestionInput !== 'undefined')
-                paperSuggestionInput.value = ''
-              // Clear any checked radio buttons
-              const checked = paperSelectionContainer?.querySelector(
-                'input[name="paper-selection"]:checked',
-              )
-              if (checked) checked.checked = false
-              if (paperValidationMessage)
-                paperValidationMessage.style.display = 'none'
-            } else {
-              // Reset ruler/tape to initial position for new object
-              await resetPage2ForNextMeasurement()
-            }
-
-            // Go back to page 2 to measure new object
-            await showPage(2)
-            return
-          }
-
-          // User chose "Use Old Object Again" - increment counter and show pause
+          // Increment rejection counter and show pause
           measurementState.factorRejectionCount++
           console.log(
             `Factor rejection count (Proceed button path): ${measurementState.factorRejectionCount}`,
@@ -9601,17 +9441,27 @@ export async function objectTest(RC, options, callback = undefined) {
         }
 
         // Reset to page 3 to restart snapshots (keep same object measurement)
-        // Per spec: "stick with the same measured object and go back to the first object-set distance and snapshot"
-
-        // Increment expected total by 2 (one more page 3/4 cycle)
-        viewingDistanceTotalExpected += 2
+        // Per spec: Reject BOTH measurements, go back to first snapshot page
+        
+        // Clear Face Mesh samples for fresh start
+        faceMeshSamplesPage3.length = 0
+        faceMeshSamplesPage4.length = 0
+        meshSamplesDuringPage3.length = 0
+        meshSamplesDuringPage4.length = 0
+        
+        // Reset measurement count - showPage(3) will increment by 1
+        // In paper mode: page 2 is count 1, page 3 is count 2, page 4 is count 3
+        // In non-paper mode: page 3 is count 1, page 4 is count 2
+        viewingDistanceMeasurementCount = isPaperSelectionMode ? 1 : 0
+        viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
+        
         console.log(
-          `Retrying with same object (Proceed button path). Expected total now: ${viewingDistanceTotalExpected}`,
+          `Rejected BOTH measurements (Proceed button path). Restarting from page 3. Count reset to: ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
         )
 
-        currentPage = 2 // Will advance to page 3
+        // Go directly to page 3 (don't use nextPage() which runs paper selection logic again)
         // Keep firstMeasurement - DO NOT set to null
-        await nextPage()
+        await showPage(3)
 
         // Re-add the event listener for page 3 after restart
         document.addEventListener('keydown', handleKeyPress)
@@ -9886,7 +9736,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     arrowContainer.style.width = '100%'
     arrowContainer.style.height = '100%'
     arrowContainer.style.pointerEvents = 'none'
-    arrowContainer.style.zIndex = '999999998'
+    arrowContainer.style.zIndex = '1000000000001' // Above video to ensure arrows are never obscured
 
     const createArrow = (fromX, fromY, toX, toY) => {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
@@ -10100,15 +9950,17 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
       if (currentStepFlatIndex < maxIdx) {
         currentStepFlatIndex++
-        renderCurrentStepView()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderCurrentStepView()
       e.preventDefault()
       e.stopPropagation()
     } else if (e.key === 'ArrowUp') {
       if (currentStepFlatIndex > 0) {
         currentStepFlatIndex--
-        renderCurrentStepView()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderCurrentStepView()
       e.preventDefault()
       e.stopPropagation()
     }
@@ -10407,6 +10259,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         options.calibrateDistanceSpotXYDeg,
         options.calibrateDistance,
         options.stepperHistory,
+        options.calibrateScreenSizeAllowedRatio,
       )
     } else {
       if (typeof callback === 'function') {
@@ -10471,25 +10324,37 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       if (currentPage === 3 || currentPage === 4) {
         e.preventDefault()
 
-        if ((currentPage === 3 || currentPage === 4) && !irisTrackingIsActive) {
-          console.log('Iris tracking not active - ignoring space bar')
-          return
-        }
-
-        document.removeEventListener('keydown', handleKeyPress)
-
-        if (currentPage === 3 || currentPage === 4) {
-          if (env !== 'mocha' && cameraShutterSound) {
-            cameraShutterSound()
+        // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
+        ;(async () => {
+          const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
+          if (!canProceed) {
+            // Key press flushed - not in fullscreen, now in fullscreen after 4 second wait
+            // Wait for a new key press (do nothing, just return)
+            return
           }
-        }
 
-        if (currentPage === 3 || currentPage === 4) {
-          lastCapturedFaceImage = captureVideoFrame(RC)
-        }
+          if (
+            (currentPage === 3 || currentPage === 4) &&
+            !irisTrackingIsActive
+          ) {
+            console.log('Iris tracking not active - ignoring space bar')
+            return
+          }
 
-        if (currentPage === 3) {
-          ;(async () => {
+          document.removeEventListener('keydown', handleKeyPress)
+
+          if (currentPage === 3 || currentPage === 4) {
+            if (env !== 'mocha' && cameraShutterSound) {
+              cameraShutterSound()
+            }
+          }
+
+          if (currentPage === 3 || currentPage === 4) {
+            lastCapturedFaceImage = captureVideoFrame(RC)
+          }
+
+          if (currentPage === 3) {
+            ;(async () => {
             console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
 
             await collectFaceMeshSamples(
@@ -10624,6 +10489,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                     options.calibrateDistanceSpotXYDeg,
                     options.calibrateDistance,
                     options.stepperHistory,
+                    options.calibrateScreenSizeAllowedRatio,
                   )
                 } else {
                   // Call callback directly (same as knownDistanceTestFinishFunction)
@@ -10778,22 +10644,35 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 )
                 const newMin = min.toFixed(1) * ipdpxRatio
                 const newMax = max.toFixed(1) / ipdpxRatio
-                const ratioText = factorRatio.toFixed(2) // Use factorRatio (F1/F2) for display
-
-                // Use proper phrases (same as object test)
-                let displayMessage = phrases.RC_viewingObjectRejected[RC.L]
-                  .replace('[[N11]]', ratioText)
-                  .replace('[[N22]]', '')
                 const reasonIsOutOfRange = message.includes(
                   'out of allowed range',
                 )
+                
+                // For fOverWidth mismatch: ratio = (100 * oldFOverWidth / newFOverWidth).toFixed(0)
+                const fOverWidthRatioPercent = RC.fOverWidth1 && RC.fOverWidth2
+                  ? (100 * RC.fOverWidth1 / RC.fOverWidth2).toFixed(0)
+                  : (100 * factorRatio).toFixed(0)
+                
+                let displayMessage = ''
                 if (reasonIsOutOfRange) {
                   displayMessage = phrases.RC_viewingExceededRange[RC.L]
                     .replace('[[N11]]', Math.round(newMin))
                     .replace('[[N22]]', Math.round(newMax))
                     .replace('[[N33]]', Math.round(RMin))
                     .replace('[[N44]]', Math.round(RMax))
+                } else {
+                  // fOverWidth mismatch - use RC_focalLengthMismatch
+                  displayMessage =
+                    phrases.RC_focalLengthMismatch?.[RC.L]?.replace(
+                      '[[N1]]',
+                      fOverWidthRatioPercent,
+                    ) ||
+                    `❌ The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
                 }
+                
+                console.log(
+                  `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
+                )
 
                 // Show error message
                 await Swal.fire({
@@ -10811,13 +10690,21 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   measurementState.factorRejectionCount,
                 )
 
-                // Reset and restart from page 3
+                // Reset and restart from page 3 - reject BOTH measurements
                 faceMeshSamplesPage3.length = 0
                 faceMeshSamplesPage4.length = 0
                 meshSamplesDuringPage3.length = 0
                 meshSamplesDuringPage4.length = 0
                 savedMeasurementData = null
+                
+                // Reset measurement count to 0 - we're starting fresh with both snapshots
                 viewingDistanceMeasurementCount = 0
+                // Reset expected total to 2 (knownDistanceTest doesn't have paper mode)
+                viewingDistanceTotalExpected = 2
+                
+                console.log(
+                  `Rejected BOTH measurements (knownDistanceTest). Restarting from page 3. Count reset to: ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
+                )
 
                 await showPage(3)
                 document.addEventListener('keydown', handleKeyPress)
@@ -10825,6 +10712,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
             }
           })()
         }
+        })() // Close the fullscreen enforcement async IIFE
       }
     }
   }
@@ -11164,20 +11052,19 @@ function checkObjectTestTolerance(
     page4FactorCmPx !== null ? page4FactorCmPx : page4Mean * measurementCm
   const factorRatio = F1 / F2 // Previous (Page 3) / Current (Page 4)
 
-  // For tolerance check, use the maximum of the ratio and its inverse
-  const ratio1 = F1 / F2
-  const ratio2 = F2 / F1
-  const maxRatio = Math.max(ratio1, ratio2)
-  const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
+  // Use log10 formula for tolerance check: abs(log10(F2/F1)) > log10(allowedRatio)
+  // This checks if the new fOverWidth differs too much from the old fOverWidth
+  const logRatio = Math.abs(Math.log10(F2 / F1))
+  const logThreshold = Math.log10(allowedRatio)
 
-  console.log('=== Object Test Tolerance Check (Factors) ===')
+  console.log('=== Object Test Tolerance Check (Factors with log10) ===')
   console.log('Measurement (cm):', measurementCm.toFixed(2))
   console.log('Page 3 avg FM (px):', page3Mean.toFixed(2))
   console.log('Page 4 avg FM (px):', page4Mean.toFixed(2))
-  console.log('F1 (page3FactorCmPx):', F1.toFixed(2))
-  console.log('F2 (page4FactorCmPx):', F2.toFixed(2))
-  console.log('Max ratio:', maxRatio.toFixed(3))
-  console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
+  console.log('F1 (page3FactorCmPx / oldFOverWidth proxy):', F1.toFixed(2))
+  console.log('F2 (page4FactorCmPx / newFOverWidth proxy):', F2.toFixed(2))
+  console.log('Log ratio abs(log10(F2/F1)):', logRatio.toFixed(4))
+  console.log('Log threshold log10(allowedRatio):', logThreshold.toFixed(4))
 
   // Range check on measurement
   const ppi = RC.screenPpi ? RC.screenPpi.value : 96
@@ -11207,15 +11094,19 @@ function checkObjectTestTolerance(
     ]
   }
 
-  console.log('Pass:', maxRatio <= maxAllowedRatio)
+  // Pass if logRatio <= logThreshold
+  const pass = logRatio <= logThreshold
+  // For display purposes, calculate max ratio (for backwards compatibility)
+  const maxRatio = Math.max(F1 / F2, F2 / F1)
+
+  console.log('Pass:', pass)
   console.log('================================')
-  const pass = maxRatio <= maxAllowedRatio
 
   return [
     pass,
     pass
       ? 'Pass'
-      : `Measurements not consistent
+      : `Measurements not consistent (fOverWidth mismatch)
       distance1Cm: ${Math.round(distance1Cm)};
       distance2Cm: ${Math.round(distance2Cm)};
       distance1FactorCmPx: ${F1.toFixed(1)};

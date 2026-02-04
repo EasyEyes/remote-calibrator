@@ -10,7 +10,13 @@ import {
 } from './stepByStepInstructionHelps'
 import { parseInstructions } from './instructionParserAdapter'
 import { startIrisDrawingWithMesh } from './distanceTrack'
-import { getFullscreen, isFullscreen, toFixedNumber } from '../components/utils'
+import {
+  getFullscreen,
+  isFullscreen,
+  toFixedNumber,
+  forceFullscreen,
+  enforceFullscreenOnSpacePress,
+} from '../components/utils'
 import { hideResolutionSettingMessage } from '../components/popup'
 
 // Constants for credit card size in centimeters
@@ -1482,6 +1488,9 @@ function getInstructions(RC, isRepeat) {
 export async function justCreditCard(RC, options, callback = undefined) {
   RC._addBackground()
 
+  // Force fullscreen unconditionally on Distance page arrival
+  forceFullscreen(RC.L, RC)
+
   // Unit conversions and configurable offsets
   const pxPerCm = (RC?.screenPpi?.value ? RC.screenPpi.value : 96) / 2.54 // fallback to 96 DPI if missing
   const cameraToCardOffsetCm =
@@ -2326,15 +2335,17 @@ export async function justCreditCard(RC, options, callback = undefined) {
       )
       if (currentStepFlatIndex < maxIdx) {
         currentStepFlatIndex++
-        renderStepperAtCurrentIndex()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderStepperAtCurrentIndex()
       e.preventDefault()
       e.stopPropagation()
     } else if (e.key === 'ArrowUp') {
       if (currentStepFlatIndex > 0) {
         currentStepFlatIndex--
-        renderStepperAtCurrentIndex()
       }
+      // Always re-render to provide visual feedback (even if only one step)
+      renderStepperAtCurrentIndex()
       e.preventDefault()
       e.stopPropagation()
     }
@@ -2596,6 +2607,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
         options.calibrateDistanceSpotXYDeg,
         options.calibrateDistance,
         options.stepperHistory,
+        options.calibrateScreenSizeAllowedRatio,
       )
     } else {
       if (typeof callback === 'function') {
@@ -2645,7 +2657,16 @@ export async function justCreditCard(RC, options, callback = undefined) {
       onArrow(+1)
     } else if (e.key === ' ') {
       e.preventDefault()
-      onSpace()
+      // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
+      ;(async () => {
+        const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
+        if (!canProceed) {
+          // Key press flushed - not in fullscreen, now in fullscreen after 4 second wait
+          // Wait for a new key press (do nothing, just return)
+          return
+        }
+        onSpace()
+      })()
     } else if (e.key === 'Escape') {
       // Reset to initial horizontal position if needed?
       // Or just do nothing as click points are gone.

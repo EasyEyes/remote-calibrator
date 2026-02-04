@@ -5,6 +5,9 @@ import {
   getCameraResolutionXY,
   safeExecuteFunc,
   sleep,
+  forceFullscreen,
+  enforceFullscreenOnSpacePress,
+  isFullscreen,
 } from '../components/utils'
 import { remoteCalibratorPhrases } from '../i18n/phrases'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
@@ -873,7 +876,11 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateDistanceSpotXYDeg = null,
   calibrateDistance = '',
   stepperHistory = 1,
+  calibrateScreenSizeAllowedRatio = 1.1,
 ) {
+  // Force fullscreen unconditionally on "Set your viewing distance" page arrival
+  forceFullscreen(this.L, this)
+
   await this.getEquipment(
     async () => {
       return await trackDistanceCheck(
@@ -892,6 +899,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateDistanceSpotXYDeg,
         calibrateDistance,
         stepperHistory,
+        calibrateScreenSizeAllowedRatio,
       )
     },
     false,
@@ -1413,6 +1421,7 @@ const checkSize = async (
   calibrateDistanceCheckLengthCm = [],
   calibrateDistanceChecking = undefined,
   stepperHistory = 1,
+  calibrateScreenSizeAllowedRatio = 1.1,
 ) => {
   // Hide video during checkSize (yellow tape measurement)
   RC.showVideo(false)
@@ -1557,6 +1566,9 @@ const checkSize = async (
 
       if (!instructionBody) return
 
+      // Enable pointer events so stepper arrows are clickable (parent has pointer-events: none)
+      instructionBody.style.pointerEvents = 'auto'
+
       if (!lengthStepperState.ui) {
         instructionBody.innerHTML = ''
         lengthStepperState.ui = createStepInstructionsUI(instructionBody, {
@@ -1585,16 +1597,18 @@ const checkSize = async (
         const handlePrev = () => {
           if (lengthStepperState.stepIndex > 0) {
             lengthStepperState.stepIndex--
-            doRender()
           }
+          // Always re-render to provide visual feedback (even if only one step)
+          doRender()
         }
 
         const handleNext = () => {
           const maxStep = (lengthStepperState.model.flatSteps?.length || 1) - 1
           if (lengthStepperState.stepIndex < maxStep) {
             lengthStepperState.stepIndex++
-            doRender()
           }
+          // Always re-render to provide visual feedback (even if only one step)
+          doRender()
         }
 
         const doRender = () => {
@@ -1635,15 +1649,17 @@ const checkSize = async (
               (lengthStepperState.model.flatSteps?.length || 1) - 1
             if (lengthStepperState.stepIndex < maxStep) {
               lengthStepperState.stepIndex++
-              doRender()
             }
+            // Always re-render to provide visual feedback (even if only one step)
+            doRender()
             e.preventDefault()
             e.stopPropagation()
           } else if (e.key === 'ArrowUp') {
             if (lengthStepperState.stepIndex > 0) {
               lengthStepperState.stepIndex--
-              doRender()
             }
+            // Always re-render to provide visual feedback (even if only one step)
+            doRender()
             e.preventDefault()
             e.stopPropagation()
           }
@@ -1672,8 +1688,16 @@ const checkSize = async (
         return match ? Number(match[0]) : NaN
       }
 
-      function handleMeasurement() {
+      async function handleMeasurement() {
         if (register) {
+          // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
+          const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
+          if (!canProceed) {
+            // Key press flushed - not in fullscreen, now in fullscreen after 4 second wait
+            // Wait for a new key press (do nothing, just return)
+            return
+          }
+
           //play stamp of approval sound
           if (env !== 'mocha' && stampOfApprovalSound) {
             stampOfApprovalSound()
@@ -1949,6 +1973,85 @@ const checkSize = async (
       continue
     }
 
+    // PIXEL DENSITY CONSISTENCY CHECK: Starting from the second estimate, check if
+    // pxPerCm values are consistent. If not, reject BOTH measurements and restart.
+    // Uses: abs(log10(newPxPerCm/oldPxPerCm)) > log10(threshold)
+    if (RC.calibrateDistancePxPerCm.length >= 2) {
+      const allowedRatioLength = calibrateScreenSizeAllowedRatio // Use passed threshold
+      const newPxPerCm = parseFloat(
+        RC.calibrateDistancePxPerCm[RC.calibrateDistancePxPerCm.length - 1],
+      )
+      const oldPxPerCm = parseFloat(
+        RC.calibrateDistancePxPerCm[RC.calibrateDistancePxPerCm.length - 2],
+      )
+
+      const logRatio = Math.abs(Math.log10(newPxPerCm / oldPxPerCm))
+      const logThreshold = Math.log10(allowedRatioLength)
+
+      console.log('[Pixel Density Check] ===== Measurement', i + 1, '=====')
+      console.log('[Pixel Density Check] Old pxPerCm:', oldPxPerCm)
+      console.log('[Pixel Density Check] New pxPerCm:', newPxPerCm)
+      console.log('[Pixel Density Check] Log ratio:', logRatio.toFixed(4))
+      console.log('[Pixel Density Check] Log threshold:', logThreshold.toFixed(4))
+
+      if (logRatio > logThreshold) {
+        // Calculate ratio as percentage: (100 * oldPxPerCm / newPxPerCm)
+        const ratioPercent = (100 * oldPxPerCm / newPxPerCm).toFixed(0)
+
+        console.log(
+          `[Pixel Density Check] MISMATCH: New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,
+        )
+
+        const errorMessage =
+          phrases.RC_pixelDensityMismatch?.[RC.language.value]?.replace(
+            '[[N1]]',
+            ratioPercent,
+          ) ||
+          `❌ The last two length settings are inconsistent. The new length is ${ratioPercent}% of that expected from the previous one. Let's try again. Click OK or press RETURN.`
+
+        // Show popup and wait for OK or RETURN
+        await Swal.fire({
+          ...swalInfoOptions(RC, { showIcon: false }),
+          icon: '',
+          title: '',
+          html: errorMessage,
+          allowEnterKey: true,
+          focusConfirm: true,
+          confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
+          didOpen: () => {
+            // Prevent Space key from triggering OK (only allow Return/Enter)
+            const confirmBtn = Swal.getConfirmButton()
+            if (confirmBtn) {
+              confirmBtn.addEventListener('keydown', e => {
+                if (e.key === ' ' || e.code === 'Space') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }
+              })
+            }
+          },
+        })
+
+        // Reject BOTH measurements - remove them from the arrays
+        RC.calibrateDistancePxPerCm.pop() // Remove last (new)
+        RC.calibrateDistancePxPerCm.pop() // Remove second-to-last (old)
+        RC.calibrateTrackLengthMeasuredCm.pop()
+        RC.calibrateTrackLengthMeasuredCm.pop()
+        RC.calibrateTrackLengthRequestedCm.pop()
+        RC.calibrateTrackLengthRequestedCm.pop()
+
+        // Reduce page count appropriately - go back 2 iterations to remeasure both
+        i = RC.calibrateDistancePxPerCm.length - 1 // Will be incremented to correct position
+
+        console.log(
+          `[Pixel Density Check] After rejection: ${RC.calibrateDistancePxPerCm.length} measurements remaining, continuing from index ${i + 1}`,
+        )
+        continue
+      } else {
+        console.log('[Pixel Density Check] Measurements consistent - passed')
+      }
+    }
+
     // COMPLIANCE CHECK: Starting from the second setting, check for non-compliance
     // (user pressing space without actually adjusting the tape)
     if (i >= 1) {
@@ -2215,6 +2318,7 @@ const trackDistanceCheck = async (
   calibrateDistanceSpotXYDeg = null,
   calibrateDistance = '',
   stepperHistory = 1,
+  calibrateScreenSizeAllowedRatio = 1.1,
 ) => {
   const isTrack = measureName === 'trackDistance'
   const isBlindspot = calibrateDistance === 'blindspot'
@@ -2334,6 +2438,7 @@ const trackDistanceCheck = async (
       calibrateDistanceCheckLengthCm,
       calibrateDistanceChecking,
       stepperHistory,
+      calibrateScreenSizeAllowedRatio,
     )
     RC.resumeNudger()
     // Start video trimming for screen center distance measurement
@@ -2584,6 +2689,8 @@ const trackDistanceCheck = async (
       }
       if (instructionBody) {
         instructionBody.innerHTML = ''
+        // Enable pointer events so stepper arrows are clickable (parent has pointer-events: none)
+        instructionBody.style.pointerEvents = 'auto'
         // Add bottom padding to prevent content from being occluded by progress bar
         instructionBody.style.paddingBottom = '50px'
         // Also ensure max-height accounts for progress bar
@@ -2648,15 +2755,17 @@ const trackDistanceCheck = async (
           const handlePrev = () => {
             if (stepIndex > 0) {
               stepIndex--
-              doRender()
             }
+            // Always re-render to provide visual feedback (even if only one step)
+            doRender()
           }
 
           const handleNext = () => {
             if (stepIndex < maxIdx) {
               stepIndex++
-              doRender()
             }
+            // Always re-render to provide visual feedback (even if only one step)
+            doRender()
           }
 
           const doRender = () => {
@@ -2706,15 +2815,17 @@ const trackDistanceCheck = async (
               const maxIdx = (stepModel.flatSteps?.length || 1) - 1
               if (stepIndex < maxIdx) {
                 stepIndex++
-                doRender()
               }
+              // Always re-render to provide visual feedback (even if only one step)
+              doRender()
               e.preventDefault()
               e.stopPropagation()
             } else if (e.key === 'ArrowUp') {
               if (stepIndex > 0) {
                 stepIndex--
-                doRender()
               }
+              // Always re-render to provide visual feedback (even if only one step)
+              doRender()
               e.preventDefault()
               e.stopPropagation()
             }
@@ -2739,6 +2850,14 @@ const trackDistanceCheck = async (
 
           async function keyupListener(event) {
             if (event.key === ' ' && register) {
+              // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
+              const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
+              if (!canProceed) {
+                // Key press flushed - not in fullscreen, now in fullscreen after 4 second wait
+                // Wait for a new key press (do nothing, just return)
+                return
+              }
+
               // Check if iris tracking is active before proceeding
               if (!irisTrackingIsActive) {
                 console.log('Iris tracking not active - ignoring space bar')
