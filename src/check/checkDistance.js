@@ -1002,6 +1002,8 @@ const createYellowTapeRectangle = RC => {
   container.style.userSelect = 'none'
   container.style.overflow = 'hidden'
   container.style.zIndex = '1000'
+  // Allow clicks to pass through to stepper arrows underneath
+  container.style.pointerEvents = 'none'
 
   // Calculate 3/4 inch in pixels for line height
   const threeQuarterInchesInPx = Math.round(0.75 * ppi)
@@ -1018,6 +1020,7 @@ const createYellowTapeRectangle = RC => {
     background: rgb(0, 0, 0); 
     border-radius: 2px; 
     z-index: 1;
+    pointer-events: auto;
   `
 
   // Left vertical line
@@ -1106,6 +1109,7 @@ const createYellowTapeRectangle = RC => {
       background: rgb(0, 0, 0); 
       border-radius: 2px; 
       z-index: 1;
+      pointer-events: auto;
     `
 
     // Update line positions

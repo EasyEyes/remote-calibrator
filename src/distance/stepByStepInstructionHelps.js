@@ -677,8 +677,9 @@ export function renderStepInstructions({
     instructionsHeading.style.marginBottom = '0.5rem'
     instructionsHeading.style.textAlign =
       langDirection === 'RTL' ? 'right' : 'left'
-    instructionsHeading.textContent =
-      phrases.RC_Instructions?.[lang] || 'Instructions'
+    instructionsHeading.innerHTML = processInlineFormatting(
+      phrases.RC_Instructions?.[lang] || 'Instructions',
+    )
     leftText.appendChild(instructionsHeading)
   }
 
@@ -702,9 +703,11 @@ export function renderStepInstructions({
   // Align based on language direction
   navHint.style.textAlign = langDirection === 'RTL' ? 'right' : 'left'
 
-  navHint.textContent = hasAnyVideo
-    ? phrases.EE_UseKeysToStepWithVideo?.[lang]
-    : phrases.EE_UseKeysToStep?.[lang]
+  navHint.innerHTML = processInlineFormatting(
+    hasAnyVideo
+      ? phrases.EE_UseKeysToStepWithVideo?.[lang] || ''
+      : phrases.EE_UseKeysToStep?.[lang] || '',
+  )
 
   if (showAllSteps) {
     navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
