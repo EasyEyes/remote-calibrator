@@ -877,7 +877,6 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateDistance = '',
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
-  calibrateDistanceAllowedRatioFOverWidth = 1.1,
 ) {
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
@@ -901,7 +900,6 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateDistance,
         stepperHistory,
         calibrateScreenSizeAllowedRatio,
-        calibrateDistanceAllowedRatioFOverWidth,
       )
     },
     false,
@@ -2215,7 +2213,6 @@ const trackDistanceCheck = async (
   calibrateDistance = '',
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
-  calibrateDistanceAllowedRatioFOverWidth = 1.1,
 ) => {
   const isTrack = measureName === 'trackDistance'
   const isBlindspot = calibrateDistance === 'blindspot'
@@ -2433,8 +2430,7 @@ const trackDistanceCheck = async (
       _calibrateDistanceChecking: calibrateDistanceChecking,
       _calibrateDistance: calibrateDistance,
       _calibrateDistancePupil: calibrateDistancePupil,
-      _calibrateDistanceAllowedRatioFOverWidth:
-        calibrateDistanceAllowedRatioFOverWidth,
+      _calibrateDistanceAllowedRatioFOverWidth: calibrateScreenSizeAllowedRatio,
       // Parameters with few values (before arrays with 8 values)
       cameraXYPx: [window.screen.width / 2, 0],
       pxPerCm: safeRoundCm(pxPerCm),
@@ -3234,7 +3230,7 @@ const trackDistanceCheck = async (
 
         // Check if abs(log10(newFOverWidth/oldFOverWidth)) > log10(allowedRatio)
         const logRatio = Math.abs(Math.log10(newFOverWidth / oldFOverWidth))
-        const logThreshold = Math.log10(calibrateDistanceAllowedRatioFOverWidth)
+        const logThreshold = Math.log10(calibrateScreenSizeAllowedRatio)
 
         console.log('[fOverWidth Check] Old fOverWidth:', oldFOverWidth)
         console.log('[fOverWidth Check] New fOverWidth:', newFOverWidth)
