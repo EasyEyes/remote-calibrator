@@ -877,6 +877,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateDistance = '',
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
+  calibrateDistanceAllowedRatio = 1.1,
 ) {
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
@@ -900,6 +901,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateDistance,
         stepperHistory,
         calibrateScreenSizeAllowedRatio,
+        calibrateDistanceAllowedRatio,
       )
     },
     false,
@@ -2002,8 +2004,8 @@ const checkSize = async (
       )
 
       if (logRatio > logThreshold) {
-        // Calculate ratio as percentage: (100 * oldPxPerCm / newPxPerCm)
-        const ratioPercent = ((100 * oldPxPerCm) / newPxPerCm).toFixed(0)
+        // Calculate ratio as percentage: (100 * newPxPerCm / oldPxPerCm)
+        const ratioPercent = ((100 * newPxPerCm) / oldPxPerCm).toFixed(0)
 
         console.log(
           `[Pixel Density Check] MISMATCH: New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,
@@ -2213,6 +2215,7 @@ const trackDistanceCheck = async (
   calibrateDistance = '',
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
+  calibrateDistanceAllowedRatio = 1.1,
 ) => {
   const isTrack = measureName === 'trackDistance'
   const isBlindspot = calibrateDistance === 'blindspot'
@@ -2430,7 +2433,7 @@ const trackDistanceCheck = async (
       _calibrateDistanceChecking: calibrateDistanceChecking,
       _calibrateDistance: calibrateDistance,
       _calibrateDistancePupil: calibrateDistancePupil,
-      _calibrateDistanceAllowedRatioFOverWidth: calibrateScreenSizeAllowedRatio,
+      _calibrateDistanceAllowedRatioFOverWidth: calibrateDistanceAllowedRatio,
       // Parameters with few values (before arrays with 8 values)
       cameraXYPx: [window.screen.width / 2, 0],
       pxPerCm: safeRoundCm(pxPerCm),
@@ -3241,10 +3244,10 @@ const trackDistanceCheck = async (
         )
 
         if (logRatio > logThreshold) {
-          // Calculate ratio as percentage: (100 * oldFOverWidth / newFOverWidth)
+          // Calculate ratio as percentage: (100 * newFOverWidth / oldFOverWidth)
           const fOverWidthRatioPercent = (
-            (100 * oldFOverWidth) /
-            newFOverWidth
+            (100 * newFOverWidth) /
+            oldFOverWidth
           ).toFixed(0)
 
           console.warn(
