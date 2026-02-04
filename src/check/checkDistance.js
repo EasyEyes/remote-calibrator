@@ -877,6 +877,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateDistance = '',
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
+  calibrateDistanceAllowedRatioFOverWidth = 1.1,
 ) {
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
@@ -900,6 +901,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateDistance,
         stepperHistory,
         calibrateScreenSizeAllowedRatio,
+        calibrateDistanceAllowedRatioFOverWidth,
       )
     },
     false,
@@ -1996,11 +1998,14 @@ const checkSize = async (
       console.log('[Pixel Density Check] Old pxPerCm:', oldPxPerCm)
       console.log('[Pixel Density Check] New pxPerCm:', newPxPerCm)
       console.log('[Pixel Density Check] Log ratio:', logRatio.toFixed(4))
-      console.log('[Pixel Density Check] Log threshold:', logThreshold.toFixed(4))
+      console.log(
+        '[Pixel Density Check] Log threshold:',
+        logThreshold.toFixed(4),
+      )
 
       if (logRatio > logThreshold) {
         // Calculate ratio as percentage: (100 * oldPxPerCm / newPxPerCm)
-        const ratioPercent = (100 * oldPxPerCm / newPxPerCm).toFixed(0)
+        const ratioPercent = ((100 * oldPxPerCm) / newPxPerCm).toFixed(0)
 
         console.log(
           `[Pixel Density Check] MISMATCH: New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,
@@ -2053,119 +2058,6 @@ const checkSize = async (
         continue
       } else {
         console.log('[Pixel Density Check] Measurements consistent - passed')
-      }
-    }
-
-    // COMPLIANCE CHECK: Starting from the second setting, check for non-compliance
-    // (user pressing space without actually adjusting the tape)
-    if (i >= 1) {
-      const currentRequestedLength = processedLengthCm[i]
-      const previousRequestedLength = processedLengthCm[i - 1]
-
-      // Only run compliance check if the REQUESTS differ by at least 8%
-      // (skip if requests are within 8% of being equal)
-      const requestsDifferEnough = !areValuesWithinPercent(
-        currentRequestedLength,
-        previousRequestedLength,
-        8,
-      )
-
-      if (requestsDifferEnough) {
-        // Compare the user's SETTINGS (measured lengths from yellow tape)
-        const currentMeasuredLength =
-          RC.calibrateTrackLengthMeasuredCm[
-            RC.calibrateTrackLengthMeasuredCm.length - 1
-          ]
-        const previousMeasuredLength =
-          RC.calibrateTrackLengthMeasuredCm[
-            RC.calibrateTrackLengthMeasuredCm.length - 2
-          ]
-
-        // If settings are within 3% of being equal, this is invalid (non-compliance)
-        const settingsTooSimilar = areValuesWithinPercent(
-          currentMeasuredLength,
-          previousMeasuredLength,
-          3,
-        )
-
-        if (settingsTooSimilar) {
-          // Get user's chosen units
-          const userUnits = RC.equipment?.value?.unit || 'cm'
-          const isInches = userUnits === 'inches'
-
-          // Convert measured lengths from pixels to user units
-          // First convert pixels to cm using pxPerCm, then to inches if needed
-          const previousMeasuredInCm = previousMeasuredLength / pxPerCm
-          const currentMeasuredInCm = currentMeasuredLength / pxPerCm
-          const previousMeasuredInUserUnits = isInches
-            ? previousMeasuredInCm / 2.54
-            : previousMeasuredInCm
-          const currentMeasuredInUserUnits = isInches
-            ? currentMeasuredInCm / 2.54
-            : currentMeasuredInCm
-
-          // Format measured values with 1 decimal place (never suppress zeros)
-          const prevMeasuredStr = previousMeasuredInUserUnits.toFixed(1)
-          const currMeasuredStr = currentMeasuredInUserUnits.toFixed(1)
-
-          // Requested values are already in user units (processedLengthCm is in user units despite the name)
-          // Format as integers
-          const prevRequestedStr = Math.round(
-            previousRequestedLength,
-          ).toString()
-          const currRequestedStr = Math.round(currentRequestedLength).toString()
-
-          console.warn(
-            `Compliance check failed: User set similar lengths (${prevMeasuredStr} vs ${currMeasuredStr} ${userUnits}) ` +
-              `despite different requests (${prevRequestedStr} vs ${currRequestedStr} ${userUnits})`,
-          )
-
-          // Discard all length settings so far
-          RC.calibrateTrackLengthMeasuredCm = []
-          RC.calibrateTrackLengthRequestedCm = []
-          RC.calibrateDistancePxPerCm = []
-
-          // Get the error message and fill in the values
-          // [[N11]] = previous measured, [[N22]] = current measured
-          // [[N33]] = previous requested, [[N44]] = current requested
-          // [[AAA]] = units
-          let errorMessage =
-            phrases.RC_RejectEqualLengths?.[RC.language.value] || ''
-          errorMessage = errorMessage
-            .replace('[[N11]]', prevMeasuredStr)
-            .replace('[[N22]]', currMeasuredStr)
-            .replace('[[N33]]', prevRequestedStr)
-            .replace('[[N44]]', currRequestedStr)
-            .replace('[N44]]', currRequestedStr) // Handle typo in phrase (missing opening bracket)
-            .replace(/\[\[AAA\]\]/g, userUnits)
-
-          // Show popup error message and wait for OK
-          await Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: '', //no icon
-            title: '', //no title
-            html: errorMessage,
-            allowEnterKey: true,
-            focusConfirm: true, // Focus OK button so Enter key works
-            confirmButtonText: phrases.RC_ok?.[RC.L],
-            didOpen: () => {
-              // Prevent Space key from triggering the OK button (only allow Return/Enter)
-              const confirmBtn = Swal.getConfirmButton()
-              if (confirmBtn) {
-                confirmBtn.addEventListener('keydown', e => {
-                  if (e.key === ' ' || e.code === 'Space') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                  }
-                })
-              }
-            },
-          })
-
-          // Reset loop to start from the first setting
-          // Set i to -1 so the next iteration starts at i = 0
-          i = -1
-        }
       }
     }
   }
@@ -2323,6 +2215,7 @@ const trackDistanceCheck = async (
   calibrateDistance = '',
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
+  calibrateDistanceAllowedRatioFOverWidth = 1.1,
 ) => {
   const isTrack = measureName === 'trackDistance'
   const isBlindspot = calibrateDistance === 'blindspot'
@@ -2540,6 +2433,8 @@ const trackDistanceCheck = async (
       _calibrateDistanceChecking: calibrateDistanceChecking,
       _calibrateDistance: calibrateDistance,
       _calibrateDistancePupil: calibrateDistancePupil,
+      _calibrateDistanceAllowedRatioFOverWidth:
+        calibrateDistanceAllowedRatioFOverWidth,
       // Parameters with few values (before arrays with 8 values)
       cameraXYPx: [window.screen.width / 2, 0],
       pxPerCm: safeRoundCm(pxPerCm),
@@ -2549,6 +2444,7 @@ const trackDistanceCheck = async (
       rulerUnit: RC.equipment?.value?.unit,
       // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
+      fOverWidth: [], // fVpx / cameraWidthVpx
       ipdOverWidth: [], // ipdVpx / window.innerWidth
       ipdOverWidthXYZ: [], // ipdXYZVpx / cameraWidthVpx (always 3D)
       imageBasedEyesToFootCm: [], //calibrationFVpx * ipdCm / ipdVpx
@@ -3027,12 +2923,17 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.requestedEyesToPointCm.push(
                 safeRoundCm(requestedEyesToPointCm),
               )
-              RC.distanceCheckJSON.fVpx.push(
+              const currentFVpx =
                 Math.round(
                   ((faceValidation.ipdPixels * rulerBasedEyesToFootCm) /
                     RC._CONST.IPD_CM) *
                     10,
-                ) / 10,
+                ) / 10
+              RC.distanceCheckJSON.fVpx.push(currentFVpx)
+              // Calculate and store fOverWidth = fVpx / cameraWidth
+              const currentFOverWidth = currentFVpx / cameraResolutionXYVpx[0]
+              RC.distanceCheckJSON.fOverWidth.push(
+                safeRoundRatio(currentFOverWidth),
               )
               RC.distanceCheckJSON.pointXYPx.push([
                 faceValidation.pointXYPx[0],
@@ -3248,12 +3149,18 @@ const trackDistanceCheck = async (
                 RC.distanceCheckJSON.requestedEyesToPointCm.push(
                   safeRoundCm(requestedEyesToPointCm),
                 )
-                RC.distanceCheckJSON.fVpx.push(
+                const currentFVpxKeypad =
                   Math.round(
                     ((faceValidation.ipdPixels * rulerBasedEyesToFootCm) /
                       RC._CONST.IPD_CM) *
                       10,
-                  ) / 10,
+                  ) / 10
+                RC.distanceCheckJSON.fVpx.push(currentFVpxKeypad)
+                // Calculate and store fOverWidth = fVpx / cameraWidth
+                const currentFOverWidthKeypad =
+                  currentFVpxKeypad / cameraResolutionXYVpx[0]
+                RC.distanceCheckJSON.fOverWidth.push(
+                  safeRoundRatio(currentFOverWidthKeypad),
                 )
                 RC.distanceCheckJSON.footToPointCm.push(
                   safeRoundCm(faceValidation.footToPointCm),
@@ -3313,136 +3220,126 @@ const trackDistanceCheck = async (
         }, calibrateDistanceCheckSecs * 1000)
       })
 
-      // COMPLIANCE CHECK: Starting from the second setting, check for non-compliance
-      // (user pressing space without actually moving to the requested distance)
-      if (i >= 1 && RC.calibrateDistanceMeasuredCm.length >= 2) {
-        const currentRequestedDistance = calibrateDistanceCheckCm[i]
-        const previousRequestedDistance = calibrateDistanceCheckCm[i - 1]
+      // COMPLIANCE CHECK: Starting from the second fOverWidth estimate,
+      // compare newFOverWidth with oldFOverWidth using log ratio
+      if (RC.distanceCheckJSON.fOverWidth.length >= 2) {
+        const newFOverWidth =
+          RC.distanceCheckJSON.fOverWidth[
+            RC.distanceCheckJSON.fOverWidth.length - 1
+          ]
+        const oldFOverWidth =
+          RC.distanceCheckJSON.fOverWidth[
+            RC.distanceCheckJSON.fOverWidth.length - 2
+          ]
 
-        // Only run compliance check if the REQUESTS differ by at least 8%
-        // (skip if requests are within 8% of being equal)
-        const requestsDifferEnough = !areValuesWithinPercent(
-          currentRequestedDistance,
-          previousRequestedDistance,
-          8,
+        // Check if abs(log10(newFOverWidth/oldFOverWidth)) > log10(allowedRatio)
+        const logRatio = Math.abs(Math.log10(newFOverWidth / oldFOverWidth))
+        const logThreshold = Math.log10(calibrateDistanceAllowedRatioFOverWidth)
+
+        console.log('[fOverWidth Check] Old fOverWidth:', oldFOverWidth)
+        console.log('[fOverWidth Check] New fOverWidth:', newFOverWidth)
+        console.log('[fOverWidth Check] Log ratio:', logRatio.toFixed(4))
+        console.log(
+          '[fOverWidth Check] Log threshold:',
+          logThreshold.toFixed(4),
         )
 
-        if (requestsDifferEnough) {
-          // Compare the MEASURED distances (what the system detected via face tracking)
-          const currentMeasuredDistance =
-            RC.calibrateDistanceMeasuredCm[
-              RC.calibrateDistanceMeasuredCm.length - 1
-            ]
-          const previousMeasuredDistance =
-            RC.calibrateDistanceMeasuredCm[
-              RC.calibrateDistanceMeasuredCm.length - 2
-            ]
+        if (logRatio > logThreshold) {
+          // Calculate ratio as percentage: (100 * oldFOverWidth / newFOverWidth)
+          const fOverWidthRatioPercent = (
+            (100 * oldFOverWidth) /
+            newFOverWidth
+          ).toFixed(0)
 
-          // If measured distances are within 3% of being equal, this is invalid (non-compliance)
-          // The user didn't actually move despite different distance requests
-          // (Using 3% to reduce false alarms)
-          const measurementsTooSimilar = areValuesWithinPercent(
-            currentMeasuredDistance,
-            previousMeasuredDistance,
-            3,
+          console.warn(
+            `[fOverWidth Check] MISMATCH: Ratio is ${fOverWidthRatioPercent}% (oldFOverWidth=${oldFOverWidth}, newFOverWidth=${newFOverWidth}). Rejecting BOTH measurements.`,
           )
 
-          if (measurementsTooSimilar) {
-            // Get user's chosen units
-            const userUnits = RC.equipment?.value?.unit || 'cm'
-            const isInches = userUnits === 'inches'
+          // Remove the last TWO measurements from all arrays
+          RC.calibrateDistanceMeasuredCm.pop()
+          RC.calibrateDistanceMeasuredCm.pop()
+          RC.calibrateDistanceRequestedCm.pop()
+          RC.calibrateDistanceRequestedCm.pop()
+          RC.calibrateDistanceIPDPixels.pop()
+          RC.calibrateDistanceIPDPixels.pop()
+          RC.calibrateDistanceRequestedDistances.pop()
+          RC.calibrateDistanceRequestedDistances.pop()
+          // EyeFeetXYPx has 2 entries per measurement (left and right)
+          RC.calibrateDistanceEyeFeetXYPx.pop()
+          RC.calibrateDistanceEyeFeetXYPx.pop()
+          RC.calibrateDistanceEyeFeetXYPx.pop()
+          RC.calibrateDistanceEyeFeetXYPx.pop()
 
-            // Convert measured distances from cm to user units
-            const previousMeasuredInUserUnits = isInches
-              ? previousMeasuredDistance / 2.54
-              : previousMeasuredDistance
-            const currentMeasuredInUserUnits = isInches
-              ? currentMeasuredDistance / 2.54
-              : currentMeasuredDistance
+          // Remove from distanceCheckJSON arrays
+          RC.distanceCheckJSON.fVpx.pop()
+          RC.distanceCheckJSON.fVpx.pop()
+          RC.distanceCheckJSON.fOverWidth.pop()
+          RC.distanceCheckJSON.fOverWidth.pop()
+          RC.distanceCheckJSON.pointXYPx.pop()
+          RC.distanceCheckJSON.pointXYPx.pop()
+          RC.distanceCheckJSON.imageBasedEyesToFootCm.pop()
+          RC.distanceCheckJSON.imageBasedEyesToFootCm.pop()
+          RC.distanceCheckJSON.imageBasedEyesToPointCm.pop()
+          RC.distanceCheckJSON.imageBasedEyesToPointCm.pop()
+          RC.distanceCheckJSON.rulerBasedEyesToPointCm.pop()
+          RC.distanceCheckJSON.rulerBasedEyesToPointCm.pop()
+          RC.distanceCheckJSON.rulerBasedEyesToFootCm.pop()
+          RC.distanceCheckJSON.rulerBasedEyesToFootCm.pop()
+          RC.distanceCheckJSON.cameraResolutionXYVpx.pop()
+          RC.distanceCheckJSON.cameraResolutionXYVpx.pop()
+          RC.distanceCheckJSON.requestedEyesToPointCm.pop()
+          RC.distanceCheckJSON.requestedEyesToPointCm.pop()
+          RC.distanceCheckJSON.footToPointCm.pop()
+          RC.distanceCheckJSON.footToPointCm.pop()
+          RC.distanceCheckJSON.ipdOverWidth.pop()
+          RC.distanceCheckJSON.ipdOverWidth.pop()
+          RC.distanceCheckJSON.ipdOverWidthXYZ.pop()
+          RC.distanceCheckJSON.ipdOverWidthXYZ.pop()
+          RC.distanceCheckJSON.rightEyeFootXYPx.pop()
+          RC.distanceCheckJSON.rightEyeFootXYPx.pop()
+          RC.distanceCheckJSON.leftEyeFootXYPx.pop()
+          RC.distanceCheckJSON.leftEyeFootXYPx.pop()
+          RC.distanceCheckJSON.footXYPx.pop()
+          RC.distanceCheckJSON.footXYPx.pop()
 
-            // Format measured values with 1 decimal place (never suppress zeros)
-            const prevMeasuredStr = previousMeasuredInUserUnits.toFixed(1)
-            const currMeasuredStr = currentMeasuredInUserUnits.toFixed(1)
+          // Use RC_focalLengthMismatch phrase with [[N1]] placeholder for ratio
+          const errorMessage =
+            phrases.RC_focalLengthMismatch?.[RC.language.value]?.replace(
+              '[[N1]]',
+              fOverWidthRatioPercent,
+            ) ||
+            `The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Try again. Click OK or press RETURN.`
 
-            // Requested values are already in user units (calibrateDistanceCheckCm is in user units despite the name)
-            // Format as integers
-            const prevRequestedStr = Math.round(
-              previousRequestedDistance,
-            ).toString()
-            const currRequestedStr = Math.round(
-              currentRequestedDistance,
-            ).toString()
+          // Show popup error message and wait for OK
+          await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: '', //no icon
+            title: '', //no title
+            html: errorMessage,
+            allowEnterKey: true,
+            focusConfirm: true, // Focus OK button so Enter key works
+            confirmButtonText: phrases.RC_ok?.[RC.L],
+            didOpen: () => {
+              // Prevent Space key from triggering the OK button (only allow Return/Enter)
+              const confirmBtn = Swal.getConfirmButton()
+              if (confirmBtn) {
+                confirmBtn.addEventListener('keydown', e => {
+                  if (e.key === ' ' || e.code === 'Space') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }
+                })
+              }
+            },
+          })
 
-            console.warn(
-              `Distance compliance check failed: User at similar distances (${prevMeasuredStr} vs ${currMeasuredStr} ${userUnits}) ` +
-                `despite different requests (${prevRequestedStr} vs ${currRequestedStr} ${userUnits})`,
-            )
+          // Go back 2 iterations to remeasure both rejected distances
+          // Set i to i - 2 so the next iteration starts at i - 1
+          i = i - 2
 
-            // Discard all distance settings so far
-            RC.calibrateDistanceMeasuredCm = []
-            RC.calibrateDistanceRequestedCm = []
-            RC.calibrateDistanceIPDPixels = []
-            RC.calibrateDistanceRequestedDistances = []
-            RC.calibrateDistanceEyeFeetXYPx = []
-
-            // Reset distanceCheckJSON arrays
-            RC.distanceCheckJSON.pointXYPx = []
-            RC.distanceCheckJSON.imageBasedEyesToFootCm = []
-            RC.distanceCheckJSON.imageBasedEyesToPointCm = []
-            RC.distanceCheckJSON.rulerBasedEyesToPointCm = []
-            RC.distanceCheckJSON.rulerBasedEyesToFootCm = []
-            RC.distanceCheckJSON.cameraResolutionXYVpx = []
-            RC.distanceCheckJSON.requestedEyesToPointCm = []
-            RC.distanceCheckJSON.footToPointCm = []
-            RC.distanceCheckJSON.ipdOverWidth = []
-            RC.distanceCheckJSON.ipdOverWidthXYZ = []
-            RC.distanceCheckJSON.rightEyeFootXYPx = []
-            RC.distanceCheckJSON.leftEyeFootXYPx = []
-            RC.distanceCheckJSON.footXYPx = []
-
-            // Get the error message and fill in the values
-            // [[N11]] = previous measured, [[N22]] = current measured
-            // [[N33]] = previous requested, [[N44]] = current requested
-            // [[AAA]] = units
-            let errorMessage =
-              phrases.RC_RejectEqualDistances?.[RC.language.value] ||
-              phrases.RC_RejectEqualLengths?.[RC.language.value] ||
-              ''
-            errorMessage = errorMessage
-              .replace('[[N11]]', prevMeasuredStr)
-              .replace('[[N22]]', currMeasuredStr)
-              .replace('[[N33]]', prevRequestedStr)
-              .replace('[[N44]]', currRequestedStr)
-              .replace('[N44]]', currRequestedStr) // Handle typo in phrase (missing opening bracket)
-              .replace(/\[\[AAA\]\]/g, userUnits)
-
-            // Show popup error message and wait for OK
-            await Swal.fire({
-              ...swalInfoOptions(RC, { showIcon: false }),
-              icon: '', //no icon
-              title: '', //no title
-              html: errorMessage,
-              allowEnterKey: true,
-              focusConfirm: true, // Focus OK button so Enter key works
-              confirmButtonText: phrases.RC_ok?.[RC.L],
-              didOpen: () => {
-                // Prevent Space key from triggering the OK button (only allow Return/Enter)
-                const confirmBtn = Swal.getConfirmButton()
-                if (confirmBtn) {
-                  confirmBtn.addEventListener('keydown', e => {
-                    if (e.key === ' ' || e.code === 'Space') {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }
-                  })
-                }
-              },
-            })
-
-            // Reset loop to start from the first setting
-            // Set i to -1 so the next iteration starts at i = 0
-            i = -1
-          }
+          console.log(
+            `[fOverWidth Check] After rejection: ${RC.distanceCheckJSON.fOverWidth.length} measurements remaining, continuing from index ${i + 1}`,
+          )
         }
       }
     }
