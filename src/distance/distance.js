@@ -237,6 +237,7 @@ function saveCalibrationMeasurements(
       COMMON,
       measurement.ipdXYZVpx, // 3D IPD in pixels
       measurement.fOverWidth,
+      measurement.snapshotAcceptedBool,
     )
   })
 }
@@ -277,7 +278,8 @@ function saveCalibrationAttempt(
   objectSuggestion = undefined,
   COMMON = undefined,
   ipdXYZVpx = undefined, // 3D IPD in pixels (always with Z coordinate)
-  _fOverWidth = undefined,
+  fOverWidth = undefined,
+  snapshotAcceptedBool = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
   // arrays of values across attempts for easier downstream analysis.
@@ -369,10 +371,10 @@ function saveCalibrationAttempt(
   const ppi = RC.screenPpi.value
   const pxPerCmValue = ppi / 2.54 // Convert PPI to pixels per cm
   const ipdCmValue = RC._CONST.IPD_CM // Standard IPD in cm (6.3cm)
-  const fVpx = (currentIPDDistance * eyesToFootCm) / ipdCmValue
-  // Use camera width for all ratios since fVpx, ipdOverWidth are derived from camera-space measurements
   const cameraWidth = cameraResolutionXYVpx ? cameraResolutionXYVpx[0] : null
-  const fOverWidth = fVpx && cameraWidth ? fVpx / cameraWidth : null
+  const fVpx = fOverWidth * cameraWidth
+  // Use camera width for all ratios since fVpx, ipdOverWidth are derived from camera-space measurements
+
   const ipdOverWidth =
     currentIPDDistance && cameraWidth ? currentIPDDistance / cameraWidth : null
   const ipdOverWidthXYZ =
@@ -411,6 +413,7 @@ function saveCalibrationAttempt(
     rulerBasedEyesToPointCm: safeRoundCm(objectLengthCm),
     imageBasedEyesToFootCm: safeRoundCm(imageBasedEyesToFootCm),
     imageBasedEyesToPointCm: safeRoundCm(imageBasedEyesToPointCm),
+    snapshotAcceptedBool: snapshotAcceptedBool,
   }
 
   // Include spot parameters only if _calibrateDistance === 'blindspot'
@@ -524,6 +527,7 @@ function createMeasurementObject(
   objectSuggestion = undefined,
   ipdXYZVpx = null, // Always 3D IPD for ipdOverWidthXYZ
   fOverWidth = null,
+  snapshotAcceptedBool = false,
 ) {
   const {
     nearestDistanceCm_left,
@@ -569,6 +573,7 @@ function createMeasurementObject(
     objectLengthCm: distance,
     ipdXYZVpx: ipdXYZVpx, // Always 3D IPD for ipdOverWidthXYZ
     fOverWidth: fOverWidth,
+    snapshotAcceptedBool: snapshotAcceptedBool,
   }
 
   if (ipdVpx !== null) {
@@ -8509,6 +8514,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             isPaperSelectionMode ? paperSuggestionValue : null,
                             ipdXYZVpxPage3,
                             RC.fOverWidth1,
+                            true,
                           ),
                         )
                       }
@@ -8556,6 +8562,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             isPaperSelectionMode ? paperSuggestionValue : null,
                             ipdXYZVpxPage4,
                             RC.fOverWidth2,
+                            true,
                           ),
                         )
                       }
@@ -8675,6 +8682,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             isPaperSelectionMode ? paperSuggestionValue : null,
                             ipdXYZVpxPage3,
                             RC.fOverWidth1,
+                            false,
                           ),
                         )
                       }
@@ -8722,6 +8730,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             isPaperSelectionMode ? paperSuggestionValue : null,
                             ipdXYZVpxPage4,
                             RC.fOverWidth2,
+                            false,
                           ),
                         )
                       }
@@ -9236,6 +9245,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   isPaperSelectionMode ? paperSuggestionValue : null,
                   ipdXYZVpxPage3,
                   RC.fOverWidth1,
+                  true,
                 ),
               )
             }
@@ -9283,6 +9293,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   isPaperSelectionMode ? paperSuggestionValue : null,
                   ipdXYZVpxPage4,
                   RC.fOverWidth2,
+                  true,
                 ),
               )
             }
@@ -9410,6 +9421,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 distanceCm: distanceCm,
                 nearestDistanceCm_right: nearestDistanceCm_right,
                 nearestDistanceCm_left: nearestDistanceCm_left,
+                snapshotAcceptedBool: false,
               },
               {
                 type: 'secondMeasurement',
@@ -9421,6 +9433,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 distanceCm: distanceCm,
                 nearestDistanceCm_right: nearestDistanceCm_right,
                 nearestDistanceCm_left: nearestDistanceCm_left,
+                snapshotAcceptedBool: false,
               },
             ]
 

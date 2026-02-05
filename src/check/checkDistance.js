@@ -2445,6 +2445,7 @@ const trackDistanceCheck = async (
       snapshotsTaken: 0, // Total count includes rejected snapshots.
       snapshotsRejected: 0, // Count. Each rejection adds 2.
       snapshotsRejectedFOverWidth: [], // The rejected values of fOverWidth, two for each rejection.
+      snapshotAcceptedBool: [], // Boolean array indicating which snapshots are accepted (true) vs rejected (false).
       // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
       fOverWidth: [], // fVpx / cameraWidthVpx
@@ -2968,6 +2969,7 @@ const trackDistanceCheck = async (
                 faceValidation.footXYPx[1],
               ])
               RC.distanceCheckJSON.snapshotsTaken++
+              RC.distanceCheckJSON.snapshotAcceptedBool.push(true)
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
@@ -3192,6 +3194,7 @@ const trackDistanceCheck = async (
                   faceValidation.footXYPx[1],
                 ])
                 RC.distanceCheckJSON.snapshotsTaken++
+                RC.distanceCheckJSON.snapshotAcceptedBool.push(true)
 
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
@@ -3227,7 +3230,14 @@ const trackDistanceCheck = async (
 
       // COMPLIANCE CHECK: Starting from the second fOverWidth estimate,
       // compare newFOverWidth with oldFOverWidth using log ratio
-      if (RC.distanceCheckJSON.fOverWidth.length >= 2) {
+      // Only run if the last 2 snapshots are both accepted (not yet rejected)
+      const snapshotLen = RC.distanceCheckJSON.snapshotAcceptedBool.length
+      const lastTwoAccepted =
+        snapshotLen >= 2 &&
+        RC.distanceCheckJSON.snapshotAcceptedBool[snapshotLen - 1] === true &&
+        RC.distanceCheckJSON.snapshotAcceptedBool[snapshotLen - 2] === true
+
+      if (lastTwoAccepted) {
         const newFOverWidth =
           RC.distanceCheckJSON.fOverWidth[
             RC.distanceCheckJSON.fOverWidth.length - 1
@@ -3275,7 +3285,7 @@ const trackDistanceCheck = async (
           RC.calibrateDistanceEyeFeetXYPx.pop()
           RC.calibrateDistanceEyeFeetXYPx.pop()
 
-          // Track rejected snapshots before removing them
+          // Track rejected snapshots
           const fOverWidthArray = RC.distanceCheckJSON.fOverWidth
           RC.distanceCheckJSON.snapshotsRejectedFOverWidth.push(
             fOverWidthArray[fOverWidthArray.length - 2],
@@ -3283,37 +3293,10 @@ const trackDistanceCheck = async (
           )
           RC.distanceCheckJSON.snapshotsRejected += 2
 
-          // Remove from distanceCheckJSON arrays
-          RC.distanceCheckJSON.fVpx.pop()
-          RC.distanceCheckJSON.fVpx.pop()
-          RC.distanceCheckJSON.fOverWidth.pop()
-          RC.distanceCheckJSON.fOverWidth.pop()
-          RC.distanceCheckJSON.pointXYPx.pop()
-          RC.distanceCheckJSON.pointXYPx.pop()
-          RC.distanceCheckJSON.imageBasedEyesToFootCm.pop()
-          RC.distanceCheckJSON.imageBasedEyesToFootCm.pop()
-          RC.distanceCheckJSON.imageBasedEyesToPointCm.pop()
-          RC.distanceCheckJSON.imageBasedEyesToPointCm.pop()
-          RC.distanceCheckJSON.rulerBasedEyesToPointCm.pop()
-          RC.distanceCheckJSON.rulerBasedEyesToPointCm.pop()
-          RC.distanceCheckJSON.rulerBasedEyesToFootCm.pop()
-          RC.distanceCheckJSON.rulerBasedEyesToFootCm.pop()
-          RC.distanceCheckJSON.cameraResolutionXYVpx.pop()
-          RC.distanceCheckJSON.cameraResolutionXYVpx.pop()
-          RC.distanceCheckJSON.requestedEyesToPointCm.pop()
-          RC.distanceCheckJSON.requestedEyesToPointCm.pop()
-          RC.distanceCheckJSON.footToPointCm.pop()
-          RC.distanceCheckJSON.footToPointCm.pop()
-          RC.distanceCheckJSON.ipdOverWidth.pop()
-          RC.distanceCheckJSON.ipdOverWidth.pop()
-          RC.distanceCheckJSON.ipdOverWidthXYZ.pop()
-          RC.distanceCheckJSON.ipdOverWidthXYZ.pop()
-          RC.distanceCheckJSON.rightEyeFootXYPx.pop()
-          RC.distanceCheckJSON.rightEyeFootXYPx.pop()
-          RC.distanceCheckJSON.leftEyeFootXYPx.pop()
-          RC.distanceCheckJSON.leftEyeFootXYPx.pop()
-          RC.distanceCheckJSON.footXYPx.pop()
-          RC.distanceCheckJSON.footXYPx.pop()
+          // Mark the last 2 snapshots as rejected in snapshotAcceptedBool
+          const acceptedLen = RC.distanceCheckJSON.snapshotAcceptedBool.length
+          RC.distanceCheckJSON.snapshotAcceptedBool[acceptedLen - 2] = false
+          RC.distanceCheckJSON.snapshotAcceptedBool[acceptedLen - 1] = false
 
           // Use RC_focalLengthMismatch phrase with [[N1]] placeholder for ratio
           const errorMessage =
@@ -3350,8 +3333,10 @@ const trackDistanceCheck = async (
           // Set i to i - 2 so the next iteration starts at i - 1
           i = i - 2
 
+          const acceptedCount =
+            RC.distanceCheckJSON.snapshotAcceptedBool.filter(b => b).length
           console.log(
-            `[fOverWidth Check] After rejection: ${RC.distanceCheckJSON.fOverWidth.length} measurements remaining, continuing from index ${i + 1}`,
+            `[fOverWidth Check] After rejection: ${acceptedCount} accepted of ${RC.distanceCheckJSON.snapshotAcceptedBool.length} total snapshots, continuing from index ${i + 1}`,
           )
         }
       }
