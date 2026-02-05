@@ -2441,6 +2441,10 @@ const trackDistanceCheck = async (
       ipdCm: safeRoundCm(RC._CONST.IPD_CM),
       calibrationFOverWidth: calibrationFOverWidth, // median(calibration) as ratio
       rulerUnit: RC.equipment?.value?.unit,
+      // Rejection tracking
+      snapshotsTaken: 0, // Total count includes rejected snapshots.
+      snapshotsRejected: 0, // Count. Each rejection adds 2.
+      snapshotsRejectedFOverWidth: [], // The rejected values of fOverWidth, two for each rejection.
       // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
       fOverWidth: [], // fVpx / cameraWidthVpx
@@ -2963,6 +2967,7 @@ const trackDistanceCheck = async (
                 faceValidation.footXYPx[0],
                 faceValidation.footXYPx[1],
               ])
+              RC.distanceCheckJSON.snapshotsTaken++
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
@@ -3186,6 +3191,7 @@ const trackDistanceCheck = async (
                   faceValidation.footXYPx[0],
                   faceValidation.footXYPx[1],
                 ])
+                RC.distanceCheckJSON.snapshotsTaken++
 
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
@@ -3244,10 +3250,10 @@ const trackDistanceCheck = async (
         )
 
         if (logRatio > logThreshold) {
-          // Calculate ratio as percentage: (100 * newFOverWidth / oldFOverWidth)
+          // Calculate ratio as percentage: (100 * oldFOverWidth / newFOverWidth)
           const fOverWidthRatioPercent = (
-            (100 * newFOverWidth) /
-            oldFOverWidth
+            (100 * oldFOverWidth) /
+            newFOverWidth
           ).toFixed(0)
 
           console.warn(
@@ -3268,6 +3274,14 @@ const trackDistanceCheck = async (
           RC.calibrateDistanceEyeFeetXYPx.pop()
           RC.calibrateDistanceEyeFeetXYPx.pop()
           RC.calibrateDistanceEyeFeetXYPx.pop()
+
+          // Track rejected snapshots before removing them
+          const fOverWidthArray = RC.distanceCheckJSON.fOverWidth
+          RC.distanceCheckJSON.snapshotsRejectedFOverWidth.push(
+            fOverWidthArray[fOverWidthArray.length - 2],
+            fOverWidthArray[fOverWidthArray.length - 1],
+          )
+          RC.distanceCheckJSON.snapshotsRejected += 2
 
           // Remove from distanceCheckJSON arrays
           RC.distanceCheckJSON.fVpx.pop()

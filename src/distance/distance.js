@@ -297,7 +297,14 @@ function saveCalibrationAttempt(
         const v = value === undefined ? null : value
         //for fields: objectRulerIntervalCm: ,objectLengthCm: , objectMeasuredMsg: , objectName: ,
         // push to array if array, otherwise set to value
-        if (Array.isArray(v)) {
+        //for fields snapshotsTaken, snapshotsRejected, snapshotsRejectedFOverWidth: just save the current value (override current value with new value)
+        if (
+          key === 'snapshotsTaken' ||
+          key === 'snapshotsRejected' ||
+          key === 'snapshotsRejectedFOverWidth'
+        ) {
+          RC.calibrationAttemptsT[key] = v
+        } else if (Array.isArray(v)) {
           if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = []
           RC.calibrationAttemptsT[key].push(...v)
         } else {
@@ -3734,6 +3741,9 @@ export async function objectTest(RC, options, callback = undefined) {
     objectRulerIntervalCm: [],
     // objectLengthCm: [],
     objectMeasuredMsg: [],
+    snapshotsTaken: 0, // Total count includes rejected snapshots.
+    snapshotsRejected: 0, // Count. Each rejection adds 2.
+    snapshotsRejectedFOverWidth: [], // The rejected values of fOverWidth, two for each rejection.
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
@@ -8307,6 +8317,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   page3FactorCmPx /
                   cameraResolutionXYVpxPage3[0] /
                   RC._CONST.IPD_CM
+                objectTestCommonData.snapshotsTaken++
 
                 // For page 4, calculate factorVpxCm using new geometric formulas
                 let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
@@ -8406,6 +8417,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   page4FactorCmPx /
                   cameraResolutionXYVpxPage4[0] /
                   RC._CONST.IPD_CM
+                objectTestCommonData.snapshotsTaken++
                 RC.calibrationFOverWidth = Math.sqrt(
                   RC.fOverWidth1 * RC.fOverWidth2,
                 )
@@ -8436,8 +8448,8 @@ export async function objectTest(RC, options, callback = undefined) {
                   options.calibrateDistanceAllowedRatio,
                   options.calibrateDistanceAllowedRangeCm,
                   firstMeasurement,
-                  page3FactorCmPx,
-                  page4FactorCmPx,
+                  RC.fOverWidth1,
+                  RC.fOverWidth2,
                 )
                 if (RC.measurementHistory && message !== 'Pass')
                   RC.measurementHistory.push(message)
@@ -8601,6 +8613,13 @@ export async function objectTest(RC, options, callback = undefined) {
                   console.log(
                     `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
                   )
+
+                  // Track rejected snapshots
+                  objectTestCommonData.snapshotsRejectedFOverWidth.push(
+                    RC.fOverWidth1,
+                    RC.fOverWidth2,
+                  )
+                  objectTestCommonData.snapshotsRejected += 2
 
                   // Note: validPage3Samples, validPage4Samples, page3Average, page4Average,
                   // page3FactorCmPx, page4FactorCmPx, averageFactorCmPx
@@ -9160,8 +9179,8 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateDistanceAllowedRatio,
           options.calibrateDistanceAllowedRangeCm,
           firstMeasurement,
-          page3FactorCmPx,
-          page4FactorCmPx,
+          RC.fOverWidth1,
+          RC.fOverWidth2,
         )
       if (RC.measurementHistory && message !== 'Pass')
         RC.measurementHistory.push(message)
@@ -9318,6 +9337,13 @@ export async function objectTest(RC, options, callback = undefined) {
         console.log(
           `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
         )
+
+        // Track rejected snapshots
+        objectTestCommonData.snapshotsRejectedFOverWidth.push(
+          RC.fOverWidth1,
+          RC.fOverWidth2,
+        )
+        objectTestCommonData.snapshotsRejected += 2
 
         // Note: validPage3Samples, validPage4Samples, page3Average, page4Average, page3FactorCmPx, page4FactorCmPx
         // are already calculated above in the outer scope
@@ -10644,8 +10670,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   options.calibrateDistanceAllowedRatio,
                   options.calibrateDistanceAllowedRangeCm,
                   knownObjectLengthCm,
-                  page3FactorCmPx,
-                  page4FactorCmPx,
+                  RC.fOverWidth1,
+                  RC.fOverWidth2,
                 )
                 if (RC.measurementHistory && message !== 'Pass')
                   RC.measurementHistory.push(message)
@@ -10701,6 +10727,13 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   console.log(
                     `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
                   )
+
+                  // Track rejected snapshots
+                  objectTestCommonData.snapshotsRejectedFOverWidth.push(
+                    RC.fOverWidth1,
+                    RC.fOverWidth2,
+                  )
+                  objectTestCommonData.snapshotsRejected += 2
 
                   // Show error message
                   await Swal.fire({
@@ -11049,8 +11082,8 @@ function checkObjectTestTolerance(
   allowedRatio = 1.1,
   allowedRangeCm,
   measurementCm,
-  page3FactorCmPx = null,
-  page4FactorCmPx = null,
+  fOverWidth1,
+  fOverWidth2,
 ) {
   const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
   const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
@@ -11074,10 +11107,8 @@ function checkObjectTestTolerance(
 
   // Factor ratio using calibration factors F1 and F2
   // Use the actual calculated factors if provided, otherwise fall back to simple calculation
-  const F1 =
-    page3FactorCmPx !== null ? page3FactorCmPx : page3Mean * measurementCm
-  const F2 =
-    page4FactorCmPx !== null ? page4FactorCmPx : page4Mean * measurementCm
+  const F1 = fOverWidth1
+  const F2 = fOverWidth2
   const factorRatio = F1 / F2 // Previous (Page 3) / Current (Page 4)
 
   // Use log10 formula for tolerance check: abs(log10(F2/F1)) > log10(allowedRatio)
