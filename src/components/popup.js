@@ -931,7 +931,7 @@ export const showCameraSelectionPopup = async (
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title: '', // Remove the default title since we're adding our own
-    html: `${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${message}<br><br>${phrases.RC_privacyCamera[RC.L]}</div>`,
+    html: `${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${message}</div>`,
     showConfirmButton: false,
     allowEnterKey: false, // To be changed
     // Dynamic popup width based on number of cameras
@@ -1691,6 +1691,11 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   // Check if there are cameras available
   const cameras = await getAvailableCameras()
 
+  let conditionalPrivacyCamera = ""
+  if (!options.saveSnapshots) {
+    conditionalPrivacyCamera = phrases.RC_privacyCamera[RC.L]
+  }
+
   // Handle different camera scenarios
   if (cameras.length === 0) {
     // No cameras detected - show retry popup
@@ -1704,7 +1709,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     )
     if (noCameraResult === 'retry') {
       // Recursively call showTestPopup to retry camera detection
-      return await showTestPopup(RC, onClose)
+      return await showTestPopup(RC, onClose, options)
     } else {
       // User chose to end experiment
       if (onClose && typeof onClose === 'function') {
@@ -1717,7 +1722,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     const result = await showCameraSelectionPopup(
       RC,
       '',
-      phrases.RC_NeedCamera[RC.L],
+      `${phrases.RC_NeedCamera[RC.L]} <br><br> ${conditionalPrivacyCamera}`,
       onClose,
       'RC_NeedCameraTitle',
     )
@@ -1758,7 +1763,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   const result = await showCameraSelectionPopup(
     RC,
     '',
-    phrases.RC_ChooseCamera[RC.L],
+    `${phrases.RC_ChooseCamera[RC.L]} <br><br> ${conditionalPrivacyCamera}`,
     onClose,
     'RC_ChooseCameraTitle',
   )
