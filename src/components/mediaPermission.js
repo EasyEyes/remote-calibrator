@@ -11,13 +11,17 @@ export const checkPermissions = async RC => {
       .query({ name: 'camera' })
       .then(async permissionObj => {
         if (permissionObj.state === 'prompt') {
+          let html = `${phrases.RC_requestCamera[RC.L]}`
+          if (!RC.options.saveSnapshots) {
+            html += `<br />${phrases.RC_privacyCamera[RC.L]}`
+          }
           return await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
             icon: undefined,
             imageUrl: AllowCam,
             imageWidth: 480,
             imageAlt: 'Please allow camera access',
-            html: `${phrases.RC_requestCamera[RC.L]}<br />${phrases.RC_privacyCamera[RC.L]}`,
+            html: html,
           })
         }
       })
