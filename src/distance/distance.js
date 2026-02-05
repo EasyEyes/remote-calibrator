@@ -2800,11 +2800,15 @@ export async function blindSpotTestNew(
           // Temporarily remove the space key listener to prevent interference
           document.removeEventListener('keydown', onSpaceSnap)
 
+          let conditionalFaceImageNotSaved = ""
+          if (!options.saveSnapshots) {
+            conditionalFaceImageNotSaved = `<p style="margin-top:10px;font-size:0.8em;color:#666;">${phrases.RC_FaceImageNotSaved ? phrases.RC_FaceImageNotSaved[RC.L] : ''}</p>`
+          }
           await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
             title: phrases.RC_FaceBlocked ? phrases.RC_FaceBlocked[RC.L] : '',
             html: captured
-              ? `<div style="text-align:center"><img src="${captured}" style="max-width:300px;max-height:400px;border:2px solid #ccc;border-radius:8px;"/><p style="margin-top:10px;font-size:0.8em;color:#666;">${phrases.RC_FaceImageNotSaved ? phrases.RC_FaceImageNotSaved[RC.L] : ''}</p></div>`
+              ? `<div style="text-align:center"><img src="${captured}" style="max-width:300px;max-height:400px;border:2px solid #ccc;border-radius:8px;"/>${conditionalFaceImageNotSaved}</div>`
               : undefined,
             showConfirmButton: true,
             allowEnterKey: false,
@@ -7861,12 +7865,16 @@ export async function objectTest(RC, options, callback = undefined) {
               // Use the image captured at space press
               const capturedImage = lastCapturedFaceImage
 
+              let conditionalFaceImageNotSaved = ""
+              if (!options.saveSnapshots) {
+                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+              }
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
                 html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
+                    ${conditionalFaceImageNotSaved}
                    </div>`,
                 showCancelButton: false,
                 showConfirmButton: false,
@@ -8044,12 +8052,16 @@ export async function objectTest(RC, options, callback = undefined) {
               // Use the image captured at space press
               const capturedImage = lastCapturedFaceImage
 
+              let conditionalFaceImageNotSaved = ""
+              if (!options.saveSnapshots) {
+                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+              }
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
                 html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
+                    ${conditionalFaceImageNotSaved}
                    </div>`,
                 showCancelButton: false,
                 showConfirmButton: false,
@@ -10349,13 +10361,16 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
               faceMeshSamplesPage3.some(sample => isNaN(sample))
             ) {
               const capturedImage = lastCapturedFaceImage
-
+              let conditionalFaceImageNotSaved = ""
+              if (!options.saveSnapshots) {
+                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+              }
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
                 html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
+                    ${conditionalFaceImageNotSaved}
                    </div>`,
                 confirmButtonText: phrases.EE_ok[RC.L],
                 allowEnterKey: true,
@@ -10527,12 +10542,17 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
             ) {
               const capturedImage = lastCapturedFaceImage
 
+              let conditionalFaceImageNotSaved = ""
+              if (!options.saveSnapshots) {
+                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+              }
+
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
                 html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
+                    ${conditionalFaceImageNotSaved}
                    </div>`,
                 confirmButtonText: phrases.EE_ok[RC.L],
                 allowEnterKey: true,
