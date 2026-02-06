@@ -3114,6 +3114,7 @@ export async function blindSpotTestNew(
       options.calibrateDistance,
       options.stepperHistory,
       options.calibrateScreenSizeAllowedRatio,
+      options.saveSnapshots,
     )
   else safeExecuteFunc(callback, data)
 
@@ -7511,6 +7512,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateDistance,
           options.stepperHistory,
           options.calibrateScreenSizeAllowedRatio,
+          options.saveSnapshots,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
