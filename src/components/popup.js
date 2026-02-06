@@ -7,6 +7,7 @@ import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
 /**
  * Shows the camera selection title in the top right of the webpage
  * @param {Object} RC - RemoteCalibrator instance
+ * @param {string} titleKey - title key to retrieve the phrase
  */
 export const showCameraTitleInTopRight = (
   RC,
@@ -669,22 +670,26 @@ const createCameraPreviews = async (
 /**
  * Updates title and description based on camera count
  * @param {Object} RC - RemoteCalibrator instance
- * @param {number} cameraCount - Number of available cameras
+ * @param {string} titleKey - titleKey to retrieve the phrase
+ * @param {string} messageKey - messageKey to retrieve the phrase
+ * @param {string} privacyMessage - privacyMessage
  */
-const updateTitleAndDescription = (RC, cameraCount) => {
-  // Update the title in top right
-  const titleKey =
-    cameraCount === 1 ? 'RC_NeedCameraTitle' : 'RC_ChooseCameraTitle'
+const updateTitleAndDescription = (
+  RC,
+  titleKey,
+  messageKey,
+  privacyMessage,
+) => {
   showCameraTitleInTopRight(RC, titleKey)
-
-  // Update the description in the popup
-  const messageKey = cameraCount === 1 ? 'RC_NeedCamera' : 'RC_ChooseCamera'
   const messageDiv = document.querySelector(
     '.camera-selection-popup .swal2-html-container div[style*="background: white"]',
   )
   if (messageDiv) {
-    const privacyText = phrases.RC_privacyCamera[RC.L]
-    messageDiv.innerHTML = `${phrases[messageKey][RC.L]}<br><br>${privacyText}`
+    let messageHtml = phrases[messageKey][RC.L]
+    if (privacyMessage) {
+      messageHtml += `<br><br>${phrases.RC_privacyCamera[RC.L]}`
+    }
+    messageDiv.innerHTML = messageHtml
   }
 }
 
@@ -694,12 +699,14 @@ const updateTitleAndDescription = (RC, cameraCount) => {
  * @param {Object} RC - RemoteCalibrator instance
  * @param {Object} currentActiveCamera - Currently active camera
  * @param {Array} oldCameras - Previous array of camera devices
+ * @param {string} privacyMessage - privacy message
  */
 const updateCameraPreviews = async (
   newCameras,
   RC,
   currentActiveCamera,
   oldCameras = [],
+  privacyMessage,
 ) => {
   const previewContainer = document.querySelector(
     '.camera-selection-popup .swal2-html-container',
@@ -731,8 +738,10 @@ const updateCameraPreviews = async (
     oldPreviewsDiv.outerHTML = newPreviewsHTML
   }
 
-  // Update title and description based on camera count
-  updateTitleAndDescription(RC, newCameras.length)
+  const isSingleCamera = newCameras.length === 1
+  const titleKey = isSingleCamera ? 'RC_NeedCameraTitle' : 'RC_ChooseCameraTitle'
+  const messageKey = isSingleCamera ? 'RC_NeedCamera' : 'RC_ChooseCamera'
+  updateTitleAndDescription(RC, titleKey, messageKey, privacyMessage)
 
   // Re-add event listeners for new previews
   newCameras.forEach((camera, index) => {
@@ -849,13 +858,16 @@ const updateCameraPreviews = async (
  * @param {Object} RC - RemoteCalibrator instance
  * @param {string} title - Popup title
  * @param {string} message - Popup message
+ * @param {string} privacyMessage - privacy message
  * @param {Function} onClose - Callback function when popup is closed
+ * @param {string} titleKey - titleKey to retrieve corresponding phrase
  * @returns {Promise} - Promise that resolves when popup is closed with selected camera
  */
 export const showCameraSelectionPopup = async (
   RC,
   title,
   message,
+  privacyMessage,
   onClose = null,
   titleKey = 'RC_ChooseCameraTitle',
 ) => {
@@ -993,6 +1005,7 @@ export const showCameraSelectionPopup = async (
                 RC,
                 currentActiveCamera,
                 oldCameras,
+                privacyMessage,
               )
 
               // Update global selectCamera function with new cameras
@@ -1722,7 +1735,8 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     const result = await showCameraSelectionPopup(
       RC,
       '',
-      `${phrases.RC_NeedCamera[RC.L]} <br><br> ${conditionalPrivacyCamera}`,
+      phrases.RC_NeedCamera[RC.L],
+      conditionalPrivacyCamera,
       onClose,
       'RC_NeedCameraTitle',
     )
@@ -1763,7 +1777,8 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   const result = await showCameraSelectionPopup(
     RC,
     '',
-    `${phrases.RC_ChooseCamera[RC.L]} <br><br> ${conditionalPrivacyCamera}`,
+    phrases.RC_ChooseCamera[RC.L],
+    conditionalPrivacyCamera,
     onClose,
     'RC_ChooseCameraTitle',
   )
