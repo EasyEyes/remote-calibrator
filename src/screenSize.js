@@ -876,11 +876,11 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         )
 
         // Show pause before allowing new measurement (with exponentially growing duration)
-        await showPauseBeforeNewObject(
-          RC,
-          measurementState.rejectionCount,
-          'RC_PauseBeforeRemeasuringCreditCard',
-        )
+        // await showPauseBeforeNewObject(
+        //   RC,
+        //   measurementState.rejectionCount,
+        //   'RC_PauseBeforeRemeasuringCreditCard',
+        // )
 
         // After popup and pause, restart measurement
         cleanupMeasurement()

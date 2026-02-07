@@ -1542,7 +1542,11 @@ const checkSize = async (
           const videoRect = video.getBoundingClientRect()
           const screenWidth = window.innerWidth
           const videoLeftEdge = (screenWidth - videoRect.width) / 2
-          instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
+          const leftColumnMaxPx = window.innerWidth * 0.495
+          // Give instruction column barely under half the screen to avoid occlusion with right-side elements
+          instructionElement.style.width = '49.5vw'
+          instructionElement.style.minWidth = '49.5vw'
+          instructionElement.style.maxWidth = `${Math.max(videoLeftEdge - 3, leftColumnMaxPx)}px`
         }
 
         // Re-append yellow tape if it exists after background replacement
@@ -1577,6 +1581,9 @@ const checkSize = async (
 
       if (!lengthStepperState.ui) {
         instructionBody.innerHTML = ''
+        // Let instruction body use full container width (container is barely under half screen)
+        instructionBody.style.width = '100%'
+        instructionBody.style.maxWidth = '100%'
         lengthStepperState.ui = createStepInstructionsUI(instructionBody, {
           layout: 'leftOnly',
           leftWidth: '100%',
@@ -2575,7 +2582,11 @@ const trackDistanceCheck = async (
         const videoRect = video.getBoundingClientRect()
         const screenWidth = window.innerWidth
         const videoLeftEdge = (screenWidth - videoRect.width) / 2
-        instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
+        const leftColumnMaxPx = window.innerWidth * 0.495
+        // Give instruction column barely under half the screen to avoid occlusion with right-side elements
+        instructionElement.style.width = '49.5vw'
+        instructionElement.style.minWidth = '49.5vw'
+        instructionElement.style.maxWidth = `${Math.max(videoLeftEdge - 3, leftColumnMaxPx)}px`
       }
 
       // Build single-column (left-only) step-by-step UI in the instruction body
@@ -2593,6 +2604,9 @@ const trackDistanceCheck = async (
       }
       if (instructionBody) {
         instructionBody.innerHTML = ''
+        // Let instruction body use full container width (container is barely under half screen)
+        instructionBody.style.width = '100%'
+        instructionBody.style.maxWidth = '100%'
         // Enable pointer events so stepper arrows are clickable (parent has pointer-events: none)
         instructionBody.style.pointerEvents = 'auto'
         // Add bottom padding to prevent content from being occluded by progress bar

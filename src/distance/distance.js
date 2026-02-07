@@ -7029,7 +7029,7 @@ export async function objectTest(RC, options, callback = undefined) {
           )
 
           // Show pause before allowing new object (with exponentially growing duration)
-          await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
+          // await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
         }
 
         objectTestCommonData.objectMeasuredMsg.push('mismatch')
@@ -7817,10 +7817,10 @@ export async function objectTest(RC, options, callback = undefined) {
                   })
 
                   // Show pause before allowing new object (with exponentially growing duration)
-                  await showPauseBeforeNewObject(
-                    RC,
-                    measurementState.rejectionCount,
-                  )
+                  // await showPauseBeforeNewObject(
+                  //   RC,
+                  //   measurementState.rejectionCount,
+                  // )
 
                   // Reset the ruler/tape to initial position
                   await resetPage2ForNextMeasurement()
@@ -8788,11 +8788,11 @@ export async function objectTest(RC, options, callback = undefined) {
                     )
 
                     // Show pause before allowing retry (with exponentially growing duration)
-                    await showPauseBeforeNewObject(
-                      RC,
-                      measurementState.factorRejectionCount,
-                      'RC_PauseBeforeRemeasuringDistance',
-                    )
+                    // await showPauseBeforeNewObject(
+                    //   RC,
+                    //   measurementState.factorRejectionCount,
+                    //   'RC_PauseBeforeRemeasuringDistance',
+                    // )
                   }
 
                   // Reset to page 3 to restart snapshots (keep same object measurement)
@@ -8950,10 +8950,10 @@ export async function objectTest(RC, options, callback = undefined) {
           })
 
           // Show pause before allowing new object (with exponentially growing duration)
-          await showPauseBeforeNewObject(
-            RC,
-            measurementState.tooShortRejectionCount,
-          )
+          // await showPauseBeforeNewObject(
+          //   RC,
+          //   measurementState.tooShortRejectionCount,
+          // )
 
           // Reset the ruler/tape to initial position
           await resetPage2ForNextMeasurement()
@@ -9490,11 +9490,11 @@ export async function objectTest(RC, options, callback = undefined) {
           )
 
           // Show pause before allowing retry (with exponentially growing duration)
-          await showPauseBeforeNewObject(
-            RC,
-            measurementState.factorRejectionCount,
-            'RC_PauseBeforeRemeasuringDistance',
-          )
+          // await showPauseBeforeNewObject(
+          //   RC,
+          //   measurementState.factorRejectionCount,
+          //   'RC_PauseBeforeRemeasuringDistance',
+          // )
         }
 
         // Reset to page 3 to restart snapshots (keep same object measurement)
@@ -10759,10 +10759,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
 
                   // Show pause
                   measurementState.factorRejectionCount++
-                  await showPauseBeforeNewObject(
-                    RC,
-                    measurementState.factorRejectionCount,
-                  )
+                  // await showPauseBeforeNewObject(
+                  //   RC,
+                  //   measurementState.factorRejectionCount,
+                  // )
 
                   // Reset and restart from page 3 - reject BOTH measurements
                   faceMeshSamplesPage3.length = 0
