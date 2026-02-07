@@ -57,6 +57,8 @@ import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import {
   showTestPopup,
   hideResolutionSettingMessage,
+  showVideoResolutionLabel,
+  hideVideoResolutionLabel,
 } from '../components/popup'
 import { ppiToPxPerCm } from '../components/converters'
 import {
@@ -6085,6 +6087,7 @@ export async function objectTest(RC, options, callback = undefined) {
     currentPage = pageNumber
 
     if (pageNumber === 0) {
+      hideVideoResolutionLabel()
       // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
       console.log('=== SHOWING PAGE 0: INSTRUCTIONS ONLY ===')
 
@@ -6137,6 +6140,7 @@ export async function objectTest(RC, options, callback = undefined) {
       if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
       container.style.backgroundColor = ''
     } else if (pageNumber === 1) {
+      hideVideoResolutionLabel()
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
       paperSelectionContainer.style.display = 'none'
@@ -6188,6 +6192,7 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 2) {
       // ===================== PAGE 2: DIAGONAL TAPE =====================
       console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
+      hideVideoResolutionLabel()
 
       // Hide paper selection unless we are in paper mode
       if (!isPaperSelectionMode) {
@@ -6383,6 +6388,10 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Show video on page 3
       RC.showVideo(true)
+      // In paper mode, page 3 is "2 of 3" (first page with video after setting resolution) — show resolution/Hz below video
+      if (isPaperSelectionMode) {
+        showVideoResolutionLabel(RC)
+      }
 
       // Position video properly
       const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -6490,6 +6499,7 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO ONLY =====================
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
+      hideVideoResolutionLabel()
       paperSelectionContainer.style.display = 'none'
       paperStepperMediaContainer.style.display = 'none'
       // Clean up paper stepper media content

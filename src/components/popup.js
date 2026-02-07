@@ -60,6 +60,7 @@ export const hideCameraTitleFromTopRight = () => {
 
 /**
  * Gets the current camera info (name, resolution, frame rate) from the video stream
+ * with fallbacks so resolution/Hz are available when stream is not yet ready.
  * @param {Object} RC - RemoteCalibrator instance
  * @returns {Object} - Camera info with name, width, height, frameRate
  */
@@ -72,13 +73,9 @@ const getCameraInfo = RC => {
   }
 
   try {
-    // Get camera name from active camera
     const activeCamera = RC?.gazeTracker?.webgazer?.params?.activeCamera
-    if (activeCamera?.label) {
-      info.name = activeCamera.label
-    }
+    if (activeCamera?.label) info.name = activeCamera.label
 
-    // Get resolution and frame rate from the video stream
     const video = document.getElementById('webgazerVideoFeed')
     if (video && video.srcObject) {
       const stream = video.srcObject
@@ -89,6 +86,16 @@ const getCameraInfo = RC => {
         info.height = settings.height || video.videoHeight || 0
         info.frameRate = settings.frameRate ? Math.round(settings.frameRate) : 0
       }
+    }
+    if ((!info.width || !info.height) && RC?.gazeTracker?.webgazer?.videoParamsToReport) {
+      const vp = RC.gazeTracker.webgazer.videoParamsToReport
+      if (vp.width) info.width = info.width || vp.width
+      if (vp.height) info.height = info.height || vp.height
+    }
+    if ((!info.width || !info.height) && activeCamera?.resolution) {
+      const r = activeCamera.resolution
+      if (r.width) info.width = info.width || r.width
+      if (r.height) info.height = info.height || r.height
     }
   } catch (error) {
     console.warn('Could not get camera info:', error)
@@ -122,7 +129,7 @@ export const showResolutionSettingMessage = RC => {
       text-align: center;
       color: #666;
       font-style: italic;
-      font-size: 14px;
+      font-size: 1.875em;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       pointer-events: none;
       user-select: none;
@@ -166,6 +173,68 @@ export const hideResolutionSettingMessage = () => {
   if (messageElement) {
     messageElement.remove()
     console.log('📹 Hiding resolution setting message')
+  }
+}
+
+const RC_VIDEO_RESOLUTION_LABEL_ID = 'rc-video-resolution-label'
+
+/**
+ * Shows achieved resolution and frame rate in small text immediately below the video.
+ * Call when the video is shown on the next page (e.g. distance page) so the user still sees what resolution/Hz was set.
+ */
+export const showVideoResolutionLabel = RC => {
+  try {
+    const existing = document.getElementById(RC_VIDEO_RESOLUTION_LABEL_ID)
+    if (existing) existing.remove()
+
+    const container = document.getElementById('webgazerVideoContainer')
+    if (!container) return
+
+    const cameraInfo = getCameraInfo(RC)
+    const w = cameraInfo.width || '?'
+    const h = cameraInfo.height || '?'
+    const hz = cameraInfo.frameRate || '?'
+    const text = `${w}×${h}, ${hz} Hz`
+
+    const label = document.createElement('div')
+    label.id = RC_VIDEO_RESOLUTION_LABEL_ID
+    label.textContent = text
+    label.style.cssText = `
+      position: fixed;
+      z-index: 9999999998;
+      font-size: 0.7rem;
+      line-height: 1.2;
+      color: #555;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+    `
+    document.body.appendChild(label)
+
+    const positionLabel = () => {
+      const rect = container.getBoundingClientRect()
+      label.style.top = `${rect.bottom + 4}px`
+      label.style.left = `${rect.left}px`
+      label.style.width = `${Math.max(rect.width, 80)}px`
+      label.style.textAlign = 'center'
+    }
+    positionLabel()
+    window.addEventListener('resize', positionLabel)
+    label._cleanupResize = () => window.removeEventListener('resize', positionLabel)
+  } catch (error) {
+    console.warn('Could not show video resolution label:', error)
+  }
+}
+
+/**
+ * Hides the resolution/frame rate label below the video.
+ */
+export const hideVideoResolutionLabel = () => {
+  const label = document.getElementById(RC_VIDEO_RESOLUTION_LABEL_ID)
+  if (label) {
+    if (label._cleanupResize) label._cleanupResize()
+    label.remove()
   }
 }
 
