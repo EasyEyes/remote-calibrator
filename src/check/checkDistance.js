@@ -29,7 +29,7 @@ import { irisTrackingIsActive } from '../distance/distanceTrack'
 console.log('📦 checkDistance.js imports:', {
   test_phrases_exists: !!test_phrases,
   test_phrases_keys: test_phrases ? Object.keys(test_phrases) : [],
-  test_phrases_sample: test_phrases?.RC_produceDistance_MD,
+  test_phrases_sample: test_phrases?.RC_produceDistanceLocation_MD,
   test_assetMap_exists: !!test_assetMap,
 })
 import {
@@ -2492,63 +2492,54 @@ const trackDistanceCheck = async (
       )
       updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
 
-      // Determine which instruction text to show based on calibrateDistanceChecking option
+      // Single phrase RC_produceDistanceLocation with placeholders [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
       const checkingOptions = calibrateDistanceChecking
-      let instructionBodyPhrase = phrases.RC_produceDistance[RC.language.value]
+      const optionsArray =
+        checkingOptions && typeof checkingOptions === 'string'
+          ? checkingOptions
+              .toLowerCase()
+              .split(',')
+              .map(s => s.trim())
+          : []
+      const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
+      const hasCamera = optionsArray.includes('camera')
+      const hasCenter = optionsArray.includes('center')
+      const _saveSnapshotsBool = RC._saveSnapshotsBool === true
+      const lang = RC.language.value
 
-      if (checkingOptions && typeof checkingOptions === 'string') {
-        const optionsArray = checkingOptions
-          .toLowerCase()
-          .split(',')
-          .map(s => s.trim())
-        const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
-        const hasCamera = optionsArray.includes('camera')
+      const basePhrase =
+        phrases.RC_produceDistanceLocation?.[lang] ||
+        phrases.RC_produceDistance?.[lang] ||
+        ''
 
-        if (hasTiltAndSwivel && hasCamera) {
-          // Both tiltAndSwivel and camera
-          instructionBodyPhrase =
-            phrases.RC_produceDistanceCameraTiltAndSwivel?.[
-              RC.language.value
-            ] || phrases.RC_produceDistance[RC.language.value]
-        } else if (hasTiltAndSwivel) {
-          // Only tiltAndSwivel
-          instructionBodyPhrase =
-            phrases.RC_produceDistanceTiltAndSwivel?.[RC.language.value] ||
-            phrases.RC_produceDistance[RC.language.value]
-        } else if (hasCamera) {
-          // Only camera
-          instructionBodyPhrase =
-            phrases.RC_produceDistanceCamera?.[RC.language.value] ||
-            phrases.RC_produceDistance[RC.language.value]
-        }
-      }
+      const replaceTS = hasTiltAndSwivel
+        ? (phrases.RC_tiltAndSwivel?.[lang] || '')
+        : ''
+      const replaceSSS = _saveSnapshotsBool
+        ? (phrases.RC_snapshot?.[lang] || '')
+        : (phrases.RC_temporarySnapshot?.[lang] || '')
+      const replaceLLL = hasCenter
+        ? (phrases.RC_theCenterLocationShort?.[lang] || '')
+        : hasCamera
+          ? (phrases.RC_theCameraLocationShort?.[lang] || '')
+          : (phrases.RC_theCenterLocationShort?.[lang] || '')
+      const replaceLLLLLL = hasCenter
+        ? (phrases.RC_theCenterLocationLong?.[lang] || '')
+        : hasCamera
+          ? (phrases.RC_theCameraLocationLong?.[lang] || '')
+          : (phrases.RC_theCenterLocationLong?.[lang] || '')
 
-      // Choose step-by-step phrase key
-      // Mapping for checkDistance.js: _MD keys → actual phrase keys in main system
+      let instructionBodyPhrase = basePhrase
+        .replace(/\[\[TS\]\]/g, replaceTS)
+        .replace(/\[\[SSS\]\]/g, replaceSSS)
+        .replace(/\[\[LLL\]\]/g, replaceLLL)
+        .replace(/\[\[LLLLLL\]\]/g, replaceLLLLLL)
+
+      // Step-by-step uses the same single phrase key
       const phraseKeyMapping = {
-        RC_produceDistanceCameraTiltAndSwivel_MD:
-          'RC_produceDistanceCameraTiltAndSwivel',
-        RC_produceDistanceCamera_MD: 'RC_produceDistanceCamera',
-        RC_produceDistanceTiltAndSwivel_MD: 'RC_produceDistanceTiltAndSwivel',
-        RC_produceDistance_MD: 'RC_produceDistance',
+        RC_produceDistanceLocation_MD: 'RC_produceDistanceLocation',
       }
-
-      let phraseKeyForSteps = 'RC_produceDistance_MD'
-      if (checkingOptions && typeof checkingOptions === 'string') {
-        const optionsArray = checkingOptions
-          .toLowerCase()
-          .split(',')
-          .map(s => s.trim())
-        const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
-        const hasCamera = optionsArray.includes('camera')
-        if (hasTiltAndSwivel && hasCamera) {
-          phraseKeyForSteps = 'RC_produceDistanceCameraTiltAndSwivel_MD'
-        } else if (hasTiltAndSwivel) {
-          phraseKeyForSteps = 'RC_produceDistanceTiltAndSwivel_MD'
-        } else if (hasCamera) {
-          phraseKeyForSteps = 'RC_produceDistanceCamera_MD'
-        }
-      }
+      const phraseKeyForSteps = 'RC_produceDistanceLocation_MD'
 
       // Keep the title, render step-by-step body ourselves
       {
@@ -2622,12 +2613,16 @@ const trackDistanceCheck = async (
           fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
           lineHeight: '1.4',
         })
-        // For checkDistance.js: bypass test_phrases and access phrases directly using mapping
-        // This avoids module load timing issues
+        // For checkDistance.js: use RC_produceDistanceLocation and apply [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
         const actualPhraseKey =
           phraseKeyMapping[phraseKeyForSteps] ||
           phraseKeyForSteps.replace('_MD', '')
-        const rawStepText = phrases[actualPhraseKey]?.[RC.language.value] || ''
+        let rawStepText = phrases[actualPhraseKey]?.[RC.language.value] || ''
+        rawStepText = rawStepText
+          .replace(/\[\[TS\]\]/g, replaceTS)
+          .replace(/\[\[SSS\]\]/g, replaceSSS)
+          .replace(/\[\[LLL\]\]/g, replaceLLL)
+          .replace(/\[\[LLLLLL\]\]/g, replaceLLLLLL)
 
         // Debug logging
         console.log('🔍 checkDistance phrase debug:', {
@@ -2635,7 +2630,6 @@ const trackDistanceCheck = async (
           actualPhraseKey: actualPhraseKey,
           language: RC.language.value,
           phraseExists: !!phrases[actualPhraseKey],
-          phraseValue: phrases[actualPhraseKey],
           rawStepTextFound: !!rawStepText,
           textLength: rawStepText.length,
           textPreview: rawStepText.substring(0, 100),
