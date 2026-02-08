@@ -21,7 +21,18 @@ export const captureVideoFrame = RC => {
     ctx.restore()
 
     // Convert to base64 data URL
-    return canvas.toDataURL('image/jpeg', 0.8)
+    const capturedImage = canvas.toDataURL('image/jpeg')
+
+    // Dispatch custom event with the captured image
+    const event = new CustomEvent('rc-video-frame-captured', {
+      detail: {
+        image: capturedImage,
+        timestamp: Date.now(),
+      },
+    })
+    document.dispatchEvent(event)
+
+    return capturedImage
   } catch (error) {
     console.warn('Failed to capture video frame:', error)
     return null
