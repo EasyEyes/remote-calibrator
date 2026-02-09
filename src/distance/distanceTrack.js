@@ -1188,6 +1188,7 @@ export const calculateNearestPoints = (
   distanceCheck = false,
   calibrateDistanceChecking = 'camera',
   _pointXYPx = [window.screen.width / 2, window.screen.height / 2],
+  eye = 'unspecified',
 ) => {
   const {
     nearestXYPx_left,
@@ -1221,6 +1222,10 @@ export const calculateNearestPoints = (
   // (distanceCheck false) use _pointXYPx so page 3 gets camera/top and page 4 gets center.
   if (distanceCheck && globalPointXYPx.value !== null) {
     pointXYPx = globalPointXYPx.value
+    console.log(
+      'calculateNearestPoints: globalPointXYPx:',
+      globalPointXYPx.value,
+    )
   }
   const avgFootXYPx = [
     (nearestXYPx_right[0] + nearestXYPx_left[0]) / 2,
@@ -1228,7 +1233,11 @@ export const calculateNearestPoints = (
   ]
   const footXYPx =
     distanceCheck || method !== 'blindspot'
-      ? avgFootXYPx
+      ? eye === 'unspecified'
+        ? avgFootXYPx
+        : eye === 'left'
+          ? nearestXYPx_left
+          : nearestXYPx_right
       : order === 1
         ? nearestXYPx_right
         : nearestXYPx_left

@@ -231,7 +231,7 @@ export function getGlobalPointForLocation(location) {
   if (location === 'camera') {
     return [window.screen.width / 2, 0]
   } else {
-    return [window.innerWidth / 2, window.innerHeight / 2]
+    return [window.screen.width / 2, window.screen.height / 2]
   }
 }
 

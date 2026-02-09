@@ -489,6 +489,7 @@ async function processMeshDataAndCalculateNearestPoints(
   calibrateDistanceChecking = 'camera',
   _pointXYPx = [window.screen.width / 2, window.screen.height / 2],
   objectLengthCm = null,
+  eye = 'unspecified',
 ) {
   const mesh = await getMeshData(
     RC,
@@ -520,6 +521,7 @@ async function processMeshDataAndCalculateNearestPoints(
     false,
     calibrateDistanceChecking,
     _pointXYPx,
+    eye,
   )
   return {
     nearestPointsData,
@@ -6426,7 +6428,14 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       // Set reference point so showNearestPointsBool overlay uses camera (top) on page 3
-      globalPointXYPx.value = [window.screen.width / 2, 0]
+      const currentLocInfo = locationManager.getCurrentLocationInfo()
+      globalPointXYPx.value = getGlobalPointForLocation(currentLocInfo.location)
+      console.log(
+        'page 3: globalPointXYPx:',
+        globalPointXYPx.value,
+        currentLocInfo,
+      )
+      //[window.screen.width / 2, 0]
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
 
       //========== CHANGE SOON: PAPER MODE ============
@@ -7867,23 +7876,6 @@ export async function objectTest(RC, options, callback = undefined) {
               document.addEventListener('keydown', handleKeyPress)
             })()
           } else if (currentPage === 3) {
-            // Set global point based on current location using locationManager
-            const currentLocForPoint = locationManager.getCurrentLocationInfo()
-            if (
-              currentLocForPoint &&
-              currentLocForPoint.location === 'center'
-            ) {
-              globalPointXYPx.value = [
-                window.innerWidth / 2,
-                window.innerHeight / 2,
-              ]
-            } else {
-              globalPointXYPx.value = [window.screen.width / 2, 0]
-            }
-            console.log(
-              `Page 3: globalPointXYPx set for location ${locationManager.getCurrentIndex()}: ${currentLocForPoint?.locEye}`,
-            )
-
             // Collect 5 Face Mesh samples for calibration on page 3
             ;(async () => {
               console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
@@ -8115,6 +8107,11 @@ export async function objectTest(RC, options, callback = undefined) {
                   const pointXYPx = getGlobalPointForLocation(
                     locactionInfo.location,
                   )
+
+                  console.log(
+                    'page 3:3 globalPointXYPx:',
+                    globalPointXYPx.value,
+                  )
                   const eye = locactionInfo.eye
                   // Calculate average foot position
                   let footXYPx
@@ -8199,6 +8196,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     cameraResolution: cameraRes,
                     locationIndex: locationManager.getCurrentIndex(),
                     accepted: false,
+                    eye: failLocInfo.eye,
                   })
                   console.log(
                     `Queued rejected measurement for location ${failLocInfo.locEye}`,
@@ -8310,6 +8308,16 @@ export async function objectTest(RC, options, callback = undefined) {
                   // Re-add listener to retry
                   document.addEventListener('keydown', handleKeyPress)
                   lastCapturedFaceImage = null
+                  // Set global point based on current location using locationManager
+                  const currentLocForPoint =
+                    locationManager.getCurrentLocationInfo()
+                  globalPointXYPx.value = getGlobalPointForLocation(
+                    currentLocForPoint.location,
+                  )
+                  console.log(
+                    'page 3:4 globalPointXYPx:',
+                    globalPointXYPx.value,
+                  )
                 } else {
                   // Tolerance check PASSED - store this measurement using locationManager
                   console.log('=== TOLERANCE CHECK PASSED ===')
@@ -8352,6 +8360,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     cameraResolution: cameraRes,
                     locationIndex: locationManager.getCurrentIndex(),
                     accepted: true,
+                    eye: currentLocMeasurement.eye,
                   })
                   console.log(
                     `Queued accepted measurement for location ${currentLocMeasurement.locEye}`,
@@ -8360,7 +8369,18 @@ export async function objectTest(RC, options, callback = undefined) {
                   // Check if there are more locations
                   const hasMoreLocations = locationManager.advanceToNext()
 
+                  console.log(
+                    'page 3:5 globalPointXYPx:',
+                    globalPointXYPx.value,
+                  )
+
                   if (hasMoreLocations) {
+                    // Set global point based on current location using locationManager
+                    const currentLocForPoint =
+                      locationManager.getCurrentLocationInfo()
+                    globalPointXYPx.value = getGlobalPointForLocation(
+                      currentLocForPoint.location,
+                    )
                     // More locations to measure - stay on Page 3 with new positioning
                     console.log(
                       `=== ADVANCING TO NEXT LOCATION ${locationManager.getCurrentIndex()} ===`,
@@ -8457,6 +8477,11 @@ export async function objectTest(RC, options, callback = undefined) {
                     const firstMeasurementData = completedMeasurements[0]
                     const lastMeasurementData =
                       completedMeasurements[completedMeasurements.length - 1]
+
+                    // Set global point based on last measurement location
+                    globalPointXYPx.value = getGlobalPointForLocation(
+                      lastMeasurementData.location,
+                    )
 
                     RC.page3FactorCmPx = firstMeasurementData.factorCmPx
                     RC.page4FactorCmPx = lastMeasurementData.factorCmPx
