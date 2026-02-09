@@ -1996,11 +1996,14 @@ const checkSize = async (
       console.log('[Pixel Density Check] Old pxPerCm:', oldPxPerCm)
       console.log('[Pixel Density Check] New pxPerCm:', newPxPerCm)
       console.log('[Pixel Density Check] Log ratio:', logRatio.toFixed(4))
-      console.log('[Pixel Density Check] Log threshold:', logThreshold.toFixed(4))
+      console.log(
+        '[Pixel Density Check] Log threshold:',
+        logThreshold.toFixed(4),
+      )
 
       if (logRatio > logThreshold) {
         // Calculate ratio as percentage: (100 * oldPxPerCm / newPxPerCm)
-        const ratioPercent = (100 * oldPxPerCm / newPxPerCm).toFixed(0)
+        const ratioPercent = ((100 * oldPxPerCm) / newPxPerCm).toFixed(0)
 
         console.log(
           `[Pixel Density Check] MISMATCH: New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,

@@ -810,11 +810,12 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         // Consistency check failed - reject BOTH measurements
         const lastIdx = measurementState.measurements.length - 1
         const secondLastIdx = measurementState.measurements.length - 2
-        const oldPxPerCm = measurementState.measurements[secondLastIdx].ppi / 2.54
+        const oldPxPerCm =
+          measurementState.measurements[secondLastIdx].ppi / 2.54
         const newPxPerCm = measurementState.measurements[lastIdx].ppi / 2.54
-        
+
         // Calculate ratio as percentage: (100 * oldPxPerCm / newPxPerCm)
-        const ratioPercent = (100 * oldPxPerCm / newPxPerCm).toFixed(0)
+        const ratioPercent = ((100 * oldPxPerCm) / newPxPerCm).toFixed(0)
 
         console.log(
           `Consistency check failed. New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,
@@ -861,11 +862,12 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         // Reject BOTH measurements - remove them from the array
         measurementState.measurements.pop() // Remove last (new)
         measurementState.measurements.pop() // Remove second-to-last (old)
-        
+
         // Reduce the iteration count appropriately (need 2 more measurements)
         // Go back to iteration count matching current measurements length + 1
-        measurementState.currentIteration = measurementState.measurements.length + 1
-        
+        measurementState.currentIteration =
+          measurementState.measurements.length + 1
+
         // Update totalIterations to ensure we still need at least 2 measurements
         measurementState.totalIterations = Math.max(
           measurementState.totalIterations,
@@ -874,7 +876,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
 
         console.log(
           `After rejection: ${measurementState.measurements.length} measurements remaining, ` +
-          `continuing from iteration ${measurementState.currentIteration} of ${measurementState.totalIterations}`,
+            `continuing from iteration ${measurementState.currentIteration} of ${measurementState.totalIterations}`,
         )
 
         // Show pause before allowing new measurement (with exponentially growing duration)

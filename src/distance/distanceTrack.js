@@ -185,7 +185,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
     {
       fullscreen: false,
       repeatTesting: 1,
-      objectMeasurementCount: 2, // Number of repeated ruler measurements for object test
+      objectMeasurementCount: 2, // Number of repeated ruler measurements for object test (DEPRECATED: use calibrateDistanceLocations instead)
+      calibrateDistanceLocations: ['camera', 'center'], // Array of locations for distance calibration. Each can be: camera, cameraLeftEye, cameraRightEye, center, centerLeftEye, centerRightEye
       objectMeasurementConsistencyThreshold: 1.1, // Ratio threshold - measurements must satisfy max(M1/M2, M2/M1) <= max(threshold, 1/threshold)
       sparkle: true,
       pipWidthPx:
@@ -366,6 +367,14 @@ RemoteCalibrator.prototype.trackDistance = async function (
     }
 
     // Check if we should use object test data
+    // DEBUG: Log calibrateDistanceLocations before calling test functions
+    console.log('=== distanceTrack: Before calling test function ===')
+    console.log(
+      'options.calibrateDistanceLocations:',
+      options.calibrateDistanceLocations,
+    )
+    console.log('options.useObjectTestData:', options.useObjectTestData)
+
     if (options.useObjectTestData === 'both') {
       console.log('=== Starting Both Methods Test ===')
       console.log(
@@ -407,6 +416,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.calibrateDistanceShowRulerUnitsBool =
     options.calibrateDistanceShowRulerUnitsBool
   trackingOptions.objectMeasurementCount = options.objectMeasurementCount
+  trackingOptions.calibrateDistanceLocations =
+    options.calibrateDistanceLocations
   trackingOptions.objectMeasurementConsistencyThreshold =
     options.objectMeasurementConsistencyThreshold
   trackingOptions.calibrateDistancePupil = options.calibrateDistancePupil
@@ -485,10 +496,10 @@ const startTrackingPupils = async (
 
 const eyeDist = (a, b, useZ = true) => {
   if (useZ) {
-    console.log('[distanceTrack.js] eyeDist using 3D formula (with Z)')
+    // console.log('[distanceTrack.js] eyeDist using 3D formula (with Z)')
     return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
   }
-  console.log('[distanceTrack.js] eyeDist using 2D formula (NO Z)')
+  // console.log('[distanceTrack.js] eyeDist using 2D formula (NO Z)')
   return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
