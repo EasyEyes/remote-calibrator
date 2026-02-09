@@ -3751,6 +3751,20 @@ export async function objectTest(RC, options, callback = undefined) {
     snapshotsRejectedFOverWidth: [], // The rejected values of fOverWidth, two for each rejection.
   }
 
+  // Queue to collect all measurement-attempt records in chronological order.
+  // Each entry stores the lightweight data needed to create a calibration-attempt
+  // object later.  Entries are pushed on every SPACE-press that completes 5
+  // face-mesh samples (whether the tolerance check passes or fails).
+  //
+  // When a tolerance check fails, the CURRENT measurement is pushed with
+  // accepted=false and the most-recent accepted=true entry is flipped to false
+  // (retroactive rejection of the previous measurement).
+  //
+  // The entire queue is converted to full measurement objects and saved in bulk
+  // at the "ALL LOCATIONS MEASURED" exit point, preserving chronological order
+  // so that snapshotAcceptedBool is correct.
+  const measurementSaveQueue = []
+
   // ===================== PARSE calibrateDistanceLocations =====================
   // Use the imported parseLocationsArray function from ./object
   const calibrateDistanceLocations = parseLocationsArray(
@@ -8170,74 +8184,54 @@ export async function objectTest(RC, options, callback = undefined) {
                     fOverWidth
                   ).toFixed(0)
 
-                  // Save the rejected measurement with snapshotAcceptedBool = false
+                  // Track this snapshot attempt
                   objectTestCommonData.snapshotsTaken++
                   objectTestCommonData.snapshotsRejected++
                   objectTestCommonData.snapshotsRejectedFOverWidth.push(
                     fOverWidth,
                   )
-                  try {
-                    const failLocInfo = locationManager.getCurrentLocationInfo()
-                    const failPointXYPx = getGlobalPointForLocation(
-                      failLocInfo.location,
-                    )
-                    const {
-                      nearestPointsData: failNearestPointsData,
-                      currentIPDDistance: failCurrentIPDDistance,
-                      ipdXYZVpx: failIpdXYZVpx,
-                    } = await processMeshDataAndCalculateNearestPoints(
-                      RC,
-                      options,
-                      [...meshSamplesDuringPage3],
-                      factorCmPx,
-                      ppi,
-                      0,
-                      0,
-                      'object',
-                      locationManager.getCurrentIndex() + 1,
-                      [0, 0],
-                      [0, 0],
-                      0,
-                      0,
-                      0,
-                      options.calibrateDistanceChecking,
-                      failPointXYPx,
-                      firstMeasurement,
-                    )
 
-                    const failMeasurement = createMeasurementObject(
-                      `location-${failLocInfo.locEye}`,
-                      firstMeasurement,
-                      factorCmPx,
-                      failNearestPointsData,
-                      failCurrentIPDDistance,
-                      null,
-                      cameraRes,
-                      isPaperSelectionMode
-                        ? selectedPaperLabel ||
-                            paperSelectionOptions.find(
-                              o => o.key === selectedPaperOption,
-                            )?.label ||
-                            null
-                        : null,
-                      isPaperSelectionMode ? paperSuggestionValue : null,
-                      failIpdXYZVpx,
-                      fOverWidth,
-                      false, // snapshotAcceptedBool = false (rejected)
-                    )
+                  // Queue the CURRENT (failing) measurement as rejected
+                  const failLocInfo = locationManager.getCurrentLocationInfo()
+                  measurementSaveQueue.push({
+                    locEye: failLocInfo.locEye,
+                    location: failLocInfo.location,
+                    meshSamples: [...meshSamplesDuringPage3],
+                    factorCmPx,
+                    fOverWidth,
+                    cameraResolution: cameraRes,
+                    locationIndex: locationManager.getCurrentIndex(),
+                    accepted: false,
+                  })
+                  console.log(
+                    `Queued rejected measurement for location ${failLocInfo.locEye}`,
+                  )
 
-                    saveCalibrationMeasurements(
-                      RC,
-                      'object',
-                      [failMeasurement],
-                      undefined,
-                      objectTestCommonData,
-                    )
-                    console.log(
-                      `Saved rejected measurement for location ${failLocInfo.locEye}`,
-                    )
-                  } catch (error) {
-                    console.error('Error saving rejected measurement:', error)
+                  // Retroactively reject the PREVIOUS measurement.
+                  // It was queued as accepted=true earlier, but now both it and the
+                  // current measurement are considered inconsistent.  Walk the queue
+                  // backwards to find the most-recent accepted entry and flip it.
+                  for (
+                    let qi = measurementSaveQueue.length - 2;
+                    qi >= 0;
+                    qi--
+                  ) {
+                    if (measurementSaveQueue[qi].accepted) {
+                      measurementSaveQueue[qi].accepted = false
+                      // Count the retroactive rejection in the tracking totals.
+                      // snapshotsTaken was already incremented when this entry was
+                      // first accepted, so only snapshotsRejected needs updating.
+                      objectTestCommonData.snapshotsRejected++
+                      objectTestCommonData.snapshotsRejectedFOverWidth.push(
+                        measurementSaveQueue[qi].fOverWidth,
+                      )
+                      console.log(
+                        `Retroactively rejected queued measurement at index ${qi} ` +
+                          `(location ${measurementSaveQueue[qi].locEye}, ` +
+                          `fOverWidth ${measurementSaveQueue[qi].fOverWidth})`,
+                      )
+                      break
+                    }
                   }
 
                   // Show rejection popup
@@ -8345,73 +8339,26 @@ export async function objectTest(RC, options, callback = undefined) {
                     objectLengthCm: firstMeasurement,
                   })
 
-                  // Save this measurement immediately using the refactored per-iteration saving
+                  // Count this snapshot as taken and queue it as accepted.
+                  // We do NOT call saveCalibrationMeasurements yet -- if a later
+                  // tolerance check fails, the retroactive rejection logic will flip
+                  // this entry's accepted flag to false in the queue.  The entire
+                  // queue is saved in bulk at the "ALL LOCATIONS MEASURED" exit point,
+                  // preserving chronological order in snapshotAcceptedBool.
                   objectTestCommonData.snapshotsTaken++
-                  try {
-                    const locPointXYPx = getGlobalPointForLocation(
-                      currentLocMeasurement.location,
-                    )
-                    const {
-                      nearestPointsData: locNearestPointsData,
-                      currentIPDDistance: locCurrentIPDDistance,
-                      ipdXYZVpx: locIpdXYZVpx,
-                    } = await processMeshDataAndCalculateNearestPoints(
-                      RC,
-                      options,
-                      [...meshSamplesDuringPage3],
-                      factorCmPx,
-                      ppi,
-                      0,
-                      0,
-                      'object',
-                      locationManager.getCurrentIndex() + 1,
-                      [0, 0],
-                      [0, 0],
-                      0,
-                      0,
-                      0,
-                      options.calibrateDistanceChecking,
-                      locPointXYPx,
-                      firstMeasurement,
-                    )
-
-                    const locMeasurement = createMeasurementObject(
-                      `location-${currentLocMeasurement.locEye}`,
-                      firstMeasurement,
-                      factorCmPx,
-                      locNearestPointsData,
-                      locCurrentIPDDistance,
-                      null,
-                      cameraRes,
-                      isPaperSelectionMode
-                        ? selectedPaperLabel ||
-                            paperSelectionOptions.find(
-                              o => o.key === selectedPaperOption,
-                            )?.label ||
-                            null
-                        : null,
-                      isPaperSelectionMode ? paperSuggestionValue : null,
-                      locIpdXYZVpx,
-                      fOverWidth,
-                      true, // snapshotAcceptedBool
-                    )
-
-                    saveCalibrationMeasurements(
-                      RC,
-                      'object',
-                      [locMeasurement],
-                      undefined,
-                      objectTestCommonData,
-                    )
-                    console.log(
-                      `Saved measurement for location ${currentLocMeasurement.locEye}`,
-                    )
-                  } catch (error) {
-                    console.error(
-                      'Error saving per-iteration measurement:',
-                      error,
-                    )
-                  }
+                  measurementSaveQueue.push({
+                    locEye: currentLocMeasurement.locEye,
+                    location: currentLocMeasurement.location,
+                    meshSamples: [...meshSamplesDuringPage3],
+                    factorCmPx,
+                    fOverWidth,
+                    cameraResolution: cameraRes,
+                    locationIndex: locationManager.getCurrentIndex(),
+                    accepted: true,
+                  })
+                  console.log(
+                    `Queued accepted measurement for location ${currentLocMeasurement.locEye}`,
+                  )
 
                   // Check if there are more locations
                   const hasMoreLocations = locationManager.advanceToNext()
@@ -8552,6 +8499,94 @@ export async function objectTest(RC, options, callback = undefined) {
                       'keydown',
                       handleInstructionNav,
                     )
+
+                    // =====================================================================
+                    // BULK SAVE: Process the measurementSaveQueue in chronological order.
+                    // Each entry becomes a full calibration-attempt record with the correct
+                    // snapshotAcceptedBool.  This guarantees exactly N true values for N
+                    // final accepted locations, and preserves the chronological ordering
+                    // of accepted/rejected attempts.
+                    // =====================================================================
+                    try {
+                      const allMeasurementObjects = []
+                      for (const entry of measurementSaveQueue) {
+                        const entryPointXYPx = getGlobalPointForLocation(
+                          entry.location,
+                        )
+                        const {
+                          nearestPointsData: entryNearestPointsData,
+                          currentIPDDistance: entryCurrentIPDDistance,
+                          ipdXYZVpx: entryIpdXYZVpx,
+                        } = await processMeshDataAndCalculateNearestPoints(
+                          RC,
+                          options,
+                          [...entry.meshSamples],
+                          entry.factorCmPx,
+                          ppi,
+                          0,
+                          0,
+                          'object',
+                          entry.locationIndex + 1,
+                          [0, 0],
+                          [0, 0],
+                          0,
+                          0,
+                          0,
+                          options.calibrateDistanceChecking,
+                          entryPointXYPx,
+                          firstMeasurement,
+                        )
+
+                        allMeasurementObjects.push(
+                          createMeasurementObject(
+                            `location-${entry.locEye}`,
+                            firstMeasurement,
+                            entry.factorCmPx,
+                            entryNearestPointsData,
+                            entryCurrentIPDDistance,
+                            null,
+                            entry.cameraResolution,
+                            isPaperSelectionMode
+                              ? selectedPaperLabel ||
+                                  paperSelectionOptions.find(
+                                    o => o.key === selectedPaperOption,
+                                  )?.label ||
+                                  null
+                              : null,
+                            isPaperSelectionMode
+                              ? paperSuggestionValue
+                              : null,
+                            entryIpdXYZVpx,
+                            entry.fOverWidth,
+                            entry.accepted,
+                          ),
+                        )
+                      }
+
+                      saveCalibrationMeasurements(
+                        RC,
+                        'object',
+                        allMeasurementObjects,
+                        undefined,
+                        objectTestCommonData,
+                      )
+
+                      const acceptedCount = allMeasurementObjects.filter(
+                        m => m.snapshotAcceptedBool,
+                      ).length
+                      const rejectedCount =
+                        allMeasurementObjects.length - acceptedCount
+                      console.log(
+                        `Saved ${allMeasurementObjects.length} measurement attempts ` +
+                          `(${acceptedCount} accepted, ${rejectedCount} rejected) ` +
+                          `in chronological order`,
+                      )
+                    } catch (error) {
+                      console.error(
+                        'Error in bulk save of measurement attempts:',
+                        error,
+                      )
+                    }
 
                     // Call finish function DIRECTLY - no need for Page 4
                     console.log(
