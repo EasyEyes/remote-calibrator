@@ -180,6 +180,8 @@ const RC_VIDEO_RESOLUTION_LABEL_ID = 'rc-video-resolution-label'
 
 /**
  * Shows achieved resolution and frame rate in small text immediately below the video.
+ * Label is appended inside the video container so it always stays directly under the video
+ * (avoids wrong placement after layout changes, e.g. after rejecting a pair of settings).
  * Call when the video is shown on the next page (e.g. distance page) so the user still sees what resolution/Hz was set.
  */
 export const showVideoResolutionLabel = RC => {
@@ -200,7 +202,12 @@ export const showVideoResolutionLabel = RC => {
     label.id = RC_VIDEO_RESOLUTION_LABEL_ID
     label.textContent = text
     label.style.cssText = `
-      position: fixed;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      margin-top: 4px;
+      box-sizing: border-box;
       z-index: 9999999998;
       font-size: 0.7rem;
       line-height: 1.2;
@@ -209,19 +216,13 @@ export const showVideoResolutionLabel = RC => {
       pointer-events: none;
       user-select: none;
       white-space: nowrap;
+      text-align: center;
     `
-    document.body.appendChild(label)
-
-    const positionLabel = () => {
-      const rect = container.getBoundingClientRect()
-      label.style.top = `${rect.bottom + 4}px`
-      label.style.left = `${rect.left}px`
-      label.style.width = `${Math.max(rect.width, 80)}px`
-      label.style.textAlign = 'center'
+    // Ensure label below container is not clipped
+    if (getComputedStyle(container).overflow !== 'visible') {
+      container.style.overflow = 'visible'
     }
-    positionLabel()
-    window.addEventListener('resize', positionLabel)
-    label._cleanupResize = () => window.removeEventListener('resize', positionLabel)
+    container.appendChild(label)
   } catch (error) {
     console.warn('Could not show video resolution label:', error)
   }

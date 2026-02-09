@@ -6140,7 +6140,6 @@ export async function objectTest(RC, options, callback = undefined) {
       if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
       container.style.backgroundColor = ''
     } else if (pageNumber === 1) {
-      hideVideoResolutionLabel()
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
       paperSelectionContainer.style.display = 'none'
@@ -6151,6 +6150,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Show video on page 1
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       // Position video properly
       const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -6366,6 +6366,8 @@ export async function objectTest(RC, options, callback = undefined) {
       }
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
+      // Set reference point so showNearestPointsBool overlay uses camera (top) on page 3
+      globalPointXYPx.value = [window.screen.width / 2, 0]
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
       paperSelectionContainer.style.display = 'none'
       paperStepperMediaContainer.style.display = 'none'
@@ -6388,10 +6390,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Show video on page 3
       RC.showVideo(true)
-      // In paper mode, page 3 is "2 of 3" (first page with video after setting resolution) — show resolution/Hz below video
-      if (isPaperSelectionMode) {
-        showVideoResolutionLabel(RC)
-      }
+      showVideoResolutionLabel(RC)
 
       // Position video properly
       const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -6498,8 +6497,12 @@ export async function objectTest(RC, options, callback = undefined) {
       )
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO ONLY =====================
+      // Set reference point so showNearestPointsBool overlay uses screen center on page 4
+      globalPointXYPx.value = [
+        window.screen.width / 2,
+        window.screen.height / 2,
+      ]
       console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
-      hideVideoResolutionLabel()
       paperSelectionContainer.style.display = 'none'
       paperStepperMediaContainer.style.display = 'none'
       // Clean up paper stepper media content
@@ -6521,6 +6524,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Show video on page 4
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       // Position video at screen center for page 4
       const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -10084,6 +10088,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       )
 
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
@@ -10134,6 +10139,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       )
 
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       // Position video at TOP CENTER (same as page 3) instead of lower right
       const videoContainer = document.getElementById('webgazerVideoContainer')
