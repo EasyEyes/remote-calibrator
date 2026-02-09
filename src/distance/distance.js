@@ -6819,9 +6819,6 @@ export async function objectTest(RC, options, callback = undefined) {
         await resetPage2ForNextMeasurement()
       }
     }
-    // NOTE: Page 3 no longer transitions to Page 4 via nextPage().
-    // All location measurements are handled within the Page 3 space handler loop,
-    // and objectTestFinishFunction is called directly when all locations are done.
   }
 
   // Remove arrow indicator elements from DOM by id (so they never reappear in distance check)
@@ -7064,9 +7061,9 @@ export async function objectTest(RC, options, callback = undefined) {
     // SAFETY NET: Ensure RC.calibrationFOverWidth is always set before returning.
     // This value is critical for distanceTrack.js and checkDistance.js.
     // If callers already set it, this reaffirms; if not, this computes it.
-    if (RC.fOverWidth1 && RC.fOverWidth2) {
-      RC.calibrationFOverWidth = Math.sqrt(RC.fOverWidth1 * RC.fOverWidth2)
-    }
+    // if (RC.fOverWidth1 && RC.fOverWidth2) {
+    //   RC.calibrationFOverWidth = Math.sqrt(RC.fOverWidth1 * RC.fOverWidth2)
+    // }
 
     console.log('=== CALIBRATION FACTOR CALCULATION ===')
     console.log(`  distance1FactorCmPx: ${distance1FactorCmPx}`)
