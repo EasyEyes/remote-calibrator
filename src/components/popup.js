@@ -128,7 +128,7 @@ export const showResolutionSettingMessage = RC => {
       z-index: 9999999999;
       text-align: center;
       color: #666;
-      font-style: italic;
+      font-style: normal;
       font-size: 1.875em;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       pointer-events: none;
@@ -465,7 +465,7 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
         title: phrases.RC_ImprovingCameraResolutionTitle[RC.L],
         html: `
             <div style="text-align: left; margin: 1rem 0; padding: 0;">
-              <p style="margin: 0; padding: 0; text-align: left;"> ${phrases.RC_ImprovingCameraResolution[RC.L].replace('𝟙𝟙𝟙', width).replace('𝟚𝟚𝟚', height)}</p>
+              <p style="margin: 0; padding: 0; text-align: left; font-style: normal;"> ${phrases.RC_ImprovingCameraResolution[RC.L].replace('𝟙𝟙𝟙', width).replace('𝟚𝟚𝟚', height)}</p>
             </div>
           `,
         showCancelButton: false,

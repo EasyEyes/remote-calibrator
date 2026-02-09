@@ -4254,6 +4254,8 @@ export async function objectTest(RC, options, callback = undefined) {
   const sectionMediaContainer = instructionsUI.mediaContainer
 
   const cleanupBeforeCheckDistance = () => {
+    // Remove arrow indicators from DOM so they never appear during distance check
+    removeArrowIndicatorsFromDOM()
     // Remove stepper UI and media before transitioning to _checkDistance.
     if (instructionsUI?.destroy) {
       instructionsUI.destroy()
@@ -6605,6 +6607,9 @@ export async function objectTest(RC, options, callback = undefined) {
             isFullscreen,
           )
           if (currentPage === 4) {
+            // When distance check is active (progress bar present), skip: that flow owns video position
+            // (camera-on-top vs center). When we're still on distance page 4, progress bar is absent → we run as before.
+            if (document.getElementById('custom-progress-bar')) return
             updatePage4Arrows()
             positionVideoAtScreenCenter()
             // Call again after layout stabilizes (multiple times to ensure it takes)
@@ -7102,17 +7107,28 @@ export async function objectTest(RC, options, callback = undefined) {
     }
   }
 
+  // Remove arrow indicator elements from DOM by id (so they never reappear in distance check)
+  const removeArrowIndicatorsFromDOM = () => {
+    ;['object-test-arrow-indicators', 'known-distance-test-arrow-indicators'].forEach(
+      id => {
+        const el = document.getElementById(id)
+        if (el) el.remove()
+      },
+    )
+  }
+
   // ===================== OBJECT TEST FINISH FUNCTION =====================
   const objectTestFinishFunction = async () => {
     // Always clean up keyboard event listeners
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
 
-    // Clean up arrow indicators
+    // Clean up arrow indicators (local ref and DOM by id so they stay gone)
     if (arrowIndicators) {
       arrowIndicators.remove()
       arrowIndicators = null
     }
+    removeArrowIndicatorsFromDOM()
 
     globalPointXYPx.value = null
 
@@ -9961,6 +9977,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   const sectionMediaContainer = instructionsUI.mediaContainer
 
   const cleanupBeforeCheckDistance = () => {
+    removeArrowIndicatorsFromDOMKnown()
     if (instructionsUI?.destroy) {
       instructionsUI.destroy()
     }
@@ -10226,6 +10243,16 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     }
   }
 
+  // Remove arrow indicator elements from DOM by id (so they never reappear in distance check)
+  const removeArrowIndicatorsFromDOMKnown = () => {
+    ;['object-test-arrow-indicators', 'known-distance-test-arrow-indicators'].forEach(
+      id => {
+        const el = document.getElementById(id)
+        if (el) el.remove()
+      },
+    )
+  }
+
   // ===================== KNOWN DISTANCE TEST FINISH FUNCTION =====================
   const knownDistanceTestFinishFunction = async () => {
     document.removeEventListener('keydown', handleKeyPress)
@@ -10235,6 +10262,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       arrowIndicators.remove()
       arrowIndicators = null
     }
+    removeArrowIndicatorsFromDOMKnown()
 
     if (!RC.gazeTracker.checkInitialized('distance')) {
       RC.gazeTracker._init(

@@ -104,6 +104,18 @@ const removeFixationCrossFromVideo = () => {
   }
 }
 
+// Remove arrow indicators from earlier distance pages (object test / known distance) - they don't belong in distance check
+const removeDistancePageArrowIndicators = () => {
+  const ids = [
+    'object-test-arrow-indicators',
+    'known-distance-test-arrow-indicators',
+  ]
+  ids.forEach(id => {
+    const el = document.getElementById(id)
+    if (el) el.remove()
+  })
+}
+
 // Helper function to reposition video based on camera monitoring option
 const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
   if (!RC || !calibrateDistanceChecking) return
@@ -127,9 +139,17 @@ const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
   if (shouldPositionAtCamera) {
     // Mark video container as being in camera mode (prevents setDefaultVideoPosition from overriding)
     videoContainer.dataset.cameraMode = 'true'
+    delete videoContainer.dataset.screenCenterMode
 
-    // Position video at cameraXYPx (top center of screen)
-    const cameraXYPx = [window.screen.width / 2, 0]
+    // Unbind the default video resize listener so it cannot move video to center on resize/fullscreen exit
+    if (videoContainer._resizeHandler) {
+      window.removeEventListener('resize', videoContainer._resizeHandler)
+      videoContainer._resizeHandler = null
+      videoContainer._hasResizeListener = false
+    }
+
+    // Position video at top center of current viewport (use innerWidth so it persists on resize/fullscreen exit)
+    const cameraXYPx = [window.innerWidth / 2, 0]
 
     videoContainer.style.zIndex = '999999999999'
     videoContainer.style.position = 'fixed'
@@ -167,8 +187,12 @@ const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
 
     // Default positioning (centered on screen)
     setDefaultVideoPosition(RC, videoContainer)
-    // Remove cross if not in camera mode
-    removeFixationCrossFromVideo()
+    // Show red cross when tiltandswivel is on (same as camera-on-top case), otherwise remove
+    if (shouldShowCross) {
+      createFixationCrossOnVideo()
+    } else {
+      removeFixationCrossFromVideo()
+    }
   }
 }
 
@@ -340,20 +364,50 @@ const setupDistanceCheckFontAdjustment = (
   const resizeHandler = () => {
     console.log('Resize event detected')
     adjustDistanceCheckFontSize()
-
+    // Remove arrow indicators from earlier distance pages if they reappear (e.g. after fullscreen exit)
+    removeDistancePageArrowIndicators()
     // Reposition video to maintain camera monitoring position after resize
     if (RC && calibrateDistanceChecking) {
       repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
     }
   }
 
+  const fullscreenChangeHandler = () => {
+    // Re-apply video position on fullscreen exit so top-center persists (viewport-relative)
+    if (RC && calibrateDistanceChecking) {
+      repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
+      // Re-apply again after layout stabilizes (fullscreen exit can trigger multiple reflows)
+      requestAnimationFrame(() => {
+        repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
+        setTimeout(() => {
+          repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
+        }, 50)
+      })
+    }
+    removeDistancePageArrowIndicators()
+  }
+
   window.addEventListener('resize', resizeHandler)
-  console.log('Resize listener added')
+  document.addEventListener('fullscreenchange', fullscreenChangeHandler)
+  document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler)
+  document.addEventListener('mozfullscreenchange', fullscreenChangeHandler)
+  document.addEventListener('MSFullscreenChange', fullscreenChangeHandler)
+  console.log('Resize and fullscreen listeners added')
 
   // Return cleanup function
   return () => {
     console.log('Cleaning up distance check font adjustment')
     window.removeEventListener('resize', resizeHandler)
+    document.removeEventListener('fullscreenchange', fullscreenChangeHandler)
+    document.removeEventListener(
+      'webkitfullscreenchange',
+      fullscreenChangeHandler,
+    )
+    document.removeEventListener(
+      'mozfullscreenchange',
+      fullscreenChangeHandler,
+    )
+    document.removeEventListener('MSFullscreenChange', fullscreenChangeHandler)
   }
 }
 
@@ -2082,26 +2136,27 @@ const checkSize = async (
     const checkingOptions = calibrateDistanceChecking
     let shouldPositionAtCamera = false
 
+    let shouldShowCross = false
     if (checkingOptions && typeof checkingOptions === 'string') {
       const optionsArray = checkingOptions
         .toLowerCase()
         .split(',')
         .map(s => s.trim())
       shouldPositionAtCamera = optionsArray.includes('camera')
+      shouldShowCross = optionsArray.includes('tiltandswivel')
     }
 
     if (!shouldPositionAtCamera) {
       // Only reposition to default if NOT using camera positioning
       setDefaultVideoPosition(RC, videoContainer)
-      // Remove fixation cross when not in camera mode
-      removeFixationCrossFromVideo()
+      // Show red cross when tiltandswivel is on (even when camera is centered), otherwise remove
+      if (shouldShowCross) {
+        createFixationCrossOnVideo()
+      } else {
+        removeFixationCrossFromVideo()
+      }
     } else {
       // Re-create fixation cross when returning to camera mode - only if tiltandswivel is included
-      const optionsArray = checkingOptions
-        .toLowerCase()
-        .split(',')
-        .map(s => s.trim())
-      const shouldShowCross = optionsArray.includes('tiltandswivel')
       if (shouldShowCross) {
         createFixationCrossOnVideo()
       } else {
@@ -3542,8 +3597,21 @@ const createProgressBar = (RC, calibrateDistanceChecking = undefined) => {
   progressBarContainer.appendChild(progressBarText)
   document.body.appendChild(progressBarContainer)
 
+  // Remove arrow indicators from earlier distance pages (they don't belong in distance check)
+  removeDistancePageArrowIndicators()
+
   // Reposition video based on calibrateDistanceChecking option
   repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
+
+  // Register resize and fullscreen listeners so video position and arrows stay correct (and cleanup on teardown)
+  if (RC._distanceCheckFontCleanup) {
+    RC._distanceCheckFontCleanup()
+    RC._distanceCheckFontCleanup = null
+  }
+  RC._distanceCheckFontCleanup = setupDistanceCheckFontAdjustment(
+    RC,
+    calibrateDistanceChecking,
+  )
 }
 
 // Function to update the progress
@@ -3571,6 +3639,12 @@ const updateProgressBar = (progress, current, total) => {
 
 // Function to remove the progress bar
 const removeProgressBar = (RC, calibrateDistanceChecking = undefined) => {
+  // Teardown resize/fullscreen listeners from distance check
+  if (RC._distanceCheckFontCleanup) {
+    RC._distanceCheckFontCleanup()
+    RC._distanceCheckFontCleanup = null
+  }
+
   const progressBarContainer = document.getElementById('custom-progress-bar')
   if (progressBarContainer) {
     document.body.removeChild(progressBarContainer)
@@ -3595,9 +3669,10 @@ const removeProgressBar = (RC, calibrateDistanceChecking = undefined) => {
         setDefaultVideoPosition(RC, videoContainer)
         // Remove fixation cross when not in camera mode
         removeFixationCrossFromVideo()
+      } else {
+        // Leaving camera mode: clear flag so the next flow (equipment, size check, etc.) can reposition the video
+        delete videoContainer.dataset.cameraMode
       }
-      // If shouldPositionAtCamera is true, don't call setDefaultVideoPosition
-      // The video will stay at the camera position and cross remains
     }
   } else {
     console.warn('Progress bar does not exist.')
