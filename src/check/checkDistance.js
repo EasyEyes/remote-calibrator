@@ -29,7 +29,7 @@ import { irisTrackingIsActive } from '../distance/distanceTrack'
 console.log('📦 checkDistance.js imports:', {
   test_phrases_exists: !!test_phrases,
   test_phrases_keys: test_phrases ? Object.keys(test_phrases) : [],
-  test_phrases_sample: test_phrases?.RC_produceDistance_MD,
+  test_phrases_sample: test_phrases?.RC_produceDistanceLocation_MD,
   test_assetMap_exists: !!test_assetMap,
 })
 import {
@@ -104,6 +104,18 @@ const removeFixationCrossFromVideo = () => {
   }
 }
 
+// Remove arrow indicators from earlier distance pages (object test / known distance) - they don't belong in distance check
+const removeDistancePageArrowIndicators = () => {
+  const ids = [
+    'object-test-arrow-indicators',
+    'known-distance-test-arrow-indicators',
+  ]
+  ids.forEach(id => {
+    const el = document.getElementById(id)
+    if (el) el.remove()
+  })
+}
+
 // Helper function to reposition video based on camera monitoring option
 const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
   if (!RC || !calibrateDistanceChecking) return
@@ -127,9 +139,17 @@ const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
   if (shouldPositionAtCamera) {
     // Mark video container as being in camera mode (prevents setDefaultVideoPosition from overriding)
     videoContainer.dataset.cameraMode = 'true'
+    delete videoContainer.dataset.screenCenterMode
 
-    // Position video at cameraXYPx (top center of screen)
-    const cameraXYPx = [window.screen.width / 2, 0]
+    // Unbind the default video resize listener so it cannot move video to center on resize/fullscreen exit
+    if (videoContainer._resizeHandler) {
+      window.removeEventListener('resize', videoContainer._resizeHandler)
+      videoContainer._resizeHandler = null
+      videoContainer._hasResizeListener = false
+    }
+
+    // Position video at top center of current viewport (use innerWidth so it persists on resize/fullscreen exit)
+    const cameraXYPx = [window.innerWidth / 2, 0]
 
     videoContainer.style.zIndex = '999999999999'
     videoContainer.style.position = 'fixed'
@@ -167,8 +187,12 @@ const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
 
     // Default positioning (centered on screen)
     setDefaultVideoPosition(RC, videoContainer)
-    // Remove cross if not in camera mode
-    removeFixationCrossFromVideo()
+    // Show red cross when tiltandswivel is on (same as camera-on-top case), otherwise remove
+    if (shouldShowCross) {
+      createFixationCrossOnVideo()
+    } else {
+      removeFixationCrossFromVideo()
+    }
   }
 }
 
@@ -340,20 +364,47 @@ const setupDistanceCheckFontAdjustment = (
   const resizeHandler = () => {
     console.log('Resize event detected')
     adjustDistanceCheckFontSize()
-
+    // Remove arrow indicators from earlier distance pages if they reappear (e.g. after fullscreen exit)
+    removeDistancePageArrowIndicators()
     // Reposition video to maintain camera monitoring position after resize
     if (RC && calibrateDistanceChecking) {
       repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
     }
   }
 
+  const fullscreenChangeHandler = () => {
+    // Re-apply video position on fullscreen exit so top-center persists (viewport-relative)
+    if (RC && calibrateDistanceChecking) {
+      repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
+      // Re-apply again after layout stabilizes (fullscreen exit can trigger multiple reflows)
+      requestAnimationFrame(() => {
+        repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
+        setTimeout(() => {
+          repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
+        }, 50)
+      })
+    }
+    removeDistancePageArrowIndicators()
+  }
+
   window.addEventListener('resize', resizeHandler)
-  console.log('Resize listener added')
+  document.addEventListener('fullscreenchange', fullscreenChangeHandler)
+  document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler)
+  document.addEventListener('mozfullscreenchange', fullscreenChangeHandler)
+  document.addEventListener('MSFullscreenChange', fullscreenChangeHandler)
+  console.log('Resize and fullscreen listeners added')
 
   // Return cleanup function
   return () => {
     console.log('Cleaning up distance check font adjustment')
     window.removeEventListener('resize', resizeHandler)
+    document.removeEventListener('fullscreenchange', fullscreenChangeHandler)
+    document.removeEventListener(
+      'webkitfullscreenchange',
+      fullscreenChangeHandler,
+    )
+    document.removeEventListener('mozfullscreenchange', fullscreenChangeHandler)
+    document.removeEventListener('MSFullscreenChange', fullscreenChangeHandler)
   }
 }
 
@@ -877,6 +928,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateDistance = '',
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
+  calibrateDistanceAllowedRatio = 1.1,
 ) {
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
@@ -900,6 +952,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         calibrateDistance,
         stepperHistory,
         calibrateScreenSizeAllowedRatio,
+        calibrateDistanceAllowedRatio,
       )
     },
     false,
@@ -1540,7 +1593,11 @@ const checkSize = async (
           const videoRect = video.getBoundingClientRect()
           const screenWidth = window.innerWidth
           const videoLeftEdge = (screenWidth - videoRect.width) / 2
-          instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
+          const leftColumnMaxPx = window.innerWidth * 0.495
+          // Give instruction column barely under half the screen to avoid occlusion with right-side elements
+          instructionElement.style.width = '49.5vw'
+          instructionElement.style.minWidth = '49.5vw'
+          instructionElement.style.maxWidth = `${Math.max(videoLeftEdge - 3, leftColumnMaxPx)}px`
         }
 
         // Re-append yellow tape if it exists after background replacement
@@ -1575,6 +1632,9 @@ const checkSize = async (
 
       if (!lengthStepperState.ui) {
         instructionBody.innerHTML = ''
+        // Let instruction body use full container width (container is barely under half screen)
+        instructionBody.style.width = '100%'
+        instructionBody.style.maxWidth = '100%'
         lengthStepperState.ui = createStepInstructionsUI(instructionBody, {
           layout: 'leftOnly',
           leftWidth: '100%',
@@ -2002,8 +2062,8 @@ const checkSize = async (
       )
 
       if (logRatio > logThreshold) {
-        // Calculate ratio as percentage: (100 * oldPxPerCm / newPxPerCm)
-        const ratioPercent = ((100 * oldPxPerCm) / newPxPerCm).toFixed(0)
+        // Calculate ratio as percentage: (100 * newPxPerCm / oldPxPerCm)
+        const ratioPercent = ((100 * newPxPerCm) / oldPxPerCm).toFixed(0)
 
         console.log(
           `[Pixel Density Check] MISMATCH: New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,
@@ -2058,119 +2118,6 @@ const checkSize = async (
         console.log('[Pixel Density Check] Measurements consistent - passed')
       }
     }
-
-    // COMPLIANCE CHECK: Starting from the second setting, check for non-compliance
-    // (user pressing space without actually adjusting the tape)
-    if (i >= 1) {
-      const currentRequestedLength = processedLengthCm[i]
-      const previousRequestedLength = processedLengthCm[i - 1]
-
-      // Only run compliance check if the REQUESTS differ by at least 8%
-      // (skip if requests are within 8% of being equal)
-      const requestsDifferEnough = !areValuesWithinPercent(
-        currentRequestedLength,
-        previousRequestedLength,
-        8,
-      )
-
-      if (requestsDifferEnough) {
-        // Compare the user's SETTINGS (measured lengths from yellow tape)
-        const currentMeasuredLength =
-          RC.calibrateTrackLengthMeasuredCm[
-            RC.calibrateTrackLengthMeasuredCm.length - 1
-          ]
-        const previousMeasuredLength =
-          RC.calibrateTrackLengthMeasuredCm[
-            RC.calibrateTrackLengthMeasuredCm.length - 2
-          ]
-
-        // If settings are within 3% of being equal, this is invalid (non-compliance)
-        const settingsTooSimilar = areValuesWithinPercent(
-          currentMeasuredLength,
-          previousMeasuredLength,
-          3,
-        )
-
-        if (settingsTooSimilar) {
-          // Get user's chosen units
-          const userUnits = RC.equipment?.value?.unit || 'cm'
-          const isInches = userUnits === 'inches'
-
-          // Convert measured lengths from pixels to user units
-          // First convert pixels to cm using pxPerCm, then to inches if needed
-          const previousMeasuredInCm = previousMeasuredLength / pxPerCm
-          const currentMeasuredInCm = currentMeasuredLength / pxPerCm
-          const previousMeasuredInUserUnits = isInches
-            ? previousMeasuredInCm / 2.54
-            : previousMeasuredInCm
-          const currentMeasuredInUserUnits = isInches
-            ? currentMeasuredInCm / 2.54
-            : currentMeasuredInCm
-
-          // Format measured values with 1 decimal place (never suppress zeros)
-          const prevMeasuredStr = previousMeasuredInUserUnits.toFixed(1)
-          const currMeasuredStr = currentMeasuredInUserUnits.toFixed(1)
-
-          // Requested values are already in user units (processedLengthCm is in user units despite the name)
-          // Format as integers
-          const prevRequestedStr = Math.round(
-            previousRequestedLength,
-          ).toString()
-          const currRequestedStr = Math.round(currentRequestedLength).toString()
-
-          console.warn(
-            `Compliance check failed: User set similar lengths (${prevMeasuredStr} vs ${currMeasuredStr} ${userUnits}) ` +
-              `despite different requests (${prevRequestedStr} vs ${currRequestedStr} ${userUnits})`,
-          )
-
-          // Discard all length settings so far
-          RC.calibrateTrackLengthMeasuredCm = []
-          RC.calibrateTrackLengthRequestedCm = []
-          RC.calibrateDistancePxPerCm = []
-
-          // Get the error message and fill in the values
-          // [[N11]] = previous measured, [[N22]] = current measured
-          // [[N33]] = previous requested, [[N44]] = current requested
-          // [[AAA]] = units
-          let errorMessage =
-            phrases.RC_RejectEqualLengths?.[RC.language.value] || ''
-          errorMessage = errorMessage
-            .replace('[[N11]]', prevMeasuredStr)
-            .replace('[[N22]]', currMeasuredStr)
-            .replace('[[N33]]', prevRequestedStr)
-            .replace('[[N44]]', currRequestedStr)
-            .replace('[N44]]', currRequestedStr) // Handle typo in phrase (missing opening bracket)
-            .replace(/\[\[AAA\]\]/g, userUnits)
-
-          // Show popup error message and wait for OK
-          await Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: '', //no icon
-            title: '', //no title
-            html: errorMessage,
-            allowEnterKey: true,
-            focusConfirm: true, // Focus OK button so Enter key works
-            confirmButtonText: phrases.RC_ok?.[RC.L],
-            didOpen: () => {
-              // Prevent Space key from triggering the OK button (only allow Return/Enter)
-              const confirmBtn = Swal.getConfirmButton()
-              if (confirmBtn) {
-                confirmBtn.addEventListener('keydown', e => {
-                  if (e.key === ' ' || e.code === 'Space') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                  }
-                })
-              }
-            },
-          })
-
-          // Reset loop to start from the first setting
-          // Set i to -1 so the next iteration starts at i = 0
-          i = -1
-        }
-      }
-    }
   }
 
   // Clean up the length display div when done
@@ -2186,26 +2133,27 @@ const checkSize = async (
     const checkingOptions = calibrateDistanceChecking
     let shouldPositionAtCamera = false
 
+    let shouldShowCross = false
     if (checkingOptions && typeof checkingOptions === 'string') {
       const optionsArray = checkingOptions
         .toLowerCase()
         .split(',')
         .map(s => s.trim())
       shouldPositionAtCamera = optionsArray.includes('camera')
+      shouldShowCross = optionsArray.includes('tiltandswivel')
     }
 
     if (!shouldPositionAtCamera) {
       // Only reposition to default if NOT using camera positioning
       setDefaultVideoPosition(RC, videoContainer)
-      // Remove fixation cross when not in camera mode
-      removeFixationCrossFromVideo()
+      // Show red cross when tiltandswivel is on (even when camera is centered), otherwise remove
+      if (shouldShowCross) {
+        createFixationCrossOnVideo()
+      } else {
+        removeFixationCrossFromVideo()
+      }
     } else {
       // Re-create fixation cross when returning to camera mode - only if tiltandswivel is included
-      const optionsArray = checkingOptions
-        .toLowerCase()
-        .split(',')
-        .map(s => s.trim())
-      const shouldShowCross = optionsArray.includes('tiltandswivel')
       if (shouldShowCross) {
         createFixationCrossOnVideo()
       } else {
@@ -2326,6 +2274,7 @@ const trackDistanceCheck = async (
   calibrateDistance = '',
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
+  calibrateDistanceAllowedRatio = 1.1,
 ) => {
   const isTrack = measureName === 'trackDistance'
   const isBlindspot = calibrateDistance === 'blindspot'
@@ -2543,6 +2492,7 @@ const trackDistanceCheck = async (
       _calibrateDistanceChecking: calibrateDistanceChecking,
       _calibrateDistance: calibrateDistance,
       _calibrateDistancePupil: calibrateDistancePupil,
+      _calibrateDistanceAllowedRatioFOverWidth: calibrateDistanceAllowedRatio,
       // Parameters with few values (before arrays with 8 values)
       cameraXYPx: [window.screen.width / 2, 0],
       pxPerCm: safeRoundCm(pxPerCm),
@@ -2550,8 +2500,14 @@ const trackDistanceCheck = async (
       ipdCm: safeRoundCm(RC._CONST.IPD_CM),
       calibrationFOverWidth: calibrationFOverWidth, // median(calibration) as ratio
       rulerUnit: RC.equipment?.value?.unit,
+      // Rejection tracking
+      snapshotsTaken: 0, // Total count includes rejected snapshots.
+      snapshotsRejected: 0, // Count. Each rejection adds 2.
+      snapshotsRejectedFOverWidth: [], // The rejected values of fOverWidth, two for each rejection.
+      snapshotAcceptedBool: [], // Boolean array indicating which snapshots are accepted (true) vs rejected (false).
       // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
+      fOverWidth: [], // fVpx / cameraWidthVpx
       ipdOverWidth: [], // ipdVpx / window.innerWidth
       ipdOverWidthXYZ: [], // ipdXYZVpx / cameraWidthVpx (always 3D)
       imageBasedEyesToFootCm: [], //calibrationFVpx * ipdCm / ipdVpx
@@ -2588,63 +2544,54 @@ const trackDistanceCheck = async (
       )
       updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
 
-      // Determine which instruction text to show based on calibrateDistanceChecking option
+      // Single phrase RC_produceDistanceLocation with placeholders [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
       const checkingOptions = calibrateDistanceChecking
-      let instructionBodyPhrase = phrases.RC_produceDistance[RC.language.value]
+      const optionsArray =
+        checkingOptions && typeof checkingOptions === 'string'
+          ? checkingOptions
+              .toLowerCase()
+              .split(',')
+              .map(s => s.trim())
+          : []
+      const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
+      const hasCamera = optionsArray.includes('camera')
+      const hasCenter = optionsArray.includes('center')
+      const _saveSnapshotsBool = RC._saveSnapshotsBool === true
+      const lang = RC.language.value
 
-      if (checkingOptions && typeof checkingOptions === 'string') {
-        const optionsArray = checkingOptions
-          .toLowerCase()
-          .split(',')
-          .map(s => s.trim())
-        const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
-        const hasCamera = optionsArray.includes('camera')
+      const basePhrase =
+        phrases.RC_produceDistanceLocation?.[lang] ||
+        phrases.RC_produceDistance?.[lang] ||
+        ''
 
-        if (hasTiltAndSwivel && hasCamera) {
-          // Both tiltAndSwivel and camera
-          instructionBodyPhrase =
-            phrases.RC_produceDistanceCameraTiltAndSwivel?.[
-              RC.language.value
-            ] || phrases.RC_produceDistance[RC.language.value]
-        } else if (hasTiltAndSwivel) {
-          // Only tiltAndSwivel
-          instructionBodyPhrase =
-            phrases.RC_produceDistanceTiltAndSwivel?.[RC.language.value] ||
-            phrases.RC_produceDistance[RC.language.value]
-        } else if (hasCamera) {
-          // Only camera
-          instructionBodyPhrase =
-            phrases.RC_produceDistanceCamera?.[RC.language.value] ||
-            phrases.RC_produceDistance[RC.language.value]
-        }
-      }
+      const replaceTS = hasTiltAndSwivel
+        ? phrases.RC_tiltAndSwivel?.[lang] || ''
+        : ''
+      const replaceSSS = _saveSnapshotsBool
+        ? phrases.RC_snapshot?.[lang] || ''
+        : phrases.RC_temporarySnapshot?.[lang] || ''
+      const replaceLLL = hasCenter
+        ? phrases.RC_theCenterLocationShort?.[lang] || ''
+        : hasCamera
+          ? phrases.RC_theCameraLocationShort?.[lang] || ''
+          : phrases.RC_theCenterLocationShort?.[lang] || ''
+      const replaceLLLLLL = hasCenter
+        ? phrases.RC_theCenterLocationLong?.[lang] || ''
+        : hasCamera
+          ? phrases.RC_theCameraLocationLong?.[lang] || ''
+          : phrases.RC_theCenterLocationLong?.[lang] || ''
 
-      // Choose step-by-step phrase key
-      // Mapping for checkDistance.js: _MD keys → actual phrase keys in main system
+      let instructionBodyPhrase = basePhrase
+        .replace(/\[\[TS\]\]/g, replaceTS)
+        .replace(/\[\[SSS\]\]/g, replaceSSS)
+        .replace(/\[\[LLL\]\]/g, replaceLLL)
+        .replace(/\[\[LLLLLL\]\]/g, replaceLLLLLL)
+
+      // Step-by-step uses the same single phrase key
       const phraseKeyMapping = {
-        RC_produceDistanceCameraTiltAndSwivel_MD:
-          'RC_produceDistanceCameraTiltAndSwivel',
-        RC_produceDistanceCamera_MD: 'RC_produceDistanceCamera',
-        RC_produceDistanceTiltAndSwivel_MD: 'RC_produceDistanceTiltAndSwivel',
-        RC_produceDistance_MD: 'RC_produceDistance',
+        RC_produceDistanceLocation_MD: 'RC_produceDistanceLocation',
       }
-
-      let phraseKeyForSteps = 'RC_produceDistance_MD'
-      if (checkingOptions && typeof checkingOptions === 'string') {
-        const optionsArray = checkingOptions
-          .toLowerCase()
-          .split(',')
-          .map(s => s.trim())
-        const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
-        const hasCamera = optionsArray.includes('camera')
-        if (hasTiltAndSwivel && hasCamera) {
-          phraseKeyForSteps = 'RC_produceDistanceCameraTiltAndSwivel_MD'
-        } else if (hasTiltAndSwivel) {
-          phraseKeyForSteps = 'RC_produceDistanceTiltAndSwivel_MD'
-        } else if (hasCamera) {
-          phraseKeyForSteps = 'RC_produceDistanceCamera_MD'
-        }
-      }
+      const phraseKeyForSteps = 'RC_produceDistanceLocation_MD'
 
       // Keep the title, render step-by-step body ourselves
       {
@@ -2678,7 +2625,11 @@ const trackDistanceCheck = async (
         const videoRect = video.getBoundingClientRect()
         const screenWidth = window.innerWidth
         const videoLeftEdge = (screenWidth - videoRect.width) / 2
-        instructionElement.style.maxWidth = `${videoLeftEdge - 3}px`
+        const leftColumnMaxPx = window.innerWidth * 0.495
+        // Give instruction column barely under half the screen to avoid occlusion with right-side elements
+        instructionElement.style.width = '49.5vw'
+        instructionElement.style.minWidth = '49.5vw'
+        instructionElement.style.maxWidth = `${Math.max(videoLeftEdge - 3, leftColumnMaxPx)}px`
       }
 
       // Build single-column (left-only) step-by-step UI in the instruction body
@@ -2696,6 +2647,9 @@ const trackDistanceCheck = async (
       }
       if (instructionBody) {
         instructionBody.innerHTML = ''
+        // Let instruction body use full container width (container is barely under half screen)
+        instructionBody.style.width = '100%'
+        instructionBody.style.maxWidth = '100%'
         // Enable pointer events so stepper arrows are clickable (parent has pointer-events: none)
         instructionBody.style.pointerEvents = 'auto'
         // Add bottom padding to prevent content from being occluded by progress bar
@@ -2711,12 +2665,16 @@ const trackDistanceCheck = async (
           fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
           lineHeight: '1.4',
         })
-        // For checkDistance.js: bypass test_phrases and access phrases directly using mapping
-        // This avoids module load timing issues
+        // For checkDistance.js: use RC_produceDistanceLocation and apply [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
         const actualPhraseKey =
           phraseKeyMapping[phraseKeyForSteps] ||
           phraseKeyForSteps.replace('_MD', '')
-        const rawStepText = phrases[actualPhraseKey]?.[RC.language.value] || ''
+        let rawStepText = phrases[actualPhraseKey]?.[RC.language.value] || ''
+        rawStepText = rawStepText
+          .replace(/\[\[TS\]\]/g, replaceTS)
+          .replace(/\[\[SSS\]\]/g, replaceSSS)
+          .replace(/\[\[LLL\]\]/g, replaceLLL)
+          .replace(/\[\[LLLLLL\]\]/g, replaceLLLLLL)
 
         // Debug logging
         console.log('🔍 checkDistance phrase debug:', {
@@ -2724,7 +2682,6 @@ const trackDistanceCheck = async (
           actualPhraseKey: actualPhraseKey,
           language: RC.language.value,
           phraseExists: !!phrases[actualPhraseKey],
-          phraseValue: phrases[actualPhraseKey],
           rawStepTextFound: !!rawStepText,
           textLength: rawStepText.length,
           textPreview: rawStepText.substring(0, 100),
@@ -3030,12 +2987,17 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.requestedEyesToPointCm.push(
                 safeRoundCm(requestedEyesToPointCm),
               )
-              RC.distanceCheckJSON.fVpx.push(
+              const currentFVpx =
                 Math.round(
                   ((faceValidation.ipdPixels * rulerBasedEyesToFootCm) /
                     RC._CONST.IPD_CM) *
                     10,
-                ) / 10,
+                ) / 10
+              RC.distanceCheckJSON.fVpx.push(currentFVpx)
+              // Calculate and store fOverWidth = fVpx / cameraWidth
+              const currentFOverWidth = currentFVpx / cameraResolutionXYVpx[0]
+              RC.distanceCheckJSON.fOverWidth.push(
+                safeRoundRatio(currentFOverWidth),
               )
               RC.distanceCheckJSON.pointXYPx.push([
                 faceValidation.pointXYPx[0],
@@ -3066,6 +3028,8 @@ const trackDistanceCheck = async (
                 faceValidation.footXYPx[0],
                 faceValidation.footXYPx[1],
               ])
+              RC.distanceCheckJSON.snapshotsTaken++
+              RC.distanceCheckJSON.snapshotAcceptedBool.push(true)
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
@@ -3251,12 +3215,18 @@ const trackDistanceCheck = async (
                 RC.distanceCheckJSON.requestedEyesToPointCm.push(
                   safeRoundCm(requestedEyesToPointCm),
                 )
-                RC.distanceCheckJSON.fVpx.push(
+                const currentFVpxKeypad =
                   Math.round(
                     ((faceValidation.ipdPixels * rulerBasedEyesToFootCm) /
                       RC._CONST.IPD_CM) *
                       10,
-                  ) / 10,
+                  ) / 10
+                RC.distanceCheckJSON.fVpx.push(currentFVpxKeypad)
+                // Calculate and store fOverWidth = fVpx / cameraWidth
+                const currentFOverWidthKeypad =
+                  currentFVpxKeypad / cameraResolutionXYVpx[0]
+                RC.distanceCheckJSON.fOverWidth.push(
+                  safeRoundRatio(currentFOverWidthKeypad),
                 )
                 RC.distanceCheckJSON.footToPointCm.push(
                   safeRoundCm(faceValidation.footToPointCm),
@@ -3283,6 +3253,8 @@ const trackDistanceCheck = async (
                   faceValidation.footXYPx[0],
                   faceValidation.footXYPx[1],
                 ])
+                RC.distanceCheckJSON.snapshotsTaken++
+                RC.distanceCheckJSON.snapshotAcceptedBool.push(true)
 
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
@@ -3316,136 +3288,116 @@ const trackDistanceCheck = async (
         }, calibrateDistanceCheckSecs * 1000)
       })
 
-      // COMPLIANCE CHECK: Starting from the second setting, check for non-compliance
-      // (user pressing space without actually moving to the requested distance)
-      if (i >= 1 && RC.calibrateDistanceMeasuredCm.length >= 2) {
-        const currentRequestedDistance = calibrateDistanceCheckCm[i]
-        const previousRequestedDistance = calibrateDistanceCheckCm[i - 1]
+      // COMPLIANCE CHECK: Starting from the second fOverWidth estimate,
+      // compare newFOverWidth with oldFOverWidth using log ratio
+      // Only run if the last 2 snapshots are both accepted (not yet rejected)
+      const snapshotLen = RC.distanceCheckJSON.snapshotAcceptedBool.length
+      const lastTwoAccepted =
+        snapshotLen >= 2 &&
+        RC.distanceCheckJSON.snapshotAcceptedBool[snapshotLen - 1] === true &&
+        RC.distanceCheckJSON.snapshotAcceptedBool[snapshotLen - 2] === true
 
-        // Only run compliance check if the REQUESTS differ by at least 8%
-        // (skip if requests are within 8% of being equal)
-        const requestsDifferEnough = !areValuesWithinPercent(
-          currentRequestedDistance,
-          previousRequestedDistance,
-          8,
+      if (lastTwoAccepted) {
+        const newFOverWidth =
+          RC.distanceCheckJSON.fOverWidth[
+            RC.distanceCheckJSON.fOverWidth.length - 1
+          ]
+        const oldFOverWidth =
+          RC.distanceCheckJSON.fOverWidth[
+            RC.distanceCheckJSON.fOverWidth.length - 2
+          ]
+
+        // Check if abs(log10(newFOverWidth/oldFOverWidth)) > log10(allowedRatio)
+        const logRatio = Math.abs(Math.log10(newFOverWidth / oldFOverWidth))
+        const logThreshold = Math.log10(calibrateScreenSizeAllowedRatio)
+
+        console.log('[fOverWidth Check] Old fOverWidth:', oldFOverWidth)
+        console.log('[fOverWidth Check] New fOverWidth:', newFOverWidth)
+        console.log('[fOverWidth Check] Log ratio:', logRatio.toFixed(4))
+        console.log(
+          '[fOverWidth Check] Log threshold:',
+          logThreshold.toFixed(4),
         )
 
-        if (requestsDifferEnough) {
-          // Compare the MEASURED distances (what the system detected via face tracking)
-          const currentMeasuredDistance =
-            RC.calibrateDistanceMeasuredCm[
-              RC.calibrateDistanceMeasuredCm.length - 1
-            ]
-          const previousMeasuredDistance =
-            RC.calibrateDistanceMeasuredCm[
-              RC.calibrateDistanceMeasuredCm.length - 2
-            ]
+        if (logRatio > logThreshold) {
+          // Calculate ratio as percentage: (100 * oldFOverWidth / newFOverWidth)
+          const fOverWidthRatioPercent = (
+            (100 * oldFOverWidth) /
+            newFOverWidth
+          ).toFixed(0)
 
-          // If measured distances are within 3% of being equal, this is invalid (non-compliance)
-          // The user didn't actually move despite different distance requests
-          // (Using 3% to reduce false alarms)
-          const measurementsTooSimilar = areValuesWithinPercent(
-            currentMeasuredDistance,
-            previousMeasuredDistance,
-            3,
+          console.warn(
+            `[fOverWidth Check] MISMATCH: Ratio is ${fOverWidthRatioPercent}% (oldFOverWidth=${oldFOverWidth}, newFOverWidth=${newFOverWidth}). Rejecting BOTH measurements.`,
           )
 
-          if (measurementsTooSimilar) {
-            // Get user's chosen units
-            const userUnits = RC.equipment?.value?.unit || 'cm'
-            const isInches = userUnits === 'inches'
+          // Remove the last TWO measurements from all arrays
+          RC.calibrateDistanceMeasuredCm.pop()
+          RC.calibrateDistanceMeasuredCm.pop()
+          RC.calibrateDistanceRequestedCm.pop()
+          RC.calibrateDistanceRequestedCm.pop()
+          RC.calibrateDistanceIPDPixels.pop()
+          RC.calibrateDistanceIPDPixels.pop()
+          RC.calibrateDistanceRequestedDistances.pop()
+          RC.calibrateDistanceRequestedDistances.pop()
+          // EyeFeetXYPx has 2 entries per measurement (left and right)
+          RC.calibrateDistanceEyeFeetXYPx.pop()
+          RC.calibrateDistanceEyeFeetXYPx.pop()
+          RC.calibrateDistanceEyeFeetXYPx.pop()
+          RC.calibrateDistanceEyeFeetXYPx.pop()
 
-            // Convert measured distances from cm to user units
-            const previousMeasuredInUserUnits = isInches
-              ? previousMeasuredDistance / 2.54
-              : previousMeasuredDistance
-            const currentMeasuredInUserUnits = isInches
-              ? currentMeasuredDistance / 2.54
-              : currentMeasuredDistance
+          // Track rejected snapshots
+          const fOverWidthArray = RC.distanceCheckJSON.fOverWidth
+          RC.distanceCheckJSON.snapshotsRejectedFOverWidth.push(
+            fOverWidthArray[fOverWidthArray.length - 2],
+            fOverWidthArray[fOverWidthArray.length - 1],
+          )
+          RC.distanceCheckJSON.snapshotsRejected += 2
 
-            // Format measured values with 1 decimal place (never suppress zeros)
-            const prevMeasuredStr = previousMeasuredInUserUnits.toFixed(1)
-            const currMeasuredStr = currentMeasuredInUserUnits.toFixed(1)
+          // Mark the last 2 snapshots as rejected in snapshotAcceptedBool
+          const acceptedLen = RC.distanceCheckJSON.snapshotAcceptedBool.length
+          RC.distanceCheckJSON.snapshotAcceptedBool[acceptedLen - 2] = false
+          RC.distanceCheckJSON.snapshotAcceptedBool[acceptedLen - 1] = false
 
-            // Requested values are already in user units (calibrateDistanceCheckCm is in user units despite the name)
-            // Format as integers
-            const prevRequestedStr = Math.round(
-              previousRequestedDistance,
-            ).toString()
-            const currRequestedStr = Math.round(
-              currentRequestedDistance,
-            ).toString()
+          // Use RC_focalLengthMismatch phrase with [[N1]] placeholder for ratio
+          const errorMessage =
+            phrases.RC_focalLengthMismatch?.[RC.language.value]?.replace(
+              '[[N1]]',
+              fOverWidthRatioPercent,
+            ) ||
+            `The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Try again. Click OK or press RETURN.`
 
-            console.warn(
-              `Distance compliance check failed: User at similar distances (${prevMeasuredStr} vs ${currMeasuredStr} ${userUnits}) ` +
-                `despite different requests (${prevRequestedStr} vs ${currRequestedStr} ${userUnits})`,
-            )
+          // Show popup error message and wait for OK
+          await Swal.fire({
+            ...swalInfoOptions(RC, { showIcon: false }),
+            icon: '', //no icon
+            title: '', //no title
+            html: errorMessage,
+            allowEnterKey: true,
+            focusConfirm: true, // Focus OK button so Enter key works
+            confirmButtonText: phrases.RC_ok?.[RC.L],
+            didOpen: () => {
+              // Prevent Space key from triggering the OK button (only allow Return/Enter)
+              const confirmBtn = Swal.getConfirmButton()
+              if (confirmBtn) {
+                confirmBtn.addEventListener('keydown', e => {
+                  if (e.key === ' ' || e.code === 'Space') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }
+                })
+              }
+            },
+          })
 
-            // Discard all distance settings so far
-            RC.calibrateDistanceMeasuredCm = []
-            RC.calibrateDistanceRequestedCm = []
-            RC.calibrateDistanceIPDPixels = []
-            RC.calibrateDistanceRequestedDistances = []
-            RC.calibrateDistanceEyeFeetXYPx = []
+          // Go back 2 iterations to remeasure both rejected distances
+          // Set i to i - 2 so the next iteration starts at i - 1
+          i = i - 2
 
-            // Reset distanceCheckJSON arrays
-            RC.distanceCheckJSON.pointXYPx = []
-            RC.distanceCheckJSON.imageBasedEyesToFootCm = []
-            RC.distanceCheckJSON.imageBasedEyesToPointCm = []
-            RC.distanceCheckJSON.rulerBasedEyesToPointCm = []
-            RC.distanceCheckJSON.rulerBasedEyesToFootCm = []
-            RC.distanceCheckJSON.cameraResolutionXYVpx = []
-            RC.distanceCheckJSON.requestedEyesToPointCm = []
-            RC.distanceCheckJSON.footToPointCm = []
-            RC.distanceCheckJSON.ipdOverWidth = []
-            RC.distanceCheckJSON.ipdOverWidthXYZ = []
-            RC.distanceCheckJSON.rightEyeFootXYPx = []
-            RC.distanceCheckJSON.leftEyeFootXYPx = []
-            RC.distanceCheckJSON.footXYPx = []
-
-            // Get the error message and fill in the values
-            // [[N11]] = previous measured, [[N22]] = current measured
-            // [[N33]] = previous requested, [[N44]] = current requested
-            // [[AAA]] = units
-            let errorMessage =
-              phrases.RC_RejectEqualDistances?.[RC.language.value] ||
-              phrases.RC_RejectEqualLengths?.[RC.language.value] ||
-              ''
-            errorMessage = errorMessage
-              .replace('[[N11]]', prevMeasuredStr)
-              .replace('[[N22]]', currMeasuredStr)
-              .replace('[[N33]]', prevRequestedStr)
-              .replace('[[N44]]', currRequestedStr)
-              .replace('[N44]]', currRequestedStr) // Handle typo in phrase (missing opening bracket)
-              .replace(/\[\[AAA\]\]/g, userUnits)
-
-            // Show popup error message and wait for OK
-            await Swal.fire({
-              ...swalInfoOptions(RC, { showIcon: false }),
-              icon: '', //no icon
-              title: '', //no title
-              html: errorMessage,
-              allowEnterKey: true,
-              focusConfirm: true, // Focus OK button so Enter key works
-              confirmButtonText: phrases.RC_ok?.[RC.L],
-              didOpen: () => {
-                // Prevent Space key from triggering the OK button (only allow Return/Enter)
-                const confirmBtn = Swal.getConfirmButton()
-                if (confirmBtn) {
-                  confirmBtn.addEventListener('keydown', e => {
-                    if (e.key === ' ' || e.code === 'Space') {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }
-                  })
-                }
-              },
-            })
-
-            // Reset loop to start from the first setting
-            // Set i to -1 so the next iteration starts at i = 0
-            i = -1
-          }
+          const acceptedCount =
+            RC.distanceCheckJSON.snapshotAcceptedBool.filter(b => b).length
+          console.log(
+            `[fOverWidth Check] After rejection: ${acceptedCount} accepted of ${RC.distanceCheckJSON.snapshotAcceptedBool.length} total snapshots, continuing from index ${i + 1}`,
+          )
         }
       }
     }
@@ -3642,8 +3594,21 @@ const createProgressBar = (RC, calibrateDistanceChecking = undefined) => {
   progressBarContainer.appendChild(progressBarText)
   document.body.appendChild(progressBarContainer)
 
+  // Remove arrow indicators from earlier distance pages (they don't belong in distance check)
+  removeDistancePageArrowIndicators()
+
   // Reposition video based on calibrateDistanceChecking option
   repositionVideoForCameraMonitoring(RC, calibrateDistanceChecking)
+
+  // Register resize and fullscreen listeners so video position and arrows stay correct (and cleanup on teardown)
+  if (RC._distanceCheckFontCleanup) {
+    RC._distanceCheckFontCleanup()
+    RC._distanceCheckFontCleanup = null
+  }
+  RC._distanceCheckFontCleanup = setupDistanceCheckFontAdjustment(
+    RC,
+    calibrateDistanceChecking,
+  )
 }
 
 // Function to update the progress
@@ -3671,6 +3636,12 @@ const updateProgressBar = (progress, current, total) => {
 
 // Function to remove the progress bar
 const removeProgressBar = (RC, calibrateDistanceChecking = undefined) => {
+  // Teardown resize/fullscreen listeners from distance check
+  if (RC._distanceCheckFontCleanup) {
+    RC._distanceCheckFontCleanup()
+    RC._distanceCheckFontCleanup = null
+  }
+
   const progressBarContainer = document.getElementById('custom-progress-bar')
   if (progressBarContainer) {
     document.body.removeChild(progressBarContainer)
@@ -3695,9 +3666,10 @@ const removeProgressBar = (RC, calibrateDistanceChecking = undefined) => {
         setDefaultVideoPosition(RC, videoContainer)
         // Remove fixation cross when not in camera mode
         removeFixationCrossFromVideo()
+      } else {
+        // Leaving camera mode: clear flag so the next flow (equipment, size check, etc.) can reposition the video
+        delete videoContainer.dataset.cameraMode
       }
-      // If shouldPositionAtCamera is true, don't call setDefaultVideoPosition
-      // The video will stay at the camera position and cross remains
     }
   } else {
     console.warn('Progress bar does not exist.')

@@ -57,6 +57,8 @@ import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import {
   showTestPopup,
   hideResolutionSettingMessage,
+  showVideoResolutionLabel,
+  hideVideoResolutionLabel,
 } from '../components/popup'
 import { ppiToPxPerCm } from '../components/converters'
 import {
@@ -248,6 +250,7 @@ function saveCalibrationMeasurements(
       COMMON,
       measurement.ipdXYZVpx, // 3D IPD in pixels
       measurement.fOverWidth,
+      measurement.snapshotAcceptedBool,
     )
   })
 }
@@ -288,7 +291,8 @@ function saveCalibrationAttempt(
   objectSuggestion = undefined,
   COMMON = undefined,
   ipdXYZVpx = undefined, // 3D IPD in pixels (always with Z coordinate)
-  _fOverWidth = undefined,
+  fOverWidth = undefined,
+  snapshotAcceptedBool = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
   // arrays of values across attempts for easier downstream analysis.
@@ -308,7 +312,14 @@ function saveCalibrationAttempt(
         const v = value === undefined ? null : value
         //for fields: objectRulerIntervalCm: ,objectLengthCm: , objectMeasuredMsg: , objectName: ,
         // push to array if array, otherwise set to value
-        if (Array.isArray(v)) {
+        //for fields snapshotsTaken, snapshotsRejected, snapshotsRejectedFOverWidth: just save the current value (override current value with new value)
+        if (
+          key === 'snapshotsTaken' ||
+          key === 'snapshotsRejected' ||
+          key === 'snapshotsRejectedFOverWidth'
+        ) {
+          RC.calibrationAttemptsT[key] = v
+        } else if (Array.isArray(v)) {
           if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = []
           RC.calibrationAttemptsT[key].push(...v)
         } else {
@@ -373,10 +384,10 @@ function saveCalibrationAttempt(
   const ppi = RC.screenPpi.value
   const pxPerCmValue = ppi / 2.54 // Convert PPI to pixels per cm
   const ipdCmValue = RC._CONST.IPD_CM // Standard IPD in cm (6.3cm)
-  const fVpx = (currentIPDDistance * eyesToFootCm) / ipdCmValue
-  // Use camera width for all ratios since fVpx, ipdOverWidth are derived from camera-space measurements
   const cameraWidth = cameraResolutionXYVpx ? cameraResolutionXYVpx[0] : null
-  const fOverWidth = fVpx && cameraWidth ? fVpx / cameraWidth : null
+  const fVpx = fOverWidth * cameraWidth
+  // Use camera width for all ratios since fVpx, ipdOverWidth are derived from camera-space measurements
+
   const ipdOverWidth =
     currentIPDDistance && cameraWidth ? currentIPDDistance / cameraWidth : null
   const ipdOverWidthXYZ =
@@ -415,6 +426,7 @@ function saveCalibrationAttempt(
     rulerBasedEyesToPointCm: safeRoundCm(objectLengthCm),
     imageBasedEyesToFootCm: safeRoundCm(imageBasedEyesToFootCm),
     imageBasedEyesToPointCm: safeRoundCm(imageBasedEyesToPointCm),
+    snapshotAcceptedBool: snapshotAcceptedBool,
   }
 
   // Include spot parameters only if _calibrateDistance === 'blindspot'
@@ -528,6 +540,7 @@ function createMeasurementObject(
   objectSuggestion = undefined,
   ipdXYZVpx = null, // Always 3D IPD for ipdOverWidthXYZ
   fOverWidth = null,
+  snapshotAcceptedBool = false,
 ) {
   const {
     nearestDistanceCm_left,
@@ -573,6 +586,7 @@ function createMeasurementObject(
     objectLengthCm: distance,
     ipdXYZVpx: ipdXYZVpx, // Always 3D IPD for ipdOverWidthXYZ
     fOverWidth: fOverWidth,
+    snapshotAcceptedBool: snapshotAcceptedBool,
   }
 
   if (ipdVpx !== null) {
@@ -3149,6 +3163,7 @@ export async function blindSpotTestNew(
       options.calibrateDistance,
       options.stepperHistory,
       options.calibrateScreenSizeAllowedRatio,
+      options.calibrateDistanceAllowedRatio,
     )
   else safeExecuteFunc(callback, data)
 
@@ -3760,6 +3775,9 @@ export async function objectTest(RC, options, callback = undefined) {
     objectRulerIntervalCm: [],
     // objectLengthCm: [],
     objectMeasuredMsg: [],
+    snapshotsTaken: 0, // Total count includes rejected snapshots.
+    snapshotsRejected: 0, // Count. Each rejection adds 2.
+    snapshotsRejectedFOverWidth: [], // The rejected values of fOverWidth, two for each rejection.
   }
 
   // ===================== PARSE calibrateDistanceLocations =====================
@@ -4297,6 +4315,8 @@ export async function objectTest(RC, options, callback = undefined) {
   const sectionMediaContainer = instructionsUI.mediaContainer
 
   const cleanupBeforeCheckDistance = () => {
+    // Remove arrow indicators from DOM so they never appear during distance check
+    removeArrowIndicatorsFromDOM()
     // Remove stepper UI and media before transitioning to _checkDistance.
     if (instructionsUI?.destroy) {
       instructionsUI.destroy()
@@ -6141,6 +6161,7 @@ export async function objectTest(RC, options, callback = undefined) {
     currentPage = pageNumber
 
     if (pageNumber === 0) {
+      hideVideoResolutionLabel()
       // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
       console.log('=== SHOWING PAGE 0: INSTRUCTIONS ONLY ===')
 
@@ -6203,6 +6224,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Show video on page 1
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       // Position video properly
       const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -6244,6 +6266,7 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 2) {
       // ===================== PAGE 2: DIAGONAL TAPE =====================
       console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
+      hideVideoResolutionLabel()
 
       // Hide paper selection unless we are in paper mode
       if (!isPaperSelectionMode) {
@@ -6416,9 +6439,20 @@ export async function objectTest(RC, options, callback = undefined) {
         }
       }
     } else if (pageNumber === 3) {
-      // ===================== PAGE 3: MEASUREMENT PAGE (LOCATION-BASED) =====================
-      // Use the new location-based page renderer
-      console.log('=== SHOWING PAGE 3: MEASUREMENT PAGE ===')
+      // ===================== PAGE 3: VIDEO ONLY =====================
+      // Set reference point so showNearestPointsBool overlay uses camera (top) on page 3
+      globalPointXYPx.value = [window.screen.width / 2, 0]
+      console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
+
+      //========== CHANGE SOON: PAPER MODE ============
+      // paperSelectionContainer.style.display = 'none'
+      // paperStepperMediaContainer.style.display = 'none'
+      // // Clean up paper stepper media content
+      // if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
+      // container.style.backgroundColor = ''
+      // // Always show title from page 3 onward (even in paper mode) and restore margins
+      // title.style.display = 'block'
+      // instructionsContainer.style.margin = '2rem 0 5rem 0'
 
       // Build config from current location manager state
       const pageConfig = buildMeasurementPageConfig(
@@ -6431,6 +6465,47 @@ export async function objectTest(RC, options, callback = undefined) {
         if (previousPage !== 3) {
           viewingDistanceMeasurementCount =
             pageConfig.locationIndex + 1 + (isPaperSelectionMode ? 1 : 0)
+
+          // // Show video on page 3
+          // RC.showVideo(true)
+          // showVideoResolutionLabel(RC)
+
+          // // Position video properly
+          // const videoContainer = document.getElementById('webgazerVideoContainer')
+          // if (videoContainer) {
+          //   // Clear screen-center mode flag (used on page 4)
+          //   delete videoContainer.dataset.screenCenterMode
+          //   setDefaultVideoPosition(RC, videoContainer)
+          // }
+
+          // // Ensure the video preview doesn't occlude the stepper/instructions (pages 3+).
+          // // We only push the instructions down when the video is positioned above them.
+          // const ensureInstructionsBelowVideo = (gapPx = 16) => {
+          //   const v = document.getElementById('webgazerVideoContainer')
+          //   if (!v) return
+          //   const apply = () => {
+          //     try {
+          //       // Reset to the default margin first (avoid compounding on repeated calls)
+          //       instructionsContainer.style.marginTop = ''
+          //       const vRect = v.getBoundingClientRect()
+          //       const iRect = instructionsContainer.getBoundingClientRect()
+          //       // Only adjust when the video is above the instructions (top overlap scenario)
+          //       if (vRect.top <= iRect.top + 1) {
+          //         const overlapPx = vRect.bottom + gapPx - iRect.top
+          //         if (overlapPx > 0) {
+          //           const baseTop =
+          //             parseFloat(
+          //               getComputedStyle(instructionsContainer).marginTop,
+          //             ) || 0
+          //           instructionsContainer.style.marginTop = `${Math.ceil(
+          //             baseTop + overlapPx,
+          //           )}px`
+          //         }
+          //       }
+          //       // Record the final marginTop so page 4 can match it for a seamless transition.
+          //       page3InstructionsMarginTopPx =
+          //         parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
+          //     } catch {}
         }
         viewingDistanceTotalExpected =
           pageConfig.totalLocations + (isPaperSelectionMode ? 1 : 0)
@@ -6621,6 +6696,13 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Legacy Page 4 flow (for backward compatibility or when more measurements are needed)
       console.log('=== USING LEGACY PAGE 4 FLOW ===')
+      // ===================== PAGE 4: VIDEO ONLY =====================
+      // Set reference point so showNearestPointsBool overlay uses screen center on page 4
+      globalPointXYPx.value = [
+        window.screen.width / 2,
+        window.screen.height / 2,
+      ]
+      console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
       paperSelectionContainer.style.display = 'none'
       paperStepperMediaContainer.style.display = 'none'
       if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
@@ -6638,6 +6720,7 @@ export async function objectTest(RC, options, callback = undefined) {
       )
 
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       // Position video at screen center for legacy page 4
       const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -6648,6 +6731,179 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Hide common elements
       measurementPageRenderer.hideCommonElements()
+
+      // Position video at screen center for page 4 (use screen dimensions, not viewport)
+      // const positionVideoAtScreenCenter = () => {
+      //   const videoContainer = document.getElementById('webgazerVideoContainer')
+      //   if (!videoContainer) return
+
+      //   const videoWidth =
+      //     parseInt(videoContainer.style.width) ||
+      //     videoContainer.offsetWidth ||
+      //     0
+      //   const videoHeight =
+      //     parseInt(videoContainer.style.height) ||
+      //     videoContainer.offsetHeight ||
+      //     0
+
+      //   const centerX =
+      //     (window.innerWidth || document.documentElement.clientWidth) / 2
+      //   const centerY =
+      //     (window.innerHeight || document.documentElement.clientHeight) / 2
+
+      //   // Ensure flag is set
+      //   videoContainer.dataset.screenCenterMode = 'true'
+
+      //   console.log(
+      //     '...videoWidth',
+      //     videoWidth,
+      //     'videoHeight',
+      //     videoHeight,
+      //     'screenWidth',
+      //     window.screen.width,
+      //     'screenHeight',
+      //     window.screen.height,
+      //     'innerWidth',
+      //     window.innerWidth,
+      //     'innerHeight',
+      //     window.innerHeight,
+      //     'centerX',
+      //     centerX,
+      //     'centerY',
+      //     centerY,
+      //   )
+
+      //   videoContainer.style.zIndex = 999999999999
+      //   videoContainer.style.left = `${centerX - videoWidth / 2}px`
+      //   videoContainer.style.top = `${centerY - videoHeight / 2}px`
+      //   videoContainer.style.right = 'unset'
+      //   videoContainer.style.bottom = 'unset'
+      //   videoContainer.style.transform = 'none'
+      // }
+
+      // // Position immediately and then again after layout stabilizes
+      // positionVideoAtScreenCenter()
+      // requestAnimationFrame(() => {
+      //   positionVideoAtScreenCenter()
+      //   setTimeout(positionVideoAtScreenCenter, 50)
+      // })
+
+      // // Re-position video and arrows when fullscreen state changes (only add listener once)
+      // if (!window._page4FullscreenListenerAdded) {
+      //   window._page4FullscreenListenerAdded = true
+      //   const handleFullscreenChange = () => {
+      //     const isFullscreen = !!(
+      //       document.fullscreenElement ||
+      //       document.webkitFullscreenElement ||
+      //       document.mozFullScreenElement ||
+      //       document.msFullscreenElement
+      //     )
+      //     console.log(
+      //       '*** Fullscreen change detected, currentPage:',
+      //       currentPage,
+      //       'isFullscreen:',
+      //       isFullscreen,
+      //     )
+      //     if (currentPage === 4) {
+      //       // When distance check is active (progress bar present), skip: that flow owns video position
+      //       // (camera-on-top vs center). When we're still on distance page 4, progress bar is absent → we run as before.
+      //       if (document.getElementById('custom-progress-bar')) return
+      //       updatePage4Arrows()
+      //       positionVideoAtScreenCenter()
+      //       // Call again after layout stabilizes (multiple times to ensure it takes)
+      //       requestAnimationFrame(() => {
+      //         positionVideoAtScreenCenter()
+      //         setTimeout(() => {
+      //           positionVideoAtScreenCenter()
+      //         }, 50)
+      //         setTimeout(() => {
+      //           positionVideoAtScreenCenter()
+      //         }, 150)
+      //         setTimeout(() => {
+      //           positionVideoAtScreenCenter()
+      //         }, 300)
+      //       })
+      //     }
+      //   }
+      //   document.addEventListener('fullscreenchange', handleFullscreenChange)
+      //   document.addEventListener(
+      //     'webkitfullscreenchange',
+      //     handleFullscreenChange,
+      //   )
+      //   document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+      //   document.addEventListener('MSFullscreenChange', handleFullscreenChange)
+      // }
+
+      // // Ensure the video preview doesn't occlude the stepper/instructions (only adjust if video is above instructions).
+      // const ensureInstructionsBelowVideo = (gapPx = 16) => {
+      //   const v = document.getElementById('webgazerVideoContainer')
+      //   if (!v) return
+      //   const apply = () => {
+      //     try {
+      //       instructionsContainer.style.marginTop = ''
+      //       const vRect = v.getBoundingClientRect()
+      //       const iRect = instructionsContainer.getBoundingClientRect()
+      //       if (vRect.top <= iRect.top + 1) {
+      //         const overlapPx = vRect.bottom + gapPx - iRect.top
+      //         if (overlapPx > 0) {
+      //           const baseTop =
+      //             parseFloat(
+      //               getComputedStyle(instructionsContainer).marginTop,
+      //             ) || 0
+      //           instructionsContainer.style.marginTop = `${Math.ceil(
+      //             baseTop + overlapPx,
+      //           )}px`
+      //         }
+      //       }
+      //     } catch {}
+      //   }
+      //   requestAnimationFrame(() => {
+      //     apply()
+      //     setTimeout(apply, 50)
+      //   })
+      // }
+      // ensureInstructionsBelowVideo(18)
+
+      // // Even though page 4's video is not top-centered, keep instructions at least as low as
+      // // page 3 had them (visual continuity between pages).
+      // const matchPage3InstructionsOffset = () => {
+      //   if (page3InstructionsMarginTopPx == null) return
+      //   const current =
+      //     parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
+      //   if (current < page3InstructionsMarginTopPx) {
+      //     instructionsContainer.style.marginTop = `${Math.ceil(
+      //       page3InstructionsMarginTopPx,
+      //     )}px`
+      //   }
+      // }
+      // requestAnimationFrame(() => {
+      //   matchPage3InstructionsOffset()
+      //   setTimeout(matchPage3InstructionsOffset, 60)
+      // })
+
+      // Hide Ruler-Shift button on page 4
+      rulerShiftButton.style.display = 'none'
+
+      // Keep diagonal tape component hidden and remove labels from DOM
+      tape.container.style.display = 'none'
+      if (leftLabel.container.parentNode) {
+        leftLabel.container.parentNode.removeChild(leftLabel.container)
+      }
+      if (rightLabel.container.parentNode) {
+        rightLabel.container.parentNode.removeChild(rightLabel.container)
+      }
+
+      // Hide unit selection radio buttons on page 4
+      unitRadioContainer.style.display = 'none'
+
+      // // Hide radio buttons on page 4
+      // radioContainer.style.display = 'none'
+
+      // Hide PROCEED button on page 4 - only allow space key
+      proceedButton.style.display = 'none'
+
+      // Hide explanation button on page 4
+      explanationButton.style.display = 'block' //show explanation button on page 4
 
       // Update instructions using step-by-step renderer with Markdown
       try {
@@ -6978,7 +7234,7 @@ export async function objectTest(RC, options, callback = undefined) {
           )
 
           // Show pause before allowing new object (with exponentially growing duration)
-          await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
+          // await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
         }
 
         objectTestCommonData.objectMeasuredMsg.push('mismatch')
@@ -7037,6 +7293,17 @@ export async function objectTest(RC, options, callback = undefined) {
     }
   }
 
+  // Remove arrow indicator elements from DOM by id (so they never reappear in distance check)
+  const removeArrowIndicatorsFromDOM = () => {
+    ;[
+      'object-test-arrow-indicators',
+      'known-distance-test-arrow-indicators',
+    ].forEach(id => {
+      const el = document.getElementById(id)
+      if (el) el.remove()
+    })
+  }
+
   // ===================== OBJECT TEST FINISH FUNCTION =====================
   const objectTestFinishFunction = async () => {
     // CRITICAL: Prevent double execution
@@ -7056,11 +7323,12 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keyup', handleKeyPress)
     document.removeEventListener('keydown', handleInstructionNav)
 
-    // Clean up arrow indicators
+    // Clean up arrow indicators (local ref and DOM by id so they stay gone)
     if (arrowIndicators) {
       arrowIndicators.remove()
       arrowIndicators = null
     }
+    removeArrowIndicatorsFromDOM()
 
     globalPointXYPx.value = null
 
@@ -7603,6 +7871,7 @@ export async function objectTest(RC, options, callback = undefined) {
               options.calibrateDistance,
               options.stepperHistory,
               options.calibrateScreenSizeAllowedRatio,
+              options.calibrateDistanceAllowedRatio,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -7674,6 +7943,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateDistance,
           options.stepperHistory,
           options.calibrateScreenSizeAllowedRatio,
+          options.calibrateDistanceAllowedRatio,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
@@ -7991,10 +8261,10 @@ export async function objectTest(RC, options, callback = undefined) {
                   })
 
                   // Show pause before allowing new object (with exponentially growing duration)
-                  await showPauseBeforeNewObject(
-                    RC,
-                    measurementState.rejectionCount,
-                  )
+                  // await showPauseBeforeNewObject(
+                  //   RC,
+                  //   measurementState.rejectionCount,
+                  // )
 
                   // Reset the ruler/tape to initial position
                   await resetPage2ForNextMeasurement()
@@ -8931,6 +9201,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   page3FactorCmPx /
                   cameraResolutionXYVpxPage3[0] /
                   RC._CONST.IPD_CM
+                objectTestCommonData.snapshotsTaken++
 
                 // For page 4, calculate factorVpxCm using new geometric formulas
                 let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
@@ -9030,6 +9301,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   page4FactorCmPx /
                   cameraResolutionXYVpxPage4[0] /
                   RC._CONST.IPD_CM
+                objectTestCommonData.snapshotsTaken++
                 RC.calibrationFOverWidth = Math.sqrt(
                   RC.fOverWidth1 * RC.fOverWidth2,
                 )
@@ -9060,8 +9332,8 @@ export async function objectTest(RC, options, callback = undefined) {
                   options.calibrateDistanceAllowedRatio,
                   options.calibrateDistanceAllowedRangeCm,
                   firstMeasurement,
-                  page3FactorCmPx,
-                  page4FactorCmPx,
+                  RC.fOverWidth1,
+                  RC.fOverWidth2,
                 )
                 if (RC.measurementHistory && message !== 'Pass')
                   RC.measurementHistory.push(message)
@@ -9121,6 +9393,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             isPaperSelectionMode ? paperSuggestionValue : null,
                             ipdXYZVpxPage3,
                             RC.fOverWidth1,
+                            true,
                           ),
                         )
                       }
@@ -9168,6 +9441,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             isPaperSelectionMode ? paperSuggestionValue : null,
                             ipdXYZVpxPage4,
                             RC.fOverWidth2,
+                            true,
                           ),
                         )
                       }
@@ -9230,6 +9504,13 @@ export async function objectTest(RC, options, callback = undefined) {
                   // page3FactorCmPx, page4FactorCmPx, averageFactorCmPx
                   // are already calculated above in the outer scope
 
+                  // Track rejected snapshots
+                  objectTestCommonData.snapshotsRejectedFOverWidth.push(
+                    RC.fOverWidth1,
+                    RC.fOverWidth2,
+                  )
+                  objectTestCommonData.snapshotsRejected += 2
+
                   try {
                     if (
                       meshSamplesDuringPage3.length &&
@@ -9280,6 +9561,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             isPaperSelectionMode ? paperSuggestionValue : null,
                             ipdXYZVpxPage3,
                             RC.fOverWidth1,
+                            false,
                           ),
                         )
                       }
@@ -9327,6 +9609,7 @@ export async function objectTest(RC, options, callback = undefined) {
                             isPaperSelectionMode ? paperSuggestionValue : null,
                             ipdXYZVpxPage4,
                             RC.fOverWidth2,
+                            false,
                           ),
                         )
                       }
@@ -9548,10 +9831,10 @@ export async function objectTest(RC, options, callback = undefined) {
           })
 
           // Show pause before allowing new object (with exponentially growing duration)
-          await showPauseBeforeNewObject(
-            RC,
-            measurementState.tooShortRejectionCount,
-          )
+          // await showPauseBeforeNewObject(
+          //   RC,
+          //   measurementState.tooShortRejectionCount,
+          // )
 
           // Reset the ruler/tape to initial position
           await resetPage2ForNextMeasurement()
@@ -9786,8 +10069,8 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateDistanceAllowedRatio,
           options.calibrateDistanceAllowedRangeCm,
           firstMeasurement,
-          page3FactorCmPx,
-          page4FactorCmPx,
+          RC.fOverWidth1,
+          RC.fOverWidth2,
         )
       if (RC.measurementHistory && message !== 'Pass')
         RC.measurementHistory.push(message)
@@ -9843,6 +10126,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   isPaperSelectionMode ? paperSuggestionValue : null,
                   ipdXYZVpxPage3,
                   RC.fOverWidth1,
+                  true,
                 ),
               )
             }
@@ -9890,6 +10174,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   isPaperSelectionMode ? paperSuggestionValue : null,
                   ipdXYZVpxPage4,
                   RC.fOverWidth2,
+                  true,
                 ),
               )
             }
@@ -9944,6 +10229,13 @@ export async function objectTest(RC, options, callback = undefined) {
         console.log(
           `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
         )
+
+        // Track rejected snapshots
+        objectTestCommonData.snapshotsRejectedFOverWidth.push(
+          RC.fOverWidth1,
+          RC.fOverWidth2,
+        )
+        objectTestCommonData.snapshotsRejected += 2
 
         // Note: validPage3Samples, validPage4Samples, page3Average, page4Average, page3FactorCmPx, page4FactorCmPx
         // are already calculated above in the outer scope
@@ -10010,6 +10302,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 distanceCm: distanceCm,
                 nearestDistanceCm_right: nearestDistanceCm_right,
                 nearestDistanceCm_left: nearestDistanceCm_left,
+                snapshotAcceptedBool: false,
               },
               {
                 type: 'secondMeasurement',
@@ -10021,6 +10314,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 distanceCm: distanceCm,
                 nearestDistanceCm_right: nearestDistanceCm_right,
                 nearestDistanceCm_left: nearestDistanceCm_left,
+                snapshotAcceptedBool: false,
               },
             ]
 
@@ -10077,11 +10371,11 @@ export async function objectTest(RC, options, callback = undefined) {
           )
 
           // Show pause before allowing retry (with exponentially growing duration)
-          await showPauseBeforeNewObject(
-            RC,
-            measurementState.factorRejectionCount,
-            'RC_PauseBeforeRemeasuringDistance',
-          )
+          // await showPauseBeforeNewObject(
+          //   RC,
+          //   measurementState.factorRejectionCount,
+          //   'RC_PauseBeforeRemeasuringDistance',
+          // )
         }
 
         // Reset to page 3 to restart snapshots (keep same object measurement)
@@ -10574,6 +10868,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   const sectionMediaContainer = instructionsUI.mediaContainer
 
   const cleanupBeforeCheckDistance = () => {
+    removeArrowIndicatorsFromDOMKnown()
     if (instructionsUI?.destroy) {
       instructionsUI.destroy()
     }
@@ -10701,6 +10996,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       )
 
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
@@ -10751,6 +11047,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       )
 
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       // Position video at TOP CENTER (same as page 3) instead of lower right
       const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -10837,6 +11134,17 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     }
   }
 
+  // Remove arrow indicator elements from DOM by id (so they never reappear in distance check)
+  const removeArrowIndicatorsFromDOMKnown = () => {
+    ;[
+      'object-test-arrow-indicators',
+      'known-distance-test-arrow-indicators',
+    ].forEach(id => {
+      const el = document.getElementById(id)
+      if (el) el.remove()
+    })
+  }
+
   // ===================== KNOWN DISTANCE TEST FINISH FUNCTION =====================
   const knownDistanceTestFinishFunction = async () => {
     document.removeEventListener('keydown', handleKeyPress)
@@ -10846,6 +11154,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       arrowIndicators.remove()
       arrowIndicators = null
     }
+    removeArrowIndicatorsFromDOMKnown()
 
     if (!RC.gazeTracker.checkInitialized('distance')) {
       RC.gazeTracker._init(
@@ -10944,6 +11253,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         options.calibrateDistance,
         options.stepperHistory,
         options.calibrateScreenSizeAllowedRatio,
+        options.calibrateDistanceAllowedRatio,
       )
     } else {
       if (typeof callback === 'function') {
@@ -11179,6 +11489,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                       options.calibrateDistance,
                       options.stepperHistory,
                       options.calibrateScreenSizeAllowedRatio,
+                      options.calibrateDistanceAllowedRatio,
                     )
                   } else {
                     // Call callback directly (same as knownDistanceTestFinishFunction)
@@ -11308,8 +11619,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   options.calibrateDistanceAllowedRatio,
                   options.calibrateDistanceAllowedRangeCm,
                   knownObjectLengthCm,
-                  page3FactorCmPx,
-                  page4FactorCmPx,
+                  RC.fOverWidth1,
+                  RC.fOverWidth2,
                 )
                 if (RC.measurementHistory && message !== 'Pass')
                   RC.measurementHistory.push(message)
@@ -11366,6 +11677,13 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                     `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
                   )
 
+                  // Track rejected snapshots
+                  objectTestCommonData.snapshotsRejectedFOverWidth.push(
+                    RC.fOverWidth1,
+                    RC.fOverWidth2,
+                  )
+                  objectTestCommonData.snapshotsRejected += 2
+
                   // Show error message
                   await Swal.fire({
                     ...swalInfoOptions(RC, { showIcon: false }),
@@ -11377,10 +11695,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
 
                   // Show pause
                   measurementState.factorRejectionCount++
-                  await showPauseBeforeNewObject(
-                    RC,
-                    measurementState.factorRejectionCount,
-                  )
+                  // await showPauseBeforeNewObject(
+                  //   RC,
+                  //   measurementState.factorRejectionCount,
+                  // )
 
                   // Reset and restart from page 3 - reject BOTH measurements
                   faceMeshSamplesPage3.length = 0
@@ -11713,8 +12031,8 @@ function checkObjectTestTolerance(
   allowedRatio = 1.1,
   allowedRangeCm,
   measurementCm,
-  page3FactorCmPx = null,
-  page4FactorCmPx = null,
+  fOverWidth1,
+  fOverWidth2,
 ) {
   const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
   const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
@@ -11738,10 +12056,8 @@ function checkObjectTestTolerance(
 
   // Factor ratio using calibration factors F1 and F2
   // Use the actual calculated factors if provided, otherwise fall back to simple calculation
-  const F1 =
-    page3FactorCmPx !== null ? page3FactorCmPx : page3Mean * measurementCm
-  const F2 =
-    page4FactorCmPx !== null ? page4FactorCmPx : page4Mean * measurementCm
+  const F1 = fOverWidth1
+  const F2 = fOverWidth2
   const factorRatio = F1 / F2 // Previous (Page 3) / Current (Page 4)
 
   // Use log10 formula for tolerance check: abs(log10(F2/F1)) > log10(allowedRatio)

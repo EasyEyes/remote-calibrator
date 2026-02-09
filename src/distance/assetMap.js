@@ -60,11 +60,7 @@ export const test_phrases = {
     phrases.RC_UseObjectToSetViewingDistancePage3,
   RC_UseObjectToSetViewingDistanceLowerRightPage4_MD:
     phrases.RC_UseObjectToSetViewingDistanceStepperPage4,
-  RC_produceDistanceCameraTiltAndSwivel_MD:
-    phrases.RC_produceDistanceCameraTiltAndSwivel,
-  RC_produceDistanceCamera_MD: phrases.RC_produceDistanceCamera,
-  RC_produceDistanceTiltAndSwivel_MD: phrases.RC_produceDistanceTiltAndSwivel,
-  RC_produceDistance_MD: phrases.RC_produceDistance,
+  RC_produceDistanceLocation_MD: phrases.RC_produceDistanceLocation,
 
   //   // Legacy phrases (kept for backward compatibility)
   //   RC_UseObjectToSetViewingDistanceTapePage1: {

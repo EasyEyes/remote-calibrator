@@ -725,6 +725,11 @@ const startIrisDrawing = RC => {
             ? RC.screenPpi.value
             : RC._CONST.N.PPI_DONT_USE
           const pxPerCm = ppi / 2.54
+          // Use globalPointXYPx for overlay so page 3 = camera/top, page 4 = center
+          const overlayPointXYPx =
+            globalPointXYPx.value !== null
+              ? globalPointXYPx.value
+              : [window.screen.width / 2, 0]
           const nearestPointsData = calculateNearestPoints(
             video,
             leftEye,
@@ -746,7 +751,7 @@ const startIrisDrawing = RC => {
             currentIPDDistance,
             false,
             'camera',
-            [window.screen.width / 2, 0],
+            overlayPointXYPx,
           )
 
           const footToPointCm = nearestPointsData.footToPointCm
@@ -1212,8 +1217,9 @@ export const calculateNearestPoints = (
     if (optionsArray.includes('camera')) pointXYPx = cameraXYPx
     else if (optionsArray.includes('center')) pointXYPx = centerXYPx
   }
-  //if globalPointXYPx is not null, override pointXYPx with globalPointXYPx
-  if (globalPointXYPx.value !== null) {
+  // Only use globalPointXYPx for live overlay (distanceCheck). When saving calibration
+  // (distanceCheck false) use _pointXYPx so page 3 gets camera/top and page 4 gets center.
+  if (distanceCheck && globalPointXYPx.value !== null) {
     pointXYPx = globalPointXYPx.value
   }
   const avgFootXYPx = [
