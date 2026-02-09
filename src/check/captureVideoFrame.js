@@ -27,7 +27,6 @@ export const captureVideoFrame = RC => {
     const event = new CustomEvent('rc-video-frame-captured', {
       detail: {
         image: capturedImage,
-        timestamp: Date.now(),
       },
     })
     document.dispatchEvent(event)
