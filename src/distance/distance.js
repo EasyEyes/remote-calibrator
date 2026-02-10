@@ -8239,9 +8239,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
                   await Swal.fire({
                     ...swalInfoOptions(RC, { showIcon: false }),
-                    title:
-                      phrases.RC_viewingDistanceCalibrationFailed?.[RC.L] ||
-                      'Calibration Failed',
+                    title: '', // No heading - message uses international phrase RC_focalLengthMismatch only
                     html: `<p>${displayMessage}</p>`,
                     confirmButtonText: phrases.EE_ok?.[RC.L] || 'OK',
                   })
