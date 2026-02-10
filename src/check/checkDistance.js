@@ -3309,7 +3309,7 @@ const trackDistanceCheck = async (
 
         // Check if abs(log10(newFOverWidth/oldFOverWidth)) > log10(allowedRatio)
         const logRatio = Math.abs(Math.log10(newFOverWidth / oldFOverWidth))
-        const logThreshold = Math.log10(calibrateScreenSizeAllowedRatio)
+        const logThreshold = Math.log10(calibrateDistanceAllowedRatio)
 
         console.log('[fOverWidth Check] Old fOverWidth:', oldFOverWidth)
         console.log('[fOverWidth Check] New fOverWidth:', newFOverWidth)
