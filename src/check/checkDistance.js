@@ -3048,7 +3048,7 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.acceptedRatioFOverWidth.push(
                 prevAccepted === null
                   ? NaN
-                  : safeRoundRatio(currentFOverWidth / prevAccepted) ?? NaN,
+                  : (safeRoundRatio(currentFOverWidth / prevAccepted) ?? NaN),
               )
               RC.distanceCheckJSON.acceptedLocation.push(
                 calibrateDistanceChecking,
@@ -3293,9 +3293,9 @@ const trackDistanceCheck = async (
                 RC.distanceCheckJSON.acceptedRatioFOverWidth.push(
                   prevAcceptedKeypad === null
                     ? NaN
-                    : safeRoundRatio(
+                    : (safeRoundRatio(
                         currentFOverWidthKeypad / prevAcceptedKeypad,
-                      ) ?? NaN,
+                      ) ?? NaN),
                 )
                 RC.distanceCheckJSON.acceptedLocation.push(
                   calibrateDistanceChecking,
@@ -3398,7 +3398,8 @@ const trackDistanceCheck = async (
 
           // Rejected plot lists: capture before popping (only the more recent of the two fOverWidth values)
           const fOverWidthArray = RC.distanceCheckJSON.fOverWidth
-          const moreRecentFOverWidth = fOverWidthArray[fOverWidthArray.length - 1]
+          const moreRecentFOverWidth =
+            fOverWidthArray[fOverWidthArray.length - 1]
           RC.distanceCheckJSON.rejectedFOverWidth.push(
             safeRoundRatio(moreRecentFOverWidth),
           )

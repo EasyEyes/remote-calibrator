@@ -8194,9 +8194,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     Math.round((fOverWidth / prevFOverWidth) * 10000) / 10000,
                   )
                   const failLocInfo = locationManager.getCurrentLocationInfo()
-                  objectTestCommonData.rejectedLocation.push(
-                    failLocInfo.locEye,
-                  )
+                  objectTestCommonData.rejectedLocation.push(failLocInfo.locEye)
                   objectTestCommonData.rejectedPointXYPx.push(
                     globalPointXYPx.value
                       ? [...globalPointXYPx.value]
@@ -10119,9 +10117,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                       RC.fOverWidth2,
                     )
                     knownDistanceTestCommonData.rejectedRatioFOverWidth.push(
-                      Math.round(
-                        (RC.fOverWidth2 / RC.fOverWidth1) * 10000,
-                      ) / 10000,
+                      Math.round((RC.fOverWidth2 / RC.fOverWidth1) * 10000) /
+                        10000,
                     )
                     knownDistanceTestCommonData.rejectedLocation.push(
                       options.calibrateDistanceLocations?.[1] ?? 'page4',
@@ -10130,7 +10127,9 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   }
                   // Shrink accepted lists if we had pushed before the check
                   for (let popCount = 0; popCount < 2; popCount++) {
-                    if (knownDistanceTestCommonData.acceptedFOverWidth.length > 0) {
+                    if (
+                      knownDistanceTestCommonData.acceptedFOverWidth.length > 0
+                    ) {
                       knownDistanceTestCommonData.acceptedFOverWidth.pop()
                       knownDistanceTestCommonData.acceptedRatioFOverWidth.pop()
                       knownDistanceTestCommonData.acceptedLocation.pop()
