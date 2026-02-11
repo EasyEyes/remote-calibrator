@@ -251,7 +251,6 @@ function saveCalibrationMeasurements(
       COMMON,
       measurement.ipdXYZVpx, // 3D IPD in pixels
       measurement.fOverWidth,
-      measurement.snapshotAcceptedBool,
     )
   })
 }
@@ -293,7 +292,6 @@ function saveCalibrationAttempt(
   COMMON = undefined,
   ipdXYZVpx = undefined, // 3D IPD in pixels (always with Z coordinate)
   fOverWidth = undefined,
-  snapshotAcceptedBool = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
   // arrays of values across attempts for easier downstream analysis.
@@ -313,11 +311,16 @@ function saveCalibrationAttempt(
         const v = value === undefined ? null : value
         //for fields: objectRulerIntervalCm: ,objectLengthCm: , objectMeasuredMsg: , objectName: ,
         // push to array if array, otherwise set to value
-        //for fields snapshotsTaken, snapshotsRejected, snapshotsRejectedFOverWidth: just save the current value (override current value with new value)
+        //for plot lists: override with current value
         if (
-          key === 'snapshotsTaken' ||
-          key === 'snapshotsRejected' ||
-          key === 'snapshotsRejectedFOverWidth'
+          key === 'acceptedFOverWidth' ||
+          key === 'acceptedRatioFOverWidth' ||
+          key === 'acceptedLocation' ||
+          key === 'acceptedPointXYPx' ||
+          key === 'rejectedFOverWidth' ||
+          key === 'rejectedRatioFOverWidth' ||
+          key === 'rejectedLocation' ||
+          key === 'rejectedPointXYPx'
         ) {
           RC.calibrationAttemptsT[key] = v
         } else if (Array.isArray(v)) {
@@ -427,7 +430,6 @@ function saveCalibrationAttempt(
     rulerBasedEyesToPointCm: safeRoundCm(objectLengthCm),
     imageBasedEyesToFootCm: safeRoundCm(imageBasedEyesToFootCm),
     imageBasedEyesToPointCm: safeRoundCm(imageBasedEyesToPointCm),
-    snapshotAcceptedBool: snapshotAcceptedBool,
   }
 
   // Include spot parameters only if _calibrateDistance === 'blindspot'
@@ -3167,6 +3169,7 @@ export async function blindSpotTestNew(
       options.stepperHistory,
       options.calibrateScreenSizeAllowedRatio,
       options.calibrateDistanceAllowedRatio,
+      options.viewingDistanceWhichEye,
     )
   else safeExecuteFunc(callback, data)
 
@@ -3748,9 +3751,15 @@ export async function objectTest(RC, options, callback = undefined) {
     objectRulerIntervalCm: [],
     // objectLengthCm: [],
     objectMeasuredMsg: [],
-    snapshotsTaken: 0, // Total count includes rejected snapshots.
-    snapshotsRejected: 0, // Count. Each rejection adds 2.
-    snapshotsRejectedFOverWidth: [], // The rejected values of fOverWidth, two for each rejection.
+    // Plot lists: accepted (grow/shrink), rejected (grow only, more recent of pair)
+    acceptedFOverWidth: [],
+    acceptedRatioFOverWidth: [],
+    acceptedLocation: [],
+    acceptedPointXYPx: [],
+    rejectedFOverWidth: [],
+    rejectedRatioFOverWidth: [],
+    rejectedLocation: [],
+    rejectedPointXYPx: [],
   }
 
   // Queue to collect all measurement-attempt records in chronological order.
@@ -3763,8 +3772,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // (retroactive rejection of the previous measurement).
   //
   // The entire queue is converted to full measurement objects and saved in bulk
-  // at the "ALL LOCATIONS MEASURED" exit point, preserving chronological order
-  // so that snapshotAcceptedBool is correct.
+  // at the "ALL LOCATIONS MEASURED" exit point.
   const measurementSaveQueue = []
 
   // ===================== PARSE calibrateDistanceLocations =====================
@@ -7423,6 +7431,7 @@ export async function objectTest(RC, options, callback = undefined) {
               options.stepperHistory,
               options.calibrateScreenSizeAllowedRatio,
               options.calibrateDistanceAllowedRatio,
+              options.viewingDistanceWhichEye,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -7495,6 +7504,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.stepperHistory,
           options.calibrateScreenSizeAllowedRatio,
           options.calibrateDistanceAllowedRatio,
+          options.viewingDistanceWhichEye,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
@@ -8178,15 +8188,28 @@ export async function objectTest(RC, options, callback = undefined) {
                     fOverWidth
                   ).toFixed(0)
 
-                  // Track this snapshot attempt
-                  objectTestCommonData.snapshotsTaken++
-                  objectTestCommonData.snapshotsRejected++
-                  objectTestCommonData.snapshotsRejectedFOverWidth.push(
-                    fOverWidth,
+                  // Rejected plot lists: only the more recent (current) fOverWidth
+                  objectTestCommonData.rejectedFOverWidth.push(fOverWidth)
+                  objectTestCommonData.rejectedRatioFOverWidth.push(
+                    Math.round((fOverWidth / prevFOverWidth) * 10000) / 10000,
                   )
+                  const failLocInfo = locationManager.getCurrentLocationInfo()
+                  objectTestCommonData.rejectedLocation.push(
+                    failLocInfo.locEye,
+                  )
+                  objectTestCommonData.rejectedPointXYPx.push(
+                    globalPointXYPx.value
+                      ? [...globalPointXYPx.value]
+                      : [null, null],
+                  )
+                  // Shrink accepted lists: remove only the previous (retroactively rejected);
+                  // the current (failing) was never pushed to accepted*
+                  objectTestCommonData.acceptedFOverWidth.pop()
+                  objectTestCommonData.acceptedRatioFOverWidth.pop()
+                  objectTestCommonData.acceptedLocation.pop()
+                  objectTestCommonData.acceptedPointXYPx.pop()
 
                   // Queue the CURRENT (failing) measurement as rejected
-                  const failLocInfo = locationManager.getCurrentLocationInfo()
                   measurementSaveQueue.push({
                     locEye: failLocInfo.locEye,
                     location: failLocInfo.location,
@@ -8213,13 +8236,6 @@ export async function objectTest(RC, options, callback = undefined) {
                   ) {
                     if (measurementSaveQueue[qi].accepted) {
                       measurementSaveQueue[qi].accepted = false
-                      // Count the retroactive rejection in the tracking totals.
-                      // snapshotsTaken was already incremented when this entry was
-                      // first accepted, so only snapshotsRejected needs updating.
-                      objectTestCommonData.snapshotsRejected++
-                      objectTestCommonData.snapshotsRejectedFOverWidth.push(
-                        measurementSaveQueue[qi].fOverWidth,
-                      )
                       console.log(
                         `Retroactively rejected queued measurement at index ${qi} ` +
                           `(location ${measurementSaveQueue[qi].locEye}, ` +
@@ -8329,6 +8345,9 @@ export async function objectTest(RC, options, callback = undefined) {
                   console.log(`  factorCmPx: ${factorCmPx}`)
                   console.log(`  fOverWidth: ${fOverWidth}`)
 
+                  // Get previous fOverWidth BEFORE storing current (so we get the real previous)
+                  const prevF = locationManager.getPreviousFOverWidth()
+
                   locationManager.storeMeasurement({
                     location: currentLocMeasurement.location,
                     eye: currentLocMeasurement.eye,
@@ -8342,13 +8361,31 @@ export async function objectTest(RC, options, callback = undefined) {
                     objectLengthCm: firstMeasurement,
                   })
 
-                  // Count this snapshot as taken and queue it as accepted.
+                  // Queue this snapshot as accepted.
                   // We do NOT call saveCalibrationMeasurements yet -- if a later
                   // tolerance check fails, the retroactive rejection logic will flip
                   // this entry's accepted flag to false in the queue.  The entire
-                  // queue is saved in bulk at the "ALL LOCATIONS MEASURED" exit point,
-                  // preserving chronological order in snapshotAcceptedBool.
-                  objectTestCommonData.snapshotsTaken++
+                  // queue is saved in bulk at the "ALL LOCATIONS MEASURED" exit point.
+                  // Plot lists: accepted (ratio is NaN for first; ratio = current/previous)
+                  objectTestCommonData.acceptedFOverWidth.push(fOverWidth)
+                  objectTestCommonData.acceptedRatioFOverWidth.push(
+                    prevF == null
+                      ? NaN
+                      : (() => {
+                          const r = fOverWidth / prevF
+                          return r != null && !isNaN(r)
+                            ? Math.round(r * 10000) / 10000
+                            : NaN
+                        })(),
+                  )
+                  objectTestCommonData.acceptedLocation.push(
+                    currentLocMeasurement.locEye,
+                  )
+                  objectTestCommonData.acceptedPointXYPx.push(
+                    globalPointXYPx.value
+                      ? [...globalPointXYPx.value]
+                      : [null, null],
+                  )
                   measurementSaveQueue.push({
                     locEye: currentLocMeasurement.locEye,
                     location: currentLocMeasurement.location,
@@ -8522,10 +8559,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
                     // =====================================================================
                     // BULK SAVE: Process the measurementSaveQueue in chronological order.
-                    // Each entry becomes a full calibration-attempt record with the correct
-                    // snapshotAcceptedBool.  This guarantees exactly N true values for N
-                    // final accepted locations, and preserves the chronological ordering
-                    // of accepted/rejected attempts.
+                    // Each entry becomes a full calibration-attempt record.
                     // =====================================================================
                     try {
                       const allMeasurementObjects = []
@@ -9012,6 +9046,15 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     _calibrateDistancePupil: options.calibrateDistancePupil,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+    // Plot lists (same shape as objectTestCommonData; accepted populated before tolerance check)
+    acceptedFOverWidth: [],
+    acceptedRatioFOverWidth: [],
+    acceptedLocation: [],
+    acceptedPointXYPx: [],
+    rejectedFOverWidth: [],
+    rejectedRatioFOverWidth: [],
+    rejectedLocation: [],
+    rejectedPointXYPx: [],
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
@@ -9645,6 +9688,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         options.stepperHistory,
         options.calibrateScreenSizeAllowedRatio,
         options.calibrateDistanceAllowedRatio,
+        options.viewingDistanceWhichEye,
       )
     } else {
       if (typeof callback === 'function') {
@@ -9881,6 +9925,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                       options.stepperHistory,
                       options.calibrateScreenSizeAllowedRatio,
                       options.calibrateDistanceAllowedRatio,
+                      options.viewingDistanceWhichEye,
                     )
                   } else {
                     // Call callback directly (same as knownDistanceTestFinishFunction)
@@ -10068,12 +10113,30 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                     `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
                   )
 
-                  // Track rejected snapshots
-                  objectTestCommonData.snapshotsRejectedFOverWidth.push(
-                    RC.fOverWidth1,
-                    RC.fOverWidth2,
-                  )
-                  objectTestCommonData.snapshotsRejected += 2
+                  // Rejected plot lists: only the more recent (page4) fOverWidth
+                  if (RC.fOverWidth2 != null) {
+                    knownDistanceTestCommonData.rejectedFOverWidth.push(
+                      RC.fOverWidth2,
+                    )
+                    knownDistanceTestCommonData.rejectedRatioFOverWidth.push(
+                      Math.round(
+                        (RC.fOverWidth2 / RC.fOverWidth1) * 10000,
+                      ) / 10000,
+                    )
+                    knownDistanceTestCommonData.rejectedLocation.push(
+                      options.calibrateDistanceLocations?.[1] ?? 'page4',
+                    )
+                    knownDistanceTestCommonData.rejectedPointXYPx.push(null)
+                  }
+                  // Shrink accepted lists if we had pushed before the check
+                  for (let popCount = 0; popCount < 2; popCount++) {
+                    if (knownDistanceTestCommonData.acceptedFOverWidth.length > 0) {
+                      knownDistanceTestCommonData.acceptedFOverWidth.pop()
+                      knownDistanceTestCommonData.acceptedRatioFOverWidth.pop()
+                      knownDistanceTestCommonData.acceptedLocation.pop()
+                      knownDistanceTestCommonData.acceptedPointXYPx.pop()
+                    }
+                  }
 
                   // Show error message
                   await Swal.fire({

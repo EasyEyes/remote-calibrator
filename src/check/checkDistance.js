@@ -929,6 +929,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
   calibrateDistanceAllowedRatio = 1.1,
+  viewingDistanceWhichEye = undefined,
 ) {
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
@@ -953,6 +954,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
         stepperHistory,
         calibrateScreenSizeAllowedRatio,
         calibrateDistanceAllowedRatio,
+        viewingDistanceWhichEye,
       )
     },
     false,
@@ -2275,6 +2277,7 @@ const trackDistanceCheck = async (
   stepperHistory = 1,
   calibrateScreenSizeAllowedRatio = 1.1,
   calibrateDistanceAllowedRatio = 1.1,
+  viewingDistanceWhichEye = undefined,
 ) => {
   const isTrack = measureName === 'trackDistance'
   const isBlindspot = calibrateDistance === 'blindspot'
@@ -2500,11 +2503,15 @@ const trackDistanceCheck = async (
       ipdCm: safeRoundCm(RC._CONST.IPD_CM),
       calibrationFOverWidth: calibrationFOverWidth, // median(calibration) as ratio
       rulerUnit: RC.equipment?.value?.unit,
-      // Rejection tracking
-      snapshotsTaken: 0, // Total count includes rejected snapshots.
-      snapshotsRejected: 0, // Count. Each rejection adds 2.
-      snapshotsRejectedFOverWidth: [], // The rejected values of fOverWidth, two for each rejection.
-      snapshotAcceptedBool: [], // Boolean array indicating which snapshots are accepted (true) vs rejected (false).
+      // Plot lists: accepted (grow/shrink), rejected (grow only, more recent of pair)
+      acceptedFOverWidth: [],
+      acceptedRatioFOverWidth: [],
+      acceptedLocation: [],
+      acceptedPointXYPx: [],
+      rejectedFOverWidth: [],
+      rejectedRatioFOverWidth: [],
+      rejectedLocation: [],
+      rejectedPointXYPx: [],
       // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
       fOverWidth: [], // fVpx / cameraWidthVpx
@@ -3028,8 +3035,28 @@ const trackDistanceCheck = async (
                 faceValidation.footXYPx[0],
                 faceValidation.footXYPx[1],
               ])
-              RC.distanceCheckJSON.snapshotsTaken++
-              RC.distanceCheckJSON.snapshotAcceptedBool.push(true)
+              // Plot lists: accepted (ratio is NaN for first)
+              const prevAccepted =
+                RC.distanceCheckJSON.acceptedFOverWidth.length > 0
+                  ? RC.distanceCheckJSON.acceptedFOverWidth[
+                      RC.distanceCheckJSON.acceptedFOverWidth.length - 1
+                    ]
+                  : null
+              RC.distanceCheckJSON.acceptedFOverWidth.push(
+                safeRoundRatio(currentFOverWidth),
+              )
+              RC.distanceCheckJSON.acceptedRatioFOverWidth.push(
+                prevAccepted === null
+                  ? NaN
+                  : safeRoundRatio(currentFOverWidth / prevAccepted) ?? NaN,
+              )
+              RC.distanceCheckJSON.acceptedLocation.push(
+                calibrateDistanceChecking,
+              )
+              RC.distanceCheckJSON.acceptedPointXYPx.push([
+                faceValidation.pointXYPx[0],
+                faceValidation.pointXYPx[1],
+              ])
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
@@ -3253,8 +3280,30 @@ const trackDistanceCheck = async (
                   faceValidation.footXYPx[0],
                   faceValidation.footXYPx[1],
                 ])
-                RC.distanceCheckJSON.snapshotsTaken++
-                RC.distanceCheckJSON.snapshotAcceptedBool.push(true)
+                // Plot lists: accepted (ratio is NaN for first)
+                const prevAcceptedKeypad =
+                  RC.distanceCheckJSON.acceptedFOverWidth.length > 0
+                    ? RC.distanceCheckJSON.acceptedFOverWidth[
+                        RC.distanceCheckJSON.acceptedFOverWidth.length - 1
+                      ]
+                    : null
+                RC.distanceCheckJSON.acceptedFOverWidth.push(
+                  safeRoundRatio(currentFOverWidthKeypad),
+                )
+                RC.distanceCheckJSON.acceptedRatioFOverWidth.push(
+                  prevAcceptedKeypad === null
+                    ? NaN
+                    : safeRoundRatio(
+                        currentFOverWidthKeypad / prevAcceptedKeypad,
+                      ) ?? NaN,
+                )
+                RC.distanceCheckJSON.acceptedLocation.push(
+                  calibrateDistanceChecking,
+                )
+                RC.distanceCheckJSON.acceptedPointXYPx.push([
+                  faceValidation.pointXYPx[0],
+                  faceValidation.pointXYPx[1],
+                ])
 
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
@@ -3291,11 +3340,13 @@ const trackDistanceCheck = async (
       // COMPLIANCE CHECK: Starting from the second fOverWidth estimate,
       // compare newFOverWidth with oldFOverWidth using log ratio
       // Only run if the last 2 snapshots are both accepted (not yet rejected)
-      const snapshotLen = RC.distanceCheckJSON.snapshotAcceptedBool.length
+      const fArr = RC.distanceCheckJSON.fOverWidth
+      const aArr = RC.distanceCheckJSON.acceptedFOverWidth
       const lastTwoAccepted =
-        snapshotLen >= 2 &&
-        RC.distanceCheckJSON.snapshotAcceptedBool[snapshotLen - 1] === true &&
-        RC.distanceCheckJSON.snapshotAcceptedBool[snapshotLen - 2] === true
+        fArr.length >= 2 &&
+        aArr.length >= 2 &&
+        fArr[fArr.length - 1] === aArr[aArr.length - 1] &&
+        fArr[fArr.length - 2] === aArr[aArr.length - 2]
 
       if (lastTwoAccepted) {
         const newFOverWidth =
@@ -3345,18 +3396,51 @@ const trackDistanceCheck = async (
           RC.calibrateDistanceEyeFeetXYPx.pop()
           RC.calibrateDistanceEyeFeetXYPx.pop()
 
-          // Track rejected snapshots
+          // Rejected plot lists: capture before popping (only the more recent of the two fOverWidth values)
           const fOverWidthArray = RC.distanceCheckJSON.fOverWidth
-          RC.distanceCheckJSON.snapshotsRejectedFOverWidth.push(
-            fOverWidthArray[fOverWidthArray.length - 2],
-            fOverWidthArray[fOverWidthArray.length - 1],
+          const moreRecentFOverWidth = fOverWidthArray[fOverWidthArray.length - 1]
+          RC.distanceCheckJSON.rejectedFOverWidth.push(
+            safeRoundRatio(moreRecentFOverWidth),
           )
-          RC.distanceCheckJSON.snapshotsRejected += 2
+          RC.distanceCheckJSON.rejectedRatioFOverWidth.push(
+            safeRoundRatio(
+              fOverWidthArray[fOverWidthArray.length - 1] /
+                fOverWidthArray[fOverWidthArray.length - 2],
+            ),
+          )
+          RC.distanceCheckJSON.rejectedLocation.push(calibrateDistanceChecking)
+          RC.distanceCheckJSON.rejectedPointXYPx.push([
+            ...RC.distanceCheckJSON.pointXYPx[
+              RC.distanceCheckJSON.pointXYPx.length - 1
+            ],
+          ])
 
-          // Mark the last 2 snapshots as rejected in snapshotAcceptedBool
-          const acceptedLen = RC.distanceCheckJSON.snapshotAcceptedBool.length
-          RC.distanceCheckJSON.snapshotAcceptedBool[acceptedLen - 2] = false
-          RC.distanceCheckJSON.snapshotAcceptedBool[acceptedLen - 1] = false
+          // Remove the last TWO from distanceCheckJSON per-snapshot arrays so the
+          // next measurement is compared to the last accepted (same as calibration).
+          for (let popCount = 0; popCount < 2; popCount++) {
+            RC.distanceCheckJSON.fOverWidth.pop()
+            RC.distanceCheckJSON.fVpx.pop()
+            RC.distanceCheckJSON.ipdOverWidth.pop()
+            RC.distanceCheckJSON.ipdOverWidthXYZ.pop()
+            RC.distanceCheckJSON.imageBasedEyesToFootCm.pop()
+            RC.distanceCheckJSON.imageBasedEyesToPointCm.pop()
+            RC.distanceCheckJSON.rulerBasedEyesToPointCm.pop()
+            RC.distanceCheckJSON.rulerBasedEyesToFootCm.pop()
+            RC.distanceCheckJSON.pointXYPx.pop()
+            RC.distanceCheckJSON.cameraResolutionXYVpx.pop()
+            RC.distanceCheckJSON.requestedEyesToPointCm.pop()
+            RC.distanceCheckJSON.footToPointCm.pop()
+            RC.distanceCheckJSON.rightEyeFootXYPx.pop()
+            RC.distanceCheckJSON.leftEyeFootXYPx.pop()
+            RC.distanceCheckJSON.footXYPx.pop()
+          }
+          // Shrink accepted lists: remove the two rejected entries
+          for (let popCount = 0; popCount < 2; popCount++) {
+            RC.distanceCheckJSON.acceptedFOverWidth.pop()
+            RC.distanceCheckJSON.acceptedRatioFOverWidth.pop()
+            RC.distanceCheckJSON.acceptedLocation.pop()
+            RC.distanceCheckJSON.acceptedPointXYPx.pop()
+          }
 
           // Use RC_focalLengthMismatch phrase with [[N1]] placeholder for ratio
           const errorMessage =
@@ -3393,10 +3477,9 @@ const trackDistanceCheck = async (
           // Set i to i - 2 so the next iteration starts at i - 1
           i = i - 2
 
-          const acceptedCount =
-            RC.distanceCheckJSON.snapshotAcceptedBool.filter(b => b).length
+          const acceptedCount = RC.distanceCheckJSON.acceptedFOverWidth.length
           console.log(
-            `[fOverWidth Check] After rejection: ${acceptedCount} accepted of ${RC.distanceCheckJSON.snapshotAcceptedBool.length} total snapshots, continuing from index ${i + 1}`,
+            `[fOverWidth Check] After rejection: ${acceptedCount} accepted, continuing from index ${i + 1}`,
           )
         }
       }
