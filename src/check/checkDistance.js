@@ -2475,10 +2475,10 @@ const trackDistanceCheck = async (
       return parseFloat(value).toFixed(2)
     }
 
-    // Helper function to safely round ratio values (4 decimal places)
+    // Helper function to safely round ratio values (exactly 4 decimal places, no float noise)
     const safeRoundRatio = value => {
       if (value == null || isNaN(value)) return null
-      return Math.round(value * 10000) / 10000
+      return parseFloat(Number(value).toFixed(4))
     }
 
     let calibrationFVpx = null

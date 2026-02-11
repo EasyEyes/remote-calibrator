@@ -8188,10 +8188,14 @@ export async function objectTest(RC, options, callback = undefined) {
                     fOverWidth
                   ).toFixed(0)
 
-                  // Rejected plot lists: only the more recent (current) fOverWidth
-                  objectTestCommonData.rejectedFOverWidth.push(fOverWidth)
+                  // Rejected plot lists: only the more recent (current) fOverWidth (4 decimals)
+                  objectTestCommonData.rejectedFOverWidth.push(
+                    parseFloat(Number(fOverWidth).toFixed(4)),
+                  )
                   objectTestCommonData.rejectedRatioFOverWidth.push(
-                    Math.round((fOverWidth / prevFOverWidth) * 10000) / 10000,
+                    parseFloat(
+                      Number(fOverWidth / prevFOverWidth).toFixed(4),
+                    ),
                   )
                   const failLocInfo = locationManager.getCurrentLocationInfo()
                   objectTestCommonData.rejectedLocation.push(failLocInfo.locEye)
@@ -8364,15 +8368,17 @@ export async function objectTest(RC, options, callback = undefined) {
                   // tolerance check fails, the retroactive rejection logic will flip
                   // this entry's accepted flag to false in the queue.  The entire
                   // queue is saved in bulk at the "ALL LOCATIONS MEASURED" exit point.
-                  // Plot lists: accepted (ratio is NaN for first; ratio = current/previous)
-                  objectTestCommonData.acceptedFOverWidth.push(fOverWidth)
+                  // Plot lists: accepted (ratio is NaN for first; ratio = current/previous); 4 decimals
+                  objectTestCommonData.acceptedFOverWidth.push(
+                    parseFloat(Number(fOverWidth).toFixed(4)),
+                  )
                   objectTestCommonData.acceptedRatioFOverWidth.push(
                     prevF == null
                       ? NaN
                       : (() => {
                           const r = fOverWidth / prevF
                           return r != null && !isNaN(r)
-                            ? Math.round(r * 10000) / 10000
+                            ? parseFloat(Number(r).toFixed(4))
                             : NaN
                         })(),
                   )
@@ -10114,11 +10120,12 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   // Rejected plot lists: only the more recent (page4) fOverWidth
                   if (RC.fOverWidth2 != null) {
                     knownDistanceTestCommonData.rejectedFOverWidth.push(
-                      RC.fOverWidth2,
+                      parseFloat(Number(RC.fOverWidth2).toFixed(4)),
                     )
                     knownDistanceTestCommonData.rejectedRatioFOverWidth.push(
-                      Math.round((RC.fOverWidth2 / RC.fOverWidth1) * 10000) /
-                        10000,
+                      parseFloat(
+                        Number(RC.fOverWidth2 / RC.fOverWidth1).toFixed(4),
+                      ),
                     )
                     knownDistanceTestCommonData.rejectedLocation.push(
                       options.calibrateDistanceLocations?.[1] ?? 'page4',
