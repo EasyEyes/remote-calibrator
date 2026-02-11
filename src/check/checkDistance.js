@@ -2512,6 +2512,8 @@ const trackDistanceCheck = async (
       rejectedRatioFOverWidth: [],
       rejectedLocation: [],
       rejectedPointXYPx: [],
+      historyFOverWidth: [], // Array of the fOverWidth estimate of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
+      historyEyesToFootCm: [], // Array of the rulerBasedEyesToFootCm values of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
       // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
       fOverWidth: [], // fVpx / cameraWidthVpx
@@ -3006,6 +3008,13 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.fOverWidth.push(
                 safeRoundRatio(currentFOverWidth),
               )
+              // History lists: record every snapshot regardless of acceptance
+              RC.distanceCheckJSON.historyFOverWidth.push(
+                safeRoundRatio(currentFOverWidth),
+              )
+              RC.distanceCheckJSON.historyEyesToFootCm.push(
+                safeRoundCm(rulerBasedEyesToFootCm),
+              )
               RC.distanceCheckJSON.pointXYPx.push([
                 faceValidation.pointXYPx[0],
                 faceValidation.pointXYPx[1],
@@ -3254,6 +3263,13 @@ const trackDistanceCheck = async (
                   currentFVpxKeypad / cameraResolutionXYVpx[0]
                 RC.distanceCheckJSON.fOverWidth.push(
                   safeRoundRatio(currentFOverWidthKeypad),
+                )
+                // History lists: record every snapshot regardless of acceptance
+                RC.distanceCheckJSON.historyFOverWidth.push(
+                  safeRoundRatio(currentFOverWidthKeypad),
+                )
+                RC.distanceCheckJSON.historyEyesToFootCm.push(
+                  safeRoundCm(rulerBasedEyesToFootCm),
                 )
                 RC.distanceCheckJSON.footToPointCm.push(
                   safeRoundCm(faceValidation.footToPointCm),

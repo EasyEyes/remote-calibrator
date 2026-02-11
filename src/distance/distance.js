@@ -320,7 +320,9 @@ function saveCalibrationAttempt(
           key === 'rejectedFOverWidth' ||
           key === 'rejectedRatioFOverWidth' ||
           key === 'rejectedLocation' ||
-          key === 'rejectedPointXYPx'
+          key === 'rejectedPointXYPx' ||
+          key === 'historyFOverWidth' ||
+          key === 'historyEyesToFootCm'
         ) {
           RC.calibrationAttemptsT[key] = v
         } else if (Array.isArray(v)) {
@@ -3760,6 +3762,8 @@ export async function objectTest(RC, options, callback = undefined) {
     rejectedRatioFOverWidth: [],
     rejectedLocation: [],
     rejectedPointXYPx: [],
+    historyFOverWidth: [], // Array of the fOverWidth estimate of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
+    historyEyesToFootCm: [], // Array of the rulerBasedEyesToFootCm values of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
   }
 
   // Queue to collect all measurement-attempt records in chronological order.
@@ -8098,6 +8102,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 )
                 let factorCmPx = avgFaceMesh * firstMeasurement
                 let fOverWidth = factorCmPx / cameraRes[0] / RC._CONST.IPD_CM
+                let rulerBasedEyesToFootCm = null
                 if (mesh) {
                   const { leftEye, rightEye, video, currentIPDDistance } = mesh
                   const pxPerCm = ppi / 2.54
@@ -8142,7 +8147,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     ) / pxPerCm
 
                   const rulerBasedEyesToPointCm = firstMeasurement
-                  const rulerBasedEyesToFootCm = Math.sqrt(
+                  rulerBasedEyesToFootCm = Math.sqrt(
                     rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
                   )
                   factorCmPx = ipdVpx * rulerBasedEyesToFootCm
@@ -8169,6 +8174,16 @@ export async function objectTest(RC, options, callback = undefined) {
                   `  avgFaceMesh: ${avgFaceMesh}, factorCmPx: ${factorCmPx}, fOverWidth: ${fOverWidth}`,
                 )
 
+                // History lists: record every snapshot regardless of acceptance
+                objectTestCommonData.historyFOverWidth.push(
+                  parseFloat(Number(fOverWidth).toFixed(4)),
+                )
+                objectTestCommonData.historyEyesToFootCm.push(
+                  rulerBasedEyesToFootCm != null
+                    ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
+                    : null,
+                )
+
                 // Check tolerance with previous measurement (if not first)
                 const toleranceResult = locationManager.checkTolerance(
                   fOverWidth,
@@ -8193,9 +8208,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     parseFloat(Number(fOverWidth).toFixed(4)),
                   )
                   objectTestCommonData.rejectedRatioFOverWidth.push(
-                    parseFloat(
-                      Number(fOverWidth / prevFOverWidth).toFixed(4),
-                    ),
+                    parseFloat(Number(fOverWidth / prevFOverWidth).toFixed(4)),
                   )
                   const failLocInfo = locationManager.getCurrentLocationInfo()
                   objectTestCommonData.rejectedLocation.push(failLocInfo.locEye)
