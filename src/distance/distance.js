@@ -319,12 +319,28 @@ function saveCalibrationAttempt(
           key === 'acceptedRatioFOverWidth' ||
           key === 'acceptedLocation' ||
           key === 'acceptedPointXYPx' ||
+          key === 'acceptedLeftEyeFootXYPx' ||
+          key === 'acceptedRightEyeFootXYPx' ||
+          key === 'acceptedIpdOverWidth' ||
+          key === 'acceptedRulerBasedEyesToFootCm' ||
+          key === 'acceptedRulerBasedEyesToPointCm' ||
+          key === 'acceptedImageBasedEyesToFootCm' ||
+          key === 'acceptedImageBasedEyesToPointCm' ||
           key === 'rejectedFOverWidth' ||
           key === 'rejectedRatioFOverWidth' ||
           key === 'rejectedLocation' ||
           key === 'rejectedPointXYPx' ||
+          key === 'rejectedLeftEyeFootXYPx' ||
+          key === 'rejectedRightEyeFootXYPx' ||
+          key === 'rejectedIpdOverWidth' ||
+          key === 'rejectedRulerBasedEyesToFootCm' ||
+          key === 'rejectedRulerBasedEyesToPointCm' ||
+          key === 'rejectedImageBasedEyesToFootCm' ||
+          key === 'rejectedImageBasedEyesToPointCm' ||
           key === 'historyFOverWidth' ||
-          key === 'historyEyesToFootCm'
+          key === 'historyEyesToFootCm' ||
+          key === 'snapshotsTaken' ||
+          key === 'snapshotsRejected'
         ) {
           RC.calibrationAttemptsT[key] = v
         } else if (Array.isArray(v)) {
@@ -3766,6 +3782,21 @@ export async function objectTest(RC, options, callback = undefined) {
     rejectedPointXYPx: [],
     historyFOverWidth: [], // Array of the fOverWidth estimate of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
     historyEyesToFootCm: [], // Array of the rulerBasedEyesToFootCm values of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
+    // Per-snapshot metrics for accepted and rejected (saved for analysis)
+    acceptedLeftEyeFootXYPx: [],
+    acceptedRightEyeFootXYPx: [],
+    acceptedIpdOverWidth: [],
+    acceptedRulerBasedEyesToFootCm: [],
+    acceptedRulerBasedEyesToPointCm: [],
+    acceptedImageBasedEyesToFootCm: [],
+    acceptedImageBasedEyesToPointCm: [],
+    rejectedLeftEyeFootXYPx: [],
+    rejectedRightEyeFootXYPx: [],
+    rejectedIpdOverWidth: [],
+    rejectedRulerBasedEyesToFootCm: [],
+    rejectedRulerBasedEyesToPointCm: [],
+    rejectedImageBasedEyesToFootCm: [],
+    rejectedImageBasedEyesToPointCm: [],
   }
 
   // Queue to collect all measurement-attempt records in chronological order.
@@ -8139,20 +8170,30 @@ export async function objectTest(RC, options, callback = undefined) {
                 let factorCmPx = avgFaceMesh * firstMeasurement
                 let fOverWidth = factorCmPx / cameraRes[0] / RC._CONST.IPD_CM
                 let rulerBasedEyesToFootCm = null
+                let nearestXYPx_left = null
+                let nearestXYPx_right = null
+                let rulerBasedEyesToPointCm = firstMeasurement
+                let footToPointCm = null
+                let currentIPDDistance = null
+                let ipdOverWidth = null
+                let imageBasedEyesToFootCm = null
+                let imageBasedEyesToPointCm = null
                 if (mesh) {
-                  const { leftEye, rightEye, video, currentIPDDistance } = mesh
+                  const { leftEye, rightEye, video, currentIPDDistance: ipdVpx } =
+                    mesh
+                  currentIPDDistance = ipdVpx
                   const pxPerCm = ppi / 2.54
-                  const ipdVpx = currentIPDDistance
 
-                  const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } =
-                    calculateFootXYPx(
-                      RC,
-                      video,
-                      leftEye,
-                      rightEye,
-                      pxPerCm,
-                      currentIPDDistance,
-                    )
+                  const footResult = calculateFootXYPx(
+                    RC,
+                    video,
+                    leftEye,
+                    rightEye,
+                    pxPerCm,
+                    currentIPDDistance,
+                  )
+                  nearestXYPx_left = footResult.nearestXYPx_left
+                  nearestXYPx_right = footResult.nearestXYPx_right
 
                   const locactionInfo = locationManager.getCurrentLocationInfo()
                   const pointXYPx = getGlobalPointForLocation(
@@ -8176,18 +8217,34 @@ export async function objectTest(RC, options, callback = undefined) {
                       eye === 'left' ? nearestXYPx_left : nearestXYPx_right
                   }
 
-                  const footToPointCm =
+                  footToPointCm =
                     Math.hypot(
                       footXYPx[0] - pointXYPx[0],
                       footXYPx[1] - pointXYPx[1],
                     ) / pxPerCm
 
-                  const rulerBasedEyesToPointCm = firstMeasurement
+                  rulerBasedEyesToPointCm = firstMeasurement
                   rulerBasedEyesToFootCm = Math.sqrt(
                     rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
                   )
-                  factorCmPx = ipdVpx * rulerBasedEyesToFootCm
-                  fOverWidth = factorCmPx / cameraRes[0] / RC._CONST.IPD_CM
+                  factorCmPx = currentIPDDistance * rulerBasedEyesToFootCm
+                  fOverWidth =
+                    factorCmPx / cameraRes[0] / RC._CONST.IPD_CM
+                  ipdOverWidth =
+                    currentIPDDistance && cameraRes[0]
+                      ? currentIPDDistance / cameraRes[0]
+                      : null
+                  const fVpx = fOverWidth * cameraRes[0]
+                  imageBasedEyesToFootCm =
+                    currentIPDDistance && RC._CONST?.IPD_CM
+                      ? (fVpx * RC._CONST.IPD_CM) / currentIPDDistance
+                      : null
+                  imageBasedEyesToPointCm =
+                    imageBasedEyesToFootCm != null && footToPointCm != null
+                      ? Math.sqrt(
+                          imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
+                        )
+                      : null
                 }
 
                 // Check for NaN values
@@ -8253,12 +8310,64 @@ export async function objectTest(RC, options, callback = undefined) {
                       ? [...globalPointXYPx.value]
                       : [null, null],
                   )
+                  // Rejected per-snapshot metrics
+                  objectTestCommonData.rejectedLeftEyeFootXYPx.push(
+                    nearestXYPx_left && nearestXYPx_left.length >= 2
+                      ? [
+                          Math.round(nearestXYPx_left[0] * 100) / 100,
+                          Math.round(nearestXYPx_left[1] * 100) / 100,
+                        ]
+                      : null,
+                  )
+                  objectTestCommonData.rejectedRightEyeFootXYPx.push(
+                    nearestXYPx_right && nearestXYPx_right.length >= 2
+                      ? [
+                          Math.round(nearestXYPx_right[0] * 100) / 100,
+                          Math.round(nearestXYPx_right[1] * 100) / 100,
+                        ]
+                      : null,
+                  )
+                  objectTestCommonData.rejectedIpdOverWidth.push(
+                    ipdOverWidth != null && !isNaN(ipdOverWidth)
+                      ? parseFloat(Number(ipdOverWidth).toFixed(4))
+                      : null,
+                  )
+                  objectTestCommonData.rejectedRulerBasedEyesToFootCm.push(
+                    rulerBasedEyesToFootCm != null && !isNaN(rulerBasedEyesToFootCm)
+                      ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.rejectedRulerBasedEyesToPointCm.push(
+                    rulerBasedEyesToPointCm != null &&
+                    !isNaN(rulerBasedEyesToPointCm)
+                      ? parseFloat(Number(rulerBasedEyesToPointCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.rejectedImageBasedEyesToFootCm.push(
+                    imageBasedEyesToFootCm != null &&
+                    !isNaN(imageBasedEyesToFootCm)
+                      ? parseFloat(Number(imageBasedEyesToFootCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.rejectedImageBasedEyesToPointCm.push(
+                    imageBasedEyesToPointCm != null &&
+                    !isNaN(imageBasedEyesToPointCm)
+                      ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
+                      : null,
+                  )
                   // Shrink accepted lists: remove only the previous (retroactively rejected);
                   // the current (failing) was never pushed to accepted*
                   objectTestCommonData.acceptedFOverWidth.pop()
                   objectTestCommonData.acceptedRatioFOverWidth.pop()
                   objectTestCommonData.acceptedLocation.pop()
                   objectTestCommonData.acceptedPointXYPx.pop()
+                  objectTestCommonData.acceptedLeftEyeFootXYPx.pop()
+                  objectTestCommonData.acceptedRightEyeFootXYPx.pop()
+                  objectTestCommonData.acceptedIpdOverWidth.pop()
+                  objectTestCommonData.acceptedRulerBasedEyesToFootCm.pop()
+                  objectTestCommonData.acceptedRulerBasedEyesToPointCm.pop()
+                  objectTestCommonData.acceptedImageBasedEyesToFootCm.pop()
+                  objectTestCommonData.acceptedImageBasedEyesToPointCm.pop()
 
                   // Queue the CURRENT (failing) measurement as rejected
                   measurementSaveQueue.push({
@@ -8441,6 +8550,52 @@ export async function objectTest(RC, options, callback = undefined) {
                     globalPointXYPx.value
                       ? [...globalPointXYPx.value]
                       : [null, null],
+                  )
+                  // Accepted per-snapshot metrics
+                  objectTestCommonData.acceptedLeftEyeFootXYPx.push(
+                    nearestXYPx_left && nearestXYPx_left.length >= 2
+                      ? [
+                          Math.round(nearestXYPx_left[0] * 100) / 100,
+                          Math.round(nearestXYPx_left[1] * 100) / 100,
+                        ]
+                      : null,
+                  )
+                  objectTestCommonData.acceptedRightEyeFootXYPx.push(
+                    nearestXYPx_right && nearestXYPx_right.length >= 2
+                      ? [
+                          Math.round(nearestXYPx_right[0] * 100) / 100,
+                          Math.round(nearestXYPx_right[1] * 100) / 100,
+                        ]
+                      : null,
+                  )
+                  objectTestCommonData.acceptedIpdOverWidth.push(
+                    ipdOverWidth != null && !isNaN(ipdOverWidth)
+                      ? parseFloat(Number(ipdOverWidth).toFixed(4))
+                      : null,
+                  )
+                  objectTestCommonData.acceptedRulerBasedEyesToFootCm.push(
+                    rulerBasedEyesToFootCm != null &&
+                    !isNaN(rulerBasedEyesToFootCm)
+                      ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.acceptedRulerBasedEyesToPointCm.push(
+                    rulerBasedEyesToPointCm != null &&
+                    !isNaN(rulerBasedEyesToPointCm)
+                      ? parseFloat(Number(rulerBasedEyesToPointCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.acceptedImageBasedEyesToFootCm.push(
+                    imageBasedEyesToFootCm != null &&
+                    !isNaN(imageBasedEyesToFootCm)
+                      ? parseFloat(Number(imageBasedEyesToFootCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.acceptedImageBasedEyesToPointCm.push(
+                    imageBasedEyesToPointCm != null &&
+                    !isNaN(imageBasedEyesToPointCm)
+                      ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
+                      : null,
                   )
                   measurementSaveQueue.push({
                     locEye: currentLocMeasurement.locEye,
@@ -8674,6 +8829,10 @@ export async function objectTest(RC, options, callback = undefined) {
                         )
                       }
 
+                      objectTestCommonData.snapshotsTaken =
+                        objectTestCommonData.historyFOverWidth.length
+                      objectTestCommonData.snapshotsRejected =
+                        objectTestCommonData.rejectedFOverWidth.length
                       saveCalibrationMeasurements(
                         RC,
                         'object',
@@ -9147,6 +9306,21 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     rejectedRatioFOverWidth: [],
     rejectedLocation: [],
     rejectedPointXYPx: [],
+    // Per-snapshot metrics (knownDistanceTest has no mesh/eye data; eye fields are null)
+    acceptedLeftEyeFootXYPx: [],
+    acceptedRightEyeFootXYPx: [],
+    acceptedIpdOverWidth: [],
+    acceptedRulerBasedEyesToFootCm: [],
+    acceptedRulerBasedEyesToPointCm: [],
+    acceptedImageBasedEyesToFootCm: [],
+    acceptedImageBasedEyesToPointCm: [],
+    rejectedLeftEyeFootXYPx: [],
+    rejectedRightEyeFootXYPx: [],
+    rejectedIpdOverWidth: [],
+    rejectedRulerBasedEyesToFootCm: [],
+    rejectedRulerBasedEyesToPointCm: [],
+    rejectedImageBasedEyesToFootCm: [],
+    rejectedImageBasedEyesToPointCm: [],
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
@@ -10234,6 +10408,26 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                       options.calibrateDistanceLocations?.[1] ?? 'page4',
                     )
                     knownDistanceTestCommonData.rejectedPointXYPx.push(null)
+                    // Rejected per-snapshot metrics (knownDistanceTest has no mesh; push null for eye fields)
+                    knownDistanceTestCommonData.rejectedLeftEyeFootXYPx.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedRightEyeFootXYPx.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedIpdOverWidth.push(null)
+                    knownDistanceTestCommonData.rejectedRulerBasedEyesToFootCm.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedRulerBasedEyesToPointCm.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedImageBasedEyesToFootCm.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedImageBasedEyesToPointCm.push(
+                      null,
+                    )
                   }
                   // Shrink accepted lists if we had pushed before the check
                   for (let popCount = 0; popCount < 2; popCount++) {
@@ -10244,6 +10438,13 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                       knownDistanceTestCommonData.acceptedRatioFOverWidth.pop()
                       knownDistanceTestCommonData.acceptedLocation.pop()
                       knownDistanceTestCommonData.acceptedPointXYPx.pop()
+                      knownDistanceTestCommonData.acceptedLeftEyeFootXYPx.pop()
+                      knownDistanceTestCommonData.acceptedRightEyeFootXYPx.pop()
+                      knownDistanceTestCommonData.acceptedIpdOverWidth.pop()
+                      knownDistanceTestCommonData.acceptedRulerBasedEyesToFootCm.pop()
+                      knownDistanceTestCommonData.acceptedRulerBasedEyesToPointCm.pop()
+                      knownDistanceTestCommonData.acceptedImageBasedEyesToFootCm.pop()
+                      knownDistanceTestCommonData.acceptedImageBasedEyesToPointCm.pop()
                     }
                   }
 

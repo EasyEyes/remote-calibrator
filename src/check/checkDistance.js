@@ -2514,6 +2514,21 @@ const trackDistanceCheck = async (
       rejectedPointXYPx: [],
       historyFOverWidth: [], // Array of the fOverWidth estimate of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
       historyEyesToFootCm: [], // Array of the rulerBasedEyesToFootCm values of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
+      // Per-snapshot metrics for accepted and rejected (saved for analysis)
+      acceptedLeftEyeFootXYPx: [],
+      acceptedRightEyeFootXYPx: [],
+      acceptedIpdOverWidth: [],
+      acceptedRulerBasedEyesToFootCm: [],
+      acceptedRulerBasedEyesToPointCm: [],
+      acceptedImageBasedEyesToFootCm: [],
+      acceptedImageBasedEyesToPointCm: [],
+      rejectedLeftEyeFootXYPx: [],
+      rejectedRightEyeFootXYPx: [],
+      rejectedIpdOverWidth: [],
+      rejectedRulerBasedEyesToFootCm: [],
+      rejectedRulerBasedEyesToPointCm: [],
+      rejectedImageBasedEyesToFootCm: [],
+      rejectedImageBasedEyesToPointCm: [],
       // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
       fOverWidth: [], // fVpx / cameraWidthVpx
@@ -3066,6 +3081,39 @@ const trackDistanceCheck = async (
                 faceValidation.pointXYPx[0],
                 faceValidation.pointXYPx[1],
               ])
+              RC.distanceCheckJSON.acceptedLeftEyeFootXYPx.push([
+                faceValidation.nearestXYPx_left[0],
+                faceValidation.nearestXYPx_left[1],
+              ])
+              RC.distanceCheckJSON.acceptedRightEyeFootXYPx.push([
+                faceValidation.nearestXYPx_right[0],
+                faceValidation.nearestXYPx_right[1],
+              ])
+              RC.distanceCheckJSON.acceptedIpdOverWidth.push(
+                safeRoundRatio(
+                  faceValidation.ipdPixels / cameraResolutionXYVpx[0],
+                ),
+              )
+              RC.distanceCheckJSON.acceptedRulerBasedEyesToFootCm.push(
+                safeRoundCm(rulerBasedEyesToFootCm),
+              )
+              RC.distanceCheckJSON.acceptedRulerBasedEyesToPointCm.push(
+                safeRoundCm(requestedEyesToPointCm),
+              )
+              RC.distanceCheckJSON.acceptedImageBasedEyesToFootCm.push(
+                RC.distanceCheckJSON.imageBasedEyesToFootCm.length > 0
+                  ? RC.distanceCheckJSON.imageBasedEyesToFootCm[
+                      RC.distanceCheckJSON.imageBasedEyesToFootCm.length - 1
+                    ]
+                  : null,
+              )
+              RC.distanceCheckJSON.acceptedImageBasedEyesToPointCm.push(
+                RC.distanceCheckJSON.imageBasedEyesToPointCm.length > 0
+                  ? RC.distanceCheckJSON.imageBasedEyesToPointCm[
+                      RC.distanceCheckJSON.imageBasedEyesToPointCm.length - 1
+                    ]
+                  : null,
+              )
 
               // Clean up the captured image for privacy
               lastCapturedFaceImage = null
@@ -3320,6 +3368,39 @@ const trackDistanceCheck = async (
                   faceValidation.pointXYPx[0],
                   faceValidation.pointXYPx[1],
                 ])
+                RC.distanceCheckJSON.acceptedLeftEyeFootXYPx.push([
+                  faceValidation.nearestXYPx_left[0],
+                  faceValidation.nearestXYPx_left[1],
+                ])
+                RC.distanceCheckJSON.acceptedRightEyeFootXYPx.push([
+                  faceValidation.nearestXYPx_right[0],
+                  faceValidation.nearestXYPx_right[1],
+                ])
+                RC.distanceCheckJSON.acceptedIpdOverWidth.push(
+                  safeRoundRatio(
+                    faceValidation.ipdPixels / cameraResolutionXYVpx[0],
+                  ),
+                )
+                RC.distanceCheckJSON.acceptedRulerBasedEyesToFootCm.push(
+                  safeRoundCm(rulerBasedEyesToFootCm),
+                )
+                RC.distanceCheckJSON.acceptedRulerBasedEyesToPointCm.push(
+                  safeRoundCm(requestedEyesToPointCm),
+                )
+                RC.distanceCheckJSON.acceptedImageBasedEyesToFootCm.push(
+                  RC.distanceCheckJSON.imageBasedEyesToFootCm.length > 0
+                    ? RC.distanceCheckJSON.imageBasedEyesToFootCm[
+                        RC.distanceCheckJSON.imageBasedEyesToFootCm.length - 1
+                      ]
+                    : null,
+                )
+                RC.distanceCheckJSON.acceptedImageBasedEyesToPointCm.push(
+                  RC.distanceCheckJSON.imageBasedEyesToPointCm.length > 0
+                    ? RC.distanceCheckJSON.imageBasedEyesToPointCm[
+                        RC.distanceCheckJSON.imageBasedEyesToPointCm.length - 1
+                      ]
+                    : null,
+                )
 
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
@@ -3431,6 +3512,35 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.pointXYPx.length - 1
             ],
           ])
+          // Rejected per-snapshot metrics: push both rejected snapshots (more recent first, then previous)
+          for (let ri = 1; ri >= 0; ri--) {
+            const idx = RC.distanceCheckJSON.leftEyeFootXYPx.length - 1 - ri
+            RC.distanceCheckJSON.rejectedLeftEyeFootXYPx.push(
+              RC.distanceCheckJSON.leftEyeFootXYPx[idx]
+                ? [...RC.distanceCheckJSON.leftEyeFootXYPx[idx]]
+                : null,
+            )
+            RC.distanceCheckJSON.rejectedRightEyeFootXYPx.push(
+              RC.distanceCheckJSON.rightEyeFootXYPx[idx]
+                ? [...RC.distanceCheckJSON.rightEyeFootXYPx[idx]]
+                : null,
+            )
+            RC.distanceCheckJSON.rejectedIpdOverWidth.push(
+              RC.distanceCheckJSON.ipdOverWidth[idx] ?? null,
+            )
+            RC.distanceCheckJSON.rejectedRulerBasedEyesToFootCm.push(
+              RC.distanceCheckJSON.rulerBasedEyesToFootCm[idx] ?? null,
+            )
+            RC.distanceCheckJSON.rejectedRulerBasedEyesToPointCm.push(
+              RC.distanceCheckJSON.rulerBasedEyesToPointCm[idx] ?? null,
+            )
+            RC.distanceCheckJSON.rejectedImageBasedEyesToFootCm.push(
+              RC.distanceCheckJSON.imageBasedEyesToFootCm[idx] ?? null,
+            )
+            RC.distanceCheckJSON.rejectedImageBasedEyesToPointCm.push(
+              RC.distanceCheckJSON.imageBasedEyesToPointCm[idx] ?? null,
+            )
+          }
 
           // Remove the last TWO from distanceCheckJSON per-snapshot arrays so the
           // next measurement is compared to the last accepted (same as calibration).
@@ -3457,6 +3567,13 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.acceptedRatioFOverWidth.pop()
             RC.distanceCheckJSON.acceptedLocation.pop()
             RC.distanceCheckJSON.acceptedPointXYPx.pop()
+            RC.distanceCheckJSON.acceptedLeftEyeFootXYPx.pop()
+            RC.distanceCheckJSON.acceptedRightEyeFootXYPx.pop()
+            RC.distanceCheckJSON.acceptedIpdOverWidth.pop()
+            RC.distanceCheckJSON.acceptedRulerBasedEyesToFootCm.pop()
+            RC.distanceCheckJSON.acceptedRulerBasedEyesToPointCm.pop()
+            RC.distanceCheckJSON.acceptedImageBasedEyesToFootCm.pop()
+            RC.distanceCheckJSON.acceptedImageBasedEyesToPointCm.pop()
           }
 
           // Use RC_focalLengthMismatch phrase with [[N1]] placeholder for ratio
@@ -3504,6 +3621,11 @@ const trackDistanceCheck = async (
 
     removeProgressBar(RC, calibrateDistanceChecking)
     removeViewingDistanceDiv()
+
+    RC.distanceCheckJSON.snapshotsTaken =
+      RC.distanceCheckJSON.historyFOverWidth.length
+    RC.distanceCheckJSON.snapshotsRejected =
+      RC.distanceCheckJSON.rejectedFOverWidth.length
 
     // Hide video container after all measurements are complete
     const videoContainer = document.getElementById('webgazerVideoContainer')
