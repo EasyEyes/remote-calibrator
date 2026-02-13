@@ -547,6 +547,31 @@ export let irisTrackingIsActive = false // Reflects whether tracking is currentl
 let lastIrisValidTime = 0 // Timestamp of last valid face mesh
 const IRIS_VALIDITY_WINDOW_MS = 200 // Consider tracking active if we saw valid mesh within this shorter window
 
+// ========== Measurement page overlay state (eye-side text + paper tube circles) ==========
+// Set from distance.js when a measurement page is shown; cleared when leaving.
+let measurementOverlayState = null
+// measurementOverlayState = {
+//   isPaperMode: boolean,
+//   eye: 'left' | 'right' | 'unspecified',
+//   leftTextWords: string[] | null,   // Words for left side text (one per line)
+//   rightTextWords: string[] | null,  // Words for right side text (one per line)
+// }
+
+/**
+ * Configure the measurement overlay drawn on the iris canvas.
+ * @param {object} config - { isPaperMode, eye, leftTextWords, rightTextWords }
+ */
+export function setMeasurementOverlay(config) {
+  measurementOverlayState = config
+}
+
+/**
+ * Remove the measurement overlay.
+ */
+export function clearMeasurementOverlay() {
+  measurementOverlayState = null
+}
+
 // FPS throttling variables
 const targetFPS = 30
 const frameInterval = 1000 / targetFPS
@@ -588,109 +613,259 @@ const createIrisCanvas = () => {
 }
 
 const drawIrisAndPupil = () => {
-  if (!irisCtx || !sharedFaceData) return
+  if (!irisCtx) return
 
   // Clear canvas
   irisCtx.clearRect(0, 0, irisCanvas.width, irisCanvas.height)
 
-  // Check if iris drawing should be enabled
-  if (!RC_instance || !trackingOptions.showIrisesBool) {
-    // Canvas is already cleared above, just return
-    return
-  }
-
-  const { leftEye, rightEye, video, currentIPDDistance } = sharedFaceData
-
-  if (!leftEye || !rightEye || !video || !currentIPDDistance) return
-
-  // Find video element for positioning
+  // Find video element for positioning (needed by both iris and overlay drawing)
   const videoFeed = document.getElementById('webgazerVideoFeed')
   const videoContainer = document.getElementById('webgazerVideoContainer')
   const videoEl = videoFeed || videoContainer
+  const videoRect = videoEl ? videoEl.getBoundingClientRect() : null
 
-  if (!videoEl) return
+  // Track screen-space eye positions for overlay drawing
+  let leftPxScreen = null
+  let rightPxScreen = null
+  let ipdScreenPx = 0
 
-  const rect = videoEl.getBoundingClientRect()
+  // Draw irises if enabled and data available
+  if (
+    RC_instance &&
+    trackingOptions.showIrisesBool &&
+    sharedFaceData &&
+    videoEl
+  ) {
+    const { leftEye, rightEye, video, currentIPDDistance } = sharedFaceData
 
-  // Source coordinate space - use LIVE camera resolution, not stale canvas dimensions
-  const cameraRes = getCameraResolutionXY(RC_instance)
-  const srcW = cameraRes[0] || video.width
-  const srcH = cameraRes[1] || video.height
+    if (leftEye && rightEye && video && currentIPDDistance && videoRect) {
+      const rect = videoRect
 
-  // Account for CSS object-fit by computing scale and crop/letterbox offsets
-  const containerW = rect.width
-  const containerH = rect.height
-  const scaleCover = Math.max(containerW / srcW, containerH / srcH)
-  const uniformScale = scaleCover
-  const offsetX = (srcW * uniformScale - containerW) / 2
-  const offsetY = (srcH * uniformScale - containerH) / 2
+      // Source coordinate space - use LIVE camera resolution, not stale canvas dimensions
+      const cameraRes = getCameraResolutionXY(RC_instance)
+      const srcW = cameraRes[0] || video.width
+      const srcH = cameraRes[1] || video.height
 
-  // Apply horizontal flip since video is typically mirrored
-  const leftEyeXFlipped = srcW - leftEye.x
-  const rightEyeXFlipped = srcW - rightEye.x
+      // Account for CSS object-fit by computing scale and crop/letterbox offsets
+      const containerW = rect.width
+      const containerH = rect.height
+      const scaleCover = Math.max(containerW / srcW, containerH / srcH)
+      const uniformScale = scaleCover
+      const offsetX = (srcW * uniformScale - containerW) / 2
+      const offsetY = (srcH * uniformScale - containerH) / 2
 
-  const leftPx = {
-    x: rect.left + leftEyeXFlipped * uniformScale - offsetX,
-    y: rect.top + leftEye.y * uniformScale - offsetY,
+      // Apply horizontal flip since video is typically mirrored
+      const leftEyeXFlipped = srcW - leftEye.x
+      const rightEyeXFlipped = srcW - rightEye.x
+
+      const leftPx = {
+        x: rect.left + leftEyeXFlipped * uniformScale - offsetX,
+        y: rect.top + leftEye.y * uniformScale - offsetY,
+      }
+      const rightPx = {
+        x: rect.left + rightEyeXFlipped * uniformScale - offsetX,
+        y: rect.top + rightEye.y * uniformScale - offsetY,
+      }
+
+      // Compute iris diameter from IPD (19%) in source pixels, then scale to CSS
+      const ipdSrcPx =
+        currentIPDDistance ||
+        Math.hypot(rightEye.x - leftEye.x, rightEye.y - leftEye.y)
+      ipdScreenPx = ipdSrcPx * uniformScale
+      const irisDiameter = Math.max(4, 0.19 * ipdScreenPx)
+      const pupilDiameter = Math.max(2, 0.4 * irisDiameter)
+      const irisRadius = irisDiameter / 2
+      const pupilRadius = pupilDiameter / 2
+
+      // Choose iris color based on tracking status
+      const irisFillColor = irisTrackingIsActive ? '#00ffe9' : '#ff3b30'
+
+      // Draw left iris
+      irisCtx.beginPath()
+      irisCtx.arc(leftPx.x, leftPx.y, irisRadius, 0, 2 * Math.PI)
+      irisCtx.fillStyle = irisFillColor
+      irisCtx.fill()
+
+      // Add iris shadow effect
+      irisCtx.beginPath()
+      irisCtx.arc(leftPx.x, leftPx.y, irisRadius, 0, 2 * Math.PI)
+      irisCtx.strokeStyle = 'rgba(0,0,0,0.35)'
+      irisCtx.lineWidth = 2
+      irisCtx.stroke()
+
+      // Draw left pupil
+      irisCtx.beginPath()
+      irisCtx.arc(leftPx.x, leftPx.y, pupilRadius, 0, 2 * Math.PI)
+      irisCtx.fillStyle = '#000'
+      irisCtx.fill()
+
+      // Draw right iris
+      irisCtx.beginPath()
+      irisCtx.arc(rightPx.x, rightPx.y, irisRadius, 0, 2 * Math.PI)
+      irisCtx.fillStyle = irisFillColor
+      irisCtx.fill()
+
+      // Add iris shadow effect
+      irisCtx.beginPath()
+      irisCtx.arc(rightPx.x, rightPx.y, irisRadius, 0, 2 * Math.PI)
+      irisCtx.strokeStyle = 'rgba(0,0,0,0.35)'
+      irisCtx.lineWidth = 2
+      irisCtx.stroke()
+
+      // Draw right pupil
+      irisCtx.beginPath()
+      irisCtx.arc(rightPx.x, rightPx.y, pupilRadius, 0, 2 * Math.PI)
+      irisCtx.fillStyle = '#000'
+      irisCtx.fill()
+
+      // Store screen-space positions for overlay drawing
+      leftPxScreen = leftPx
+      rightPxScreen = rightPx
+    }
   }
-  const rightPx = {
-    x: rect.left + rightEyeXFlipped * uniformScale - offsetX,
-    y: rect.top + rightEye.y * uniformScale - offsetY,
+
+  // ========== Draw measurement overlay (eye-side text + paper tube circles) ==========
+  if (measurementOverlayState && videoRect) {
+    _drawMeasurementOverlay(videoRect, leftPxScreen, rightPxScreen, ipdScreenPx)
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* MEASUREMENT OVERLAY DRAWING HELPERS                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Draw the measurement overlay: static eye-side text and dynamic paper tube circles.
+ * Called every frame from drawIrisAndPupil after irises are drawn.
+ */
+const _drawMeasurementOverlay = (
+  videoRect,
+  leftPxScreen,
+  rightPxScreen,
+  ipdScreenPx,
+) => {
+  if (!irisCtx || !measurementOverlayState) return
+
+  const { isPaperMode, eye, leftTextWords, rightTextWords } =
+    measurementOverlayState
+
+  // 1. Draw static eye-side text on the video
+  _drawEyeSideText(videoRect, leftTextWords, rightTextWords)
+
+  // 2. Draw paper tube circles (only in paper mode with valid eye positions)
+  if (isPaperMode && leftPxScreen && rightPxScreen && ipdScreenPx > 0) {
+    _drawTubeCircles(leftPxScreen, rightPxScreen, ipdScreenPx, eye)
+  }
+}
+
+/**
+ * Draw eye-side instruction text on the video, one word per line.
+ * Left text is left-aligned against the left margin of the video.
+ * Right text is right-aligned against the right margin of the video.
+ * Both are vertically centered within the video.
+ */
+const _drawEyeSideText = (videoRect, leftTextWords, rightTextWords) => {
+  if (!irisCtx) return
+
+  // Scale font size relative to video height for readability
+  const fontSize = Math.max(14, Math.min(28, videoRect.height * 0.06))
+  const lineHeight = fontSize * 1.3
+  const margin = Math.max(8, videoRect.width * 0.02)
+
+  irisCtx.font = `bold ${fontSize}px Arial, sans-serif`
+  irisCtx.fillStyle = 'black'
+
+  // Draw left-side text (left-aligned)
+  if (leftTextWords && leftTextWords.length > 0) {
+    const totalH = leftTextWords.length * lineHeight
+    const startY =
+      videoRect.top + (videoRect.height - totalH) / 2 + fontSize * 0.85
+    irisCtx.textAlign = 'left'
+    leftTextWords.forEach((word, i) => {
+      irisCtx.fillText(word, videoRect.left + margin, startY + i * lineHeight)
+    })
   }
 
-  // Compute iris diameter from IPD (19%) in source pixels, then scale to CSS
-  const ipdSrcPx =
-    currentIPDDistance ||
-    Math.hypot(
-      rightEye.x - leftEye.x,
-      rightEye.y - leftEye.y,
-      rightEye.z - leftEye.z,
-    )
-  const irisDiameter = Math.max(4, 0.19 * ipdSrcPx * uniformScale)
-  const pupilDiameter = Math.max(2, 0.4 * irisDiameter)
-  const irisRadius = irisDiameter / 2
-  const pupilRadius = pupilDiameter / 2
+  // Draw right-side text (right-aligned)
+  if (rightTextWords && rightTextWords.length > 0) {
+    const totalH = rightTextWords.length * lineHeight
+    const startY =
+      videoRect.top + (videoRect.height - totalH) / 2 + fontSize * 0.85
+    irisCtx.textAlign = 'right'
+    rightTextWords.forEach((word, i) => {
+      irisCtx.fillText(word, videoRect.right - margin, startY + i * lineHeight)
+    })
+  }
 
-  // Choose iris color based on tracking status
-  const irisFillColor = irisTrackingIsActive ? '#00ffe9' : '#ff3b30'
+  // Reset text align
+  irisCtx.textAlign = 'left'
+}
 
-  // Draw left iris
-  irisCtx.beginPath()
-  irisCtx.arc(leftPx.x, leftPx.y, irisRadius, 0, 2 * Math.PI)
-  irisCtx.fillStyle = irisFillColor
-  irisCtx.fill()
+/**
+ * Draw paper tube circle(s) on the video frame.
+ *
+ * Geometry (from the spec):
+ *   - Paper tube radius  = 0.27 × ipdVpx
+ *   - Tube center offset = 0.82 × ipdVpx from the near eye's center,
+ *     measured along the imaginary line through the two pupils.
+ *
+ * For LeftEye:  one solid black circle LEFT of the left eye
+ * For RightEye: one solid black circle RIGHT of the right eye
+ * For unspecified (either eye): two DASHED black circles, one on each side
+ */
+const _drawTubeCircles = (leftPx, rightPx, ipdScreenPx, eye) => {
+  if (!irisCtx) return
 
-  // Add iris shadow effect
-  irisCtx.beginPath()
-  irisCtx.arc(leftPx.x, leftPx.y, irisRadius, 0, 2 * Math.PI)
-  irisCtx.strokeStyle = 'rgba(0,0,0,0.35)'
+  const tubeRadiusPx = 0.27 * ipdScreenPx
+  const tubeOffsetPx = 0.82 * ipdScreenPx
+
+  // Unit direction vector along the pupil line, from right eye toward left eye
+  const dx = leftPx.x - rightPx.x
+  const dy = leftPx.y - rightPx.y
+  const len = Math.hypot(dx, dy)
+  if (len === 0) return
+  const nx = dx / len
+  const ny = dy / len
+
+  irisCtx.strokeStyle = 'black'
   irisCtx.lineWidth = 2
-  irisCtx.stroke()
 
-  // Draw left pupil
-  irisCtx.beginPath()
-  irisCtx.arc(leftPx.x, leftPx.y, pupilRadius, 0, 2 * Math.PI)
-  irisCtx.fillStyle = '#000'
-  irisCtx.fill()
+  if (eye === 'left') {
+    // Solid circle left of the left eye (extending away from the right eye)
+    const cx = leftPx.x + nx * tubeOffsetPx
+    const cy = leftPx.y + ny * tubeOffsetPx
+    irisCtx.setLineDash([])
+    irisCtx.beginPath()
+    irisCtx.arc(cx, cy, tubeRadiusPx, 0, 2 * Math.PI)
+    irisCtx.stroke()
+  } else if (eye === 'right') {
+    // Solid circle right of the right eye (extending away from the left eye)
+    const cx = rightPx.x - nx * tubeOffsetPx
+    const cy = rightPx.y - ny * tubeOffsetPx
+    irisCtx.setLineDash([])
+    irisCtx.beginPath()
+    irisCtx.arc(cx, cy, tubeRadiusPx, 0, 2 * Math.PI)
+    irisCtx.stroke()
+  } else {
+    // Either eye: two dashed circles
+    irisCtx.setLineDash([5, 5])
 
-  // Draw right iris
-  irisCtx.beginPath()
-  irisCtx.arc(rightPx.x, rightPx.y, irisRadius, 0, 2 * Math.PI)
-  irisCtx.fillStyle = irisFillColor
-  irisCtx.fill()
+    // Left circle (left of left eye)
+    const lcx = leftPx.x + nx * tubeOffsetPx
+    const lcy = leftPx.y + ny * tubeOffsetPx
+    irisCtx.beginPath()
+    irisCtx.arc(lcx, lcy, tubeRadiusPx, 0, 2 * Math.PI)
+    irisCtx.stroke()
 
-  // Add iris shadow effect
-  irisCtx.beginPath()
-  irisCtx.arc(rightPx.x, rightPx.y, irisRadius, 0, 2 * Math.PI)
-  irisCtx.strokeStyle = 'rgba(0,0,0,0.35)'
-  irisCtx.lineWidth = 2
-  irisCtx.stroke()
+    // Right circle (right of right eye)
+    const rcx = rightPx.x - nx * tubeOffsetPx
+    const rcy = rightPx.y - ny * tubeOffsetPx
+    irisCtx.beginPath()
+    irisCtx.arc(rcx, rcy, tubeRadiusPx, 0, 2 * Math.PI)
+    irisCtx.stroke()
 
-  // Draw right pupil
-  irisCtx.beginPath()
-  irisCtx.arc(rightPx.x, rightPx.y, pupilRadius, 0, 2 * Math.PI)
-  irisCtx.fillStyle = '#000'
-  irisCtx.fill()
+    irisCtx.setLineDash([]) // Reset dash pattern
+  }
 }
 
 const startIrisDrawing = RC => {
@@ -1206,6 +1381,15 @@ export const calculateNearestPoints = (
   )
   const centerXYPx = [window.screen.width / 2, window.screen.height / 2]
   let pointXYPx = distanceCheck ? cameraXYPx : _pointXYPx
+  // Only use globalPointXYPx for live overlay (distanceCheck). When saving calibration
+  // (distanceCheck false) use _pointXYPx so page 3 gets camera/top and page 4 gets center.
+  if (distanceCheck && globalPointXYPx.value !== null) {
+    pointXYPx = globalPointXYPx.value
+    console.log(
+      'calculateNearestPoints: globalPointXYPx:',
+      globalPointXYPx.value,
+    )
+  }
   if (
     distanceCheck &&
     calibrateDistanceChecking &&
@@ -1217,15 +1401,6 @@ export const calculateNearestPoints = (
       .map(s => s.trim())
     if (optionsArray.includes('camera')) pointXYPx = cameraXYPx
     else if (optionsArray.includes('center')) pointXYPx = centerXYPx
-  }
-  // Only use globalPointXYPx for live overlay (distanceCheck). When saving calibration
-  // (distanceCheck false) use _pointXYPx so page 3 gets camera/top and page 4 gets center.
-  if (distanceCheck && globalPointXYPx.value !== null) {
-    pointXYPx = globalPointXYPx.value
-    console.log(
-      'calculateNearestPoints: globalPointXYPx:',
-      globalPointXYPx.value,
-    )
   }
   const avgFootXYPx = [
     (nearestXYPx_right[0] + nearestXYPx_left[0]) / 2,

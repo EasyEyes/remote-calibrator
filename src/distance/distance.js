@@ -65,6 +65,8 @@ import {
   calculateFootXYPx,
   calculateNearestPoints,
   getMeshData,
+  setMeasurementOverlay,
+  clearMeasurementOverlay,
 } from './distanceTrack'
 import {
   parseLocationEye,
@@ -6159,6 +6161,11 @@ export async function objectTest(RC, options, callback = undefined) {
     const previousPage = currentPage
     currentPage = pageNumber
 
+    // Clear measurement overlay when navigating away from measurement pages
+    if (pageNumber !== 3 && pageNumber !== 4) {
+      clearMeasurementOverlay()
+    }
+
     if (pageNumber === 0) {
       hideVideoResolutionLabel()
       // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
@@ -6533,6 +6540,9 @@ export async function objectTest(RC, options, callback = undefined) {
         // Update the arrow indicators reference for cleanup
         arrowIndicators = pageResult.arrowIndicators
 
+        // Update the measurement overlay (eye-side text + paper tube circles)
+        updateMeasurementOverlayForLocation(pageConfig.eye)
+
         console.log(
           `Measurement page rendered for location ${pageConfig.locationIndex}: ${pageConfig.locEye}`,
         )
@@ -6543,6 +6553,7 @@ export async function objectTest(RC, options, callback = undefined) {
         RC.showVideo(true)
         positionVideoForLocation(RC, 'camera')
         arrowIndicators = measurementPageRenderer.updateArrows('camera')
+        clearMeasurementOverlay()
       }
 
       // Note: Face Mesh samples will be collected when space key is pressed
@@ -6885,6 +6896,9 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
     document.removeEventListener('keydown', handleInstructionNav)
+
+    // Clear measurement overlay (eye-side text + tube circles)
+    clearMeasurementOverlay()
 
     // Clean up arrow indicators (local ref and DOM by id so they stay gone)
     if (arrowIndicators) {
@@ -7614,6 +7628,9 @@ export async function objectTest(RC, options, callback = undefined) {
       instructionsUI.destroy()
     }
 
+    // Clear measurement overlay (eye-side text + tube circles)
+    clearMeasurementOverlay()
+
     // Clean up background
     RC._removeBackground()
   }
@@ -7623,6 +7640,9 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
     document.removeEventListener('keydown', handleInstructionNav)
+
+    // Clear measurement overlay (eye-side text + tube circles)
+    clearMeasurementOverlay()
 
     // // Clean up radio button event listeners
     // if (customInputs) {
@@ -7684,6 +7704,22 @@ export async function objectTest(RC, options, callback = undefined) {
       // Space key - allow on pages 2, 3 and 4
       if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
         e.preventDefault()
+
+        // Gate SPACE on pages 3/4: require stepper to be on the last step
+        // (encourages participants to read the instructions before pressing SPACE)
+        if ((currentPage === 3 || currentPage === 4) && stepInstructionModel) {
+          const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
+          if (currentStepFlatIndex < maxIdx) {
+            console.log(
+              'SPACE ignored - stepper not on last step (' +
+                currentStepFlatIndex +
+                ' of ' +
+                maxIdx +
+                ')',
+            )
+            return
+          }
+        }
 
         // In paper-selection mode, require Enter/Return (space should not advance).
         if (currentPage === 2 && isPaperSelectionMode) {
@@ -8309,6 +8345,8 @@ export async function objectTest(RC, options, callback = undefined) {
                       })
 
                     arrowIndicators = pageResult.arrowIndicators
+                    // Update measurement overlay for the reset location
+                    updateMeasurementOverlayForLocation(resetPageConfig.eye)
                     console.log(
                       `Re-rendered page after rejection for location ${locationManager.getCurrentIndex()}`,
                     )
@@ -8324,6 +8362,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       )
                       arrowIndicators = createArrowIndicators(arrowXY)
                       RC.background.appendChild(arrowIndicators)
+                      updateMeasurementOverlayForLocation(resetLocInfo.eye)
                     }
                   }
 
@@ -8468,6 +8507,8 @@ export async function objectTest(RC, options, callback = undefined) {
 
                       // Update the arrow indicators reference
                       arrowIndicators = pageResult.arrowIndicators
+                      // Update measurement overlay for the next location
+                      updateMeasurementOverlayForLocation(nextPageConfig.eye)
 
                       console.log(
                         `Re-rendered page for location ${locationManager.getCurrentIndex()}: ${nextPageConfig.locEye}`,
@@ -8484,6 +8525,7 @@ export async function objectTest(RC, options, callback = undefined) {
                         )
                         arrowIndicators = createArrowIndicators(arrowXY)
                         RC.background.appendChild(arrowIndicators)
+                        updateMeasurementOverlayForLocation(nextLocInfo.eye)
                         console.log(
                           `Updated UI for location ${locationManager.getCurrentIndex()}: ${nextLocInfo.locEye}`,
                         )
@@ -8916,6 +8958,39 @@ export async function objectTest(RC, options, callback = undefined) {
     `  Total locations to measure: ${locationManager.getTotalLocations()}`,
   )
   console.log(`  Locations: ${calibrateDistanceLocations.join(', ')}`)
+
+  // ===================== MEASUREMENT OVERLAY HELPER =====================
+  // Updates the eye-side text + paper tube circle overlay on the iris canvas.
+  // Called whenever a measurement page is shown (pages 3/4).
+  const updateMeasurementOverlayForLocation = eye => {
+    const splitPhraseToWords = phraseKey => {
+      const text = phrases?.[phraseKey]?.[RC.L] || ''
+      return text.split(/\s+/).filter(w => w.length > 0)
+    }
+
+    if (eye === 'left') {
+      setMeasurementOverlay({
+        isPaperMode: isPaperSelectionMode,
+        eye: 'left',
+        leftTextWords: splitPhraseToWords('RC_UseLeftEye'),
+        rightTextWords: null,
+      })
+    } else if (eye === 'right') {
+      setMeasurementOverlay({
+        isPaperMode: isPaperSelectionMode,
+        eye: 'right',
+        leftTextWords: null,
+        rightTextWords: splitPhraseToWords('RC_UseRightEye'),
+      })
+    } else {
+      setMeasurementOverlay({
+        isPaperMode: isPaperSelectionMode,
+        eye: 'unspecified',
+        leftTextWords: splitPhraseToWords('RC_UseEitherEye'),
+        rightTextWords: splitPhraseToWords('RC_UseEitherEye'),
+      })
+    }
+  }
 
   // ===================== INITIALIZE PAGE 0 =====================
   // Hide the resolution setting message now that we're ready to show the UI
@@ -9769,6 +9844,21 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     if (e.key === ' ') {
       if (currentPage === 3 || currentPage === 4) {
         e.preventDefault()
+
+        // Gate SPACE on pages 3/4: require stepper to be on the last step
+        if (stepInstructionModel) {
+          const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
+          if (currentStepFlatIndex < maxIdx) {
+            console.log(
+              'SPACE ignored - stepper not on last step (' +
+                currentStepFlatIndex +
+                ' of ' +
+                maxIdx +
+                ')',
+            )
+            return
+          }
+        }
 
         // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
         ;(async () => {
