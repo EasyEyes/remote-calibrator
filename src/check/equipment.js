@@ -1,240 +1,256 @@
-import Swal from 'sweetalert2'
-
 import RemoteCalibrator from '../core'
-import { swalInfoOptions } from '../components/swalOptions'
-import { safeExecuteFunc } from '../components/utils'
+import { constructInstructions, safeExecuteFunc } from '../components/utils'
 import { phrases } from '../i18n/schema'
-import { remoteCalibratorPhrases } from '../i18n/phrases'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { setDefaultVideoPosition } from '../components/video'
 
 RemoteCalibrator.prototype.getEquipment = async function (
   afterResultCallback,
   forcedGet = false,
-  version = 'original',
 ) {
   if (this.equipment && !forcedGet) return safeExecuteFunc(afterResultCallback)
 
   this._replaceBackground()
 
-  let title, html
-
-  if (version === 'original') {
-    title = 'Do you have a ruler or tape measure?'
-    html = `
-      <p>
-        Ideally, it should be long enough to measure your viewing distance, but even a 6 inch (15 cm) ruler can be useful. 
-        Please select the units you'll use, or indicate that no ruler or tape measure is available.
-      </p>
-      <div id="custom-radio-group">
-        <label>
-          <input type="radio" name="equipment" value="cm" />
-          ${phrases.RC_cm[this.language.value]}
-        </label>
-        <label>
-          <input type="radio" name="equipment" value="inches" />
-          ${phrases.RC_Inches[this.language.value]}
-        </label>
-        <label>
-          <input type="radio" name="equipment" value="none" />
-          ${phrases.RC_NoRuler[this.language.value]}
-        </label>
-      </div>
-    `
-  } else {
-    const video = document.querySelector('#webgazerVideoContainer')
-    if (video) video.style.zIndex = 9999999999
-    title = `<p style="text-align:justify; margin:0" class="heading1">${phrases.RC_ChooseInchesOrCm[
-      this.language.value
-    ].replace(/(?:\r\n|\r|\n)/g, '<br>')}<p/>`
-    html = `
-      <p class="bodyText">${phrases.RC_rulerUnit[this.language.value].replace(/(?:\r\n|\r|\n)/g, '<br>')}</p>
-      <div id="custom-radio-group">
-        <label class="bodyText">
-          <input class="custom-input-class"  type="radio" name="equipment" value="inches" />
-          ${phrases.RC_Inches[this.language.value]}
-        </label>
-        <label class="bodyText">
-          <input class="custom-input-class"  type="radio" name="equipment" value="cm" />
-          ${phrases.RC_cm[this.language.value]}
-        </label>
-        <label class="bodyText">
-          <input class="custom-input-class"  type="radio" name="equipment" value="none" />
-          ${phrases.RC_NoRuler[this.language.value]}
-        </label>
-      </div>
-    `
-  }
-
-  // Hide video during equipment units popup
+  const video = document.querySelector('#webgazerVideoContainer')
+  if (video) video.style.zIndex = 9999999999
   this.showVideo(false)
 
-  const { value: result } = await Swal.fire({
-    ...swalInfoOptions(this, {
-      showIcon: false,
-    }),
-    title,
-    html,
-    preConfirm: () => {
-      const selected = document.querySelector('input[name="equipment"]:checked')
-      if (!selected) {
-        Swal.showValidationMessage(
-          phrases.RC_PleaseSelectAnOption[this.language.value],
-        )
-        return null
-      }
-      return selected.value
-    },
-    didOpen: () => {
-      // document.querySelector('input[name="equipment"][value="none"]').checked =
-      //   true
+  const lang = this.language.value
 
-      const customInputs = document.querySelectorAll('.custom-input-class')
-      const keydownListener = event => {
-        if (event.key === 'Enter') {
-          Swal.clickConfirm() // Simulate the "OK" button click
-        }
-      }
+  // Header: use RC_HowDoYouMeasure with fallback to RC_ChooseInchesOrCm
+  const headerText = (
+    phrases.RC_HowDoYouMeasure?.[lang] ||
+    phrases.RC_ChooseInchesOrCm?.[lang] ||
+    'How do you measure?'
+  ).replace(/(?:\r\n|\r|\n)/g, '<br>')
 
-      customInputs.forEach(input => {
-        input.addEventListener('keyup', keydownListener)
-      })
+  const pageHtml = constructInstructions(
+    headerText,
+    '',
+    false,
+    'bodyText',
+    'left',
+  )
+  this._replaceBackground(pageHtml)
 
-      if (this.keypadHandler) {
-        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
-          null,
-          this.keypadHandler,
-          () => {
-            removeKeypadHandler()
-            Swal.clickConfirm()
-          },
-          false,
-          ['return'],
-          this,
-        )
-      }
+  // Create body container (constructInstructions omits it when body is empty)
+  const container = document.querySelector('.calibration-instruction')
+  let instructionBody = document.getElementById('instruction-body')
+  if (!instructionBody && container) {
+    instructionBody = document.createElement('div')
+    instructionBody.id = 'instruction-body'
+    instructionBody.className = 'calibration-description bodyText'
+    container.appendChild(instructionBody)
+  }
 
-      // Store listeners for cleanup
-      this.customKeydownListener = keydownListener
-      this.customInputs = customInputs
-    },
-    willClose: () => {
-      // Remove keydown event listeners when the modal closes
-      if (this.customInputs) {
-        this.customInputs.forEach(input => {
-          input.removeEventListener('keyup', this.customKeydownListener)
-        })
+  if (!instructionBody) return
+
+  instructionBody.style.pointerEvents = 'auto'
+  instructionBody.innerHTML = ''
+
+  // ---- Question 1: Unit selection ----
+  const q1Label = document.createElement('p')
+  q1Label.className = 'bodyText'
+  q1Label.style.marginBottom = '0.5rem'
+  q1Label.style.fontSize = '1.4rem'
+  q1Label.innerHTML = phrases.RC_rulerUnit[lang].replace(
+    /(?:\r\n|\r|\n)/g,
+    '<br>',
+  )
+  instructionBody.appendChild(q1Label)
+
+  const radioGroup = document.createElement('div')
+  radioGroup.id = 'custom-radio-group'
+
+  const unitOptions = [
+    { value: 'inches', label: phrases.RC_Inches[lang] },
+    { value: 'cm', label: phrases.RC_cm[lang] },
+    { value: 'none', label: phrases.RC_NoRuler[lang] },
+  ]
+
+  unitOptions.forEach(option => {
+    const label = document.createElement('label')
+    label.className = 'bodyText'
+
+    const radio = document.createElement('input')
+    radio.type = 'radio'
+    radio.name = 'equipment'
+    radio.value = option.value
+    radio.className = 'custom-input-class'
+
+    label.appendChild(radio)
+    label.appendChild(document.createTextNode(' ' + option.label))
+    radioGroup.appendChild(label)
+  })
+  instructionBody.appendChild(radioGroup)
+
+  // ---- Question 2: Ruler length (hidden until inches or cm is chosen) ----
+  const q2Container = document.createElement('div')
+  q2Container.id = 'ruler-length-container'
+  q2Container.style.display = 'none'
+  q2Container.style.marginTop = '2rem'
+
+  const q2Label = document.createElement('p')
+  q2Label.className = 'bodyText'
+  q2Label.id = 'ruler-length-label'
+  q2Label.style.fontSize = '1.4rem'
+  q2Container.appendChild(q2Label)
+
+  const lengthInput = document.createElement('input')
+  lengthInput.type = 'number'
+  lengthInput.id = 'ruler-length-input'
+  lengthInput.min = '0'
+  lengthInput.step = '1'
+  lengthInput.style.width = '100%'
+  lengthInput.style.maxWidth = '300px'
+  lengthInput.style.padding = '8px'
+  lengthInput.style.fontSize = '1.4rem'
+  lengthInput.style.marginTop = '0.5rem'
+  lengthInput.style.borderRadius = '4px'
+  lengthInput.style.border = '1px solid #ccc'
+  q2Container.appendChild(lengthInput)
+  instructionBody.appendChild(q2Container)
+
+  // ---- Proceed button (greyed out until both questions are answered) ----
+  const buttonContainer = document.createElement('div')
+  buttonContainer.style.marginTop = '2rem'
+
+  const proceedButton = document.createElement('button')
+  proceedButton.className = 'rc-button'
+  proceedButton.textContent = phrases.T_proceed[lang]
+  proceedButton.disabled = true
+  proceedButton.style.border = '2px solid #ccc'
+  proceedButton.style.backgroundColor = '#ccc'
+  proceedButton.style.color = 'white'
+  proceedButton.style.fontSize = '1.2rem'
+  proceedButton.style.padding = '8px 16px'
+  proceedButton.style.borderRadius = '4px'
+  proceedButton.style.cursor = 'not-allowed'
+  buttonContainer.appendChild(proceedButton)
+  instructionBody.appendChild(buttonContainer)
+
+  // ---- State & helpers ----
+  let selectedUnit = null
+
+  const enableProceed = () => {
+    proceedButton.disabled = false
+    proceedButton.style.backgroundColor = '#019267'
+    proceedButton.style.borderColor = '#019267'
+    proceedButton.style.cursor = 'pointer'
+  }
+
+  const disableProceed = () => {
+    proceedButton.disabled = true
+    proceedButton.style.backgroundColor = '#ccc'
+    proceedButton.style.borderColor = '#ccc'
+    proceedButton.style.cursor = 'not-allowed'
+  }
+
+  const updateProceedButton = () => {
+    if (!selectedUnit) return disableProceed()
+    if (selectedUnit === 'none') return enableProceed()
+    // inches or cm: need a valid length
+    const v = lengthInput.value
+    if (v && !isNaN(v) && parseInt(v) > 0) {
+      enableProceed()
+    } else {
+      disableProceed()
+    }
+  }
+
+  // Radio change handler
+  radioGroup.querySelectorAll('input[name="equipment"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      selectedUnit = radio.value
+      if (selectedUnit === 'none') {
+        q2Container.style.display = 'none'
+        lengthInput.value = ''
+      } else {
+        q2Container.style.display = 'block'
+        // Update the howLong label with the chosen unit
+        const howLongText = (phrases.RC_howLong[lang] || '')
+          .replace('[[AAA]]', selectedUnit)
+          .replace('AAA', selectedUnit)
+        q2Label.innerHTML = howLongText.replace(/(?:\r\n|\r|\n)/g, '<br>')
+        lengthInput.focus()
       }
-    },
+      updateProceedButton()
+    })
   })
 
-  if (!result) return
+  // Length input handler
+  lengthInput.addEventListener('input', updateProceedButton)
 
-  const hasEquipment = result !== 'none'
+  // ---- Wait for user to click Proceed ----
+  const result = await new Promise(resolve => {
+    proceedButton.onclick = () => {
+      if (proceedButton.disabled) return
+      resolve({
+        unit: selectedUnit,
+        length: selectedUnit !== 'none' ? lengthInput.value : null,
+      })
+    }
+
+    // Enter key on length input triggers proceed
+    lengthInput.addEventListener('keyup', event => {
+      if (event.key === 'Enter' && !proceedButton.disabled) {
+        proceedButton.click()
+      }
+    })
+
+    // Enter key on radio buttons triggers proceed
+    radioGroup.querySelectorAll('.custom-input-class').forEach(input => {
+      input.addEventListener('keyup', event => {
+        if (event.key === 'Enter' && !proceedButton.disabled) {
+          proceedButton.click()
+        }
+      })
+    })
+
+    // Keypad handler support
+    if (this.keypadHandler) {
+      setUpEasyEyesKeypadHandler(
+        null,
+        this.keypadHandler,
+        () => {
+          if (!proceedButton.disabled) {
+            proceedButton.click()
+          }
+        },
+        false,
+        ['return'],
+        this,
+      )
+    }
+  })
+
+  // ---- Build output data (same structure as before) ----
+  const hasEquipment = result.unit !== 'none'
 
   const data = {
     value: {
       has: hasEquipment,
-      unit: hasEquipment ? result : null,
+      unit: hasEquipment ? result.unit : null,
       equipment: hasEquipment ? '' : null,
-      length: hasEquipment ? '' : null,
+      length: hasEquipment ? result.length : null,
     },
     timestamp: performance.now(),
   }
 
-  this.rulerUnits = hasEquipment ? result : null
+  this.rulerUnits = hasEquipment ? result.unit : null
+  if (hasEquipment) {
+    this.rulerLength = result.length
+    data.value.length = result.length
+  }
+  this.newEquipmentData = data
 
-  if (version !== 'original' && hasEquipment) {
-    await getEquipmentDetails(this, data)
-  } else {
-    this.newEquipmentData = data
-    // Show video again if no equipment (no second popup)
-    this.showVideo(true)
+  // Show video again and position properly
+  this.showVideo(true)
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  if (videoContainer) {
+    setDefaultVideoPosition(this, videoContainer)
   }
 
   return safeExecuteFunc(afterResultCallback)
-}
-
-const getEquipmentDetails = async (RC, data) => {
-  // Hide video during equipment length popup
-  RC.showVideo(false)
-
-  const { value: result } = await Swal.fire({
-    ...swalInfoOptions(RC, {
-      showIcon: false,
-    }),
-    title:
-      '<p style=text-align:justify class="heading2">' +
-      phrases.RC_howLong[RC.language.value].replace(
-        '[[AAA]]',
-        data.value.unit,
-      ) +
-      '</p>',
-    input: 'number',
-    inputAttributes: {
-      min: 0,
-      step: 1,
-    },
-    inputPlaceholder: '',
-    inputValidator: value => {
-      return new Promise(resolve => {
-        if (!value?.length || isNaN(value) || parseInt(value) <= 0) {
-          resolve(
-            'Please provide a number for the length of your ruler or tape measure.',
-          )
-        }
-        RC.rulerLength = value
-        data.value.length = value
-        RC.newEquipmentData = data
-        resolve() // Valid input
-      })
-    },
-    didOpen: () => {
-      const swalInput = Swal.getInput()
-      const keydownListener = event => {
-        if (event.key === 'Enter') {
-          Swal.clickConfirm()
-        }
-      }
-
-      if (swalInput) {
-        swalInput.addEventListener('keyup', keydownListener)
-      }
-
-      if (RC.keypadHandler) {
-        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
-          null,
-          RC.keypadHandler,
-          () => {
-            removeKeypadHandler()
-            Swal.clickConfirm()
-          },
-          false,
-          ['return'],
-          this,
-        )
-      }
-
-      // Store listener for cleanup
-      RC.swalKeydownListener = keydownListener
-    },
-    willClose: () => {
-      // Remove keydown event listener
-      const swalInput = Swal.getInput()
-      if (swalInput && RC.swalKeydownListener) {
-        swalInput.removeEventListener('keydown', RC.swalKeydownListener)
-      }
-    },
-  })
-
-  // Show video again after equipment length popup completes
-  RC.showVideo(true)
-
-  // Position video properly
-  const videoContainer = document.getElementById('webgazerVideoContainer')
-  if (videoContainer) {
-    setDefaultVideoPosition(RC, videoContainer)
-  }
-
-  return result
 }

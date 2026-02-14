@@ -958,7 +958,6 @@ RemoteCalibrator.prototype._checkDistance = async function (
       )
     },
     false,
-    'new',
   )
 }
 
@@ -2010,7 +2009,7 @@ const checkSize = async (
       removeLengthDisplayDiv()
 
       // Go back to unit selection page by calling getEquipment with forcedGet=true
-      await RC.getEquipment(null, true, 'version2')
+      await RC.getEquipment(null, true)
 
       // Check if user selected "no ruler" - if so, exit checkSize
       if (!RC.equipment?.value?.has) {
