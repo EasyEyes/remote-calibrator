@@ -340,7 +340,10 @@ function saveCalibrationAttempt(
           key === 'historyFOverWidth' ||
           key === 'historyEyesToFootCm' ||
           key === 'snapshotsTaken' ||
-          key === 'snapshotsRejected'
+          key === 'snapshotsRejected' ||
+          key === 'estimatedLengthCm' ||
+          key === 'estimatedLengthRatio' ||
+          key === 'matchHalfLengthBool'
         ) {
           RC.calibrationAttemptsT[key] = v
         } else if (Array.isArray(v)) {
@@ -3503,6 +3506,12 @@ export async function objectTest(RC, options, callback = undefined) {
   let savedMeasurementData = null // Store measurement data from page 2
   // let selectedPage0Option = null // Store the selected radio button option from page 0
 
+  // ===================== TUBE LENGTH CHECK STATE =====================
+  const TUBE_CHECK_PAGE = 'tubeCheck'
+  let tubeCheckTapeAdjusted = false // SPACE is disabled until the tape has been adjusted
+  let tubeCheckTapeLengthPx = 0 // Current tape length in pixels (initialized later to 5 cm)
+  let matchHalfLengthBool = false // Whether we are doing half-size matching
+
   // ===================== UNIT SELECTION STATE =====================
   let selectedUnit = 'inches' // Default to inches
   const showLength = !!options.calibrateDistanceShowRulerUnitsBool
@@ -3797,6 +3806,10 @@ export async function objectTest(RC, options, callback = undefined) {
     rejectedRulerBasedEyesToPointCm: [],
     rejectedImageBasedEyesToFootCm: [],
     rejectedImageBasedEyesToPointCm: [],
+    // Tube length check outputs (paper mode only)
+    matchHalfLengthBool: null,
+    estimatedLengthCm: [],
+    estimatedLengthRatio: [],
   }
 
   // Queue to collect all measurement-attempt records in chronological order.
@@ -3839,7 +3852,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // Expected total (starts at 2, increments by 2 on retry; +1 in paper-selection mode for the paper-choice step).
   // let viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2 (Removed to implement _calibrateDistanceLocations)
   let viewingDistanceTotalExpected = isPaperSelectionMode
-    ? calibrateDistanceLocations.length + 1
+    ? calibrateDistanceLocations.length + 2 // +1 paper selection, +1 tube length check
     : calibrateDistanceLocations.length
 
   // ===================== LOCATION-BASED MEASUREMENT TRACKING =====================
@@ -5114,6 +5127,176 @@ export async function objectTest(RC, options, callback = undefined) {
   const tape = createDiagonalTapeComponent()
   container.appendChild(tape.container)
 
+  // ===================== TUBE LENGTH CHECK DIAGONAL TAPE =====================
+  // This tape is shown on the tube check page (paper mode only).
+  // It runs along the screen diagonal from lower-left to upper-right,
+  // starts at 5 cm, and is always centered on the diagonal.
+  const createTubeCheckTapeComponent = () => {
+    const tcTapeWidth = Math.round(0.75 * ppi) // 3/4 inch width
+    const tcLineThickness = 6 // px — thick enough to be visible and easy to grab
+
+    const tcContainer = document.createElement('div')
+    tcContainer.id = 'tube-check-tape-container'
+    tcContainer.style.position = 'fixed'
+    tcContainer.style.top = '0'
+    tcContainer.style.left = '0'
+    tcContainer.style.width = '100vw'
+    tcContainer.style.height = '100vh'
+    tcContainer.style.pointerEvents = 'none'
+    tcContainer.style.zIndex = '10'
+    tcContainer.style.display = 'none' // Hidden by default
+
+    // Yellow tape body
+    const tcTapeBody = document.createElement('div')
+    tcTapeBody.style.position = 'absolute'
+    tcTapeBody.style.background = 'rgba(255, 221, 51, 0.95)'
+    tcTapeBody.style.border = '2px solid rgb(0, 0, 0)'
+    tcTapeBody.style.borderRadius = '2px'
+    tcTapeBody.style.transformOrigin = 'left center'
+    tcTapeBody.style.height = `${tcTapeWidth}px`
+    tcTapeBody.style.pointerEvents = 'auto'
+    tcTapeBody.style.cursor = 'pointer'
+    tcContainer.appendChild(tcTapeBody)
+
+    // Left endpoint line (black, sits on top of the left edge of the tape)
+    const tcLeftLine = document.createElement('div')
+    tcLeftLine.style.position = 'absolute'
+    tcLeftLine.style.width = `${tcLineThickness}px`
+    tcLeftLine.style.height = `${tcTapeWidth}px` // Same height as the tape
+    tcLeftLine.style.background = 'rgb(0, 0, 0)'
+    tcLeftLine.style.transformOrigin = 'center center'
+    tcLeftLine.style.pointerEvents = 'auto'
+    tcLeftLine.style.cursor = 'pointer'
+    tcLeftLine.style.zIndex = '3'
+    tcContainer.appendChild(tcLeftLine)
+
+    // Right endpoint line (black, sits on top of the right edge of the tape)
+    const tcRightLine = document.createElement('div')
+    tcRightLine.style.position = 'absolute'
+    tcRightLine.style.width = `${tcLineThickness}px`
+    tcRightLine.style.height = `${tcTapeWidth}px` // Same height as the tape
+    tcRightLine.style.background = 'rgb(0, 0, 0)'
+    tcRightLine.style.transformOrigin = 'center center'
+    tcRightLine.style.pointerEvents = 'auto'
+    tcRightLine.style.cursor = 'pointer'
+    tcRightLine.style.zIndex = '3'
+    tcContainer.appendChild(tcRightLine)
+
+    return {
+      container: tcContainer,
+      elements: {
+        tapeBody: tcTapeBody,
+        leftLine: tcLeftLine,
+        rightLine: tcRightLine,
+      },
+      dimensions: { tapeWidth: tcTapeWidth, lineThickness: tcLineThickness },
+    }
+  }
+
+  const tubeCheckTape = createTubeCheckTapeComponent()
+  container.appendChild(tubeCheckTape.container)
+
+  // Function to update the tube check tape's position and size on the diagonal
+  const updateTubeCheckTapePosition = () => {
+    const sw = window.innerWidth
+    const sh = window.innerHeight
+    const diagPx = Math.sqrt(sw * sw + sh * sh)
+    // Unit vector along diagonal from lower-left (0, sh) to upper-right (sw, 0)
+    const ux = sw / diagPx
+    const uy = -sh / diagPx
+    // Center of diagonal
+    const cx = sw / 2
+    const cy = sh / 2
+
+    const halfLen = tubeCheckTapeLengthPx / 2
+    // Tape endpoints
+    const leftX = cx - halfLen * ux
+    const leftY = cy - halfLen * uy
+    const rightX = cx + halfLen * ux
+    const rightY = cy + halfLen * uy
+
+    // Angle of the diagonal (in degrees)
+    const angleDeg =
+      Math.atan2(rightY - leftY, rightX - leftX) * (180 / Math.PI)
+
+    const tw = tubeCheckTape.dimensions.tapeWidth
+
+    // Position tape body: place left-center at (leftX, leftY)
+    tubeCheckTape.elements.tapeBody.style.left = `${leftX}px`
+    tubeCheckTape.elements.tapeBody.style.top = `${leftY - tw / 2}px`
+    tubeCheckTape.elements.tapeBody.style.width = `${tubeCheckTapeLengthPx}px`
+    tubeCheckTape.elements.tapeBody.style.transform = `rotate(${angleDeg}deg)`
+
+    // The endpoint line elements are vertical divs (thin width, tall height).
+    // To sit on top of the tape edges (perpendicular to the tape direction),
+    // they need to be rotated by angleDeg (matching the tape's tilt), because
+    // a vertical line rotated by angleDeg becomes perpendicular to the tape
+    // whose direction is also at angleDeg from horizontal.
+    const lineHeight = tw // Match tape width exactly so lines sit on the edges
+
+    // Left endpoint line: centered at (leftX, leftY)
+    tubeCheckTape.elements.leftLine.style.left = `${leftX}px`
+    tubeCheckTape.elements.leftLine.style.top = `${leftY}px`
+    tubeCheckTape.elements.leftLine.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg)`
+    tubeCheckTape.elements.leftLine.style.height = `${lineHeight}px`
+
+    // Right endpoint line: centered at (rightX, rightY)
+    tubeCheckTape.elements.rightLine.style.left = `${rightX}px`
+    tubeCheckTape.elements.rightLine.style.top = `${rightY}px`
+    tubeCheckTape.elements.rightLine.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg)`
+    tubeCheckTape.elements.rightLine.style.height = `${lineHeight}px`
+  }
+
+  // Dragging support for the tube check tape endpoints
+  // Both ends move symmetrically about the center of the diagonal.
+  let tcDragging = false
+  const handleTubeCheckDragStart = e => {
+    if (currentPage !== TUBE_CHECK_PAGE) return
+    tcDragging = true
+    document.body.style.cursor = 'pointer'
+    e.preventDefault()
+  }
+  tubeCheckTape.elements.leftLine.addEventListener(
+    'mousedown',
+    handleTubeCheckDragStart,
+  )
+  tubeCheckTape.elements.rightLine.addEventListener(
+    'mousedown',
+    handleTubeCheckDragStart,
+  )
+  tubeCheckTape.elements.tapeBody.addEventListener(
+    'mousedown',
+    handleTubeCheckDragStart,
+  )
+
+  window.addEventListener('mousemove', e => {
+    if (!tcDragging || currentPage !== TUBE_CHECK_PAGE) return
+    const sw = window.innerWidth
+    const sh = window.innerHeight
+    const diagPx = Math.sqrt(sw * sw + sh * sh)
+    const ux = sw / diagPx
+    const uy = -sh / diagPx
+    const cx = sw / 2
+    const cy = sh / 2
+    // Project mouse position onto the diagonal from center
+    const dx = e.clientX - cx
+    const dy = e.clientY - cy
+    const projection = Math.abs(dx * ux + dy * uy) // half-length
+    const minHalfPx = 1 * pxPerCm // 1 cm minimum half-length
+    const maxHalfPx = diagPx / 2 // max = full diagonal / 2
+    const newHalf = Math.max(minHalfPx, Math.min(maxHalfPx, projection))
+    tubeCheckTapeLengthPx = newHalf * 2
+    tubeCheckTapeAdjusted = true
+    updateTubeCheckTapePosition()
+  })
+
+  window.addEventListener('mouseup', () => {
+    if (tcDragging) {
+      tcDragging = false
+      document.body.style.cursor = ''
+    }
+  })
+
   // Function to update horizontal tape on window resize (same pattern as checkDistance.js)
   function updateDiagonalTapeOnResize() {
     // Store proportional positions (as ratios of screen dimensions)
@@ -5140,6 +5323,13 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Add window resize event listener (same as checkDistance.js)
   window.addEventListener('resize', updateDiagonalTapeOnResize)
+
+  // Update tube check tape on resize too
+  window.addEventListener('resize', () => {
+    if (currentPage === TUBE_CHECK_PAGE) {
+      updateTubeCheckTapePosition()
+    }
+  })
 
   // ===================== RULER-SHIFT BUTTON =====================
 
@@ -6017,8 +6207,8 @@ export async function objectTest(RC, options, callback = undefined) {
   let intervalCount = 0 // Track how many intervals have fired
 
   const arrowDownFunction = e => {
-    // Only handle arrow keys on page 2
-    if (currentPage !== 2) return
+    // Only handle arrow keys on page 2 or tube check page
+    if (currentPage !== 2 && currentPage !== TUBE_CHECK_PAGE) return
 
     // Prevent default behavior
     e.preventDefault()
@@ -6027,6 +6217,57 @@ export async function objectTest(RC, options, callback = undefined) {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key))
       return
 
+    // ===================== TUBE CHECK PAGE ARROW KEYS =====================
+    if (currentPage === TUBE_CHECK_PAGE) {
+      // Only ArrowLeft and ArrowRight adjust the tube check tape
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+
+      if (arrowKeyDown) return
+      arrowKeyDown = true
+      currentArrowKey = e.key
+      intervalCount = 0
+
+      if (arrowIntervalFunction) {
+        clearInterval(arrowIntervalFunction)
+      }
+
+      const tcCalculateStepSize = () => {
+        if (intervalCount > 3) {
+          return 5 * pxPerMm // 5mm for held keys
+        }
+        return 0.5 * pxPerMm // 0.5mm for taps
+      }
+
+      const sw = window.innerWidth
+      const sh = window.innerHeight
+      const diagPx = Math.sqrt(sw * sw + sh * sh)
+      const minLengthPx = 2 * pxPerCm // 2 cm minimum
+      const maxLengthPx = diagPx // full diagonal maximum
+
+      arrowIntervalFunction = setInterval(() => {
+        intervalCount++
+        const moveAmount = tcCalculateStepSize()
+
+        if (currentArrowKey === 'ArrowLeft') {
+          // Shorten the tape
+          tubeCheckTapeLengthPx = Math.max(
+            minLengthPx,
+            tubeCheckTapeLengthPx - moveAmount * 2,
+          )
+        } else if (currentArrowKey === 'ArrowRight') {
+          // Lengthen the tape
+          tubeCheckTapeLengthPx = Math.min(
+            maxLengthPx,
+            tubeCheckTapeLengthPx + moveAmount * 2,
+          )
+        }
+        tubeCheckTapeAdjusted = true
+        updateTubeCheckTapePosition()
+      }, 50)
+      return
+    }
+
+    // ===================== PAGE 2 ARROW KEYS =====================
     // Cancel animation if user manually adjusts with arrow keys
     cancelRulerShiftAnimation()
 
@@ -6085,8 +6326,8 @@ export async function objectTest(RC, options, callback = undefined) {
   }
 
   const arrowUpFunction = e => {
-    // Only handle arrow keys on page 2
-    if (currentPage !== 2) return
+    // Only handle arrow keys on page 2 or tube check page
+    if (currentPage !== 2 && currentPage !== TUBE_CHECK_PAGE) return
 
     // Handle all four arrow keys
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key))
@@ -6195,6 +6436,11 @@ export async function objectTest(RC, options, callback = undefined) {
     // Clear measurement overlay when navigating away from measurement pages
     if (pageNumber !== 3 && pageNumber !== 4) {
       clearMeasurementOverlay()
+    }
+
+    // Hide tube check tape when navigating away from tube check page
+    if (pageNumber !== TUBE_CHECK_PAGE) {
+      tubeCheckTape.container.style.display = 'none'
     }
 
     if (pageNumber === 0) {
@@ -6475,6 +6721,64 @@ export async function objectTest(RC, options, callback = undefined) {
           updateRulerMarkings()
         }
       }
+    } else if (pageNumber === TUBE_CHECK_PAGE) {
+      // ===================== TUBE LENGTH CHECK PAGE (paper mode only) =====================
+      console.log('=== SHOWING TUBE CHECK PAGE ===')
+      hideVideoResolutionLabel()
+
+      // Hide everything from other pages
+      RC.showVideo(false)
+      tape.container.style.display = 'none'
+      if (leftLabel.container.parentNode) {
+        leftLabel.container.parentNode.removeChild(leftLabel.container)
+      }
+      if (rightLabel.container.parentNode) {
+        rightLabel.container.parentNode.removeChild(rightLabel.container)
+      }
+      unitRadioContainer.style.display = 'none'
+      dontUseRulerColumn.style.display = 'none'
+      rulerShiftButton.style.display = 'none'
+      explanationButton.style.display = 'none'
+      proceedButton.style.display = 'none'
+      paperSelectionContainer.style.display = 'none'
+      paperStepperMediaContainer.style.display = 'none'
+      if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
+      container.style.backgroundColor = ''
+      if (arrowIndicators) {
+        arrowIndicators.remove()
+        arrowIndicators = null
+      }
+
+      // Show title with progress counter: "Distance 2 of N"
+      title.style.display = 'block'
+      viewingDistanceMeasurementCount = 2
+      renderViewingDistanceProgressTitle()
+
+      // Determine whether to do full-size or half-size matching
+      const sw = window.innerWidth
+      const sh = window.innerHeight
+      const diagScreenCm = Math.sqrt(sw * sw + sh * sh) / pxPerCm
+      const expectedLengthCm = selectedPaperLengthCm
+      matchHalfLengthBool = expectedLengthCm > 0.9 * diagScreenCm
+      objectTestCommonData.matchHalfLengthBool = matchHalfLengthBool
+      console.log(
+        `Tube check: expectedLengthCm=${expectedLengthCm}, diagScreenCm=${diagScreenCm.toFixed(1)}, matchHalfLengthBool=${matchHalfLengthBool}`,
+      )
+
+      // Set instruction text based on full vs half matching
+      const matchLengthText = matchHalfLengthBool
+        ? phrases.RC_MatchHalfLength?.[RC.L]
+        : phrases.RC_MatchLength?.[RC.L]
+      setInstructionsText(matchLengthText)
+
+      // Reset tube check state
+      tubeCheckTapeAdjusted = false
+      // Initialize tape to 5 cm centered on the diagonal
+      tubeCheckTapeLengthPx = 5 * pxPerCm
+      updateTubeCheckTapePosition()
+
+      // Show the tube check tape
+      tubeCheckTape.container.style.display = 'block'
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       // Set reference point so showNearestPointsBool overlay uses camera (top) on page 3
@@ -6508,7 +6812,7 @@ export async function objectTest(RC, options, callback = undefined) {
         // Update progress tracking for backward compatibility
         if (previousPage !== 3) {
           viewingDistanceMeasurementCount =
-            pageConfig.locationIndex + 1 + (isPaperSelectionMode ? 1 : 0)
+            pageConfig.locationIndex + 1 + (isPaperSelectionMode ? 2 : 0) // +2 for paper selection + tube check
 
           // // Show video on page 3
           // RC.showVideo(true)
@@ -6552,12 +6856,12 @@ export async function objectTest(RC, options, callback = undefined) {
           //     } catch {}
         }
         viewingDistanceTotalExpected =
-          pageConfig.totalLocations + (isPaperSelectionMode ? 1 : 0)
+          pageConfig.totalLocations + (isPaperSelectionMode ? 2 : 0) // +2 for paper selection + tube check
 
         // Render the measurement page using the new renderer
         const pageResult = await measurementPageRenderer.showMeasurementPage({
           ...pageConfig,
-          pageNumberOffset: isPaperSelectionMode ? 1 : 0,
+          pageNumberOffset: isPaperSelectionMode ? 2 : 0, // +2 for paper selection + tube check
           onProgressUpdate: (current, total) => {
             console.log(`Progress update: ${current} of ${total}`)
           },
@@ -6671,7 +6975,7 @@ export async function objectTest(RC, options, callback = undefined) {
           },
         }
 
-        await showPage(3)
+        await showPage(TUBE_CHECK_PAGE)
         return true
       }
       // ===================== SAVE MEASUREMENT DATA FROM PAGE 2 =====================
@@ -6930,6 +7234,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Clear measurement overlay (eye-side text + tube circles)
     clearMeasurementOverlay()
+
+    // Clean up tube check tape
+    if (tubeCheckTape && tubeCheckTape.container) {
+      tubeCheckTape.container.style.display = 'none'
+    }
 
     // Clean up arrow indicators (local ref and DOM by id so they stay gone)
     if (arrowIndicators) {
@@ -7729,11 +8038,17 @@ export async function objectTest(RC, options, callback = undefined) {
         return
       }
       if (currentPage === 3 || currentPage === 4) return
+      if (currentPage === TUBE_CHECK_PAGE) return // Only SPACE confirms on tube check page
       // Always trigger Proceed button action since okButton is never used
       proceedButton.click()
     } else if (e.key === ' ') {
-      // Space key - allow on pages 2, 3 and 4
-      if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
+      // Space key - allow on pages 2, 3, 4, and tube check
+      if (
+        currentPage === 2 ||
+        currentPage === 3 ||
+        currentPage === 4 ||
+        currentPage === TUBE_CHECK_PAGE
+      ) {
         e.preventDefault()
 
         // Gate SPACE on pages 3/4: require stepper to be on the last step
@@ -7799,6 +8114,131 @@ export async function objectTest(RC, options, callback = undefined) {
           // Capture the video frame immediately on space press (for 3 and 4)
           if (currentPage === 3 || currentPage === 4) {
             lastCapturedFaceImage = captureVideoFrame(RC)
+          }
+
+          // ===================== TUBE LENGTH CHECK SPACE HANDLER =====================
+          if (currentPage === TUBE_CHECK_PAGE) {
+            ;(async () => {
+              // Require that the tape was adjusted before accepting SPACE
+              if (!tubeCheckTapeAdjusted) {
+                console.log(
+                  'SPACE ignored on tube check page - tape not yet adjusted',
+                )
+                document.addEventListener('keydown', handleKeyPress)
+                return
+              }
+
+              // Calculate the estimated tube length from the tape
+              const tapeLengthCm = tubeCheckTapeLengthPx / pxPerCm
+              const estimatedCm = matchHalfLengthBool
+                ? tapeLengthCm * 2
+                : tapeLengthCm
+              const expectedCm = selectedPaperLengthCm
+              if (!expectedCm || expectedCm <= 0) {
+                console.error('Tube check: invalid expectedCm, skipping check')
+                document.addEventListener('keydown', handleKeyPress)
+                return
+              }
+              const ratio = estimatedCm / expectedCm
+
+              // Save to objectTestCommonData arrays
+              objectTestCommonData.estimatedLengthCm.push(
+                Math.round(estimatedCm * 10) / 10,
+              )
+              objectTestCommonData.estimatedLengthRatio.push(
+                Math.round(ratio * 1000) / 1000,
+              )
+
+              console.log(
+                `Tube check: tapeLengthCm=${tapeLengthCm.toFixed(1)}, estimatedCm=${estimatedCm.toFixed(1)}, expectedCm=${expectedCm}, ratio=${ratio.toFixed(3)}, matchHalf=${matchHalfLengthBool}`,
+              )
+
+              // Acceptance thresholds (from options or defaults)
+              const ratioThresholdFull = options.calibrateDistanceRatioCm || 1.2
+              const ratioThresholdHalf =
+                options.calibrateDistanceRatioHalfCm || 1.4
+
+              let accepted
+              if (!matchHalfLengthBool) {
+                // Full-size match
+                accepted =
+                  Math.abs(Math.log10(ratio)) <= Math.log10(ratioThresholdFull)
+              } else {
+                // Half-size match (more lenient)
+                accepted =
+                  Math.abs(Math.log10(ratio)) <= Math.log10(ratioThresholdHalf)
+              }
+
+              console.log(
+                `Tube check: accepted=${accepted}, threshold=${matchHalfLengthBool ? ratioThresholdHalf : ratioThresholdFull}`,
+              )
+
+              if (accepted) {
+                // Hide tube check tape and proceed to page 3
+                tubeCheckTape.container.style.display = 'none'
+
+                // Initialize Face Mesh tracking if not already done
+                if (!RC.gazeTracker.checkInitialized('distance')) {
+                  RC.gazeTracker._init(
+                    {
+                      toFixedN: 1,
+                      showVideo: true,
+                      showFaceOverlay: false,
+                    },
+                    'distance',
+                  )
+                }
+
+                // IMPORTANT: Use the original expected exact length, not the estimate
+                objectLengthCmGlobal.value = expectedCm
+
+                await showPage(3)
+                document.addEventListener('keydown', handleKeyPress)
+              } else {
+                // Rejected - show error message
+                const pctOfExpected = Math.round(ratio * 100)
+                const errorMsg = (phrases.RC_BadMatchToExpectedLength?.[
+                  RC.L
+                ]).replace('[[NNN]]', pctOfExpected.toString())
+
+                // Prevent spacebar from closing the popup
+                const preventSpaceInPopup = ev => {
+                  if (ev.key === ' ' || ev.code === 'Space') {
+                    ev.preventDefault()
+                    ev.stopPropagation()
+                  }
+                }
+
+                await Swal.fire({
+                  ...swalInfoOptions(RC, { showIcon: false }),
+                  icon: undefined,
+                  html: errorMsg,
+                  allowEnterKey: true,
+                  confirmButtonText:
+                    phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
+                  didOpen: () => {
+                    document.addEventListener(
+                      'keydown',
+                      preventSpaceInPopup,
+                      true,
+                    )
+                  },
+                  willClose: () => {
+                    document.removeEventListener(
+                      'keydown',
+                      preventSpaceInPopup,
+                      true,
+                    )
+                  },
+                })
+
+                // Hide tube check tape and return to page 2 (paper selection)
+                tubeCheckTape.container.style.display = 'none'
+                await showPage(2)
+                document.addEventListener('keydown', handleKeyPress)
+              }
+            })()
+            return
           }
 
           if (currentPage === 2) {
@@ -8179,8 +8619,12 @@ export async function objectTest(RC, options, callback = undefined) {
                 let imageBasedEyesToFootCm = null
                 let imageBasedEyesToPointCm = null
                 if (mesh) {
-                  const { leftEye, rightEye, video, currentIPDDistance: ipdVpx } =
-                    mesh
+                  const {
+                    leftEye,
+                    rightEye,
+                    video,
+                    currentIPDDistance: ipdVpx,
+                  } = mesh
                   currentIPDDistance = ipdVpx
                   const pxPerCm = ppi / 2.54
 
@@ -8228,8 +8672,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
                   )
                   factorCmPx = currentIPDDistance * rulerBasedEyesToFootCm
-                  fOverWidth =
-                    factorCmPx / cameraRes[0] / RC._CONST.IPD_CM
+                  fOverWidth = factorCmPx / cameraRes[0] / RC._CONST.IPD_CM
                   ipdOverWidth =
                     currentIPDDistance && cameraRes[0]
                       ? currentIPDDistance / cameraRes[0]
@@ -8333,25 +8776,26 @@ export async function objectTest(RC, options, callback = undefined) {
                       : null,
                   )
                   objectTestCommonData.rejectedRulerBasedEyesToFootCm.push(
-                    rulerBasedEyesToFootCm != null && !isNaN(rulerBasedEyesToFootCm)
+                    rulerBasedEyesToFootCm != null &&
+                      !isNaN(rulerBasedEyesToFootCm)
                       ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
                       : null,
                   )
                   objectTestCommonData.rejectedRulerBasedEyesToPointCm.push(
                     rulerBasedEyesToPointCm != null &&
-                    !isNaN(rulerBasedEyesToPointCm)
+                      !isNaN(rulerBasedEyesToPointCm)
                       ? parseFloat(Number(rulerBasedEyesToPointCm).toFixed(2))
                       : null,
                   )
                   objectTestCommonData.rejectedImageBasedEyesToFootCm.push(
                     imageBasedEyesToFootCm != null &&
-                    !isNaN(imageBasedEyesToFootCm)
+                      !isNaN(imageBasedEyesToFootCm)
                       ? parseFloat(Number(imageBasedEyesToFootCm).toFixed(2))
                       : null,
                   )
                   objectTestCommonData.rejectedImageBasedEyesToPointCm.push(
                     imageBasedEyesToPointCm != null &&
-                    !isNaN(imageBasedEyesToPointCm)
+                      !isNaN(imageBasedEyesToPointCm)
                       ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
                       : null,
                   )
@@ -8575,25 +9019,25 @@ export async function objectTest(RC, options, callback = undefined) {
                   )
                   objectTestCommonData.acceptedRulerBasedEyesToFootCm.push(
                     rulerBasedEyesToFootCm != null &&
-                    !isNaN(rulerBasedEyesToFootCm)
+                      !isNaN(rulerBasedEyesToFootCm)
                       ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
                       : null,
                   )
                   objectTestCommonData.acceptedRulerBasedEyesToPointCm.push(
                     rulerBasedEyesToPointCm != null &&
-                    !isNaN(rulerBasedEyesToPointCm)
+                      !isNaN(rulerBasedEyesToPointCm)
                       ? parseFloat(Number(rulerBasedEyesToPointCm).toFixed(2))
                       : null,
                   )
                   objectTestCommonData.acceptedImageBasedEyesToFootCm.push(
                     imageBasedEyesToFootCm != null &&
-                    !isNaN(imageBasedEyesToFootCm)
+                      !isNaN(imageBasedEyesToFootCm)
                       ? parseFloat(Number(imageBasedEyesToFootCm).toFixed(2))
                       : null,
                   )
                   objectTestCommonData.acceptedImageBasedEyesToPointCm.push(
                     imageBasedEyesToPointCm != null &&
-                    !isNaN(imageBasedEyesToPointCm)
+                      !isNaN(imageBasedEyesToPointCm)
                       ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
                       : null,
                   )
