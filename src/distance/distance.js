@@ -2853,7 +2853,7 @@ export async function blindSpotTestNew(
           // Temporarily remove the space key listener to prevent interference
           document.removeEventListener('keydown', onSpaceSnap)
 
-          let conditionalFaceImageNotSaved = ""
+          let conditionalFaceImageNotSaved = ''
           if (!options.saveSnapshots) {
             conditionalFaceImageNotSaved = `<p style="margin-top:10px;font-size:0.8em;color:#666;">${phrases.RC_FaceImageNotSaved ? phrases.RC_FaceImageNotSaved[RC.L] : ''}</p>`
           }
@@ -8175,9 +8175,9 @@ export async function objectTest(RC, options, callback = undefined) {
               } else {
                 // Rejected - show error message
                 const pctOfExpected = Math.round(ratio * 100)
-                const errorMsg = (phrases.RC_BadMatchToExpectedLength?.[
-                  RC.L
-                ]).replace('[[NNN]]', pctOfExpected.toString())
+                const errorMsg = (
+                  phrases.RC_BadMatchToExpectedLength?.[RC.L]
+                ).replace('[[NNN]]', pctOfExpected.toString())
 
                 // Prevent spacebar from closing the popup
                 const preventSpaceInPopup = ev => {
@@ -8403,14 +8403,14 @@ export async function objectTest(RC, options, callback = undefined) {
                 // Use the image captured at space press
                 const capturedImage = lastCapturedFaceImage
 
-                let conditionalFaceImageNotSaved = ""
-              if (!options.saveSnapshots) {
-                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
-              }
-              const result = await Swal.fire({
-                ...swalInfoOptions(RC, { showIcon: false }),
-                title: phrases.RC_FaceBlocked[RC.L],
-                html: `<div style="text-align: center;">
+                let conditionalFaceImageNotSaved = ''
+                if (!options.saveSnapshots) {
+                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+                }
+                const result = await Swal.fire({
+                  ...swalInfoOptions(RC, { showIcon: false }),
+                  title: phrases.RC_FaceBlocked[RC.L],
+                  html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
                     ${conditionalFaceImageNotSaved}
                    </div>`,
@@ -10459,7 +10459,6 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
             return
           }
         }
-
         // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
         ;(async () => {
           const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
@@ -10513,10 +10512,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 faceMeshSamplesPage3.some(sample => isNaN(sample))
               ) {
                 const capturedImage = lastCapturedFaceImage
-              let conditionalFaceImageNotSaved = ""
-              if (!options.saveSnapshots) {
-                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
-              }
+                let conditionalFaceImageNotSaved = ''
+                if (!options.saveSnapshots) {
+                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+                }
                 const result = await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
                   title: phrases.RC_FaceBlocked[RC.L],
@@ -10701,15 +10700,15 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
               ) {
                 const capturedImage = lastCapturedFaceImage
 
-                let conditionalFaceImageNotSaved = ""
-              if (!options.saveSnapshots) {
-                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
-              }
+                let conditionalFaceImageNotSaved = ''
+                if (!options.saveSnapshots) {
+                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+                }
 
-              const result = await Swal.fire({
-                ...swalInfoOptions(RC, { showIcon: false }),
-                title: phrases.RC_FaceBlocked[RC.L],
-                html: `<div style="text-align: center;">
+                const result = await Swal.fire({
+                  ...swalInfoOptions(RC, { showIcon: false }),
+                  title: phrases.RC_FaceBlocked[RC.L],
+                  html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
                     ${conditionalFaceImageNotSaved}
                    </div>`,

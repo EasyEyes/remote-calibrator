@@ -1,4 +1,3 @@
-
 // Helper function to capture current video frame as base64 image
 export const captureVideoFrame = RC => {
   try {

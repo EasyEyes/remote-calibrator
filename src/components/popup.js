@@ -812,7 +812,9 @@ const updateCameraPreviews = async (
   }
 
   const isSingleCamera = newCameras.length === 1
-  const titleKey = isSingleCamera ? 'RC_NeedCameraTitle' : 'RC_ChooseCameraTitle'
+  const titleKey = isSingleCamera
+    ? 'RC_NeedCameraTitle'
+    : 'RC_ChooseCameraTitle'
   const messageKey = isSingleCamera ? 'RC_NeedCamera' : 'RC_ChooseCamera'
   updateTitleAndDescription(RC, titleKey, messageKey, privacyMessage)
 
@@ -1777,7 +1779,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   // Check if there are cameras available
   const cameras = await getAvailableCameras()
 
-  let conditionalPrivacyCamera = ""
+  let conditionalPrivacyCamera = ''
   if (!options.saveSnapshots) {
     conditionalPrivacyCamera = phrases.RC_privacyCamera[RC.L]
   }

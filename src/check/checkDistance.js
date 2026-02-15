@@ -711,10 +711,10 @@ const showFaceBlockedPopup = async (RC, capturedImage, saveSnapshots) => {
     videoContainer.style.display = 'none'
   }
 
-  let conditionalFaceImageNotSaved = ""
-    if (!saveSnapshots){
-      conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.language.value]}</p>`
-    }
+  let conditionalFaceImageNotSaved = ''
+  if (!saveSnapshots) {
+    conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.language.value]}</p>`
+  }
   const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
     title: phrases.RC_FaceBlocked[RC.language.value],
@@ -911,32 +911,29 @@ RemoteCalibrator.prototype._checkDistance = async function (
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
 
-  await this.getEquipment(
-    async () => {
-      return await trackDistanceCheck(
-        this,
-        distanceCallback,
-        distanceData,
-        measureName,
-        checkCallback,
-        calibrateDistanceCheckCm,
-        callbackStatic,
-        calibrateDistanceCheckSecs,
-        calibrateDistanceCheckLengthCm,
-        calibrateDistanceCenterYourEyesBool,
-        calibrateDistancePupil,
-        calibrateDistanceChecking,
-        calibrateDistanceSpotXYDeg,
-        calibrateDistance,
-        stepperHistory,
-        calibrateScreenSizeAllowedRatio,
-        calibrateDistanceAllowedRatio,
-        viewingDistanceWhichEye,
-        saveSnapshots,
-      )
-    },
-    false,
-  )
+  await this.getEquipment(async () => {
+    return await trackDistanceCheck(
+      this,
+      distanceCallback,
+      distanceData,
+      measureName,
+      checkCallback,
+      calibrateDistanceCheckCm,
+      callbackStatic,
+      calibrateDistanceCheckSecs,
+      calibrateDistanceCheckLengthCm,
+      calibrateDistanceCenterYourEyesBool,
+      calibrateDistancePupil,
+      calibrateDistanceChecking,
+      calibrateDistanceSpotXYDeg,
+      calibrateDistance,
+      stepperHistory,
+      calibrateScreenSizeAllowedRatio,
+      calibrateDistanceAllowedRatio,
+      viewingDistanceWhichEye,
+      saveSnapshots,
+    )
+  }, false)
 }
 
 const checkDistance = async (
@@ -2844,7 +2841,10 @@ const trackDistanceCheck = async (
               // Capture the video frame immediately on space press
               lastCapturedFaceImage = captureVideoFrame(RC)
               //Todo: first place the capture occurs
-              console.log('checkDistance.js keyupListener() saveSnapshots option:', saveSnapshots ?? false)
+              console.log(
+                'checkDistance.js keyupListener() saveSnapshots option:',
+                saveSnapshots ?? false,
+              )
 
               // Validate face mesh data with retry mechanism
               const faceValidation = await validateFaceMeshSamples(
@@ -2860,7 +2860,11 @@ const trackDistanceCheck = async (
                 )
 
                 // Show face blocked popup
-                await showFaceBlockedPopup(RC, lastCapturedFaceImage, saveSnapshots)
+                await showFaceBlockedPopup(
+                  RC,
+                  lastCapturedFaceImage,
+                  saveSnapshots,
+                )
 
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
@@ -3161,7 +3165,11 @@ const trackDistanceCheck = async (
                   )
 
                   // Show face blocked popup
-                  await showFaceBlockedPopup(RC, lastCapturedFaceImage, saveSnapshots)
+                  await showFaceBlockedPopup(
+                    RC,
+                    lastCapturedFaceImage,
+                    saveSnapshots,
+                  )
 
                   // Clean up the captured image for privacy
                   lastCapturedFaceImage = null
