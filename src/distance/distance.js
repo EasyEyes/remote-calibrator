@@ -57,13 +57,27 @@ import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import {
   showTestPopup,
   hideResolutionSettingMessage,
+  showVideoResolutionLabel,
+  hideVideoResolutionLabel,
 } from '../components/popup'
 import { ppiToPxPerCm } from '../components/converters'
 import {
   calculateFootXYPx,
   calculateNearestPoints,
   getMeshData,
+  setMeasurementOverlay,
+  clearMeasurementOverlay,
 } from './distanceTrack'
+import {
+  parseLocationEye,
+  parseLocationsArray,
+  getArrowPositionForLocation,
+  positionVideoForLocation,
+  getGlobalPointForLocation,
+  createLocationMeasurementManager,
+  createMeasurementPageRenderer,
+  buildMeasurementPageConfig,
+} from './object'
 import woodSvg from '../media/AdobeStock_1568677429.svg'
 import { captureVideoFrame } from '../check/captureVideoFrame'
 
@@ -178,16 +192,18 @@ const blindSpotHTML = `
 `
 
 /* -------------------------------------------------------------------------- */
+/* Location-based measurement helpers are imported from ./object              */
+/* -------------------------------------------------------------------------- */
 
-// Helper function to save multiple calibration measurements separately
+// helper function to save multiple calibration measurements separately
 function saveCalibrationMeasurements(
   RC,
   method,
-  measurements, // Array of measurement objects
-  spotDeg = undefined, // Spot diameter in degrees for blindspot calibrations
+  measurements, // array of measurement objects
+  spotDeg = undefined, // spot diameter in degrees for blindspot calibrations
   COMMON = undefined,
 ) {
-  // Initialize the calibration attempts object if it doesn't exist
+  // initialize the calibration attempts object if it doesn't exist
   if (!RC.calibrationAttempts) {
     RC.calibrationAttempts = {
       future: 'To be deleted by end of November 2025.',
@@ -278,7 +294,7 @@ function saveCalibrationAttempt(
   objectSuggestion = undefined,
   COMMON = undefined,
   ipdXYZVpx = undefined, // 3D IPD in pixels (always with Z coordinate)
-  _fOverWidth = undefined,
+  fOverWidth = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
   // arrays of values across attempts for easier downstream analysis.
@@ -298,7 +314,40 @@ function saveCalibrationAttempt(
         const v = value === undefined ? null : value
         //for fields: objectRulerIntervalCm: ,objectLengthCm: , objectMeasuredMsg: , objectName: ,
         // push to array if array, otherwise set to value
-        if (Array.isArray(v)) {
+        //for plot lists: override with current value
+        if (
+          key === 'acceptedFOverWidth' ||
+          key === 'acceptedRatioFOverWidth' ||
+          key === 'acceptedLocation' ||
+          key === 'acceptedPointXYPx' ||
+          key === 'acceptedLeftEyeFootXYPx' ||
+          key === 'acceptedRightEyeFootXYPx' ||
+          key === 'acceptedIpdOverWidth' ||
+          key === 'acceptedRulerBasedEyesToFootCm' ||
+          key === 'acceptedRulerBasedEyesToPointCm' ||
+          key === 'acceptedImageBasedEyesToFootCm' ||
+          key === 'acceptedImageBasedEyesToPointCm' ||
+          key === 'rejectedFOverWidth' ||
+          key === 'rejectedRatioFOverWidth' ||
+          key === 'rejectedLocation' ||
+          key === 'rejectedPointXYPx' ||
+          key === 'rejectedLeftEyeFootXYPx' ||
+          key === 'rejectedRightEyeFootXYPx' ||
+          key === 'rejectedIpdOverWidth' ||
+          key === 'rejectedRulerBasedEyesToFootCm' ||
+          key === 'rejectedRulerBasedEyesToPointCm' ||
+          key === 'rejectedImageBasedEyesToFootCm' ||
+          key === 'rejectedImageBasedEyesToPointCm' ||
+          key === 'historyFOverWidth' ||
+          key === 'historyEyesToFootCm' ||
+          key === 'snapshotsTaken' ||
+          key === 'snapshotsRejected' ||
+          key === 'estimatedLengthCm' ||
+          key === 'estimatedLengthRatio' ||
+          key === 'matchHalfLengthBool'
+        ) {
+          RC.calibrationAttemptsT[key] = v
+        } else if (Array.isArray(v)) {
           if (!RC.calibrationAttemptsT[key]) RC.calibrationAttemptsT[key] = []
           RC.calibrationAttemptsT[key].push(...v)
         } else {
@@ -363,10 +412,10 @@ function saveCalibrationAttempt(
   const ppi = RC.screenPpi.value
   const pxPerCmValue = ppi / 2.54 // Convert PPI to pixels per cm
   const ipdCmValue = RC._CONST.IPD_CM // Standard IPD in cm (6.3cm)
-  const fVpx = (currentIPDDistance * eyesToFootCm) / ipdCmValue
-  // Use camera width for all ratios since fVpx, ipdOverWidth are derived from camera-space measurements
   const cameraWidth = cameraResolutionXYVpx ? cameraResolutionXYVpx[0] : null
-  const fOverWidth = fVpx && cameraWidth ? fVpx / cameraWidth : null
+  const fVpx = fOverWidth * cameraWidth
+  // Use camera width for all ratios since fVpx, ipdOverWidth are derived from camera-space measurements
+
   const ipdOverWidth =
     currentIPDDistance && cameraWidth ? currentIPDDistance / cameraWidth : null
   const ipdOverWidthXYZ =
@@ -466,6 +515,7 @@ async function processMeshDataAndCalculateNearestPoints(
   calibrateDistanceChecking = 'camera',
   _pointXYPx = [window.screen.width / 2, window.screen.height / 2],
   objectLengthCm = null,
+  eye = 'unspecified',
 ) {
   const mesh = await getMeshData(
     RC,
@@ -497,6 +547,7 @@ async function processMeshDataAndCalculateNearestPoints(
     false,
     calibrateDistanceChecking,
     _pointXYPx,
+    eye,
   )
   return {
     nearestPointsData,
@@ -518,6 +569,7 @@ function createMeasurementObject(
   objectSuggestion = undefined,
   ipdXYZVpx = null, // Always 3D IPD for ipdOverWidthXYZ
   fOverWidth = null,
+  snapshotAcceptedBool = false,
 ) {
   const {
     nearestDistanceCm_left,
@@ -563,6 +615,7 @@ function createMeasurementObject(
     objectLengthCm: distance,
     ipdXYZVpx: ipdXYZVpx, // Always 3D IPD for ipdOverWidthXYZ
     fOverWidth: fOverWidth,
+    snapshotAcceptedBool: snapshotAcceptedBool,
   }
 
   if (ipdVpx !== null) {
@@ -3114,6 +3167,8 @@ export async function blindSpotTestNew(
       options.calibrateDistance,
       options.stepperHistory,
       options.calibrateScreenSizeAllowedRatio,
+      options.calibrateDistanceAllowedRatio,
+      options.viewingDistanceWhichEye,
       options.saveSnapshots,
     )
   else safeExecuteFunc(callback, data)
@@ -3298,39 +3353,9 @@ function checkDataRepeatability(dist) {
   return Math.abs(leftMean - rightMean) < 0.2 * Math.min(leftMean, rightMean)
 }
 
-function checkFaceMeshDataRepeatability(page3Samples, page4Samples) {
-  // Filter out NaN values and calculate averages
-  const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
-  const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
-
-  // Need at least 3 valid samples from each page for meaningful comparison
-  if (validPage3Samples.length < 3 || validPage4Samples.length < 3) {
-    console.warn('Insufficient valid Face Mesh samples for tolerance check')
-    return false
-  }
-
-  const page3Mean =
-    validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
-  const page4Mean =
-    validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
-
-  console.log('=== Face Mesh Tolerance Check ===')
-  console.log('Page 3 average:', page3Mean.toFixed(2), 'px')
-  console.log('Page 4 average:', page4Mean.toFixed(2), 'px')
-  console.log('Difference:', Math.abs(page3Mean - page4Mean).toFixed(2), 'px')
-  console.log(
-    'Tolerance threshold:',
-    (0.2 * Math.min(page3Mean, page4Mean)).toFixed(2),
-    'px',
-  )
-  console.log(
-    'Tolerance check passed:',
-    Math.abs(page3Mean - page4Mean) < 0.2 * Math.min(page3Mean, page4Mean),
-  )
-  console.log('================================')
-
-  return Math.abs(page3Mean - page4Mean) < 0.2 * Math.min(page3Mean, page4Mean)
-}
+// REMOVED: checkFaceMeshDataRepeatability - no longer needed.
+// Was used for legacy 2-measurement (page3/page4) repeatability checking.
+// Now handled by locationManager.checkTolerance() per iteration.
 
 function _getDistValues(dist) {
   const v = []
@@ -3435,12 +3460,34 @@ export async function showPauseBeforeNewObject(
 
 // ===================== OBJECT TEST SCHEME =====================
 export async function objectTest(RC, options, callback = undefined) {
+  console.log('=== objectTest FUNCTION CALLED ===')
+  console.log(
+    'options.calibrateDistanceLocations:',
+    options.calibrateDistanceLocations,
+  )
+  console.log('All options keys:', Object.keys(options))
+  // Log any option that contains "calibrate" or "Distance" in its name
+  Object.keys(options).forEach(key => {
+    if (
+      key.toLowerCase().includes('calibrate') ||
+      key.toLowerCase().includes('distance') ||
+      key.toLowerCase().includes('location')
+    ) {
+      console.log(`  options.${key}:`, options[key])
+    }
+  })
   RC._addBackground()
 
   // ===================== PAGE STATE MANAGEMENT =====================
   let currentPage = 1
   let savedMeasurementData = null // Store measurement data from page 2
   // let selectedPage0Option = null // Store the selected radio button option from page 0
+
+  // ===================== TUBE LENGTH CHECK STATE =====================
+  const TUBE_CHECK_PAGE = 'tubeCheck'
+  let tubeCheckTapeAdjusted = false // SPACE is disabled until the tape has been adjusted
+  let tubeCheckTapeLengthPx = 0 // Current tape length in pixels (initialized later to 5 cm)
+  let matchHalfLengthBool = false // Whether we are doing half-size matching
 
   // ===================== UNIT SELECTION STATE =====================
   let selectedUnit = 'inches' // Default to inches
@@ -3710,14 +3757,85 @@ export async function objectTest(RC, options, callback = undefined) {
     objectRulerIntervalCm: [],
     // objectLengthCm: [],
     objectMeasuredMsg: [],
+    // Plot lists: accepted (grow/shrink), rejected (grow only, more recent of pair)
+    acceptedFOverWidth: [],
+    acceptedRatioFOverWidth: [],
+    acceptedLocation: [],
+    acceptedPointXYPx: [],
+    rejectedFOverWidth: [],
+    rejectedRatioFOverWidth: [],
+    rejectedLocation: [],
+    rejectedPointXYPx: [],
+    historyFOverWidth: [], // Array of the fOverWidth estimate of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
+    historyEyesToFootCm: [], // Array of the rulerBasedEyesToFootCm values of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
+    // Per-snapshot metrics for accepted and rejected (saved for analysis)
+    acceptedLeftEyeFootXYPx: [],
+    acceptedRightEyeFootXYPx: [],
+    acceptedIpdOverWidth: [],
+    acceptedRulerBasedEyesToFootCm: [],
+    acceptedRulerBasedEyesToPointCm: [],
+    acceptedImageBasedEyesToFootCm: [],
+    acceptedImageBasedEyesToPointCm: [],
+    rejectedLeftEyeFootXYPx: [],
+    rejectedRightEyeFootXYPx: [],
+    rejectedIpdOverWidth: [],
+    rejectedRulerBasedEyesToFootCm: [],
+    rejectedRulerBasedEyesToPointCm: [],
+    rejectedImageBasedEyesToFootCm: [],
+    rejectedImageBasedEyesToPointCm: [],
+    // Tube length check outputs (paper mode only)
+    matchHalfLengthBool: null,
+    estimatedLengthCm: [],
+    estimatedLengthRatio: [],
   }
+
+  // Queue to collect all measurement-attempt records in chronological order.
+  // Each entry stores the lightweight data needed to create a calibration-attempt
+  // object later.  Entries are pushed on every SPACE-press that completes 5
+  // face-mesh samples (whether the tolerance check passes or fails).
+  //
+  // When a tolerance check fails, the CURRENT measurement is pushed with
+  // accepted=false and the most-recent accepted=true entry is flipped to false
+  // (retroactive rejection of the previous measurement).
+  //
+  // The entire queue is converted to full measurement objects and saved in bulk
+  // at the "ALL LOCATIONS MEASURED" exit point.
+  const measurementSaveQueue = []
+
+  // ===================== PARSE calibrateDistanceLocations =====================
+  // Use the imported parseLocationsArray function from ./object
+  const calibrateDistanceLocations = parseLocationsArray(
+    options.calibrateDistanceLocations,
+  )
+
+  // TODO: Remove this test logging after verification
+  console.log('=== calibrateDistanceLocations TEST ===')
+  console.log('Raw input:', options.calibrateDistanceLocations)
+  console.log('Parsed locations array:', calibrateDistanceLocations)
+  console.log('Number of locations:', calibrateDistanceLocations.length)
+  calibrateDistanceLocations.forEach((locEye, index) => {
+    const parsed = parseLocationEye(locEye)
+    console.log(
+      `  [${index}] "${locEye}" => location: "${parsed.location}", eye: "${parsed.eye}"`,
+    )
+  })
+  console.log('========================================')
+  // ===================== END PARSE =====================
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
   // Track progress title counter for the viewing-distance capture steps.
   // In paper-selection mode, page 2 (paper choice) is treated as step 1, then pages 3 and 4.
   let viewingDistanceMeasurementCount = 0 // Total number of page 3/4 cycles completed
   // Expected total (starts at 2, increments by 2 on retry; +1 in paper-selection mode for the paper-choice step).
-  let viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
+  // let viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2 (Removed to implement _calibrateDistanceLocations)
+  let viewingDistanceTotalExpected = isPaperSelectionMode
+    ? calibrateDistanceLocations.length + 2 // +1 paper selection, +1 tube length check
+    : calibrateDistanceLocations.length
+
+  // ===================== LOCATION-BASED MEASUREMENT TRACKING =====================
+  // All location tracking state is now managed by locationManager
+  // (created via createLocationMeasurementManager, initialized later around line ~6177).
+  // ===================== END LOCATION-BASED TRACKING =====================
 
   // Render the "Distance (N of X)" title safely (never show N > X).
   const renderViewingDistanceProgressTitle = () => {
@@ -3741,6 +3859,12 @@ export async function objectTest(RC, options, callback = undefined) {
   // For a seamless transition, remember how far down page 3 had to push the instructions
   // to avoid the (top-centered) video, and apply at least that much on page 4.
   let page3InstructionsMarginTopPx = null
+
+  // New storage for any number of location measurments
+  // Each entry: { locationIndex, locEye, location, eye, faceMeshSamples, cameraResolution, meshSamplesDuring, fOverWidth, factorCmPx }
+  let locationMeasurmentsData = []
+  let currentLocationFaceMeshSamples = []
+  let currentLocationMeshSamples = []
 
   // Helper to collect 5 samples of eye pixel distance using Face Mesh
   async function collectFaceMeshSamples(RC, arr, ppi, meshSamples) {
@@ -4213,6 +4337,8 @@ export async function objectTest(RC, options, callback = undefined) {
   const sectionMediaContainer = instructionsUI.mediaContainer
 
   const cleanupBeforeCheckDistance = () => {
+    // Remove arrow indicators from DOM so they never appear during distance check
+    removeArrowIndicatorsFromDOM()
     // Remove stepper UI and media before transitioning to _checkDistance.
     if (instructionsUI?.destroy) {
       instructionsUI.destroy()
@@ -4978,6 +5104,176 @@ export async function objectTest(RC, options, callback = undefined) {
   const tape = createDiagonalTapeComponent()
   container.appendChild(tape.container)
 
+  // ===================== TUBE LENGTH CHECK DIAGONAL TAPE =====================
+  // This tape is shown on the tube check page (paper mode only).
+  // It runs along the screen diagonal from lower-left to upper-right,
+  // starts at 5 cm, and is always centered on the diagonal.
+  const createTubeCheckTapeComponent = () => {
+    const tcTapeWidth = Math.round(0.75 * ppi) // 3/4 inch width
+    const tcLineThickness = 6 // px — thick enough to be visible and easy to grab
+
+    const tcContainer = document.createElement('div')
+    tcContainer.id = 'tube-check-tape-container'
+    tcContainer.style.position = 'fixed'
+    tcContainer.style.top = '0'
+    tcContainer.style.left = '0'
+    tcContainer.style.width = '100vw'
+    tcContainer.style.height = '100vh'
+    tcContainer.style.pointerEvents = 'none'
+    tcContainer.style.zIndex = '10'
+    tcContainer.style.display = 'none' // Hidden by default
+
+    // Yellow tape body
+    const tcTapeBody = document.createElement('div')
+    tcTapeBody.style.position = 'absolute'
+    tcTapeBody.style.background = 'rgba(255, 221, 51, 0.95)'
+    tcTapeBody.style.border = '2px solid rgb(0, 0, 0)'
+    tcTapeBody.style.borderRadius = '2px'
+    tcTapeBody.style.transformOrigin = 'left center'
+    tcTapeBody.style.height = `${tcTapeWidth}px`
+    tcTapeBody.style.pointerEvents = 'auto'
+    tcTapeBody.style.cursor = 'pointer'
+    tcContainer.appendChild(tcTapeBody)
+
+    // Left endpoint line (black, sits on top of the left edge of the tape)
+    const tcLeftLine = document.createElement('div')
+    tcLeftLine.style.position = 'absolute'
+    tcLeftLine.style.width = `${tcLineThickness}px`
+    tcLeftLine.style.height = `${tcTapeWidth}px` // Same height as the tape
+    tcLeftLine.style.background = 'rgb(0, 0, 0)'
+    tcLeftLine.style.transformOrigin = 'center center'
+    tcLeftLine.style.pointerEvents = 'auto'
+    tcLeftLine.style.cursor = 'pointer'
+    tcLeftLine.style.zIndex = '3'
+    tcContainer.appendChild(tcLeftLine)
+
+    // Right endpoint line (black, sits on top of the right edge of the tape)
+    const tcRightLine = document.createElement('div')
+    tcRightLine.style.position = 'absolute'
+    tcRightLine.style.width = `${tcLineThickness}px`
+    tcRightLine.style.height = `${tcTapeWidth}px` // Same height as the tape
+    tcRightLine.style.background = 'rgb(0, 0, 0)'
+    tcRightLine.style.transformOrigin = 'center center'
+    tcRightLine.style.pointerEvents = 'auto'
+    tcRightLine.style.cursor = 'pointer'
+    tcRightLine.style.zIndex = '3'
+    tcContainer.appendChild(tcRightLine)
+
+    return {
+      container: tcContainer,
+      elements: {
+        tapeBody: tcTapeBody,
+        leftLine: tcLeftLine,
+        rightLine: tcRightLine,
+      },
+      dimensions: { tapeWidth: tcTapeWidth, lineThickness: tcLineThickness },
+    }
+  }
+
+  const tubeCheckTape = createTubeCheckTapeComponent()
+  container.appendChild(tubeCheckTape.container)
+
+  // Function to update the tube check tape's position and size on the diagonal
+  const updateTubeCheckTapePosition = () => {
+    const sw = window.innerWidth
+    const sh = window.innerHeight
+    const diagPx = Math.sqrt(sw * sw + sh * sh)
+    // Unit vector along diagonal from lower-left (0, sh) to upper-right (sw, 0)
+    const ux = sw / diagPx
+    const uy = -sh / diagPx
+    // Center of diagonal
+    const cx = sw / 2
+    const cy = sh / 2
+
+    const halfLen = tubeCheckTapeLengthPx / 2
+    // Tape endpoints
+    const leftX = cx - halfLen * ux
+    const leftY = cy - halfLen * uy
+    const rightX = cx + halfLen * ux
+    const rightY = cy + halfLen * uy
+
+    // Angle of the diagonal (in degrees)
+    const angleDeg =
+      Math.atan2(rightY - leftY, rightX - leftX) * (180 / Math.PI)
+
+    const tw = tubeCheckTape.dimensions.tapeWidth
+
+    // Position tape body: place left-center at (leftX, leftY)
+    tubeCheckTape.elements.tapeBody.style.left = `${leftX}px`
+    tubeCheckTape.elements.tapeBody.style.top = `${leftY - tw / 2}px`
+    tubeCheckTape.elements.tapeBody.style.width = `${tubeCheckTapeLengthPx}px`
+    tubeCheckTape.elements.tapeBody.style.transform = `rotate(${angleDeg}deg)`
+
+    // The endpoint line elements are vertical divs (thin width, tall height).
+    // To sit on top of the tape edges (perpendicular to the tape direction),
+    // they need to be rotated by angleDeg (matching the tape's tilt), because
+    // a vertical line rotated by angleDeg becomes perpendicular to the tape
+    // whose direction is also at angleDeg from horizontal.
+    const lineHeight = tw // Match tape width exactly so lines sit on the edges
+
+    // Left endpoint line: centered at (leftX, leftY)
+    tubeCheckTape.elements.leftLine.style.left = `${leftX}px`
+    tubeCheckTape.elements.leftLine.style.top = `${leftY}px`
+    tubeCheckTape.elements.leftLine.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg)`
+    tubeCheckTape.elements.leftLine.style.height = `${lineHeight}px`
+
+    // Right endpoint line: centered at (rightX, rightY)
+    tubeCheckTape.elements.rightLine.style.left = `${rightX}px`
+    tubeCheckTape.elements.rightLine.style.top = `${rightY}px`
+    tubeCheckTape.elements.rightLine.style.transform = `translate(-50%, -50%) rotate(${angleDeg}deg)`
+    tubeCheckTape.elements.rightLine.style.height = `${lineHeight}px`
+  }
+
+  // Dragging support for the tube check tape endpoints
+  // Both ends move symmetrically about the center of the diagonal.
+  let tcDragging = false
+  const handleTubeCheckDragStart = e => {
+    if (currentPage !== TUBE_CHECK_PAGE) return
+    tcDragging = true
+    document.body.style.cursor = 'pointer'
+    e.preventDefault()
+  }
+  tubeCheckTape.elements.leftLine.addEventListener(
+    'mousedown',
+    handleTubeCheckDragStart,
+  )
+  tubeCheckTape.elements.rightLine.addEventListener(
+    'mousedown',
+    handleTubeCheckDragStart,
+  )
+  tubeCheckTape.elements.tapeBody.addEventListener(
+    'mousedown',
+    handleTubeCheckDragStart,
+  )
+
+  window.addEventListener('mousemove', e => {
+    if (!tcDragging || currentPage !== TUBE_CHECK_PAGE) return
+    const sw = window.innerWidth
+    const sh = window.innerHeight
+    const diagPx = Math.sqrt(sw * sw + sh * sh)
+    const ux = sw / diagPx
+    const uy = -sh / diagPx
+    const cx = sw / 2
+    const cy = sh / 2
+    // Project mouse position onto the diagonal from center
+    const dx = e.clientX - cx
+    const dy = e.clientY - cy
+    const projection = Math.abs(dx * ux + dy * uy) // half-length
+    const minHalfPx = 1 * pxPerCm // 1 cm minimum half-length
+    const maxHalfPx = diagPx / 2 // max = full diagonal / 2
+    const newHalf = Math.max(minHalfPx, Math.min(maxHalfPx, projection))
+    tubeCheckTapeLengthPx = newHalf * 2
+    tubeCheckTapeAdjusted = true
+    updateTubeCheckTapePosition()
+  })
+
+  window.addEventListener('mouseup', () => {
+    if (tcDragging) {
+      tcDragging = false
+      document.body.style.cursor = ''
+    }
+  })
+
   // Function to update horizontal tape on window resize (same pattern as checkDistance.js)
   function updateDiagonalTapeOnResize() {
     // Store proportional positions (as ratios of screen dimensions)
@@ -5004,6 +5300,13 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // Add window resize event listener (same as checkDistance.js)
   window.addEventListener('resize', updateDiagonalTapeOnResize)
+
+  // Update tube check tape on resize too
+  window.addEventListener('resize', () => {
+    if (currentPage === TUBE_CHECK_PAGE) {
+      updateTubeCheckTapePosition()
+    }
+  })
 
   // ===================== RULER-SHIFT BUTTON =====================
 
@@ -5881,8 +6184,8 @@ export async function objectTest(RC, options, callback = undefined) {
   let intervalCount = 0 // Track how many intervals have fired
 
   const arrowDownFunction = e => {
-    // Only handle arrow keys on page 2
-    if (currentPage !== 2) return
+    // Only handle arrow keys on page 2 or tube check page
+    if (currentPage !== 2 && currentPage !== TUBE_CHECK_PAGE) return
 
     // Prevent default behavior
     e.preventDefault()
@@ -5891,6 +6194,57 @@ export async function objectTest(RC, options, callback = undefined) {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key))
       return
 
+    // ===================== TUBE CHECK PAGE ARROW KEYS =====================
+    if (currentPage === TUBE_CHECK_PAGE) {
+      // Only ArrowLeft and ArrowRight adjust the tube check tape
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+
+      if (arrowKeyDown) return
+      arrowKeyDown = true
+      currentArrowKey = e.key
+      intervalCount = 0
+
+      if (arrowIntervalFunction) {
+        clearInterval(arrowIntervalFunction)
+      }
+
+      const tcCalculateStepSize = () => {
+        if (intervalCount > 3) {
+          return 5 * pxPerMm // 5mm for held keys
+        }
+        return 0.5 * pxPerMm // 0.5mm for taps
+      }
+
+      const sw = window.innerWidth
+      const sh = window.innerHeight
+      const diagPx = Math.sqrt(sw * sw + sh * sh)
+      const minLengthPx = 2 * pxPerCm // 2 cm minimum
+      const maxLengthPx = diagPx // full diagonal maximum
+
+      arrowIntervalFunction = setInterval(() => {
+        intervalCount++
+        const moveAmount = tcCalculateStepSize()
+
+        if (currentArrowKey === 'ArrowLeft') {
+          // Shorten the tape
+          tubeCheckTapeLengthPx = Math.max(
+            minLengthPx,
+            tubeCheckTapeLengthPx - moveAmount * 2,
+          )
+        } else if (currentArrowKey === 'ArrowRight') {
+          // Lengthen the tape
+          tubeCheckTapeLengthPx = Math.min(
+            maxLengthPx,
+            tubeCheckTapeLengthPx + moveAmount * 2,
+          )
+        }
+        tubeCheckTapeAdjusted = true
+        updateTubeCheckTapePosition()
+      }, 50)
+      return
+    }
+
+    // ===================== PAGE 2 ARROW KEYS =====================
     // Cancel animation if user manually adjusts with arrow keys
     cancelRulerShiftAnimation()
 
@@ -5949,8 +6303,8 @@ export async function objectTest(RC, options, callback = undefined) {
   }
 
   const arrowUpFunction = e => {
-    // Only handle arrow keys on page 2
-    if (currentPage !== 2) return
+    // Only handle arrow keys on page 2 or tube check page
+    if (currentPage !== 2 && currentPage !== TUBE_CHECK_PAGE) return
 
     // Handle all four arrow keys
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key))
@@ -6013,6 +6367,12 @@ export async function objectTest(RC, options, callback = undefined) {
     setDefaultVideoPosition(RC, videoContainer)
   }
 
+  // ===================== LOCATION-BASED MEASUREMENT SETUP =====================
+  // NOTE: measurementPageRenderer and locationManager will be initialized later,
+  // after all UI elements (buttons, containers) are created.
+  let measurementPageRenderer = null
+  let locationManager = null
+
   // ===================== PAGE NAVIGATION FUNCTIONS =====================
 
   // Function to reset page 2 for next measurement
@@ -6041,11 +6401,27 @@ export async function objectTest(RC, options, callback = undefined) {
     }
   }
 
+  // ===================== GUARD FLAG FOR PREVENTING DOUBLE FINISH =====================
+  // This flag prevents objectTestFinishFunction from being called multiple times
+  // which can happen due to multiple event handlers triggering at the end of calibration
+  let objectTestHasFinished = false
+
   const showPage = async pageNumber => {
     const previousPage = currentPage
     currentPage = pageNumber
 
+    // Clear measurement overlay when navigating away from measurement pages
+    if (pageNumber !== 3 && pageNumber !== 4) {
+      clearMeasurementOverlay()
+    }
+
+    // Hide tube check tape when navigating away from tube check page
+    if (pageNumber !== TUBE_CHECK_PAGE) {
+      tubeCheckTape.container.style.display = 'none'
+    }
+
     if (pageNumber === 0) {
+      hideVideoResolutionLabel()
       // ===================== PAGE 0: INSTRUCTIONS ONLY =====================
       console.log('=== SHOWING PAGE 0: INSTRUCTIONS ONLY ===')
 
@@ -6108,6 +6484,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Show video on page 1
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       // Position video properly
       const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -6149,6 +6526,7 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 2) {
       // ===================== PAGE 2: DIAGONAL TAPE =====================
       console.log('=== SHOWING PAGE 2: DIAGONAL TAPE ===')
+      hideVideoResolutionLabel()
 
       // Hide paper selection unless we are in paper mode
       if (!isPaperSelectionMode) {
@@ -6320,80 +6698,13 @@ export async function objectTest(RC, options, callback = undefined) {
           updateRulerMarkings()
         }
       }
-    } else if (pageNumber === 3) {
-      // ===================== PAGE 3: VIDEO ONLY =====================
-      console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
-      paperSelectionContainer.style.display = 'none'
-      paperStepperMediaContainer.style.display = 'none'
-      // Clean up paper stepper media content
-      if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
-      container.style.backgroundColor = ''
-      // Always show title from page 3 onward (even in paper mode) and restore margins
-      title.style.display = 'block'
-      instructionsContainer.style.margin = '2rem 0 5rem 0'
+    } else if (pageNumber === TUBE_CHECK_PAGE) {
+      // ===================== TUBE LENGTH CHECK PAGE (paper mode only) =====================
+      console.log('=== SHOWING TUBE CHECK PAGE ===')
+      hideVideoResolutionLabel()
 
-      // Increment measurement count only when *entering* page 3 (avoid double-counting on re-show).
-      if (previousPage !== 3) {
-        viewingDistanceMeasurementCount++
-      }
-      renderViewingDistanceProgressTitle()
-
-      console.log(
-        `Page 3 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
-      )
-
-      // Show video on page 3
-      RC.showVideo(true)
-
-      // Position video properly
-      const videoContainer = document.getElementById('webgazerVideoContainer')
-      if (videoContainer) {
-        // Clear screen-center mode flag (used on page 4)
-        delete videoContainer.dataset.screenCenterMode
-        setDefaultVideoPosition(RC, videoContainer)
-      }
-
-      // Ensure the video preview doesn't occlude the stepper/instructions (pages 3+).
-      // We only push the instructions down when the video is positioned above them.
-      const ensureInstructionsBelowVideo = (gapPx = 16) => {
-        const v = document.getElementById('webgazerVideoContainer')
-        if (!v) return
-        const apply = () => {
-          try {
-            // Reset to the default margin first (avoid compounding on repeated calls)
-            instructionsContainer.style.marginTop = ''
-            const vRect = v.getBoundingClientRect()
-            const iRect = instructionsContainer.getBoundingClientRect()
-            // Only adjust when the video is above the instructions (top overlap scenario)
-            if (vRect.top <= iRect.top + 1) {
-              const overlapPx = vRect.bottom + gapPx - iRect.top
-              if (overlapPx > 0) {
-                const baseTop =
-                  parseFloat(
-                    getComputedStyle(instructionsContainer).marginTop,
-                  ) || 0
-                instructionsContainer.style.marginTop = `${Math.ceil(
-                  baseTop + overlapPx,
-                )}px`
-              }
-            }
-            // Record the final marginTop so page 4 can match it for a seamless transition.
-            page3InstructionsMarginTopPx =
-              parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
-          } catch {}
-        }
-        requestAnimationFrame(() => {
-          apply()
-          // Run again shortly after in case the video container resizes/finishes layout
-          setTimeout(apply, 50)
-        })
-      }
-      ensureInstructionsBelowVideo(18)
-
-      // Hide Ruler-Shift button on page 3
-      rulerShiftButton.style.display = 'none'
-
-      // Hide diagonal tape component and remove labels from DOM
+      // Hide everything from other pages
+      RC.showVideo(false)
       tape.container.style.display = 'none'
       if (leftLabel.container.parentNode) {
         leftLabel.container.parentNode.removeChild(leftLabel.container)
@@ -6401,300 +6712,165 @@ export async function objectTest(RC, options, callback = undefined) {
       if (rightLabel.container.parentNode) {
         rightLabel.container.parentNode.removeChild(rightLabel.container)
       }
-
-      // Hide unit selection radio buttons on page 3
       unitRadioContainer.style.display = 'none'
-
-      // // Hide radio buttons on page 3
-      // radioContainer.style.display = 'none'
-
-      // Hide PROCEED button on page 3 - only allow space key
-      proceedButton.style.display = 'none'
-
-      // Hide explanation button on page 3
-      explanationButton.style.display = 'block' //show explanation button on page 3
-
-      // Update instructions using step-by-step renderer with Markdown
-      try {
-        // Bypass test_phrases, use phrases directly
-        const p3Text =
-          (phrases.RC_UseObjectToSetViewingDistancePage3?.[RC.L] || '') + ''
-        stepInstructionModel = parseInstructions(p3Text, {
-          assetMap: test_assetMap,
-        })
-        currentStepFlatIndex = 0
-        renderCurrentStepView()
-      } catch (e) {
-        console.warn(
-          'Failed to parse step instructions for Page 3; using plain text',
-          e,
-        )
-        setInstructionsText(phrases.RC_UseObjectToSetViewingDistancePage3[RC.L])
-      }
-
-      // Hide dontUseRuler column on page 3
       dontUseRulerColumn.style.display = 'none'
-
-      // Show arrow indicators pointing to top-center of screen (camera position)
+      rulerShiftButton.style.display = 'none'
+      explanationButton.style.display = 'none'
+      proceedButton.style.display = 'none'
+      paperSelectionContainer.style.display = 'none'
+      paperStepperMediaContainer.style.display = 'none'
+      if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
+      container.style.backgroundColor = ''
       if (arrowIndicators) {
         arrowIndicators.remove()
+        arrowIndicators = null
       }
-      const cameraXYPx = [window.screen.width / 2, 0] // Top center (logical screen)
-      arrowIndicators = createArrowIndicators(cameraXYPx)
-      RC.background.appendChild(arrowIndicators)
-      console.log('Arrow indicators added for page 3, pointing to top-center')
+
+      // Show title with progress counter: "Distance 2 of N"
+      title.style.display = 'block'
+      viewingDistanceMeasurementCount = 2
+      renderViewingDistanceProgressTitle()
+
+      // Determine whether to do full-size or half-size matching
+      const sw = window.innerWidth
+      const sh = window.innerHeight
+      const diagScreenCm = Math.sqrt(sw * sw + sh * sh) / pxPerCm
+      const expectedLengthCm = selectedPaperLengthCm
+      matchHalfLengthBool = expectedLengthCm > 0.9 * diagScreenCm
+      objectTestCommonData.matchHalfLengthBool = matchHalfLengthBool
+      console.log(
+        `Tube check: expectedLengthCm=${expectedLengthCm}, diagScreenCm=${diagScreenCm.toFixed(1)}, matchHalfLengthBool=${matchHalfLengthBool}`,
+      )
+
+      // Set instruction text based on full vs half matching
+      const matchLengthText = matchHalfLengthBool
+        ? phrases.RC_MatchHalfLength?.[RC.L]
+        : phrases.RC_MatchLength?.[RC.L]
+      setInstructionsText(matchLengthText)
+
+      // Reset tube check state
+      tubeCheckTapeAdjusted = false
+      // Initialize tape to 5 cm centered on the diagonal
+      tubeCheckTapeLengthPx = 5 * pxPerCm
+      updateTubeCheckTapePosition()
+
+      // Show the tube check tape
+      tubeCheckTape.container.style.display = 'block'
+    } else if (pageNumber === 3) {
+      // ===================== PAGE 3: VIDEO ONLY =====================
+      // Set reference point so showNearestPointsBool overlay uses camera (top) on page 3
+      const currentLocInfo = locationManager.getCurrentLocationInfo()
+      globalPointXYPx.value = getGlobalPointForLocation(currentLocInfo.location)
+      console.log(
+        'page 3: globalPointXYPx:',
+        globalPointXYPx.value,
+        currentLocInfo,
+      )
+      //[window.screen.width / 2, 0]
+      console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
+
+      //========== CHANGE SOON: PAPER MODE ============
+      // paperSelectionContainer.style.display = 'none'
+      // paperStepperMediaContainer.style.display = 'none'
+      // // Clean up paper stepper media content
+      // if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
+      // container.style.backgroundColor = ''
+      // // Always show title from page 3 onward (even in paper mode) and restore margins
+      // title.style.display = 'block'
+      // instructionsContainer.style.margin = '2rem 0 5rem 0'
+
+      // Build config from current location manager state
+      const pageConfig = buildMeasurementPageConfig(
+        locationManager,
+        options.saveSnapshotsBool || false,
+      )
+
+      if (pageConfig) {
+        // Update progress tracking for backward compatibility
+        if (previousPage !== 3) {
+          viewingDistanceMeasurementCount =
+            pageConfig.locationIndex + 1 + (isPaperSelectionMode ? 2 : 0) // +2 for paper selection + tube check
+
+          // // Show video on page 3
+          // RC.showVideo(true)
+          // showVideoResolutionLabel(RC)
+
+          // // Position video properly
+          // const videoContainer = document.getElementById('webgazerVideoContainer')
+          // if (videoContainer) {
+          //   // Clear screen-center mode flag (used on page 4)
+          //   delete videoContainer.dataset.screenCenterMode
+          //   setDefaultVideoPosition(RC, videoContainer)
+          // }
+
+          // // Ensure the video preview doesn't occlude the stepper/instructions (pages 3+).
+          // // We only push the instructions down when the video is positioned above them.
+          // const ensureInstructionsBelowVideo = (gapPx = 16) => {
+          //   const v = document.getElementById('webgazerVideoContainer')
+          //   if (!v) return
+          //   const apply = () => {
+          //     try {
+          //       // Reset to the default margin first (avoid compounding on repeated calls)
+          //       instructionsContainer.style.marginTop = ''
+          //       const vRect = v.getBoundingClientRect()
+          //       const iRect = instructionsContainer.getBoundingClientRect()
+          //       // Only adjust when the video is above the instructions (top overlap scenario)
+          //       if (vRect.top <= iRect.top + 1) {
+          //         const overlapPx = vRect.bottom + gapPx - iRect.top
+          //         if (overlapPx > 0) {
+          //           const baseTop =
+          //             parseFloat(
+          //               getComputedStyle(instructionsContainer).marginTop,
+          //             ) || 0
+          //           instructionsContainer.style.marginTop = `${Math.ceil(
+          //             baseTop + overlapPx,
+          //           )}px`
+          //         }
+          //       }
+          //       // Record the final marginTop so page 4 can match it for a seamless transition.
+          //       page3InstructionsMarginTopPx =
+          //         parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
+          //     } catch {}
+        }
+        viewingDistanceTotalExpected =
+          pageConfig.totalLocations + (isPaperSelectionMode ? 2 : 0) // +2 for paper selection + tube check
+
+        // Render the measurement page using the new renderer
+        const pageResult = await measurementPageRenderer.showMeasurementPage({
+          ...pageConfig,
+          pageNumberOffset: isPaperSelectionMode ? 2 : 0, // +2 for paper selection + tube check
+          onProgressUpdate: (current, total) => {
+            console.log(`Progress update: ${current} of ${total}`)
+          },
+          // Callback to set the step model and index in distance.js scope
+          setStepModel: (model, index) => {
+            stepInstructionModel = model
+            currentStepFlatIndex = index
+          },
+        })
+
+        // Update the arrow indicators reference for cleanup
+        arrowIndicators = pageResult.arrowIndicators
+
+        // Update the measurement overlay (eye-side text + paper tube circles)
+        updateMeasurementOverlayForLocation(pageConfig.eye)
+
+        console.log(
+          `Measurement page rendered for location ${pageConfig.locationIndex}: ${pageConfig.locEye}`,
+        )
+      } else {
+        // Fallback to legacy behavior if location manager is complete
+        console.log('Location manager complete, using legacy page 3 behavior')
+        measurementPageRenderer.hideCommonElements()
+        RC.showVideo(true)
+        positionVideoForLocation(RC, 'camera')
+        arrowIndicators = measurementPageRenderer.updateArrows('camera')
+        clearMeasurementOverlay()
+      }
 
       // Note: Face Mesh samples will be collected when space key is pressed
       console.log(
         '=== PAGE 3 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
-      )
-    } else if (pageNumber === 4) {
-      // ===================== PAGE 4: VIDEO ONLY =====================
-      console.log('=== SHOWING PAGE 4: VIDEO ONLY ===')
-      paperSelectionContainer.style.display = 'none'
-      paperStepperMediaContainer.style.display = 'none'
-      // Clean up paper stepper media content
-      if (paperStepperMediaContainer) paperStepperMediaContainer.innerHTML = ''
-      container.style.backgroundColor = ''
-      // Always show title from page 4 onward (even in paper mode) and restore margins
-      title.style.display = 'block'
-      instructionsContainer.style.margin = '2rem 0 5rem 0'
-
-      // Increment measurement count only when *entering* page 4 (avoid double-counting on re-show).
-      if (previousPage !== 4) {
-        viewingDistanceMeasurementCount++
-      }
-      renderViewingDistanceProgressTitle()
-
-      console.log(
-        `Page 4 title: Measurement ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
-      )
-
-      // Show video on page 4
-      RC.showVideo(true)
-
-      // Position video at screen center for page 4
-      const videoContainer = document.getElementById('webgazerVideoContainer')
-      if (videoContainer) {
-        videoContainer.dataset.screenCenterMode = 'true'
-      }
-
-      // Position video at screen center for page 4 (use screen dimensions, not viewport)
-      const positionVideoAtScreenCenter = () => {
-        const videoContainer = document.getElementById('webgazerVideoContainer')
-        if (!videoContainer) return
-
-        const videoWidth =
-          parseInt(videoContainer.style.width) ||
-          videoContainer.offsetWidth ||
-          0
-        const videoHeight =
-          parseInt(videoContainer.style.height) ||
-          videoContainer.offsetHeight ||
-          0
-
-        const centerX =
-          (window.innerWidth || document.documentElement.clientWidth) / 2
-        const centerY =
-          (window.innerHeight || document.documentElement.clientHeight) / 2
-
-        // Ensure flag is set
-        videoContainer.dataset.screenCenterMode = 'true'
-
-        console.log(
-          '...videoWidth',
-          videoWidth,
-          'videoHeight',
-          videoHeight,
-          'screenWidth',
-          window.screen.width,
-          'screenHeight',
-          window.screen.height,
-          'innerWidth',
-          window.innerWidth,
-          'innerHeight',
-          window.innerHeight,
-          'centerX',
-          centerX,
-          'centerY',
-          centerY,
-        )
-
-        videoContainer.style.zIndex = 999999999999
-        videoContainer.style.left = `${centerX - videoWidth / 2}px`
-        videoContainer.style.top = `${centerY - videoHeight / 2}px`
-        videoContainer.style.right = 'unset'
-        videoContainer.style.bottom = 'unset'
-        videoContainer.style.transform = 'none'
-      }
-
-      // Position immediately and then again after layout stabilizes
-      positionVideoAtScreenCenter()
-      requestAnimationFrame(() => {
-        positionVideoAtScreenCenter()
-        setTimeout(positionVideoAtScreenCenter, 50)
-      })
-
-      // Re-position video and arrows when fullscreen state changes (only add listener once)
-      if (!window._page4FullscreenListenerAdded) {
-        window._page4FullscreenListenerAdded = true
-        const handleFullscreenChange = () => {
-          const isFullscreen = !!(
-            document.fullscreenElement ||
-            document.webkitFullscreenElement ||
-            document.mozFullScreenElement ||
-            document.msFullscreenElement
-          )
-          console.log(
-            '*** Fullscreen change detected, currentPage:',
-            currentPage,
-            'isFullscreen:',
-            isFullscreen,
-          )
-          if (currentPage === 4) {
-            updatePage4Arrows()
-            positionVideoAtScreenCenter()
-            // Call again after layout stabilizes (multiple times to ensure it takes)
-            requestAnimationFrame(() => {
-              positionVideoAtScreenCenter()
-              setTimeout(() => {
-                positionVideoAtScreenCenter()
-              }, 50)
-              setTimeout(() => {
-                positionVideoAtScreenCenter()
-              }, 150)
-              setTimeout(() => {
-                positionVideoAtScreenCenter()
-              }, 300)
-            })
-          }
-        }
-        document.addEventListener('fullscreenchange', handleFullscreenChange)
-        document.addEventListener(
-          'webkitfullscreenchange',
-          handleFullscreenChange,
-        )
-        document.addEventListener('mozfullscreenchange', handleFullscreenChange)
-        document.addEventListener('MSFullscreenChange', handleFullscreenChange)
-      }
-
-      // Ensure the video preview doesn't occlude the stepper/instructions (only adjust if video is above instructions).
-      const ensureInstructionsBelowVideo = (gapPx = 16) => {
-        const v = document.getElementById('webgazerVideoContainer')
-        if (!v) return
-        const apply = () => {
-          try {
-            instructionsContainer.style.marginTop = ''
-            const vRect = v.getBoundingClientRect()
-            const iRect = instructionsContainer.getBoundingClientRect()
-            if (vRect.top <= iRect.top + 1) {
-              const overlapPx = vRect.bottom + gapPx - iRect.top
-              if (overlapPx > 0) {
-                const baseTop =
-                  parseFloat(
-                    getComputedStyle(instructionsContainer).marginTop,
-                  ) || 0
-                instructionsContainer.style.marginTop = `${Math.ceil(
-                  baseTop + overlapPx,
-                )}px`
-              }
-            }
-          } catch {}
-        }
-        requestAnimationFrame(() => {
-          apply()
-          setTimeout(apply, 50)
-        })
-      }
-      ensureInstructionsBelowVideo(18)
-
-      // Even though page 4's video is not top-centered, keep instructions at least as low as
-      // page 3 had them (visual continuity between pages).
-      const matchPage3InstructionsOffset = () => {
-        if (page3InstructionsMarginTopPx == null) return
-        const current =
-          parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
-        if (current < page3InstructionsMarginTopPx) {
-          instructionsContainer.style.marginTop = `${Math.ceil(
-            page3InstructionsMarginTopPx,
-          )}px`
-        }
-      }
-      requestAnimationFrame(() => {
-        matchPage3InstructionsOffset()
-        setTimeout(matchPage3InstructionsOffset, 60)
-      })
-
-      // Hide Ruler-Shift button on page 4
-      rulerShiftButton.style.display = 'none'
-
-      // Keep diagonal tape component hidden and remove labels from DOM
-      tape.container.style.display = 'none'
-      if (leftLabel.container.parentNode) {
-        leftLabel.container.parentNode.removeChild(leftLabel.container)
-      }
-      if (rightLabel.container.parentNode) {
-        rightLabel.container.parentNode.removeChild(rightLabel.container)
-      }
-
-      // Hide unit selection radio buttons on page 4
-      unitRadioContainer.style.display = 'none'
-
-      // // Hide radio buttons on page 4
-      // radioContainer.style.display = 'none'
-
-      // Hide PROCEED button on page 4 - only allow space key
-      proceedButton.style.display = 'none'
-
-      // Hide explanation button on page 4
-      explanationButton.style.display = 'block' //show explanation button on page 4
-
-      // Update instructions using step-by-step renderer with Markdown
-      try {
-        // Bypass test_phrases, use phrases directly
-        // Prefer the generic stepper Page 4 text (so instructions don't hardcode a screen corner),
-        // but fall back to the legacy "LowerRight" key for backward compatibility.
-        const p4Text =
-          (phrases.RC_UseObjectToSetViewingDistanceCenterPage4?.[RC.L] || '') +
-          ''
-        stepInstructionModel = parseInstructions(p4Text, {
-          assetMap: test_assetMap,
-        })
-        currentStepFlatIndex = 0
-        renderCurrentStepView()
-      } catch (e) {
-        console.warn(
-          'Failed to parse step instructions for Page 4; using plain text',
-          e,
-        )
-        setInstructionsText(
-          phrases.RC_UseObjectToSetViewingDistanceStepperPage4?.[RC.L] ||
-            phrases.RC_UseObjectToSetViewingDistanceCenterPage4?.[RC.L] ||
-            '',
-        )
-      }
-
-      // Hide dontUseRuler column on page 4
-      dontUseRulerColumn.style.display = 'none'
-
-      // Function to update arrow indicators for page 4
-      const updatePage4Arrows = () => {
-        if (arrowIndicators) {
-          arrowIndicators.remove()
-        }
-        const centerXYPx = [window.innerWidth / 2, window.innerHeight / 2]
-        arrowIndicators = createArrowIndicators(centerXYPx)
-        if (arrowIndicators && RC.background) {
-          RC.background.appendChild(arrowIndicators)
-        }
-      }
-
-      // Show arrow indicators pointing to screen center
-      updatePage4Arrows()
-
-      // Note: Face Mesh samples will be collected when space key is pressed
-      console.log(
-        '=== PAGE 4 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
       )
     }
   }
@@ -6776,7 +6952,7 @@ export async function objectTest(RC, options, callback = undefined) {
           },
         }
 
-        await showPage(3)
+        await showPage(TUBE_CHECK_PAGE)
         return true
       }
       // ===================== SAVE MEASUREMENT DATA FROM PAGE 2 =====================
@@ -6990,7 +7166,7 @@ export async function objectTest(RC, options, callback = undefined) {
           )
 
           // Show pause before allowing new object (with exponentially growing duration)
-          await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
+          // await showPauseBeforeNewObject(RC, measurementState.rejectionCount)
         }
 
         objectTestCommonData.objectMeasuredMsg.push('mismatch')
@@ -7000,66 +7176,53 @@ export async function objectTest(RC, options, callback = undefined) {
         console.log('No consistent measurements found yet, continuing...')
         await resetPage2ForNextMeasurement()
       }
-    } else if (currentPage === 3) {
-      await showPage(4)
-    } else if (currentPage === 4) {
-      // ===================== SHOW DISTANCE FEEDBACK ON PAGE 4 =====================
-      console.log('=== SHOWING DISTANCE FEEDBACK ON PAGE 4 ===')
-
-      // Use the saved measurement data from page 2
-      if (savedMeasurementData) {
-        console.log('Using saved measurement data:', savedMeasurementData)
-
-        // Measure intraocular distance using Face Mesh
-        measureIntraocularDistanceCm(
-          RC,
-          ppi,
-          options.calibrateDistancePupil,
-          RC.calibrateDistanceIpdUsesZBool !== false,
-        ).then(intraocularDistanceCm => {
-          if (intraocularDistanceCm) {
-            console.log(
-              'Measured intraocular distance (cm):',
-              intraocularDistanceCm,
-            )
-            savedMeasurementData.intraocularDistanceCm = intraocularDistanceCm
-          } else {
-            console.warn('Could not measure intraocular distance.')
-          }
-        })
-
-        // Store the data in RC
-        RC.newObjectTestDistanceData = savedMeasurementData
-        RC.newViewingDistanceData = savedMeasurementData
-
-        // Clean up event listeners
-        document.removeEventListener('keydown', handleKeyPress)
-        window.removeEventListener('beforeunload', cleanupKeyboard)
-
-        // Clean up UI
-        RC._removeBackground()
-
-        // Call callback with the data
-        if (typeof callback === 'function') {
-          callback(savedMeasurementData)
-        }
-      } else {
-        console.error('No measurement data found!')
-      }
     }
+  }
+
+  // Remove arrow indicator elements from DOM by id (so they never reappear in distance check)
+  const removeArrowIndicatorsFromDOM = () => {
+    ;[
+      'object-test-arrow-indicators',
+      'known-distance-test-arrow-indicators',
+    ].forEach(id => {
+      const el = document.getElementById(id)
+      if (el) el.remove()
+    })
   }
 
   // ===================== OBJECT TEST FINISH FUNCTION =====================
   const objectTestFinishFunction = async () => {
-    // Always clean up keyboard event listeners
+    // CRITICAL: Prevent double execution
+    if (objectTestHasFinished) {
+      console.warn(
+        '=== objectTestFinishFunction ALREADY COMPLETED - SKIPPING DUPLICATE CALL ===',
+      )
+      return
+    }
+    objectTestHasFinished = true
+    console.log(
+      '=== objectTestFinishFunction STARTING (first and only call) ===',
+    )
+
+    // Always clean up keyboard event listeners FIRST to prevent re-triggering
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
+    document.removeEventListener('keydown', handleInstructionNav)
 
-    // Clean up arrow indicators
+    // Clear measurement overlay (eye-side text + tube circles)
+    clearMeasurementOverlay()
+
+    // Clean up tube check tape
+    if (tubeCheckTape && tubeCheckTape.container) {
+      tubeCheckTape.container.style.display = 'none'
+    }
+
+    // Clean up arrow indicators (local ref and DOM by id so they stay gone)
     if (arrowIndicators) {
       arrowIndicators.remove()
       arrowIndicators = null
     }
+    removeArrowIndicatorsFromDOM()
 
     globalPointXYPx.value = null
 
@@ -7127,6 +7290,63 @@ export async function objectTest(RC, options, callback = undefined) {
     }
 
     // ===================== CREATE MEASUREMENT DATA OBJECT =====================
+    // DEBUG: Log all values before creating data object to track NaN sources
+    console.log('=== DEBUG: FINISH FUNCTION - DATA OBJECT INPUTS ===')
+    console.log(
+      `  firstMeasurement: ${firstMeasurement} (type: ${typeof firstMeasurement})`,
+    )
+    console.log(
+      `  toFixedNumber(firstMeasurement, 1): ${toFixedNumber(firstMeasurement, 1)}`,
+    )
+    console.log(
+      `  startX: ${startX}, startY: ${startY}, endX: ${endX}, endY: ${endY}`,
+    )
+    console.log(`  screenWidth: ${screenWidth}`)
+    console.log(`  objectLengthPx: ${objectLengthPx}`)
+    console.log(`  objectLengthMm: ${objectLengthMm}`)
+    console.log(`  ppi: ${ppi}`)
+    console.log(`  intraocularDistanceCm: ${intraocularDistanceCm}`)
+    console.log(`  faceMeshSamplesPage3: [${faceMeshSamplesPage3.join(', ')}]`)
+    console.log(`  faceMeshSamplesPage4: [${faceMeshSamplesPage4.join(', ')}]`)
+    console.log(`  RC.page3FactorCmPx: ${RC.page3FactorCmPx}`)
+    console.log(`  RC.page4FactorCmPx: ${RC.page4FactorCmPx}`)
+
+    // Check for NaN/null/undefined values that could cause PsychoJS errors
+    const criticalValues = [
+      { name: 'firstMeasurement', value: firstMeasurement },
+      { name: 'startX', value: startX },
+      { name: 'startY', value: startY },
+      { name: 'endX', value: endX },
+      { name: 'endY', value: endY },
+      { name: 'screenWidth', value: screenWidth },
+      { name: 'objectLengthPx', value: objectLengthPx },
+      { name: 'objectLengthMm', value: objectLengthMm },
+      { name: 'ppi', value: ppi },
+      { name: 'intraocularDistanceCm', value: intraocularDistanceCm },
+      { name: 'RC.page3FactorCmPx', value: RC.page3FactorCmPx },
+      { name: 'RC.page4FactorCmPx', value: RC.page4FactorCmPx },
+    ]
+    criticalValues.forEach(({ name, value }) => {
+      if (value === null || value === undefined) {
+        console.warn(`  ⚠️ WARNING: ${name} is ${value}`)
+      } else if (typeof value === 'number' && isNaN(value)) {
+        console.error(`  ❌ ERROR: ${name} is NaN!`)
+      }
+    })
+
+    // Check face mesh samples for NaN
+    const nanPage3Count = faceMeshSamplesPage3.filter(s => isNaN(s)).length
+    const nanPage4Count = faceMeshSamplesPage4.filter(s => isNaN(s)).length
+    if (nanPage3Count > 0)
+      console.error(
+        `  ❌ ERROR: ${nanPage3Count} NaN values in faceMeshSamplesPage3`,
+      )
+    if (nanPage4Count > 0)
+      console.error(
+        `  ❌ ERROR: ${nanPage4Count} NaN values in faceMeshSamplesPage4`,
+      )
+    console.log('=== END DEBUG ===')
+
     // Format the data object to match the blindspot mapping structure
     const data = {
       // Use the first measurement directly as the value
@@ -7164,12 +7384,13 @@ export async function objectTest(RC, options, callback = undefined) {
       intraocularDistanceCm: intraocularDistanceCm,
 
       // Pass the samples in the savedMeasurementData and final data object
-      faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
-        isNaN(sample) ? sample : Math.round(sample),
-      ),
-      faceMeshSamplesPage4: faceMeshSamplesPage4.map(sample =>
-        isNaN(sample) ? sample : Math.round(sample),
-      ),
+      // Filter out NaN values to avoid PsychoJS "unable to convert NaN to a number" error
+      faceMeshSamplesPage3: faceMeshSamplesPage3
+        .filter(sample => !isNaN(sample))
+        .map(sample => Math.round(sample)),
+      faceMeshSamplesPage4: faceMeshSamplesPage4
+        .filter(sample => !isNaN(sample))
+        .map(sample => Math.round(sample)),
       objectSuggestion: isPaperSelectionMode ? paperSuggestionValue : null,
       objectName: selectedPaperOption
         ? paperSelectionOptions.find(o => o.key === selectedPaperOption)
@@ -7203,6 +7424,30 @@ export async function objectTest(RC, options, callback = undefined) {
       Math.sqrt(distance1FactorCmPx * distance2FactorCmPx),
     )
 
+    // SAFETY NET: Ensure RC.calibrationFOverWidth is always set before returning.
+    // This value is critical for distanceTrack.js and checkDistance.js.
+    // If callers already set it, this reaffirms; if not, this computes it.
+    // if (RC.fOverWidth1 && RC.fOverWidth2) {
+    //   RC.calibrationFOverWidth = Math.sqrt(RC.fOverWidth1 * RC.fOverWidth2)
+    // }
+
+    console.log('=== CALIBRATION FACTOR CALCULATION ===')
+    console.log(`  distance1FactorCmPx: ${distance1FactorCmPx}`)
+    console.log(`  distance2FactorCmPx: ${distance2FactorCmPx}`)
+    console.log(`  averageFactorCmPx: ${averageFactorCmPx}`)
+    console.log(`  RC.calibrationFOverWidth: ${RC.calibrationFOverWidth}`)
+    console.log(
+      `  RC.fOverWidth1: ${RC.fOverWidth1}, RC.fOverWidth2: ${RC.fOverWidth2}`,
+    )
+    if (isNaN(averageFactorCmPx)) {
+      console.error('  ERROR: averageFactorCmPx is NaN!')
+    }
+    if (!RC.calibrationFOverWidth || isNaN(RC.calibrationFOverWidth)) {
+      console.error(
+        '  ERROR: RC.calibrationFOverWidth is missing or NaN! Distance tracking will produce NaN.',
+      )
+    }
+
     console.log('=== Object Test Calibration Factors ===')
     console.log('Object distance:', data.value, 'cm')
     console.log('Page 3 valid samples:', validPage3Samples.length, '/ 5')
@@ -7215,9 +7460,37 @@ export async function objectTest(RC, options, callback = undefined) {
     console.log('======================================')
 
     // Store calibration factors in data object for later use
-    data.calibrationFactor = averageFactorCmPx
-    data.distance1FactorCmPx = distance1FactorCmPx
-    data.distance2FactorCmPx = distance2FactorCmPx
+    // If averageFactorCmPx is NaN, use a fallback
+    data.calibrationFactor = isNaN(averageFactorCmPx) ? 0 : averageFactorCmPx
+    data.distance1FactorCmPx = isNaN(distance1FactorCmPx)
+      ? 0
+      : distance1FactorCmPx
+    data.distance2FactorCmPx = isNaN(distance2FactorCmPx)
+      ? 0
+      : distance2FactorCmPx
+
+    // Sanitize the data object to replace any remaining NaN values with 0
+    // This prevents PsychoJS "unable to convert NaN to a number" errors
+    const sanitizeValue = val => {
+      if (val === null || val === undefined) return val
+      if (typeof val === 'number' && isNaN(val)) return 0
+      if (Array.isArray(val)) return val.map(sanitizeValue)
+      if (typeof val === 'object') {
+        const sanitized = {}
+        for (const key in val) {
+          sanitized[key] = sanitizeValue(val[key])
+        }
+        return sanitized
+      }
+      return val
+    }
+
+    // Sanitize the entire data object
+    Object.keys(data).forEach(key => {
+      data[key] = sanitizeValue(data[key])
+    })
+
+    console.log('=== DATA SANITIZED - Ready for callback ===')
     data.viewingDistanceByObject1Cm = data.value
     data.viewingDistanceByObject2Cm = data.value
 
@@ -7312,6 +7585,18 @@ export async function objectTest(RC, options, callback = undefined) {
     // ===================== STORE MEASUREMENT DATA =====================
     RC.newObjectTestDistanceData = data
     RC.newViewingDistanceData = data
+
+    // DEBUG: Log what's being stored in RC
+    console.log('=== DEBUG: DATA STORED IN RC ===')
+    console.log(
+      'RC.newObjectTestDistanceData keys:',
+      Object.keys(RC.newObjectTestDistanceData || {}),
+    )
+    console.log(
+      'RC.newViewingDistanceData keys:',
+      Object.keys(RC.newViewingDistanceData || {}),
+    )
+    console.log('=== END DEBUG ===')
 
     // ===================== CHECK FUNCTION =====================
     // If we're in 'both' mode, clean up and start blindspot test
@@ -7480,6 +7765,8 @@ export async function objectTest(RC, options, callback = undefined) {
               options.calibrateDistance,
               options.stepperHistory,
               options.calibrateScreenSizeAllowedRatio,
+              options.calibrateDistanceAllowedRatio,
+              options.viewingDistanceWhichEye,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -7495,6 +7782,45 @@ export async function objectTest(RC, options, callback = undefined) {
     } else {
       // Use the same check function as blindspot
       if (options.calibrateDistanceCheckBool) {
+        // DEBUG: Log data being passed to _checkDistance
+        console.log('=== DEBUG: DATA BEING PASSED TO _checkDistance ===')
+        console.log('Data keys:', Object.keys(data))
+        console.log('Critical values:')
+        console.log('  data.value:', data.value)
+        console.log('  data.calibrationFactor:', data.calibrationFactor)
+        console.log('  data.distance1FactorCmPx:', data.distance1FactorCmPx)
+        console.log('  data.distance2FactorCmPx:', data.distance2FactorCmPx)
+        console.log('  data.faceMeshSamplesPage3:', data.faceMeshSamplesPage3)
+        console.log('  data.faceMeshSamplesPage4:', data.faceMeshSamplesPage4)
+        console.log('  data.intraocularDistanceCm:', data.intraocularDistanceCm)
+        console.log('  data.method:', data.method)
+        console.log('  data.raw:', data.raw)
+
+        // Check for problematic values before passing to _checkDistance
+        const checkForProblems = (obj, path = '') => {
+          for (const key in obj) {
+            const fullPath = path ? `${path}.${key}` : key
+            const value = obj[key]
+            if (value === undefined) {
+              console.error(`  ❌ UNDEFINED at ${fullPath}`)
+            } else if (typeof value === 'number' && isNaN(value)) {
+              console.error(`  ❌ NaN at ${fullPath}`)
+            } else if (typeof value === 'number' && !isFinite(value)) {
+              console.error(`  ❌ Infinity at ${fullPath}`)
+            } else if (value === null) {
+              console.warn(`  ⚠️ null at ${fullPath}`)
+            } else if (
+              typeof value === 'object' &&
+              value !== null &&
+              !Array.isArray(value)
+            ) {
+              checkForProblems(value, fullPath)
+            }
+          }
+        }
+        checkForProblems(data)
+        console.log('=== END DEBUG ===')
+
         cleanupBeforeCheckDistance()
         await RC._checkDistance(
           callback,
@@ -7512,10 +7838,53 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateDistance,
           options.stepperHistory,
           options.calibrateScreenSizeAllowedRatio,
+          options.calibrateDistanceAllowedRatio,
+          options.viewingDistanceWhichEye,
           options.saveSnapshots,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
+        // DEBUG: Log the complete data object before calling callback
+        console.log('=== DEBUG: FINAL DATA OBJECT BEING PASSED TO CALLBACK ===')
+        console.log('Data keys:', Object.keys(data))
+        console.log(
+          'Full data object:',
+          JSON.stringify(
+            data,
+            (key, value) => {
+              // Handle NaN, Infinity, and -Infinity for JSON serialization
+              if (typeof value === 'number') {
+                if (isNaN(value)) return 'NaN'
+                if (!isFinite(value))
+                  return value > 0 ? 'Infinity' : '-Infinity'
+              }
+              return value
+            },
+            2,
+          ),
+        )
+
+        // Check for problematic values
+        const checkForProblems = (obj, path = '') => {
+          for (const key in obj) {
+            const fullPath = path ? `${path}.${key}` : key
+            const value = obj[key]
+            if (value === undefined) {
+              console.error(`  ❌ UNDEFINED at ${fullPath}`)
+            } else if (typeof value === 'number' && isNaN(value)) {
+              console.error(`  ❌ NaN at ${fullPath}`)
+            } else if (typeof value === 'number' && !isFinite(value)) {
+              console.error(`  ❌ Infinity at ${fullPath}`)
+            } else if (value === null) {
+              console.warn(`  ⚠️ null at ${fullPath}`)
+            } else if (typeof value === 'object' && value !== null) {
+              checkForProblems(value, fullPath)
+            }
+          }
+        }
+        checkForProblems(data)
+        console.log('=== END DEBUG ===')
+
         if (typeof callback === 'function') {
           callback(data)
         }
@@ -7523,6 +7892,13 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Clean up UI elements
       RC._removeBackground()
+
+      console.log(
+        '=== DEBUG: objectTestFinishFunction COMPLETED SUCCESSFULLY ===',
+      )
+      console.log(
+        'Remote-calibrator has finished. Any errors after this are from PsychoJS/EasyEyes.',
+      )
     }
   }
   const cleanupObjectTest = () => {
@@ -7570,6 +7946,9 @@ export async function objectTest(RC, options, callback = undefined) {
       instructionsUI.destroy()
     }
 
+    // Clear measurement overlay (eye-side text + tube circles)
+    clearMeasurementOverlay()
+
     // Clean up background
     RC._removeBackground()
   }
@@ -7579,6 +7958,9 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
     document.removeEventListener('keydown', handleInstructionNav)
+
+    // Clear measurement overlay (eye-side text + tube circles)
+    clearMeasurementOverlay()
 
     // // Clean up radio button event listeners
     // if (customInputs) {
@@ -7634,18 +8016,39 @@ export async function objectTest(RC, options, callback = undefined) {
         return
       }
       if (currentPage === 3 || currentPage === 4) return
+      if (currentPage === TUBE_CHECK_PAGE) return // Only SPACE confirms on tube check page
       // Always trigger Proceed button action since okButton is never used
       proceedButton.click()
     } else if (e.key === ' ') {
-      // Space key - allow on pages 2, 3 and 4
-      if (currentPage === 2 || currentPage === 3 || currentPage === 4) {
+      // Space key - allow on pages 2, 3, 4, and tube check
+      if (
+        currentPage === 2 ||
+        currentPage === 3 ||
+        currentPage === 4 ||
+        currentPage === TUBE_CHECK_PAGE
+      ) {
         e.preventDefault()
+
+        // Gate SPACE on pages 3/4: require stepper to be on the last step
+        // (encourages participants to read the instructions before pressing SPACE)
+        if ((currentPage === 3 || currentPage === 4) && stepInstructionModel) {
+          const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
+          if (currentStepFlatIndex < maxIdx) {
+            console.log(
+              'SPACE ignored - stepper not on last step (' +
+                currentStepFlatIndex +
+                ' of ' +
+                maxIdx +
+                ')',
+            )
+            return
+          }
+        }
 
         // In paper-selection mode, require Enter/Return (space should not advance).
         if (currentPage === 2 && isPaperSelectionMode) {
           return
         }
-
         // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
         ;(async () => {
           const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
@@ -7691,12 +8094,273 @@ export async function objectTest(RC, options, callback = undefined) {
             lastCapturedFaceImage = captureVideoFrame(RC)
           }
 
+          // ===================== TUBE LENGTH CHECK SPACE HANDLER =====================
+          if (currentPage === TUBE_CHECK_PAGE) {
+            ;(async () => {
+              // Require that the tape was adjusted before accepting SPACE
+              if (!tubeCheckTapeAdjusted) {
+                console.log(
+                  'SPACE ignored on tube check page - tape not yet adjusted',
+                )
+                document.addEventListener('keydown', handleKeyPress)
+                return
+              }
+
+              // Calculate the estimated tube length from the tape
+              const tapeLengthCm = tubeCheckTapeLengthPx / pxPerCm
+              const estimatedCm = matchHalfLengthBool
+                ? tapeLengthCm * 2
+                : tapeLengthCm
+              const expectedCm = selectedPaperLengthCm
+              if (!expectedCm || expectedCm <= 0) {
+                console.error('Tube check: invalid expectedCm, skipping check')
+                document.addEventListener('keydown', handleKeyPress)
+                return
+              }
+              const ratio = estimatedCm / expectedCm
+
+              // Save to objectTestCommonData arrays
+              objectTestCommonData.estimatedLengthCm.push(
+                Math.round(estimatedCm * 10) / 10,
+              )
+              objectTestCommonData.estimatedLengthRatio.push(
+                Math.round(ratio * 1000) / 1000,
+              )
+
+              console.log(
+                `Tube check: tapeLengthCm=${tapeLengthCm.toFixed(1)}, estimatedCm=${estimatedCm.toFixed(1)}, expectedCm=${expectedCm}, ratio=${ratio.toFixed(3)}, matchHalf=${matchHalfLengthBool}`,
+              )
+
+              // Acceptance thresholds (from options or defaults)
+              const ratioThresholdFull = options.calibrateDistanceRatioCm || 1.2
+              const ratioThresholdHalf =
+                options.calibrateDistanceRatioHalfCm || 1.4
+
+              let accepted
+              if (!matchHalfLengthBool) {
+                // Full-size match
+                accepted =
+                  Math.abs(Math.log10(ratio)) <= Math.log10(ratioThresholdFull)
+              } else {
+                // Half-size match (more lenient)
+                accepted =
+                  Math.abs(Math.log10(ratio)) <= Math.log10(ratioThresholdHalf)
+              }
+
+              console.log(
+                `Tube check: accepted=${accepted}, threshold=${matchHalfLengthBool ? ratioThresholdHalf : ratioThresholdFull}`,
+              )
+
+              if (accepted) {
+                // Hide tube check tape and proceed to page 3
+                tubeCheckTape.container.style.display = 'none'
+
+                // Initialize Face Mesh tracking if not already done
+                if (!RC.gazeTracker.checkInitialized('distance')) {
+                  RC.gazeTracker._init(
+                    {
+                      toFixedN: 1,
+                      showVideo: true,
+                      showFaceOverlay: false,
+                    },
+                    'distance',
+                  )
+                }
+
+                // IMPORTANT: Use the original expected exact length, not the estimate
+                objectLengthCmGlobal.value = expectedCm
+
+                await showPage(3)
+                document.addEventListener('keydown', handleKeyPress)
+              } else {
+                // Rejected - show error message
+                const pctOfExpected = Math.round(ratio * 100)
+                const errorMsg = (phrases.RC_BadMatchToExpectedLength?.[
+                  RC.L
+                ]).replace('[[NNN]]', pctOfExpected.toString())
+
+                // Prevent spacebar from closing the popup
+                const preventSpaceInPopup = ev => {
+                  if (ev.key === ' ' || ev.code === 'Space') {
+                    ev.preventDefault()
+                    ev.stopPropagation()
+                  }
+                }
+
+                await Swal.fire({
+                  ...swalInfoOptions(RC, { showIcon: false }),
+                  icon: undefined,
+                  html: errorMsg,
+                  allowEnterKey: true,
+                  confirmButtonText:
+                    phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
+                  didOpen: () => {
+                    document.addEventListener(
+                      'keydown',
+                      preventSpaceInPopup,
+                      true,
+                    )
+                  },
+                  willClose: () => {
+                    document.removeEventListener(
+                      'keydown',
+                      preventSpaceInPopup,
+                      true,
+                    )
+                  },
+                })
+
+                // Hide tube check tape and return to page 2 (paper selection)
+                tubeCheckTape.container.style.display = 'none'
+                await showPage(2)
+                document.addEventListener('keydown', handleKeyPress)
+              }
+            })()
+            return
+          }
+
           if (currentPage === 2) {
             if (isPaperSelectionMode) {
               ;(async () => {
-              const advanced = await nextPage()
+                const advanced = await nextPage()
 
-              if (advanced && !RC.gazeTracker.checkInitialized('distance')) {
+                if (advanced && !RC.gazeTracker.checkInitialized('distance')) {
+                  RC.gazeTracker._init(
+                    {
+                      toFixedN: 1,
+                      showVideo: true,
+                      showFaceOverlay: false,
+                    },
+                    'distance',
+                  )
+                }
+
+                // Re-add listener after handling space key
+                document.addEventListener('keydown', handleKeyPress)
+              })()
+              return
+            }
+            // Do exactly what the PROCEED button does on page 2
+            ;(async () => {
+              // Record first measurement - calculate diagonal distance
+              const diagonalDistancePx = tape.helpers.getDistance(
+                startX,
+                startY,
+                endX,
+                endY,
+              )
+              firstMeasurement = diagonalDistancePx / pxPerMm / 10
+              console.log('=== DEBUG: PAGE 2 - FIRST MEASUREMENT SET ===')
+              console.log(`  diagonalDistancePx: ${diagonalDistancePx}`)
+              console.log(`  pxPerMm: ${pxPerMm}`)
+              console.log(
+                `  firstMeasurement = ${diagonalDistancePx} / ${pxPerMm} / 10 = ${firstMeasurement} cm`,
+              )
+              console.log('=== END DEBUG ===')
+
+              // Validate object length - check if this is first measurement or if previous was too short
+              const minCm = options.calibrateDistanceObjectMinMaxCm?.[0] || 30
+              const isFirstMeasurement =
+                measurementState.measurements.length === 0
+              const shouldEnforceMinimum =
+                isFirstMeasurement || measurementState.lastAttemptWasTooShort
+
+              // objectTestCommonData.objectLengthCm.push(
+              //   Math.round(Number(firstMeasurement) * 10) / 10,
+              // )
+              objectTestCommonData.objectRulerIntervalCm.push(
+                Math.round(Number(intervalCmCurrent) * 10) / 10,
+              )
+
+              if (shouldEnforceMinimum) {
+                // We need to enforce minimum length - reject if too short
+                if (Math.round(firstMeasurement) < Math.round(minCm)) {
+                  console.log(
+                    `Object too short: ${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm (isFirst: ${isFirstMeasurement}, prevWasShort: ${measurementState.lastAttemptWasTooShort})`,
+                  )
+
+                  // Mark that this attempt was too short
+                  measurementState.lastAttemptWasTooShort = true
+                  objectTestCommonData.objectMeasuredMsg.push('short')
+
+                  // Increment rejection counter
+                  measurementState.rejectionCount++
+                  console.log(
+                    `Rejection count: ${measurementState.rejectionCount}`,
+                  )
+
+                  // Show error message
+                  const objectCm = firstMeasurement
+                  const errorMessage =
+                    phrases.RC_YourObjectIsTooShort?.[RC.L]
+                      ?.replace(
+                        '[[IN1]]',
+                        Math.round(objectCm / 2.54).toString(),
+                      )
+                      ?.replace('[[CM1]]', Math.round(objectCm).toString())
+                      ?.replace('[[IN2]]', Math.round(minCm / 2.54).toString())
+                      ?.replace('[[CM2]]', Math.round(minCm).toString()) ||
+                    `Your object (${Math.round(objectCm)}cm) is too short. Minimum: ${Math.round(minCm)}cm`
+
+                  await Swal.fire({
+                    ...swalInfoOptions(RC, { showIcon: false }),
+                    icon: undefined,
+                    html: errorMessage,
+                    allowEnterKey: true,
+                    confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
+                  })
+
+                  // Show pause before allowing new object (with exponentially growing duration)
+                  // await showPauseBeforeNewObject(
+                  //   RC,
+                  //   measurementState.rejectionCount,
+                  // )
+
+                  // Reset the ruler/tape to initial position
+                  await resetPage2ForNextMeasurement()
+
+                  // Stay on page 2 - re-add the event listener
+                  document.addEventListener('keydown', handleKeyPress)
+                  return
+                } else {
+                  // Passed the enforcement check
+                  console.log(
+                    `Measurement passed minimum length enforcement: ${Math.round(firstMeasurement)}cm >= ${Math.round(minCm)}cm`,
+                  )
+                  measurementState.lastAttemptWasTooShort = false
+                }
+              } else {
+                // Don't enforce minimum - but check if current measurement is too short for NEXT time
+                console.log(
+                  `Not enforcing minimum length for measurement #${measurementState.measurements.length + 1}: ${Math.round(firstMeasurement)}cm`,
+                )
+                if (Math.round(firstMeasurement) < Math.round(minCm)) {
+                  console.log(
+                    `Current measurement is too short (${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm) - will enforce on NEXT measurement`,
+                  )
+                  measurementState.lastAttemptWasTooShort = true
+                  objectTestCommonData.objectMeasuredMsg.push('short')
+                } else {
+                  measurementState.lastAttemptWasTooShort = false
+                }
+              }
+
+              // Store original measurement data before resetting lines
+              const originalMeasurementData = {
+                startX: startX,
+                startY: startY,
+                endX: endX,
+                endY: endY,
+                objectLengthPx: diagonalDistancePx,
+                objectLengthMm: diagonalDistancePx / pxPerMm,
+                objectLengthCm: firstMeasurement,
+              }
+
+              // Move to page 3
+              await nextPage()
+
+              // Initialize Face Mesh tracking if not already done
+              if (!RC.gazeTracker.checkInitialized('distance')) {
                 RC.gazeTracker._init(
                   {
                     toFixedN: 1,
@@ -7707,167 +8371,39 @@ export async function objectTest(RC, options, callback = undefined) {
                 )
               }
 
-              // Re-add listener after handling space key
+              // Re-add the listener for page 3
               document.addEventListener('keydown', handleKeyPress)
             })()
-            return
-          }
-          // Do exactly what the PROCEED button does on page 2
-          ;(async () => {
-            // Record first measurement - calculate diagonal distance
-            const diagonalDistancePx = tape.helpers.getDistance(
-              startX,
-              startY,
-              endX,
-              endY,
-            )
-            firstMeasurement = diagonalDistancePx / pxPerMm / 10
-            console.log('First measurement:', firstMeasurement)
+          } else if (currentPage === 3) {
+            // Collect 5 Face Mesh samples for calibration on page 3
+            ;(async () => {
+              console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
 
-            // Validate object length - check if this is first measurement or if previous was too short
-            const minCm = options.calibrateDistanceObjectMinMaxCm?.[0] || 30
-            const isFirstMeasurement =
-              measurementState.measurements.length === 0
-            const shouldEnforceMinimum =
-              isFirstMeasurement || measurementState.lastAttemptWasTooShort
-
-            // objectTestCommonData.objectLengthCm.push(
-            //   Math.round(Number(firstMeasurement) * 10) / 10,
-            // )
-            objectTestCommonData.objectRulerIntervalCm.push(
-              Math.round(Number(intervalCmCurrent) * 10) / 10,
-            )
-
-            if (shouldEnforceMinimum) {
-              // We need to enforce minimum length - reject if too short
-              if (Math.round(firstMeasurement) < Math.round(minCm)) {
-                console.log(
-                  `Object too short: ${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm (isFirst: ${isFirstMeasurement}, prevWasShort: ${measurementState.lastAttemptWasTooShort})`,
-                )
-
-                // Mark that this attempt was too short
-                measurementState.lastAttemptWasTooShort = true
-                objectTestCommonData.objectMeasuredMsg.push('short')
-
-                // Increment rejection counter
-                measurementState.rejectionCount++
-                console.log(
-                  `Rejection count: ${measurementState.rejectionCount}`,
-                )
-
-                // Show error message
-                const objectCm = firstMeasurement
-                const errorMessage =
-                  phrases.RC_YourObjectIsTooShort?.[RC.L]
-                    ?.replace('[[IN1]]', Math.round(objectCm / 2.54).toString())
-                    ?.replace('[[CM1]]', Math.round(objectCm).toString())
-                    ?.replace('[[IN2]]', Math.round(minCm / 2.54).toString())
-                    ?.replace('[[CM2]]', Math.round(minCm).toString()) ||
-                  `Your object (${Math.round(objectCm)}cm) is too short. Minimum: ${Math.round(minCm)}cm`
-
-                await Swal.fire({
-                  ...swalInfoOptions(RC, { showIcon: false }),
-                  icon: undefined,
-                  html: errorMessage,
-                  allowEnterKey: true,
-                  confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
-                })
-
-                // Show pause before allowing new object (with exponentially growing duration)
-                await showPauseBeforeNewObject(
-                  RC,
-                  measurementState.rejectionCount,
-                )
-
-                // Reset the ruler/tape to initial position
-                await resetPage2ForNextMeasurement()
-
-                // Stay on page 2 - re-add the event listener
-                document.addEventListener('keydown', handleKeyPress)
-                return
-              } else {
-                // Passed the enforcement check
-                console.log(
-                  `Measurement passed minimum length enforcement: ${Math.round(firstMeasurement)}cm >= ${Math.round(minCm)}cm`,
-                )
-                measurementState.lastAttemptWasTooShort = false
-              }
-            } else {
-              // Don't enforce minimum - but check if current measurement is too short for NEXT time
+              // Collect 5 Face Mesh samples for calibration
+              await collectFaceMeshSamples(
+                RC,
+                faceMeshSamplesPage3,
+                ppi,
+                meshSamplesDuringPage3,
+              )
+              cameraResolutionXYVpxPage3 = getCameraResolutionXY(RC)
               console.log(
-                `Not enforcing minimum length for measurement #${measurementState.measurements.length + 1}: ${Math.round(firstMeasurement)}cm`,
+                'Face Mesh calibration samples (page 3):',
+                faceMeshSamplesPage3,
               )
-              if (Math.round(firstMeasurement) < Math.round(minCm)) {
-                console.log(
-                  `Current measurement is too short (${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm) - will enforce on NEXT measurement`,
-                )
-                measurementState.lastAttemptWasTooShort = true
-                objectTestCommonData.objectMeasuredMsg.push('short')
-              } else {
-                measurementState.lastAttemptWasTooShort = false
-              }
-            }
 
-            // Store original measurement data before resetting lines
-            const originalMeasurementData = {
-              startX: startX,
-              startY: startY,
-              endX: endX,
-              endY: endY,
-              objectLengthPx: diagonalDistancePx,
-              objectLengthMm: diagonalDistancePx / pxPerMm,
-              objectLengthCm: firstMeasurement,
-            }
-
-            // Move to page 3
-            await nextPage()
-
-            // Initialize Face Mesh tracking if not already done
-            if (!RC.gazeTracker.checkInitialized('distance')) {
-              RC.gazeTracker._init(
-                {
-                  toFixedN: 1,
-                  showVideo: true,
-                  showFaceOverlay: false,
-                },
-                'distance',
+              // Only show retry dialog if we have fewer than 5 valid samples or if any samples are NaN
+              const validSamples = faceMeshSamplesPage3.filter(
+                sample => !isNaN(sample),
               )
-            }
+              if (
+                validSamples.length < 5 ||
+                faceMeshSamplesPage3.some(sample => isNaN(sample))
+              ) {
+                // Use the image captured at space press
+                const capturedImage = lastCapturedFaceImage
 
-            // Re-add the listener for page 3
-            document.addEventListener('keydown', handleKeyPress)
-          })()
-        } else if (currentPage === 3) {
-          globalPointXYPx.value = [window.screen.width / 2, 0]
-          // Collect 5 Face Mesh samples for calibration on page 3
-          ;(async () => {
-            console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
-
-            // Collect 5 Face Mesh samples for calibration
-            await collectFaceMeshSamples(
-              RC,
-              faceMeshSamplesPage3,
-              ppi,
-              meshSamplesDuringPage3,
-            )
-            cameraResolutionXYVpxPage3 = getCameraResolutionXY(RC)
-            console.log(
-              'Face Mesh calibration samples (page 3):',
-              faceMeshSamplesPage3,
-            )
-
-            // Only show retry dialog if we have fewer than 5 valid samples or if any samples are NaN
-            const validSamples = faceMeshSamplesPage3.filter(
-              sample => !isNaN(sample),
-            )
-            if (
-              validSamples.length < 5 ||
-              faceMeshSamplesPage3.some(sample => isNaN(sample))
-            ) {
-              // Use the image captured at space press
-              const capturedImage = lastCapturedFaceImage
-
-              let conditionalFaceImageNotSaved = ""
+                let conditionalFaceImageNotSaved = ""
               if (!options.saveSnapshots) {
                 conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
               }
@@ -7878,10 +8414,10 @@ export async function objectTest(RC, options, callback = undefined) {
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
                     ${conditionalFaceImageNotSaved}
                    </div>`,
-                showCancelButton: false,
-                showConfirmButton: false,
-                allowEnterKey: false,
-                footer: `
+                  showCancelButton: false,
+                  showConfirmButton: false,
+                  allowEnterKey: false,
+                  footer: `
                   <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
                     <button class="swal2-confirm swal2-styled" id="ok-button-page3" style="background-color: #3085d6; border: none; flex: 0 0 auto;">
                       ${phrases.EE_ok[RC.L]}
@@ -7896,883 +8432,873 @@ export async function objectTest(RC, options, callback = undefined) {
                     </div>
                   </div>
                 `,
-                customClass: {
-                  footer: 'swal2-footer-no-border',
-                },
-                didOpen: () => {
-                  // Add CSS to remove footer border
-                  if (
-                    !document.getElementById('swal2-footer-no-border-style')
-                  ) {
-                    const style = document.createElement('style')
-                    style.id = 'swal2-footer-no-border-style'
-                    style.textContent =
-                      '.swal2-footer-no-border { border-top: none !important; }'
-                    document.head.appendChild(style)
-                  }
-
-                  // Handle keyboard events - only allow Enter/Return, prevent Space
-                  const keydownListener = event => {
-                    if (event.key === ' ') {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      return
+                  customClass: {
+                    footer: 'swal2-footer-no-border',
+                  },
+                  didOpen: () => {
+                    // Add CSS to remove footer border
+                    if (
+                      !document.getElementById('swal2-footer-no-border-style')
+                    ) {
+                      const style = document.createElement('style')
+                      style.id = 'swal2-footer-no-border-style'
+                      style.textContent =
+                        '.swal2-footer-no-border { border-top: none !important; }'
+                      document.head.appendChild(style)
                     }
-                    if (event.key === 'Enter' || event.key === 'Return') {
-                      document.getElementById('ok-button-page3').click()
-                    }
-                  }
-                  document.addEventListener('keydown', keydownListener, true)
-                  RC.popupKeydownListener = keydownListener
 
-                  // Add click handlers for custom buttons
-                  document
-                    .getElementById('ok-button-page3')
-                    .addEventListener('click', () => {
-                      Swal.close()
-                    })
-                  document
-                    .getElementById('new-object-button-page3')
-                    .addEventListener('click', () => {
-                      // Use the same restart logic as tolerance failure (proven approach)
-                      console.log(
-                        'New object button clicked - restarting from page 2',
-                      )
-
-                      // Clear Face Mesh samples and measurement (same as tolerance failure)
-                      faceMeshSamplesPage3.length = 0
-                      faceMeshSamplesPage4.length = 0
-                      meshSamplesDuringPage3.length = 0
-                      meshSamplesDuringPage4.length = 0
-                      firstMeasurement = null
-
-                      // Full reset of viewing-distance counter (so paper mode returns to "1 of 3")
-                      viewingDistanceMeasurementCount = 0
-                      viewingDistanceTotalExpected = isPaperSelectionMode
-                        ? 3
-                        : 2
-
-                      // Reset object-measurement state for a fresh object
-                      savedMeasurementData = null
-                      measurementState.measurements = []
-                      measurementState.currentIteration = 1
-                      measurementState.consistentPair = null
-                      measurementState.lastAttemptWasTooShort = false
-                      measurementState.rejectionCount = 0
-                      measurementState.factorRejectionCount = 0
-
-                      if (isPaperSelectionMode) {
-                        // Reset paper-selection state too
-                        selectedPaperOption = null
-                        selectedPaperLengthCm = null
-                        selectedPaperLabel = null
-                        paperSuggestionValue = ''
-                        if (typeof paperSuggestionInput !== 'undefined')
-                          paperSuggestionInput.value = ''
-                        const checked = paperSelectionContainer?.querySelector(
-                          'input[name="paper-selection"]:checked',
-                        )
-                        if (checked) checked.checked = false
-                        if (paperValidationMessage)
-                          paperValidationMessage.style.display = 'none'
+                    // Handle keyboard events - only allow Enter/Return, prevent Space
+                    const keydownListener = event => {
+                      if (event.key === ' ') {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        return
                       }
-
-                      // Reset to page 2 to restart object measurement (same as tolerance failure)
-                      currentPage = 1
-
-                      // Close popup and restart
-                      Swal.close()
-                      nextPage()
-
-                      // Re-add the event listener for page 2 after restart
-                      document.addEventListener('keydown', handleKeyPress)
-                    })
-                },
-                willClose: () => {
-                  // Remove keyboard event listener
-                  if (RC.popupKeydownListener) {
-                    document.removeEventListener(
-                      'keydown',
-                      RC.popupKeydownListener,
-                      true,
-                    )
-                    RC.popupKeydownListener = null
-                  }
-                  // Re-add the space key listener after popup closes
-                  document.addEventListener('keydown', handleKeyPress)
-                },
-              })
-
-              // The user will press space again to collect new samples
-              console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 3 ===')
-              // The user will press space again to collect new samples
-              // Clean up the captured image for privacy
-              lastCapturedFaceImage = null
-            } else {
-              // All 5 samples are valid - automatically continue to page 4
-              console.log(
-                '=== ALL 5 FACE MESH SAMPLES VALID - CONTINUING TO PAGE 4 ===',
-              )
-              await nextPage()
-              // Clean up the captured image for privacy
-              lastCapturedFaceImage = null
-
-              // Re-add the listener for page 4
-              document.addEventListener('keydown', handleKeyPress)
-            }
-          })()
-        } else if (currentPage === 4) {
-          globalPointXYPx.value = [
-            window.screen.width / 2,
-            window.screen.height / 2,
-          ]
-          // Collect 5 Face Mesh samples for calibration on page 4
-          ;(async () => {
-            console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
-
-            // Collect 5 Face Mesh samples for calibration
-            await collectFaceMeshSamples(
-              RC,
-              faceMeshSamplesPage4,
-              ppi,
-              meshSamplesDuringPage4,
-            )
-            cameraResolutionXYVpxPage4 = getCameraResolutionXY(RC)
-            console.log(
-              'Face Mesh calibration samples (page 4):',
-              faceMeshSamplesPage4,
-            )
-
-            // Only show retry dialog if we have fewer than 5 valid samples or if any samples are NaN
-            const validSamples = faceMeshSamplesPage4.filter(
-              sample => !isNaN(sample),
-            )
-            if (
-              validSamples.length < 5 ||
-              faceMeshSamplesPage4.some(sample => isNaN(sample))
-            ) {
-              // Use the image captured at space press
-              const capturedImage = lastCapturedFaceImage
-
-              let conditionalFaceImageNotSaved = ""
-              if (!options.saveSnapshots) {
-                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
-              }
-              const result = await Swal.fire({
-                ...swalInfoOptions(RC, { showIcon: false }),
-                title: phrases.RC_FaceBlocked[RC.L],
-                html: `<div style="text-align: center;">
-                    <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    ${conditionalFaceImageNotSaved}
-                   </div>`,
-                showCancelButton: false,
-                showConfirmButton: false,
-                allowEnterKey: false,
-                footer: `
-                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 10px;">
-                    <button class="swal2-confirm swal2-styled" id="ok-button-page4" style="background-color: #3085d6; border: none; flex: 0 0 auto;">
-                      ${phrases.EE_ok[RC.L]}
-                    </button>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                      <div style="color: #000; font-size: 1.6em;">
-                        ${phrases.RC_LongerObjectHelps[RC.L]}
-                      </div>
-                      <button class="swal2-confirm swal2-styled" id="new-object-button-page4" style="background-color: #28a745; border: none; flex: 0 0 auto;">
-                        ${phrases.RC_NewObjectButton[RC.L]}
-                      </button>
-                    </div>
-                  </div>
-                `,
-                customClass: {
-                  footer: 'swal2-footer-no-border',
-                },
-                didOpen: () => {
-                  // Add CSS to remove footer border
-                  if (
-                    !document.getElementById('swal2-footer-no-border-style')
-                  ) {
-                    const style = document.createElement('style')
-                    style.id = 'swal2-footer-no-border-style'
-                    style.textContent =
-                      '.swal2-footer-no-border { border-top: none !important; }'
-                    document.head.appendChild(style)
-                  }
-
-                  // Handle keyboard events - only allow Enter/Return, prevent Space
-                  const keydownListener = event => {
-                    if (event.key === ' ') {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      return
-                    }
-                    if (event.key === 'Enter' || event.key === 'Return') {
-                      document.getElementById('ok-button-page4').click()
-                    }
-                  }
-                  document.addEventListener('keydown', keydownListener, true)
-                  RC.popupKeydownListener = keydownListener
-
-                  // Add click handlers for custom buttons
-                  document
-                    .getElementById('ok-button-page4')
-                    .addEventListener('click', () => {
-                      Swal.close()
-                    })
-                  document
-                    .getElementById('new-object-button-page4')
-                    .addEventListener('click', () => {
-                      // Use the same restart logic as tolerance failure (proven approach)
-                      console.log(
-                        'New object button clicked - restarting from page 2',
-                      )
-
-                      // Clear Face Mesh samples and measurement (same as tolerance failure)
-                      faceMeshSamplesPage3.length = 0
-                      faceMeshSamplesPage4.length = 0
-                      meshSamplesDuringPage3.length = 0
-                      meshSamplesDuringPage4.length = 0
-                      firstMeasurement = null
-
-                      // Full reset of viewing-distance counter (so paper mode returns to "1 of 3")
-                      viewingDistanceMeasurementCount = 0
-                      viewingDistanceTotalExpected = isPaperSelectionMode
-                        ? 3
-                        : 2
-
-                      // Reset object-measurement state for a fresh object
-                      savedMeasurementData = null
-                      measurementState.measurements = []
-                      measurementState.currentIteration = 1
-                      measurementState.consistentPair = null
-                      measurementState.lastAttemptWasTooShort = false
-                      measurementState.rejectionCount = 0
-                      measurementState.factorRejectionCount = 0
-
-                      if (isPaperSelectionMode) {
-                        // Reset paper-selection state too
-                        selectedPaperOption = null
-                        selectedPaperLengthCm = null
-                        selectedPaperLabel = null
-                        paperSuggestionValue = ''
-                        if (typeof paperSuggestionInput !== 'undefined')
-                          paperSuggestionInput.value = ''
-                        const checked = paperSelectionContainer?.querySelector(
-                          'input[name="paper-selection"]:checked',
-                        )
-                        if (checked) checked.checked = false
-                        if (paperValidationMessage)
-                          paperValidationMessage.style.display = 'none'
+                      if (event.key === 'Enter' || event.key === 'Return') {
+                        document.getElementById('ok-button-page3').click()
                       }
-
-                      // Reset to page 2 to restart object measurement (same as tolerance failure)
-                      currentPage = 1
-
-                      // Close popup and restart
-                      Swal.close()
-                      nextPage()
-
-                      // Re-add the event listener for page 2 after restart
-                      document.addEventListener('keydown', handleKeyPress)
-                    })
-                },
-                willClose: () => {
-                  // Remove keyboard event listener
-                  if (RC.popupKeydownListener) {
-                    document.removeEventListener(
-                      'keydown',
-                      RC.popupKeydownListener,
-                      true,
-                    )
-                    RC.popupKeydownListener = null
-                  }
-                  // Re-add the space key listener after popup closes
-                  document.addEventListener('keydown', handleKeyPress)
-                },
-              })
-
-              // User must retry - stay on page 4 and collect new samples
-              console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 4 ===')
-              // The user will press space again to collect new samples
-              // Clean up the captured image for privacy
-              lastCapturedFaceImage = null
-            } else {
-              // All 5 samples are valid - calculate factors then check tolerance
-              console.log(
-                '=== ALL 5 FACE MESH SAMPLES VALID - CALCULATING FACTORS ===',
-              )
-
-              // Calculate factors BEFORE tolerance check
-              const validPage3Samples = faceMeshSamplesPage3.filter(
-                sample => !isNaN(sample),
-              )
-              const validPage4Samples = faceMeshSamplesPage4.filter(
-                sample => !isNaN(sample),
-              )
-              const page3Average = validPage3Samples.length
-                ? validPage3Samples.reduce((a, b) => a + b, 0) /
-                  validPage3Samples.length
-                : 0
-              const page4Average = validPage4Samples.length
-                ? validPage4Samples.reduce((a, b) => a + b, 0) /
-                  validPage4Samples.length
-                : 0
-
-              // Calculate separate calibration factors for page3 and page4
-              //TODO: clean up later
-              let page3FactorCmPx = page3Average * firstMeasurement // Default calculation
-
-              // Calculate page3FactorCmPx using new geometry (camera position)
-              try {
-                if (meshSamplesDuringPage3.length) {
-                  const mesh = await getMeshData(
-                    RC,
-                    options.calibrateDistancePupil,
-                    meshSamplesDuringPage3,
-                  )
-                  if (mesh) {
-                    const { leftEye, rightEye, video, currentIPDDistance } =
-                      mesh
-                    const pxPerCm = ppi / 2.54
-                    const ipdVpx = currentIPDDistance
-
-                    // Get foot positions using calculateFootXYPx
-                    const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } =
-                      calculateFootXYPx(
-                        RC,
-                        video,
-                        leftEye,
-                        rightEye,
-                        pxPerCm,
-                        currentIPDDistance,
-                      )
-
-                    // Calculate average foot position
-                    const footXYPx = [
-                      (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
-                      (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
-                    ]
-
-                    // Calculate distances using the geometric formulas
-
-                    const pointXYPx = cameraXYPx
-
-                    const footToPointCm =
-                      Math.hypot(
-                        footXYPx[0] - pointXYPx[0],
-                        footXYPx[1] - pointXYPx[1],
-                      ) / pxPerCm
-
-                    const rulerBasedEyesToPointCm = firstMeasurement
-                    const rulerBasedEyesToFootCm = Math.sqrt(
-                      rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
-                    )
-                    page3FactorCmPx = ipdVpx * rulerBasedEyesToFootCm
-                  }
-                }
-              } catch (error) {
-                console.warn(
-                  'Error calculating page3FactorCmPx with geometry, using default:',
-                  error,
-                )
-              }
-
-              //const page3FactorCmPx = page3Average * firstMeasurement
-              RC.page3FactorCmPx = page3FactorCmPx
-              RC.fOverWidth1 =
-                page3FactorCmPx /
-                cameraResolutionXYVpxPage3[0] /
-                RC._CONST.IPD_CM
-
-              // For page 4, calculate factorVpxCm using new geometric formulas
-              let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
-
-              // Calculate page4FactorCmPx using new geometry (screen center)
-              try {
-                if (meshSamplesDuringPage4.length) {
-                  const mesh = await getMeshData(
-                    RC,
-                    options.calibrateDistancePupil,
-                    meshSamplesDuringPage4,
-                  )
-                  if (mesh) {
-                    const { leftEye, rightEye, video, currentIPDDistance } =
-                      mesh
-                    const pxPerCm = ppi / 2.54
-                    const objectLengthCm = firstMeasurement
-                    objectLengthCmGlobal.value = objectLengthCm
-                    const ipdVpx = currentIPDDistance
-
-                    // Get foot positions
-                    const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } =
-                      calculateFootXYPx(
-                        RC,
-                        video,
-                        leftEye,
-                        rightEye,
-                        pxPerCm,
-                        currentIPDDistance,
-                      )
-
-                    // Calculate average foot position
-                    const footXYPx = [
-                      (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
-                      (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
-                    ]
-
-                    // Set pointXYPx to screen center
-                    const pointXYPx = [
-                      window.screen.width / 2,
-                      window.screen.height / 2,
-                    ]
-
-                    // Calculate distances using the new formulas
-                    // const pointToFootCm =
-                    //   Math.hypot(
-                    //     pointXYPx[0] - footXYPx[0],
-                    //     pointXYPx[1] - footXYPx[1],
-                    //   ) / pxPerCm
-
-                    // const footToCameraCm =
-                    //   Math.hypot(
-                    //     footXYPx[0] - cameraXYPx[0],
-                    //     footXYPx[1] - cameraXYPx[1],
-                    //   ) / pxPerCm
-
-                    // const eyeToPointCm = objectLengthCm
-                    // const eyeToFootCm = Math.sqrt(
-                    //   eyeToPointCm ** 2 - pointToFootCm ** 2,
-                    // )
-                    // const eyeToScreenCm = eyeToFootCm // parallel to optical axis (screen normal)
-                    // const eyeToCameraCm = Math.hypot(
-                    //   eyeToScreenCm,
-                    //   footToCameraCm,
-                    // )
-
-                    // Calculate factorVpxCm using parallel-to-axis distance
-                    // page4FactorCmPx = ipdVpx * eyeToScreenCm
-
-                    const footToPointCm =
-                      Math.hypot(
-                        footXYPx[0] - pointXYPx[0],
-                        footXYPx[1] - pointXYPx[1],
-                      ) / pxPerCm
-
-                    const rulerBasedEyesToPointCm = objectLengthCm
-                    const rulerBasedEyesToFootCm = Math.sqrt(
-                      rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
-                    )
-                    page4FactorCmPx = ipdVpx * rulerBasedEyesToFootCm
-                  }
-                }
-              } catch (error) {
-                console.error(
-                  'Error calculating page4FactorCmPx with new geometry:',
-                  error,
-                )
-                // Fall back to simple calculation
-                //page4FactorCmPx = page4Average * firstMeasurement
-              }
-
-              RC.page4FactorCmPx = page4FactorCmPx
-              RC.fOverWidth2 =
-                page4FactorCmPx /
-                cameraResolutionXYVpxPage4[0] /
-                RC._CONST.IPD_CM
-              RC.calibrationFOverWidth = Math.sqrt(
-                RC.fOverWidth1 * RC.fOverWidth2,
-              )
-              // Calculate geometric mean of the two factors (appropriate for ratio data)
-              const averageFactorCmPx = Math.sqrt(
-                page3FactorCmPx * page4FactorCmPx,
-              )
-              RC.averageObjectTestCalibrationFactor =
-                Math.round(averageFactorCmPx)
-
-              // Now check tolerance with the calculated factors
-              console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')
-              const [
-                pass,
-                message,
-                min,
-                max,
-                RMin,
-                RMax,
-                maxRatio,
-                factorRatio,
-              ] = checkObjectTestTolerance(
-                RC,
-                faceMeshSamplesPage3,
-                faceMeshSamplesPage4,
-                options.calibrateDistanceAllowedRatio,
-                options.calibrateDistanceAllowedRangeCm,
-                firstMeasurement,
-                page3FactorCmPx,
-                page4FactorCmPx,
-              )
-              if (RC.measurementHistory && message !== 'Pass')
-                RC.measurementHistory.push(message)
-              else if (message !== 'Pass') RC.measurementHistory = [message]
-
-              if (pass) {
-                // Tolerance check passed - finish the test
-                console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
-
-                try {
-                  if (
-                    meshSamplesDuringPage3.length &&
-                    meshSamplesDuringPage4.length
-                  ) {
-                    const measurements = []
-                    if (meshSamplesDuringPage3.length) {
-                      const {
-                        nearestPointsData,
-                        currentIPDDistance,
-                        ipdXYZVpx: ipdXYZVpxPage3,
-                      } = await processMeshDataAndCalculateNearestPoints(
-                        RC,
-                        options,
-                        meshSamplesDuringPage3,
-                        page3FactorCmPx,
-                        ppi,
-                        0,
-                        0,
-                        'object',
-                        1,
-                        [0, 0], // fixPoint - fixation cross position
-                        [0, 0], // spotPoint - MUST be shared border, not red center
-                        0,
-                        0,
-                        0,
-                        options.calibrateDistanceChecking,
-                        [window.screen.width / 2, 0], // pointXYPx = cameraXYPx
-                        firstMeasurement,
-                      )
-
-                      measurements.push(
-                        createMeasurementObject(
-                          'firstMeasurement',
-                          firstMeasurement,
-                          page3FactorCmPx,
-                          nearestPointsData,
-                          currentIPDDistance,
-                          null,
-                          cameraResolutionXYVpxPage3,
-                          isPaperSelectionMode
-                            ? selectedPaperLabel ||
-                                paperSelectionOptions.find(
-                                  o => o.key === selectedPaperOption,
-                                )?.label ||
-                                null
-                            : null,
-                          isPaperSelectionMode ? paperSuggestionValue : null,
-                          ipdXYZVpxPage3,
-                          RC.fOverWidth1,
-                        ),
-                      )
                     }
-                    if (meshSamplesDuringPage4.length) {
-                      const {
-                        nearestPointsData,
-                        currentIPDDistance,
-                        ipdXYZVpx: ipdXYZVpxPage4,
-                      } = await processMeshDataAndCalculateNearestPoints(
-                        RC,
-                        options,
-                        meshSamplesDuringPage4,
-                        page4FactorCmPx,
-                        ppi,
-                        0,
-                        0,
-                        'object',
-                        2,
-                        [0, 0], // fixPoint - fixation cross position
-                        [0, 0], // spotPoint - MUST be shared border, not red center
-                        0,
-                        0,
-                        0,
-                        options.calibrateDistanceChecking,
-                        [window.screen.width / 2, window.screen.height / 2], // pointXYPx = screen center
-                        firstMeasurement,
-                      )
+                    document.addEventListener('keydown', keydownListener, true)
+                    RC.popupKeydownListener = keydownListener
 
-                      measurements.push(
-                        createMeasurementObject(
-                          'secondMeasurement',
-                          firstMeasurement,
-                          page4FactorCmPx,
-                          nearestPointsData,
-                          currentIPDDistance,
-                          null,
-                          cameraResolutionXYVpxPage4,
-                          isPaperSelectionMode
-                            ? selectedPaperLabel ||
-                                paperSelectionOptions.find(
-                                  o => o.key === selectedPaperOption,
-                                )?.label ||
-                                null
-                            : null,
-                          isPaperSelectionMode ? paperSuggestionValue : null,
-                          ipdXYZVpxPage4,
-                          RC.fOverWidth2,
-                        ),
+                    // Add click handlers for custom buttons
+                    document
+                      .getElementById('ok-button-page3')
+                      .addEventListener('click', () => {
+                        Swal.close()
+                      })
+                    document
+                      .getElementById('new-object-button-page3')
+                      .addEventListener('click', () => {
+                        // Use the same restart logic as tolerance failure (proven approach)
+                        console.log(
+                          'New object button clicked - restarting from page 2',
+                        )
+
+                        // Clear Face Mesh samples and measurement (same as tolerance failure)
+                        faceMeshSamplesPage3.length = 0
+                        faceMeshSamplesPage4.length = 0
+                        meshSamplesDuringPage3.length = 0
+                        meshSamplesDuringPage4.length = 0
+                        firstMeasurement = null
+
+                        // Full reset of viewing-distance counter (so paper mode returns to "1 of N")
+                        viewingDistanceMeasurementCount = 0
+                        viewingDistanceTotalExpected = isPaperSelectionMode
+                          ? calibrateDistanceLocations.length + 1
+                          : calibrateDistanceLocations.length
+
+                        // Reset object-measurement state for a fresh object
+                        savedMeasurementData = null
+                        measurementState.measurements = []
+                        measurementState.currentIteration = 1
+                        measurementState.consistentPair = null
+                        measurementState.lastAttemptWasTooShort = false
+                        measurementState.rejectionCount = 0
+                        measurementState.factorRejectionCount = 0
+
+                        if (isPaperSelectionMode) {
+                          // Reset paper-selection state too
+                          selectedPaperOption = null
+                          selectedPaperLengthCm = null
+                          selectedPaperLabel = null
+                          paperSuggestionValue = ''
+                          if (typeof paperSuggestionInput !== 'undefined')
+                            paperSuggestionInput.value = ''
+                          const checked =
+                            paperSelectionContainer?.querySelector(
+                              'input[name="paper-selection"]:checked',
+                            )
+                          if (checked) checked.checked = false
+                          if (paperValidationMessage)
+                            paperValidationMessage.style.display = 'none'
+                        }
+
+                        // Reset to page 2 to restart object measurement (same as tolerance failure)
+                        currentPage = 1
+
+                        // Close popup and restart
+                        Swal.close()
+                        nextPage()
+
+                        // Re-add the event listener for page 2 after restart
+                        document.addEventListener('keydown', handleKeyPress)
+                      })
+                  },
+                  willClose: () => {
+                    // Remove keyboard event listener
+                    if (RC.popupKeydownListener) {
+                      document.removeEventListener(
+                        'keydown',
+                        RC.popupKeydownListener,
+                        true,
                       )
+                      RC.popupKeydownListener = null
                     }
+                    // Re-add the space key listener after popup closes
+                    document.addEventListener('keydown', handleKeyPress)
+                  },
+                })
 
-                    saveCalibrationMeasurements(
-                      RC,
-                      'object',
-                      measurements,
-                      undefined,
-                      objectTestCommonData,
-                    )
-                  }
-                } catch (error) {
-                  console.error('Error getting mesh data:', error)
-                }
-                await objectTestFinishFunction()
+                // The user will press space again to collect new samples
+                console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 3 ===')
+                // The user will press space again to collect new samples
+                // Clean up the captured image for privacy
+                lastCapturedFaceImage = null
               } else {
-                const ipdpxRatio = Math.sqrt(
-                  faceMeshSamplesPage3[0] / faceMeshSamplesPage4[0],
+                // All 5 samples are valid - process this location measurement
+                console.log(
+                  `=== ALL 5 FACE MESH SAMPLES VALID FOR LOCATION ${locationManager.getCurrentIndex()} ===`,
                 )
-                const newMin = min.toFixed(1) * ipdpxRatio
-                const newMax = max.toFixed(1) / ipdpxRatio
-                const reasonIsOutOfRange = message.includes(
-                  'out of allowed range',
+
+                // Calculate fOverWidth for this measurement
+                const currentLocMeasurement =
+                  locationManager.getCurrentLocationInfo()
+                const validSamplesForCalc = faceMeshSamplesPage3.filter(
+                  s => !isNaN(s),
                 )
-                
-                // For fOverWidth mismatch: ratio = (100 * oldFOverWidth / newFOverWidth).toFixed(0)
-                // oldFOverWidth = RC.fOverWidth1, newFOverWidth = RC.fOverWidth2
-                const fOverWidthRatioPercent = RC.fOverWidth1 && RC.fOverWidth2
-                  ? (100 * RC.fOverWidth1 / RC.fOverWidth2).toFixed(0)
-                  : (100 * factorRatio).toFixed(0) // fallback to factorRatio if fOverWidth not available
-                
-                let displayMessage = ''
-                if (reasonIsOutOfRange) {
-                  displayMessage = phrases.RC_viewingExceededRange[RC.L]
-                    .replace('[[N11]]', Math.round(newMin))
-                    .replace('[[N22]]', Math.round(newMax))
-                    .replace('[[N33]]', Math.round(RMin))
-                    .replace('[[N44]]', Math.round(RMax))
-                } else {
-                  // fOverWidth mismatch - use RC_focalLengthMismatch
-                  displayMessage =
+
+                // DEBUG: Track all input values for NaN detection
+                console.log('=== DEBUG: MEASUREMENT CALCULATION INPUTS ===')
+                console.log(
+                  `  faceMeshSamplesPage3 raw: [${faceMeshSamplesPage3.join(', ')}]`,
+                )
+                console.log(
+                  `  validSamplesForCalc count: ${validSamplesForCalc.length}`,
+                )
+                console.log(
+                  `  validSamplesForCalc: [${validSamplesForCalc.join(', ')}]`,
+                )
+                console.log(
+                  `  firstMeasurement: ${firstMeasurement} (type: ${typeof firstMeasurement})`,
+                )
+
+                const avgFaceMesh =
+                  validSamplesForCalc.length > 0
+                    ? validSamplesForCalc.reduce((a, b) => a + b, 0) /
+                      validSamplesForCalc.length
+                    : NaN
+                console.log(`  avgFaceMesh calculated: ${avgFaceMesh}`)
+
+                const cameraRes = getCameraResolutionXY(RC)
+                console.log(`  cameraRes: [${cameraRes[0]}, ${cameraRes[1]}]`)
+                console.log(`  RC._CONST.IPD_CM: ${RC._CONST?.IPD_CM}`)
+
+                const mesh = await getMeshData(
+                  RC,
+                  options.calibrateDistancePupil,
+                  meshSamplesDuringPage3,
+                )
+                let factorCmPx = avgFaceMesh * firstMeasurement
+                let fOverWidth = factorCmPx / cameraRes[0] / RC._CONST.IPD_CM
+                let rulerBasedEyesToFootCm = null
+                let nearestXYPx_left = null
+                let nearestXYPx_right = null
+                let rulerBasedEyesToPointCm = firstMeasurement
+                let footToPointCm = null
+                let currentIPDDistance = null
+                let ipdOverWidth = null
+                let imageBasedEyesToFootCm = null
+                let imageBasedEyesToPointCm = null
+                if (mesh) {
+                  const {
+                    leftEye,
+                    rightEye,
+                    video,
+                    currentIPDDistance: ipdVpx,
+                  } = mesh
+                  currentIPDDistance = ipdVpx
+                  const pxPerCm = ppi / 2.54
+
+                  const footResult = calculateFootXYPx(
+                    RC,
+                    video,
+                    leftEye,
+                    rightEye,
+                    pxPerCm,
+                    currentIPDDistance,
+                  )
+                  nearestXYPx_left = footResult.nearestXYPx_left
+                  nearestXYPx_right = footResult.nearestXYPx_right
+
+                  const locactionInfo = locationManager.getCurrentLocationInfo()
+                  const pointXYPx = getGlobalPointForLocation(
+                    locactionInfo.location,
+                  )
+
+                  console.log(
+                    'page 3:3 globalPointXYPx:',
+                    globalPointXYPx.value,
+                  )
+                  const eye = locactionInfo.eye
+                  // Calculate average foot position
+                  let footXYPx
+                  if (eye === 'unspecified') {
+                    footXYPx = [
+                      (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
+                      (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
+                    ]
+                  } else {
+                    footXYPx =
+                      eye === 'left' ? nearestXYPx_left : nearestXYPx_right
+                  }
+
+                  footToPointCm =
+                    Math.hypot(
+                      footXYPx[0] - pointXYPx[0],
+                      footXYPx[1] - pointXYPx[1],
+                    ) / pxPerCm
+
+                  rulerBasedEyesToPointCm = firstMeasurement
+                  rulerBasedEyesToFootCm = Math.sqrt(
+                    rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
+                  )
+                  factorCmPx = currentIPDDistance * rulerBasedEyesToFootCm
+                  fOverWidth = factorCmPx / cameraRes[0] / RC._CONST.IPD_CM
+                  ipdOverWidth =
+                    currentIPDDistance && cameraRes[0]
+                      ? currentIPDDistance / cameraRes[0]
+                      : null
+                  const fVpx = fOverWidth * cameraRes[0]
+                  imageBasedEyesToFootCm =
+                    currentIPDDistance && RC._CONST?.IPD_CM
+                      ? (fVpx * RC._CONST.IPD_CM) / currentIPDDistance
+                      : null
+                  imageBasedEyesToPointCm =
+                    imageBasedEyesToFootCm != null && footToPointCm != null
+                      ? Math.sqrt(
+                          imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
+                        )
+                      : null
+                }
+
+                // Check for NaN values
+                if (isNaN(avgFaceMesh))
+                  console.error('  ERROR: avgFaceMesh is NaN!')
+                if (isNaN(factorCmPx))
+                  console.error(
+                    '  ERROR: factorCmPx is NaN! Check firstMeasurement and avgFaceMesh',
+                  )
+                if (isNaN(fOverWidth))
+                  console.error(
+                    '  ERROR: fOverWidth is NaN! Check factorCmPx, cameraRes, and IPD_CM',
+                  )
+                console.log('=== END DEBUG ===')
+
+                console.log(
+                  `Location ${locationManager.getCurrentIndex()} measurement:`,
+                )
+                console.log(
+                  `  avgFaceMesh: ${avgFaceMesh}, factorCmPx: ${factorCmPx}, fOverWidth: ${fOverWidth}`,
+                )
+
+                // History lists: record every snapshot regardless of acceptance
+                objectTestCommonData.historyFOverWidth.push(
+                  parseFloat(Number(fOverWidth).toFixed(4)),
+                )
+                objectTestCommonData.historyEyesToFootCm.push(
+                  rulerBasedEyesToFootCm != null
+                    ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
+                    : null,
+                )
+
+                // Check tolerance with previous measurement (if not first)
+                const toleranceResult = locationManager.checkTolerance(
+                  fOverWidth,
+                  options.calibrateDistanceAllowedRatio || 1.15,
+                )
+
+                if (!toleranceResult.pass) {
+                  // Tolerance check FAILED - reject measurements
+                  console.log(
+                    '=== TOLERANCE CHECK FAILED - REJECTING MEASUREMENTS ===',
+                  )
+
+                  // Calculate ratio percentage for display
+                  const prevFOverWidth = locationManager.getPreviousFOverWidth()
+                  const ratioPercent = (
+                    (100 * prevFOverWidth) /
+                    fOverWidth
+                  ).toFixed(0)
+
+                  // Rejected plot lists: only the more recent (current) fOverWidth (4 decimals)
+                  objectTestCommonData.rejectedFOverWidth.push(
+                    parseFloat(Number(fOverWidth).toFixed(4)),
+                  )
+                  objectTestCommonData.rejectedRatioFOverWidth.push(
+                    parseFloat(Number(fOverWidth / prevFOverWidth).toFixed(4)),
+                  )
+                  const failLocInfo = locationManager.getCurrentLocationInfo()
+                  objectTestCommonData.rejectedLocation.push(failLocInfo.locEye)
+                  objectTestCommonData.rejectedPointXYPx.push(
+                    globalPointXYPx.value
+                      ? [...globalPointXYPx.value]
+                      : [null, null],
+                  )
+                  // Rejected per-snapshot metrics
+                  objectTestCommonData.rejectedLeftEyeFootXYPx.push(
+                    nearestXYPx_left && nearestXYPx_left.length >= 2
+                      ? [
+                          Math.round(nearestXYPx_left[0] * 100) / 100,
+                          Math.round(nearestXYPx_left[1] * 100) / 100,
+                        ]
+                      : null,
+                  )
+                  objectTestCommonData.rejectedRightEyeFootXYPx.push(
+                    nearestXYPx_right && nearestXYPx_right.length >= 2
+                      ? [
+                          Math.round(nearestXYPx_right[0] * 100) / 100,
+                          Math.round(nearestXYPx_right[1] * 100) / 100,
+                        ]
+                      : null,
+                  )
+                  objectTestCommonData.rejectedIpdOverWidth.push(
+                    ipdOverWidth != null && !isNaN(ipdOverWidth)
+                      ? parseFloat(Number(ipdOverWidth).toFixed(4))
+                      : null,
+                  )
+                  objectTestCommonData.rejectedRulerBasedEyesToFootCm.push(
+                    rulerBasedEyesToFootCm != null &&
+                      !isNaN(rulerBasedEyesToFootCm)
+                      ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.rejectedRulerBasedEyesToPointCm.push(
+                    rulerBasedEyesToPointCm != null &&
+                      !isNaN(rulerBasedEyesToPointCm)
+                      ? parseFloat(Number(rulerBasedEyesToPointCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.rejectedImageBasedEyesToFootCm.push(
+                    imageBasedEyesToFootCm != null &&
+                      !isNaN(imageBasedEyesToFootCm)
+                      ? parseFloat(Number(imageBasedEyesToFootCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.rejectedImageBasedEyesToPointCm.push(
+                    imageBasedEyesToPointCm != null &&
+                      !isNaN(imageBasedEyesToPointCm)
+                      ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
+                      : null,
+                  )
+                  // Shrink accepted lists: remove only the previous (retroactively rejected);
+                  // the current (failing) was never pushed to accepted*
+                  objectTestCommonData.acceptedFOverWidth.pop()
+                  objectTestCommonData.acceptedRatioFOverWidth.pop()
+                  objectTestCommonData.acceptedLocation.pop()
+                  objectTestCommonData.acceptedPointXYPx.pop()
+                  objectTestCommonData.acceptedLeftEyeFootXYPx.pop()
+                  objectTestCommonData.acceptedRightEyeFootXYPx.pop()
+                  objectTestCommonData.acceptedIpdOverWidth.pop()
+                  objectTestCommonData.acceptedRulerBasedEyesToFootCm.pop()
+                  objectTestCommonData.acceptedRulerBasedEyesToPointCm.pop()
+                  objectTestCommonData.acceptedImageBasedEyesToFootCm.pop()
+                  objectTestCommonData.acceptedImageBasedEyesToPointCm.pop()
+
+                  // Queue the CURRENT (failing) measurement as rejected
+                  measurementSaveQueue.push({
+                    locEye: failLocInfo.locEye,
+                    location: failLocInfo.location,
+                    meshSamples: [...meshSamplesDuringPage3],
+                    factorCmPx,
+                    fOverWidth,
+                    cameraResolution: cameraRes,
+                    locationIndex: locationManager.getCurrentIndex(),
+                    accepted: false,
+                    eye: failLocInfo.eye,
+                  })
+                  console.log(
+                    `Queued rejected measurement for location ${failLocInfo.locEye}`,
+                  )
+
+                  // Retroactively reject the PREVIOUS measurement.
+                  // It was queued as accepted=true earlier, but now both it and the
+                  // current measurement are considered inconsistent.  Walk the queue
+                  // backwards to find the most-recent accepted entry and flip it.
+                  for (
+                    let qi = measurementSaveQueue.length - 2;
+                    qi >= 0;
+                    qi--
+                  ) {
+                    if (measurementSaveQueue[qi].accepted) {
+                      measurementSaveQueue[qi].accepted = false
+                      console.log(
+                        `Retroactively rejected queued measurement at index ${qi} ` +
+                          `(location ${measurementSaveQueue[qi].locEye}, ` +
+                          `fOverWidth ${measurementSaveQueue[qi].fOverWidth})`,
+                      )
+                      break
+                    }
+                  }
+
+                  // Show rejection popup
+                  const displayMessage =
                     phrases.RC_focalLengthMismatch?.[RC.L]?.replace(
                       '[[N1]]',
-                      fOverWidthRatioPercent,
+                      ratioPercent,
                     ) ||
-                    `❌ The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
-                }
-                
-                // Tolerance check failed - show error and restart Face Mesh collection
-                console.log(
-                  '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION ===',
-                )
-                console.log(
-                  `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
-                )
+                    `The last two snapshots are inconsistent. Your new distance is ${ratioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
 
-                // Note: validPage3Samples, validPage4Samples, page3Average, page4Average,
-                // page3FactorCmPx, page4FactorCmPx, averageFactorCmPx
-                // are already calculated above in the outer scope
+                  await Swal.fire({
+                    ...swalInfoOptions(RC, { showIcon: false }),
+                    title: '', // No heading - message uses international phrase RC_focalLengthMismatch only
+                    html: `<p>${displayMessage}</p>`,
+                    confirmButtonText: phrases.EE_ok?.[RC.L] || 'OK',
+                  })
 
-                try {
-                  if (
-                    meshSamplesDuringPage3.length &&
-                    meshSamplesDuringPage4.length
-                  ) {
-                    const measurements = []
-                    if (meshSamplesDuringPage3.length) {
-                      const {
-                        nearestPointsData,
-                        currentIPDDistance,
-                        ipdXYZVpx: ipdXYZVpxPage3,
-                      } = await processMeshDataAndCalculateNearestPoints(
-                        RC,
-                        options,
-                        meshSamplesDuringPage3,
-                        page3FactorCmPx,
-                        ppi,
-                        0,
-                        0,
-                        'object',
-                        1,
-                        [0, 0], // fixPoint - fixation cross position
-                        [0, 0], // spotPoint - MUST be shared border, not red center
-                        0,
-                        0,
-                        0,
-                        options.calibrateDistanceChecking,
-                        [window.screen.width / 2, 0], // pointXYPx = cameraXYPx
-                        firstMeasurement,
-                      )
+                  // Reject measurements and go back using locationManager
+                  // NOTE: Use count=1 because the current (failing) fOverWidth was never stored.
+                  // Only the previous measurement needs to be popped. The index goes back by 1
+                  // to the position of the first rejected measurement.
+                  locationManager.rejectAndGoBack(1)
 
-                      measurements.push(
-                        createMeasurementObject(
-                          'firstMeasurement',
-                          firstMeasurement,
-                          page3FactorCmPx,
-                          nearestPointsData,
-                          currentIPDDistance,
-                          null,
-                          cameraResolutionXYVpxPage3,
-                          isPaperSelectionMode
-                            ? selectedPaperLabel ||
-                                paperSelectionOptions.find(
-                                  o => o.key === selectedPaperOption,
-                                )?.label ||
-                                null
-                            : null,
-                          isPaperSelectionMode ? paperSuggestionValue : null,
-                          ipdXYZVpxPage3,
-                          RC.fOverWidth1,
-                        ),
-                      )
-                    }
-                    if (meshSamplesDuringPage4.length) {
-                      const {
-                        nearestPointsData,
-                        currentIPDDistance,
-                        ipdXYZVpx: ipdXYZVpxPage4,
-                      } = await processMeshDataAndCalculateNearestPoints(
-                        RC,
-                        options,
-                        meshSamplesDuringPage4,
-                        page4FactorCmPx,
-                        ppi,
-                        0,
-                        0,
-                        'object',
-                        2,
-                        [0, 0], // fixPoint - fixation cross position
-                        [0, 0], // spotPoint - MUST be shared border, not red center
-                        0,
-                        0,
-                        0,
-                        options.calibrateDistanceChecking,
-                        [window.screen.width / 2, window.screen.height / 2], // pointXYPx = screen center
-                        firstMeasurement,
-                      )
+                  // Reset face mesh samples for retry
+                  faceMeshSamplesPage3.length = 0
+                  meshSamplesDuringPage3.length = 0
 
-                      measurements.push(
-                        createMeasurementObject(
-                          'secondMeasurement',
-                          firstMeasurement,
-                          page4FactorCmPx,
-                          nearestPointsData,
-                          currentIPDDistance,
-                          null,
-                          cameraResolutionXYVpxPage4,
-                          isPaperSelectionMode
-                            ? selectedPaperLabel ||
-                                paperSelectionOptions.find(
-                                  o => o.key === selectedPaperOption,
-                                )?.label ||
-                                null
-                            : null,
-                          isPaperSelectionMode ? paperSuggestionValue : null,
-                          ipdXYZVpxPage4,
-                          RC.fOverWidth2,
-                        ),
-                      )
-                    }
+                  // Re-render the measurement page for the reset location
+                  // This will reset instructions to the beginning
+                  const resetPageConfig = buildMeasurementPageConfig(
+                    locationManager,
+                    options.saveSnapshotsBool || false,
+                  )
 
-                    saveCalibrationMeasurements(
-                      RC,
-                      'object',
-                      measurements,
-                      undefined,
-                      objectTestCommonData,
+                  if (resetPageConfig) {
+                    const pageResult =
+                      await measurementPageRenderer.showMeasurementPage({
+                        ...resetPageConfig,
+                        pageNumberOffset: isPaperSelectionMode ? 1 : 0,
+                        onProgressUpdate: (current, total) => {
+                          console.log(
+                            `Progress update after rejection: ${current} of ${total}`,
+                          )
+                        },
+                        setStepModel: (model, index) => {
+                          stepInstructionModel = model
+                          currentStepFlatIndex = index
+                        },
+                      })
+
+                    arrowIndicators = pageResult.arrowIndicators
+                    // Update measurement overlay for the reset location
+                    updateMeasurementOverlayForLocation(resetPageConfig.eye)
+                    console.log(
+                      `Re-rendered page after rejection for location ${locationManager.getCurrentIndex()}`,
                     )
+                  } else {
+                    // Fallback: update UI elements manually
+                    const resetLocInfo =
+                      locationManager.getCurrentLocationInfo()
+                    if (resetLocInfo) {
+                      positionVideoForLocation(RC, resetLocInfo.location)
+                      if (arrowIndicators) arrowIndicators.remove()
+                      const arrowXY = getArrowPositionForLocation(
+                        resetLocInfo.location,
+                      )
+                      arrowIndicators = createArrowIndicators(arrowXY)
+                      RC.background.appendChild(arrowIndicators)
+                      updateMeasurementOverlayForLocation(resetLocInfo.eye)
+                    }
                   }
-                } catch (error) {
-                  console.error('Error getting mesh data:', error)
-                }
 
-                // Clear both sample arrays to restart collection
-                faceMeshSamplesPage3.length = 0
-                faceMeshSamplesPage4.length = 0
-                meshSamplesDuringPage3.length = 0
-                meshSamplesDuringPage4.length = 0
+                  // Update progress title (getCurrentIndex is 0-based, +1 for 1-based, +1 for paper page)
+                  viewingDistanceMeasurementCount =
+                    locationManager.getCurrentIndex() +
+                    1 +
+                    (isPaperSelectionMode ? 1 : 0)
+                  renderViewingDistanceProgressTitle()
 
-                const isOutOfRangeError = reasonIsOutOfRange
-                const inPanelContext = RC._panelStatus.hasPanel
-
-                if (isOutOfRangeError && inPanelContext) {
-                  await Swal.fire({
-                    ...swalInfoOptions(RC, { showIcon: false }),
-                    icon: undefined,
-                    html: displayMessage,
-                    allowEnterKey: true,
-                  }).then(() => {
-                    // Clean up object test before returning to panel
-                    cleanupObjectTest()
-                    RC._returnToPanelForScreenSize()
-                  })
-                  return // Exit early to prevent the normal restart flow
-                } else {
-                  // Show simple popup with centered OK button
-                  await Swal.fire({
-                    ...swalInfoOptions(RC, { showIcon: false }),
-                    icon: undefined,
-                    html: displayMessage,
-                    showCancelButton: false,
-                    confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
-                    allowEnterKey: true,
-                    allowEscapeKey: false,
-                    allowOutsideClick: false,
-                  })
-
-                  // Increment rejection counter and show pause
-                  measurementState.factorRejectionCount++
+                  // Re-add listener to retry
+                  document.addEventListener('keydown', handleKeyPress)
+                  lastCapturedFaceImage = null
+                  // Set global point based on current location using locationManager
+                  const currentLocForPoint =
+                    locationManager.getCurrentLocationInfo()
+                  globalPointXYPx.value = getGlobalPointForLocation(
+                    currentLocForPoint.location,
+                  )
                   console.log(
-                    `Factor rejection count: ${measurementState.factorRejectionCount}`,
+                    'page 3:4 globalPointXYPx:',
+                    globalPointXYPx.value,
+                  )
+                } else {
+                  // Tolerance check PASSED - store this measurement using locationManager
+                  console.log('=== TOLERANCE CHECK PASSED ===')
+
+                  // DEBUG: Log the measurement data being stored
+                  console.log('=== DEBUG: STORING MEASUREMENT ===')
+                  console.log(
+                    `  firstMeasurement (objectLengthCm): ${firstMeasurement}`,
+                  )
+                  console.log(`  avgFaceMesh: ${avgFaceMesh}`)
+                  console.log(`  factorCmPx: ${factorCmPx}`)
+                  console.log(`  fOverWidth: ${fOverWidth}`)
+
+                  // Get previous fOverWidth BEFORE storing current (so we get the real previous)
+                  const prevF = locationManager.getPreviousFOverWidth()
+
+                  locationManager.storeMeasurement({
+                    location: currentLocMeasurement.location,
+                    eye: currentLocMeasurement.eye,
+                    faceMeshSamples: [...faceMeshSamplesPage3],
+                    meshSamples: [...meshSamplesDuringPage3],
+                    cameraResolution: cameraRes,
+                    avgFaceMesh,
+                    factorCmPx,
+                    fOverWidth,
+                    // CRITICAL: Include the object length (firstMeasurement) for recovery
+                    objectLengthCm: firstMeasurement,
+                  })
+
+                  // Queue this snapshot as accepted.
+                  // We do NOT call saveCalibrationMeasurements yet -- if a later
+                  // tolerance check fails, the retroactive rejection logic will flip
+                  // this entry's accepted flag to false in the queue.  The entire
+                  // queue is saved in bulk at the "ALL LOCATIONS MEASURED" exit point.
+                  // Plot lists: accepted (ratio is NaN for first; ratio = current/previous); 4 decimals
+                  objectTestCommonData.acceptedFOverWidth.push(
+                    parseFloat(Number(fOverWidth).toFixed(4)),
+                  )
+                  objectTestCommonData.acceptedRatioFOverWidth.push(
+                    prevF == null
+                      ? NaN
+                      : (() => {
+                          const r = fOverWidth / prevF
+                          return r != null && !isNaN(r)
+                            ? parseFloat(Number(r).toFixed(4))
+                            : NaN
+                        })(),
+                  )
+                  objectTestCommonData.acceptedLocation.push(
+                    currentLocMeasurement.locEye,
+                  )
+                  objectTestCommonData.acceptedPointXYPx.push(
+                    globalPointXYPx.value
+                      ? [...globalPointXYPx.value]
+                      : [null, null],
+                  )
+                  // Accepted per-snapshot metrics
+                  objectTestCommonData.acceptedLeftEyeFootXYPx.push(
+                    nearestXYPx_left && nearestXYPx_left.length >= 2
+                      ? [
+                          Math.round(nearestXYPx_left[0] * 100) / 100,
+                          Math.round(nearestXYPx_left[1] * 100) / 100,
+                        ]
+                      : null,
+                  )
+                  objectTestCommonData.acceptedRightEyeFootXYPx.push(
+                    nearestXYPx_right && nearestXYPx_right.length >= 2
+                      ? [
+                          Math.round(nearestXYPx_right[0] * 100) / 100,
+                          Math.round(nearestXYPx_right[1] * 100) / 100,
+                        ]
+                      : null,
+                  )
+                  objectTestCommonData.acceptedIpdOverWidth.push(
+                    ipdOverWidth != null && !isNaN(ipdOverWidth)
+                      ? parseFloat(Number(ipdOverWidth).toFixed(4))
+                      : null,
+                  )
+                  objectTestCommonData.acceptedRulerBasedEyesToFootCm.push(
+                    rulerBasedEyesToFootCm != null &&
+                      !isNaN(rulerBasedEyesToFootCm)
+                      ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.acceptedRulerBasedEyesToPointCm.push(
+                    rulerBasedEyesToPointCm != null &&
+                      !isNaN(rulerBasedEyesToPointCm)
+                      ? parseFloat(Number(rulerBasedEyesToPointCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.acceptedImageBasedEyesToFootCm.push(
+                    imageBasedEyesToFootCm != null &&
+                      !isNaN(imageBasedEyesToFootCm)
+                      ? parseFloat(Number(imageBasedEyesToFootCm).toFixed(2))
+                      : null,
+                  )
+                  objectTestCommonData.acceptedImageBasedEyesToPointCm.push(
+                    imageBasedEyesToPointCm != null &&
+                      !isNaN(imageBasedEyesToPointCm)
+                      ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
+                      : null,
+                  )
+                  measurementSaveQueue.push({
+                    locEye: currentLocMeasurement.locEye,
+                    location: currentLocMeasurement.location,
+                    meshSamples: [...meshSamplesDuringPage3],
+                    factorCmPx,
+                    fOverWidth,
+                    cameraResolution: cameraRes,
+                    locationIndex: locationManager.getCurrentIndex(),
+                    accepted: true,
+                    eye: currentLocMeasurement.eye,
+                  })
+                  console.log(
+                    `Queued accepted measurement for location ${currentLocMeasurement.locEye}`,
                   )
 
-                  // Show pause before allowing retry (with exponentially growing duration)
-                  await showPauseBeforeNewObject(
-                    RC,
-                    measurementState.factorRejectionCount,
-                    'RC_PauseBeforeRemeasuringDistance',
+                  // Check if there are more locations
+                  const hasMoreLocations = locationManager.advanceToNext()
+
+                  console.log(
+                    'page 3:5 globalPointXYPx:',
+                    globalPointXYPx.value,
                   )
+
+                  if (hasMoreLocations) {
+                    // Set global point based on current location using locationManager
+                    const currentLocForPoint =
+                      locationManager.getCurrentLocationInfo()
+                    globalPointXYPx.value = getGlobalPointForLocation(
+                      currentLocForPoint.location,
+                    )
+                    // More locations to measure - stay on Page 3 with new positioning
+                    console.log(
+                      `=== ADVANCING TO NEXT LOCATION ${locationManager.getCurrentIndex()} ===`,
+                    )
+
+                    // Clear samples for next measurement
+                    faceMeshSamplesPage3.length = 0
+                    meshSamplesDuringPage3.length = 0
+
+                    // Build new page config for the next location
+                    const nextPageConfig = buildMeasurementPageConfig(
+                      locationManager,
+                      options.saveSnapshotsBool || false,
+                    )
+
+                    if (nextPageConfig) {
+                      // Re-render the measurement page with new location
+                      // This will reset instructions to the beginning and update all UI
+                      const pageResult =
+                        await measurementPageRenderer.showMeasurementPage({
+                          ...nextPageConfig,
+                          pageNumberOffset: isPaperSelectionMode ? 1 : 0,
+                          onProgressUpdate: (current, total) => {
+                            console.log(
+                              `Progress update: ${current} of ${total}`,
+                            )
+                          },
+                          setStepModel: (model, index) => {
+                            stepInstructionModel = model
+                            currentStepFlatIndex = index
+                          },
+                        })
+
+                      // Update the arrow indicators reference
+                      arrowIndicators = pageResult.arrowIndicators
+                      // Update measurement overlay for the next location
+                      updateMeasurementOverlayForLocation(nextPageConfig.eye)
+
+                      console.log(
+                        `Re-rendered page for location ${locationManager.getCurrentIndex()}: ${nextPageConfig.locEye}`,
+                      )
+                    } else {
+                      // Fallback: just update UI elements manually
+                      const nextLocInfo =
+                        locationManager.getCurrentLocationInfo()
+                      if (nextLocInfo) {
+                        positionVideoForLocation(RC, nextLocInfo.location)
+                        if (arrowIndicators) arrowIndicators.remove()
+                        const arrowXY = getArrowPositionForLocation(
+                          nextLocInfo.location,
+                        )
+                        arrowIndicators = createArrowIndicators(arrowXY)
+                        RC.background.appendChild(arrowIndicators)
+                        updateMeasurementOverlayForLocation(nextLocInfo.eye)
+                        console.log(
+                          `Updated UI for location ${locationManager.getCurrentIndex()}: ${nextLocInfo.locEye}`,
+                        )
+                      }
+                    }
+
+                    // Update progress title (getCurrentIndex is 0-based, +1 for 1-based, +1 for paper page)
+                    viewingDistanceMeasurementCount =
+                      locationManager.getCurrentIndex() +
+                      1 +
+                      (isPaperSelectionMode ? 1 : 0)
+                    renderViewingDistanceProgressTitle()
+
+                    // Re-add listener for next measurement
+                    document.addEventListener('keydown', handleKeyPress)
+                    lastCapturedFaceImage = null
+                  } else {
+                    // =====================================================================
+                    // ALL LOCATIONS MEASURED - FINISH DIRECTLY (NO PAGE 4 NEEDED)
+                    // =====================================================================
+                    console.log(
+                      '=== ALL LOCATIONS MEASURED - FINISHING DIRECTLY FROM PAGE 3 ===',
+                    )
+
+                    const completedMeasurements =
+                      locationManager.getCompletedMeasurements()
+                    console.log(
+                      `Total completed measurements: ${completedMeasurements.length}`,
+                    )
+
+                    // Calculate final calibration from all measurements
+                    const finalCalibration =
+                      locationManager.calculateFinalCalibration()
+                    console.log('=== FINAL CALIBRATION CALCULATED ===')
+                    console.log(
+                      `  Geometric mean fOverWidth: ${finalCalibration.geometricMeanFOverWidth}`,
+                    )
+                    console.log(
+                      `  Geometric mean factor: ${finalCalibration.geometricMeanFactor}`,
+                    )
+
+                    // Set RC values for compatibility with existing finish logic
+                    const firstMeasurementData = completedMeasurements[0]
+                    const lastMeasurementData =
+                      completedMeasurements[completedMeasurements.length - 1]
+
+                    // Set global point based on last measurement location
+                    globalPointXYPx.value = getGlobalPointForLocation(
+                      lastMeasurementData.location,
+                    )
+
+                    RC.page3FactorCmPx = firstMeasurementData.factorCmPx
+                    RC.page4FactorCmPx = lastMeasurementData.factorCmPx
+                    RC.fOverWidth1 = firstMeasurementData.fOverWidth
+                    RC.fOverWidth2 = lastMeasurementData.fOverWidth
+                    RC.averageObjectTestCalibrationFactor =
+                      finalCalibration.geometricMeanFactor
+                    // CRITICAL: Set calibrationFOverWidth (geometric mean of fOverWidth values)
+                    // This is used by distanceTrack.js and checkDistance.js for distance tracking.
+                    // Without this, RC.calibrationFOverWidth is undefined and produces NaN.
+                    RC.calibrationFOverWidth =
+                      finalCalibration.geometricMeanFOverWidth
+
+                    // Copy measurement data to Page 3/4 arrays for compatibility with finish function
+                    faceMeshSamplesPage3 = [
+                      ...firstMeasurementData.faceMeshSamples,
+                    ]
+                    meshSamplesDuringPage3 = [
+                      ...firstMeasurementData.meshSamples,
+                    ]
+                    cameraResolutionXYVpxPage3 =
+                      firstMeasurementData.cameraResolution
+
+                    faceMeshSamplesPage4 = [
+                      ...lastMeasurementData.faceMeshSamples,
+                    ]
+                    meshSamplesDuringPage4 = [
+                      ...lastMeasurementData.meshSamples,
+                    ]
+                    cameraResolutionXYVpxPage4 =
+                      lastMeasurementData.cameraResolution
+
+                    // CRITICAL: Remove listeners BEFORE calling finish to prevent re-triggering
+                    document.removeEventListener('keydown', handleKeyPress)
+                    document.removeEventListener('keyup', handleKeyPress)
+                    document.removeEventListener(
+                      'keydown',
+                      handleInstructionNav,
+                    )
+
+                    // =====================================================================
+                    // BULK SAVE: Process the measurementSaveQueue in chronological order.
+                    // Each entry becomes a full calibration-attempt record.
+                    // =====================================================================
+                    try {
+                      const allMeasurementObjects = []
+                      for (const entry of measurementSaveQueue) {
+                        const entryPointXYPx = getGlobalPointForLocation(
+                          entry.location,
+                        )
+                        const {
+                          nearestPointsData: entryNearestPointsData,
+                          currentIPDDistance: entryCurrentIPDDistance,
+                          ipdXYZVpx: entryIpdXYZVpx,
+                        } = await processMeshDataAndCalculateNearestPoints(
+                          RC,
+                          options,
+                          [...entry.meshSamples],
+                          entry.factorCmPx,
+                          ppi,
+                          0,
+                          0,
+                          'object',
+                          entry.locationIndex + 1,
+                          [0, 0],
+                          [0, 0],
+                          0,
+                          0,
+                          0,
+                          options.calibrateDistanceChecking,
+                          entryPointXYPx,
+                          firstMeasurement,
+                        )
+
+                        allMeasurementObjects.push(
+                          createMeasurementObject(
+                            `location-${entry.locEye}`,
+                            firstMeasurement,
+                            entry.factorCmPx,
+                            entryNearestPointsData,
+                            entryCurrentIPDDistance,
+                            null,
+                            entry.cameraResolution,
+                            isPaperSelectionMode
+                              ? selectedPaperLabel ||
+                                  paperSelectionOptions.find(
+                                    o => o.key === selectedPaperOption,
+                                  )?.label ||
+                                  null
+                              : null,
+                            isPaperSelectionMode ? paperSuggestionValue : null,
+                            entryIpdXYZVpx,
+                            entry.fOverWidth,
+                            entry.accepted,
+                          ),
+                        )
+                      }
+
+                      objectTestCommonData.snapshotsTaken =
+                        objectTestCommonData.historyFOverWidth.length
+                      objectTestCommonData.snapshotsRejected =
+                        objectTestCommonData.rejectedFOverWidth.length
+                      saveCalibrationMeasurements(
+                        RC,
+                        'object',
+                        allMeasurementObjects,
+                        undefined,
+                        objectTestCommonData,
+                      )
+
+                      const acceptedCount = allMeasurementObjects.filter(
+                        m => m.snapshotAcceptedBool,
+                      ).length
+                      const rejectedCount =
+                        allMeasurementObjects.length - acceptedCount
+                      console.log(
+                        `Saved ${allMeasurementObjects.length} measurement attempts ` +
+                          `(${acceptedCount} accepted, ${rejectedCount} rejected) ` +
+                          `in chronological order`,
+                      )
+                    } catch (error) {
+                      console.error(
+                        'Error in bulk save of measurement attempts:',
+                        error,
+                      )
+                    }
+
+                    // Call finish function DIRECTLY - no need for Page 4
+                    console.log(
+                      '=== CALLING objectTestFinishFunction DIRECTLY ===',
+                    )
+                    await objectTestFinishFunction()
+
+                    lastCapturedFaceImage = null
+                    // No need to re-add listeners - calibration is complete
+                  }
                 }
-
-                // Reset to page 3 to restart snapshots (keep same object measurement)
-                // Per spec: Reject BOTH measurements, go back to first snapshot page
-                
-                // Clear Face Mesh samples for fresh start
-                faceMeshSamplesPage3.length = 0
-                faceMeshSamplesPage4.length = 0
-                meshSamplesDuringPage3.length = 0
-                meshSamplesDuringPage4.length = 0
-                
-                // Reset measurement count - showPage(3) will increment by 1
-                // In paper mode: page 2 is count 1, page 3 is count 2, page 4 is count 3
-                // In non-paper mode: page 3 is count 1, page 4 is count 2
-                viewingDistanceMeasurementCount = isPaperSelectionMode ? 1 : 0
-                viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
-                
-                console.log(
-                  `Rejected BOTH measurements. Restarting from page 3. Count reset to: ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
-                )
-
-                // Go directly to page 3 (don't use nextPage() which runs paper selection logic again)
-                // Keep firstMeasurement - DO NOT set to null
-                await showPage(3)
-
-                // Re-add the event listener for the new page 3 instance
-                document.addEventListener('keydown', handleKeyPress)
               }
-
-              // Clean up the captured image for privacy
-              lastCapturedFaceImage = null
-
-              // Only remove the listener if the test is actually finishing (not restarting)
-              if (pass) {
-                document.removeEventListener('keydown', handleKeyPress)
-              }
-            }
-          })()
-        }
+            })()
+          }
+          // NOTE: Page 4 space handler has been removed.
+          // All location measurements are handled in the Page 3 loop above.
         })() // Close the fullscreen enforcement async IIFE
       }
     }
@@ -8891,10 +9417,10 @@ export async function objectTest(RC, options, callback = undefined) {
           })
 
           // Show pause before allowing new object (with exponentially growing duration)
-          await showPauseBeforeNewObject(
-            RC,
-            measurementState.tooShortRejectionCount,
-          )
+          // await showPauseBeforeNewObject(
+          //   RC,
+          //   measurementState.tooShortRejectionCount,
+          // )
 
           // Reset the ruler/tape to initial position
           await resetPage2ForNextMeasurement()
@@ -8949,509 +9475,6 @@ export async function objectTest(RC, options, callback = undefined) {
           'distance',
         )
       }
-    } else if (currentPage === 3) {
-      globalPointXYPx.value = [window.screen.width / 2, 0]
-      // Play camera shutter sound on page 3
-      if (env !== 'mocha' && cameraShutterSound) {
-        cameraShutterSound()
-      }
-
-      // Collect 5 Face Mesh samples for calibration on page 3
-      console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
-
-      // Collect 5 Face Mesh samples for calibration
-      await collectFaceMeshSamples(
-        RC,
-        faceMeshSamplesPage3,
-        ppi,
-        meshSamplesDuringPage3,
-      )
-      cameraResolutionXYVpxPage3 = getCameraResolutionXY(RC)
-      console.log(
-        'Face Mesh calibration samples (page 3):',
-        faceMeshSamplesPage3,
-      )
-
-      // Move to page 4
-      await nextPage()
-    } else if (currentPage === 4) {
-      globalPointXYPx.value = [
-        window.screen.width / 2,
-        window.screen.height / 2,
-      ]
-      // Play camera shutter sound on page 4
-      if (env !== 'mocha' && cameraShutterSound) {
-        cameraShutterSound()
-      }
-
-      // Collect 5 Face Mesh samples for calibration on page 4
-      console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
-
-      // Collect 5 Face Mesh samples for calibration
-      await collectFaceMeshSamples(
-        RC,
-        faceMeshSamplesPage4,
-        ppi,
-        meshSamplesDuringPage4,
-      )
-      cameraResolutionXYVpxPage4 = getCameraResolutionXY(RC)
-      console.log(
-        'Face Mesh calibration samples (page 4):',
-        faceMeshSamplesPage4,
-      )
-
-      console.log('=== CALCULATING FACTORS BEFORE TOLERANCE CHECK ===')
-
-      // Calculate factors BEFORE tolerance check (Proceed button case)
-      const validPage3Samples = faceMeshSamplesPage3.filter(
-        sample => !isNaN(sample),
-      )
-      const validPage4Samples = faceMeshSamplesPage4.filter(
-        sample => !isNaN(sample),
-      )
-      const page3Average = validPage3Samples.length
-        ? validPage3Samples.reduce((a, b) => a + b, 0) /
-          validPage3Samples.length
-        : 0
-      const page4Average = validPage4Samples.length
-        ? validPage4Samples.reduce((a, b) => a + b, 0) /
-          validPage4Samples.length
-        : 0
-
-      // Calculate separate calibration factors for page3 and page4
-      const page3FactorCmPx = RC.page3FactorCmPx
-
-      // For page 4, calculate factorVpxCm using new geometric formulas
-      let page4FactorCmPx = page4Average * firstMeasurement // Default calculation
-
-      // Calculate page4FactorCmPx using new geometry (screen center)
-      try {
-        if (meshSamplesDuringPage4.length) {
-          const mesh = await getMeshData(
-            RC,
-            options.calibrateDistancePupil,
-            meshSamplesDuringPage4,
-          )
-          if (mesh) {
-            const { leftEye, rightEye, video, currentIPDDistance } = mesh
-            const pxPerCm = ppi / 2.54
-            const objectLengthCm = firstMeasurement
-            objectLengthCmGlobal.value = objectLengthCm
-            const ipdVpx = currentIPDDistance
-
-            // Get foot positions
-            const { nearestXYPx_left, nearestXYPx_right, cameraXYPx } =
-              calculateFootXYPx(
-                RC,
-                video,
-                leftEye,
-                rightEye,
-                pxPerCm,
-                currentIPDDistance,
-              )
-
-            // Calculate average foot position
-            const footXYPx = [
-              (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
-              (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
-            ]
-
-            // Set pointXYPx to screen center
-            const pointXYPx = [
-              window.screen.width / 2,
-              window.screen.height / 2,
-            ]
-
-            // Calculate distances using the new formulas
-            const pointToFootCm =
-              Math.hypot(
-                pointXYPx[0] - footXYPx[0],
-                pointXYPx[1] - footXYPx[1],
-              ) / pxPerCm
-
-            const footToCameraCm =
-              Math.hypot(
-                footXYPx[0] - cameraXYPx[0],
-                footXYPx[1] - cameraXYPx[1],
-              ) / pxPerCm
-
-            const eyeToPointCm = objectLengthCm
-            const eyeToFootCm = Math.sqrt(
-              eyeToPointCm ** 2 - pointToFootCm ** 2,
-            )
-            const eyeToScreenCm = eyeToFootCm // parallel to optical axis (screen normal)
-            const eyeToCameraCm = Math.hypot(eyeToScreenCm, footToCameraCm)
-
-            // Calculate factorVpxCm using parallel-to-axis distance
-            page4FactorCmPx = ipdVpx * eyeToScreenCm
-
-            // Store geometric calculation details for debugging
-            RC.page4GeometricCalc = {
-              objectLengthCm: objectLengthCm,
-              ipdVpx: ipdVpx,
-              footXYPx: footXYPx,
-              pointXYPx: pointXYPx,
-              cameraXYPx: cameraXYPx,
-              pointToFootCm: pointToFootCm,
-              footToCameraCm: footToCameraCm,
-              eyeToPointCm: eyeToPointCm,
-              eyeToFootCm: eyeToFootCm,
-              eyeToScreenCm: eyeToScreenCm,
-              eyeToCameraCm: eyeToCameraCm,
-              page4FactorCmPx: page4FactorCmPx,
-              nearestXYPx_left: nearestXYPx_left,
-              nearestXYPx_right: nearestXYPx_right,
-            }
-          }
-        }
-      } catch (error) {
-        console.error(
-          'Error calculating page4FactorCmPx with new geometry (Proceed button):',
-          error,
-        )
-        // Fall back to simple calculation
-        //page4FactorCmPx = page4Average * firstMeasurement
-      }
-
-      // Calculate geometric mean of the two factors (appropriate for ratio data)
-      const averageFactorCmPx = Math.sqrt(page3FactorCmPx * page4FactorCmPx)
-      //RC.averageObjectTestCalibrationFactor = Math.round(averageFactorCmPx)
-
-      // Now check tolerance with the calculated factors
-      console.log(
-        '=== CHECKING TOLERANCE WITH CALCULATED FACTORS (Proceed button) ===',
-      )
-      const [pass, message, min, max, RMin, RMax, maxRatio, factorRatio] =
-        checkObjectTestTolerance(
-          RC,
-          faceMeshSamplesPage3,
-          faceMeshSamplesPage4,
-          options.calibrateDistanceAllowedRatio,
-          options.calibrateDistanceAllowedRangeCm,
-          firstMeasurement,
-          page3FactorCmPx,
-          page4FactorCmPx,
-        )
-      if (RC.measurementHistory && message !== 'Pass')
-        RC.measurementHistory.push(message)
-      else if (message !== 'Pass') RC.measurementHistory = [message]
-
-      if (pass) {
-        console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
-
-        try {
-          if (meshSamplesDuringPage3.length && meshSamplesDuringPage4.length) {
-            const measurements = []
-            if (meshSamplesDuringPage3.length) {
-              const {
-                nearestPointsData,
-                currentIPDDistance,
-                ipdXYZVpx: ipdXYZVpxPage3,
-              } = await processMeshDataAndCalculateNearestPoints(
-                RC,
-                options,
-                meshSamplesDuringPage3,
-                page3FactorCmPx,
-                ppi,
-                0,
-                0,
-                'object',
-                1,
-                [0, 0], // fixPoint - fixation cross position
-                [0, 0], // spotPoint - MUST be shared border, not red center
-                0,
-                0,
-                0,
-                options.calibrateDistanceChecking,
-                [window.screen.width / 2, 0], // pointXYPx = cameraXYPx
-                firstMeasurement,
-              )
-
-              measurements.push(
-                createMeasurementObject(
-                  'firstMeasurement',
-                  firstMeasurement,
-                  page3FactorCmPx,
-                  nearestPointsData,
-                  currentIPDDistance,
-                  null,
-                  cameraResolutionXYVpxPage3,
-                  isPaperSelectionMode
-                    ? selectedPaperLabel ||
-                        paperSelectionOptions.find(
-                          o => o.key === selectedPaperOption,
-                        )?.label ||
-                        null
-                    : null,
-                  isPaperSelectionMode ? paperSuggestionValue : null,
-                  ipdXYZVpxPage3,
-                  RC.fOverWidth1,
-                ),
-              )
-            }
-            if (meshSamplesDuringPage4.length) {
-              const {
-                nearestPointsData,
-                currentIPDDistance,
-                ipdXYZVpx: ipdXYZVpxPage4,
-              } = await processMeshDataAndCalculateNearestPoints(
-                RC,
-                options,
-                meshSamplesDuringPage4,
-                page4FactorCmPx,
-                ppi,
-                0,
-                0,
-                'object',
-                2,
-                [0, 0], // fixPoint - fixation cross position
-                [0, 0], // spotPoint - MUST be shared border, not red center
-                0,
-                0,
-                0,
-                options.calibrateDistanceChecking,
-                [window.screen.width / 2, window.screen.height / 2], // pointXYPx = screen center
-                firstMeasurement,
-              )
-
-              measurements.push(
-                createMeasurementObject(
-                  'secondMeasurement',
-                  firstMeasurement,
-                  page4FactorCmPx,
-                  nearestPointsData,
-                  currentIPDDistance,
-                  null,
-                  cameraResolutionXYVpxPage4,
-                  isPaperSelectionMode
-                    ? selectedPaperLabel ||
-                        paperSelectionOptions.find(
-                          o => o.key === selectedPaperOption,
-                        )?.label ||
-                        null
-                    : null,
-                  isPaperSelectionMode ? paperSuggestionValue : null,
-                  ipdXYZVpxPage4,
-                  RC.fOverWidth2,
-                ),
-              )
-            }
-
-            saveCalibrationMeasurements(
-              RC,
-              'object',
-              measurements,
-              undefined,
-              objectTestCommonData,
-            )
-          }
-        } catch (error) {
-          console.error('Error getting mesh data:', error)
-        }
-
-        await objectTestFinishFunction()
-      } else {
-        const ipdpxRatio = Math.sqrt(
-          faceMeshSamplesPage3[0] / faceMeshSamplesPage4[0],
-        )
-        const newMin = min.toFixed(1) * ipdpxRatio
-        const newMax = max.toFixed(1) / ipdpxRatio
-        const reasonIsOutOfRange = message.includes('out of allowed range')
-        
-        // For fOverWidth mismatch: ratio = (100 * oldFOverWidth / newFOverWidth).toFixed(0)
-        const fOverWidthRatioPercent = RC.fOverWidth1 && RC.fOverWidth2
-          ? (100 * RC.fOverWidth1 / RC.fOverWidth2).toFixed(0)
-          : (100 * factorRatio).toFixed(0)
-        
-        let displayMessage = ''
-        if (reasonIsOutOfRange) {
-          displayMessage = phrases.RC_viewingExceededRange[RC.L]
-            .replace('[[N11]]', Math.round(newMin))
-            .replace('[[N22]]', Math.round(newMax))
-            .replace('[[N33]]', Math.round(RMin))
-            .replace('[[N44]]', Math.round(RMax))
-        } else {
-          // fOverWidth mismatch - use RC_focalLengthMismatch
-          displayMessage =
-            phrases.RC_focalLengthMismatch?.[RC.L]?.replace(
-              '[[N1]]',
-              fOverWidthRatioPercent,
-            ) ||
-            `❌ The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
-        }
-        
-        console.log(
-          '=== TOLERANCE CHECK FAILED - RESTARTING FACE MESH COLLECTION (Proceed button) ===',
-        )
-        console.log(
-          `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
-        )
-
-        // Note: validPage3Samples, validPage4Samples, page3Average, page4Average, page3FactorCmPx, page4FactorCmPx
-        // are already calculated above in the outer scope
-
-        // Save failed calibration attempt with the calculated factors
-        try {
-          const mesh = await getMeshData(
-            RC,
-            options.calibrateDistancePupil,
-            meshSamples,
-          )
-          if (mesh) {
-            const { leftEye, rightEye, video, currentIPDDistance } = mesh
-            // Calculate nearest points data for both page measurements
-            const webcamToEyeDistance_avg =
-              averageFactorCmPx / currentIPDDistance
-            const pxPerCm = ppi / 2.54
-            const nearestPointsData = calculateNearestPoints(
-              video,
-              leftEye,
-              rightEye,
-              currentIPDDistance,
-              webcamToEyeDistance_avg,
-              pxPerCm,
-              ppi,
-              RC,
-              options,
-              0,
-              0,
-              'object',
-              1,
-              [0, 0],
-              [0, 0],
-              0,
-              0,
-              currentIPDDistance,
-              false,
-              options.calibrateDistanceChecking,
-            )
-            const {
-              nearestXYPx_left,
-              nearestXYPx_right,
-              clampedNearestLeft,
-              clampedNearestRight,
-              nearestDistanceCm_left,
-              nearestDistanceCm_right,
-              nearestEyeToWebcamDistanceCM,
-              nearestEye,
-              nearestXYPx,
-              nearestDistanceCm,
-              distanceCm_left,
-              distanceCm_right,
-              distanceCm,
-            } = nearestPointsData
-            // Save object measurements separately (page3 and page4)
-            const measurements = [
-              {
-                type: 'firstMeasurement',
-                distance: firstMeasurement,
-                calibrationFactor: page3FactorCmPx,
-                nearestDistanceCm: nearestDistanceCm,
-                distanceCm_left: distanceCm_left,
-                distanceCm_right: distanceCm_right,
-                distanceCm: distanceCm,
-                nearestDistanceCm_right: nearestDistanceCm_right,
-                nearestDistanceCm_left: nearestDistanceCm_left,
-              },
-              {
-                type: 'secondMeasurement',
-                distance: firstMeasurement,
-                calibrationFactor: page4FactorCmPx,
-                nearestDistanceCm: nearestDistanceCm,
-                distanceCm_left: distanceCm_left,
-                distanceCm_right: distanceCm_right,
-                distanceCm: distanceCm,
-                nearestDistanceCm_right: nearestDistanceCm_right,
-                nearestDistanceCm_left: nearestDistanceCm_left,
-              },
-            ]
-
-            saveCalibrationMeasurements(
-              RC,
-              'object',
-              measurements,
-              undefined,
-              objectTestCommonData,
-            )
-          }
-        } catch (error) {
-          console.error('Error getting mesh data:', error)
-        }
-
-        faceMeshSamplesPage3.length = 0
-        faceMeshSamplesPage4.length = 0
-        meshSamplesDuringPage3.length = 0
-        meshSamplesDuringPage4.length = 0
-
-        const isOutOfRangeError = reasonIsOutOfRange
-        const inPanelContext = RC._panelStatus.hasPanel
-
-        if (isOutOfRangeError && inPanelContext) {
-          // Show normal error dialog but redirect to panel when OK is pressed
-          await Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: undefined,
-            html: displayMessage,
-            allowEnterKey: true,
-          }).then(() => {
-            // Clean up object test before returning to panel
-            cleanupObjectTest()
-            RC._returnToPanelForScreenSize()
-          })
-          return // Exit early to prevent the normal restart flow
-        } else {
-          // Show simple popup with centered OK button
-          await Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: undefined,
-            html: displayMessage,
-            showCancelButton: false,
-            confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
-            allowEnterKey: true,
-            allowEscapeKey: false,
-            allowOutsideClick: false,
-          })
-
-          // Increment rejection counter and show pause
-          measurementState.factorRejectionCount++
-          console.log(
-            `Factor rejection count (Proceed button path): ${measurementState.factorRejectionCount}`,
-          )
-
-          // Show pause before allowing retry (with exponentially growing duration)
-          await showPauseBeforeNewObject(
-            RC,
-            measurementState.factorRejectionCount,
-            'RC_PauseBeforeRemeasuringDistance',
-          )
-        }
-
-        // Reset to page 3 to restart snapshots (keep same object measurement)
-        // Per spec: Reject BOTH measurements, go back to first snapshot page
-        
-        // Clear Face Mesh samples for fresh start
-        faceMeshSamplesPage3.length = 0
-        faceMeshSamplesPage4.length = 0
-        meshSamplesDuringPage3.length = 0
-        meshSamplesDuringPage4.length = 0
-        
-        // Reset measurement count - showPage(3) will increment by 1
-        // In paper mode: page 2 is count 1, page 3 is count 2, page 4 is count 3
-        // In non-paper mode: page 3 is count 1, page 4 is count 2
-        viewingDistanceMeasurementCount = isPaperSelectionMode ? 1 : 0
-        viewingDistanceTotalExpected = isPaperSelectionMode ? 3 : 2
-        
-        console.log(
-          `Rejected BOTH measurements (Proceed button path). Restarting from page 3. Count reset to: ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
-        )
-
-        // Go directly to page 3 (don't use nextPage() which runs paper selection logic again)
-        // Keep firstMeasurement - DO NOT set to null
-        await showPage(3)
-
-        // Re-add the event listener for page 3 after restart
-        document.addEventListener('keydown', handleKeyPress)
-      }
     }
   }
   buttonContainer.appendChild(proceedButton)
@@ -9488,6 +9511,72 @@ export async function objectTest(RC, options, callback = undefined) {
     await showTestPopup(RC, null, options)
   }
 
+  // ===================== INITIALIZE LOCATION-BASED MEASUREMENT SYSTEM =====================
+  // Now that all UI elements are created, initialize the renderer and manager
+  measurementPageRenderer = createMeasurementPageRenderer({
+    RC,
+    phrases,
+    container,
+    title,
+    instructionsContainer,
+    proceedButton,
+    explanationButton,
+    rulerShiftButton,
+    unitRadioContainer,
+    dontUseRulerColumn,
+    tape,
+    leftLabel,
+    rightLabel,
+    paperSelectionContainer,
+    paperStepperMediaContainer,
+    createArrowIndicators,
+    parseInstructions,
+    renderCurrentStepView: () => renderCurrentStepView(),
+    test_assetMap,
+    setInstructionsText,
+  })
+
+  locationManager = createLocationMeasurementManager(calibrateDistanceLocations)
+
+  console.log('=== Location-based measurement system initialized ===')
+  console.log(
+    `  Total locations to measure: ${locationManager.getTotalLocations()}`,
+  )
+  console.log(`  Locations: ${calibrateDistanceLocations.join(', ')}`)
+
+  // ===================== MEASUREMENT OVERLAY HELPER =====================
+  // Updates the eye-side text + paper tube circle overlay on the iris canvas.
+  // Called whenever a measurement page is shown (pages 3/4).
+  const updateMeasurementOverlayForLocation = eye => {
+    const splitPhraseToWords = phraseKey => {
+      const text = phrases?.[phraseKey]?.[RC.L] || ''
+      return text.split(/\s+/).filter(w => w.length > 0)
+    }
+
+    if (eye === 'left') {
+      setMeasurementOverlay({
+        isPaperMode: isPaperSelectionMode,
+        eye: 'left',
+        leftTextWords: splitPhraseToWords('RC_UseLeftEye'),
+        rightTextWords: null,
+      })
+    } else if (eye === 'right') {
+      setMeasurementOverlay({
+        isPaperMode: isPaperSelectionMode,
+        eye: 'right',
+        leftTextWords: null,
+        rightTextWords: splitPhraseToWords('RC_UseRightEye'),
+      })
+    } else {
+      setMeasurementOverlay({
+        isPaperMode: isPaperSelectionMode,
+        eye: 'unspecified',
+        leftTextWords: splitPhraseToWords('RC_UseEitherEye'),
+        rightTextWords: splitPhraseToWords('RC_UseEitherEye'),
+      })
+    }
+  }
+
   // ===================== INITIALIZE PAGE 0 =====================
   // Hide the resolution setting message now that we're ready to show the UI
   hideResolutionSettingMessage()
@@ -9506,6 +9595,11 @@ export async function objectTest(RC, options, callback = undefined) {
 // This function measures viewing distance using a known object length (credit card)
 // It skips the manual ruler measurement (pages 1-2) and goes straight to face mesh calibration
 export async function knownDistanceTest(RC, options, callback = undefined) {
+  console.log('=== knownDistanceTest FUNCTION CALLED ===')
+  console.log(
+    'options.calibrateDistanceLocations:',
+    options.calibrateDistanceLocations,
+  )
   RC._addBackground()
 
   // ===================== PAGE STATE MANAGEMENT =====================
@@ -9629,6 +9723,30 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     _calibrateDistancePupil: options.calibrateDistancePupil,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+    // Plot lists (same shape as objectTestCommonData; accepted populated before tolerance check)
+    acceptedFOverWidth: [],
+    acceptedRatioFOverWidth: [],
+    acceptedLocation: [],
+    acceptedPointXYPx: [],
+    rejectedFOverWidth: [],
+    rejectedRatioFOverWidth: [],
+    rejectedLocation: [],
+    rejectedPointXYPx: [],
+    // Per-snapshot metrics (knownDistanceTest has no mesh/eye data; eye fields are null)
+    acceptedLeftEyeFootXYPx: [],
+    acceptedRightEyeFootXYPx: [],
+    acceptedIpdOverWidth: [],
+    acceptedRulerBasedEyesToFootCm: [],
+    acceptedRulerBasedEyesToPointCm: [],
+    acceptedImageBasedEyesToFootCm: [],
+    acceptedImageBasedEyesToPointCm: [],
+    rejectedLeftEyeFootXYPx: [],
+    rejectedRightEyeFootXYPx: [],
+    rejectedIpdOverWidth: [],
+    rejectedRulerBasedEyesToFootCm: [],
+    rejectedRulerBasedEyesToPointCm: [],
+    rejectedImageBasedEyesToFootCm: [],
+    rejectedImageBasedEyesToPointCm: [],
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
@@ -9876,6 +9994,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   const sectionMediaContainer = instructionsUI.mediaContainer
 
   const cleanupBeforeCheckDistance = () => {
+    removeArrowIndicatorsFromDOMKnown()
     if (instructionsUI?.destroy) {
       instructionsUI.destroy()
     }
@@ -10003,6 +10122,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       )
 
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       const videoContainer = document.getElementById('webgazerVideoContainer')
       if (videoContainer) {
@@ -10053,6 +10173,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       )
 
       RC.showVideo(true)
+      showVideoResolutionLabel(RC)
 
       // Position video at TOP CENTER (same as page 3) instead of lower right
       const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -10139,6 +10260,17 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     }
   }
 
+  // Remove arrow indicator elements from DOM by id (so they never reappear in distance check)
+  const removeArrowIndicatorsFromDOMKnown = () => {
+    ;[
+      'object-test-arrow-indicators',
+      'known-distance-test-arrow-indicators',
+    ].forEach(id => {
+      const el = document.getElementById(id)
+      if (el) el.remove()
+    })
+  }
+
   // ===================== KNOWN DISTANCE TEST FINISH FUNCTION =====================
   const knownDistanceTestFinishFunction = async () => {
     document.removeEventListener('keydown', handleKeyPress)
@@ -10148,6 +10280,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       arrowIndicators.remove()
       arrowIndicators = null
     }
+    removeArrowIndicatorsFromDOMKnown()
 
     if (!RC.gazeTracker.checkInitialized('distance')) {
       RC.gazeTracker._init(
@@ -10246,6 +10379,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         options.calibrateDistance,
         options.stepperHistory,
         options.calibrateScreenSizeAllowedRatio,
+        options.calibrateDistanceAllowedRatio,
+        options.viewingDistanceWhichEye,
       )
     } else {
       if (typeof callback === 'function') {
@@ -10310,6 +10445,21 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       if (currentPage === 3 || currentPage === 4) {
         e.preventDefault()
 
+        // Gate SPACE on pages 3/4: require stepper to be on the last step
+        if (stepInstructionModel) {
+          const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
+          if (currentStepFlatIndex < maxIdx) {
+            console.log(
+              'SPACE ignored - stepper not on last step (' +
+                currentStepFlatIndex +
+                ' of ' +
+                maxIdx +
+                ')',
+            )
+            return
+          }
+        }
+
         // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
         ;(async () => {
           const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
@@ -10341,32 +10491,221 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
 
           if (currentPage === 3) {
             ;(async () => {
-            console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
+              console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 3 ===')
 
-            await collectFaceMeshSamples(
-              RC,
-              faceMeshSamplesPage3,
-              ppi,
-              meshSamplesDuringPage3,
-            )
-            cameraResolutionXYVpxPage3 = getCameraResolutionXY(RC)
-            console.log(
-              'Face Mesh calibration samples (page 3):',
-              faceMeshSamplesPage3,
-            )
+              await collectFaceMeshSamples(
+                RC,
+                faceMeshSamplesPage3,
+                ppi,
+                meshSamplesDuringPage3,
+              )
+              cameraResolutionXYVpxPage3 = getCameraResolutionXY(RC)
+              console.log(
+                'Face Mesh calibration samples (page 3):',
+                faceMeshSamplesPage3,
+              )
 
-            const validSamples = faceMeshSamplesPage3.filter(
-              sample => !isNaN(sample),
-            )
-            if (
-              validSamples.length < 5 ||
-              faceMeshSamplesPage3.some(sample => isNaN(sample))
-            ) {
-              const capturedImage = lastCapturedFaceImage
+              const validSamples = faceMeshSamplesPage3.filter(
+                sample => !isNaN(sample),
+              )
+              if (
+                validSamples.length < 5 ||
+                faceMeshSamplesPage3.some(sample => isNaN(sample))
+              ) {
+                const capturedImage = lastCapturedFaceImage
               let conditionalFaceImageNotSaved = ""
               if (!options.saveSnapshots) {
                 conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
               }
+                const result = await Swal.fire({
+                  ...swalInfoOptions(RC, { showIcon: false }),
+                  title: phrases.RC_FaceBlocked[RC.L],
+                  html: `<div style="text-align: center;">
+                    <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
+                    ${conditionalFaceImageNotSaved}
+                   </div>`,
+                  confirmButtonText: phrases.EE_ok[RC.L],
+                  allowEnterKey: true,
+                })
+
+                console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 3 ===')
+                lastCapturedFaceImage = null
+                document.addEventListener('keydown', handleKeyPress)
+              } else {
+                // Check if we should finish after page 3 only (single page mode)
+                if (useSinglePage) {
+                  console.log(
+                    '=== ALL 5 FACE MESH SAMPLES VALID - FINISHING (SINGLE PAGE MODE) ===',
+                  )
+
+                  // Calculate calibration factor using only page 3 data
+                  const validPage3Samples = faceMeshSamplesPage3.filter(
+                    sample => !isNaN(sample),
+                  )
+                  const page3Average = validPage3Samples.length
+                    ? validPage3Samples.reduce((a, b) => a + b, 0) /
+                      validPage3Samples.length
+                    : 0
+
+                  const calibrationFactorSinglePage =
+                    page3Average * knownObjectLengthCm
+                  RC.page3FactorCmPx = calibrationFactorSinglePage
+
+                  // Build complete data object (same structure as dual page mode)
+                  const singlePageData = {
+                    value: toFixedNumber(knownObjectLengthCm, 1),
+                    timestamp: performance.now(),
+                    method: 'knownDistance',
+                    intraocularDistanceCm: null,
+                    faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+                      isNaN(sample) ? sample : Math.round(sample),
+                    ),
+                    faceMeshSamplesPage4: [], // Empty for single page
+                    calibrationFactor: Math.round(calibrationFactorSinglePage),
+                    distance1FactorCmPx: calibrationFactorSinglePage,
+                    distance2FactorCmPx: null, // Not used in single page mode
+                    viewingDistanceByKnownObject1Cm: toFixedNumber(
+                      knownObjectLengthCm,
+                      1,
+                    ),
+                    viewingDistanceByKnownObject2Cm: null,
+                    page3Average: page3Average,
+                    page4Average: null, // Not used in single page mode
+                    raw: {
+                      knownObjectLengthCm: knownObjectLengthCm,
+                      ppi: ppi,
+                    },
+                  }
+
+                  console.log('=== Single Page Mode Calibration ===')
+                  console.log(
+                    'Known object distance:',
+                    knownObjectLengthCm,
+                    'cm',
+                  )
+                  console.log(
+                    'Page 3 valid samples:',
+                    validPage3Samples.length,
+                    '/ 5',
+                  )
+                  console.log('Page 3 average Face Mesh:', page3Average, 'px')
+                  console.log(
+                    'Calibration factor:',
+                    Math.round(calibrationFactorSinglePage),
+                  )
+                  console.log('====================================')
+
+                  // Measure intraocular distance
+                  measureIntraocularDistanceCm(
+                    RC,
+                    ppi,
+                    options.calibrateDistancePupil,
+                    RC.calibrateDistanceIpdUsesZBool !== false,
+                  ).then(intraocularDistanceCm => {
+                    if (intraocularDistanceCm) {
+                      singlePageData.intraocularDistanceCm =
+                        intraocularDistanceCm
+                    }
+                  })
+
+                  // Store data in RC (same as dual page mode)
+                  RC.newKnownDistanceTestData = singlePageData
+                  RC.newViewingDistanceData = singlePageData
+
+                  // Clean up keyboard listener
+                  document.removeEventListener('keydown', handleKeyPress)
+
+                  // Follow the SAME finish pattern as dual page mode
+                  if (options.calibrateDistanceCheckBool) {
+                    // Call _checkDistance (same as knownDistanceTestFinishFunction)
+                    await RC._checkDistance(
+                      callback,
+                      singlePageData,
+                      'trackDistance',
+                      options.checkCallback,
+                      options.calibrateDistanceCheckCm,
+                      options.callbackStatic,
+                      options.calibrateDistanceCheckSecs,
+                      options.calibrateDistanceCheckLengthCm,
+                      options.calibrateDistanceCenterYourEyesBool,
+                      options.calibrateDistancePupil,
+                      options.calibrateDistanceChecking,
+                      options.calibrateDistanceSpotXYDeg,
+                      options.calibrateDistance,
+                      options.stepperHistory,
+                      options.calibrateScreenSizeAllowedRatio,
+                      options.calibrateDistanceAllowedRatio,
+                      options.viewingDistanceWhichEye,
+                    )
+                  } else {
+                    // Call callback directly (same as knownDistanceTestFinishFunction)
+                    if (typeof callback === 'function') {
+                      callback(singlePageData)
+                    }
+                  }
+
+                  // Clean up background (same as knownDistanceTestFinishFunction)
+                  RC._removeBackground()
+
+                  lastCapturedFaceImage = null
+                } else {
+                  console.log(
+                    '=== ALL 5 FACE MESH SAMPLES VALID - CONTINUING TO PAGE 4 ===',
+                  )
+
+                  // Save measurement data before moving to page 4
+                  savedMeasurementData = {
+                    value: toFixedNumber(knownObjectLengthCm, 1),
+                    timestamp: performance.now(),
+                    method: 'knownDistance',
+                    intraocularDistanceCm: null,
+                    faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
+                      isNaN(sample) ? sample : Math.round(sample),
+                    ),
+                    faceMeshSamplesPage4: [],
+                    raw: {
+                      knownObjectLengthCm: knownObjectLengthCm,
+                      ppi: ppi,
+                    },
+                  }
+
+                  await nextPage()
+                  lastCapturedFaceImage = null
+
+                  document.addEventListener('keydown', handleKeyPress)
+                }
+              }
+            })()
+          } else if (currentPage === 4) {
+            ;(async () => {
+              console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
+
+              await collectFaceMeshSamples(
+                RC,
+                faceMeshSamplesPage4,
+                ppi,
+                meshSamplesDuringPage4,
+              )
+              cameraResolutionXYVpxPage4 = getCameraResolutionXY(RC)
+              console.log(
+                'Face Mesh calibration samples (page 4):',
+                faceMeshSamplesPage4,
+              )
+
+              const validSamples = faceMeshSamplesPage4.filter(
+                sample => !isNaN(sample),
+              )
+              if (
+                validSamples.length < 5 ||
+                faceMeshSamplesPage4.some(sample => isNaN(sample))
+              ) {
+                const capturedImage = lastCapturedFaceImage
+
+                let conditionalFaceImageNotSaved = ""
+              if (!options.saveSnapshots) {
+                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+              }
+
               const result = await Swal.fire({
                 ...swalInfoOptions(RC, { showIcon: false }),
                 title: phrases.RC_FaceBlocked[RC.L],
@@ -10374,338 +10713,213 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
                     ${conditionalFaceImageNotSaved}
                    </div>`,
-                confirmButtonText: phrases.EE_ok[RC.L],
-                allowEnterKey: true,
-              })
+                  confirmButtonText: phrases.EE_ok[RC.L],
+                  allowEnterKey: true,
+                })
 
-              console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 3 ===')
-              lastCapturedFaceImage = null
-              document.addEventListener('keydown', handleKeyPress)
-            } else {
-              // Check if we should finish after page 3 only (single page mode)
-              if (useSinglePage) {
+                console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 4 ===')
+                lastCapturedFaceImage = null
+                document.addEventListener('keydown', handleKeyPress)
+              } else {
                 console.log(
-                  '=== ALL 5 FACE MESH SAMPLES VALID - FINISHING (SINGLE PAGE MODE) ===',
+                  '=== ALL 5 FACE MESH SAMPLES VALID - CALCULATING FACTORS ===',
                 )
 
-                // Calculate calibration factor using only page 3 data
                 const validPage3Samples = faceMeshSamplesPage3.filter(
+                  sample => !isNaN(sample),
+                )
+                const validPage4Samples = faceMeshSamplesPage4.filter(
                   sample => !isNaN(sample),
                 )
                 const page3Average = validPage3Samples.length
                   ? validPage3Samples.reduce((a, b) => a + b, 0) /
                     validPage3Samples.length
                   : 0
+                const page4Average = validPage4Samples.length
+                  ? validPage4Samples.reduce((a, b) => a + b, 0) /
+                    validPage4Samples.length
+                  : 0
 
-                const calibrationFactorSinglePage =
-                  page3Average * knownObjectLengthCm
-                RC.page3FactorCmPx = calibrationFactorSinglePage
+                const page3FactorCmPx = page3Average * knownObjectLengthCm
+                RC.page3FactorCmPx = page3FactorCmPx
 
-                // Build complete data object (same structure as dual page mode)
-                const singlePageData = {
-                  value: toFixedNumber(knownObjectLengthCm, 1),
-                  timestamp: performance.now(),
-                  method: 'knownDistance',
-                  intraocularDistanceCm: null,
-                  faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
-                    isNaN(sample) ? sample : Math.round(sample),
-                  ),
-                  faceMeshSamplesPage4: [], // Empty for single page
-                  calibrationFactor: Math.round(calibrationFactorSinglePage),
-                  distance1FactorCmPx: calibrationFactorSinglePage,
-                  distance2FactorCmPx: null, // Not used in single page mode
-                  viewingDistanceByKnownObject1Cm: toFixedNumber(
-                    knownObjectLengthCm,
-                    1,
-                  ),
-                  viewingDistanceByKnownObject2Cm: null,
-                  page3Average: page3Average,
-                  page4Average: null, // Not used in single page mode
-                  raw: {
-                    knownObjectLengthCm: knownObjectLengthCm,
-                    ppi: ppi,
-                  },
-                }
+                // Since page 4 uses top center (same as page 3), use simple calculation
+                const page4FactorCmPx = page4Average * knownObjectLengthCm
+                RC.page4FactorCmPx = page4FactorCmPx
 
-                console.log('=== Single Page Mode Calibration ===')
-                console.log('Known object distance:', knownObjectLengthCm, 'cm')
-                console.log(
-                  'Page 3 valid samples:',
-                  validPage3Samples.length,
-                  '/ 5',
+                RC.averageKnownDistanceTestCalibrationFactor = Math.round(
+                  Math.sqrt(page3FactorCmPx * page4FactorCmPx),
                 )
-                console.log('Page 3 average Face Mesh:', page3Average, 'px')
-                console.log(
-                  'Calibration factor:',
-                  Math.round(calibrationFactorSinglePage),
-                )
-                console.log('====================================')
 
-                // Measure intraocular distance
-                measureIntraocularDistanceCm(
+                console.log(
+                  '=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===',
+                )
+                const [
+                  pass,
+                  message,
+                  min,
+                  max,
+                  RMin,
+                  RMax,
+                  maxRatio,
+                  factorRatio,
+                ] = checkObjectTestTolerance(
                   RC,
-                  ppi,
-                  options.calibrateDistancePupil,
-                  RC.calibrateDistanceIpdUsesZBool !== false,
-                ).then(intraocularDistanceCm => {
-                  if (intraocularDistanceCm) {
-                    singlePageData.intraocularDistanceCm = intraocularDistanceCm
-                  }
-                })
-
-                // Store data in RC (same as dual page mode)
-                RC.newKnownDistanceTestData = singlePageData
-                RC.newViewingDistanceData = singlePageData
-
-                // Clean up keyboard listener
-                document.removeEventListener('keydown', handleKeyPress)
-
-                // Follow the SAME finish pattern as dual page mode
-                if (options.calibrateDistanceCheckBool) {
-                  // Call _checkDistance (same as knownDistanceTestFinishFunction)
-                  await RC._checkDistance(
-                    callback,
-                    singlePageData,
-                    'trackDistance',
-                    options.checkCallback,
-                    options.calibrateDistanceCheckCm,
-                    options.callbackStatic,
-                    options.calibrateDistanceCheckSecs,
-                    options.calibrateDistanceCheckLengthCm,
-                    options.calibrateDistanceCenterYourEyesBool,
-                    options.calibrateDistancePupil,
-                    options.calibrateDistanceChecking,
-                    options.calibrateDistanceSpotXYDeg,
-                    options.calibrateDistance,
-                    options.stepperHistory,
-                    options.calibrateScreenSizeAllowedRatio,
-                  )
-                } else {
-                  // Call callback directly (same as knownDistanceTestFinishFunction)
-                  if (typeof callback === 'function') {
-                    callback(singlePageData)
-                  }
-                }
-
-                // Clean up background (same as knownDistanceTestFinishFunction)
-                RC._removeBackground()
-
-                lastCapturedFaceImage = null
-              } else {
-                console.log(
-                  '=== ALL 5 FACE MESH SAMPLES VALID - CONTINUING TO PAGE 4 ===',
+                  faceMeshSamplesPage3,
+                  faceMeshSamplesPage4,
+                  options.calibrateDistanceAllowedRatio,
+                  options.calibrateDistanceAllowedRangeCm,
+                  knownObjectLengthCm,
+                  RC.fOverWidth1,
+                  RC.fOverWidth2,
                 )
+                if (RC.measurementHistory && message !== 'Pass')
+                  RC.measurementHistory.push(message)
+                else if (message !== 'Pass') RC.measurementHistory = [message]
 
-                // Save measurement data before moving to page 4
-                savedMeasurementData = {
-                  value: toFixedNumber(knownObjectLengthCm, 1),
-                  timestamp: performance.now(),
-                  method: 'knownDistance',
-                  intraocularDistanceCm: null,
-                  faceMeshSamplesPage3: faceMeshSamplesPage3.map(sample =>
-                    isNaN(sample) ? sample : Math.round(sample),
-                  ),
-                  faceMeshSamplesPage4: [],
-                  raw: {
-                    knownObjectLengthCm: knownObjectLengthCm,
-                    ppi: ppi,
-                  },
-                }
+                if (pass) {
+                  console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
 
-                await nextPage()
-                lastCapturedFaceImage = null
+                  // Update saved measurement data with page 4 samples
+                  savedMeasurementData.faceMeshSamplesPage4 =
+                    faceMeshSamplesPage4.map(sample =>
+                      isNaN(sample) ? sample : Math.round(sample),
+                    )
 
-                document.addEventListener('keydown', handleKeyPress)
-              }
-            }
-          })()
-        } else if (currentPage === 4) {
-          ;(async () => {
-            console.log('=== COLLECTING FACE MESH SAMPLES ON PAGE 4 ===')
+                  await knownDistanceTestFinishFunction()
+                  lastCapturedFaceImage = null
+                } else {
+                  console.log('=== TOLERANCE CHECK FAILED - RESTARTING ===')
 
-            await collectFaceMeshSamples(
-              RC,
-              faceMeshSamplesPage4,
-              ppi,
-              meshSamplesDuringPage4,
-            )
-            cameraResolutionXYVpxPage4 = getCameraResolutionXY(RC)
-            console.log(
-              'Face Mesh calibration samples (page 4):',
-              faceMeshSamplesPage4,
-            )
-
-            const validSamples = faceMeshSamplesPage4.filter(
-              sample => !isNaN(sample),
-            )
-            if (
-              validSamples.length < 5 ||
-              faceMeshSamplesPage4.some(sample => isNaN(sample))
-            ) {
-              const capturedImage = lastCapturedFaceImage
-
-              let conditionalFaceImageNotSaved = ""
-              if (!options.saveSnapshots) {
-                conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
-              }
-
-              const result = await Swal.fire({
-                ...swalInfoOptions(RC, { showIcon: false }),
-                title: phrases.RC_FaceBlocked[RC.L],
-                html: `<div style="text-align: center;">
-                    <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    ${conditionalFaceImageNotSaved}
-                   </div>`,
-                confirmButtonText: phrases.EE_ok[RC.L],
-                allowEnterKey: true,
-              })
-
-              console.log('=== RETRYING FACE MESH SAMPLES ON PAGE 4 ===')
-              lastCapturedFaceImage = null
-              document.addEventListener('keydown', handleKeyPress)
-            } else {
-              console.log(
-                '=== ALL 5 FACE MESH SAMPLES VALID - CALCULATING FACTORS ===',
-              )
-
-              const validPage3Samples = faceMeshSamplesPage3.filter(
-                sample => !isNaN(sample),
-              )
-              const validPage4Samples = faceMeshSamplesPage4.filter(
-                sample => !isNaN(sample),
-              )
-              const page3Average = validPage3Samples.length
-                ? validPage3Samples.reduce((a, b) => a + b, 0) /
-                  validPage3Samples.length
-                : 0
-              const page4Average = validPage4Samples.length
-                ? validPage4Samples.reduce((a, b) => a + b, 0) /
-                  validPage4Samples.length
-                : 0
-
-              const page3FactorCmPx = page3Average * knownObjectLengthCm
-              RC.page3FactorCmPx = page3FactorCmPx
-
-              // Since page 4 uses top center (same as page 3), use simple calculation
-              const page4FactorCmPx = page4Average * knownObjectLengthCm
-              RC.page4FactorCmPx = page4FactorCmPx
-
-              RC.averageKnownDistanceTestCalibrationFactor = Math.round(
-                Math.sqrt(page3FactorCmPx * page4FactorCmPx),
-              )
-
-              console.log('=== CHECKING TOLERANCE WITH CALCULATED FACTORS ===')
-              const [
-                pass,
-                message,
-                min,
-                max,
-                RMin,
-                RMax,
-                maxRatio,
-                factorRatio,
-              ] = checkObjectTestTolerance(
-                RC,
-                faceMeshSamplesPage3,
-                faceMeshSamplesPage4,
-                options.calibrateDistanceAllowedRatio,
-                options.calibrateDistanceAllowedRangeCm,
-                knownObjectLengthCm,
-                page3FactorCmPx,
-                page4FactorCmPx,
-              )
-              if (RC.measurementHistory && message !== 'Pass')
-                RC.measurementHistory.push(message)
-              else if (message !== 'Pass') RC.measurementHistory = [message]
-
-              if (pass) {
-                console.log('=== TOLERANCE CHECK PASSED - FINISHING TEST ===')
-
-                // Update saved measurement data with page 4 samples
-                savedMeasurementData.faceMeshSamplesPage4 =
-                  faceMeshSamplesPage4.map(sample =>
-                    isNaN(sample) ? sample : Math.round(sample),
+                  // Calculate display values (same as object test)
+                  const ipdpxRatio = Math.sqrt(
+                    faceMeshSamplesPage3[0] / faceMeshSamplesPage4[0],
+                  )
+                  const newMin = min.toFixed(1) * ipdpxRatio
+                  const newMax = max.toFixed(1) / ipdpxRatio
+                  const reasonIsOutOfRange = message.includes(
+                    'out of allowed range',
                   )
 
-                await knownDistanceTestFinishFunction()
-                lastCapturedFaceImage = null
-              } else {
-                console.log('=== TOLERANCE CHECK FAILED - RESTARTING ===')
+                  // For fOverWidth mismatch: ratio = (100 * oldFOverWidth / newFOverWidth).toFixed(0)
+                  const fOverWidthRatioPercent =
+                    RC.fOverWidth1 && RC.fOverWidth2
+                      ? ((100 * RC.fOverWidth1) / RC.fOverWidth2).toFixed(0)
+                      : (100 * factorRatio).toFixed(0)
 
-                // Calculate display values (same as object test)
-                const ipdpxRatio = Math.sqrt(
-                  faceMeshSamplesPage3[0] / faceMeshSamplesPage4[0],
-                )
-                const newMin = min.toFixed(1) * ipdpxRatio
-                const newMax = max.toFixed(1) / ipdpxRatio
-                const reasonIsOutOfRange = message.includes(
-                  'out of allowed range',
-                )
-                
-                // For fOverWidth mismatch: ratio = (100 * oldFOverWidth / newFOverWidth).toFixed(0)
-                const fOverWidthRatioPercent = RC.fOverWidth1 && RC.fOverWidth2
-                  ? (100 * RC.fOverWidth1 / RC.fOverWidth2).toFixed(0)
-                  : (100 * factorRatio).toFixed(0)
-                
-                let displayMessage = ''
-                if (reasonIsOutOfRange) {
-                  displayMessage = phrases.RC_viewingExceededRange[RC.L]
-                    .replace('[[N11]]', Math.round(newMin))
-                    .replace('[[N22]]', Math.round(newMax))
-                    .replace('[[N33]]', Math.round(RMin))
-                    .replace('[[N44]]', Math.round(RMax))
-                } else {
-                  // fOverWidth mismatch - use RC_focalLengthMismatch
-                  displayMessage =
-                    phrases.RC_focalLengthMismatch?.[RC.L]?.replace(
-                      '[[N1]]',
-                      fOverWidthRatioPercent,
-                    ) ||
-                    `❌ The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
+                  let displayMessage = ''
+                  if (reasonIsOutOfRange) {
+                    displayMessage = phrases.RC_viewingExceededRange[RC.L]
+                      .replace('[[N11]]', Math.round(newMin))
+                      .replace('[[N22]]', Math.round(newMax))
+                      .replace('[[N33]]', Math.round(RMin))
+                      .replace('[[N44]]', Math.round(RMax))
+                  } else {
+                    // fOverWidth mismatch - use RC_focalLengthMismatch
+                    displayMessage =
+                      phrases.RC_focalLengthMismatch?.[RC.L]?.replace(
+                        '[[N1]]',
+                        fOverWidthRatioPercent,
+                      ) ||
+                      `❌ The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
+                  }
+
+                  console.log(
+                    `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
+                  )
+
+                  // Rejected plot lists: only the more recent (page4) fOverWidth
+                  if (RC.fOverWidth2 != null) {
+                    knownDistanceTestCommonData.rejectedFOverWidth.push(
+                      parseFloat(Number(RC.fOverWidth2).toFixed(4)),
+                    )
+                    knownDistanceTestCommonData.rejectedRatioFOverWidth.push(
+                      parseFloat(
+                        Number(RC.fOverWidth2 / RC.fOverWidth1).toFixed(4),
+                      ),
+                    )
+                    knownDistanceTestCommonData.rejectedLocation.push(
+                      options.calibrateDistanceLocations?.[1] ?? 'page4',
+                    )
+                    knownDistanceTestCommonData.rejectedPointXYPx.push(null)
+                    // Rejected per-snapshot metrics (knownDistanceTest has no mesh; push null for eye fields)
+                    knownDistanceTestCommonData.rejectedLeftEyeFootXYPx.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedRightEyeFootXYPx.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedIpdOverWidth.push(null)
+                    knownDistanceTestCommonData.rejectedRulerBasedEyesToFootCm.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedRulerBasedEyesToPointCm.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedImageBasedEyesToFootCm.push(
+                      null,
+                    )
+                    knownDistanceTestCommonData.rejectedImageBasedEyesToPointCm.push(
+                      null,
+                    )
+                  }
+                  // Shrink accepted lists if we had pushed before the check
+                  for (let popCount = 0; popCount < 2; popCount++) {
+                    if (
+                      knownDistanceTestCommonData.acceptedFOverWidth.length > 0
+                    ) {
+                      knownDistanceTestCommonData.acceptedFOverWidth.pop()
+                      knownDistanceTestCommonData.acceptedRatioFOverWidth.pop()
+                      knownDistanceTestCommonData.acceptedLocation.pop()
+                      knownDistanceTestCommonData.acceptedPointXYPx.pop()
+                      knownDistanceTestCommonData.acceptedLeftEyeFootXYPx.pop()
+                      knownDistanceTestCommonData.acceptedRightEyeFootXYPx.pop()
+                      knownDistanceTestCommonData.acceptedIpdOverWidth.pop()
+                      knownDistanceTestCommonData.acceptedRulerBasedEyesToFootCm.pop()
+                      knownDistanceTestCommonData.acceptedRulerBasedEyesToPointCm.pop()
+                      knownDistanceTestCommonData.acceptedImageBasedEyesToFootCm.pop()
+                      knownDistanceTestCommonData.acceptedImageBasedEyesToPointCm.pop()
+                    }
+                  }
+
+                  // Show error message
+                  await Swal.fire({
+                    ...swalInfoOptions(RC, { showIcon: false }),
+                    icon: undefined,
+                    html: displayMessage,
+                    allowEnterKey: true,
+                    confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
+                  })
+
+                  // Show pause
+                  measurementState.factorRejectionCount++
+                  // await showPauseBeforeNewObject(
+                  //   RC,
+                  //   measurementState.factorRejectionCount,
+                  // )
+
+                  // Reset and restart from page 3 - reject BOTH measurements
+                  faceMeshSamplesPage3.length = 0
+                  faceMeshSamplesPage4.length = 0
+                  meshSamplesDuringPage3.length = 0
+                  meshSamplesDuringPage4.length = 0
+                  savedMeasurementData = null
+
+                  // Reset measurement count to 0 - we're starting fresh with both snapshots
+                  viewingDistanceMeasurementCount = 0
+                  // Reset expected total to 2 (knownDistanceTest doesn't have paper mode)
+                  viewingDistanceTotalExpected = 2
+
+                  console.log(
+                    `Rejected BOTH measurements (knownDistanceTest). Restarting from page 3. Count reset to: ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
+                  )
+
+                  await showPage(3)
+                  document.addEventListener('keydown', handleKeyPress)
                 }
-                
-                console.log(
-                  `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
-                )
-
-                // Show error message
-                await Swal.fire({
-                  ...swalInfoOptions(RC, { showIcon: false }),
-                  icon: undefined,
-                  html: displayMessage,
-                  allowEnterKey: true,
-                  confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
-                })
-
-                // Show pause
-                measurementState.factorRejectionCount++
-                await showPauseBeforeNewObject(
-                  RC,
-                  measurementState.factorRejectionCount,
-                )
-
-                // Reset and restart from page 3 - reject BOTH measurements
-                faceMeshSamplesPage3.length = 0
-                faceMeshSamplesPage4.length = 0
-                meshSamplesDuringPage3.length = 0
-                meshSamplesDuringPage4.length = 0
-                savedMeasurementData = null
-                
-                // Reset measurement count to 0 - we're starting fresh with both snapshots
-                viewingDistanceMeasurementCount = 0
-                // Reset expected total to 2 (knownDistanceTest doesn't have paper mode)
-                viewingDistanceTotalExpected = 2
-                
-                console.log(
-                  `Rejected BOTH measurements (knownDistanceTest). Restarting from page 3. Count reset to: ${viewingDistanceMeasurementCount} of ${viewingDistanceTotalExpected}`,
-                )
-
-                await showPage(3)
-                document.addEventListener('keydown', handleKeyPress)
               }
-            }
-          })()
-        }
+            })()
+          }
         })() // Close the fullscreen enforcement async IIFE
       }
     }
@@ -11006,229 +11220,6 @@ async function measureIntraocularDistanceCm(
   const distMm = pxDist / pxPerMm
   const distCm = distMm / 10
   return distCm
-}
-
-function checkObjectTestTolerance(
-  RC,
-  page3Samples,
-  page4Samples,
-  allowedRatio = 1.1,
-  allowedRangeCm,
-  measurementCm,
-  page3FactorCmPx = null,
-  page4FactorCmPx = null,
-) {
-  const validPage3Samples = page3Samples.filter(sample => !isNaN(sample))
-  const validPage4Samples = page4Samples.filter(sample => !isNaN(sample))
-
-  if (validPage3Samples.length < 3 || validPage4Samples.length < 3) {
-    console.warn('Insufficient valid Face Mesh samples for tolerance check')
-    return [
-      false,
-      'Insufficient valid Face Mesh samples for tolerance check',
-      -Infinity,
-      Infinity,
-      -Infinity,
-      Infinity,
-    ]
-  }
-
-  const page3Mean =
-    validPage3Samples.reduce((a, b) => a + b, 0) / validPage3Samples.length
-  const page4Mean =
-    validPage4Samples.reduce((a, b) => a + b, 0) / validPage4Samples.length
-
-  // Factor ratio using calibration factors F1 and F2
-  // Use the actual calculated factors if provided, otherwise fall back to simple calculation
-  const F1 =
-    page3FactorCmPx !== null ? page3FactorCmPx : page3Mean * measurementCm
-  const F2 =
-    page4FactorCmPx !== null ? page4FactorCmPx : page4Mean * measurementCm
-  const factorRatio = F1 / F2 // Previous (Page 3) / Current (Page 4)
-
-  // Use log10 formula for tolerance check: abs(log10(F2/F1)) > log10(allowedRatio)
-  // This checks if the new fOverWidth differs too much from the old fOverWidth
-  const logRatio = Math.abs(Math.log10(F2 / F1))
-  const logThreshold = Math.log10(allowedRatio)
-
-  console.log('=== Object Test Tolerance Check (Factors with log10) ===')
-  console.log('Measurement (cm):', measurementCm.toFixed(2))
-  console.log('Page 3 avg FM (px):', page3Mean.toFixed(2))
-  console.log('Page 4 avg FM (px):', page4Mean.toFixed(2))
-  console.log('F1 (page3FactorCmPx / oldFOverWidth proxy):', F1.toFixed(2))
-  console.log('F2 (page4FactorCmPx / newFOverWidth proxy):', F2.toFixed(2))
-  console.log('Log ratio abs(log10(F2/F1)):', logRatio.toFixed(4))
-  console.log('Log threshold log10(allowedRatio):', logThreshold.toFixed(4))
-
-  // Range check on measurement
-  const ppi = RC.screenPpi ? RC.screenPpi.value : 96
-  // page3Mean and page4Mean are in pixels. to convert to cm, we need to divide by ppi
-  const distance1Cm = page3Mean / ppiToPxPerCm(ppi)
-  const distance2Cm = page4Mean / ppiToPxPerCm(ppi)
-  const RMin = Array.isArray(allowedRangeCm) ? allowedRangeCm[0] : -Infinity
-  const RMax = Array.isArray(allowedRangeCm) ? allowedRangeCm[1] : Infinity
-  const minM = Math.min(measurementCm, measurementCm)
-  const maxM = Math.max(measurementCm, measurementCm)
-  if (minM < RMin || maxM > RMax) {
-    console.warn('Object measurement out of allowed range')
-    return [
-      false,
-      `Object measurement out of allowed range
-        MinCm: ${Math.round(minM)};
-        MaxCm: ${Math.round(maxM)};
-        distance1Cm: ${Math.round(distance1Cm)};
-        distance2Cm: ${Math.round(distance2Cm)};
-        distance1FactorCmPx: ${F1.toFixed(1)};
-        distance2FactorCmPx: ${F2.toFixed(1)};
-        `,
-      minM,
-      maxM,
-      RMin,
-      RMax,
-    ]
-  }
-
-  // Pass if logRatio <= logThreshold
-  const pass = logRatio <= logThreshold
-  // For display purposes, calculate max ratio (for backwards compatibility)
-  const maxRatio = Math.max(F1 / F2, F2 / F1)
-
-  console.log('Pass:', pass)
-  console.log('================================')
-
-  return [
-    pass,
-    pass
-      ? 'Pass'
-      : `Measurements not consistent (fOverWidth mismatch)
-      distance1Cm: ${Math.round(distance1Cm)};
-      distance2Cm: ${Math.round(distance2Cm)};
-      distance1FactorCmPx: ${F1.toFixed(1)};
-      distance2FactorCmPx: ${F2.toFixed(1)};
-      `,
-    minM,
-    maxM,
-    RMin,
-    RMax,
-    maxRatio,
-    factorRatio,
-  ]
-}
-
-function checkBlindspotTolerance(
-  dist,
-  allowedRatio = 1.1,
-  allowedRangeCm,
-  faceMeshSamplesLeft,
-  faceMeshSamplesRight,
-  ppi,
-) {
-  const lefts = []
-  const rights = []
-  for (const d of dist) {
-    if (d.closedEyeSide === 'left') lefts.push(d.dist)
-    else rights.push(d.dist)
-  }
-
-  if (lefts.length < 1 || rights.length < 1) {
-    console.warn('Insufficient measurements for blindspot tolerance check')
-    return [
-      false,
-      'Insufficient measurements for blindspot tolerance check',
-      -Infinity,
-      Infinity,
-      -Infinity,
-      Infinity,
-    ]
-  }
-
-  const leftMean = average(lefts)
-  const rightMean = average(rights)
-
-  // Factor ratio using per-eye calibration factors
-  const validLeft = faceMeshSamplesLeft.filter(s => !isNaN(s))
-  const validRight = faceMeshSamplesRight.filter(s => !isNaN(s))
-  if (validLeft.length < 3 || validRight.length < 3) {
-    console.warn('Insufficient Face Mesh samples per eye for tolerance check')
-    return [
-      false,
-      'Insufficient Face Mesh samples per eye for tolerance check',
-      -Infinity,
-      Infinity,
-      -Infinity,
-      Infinity,
-    ]
-  }
-  const leftAvgFM = validLeft.reduce((a, b) => a + b, 0) / validLeft.length
-  const rightAvgFM = validRight.reduce((a, b) => a + b, 0) / validRight.length
-  const F1 = leftAvgFM * leftMean
-  const F2 = rightAvgFM * rightMean
-  const ratio1 = F1 / F2
-  const ratio2 = F2 / F1
-  const maxRatio = Math.max(ratio1, ratio2)
-  const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
-
-  console.log('=== Blindspot Tolerance Check (Factors) ===')
-  console.log('Left/Right avg (cm):', leftMean.toFixed(2), rightMean.toFixed(2))
-  console.log(
-    'Left/Right avg FM (px):',
-    leftAvgFM.toFixed(2),
-    rightAvgFM.toFixed(2),
-  )
-  console.log('F1, F2 (cm*px):', F1.toFixed(2), F2.toFixed(2))
-  console.log('Max ratio:', maxRatio.toFixed(3))
-  console.log('Max allowed ratio:', maxAllowedRatio.toFixed(3))
-
-  // Range check on measurements
-  if (typeof allowedRangeCm === 'string')
-    allowedRangeCm = allowedRangeCm.split(',').map(Number)
-  const RMin = Array.isArray(allowedRangeCm) ? allowedRangeCm[0] : -Infinity
-  const RMax = Array.isArray(allowedRangeCm) ? allowedRangeCm[1] : Infinity
-  console.log('allowedRangeCm', allowedRangeCm)
-  console.log('RMin', RMin)
-  console.log('RMax', RMax)
-  console.log('leftMean', leftMean)
-  console.log('rightMean', rightMean)
-
-  if (
-    Math.min(leftMean, rightMean) < RMin ||
-    Math.max(leftMean, rightMean) > RMax
-  ) {
-    console.warn('Blindspot measurements out of allowed range')
-    return [
-      false,
-      `Blindspot measurements out of allowed range
-      MinCm: ${Math.round(Math.min(leftMean, rightMean))};
-      MaxCm: ${Math.round(Math.max(leftMean, rightMean))};
-      distance1FactorCmPx: ${F1.toFixed(1)};
-      distance2FactorCmPx: ${F2.toFixed(1)};
-      `,
-      Math.min(leftMean, rightMean),
-      Math.max(leftMean, rightMean),
-      RMin,
-      RMax,
-    ]
-  }
-  console.log('Pass:', maxRatio <= maxAllowedRatio)
-  console.log('================================')
-
-  const pass = maxRatio <= maxAllowedRatio
-
-  return [
-    pass,
-    pass
-      ? 'Pass'
-      : `Measurements not consistent
-      distance1Cm: ${Math.round(leftMean)};
-      distance2Cm: ${Math.round(rightMean)};
-      distance1FactorCmPx: ${F1.toFixed(1)};
-      distance2FactorCmPx: ${F2.toFixed(1)};
-      `,
-    Math.min(leftMean, rightMean),
-    Math.max(leftMean, rightMean),
-    RMin,
-    RMax,
-  ]
 }
 
 export const getLeftAndRightEyePointsFromMeshData = (

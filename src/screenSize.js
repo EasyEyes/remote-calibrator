@@ -810,11 +810,12 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         // Consistency check failed - reject BOTH measurements
         const lastIdx = measurementState.measurements.length - 1
         const secondLastIdx = measurementState.measurements.length - 2
-        const oldPxPerCm = measurementState.measurements[secondLastIdx].ppi / 2.54
+        const oldPxPerCm =
+          measurementState.measurements[secondLastIdx].ppi / 2.54
         const newPxPerCm = measurementState.measurements[lastIdx].ppi / 2.54
-        
-        // Calculate ratio as percentage: (100 * oldPxPerCm / newPxPerCm)
-        const ratioPercent = (100 * oldPxPerCm / newPxPerCm).toFixed(0)
+
+        // Calculate ratio as percentage: (100 * newPxPerCm / oldPxPerCm)
+        const ratioPercent = ((100 * newPxPerCm) / oldPxPerCm).toFixed(0)
 
         console.log(
           `Consistency check failed. New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,
@@ -861,28 +862,25 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         // Reject BOTH measurements - remove them from the array
         measurementState.measurements.pop() // Remove last (new)
         measurementState.measurements.pop() // Remove second-to-last (old)
-        
-        // Reduce the iteration count appropriately (need 2 more measurements)
-        // Go back to iteration count matching current measurements length + 1
-        measurementState.currentIteration = measurementState.measurements.length + 1
-        
-        // Update totalIterations to ensure we still need at least 2 measurements
-        measurementState.totalIterations = Math.max(
-          measurementState.totalIterations,
-          measurementState.currentIteration + 1,
-        )
+
+        // Reset iteration counting for fresh start after mismatch
+        // currentIteration = remaining measurements + 1 (next measurement number)
+        // totalIterations = remaining measurements + 2 (need 2 more consistent measurements)
+        const remainingMeasurements = measurementState.measurements.length
+        measurementState.currentIteration = remainingMeasurements + 1
+        measurementState.totalIterations = remainingMeasurements + 2
 
         console.log(
           `After rejection: ${measurementState.measurements.length} measurements remaining, ` +
-          `continuing from iteration ${measurementState.currentIteration} of ${measurementState.totalIterations}`,
+            `continuing from iteration ${measurementState.currentIteration} of ${measurementState.totalIterations}`,
         )
 
         // Show pause before allowing new measurement (with exponentially growing duration)
-        await showPauseBeforeNewObject(
-          RC,
-          measurementState.rejectionCount,
-          'RC_PauseBeforeRemeasuringCreditCard',
-        )
+        // await showPauseBeforeNewObject(
+        //   RC,
+        //   measurementState.rejectionCount,
+        //   'RC_PauseBeforeRemeasuringCreditCard',
+        // )
 
         // After popup and pause, restart measurement
         cleanupMeasurement()
