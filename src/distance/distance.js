@@ -8154,9 +8154,9 @@ export async function objectTest(RC, options, callback = undefined) {
               )
 
               // Acceptance thresholds (from options or defaults)
-              const ratioThresholdFull = options.calibrateDistanceRatioCm || 1.2
+              const ratioThresholdFull = options.calibrateDistanceAllowedRatioCm
               const ratioThresholdHalf =
-                options.calibrateDistanceRatioHalfCm || 1.4
+                options.calibrateDistanceAllowedRatioHalfCm
 
               let accepted
               if (!matchHalfLengthBool) {
