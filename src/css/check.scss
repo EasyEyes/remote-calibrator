@@ -52,6 +52,16 @@
   }
 }
 
+/* Hide number-input spinner arrows */
+#ruler-length-input::-webkit-outer-spin-button,
+#ruler-length-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#ruler-length-input {
+  -moz-appearance: textfield;
+}
+
 .arrow-two-sided-svg {
   position: fixed;
 

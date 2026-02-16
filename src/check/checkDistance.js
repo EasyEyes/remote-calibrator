@@ -934,31 +934,28 @@ RemoteCalibrator.prototype._checkDistance = async function (
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
 
-  await this.getEquipment(
-    async () => {
-      return await trackDistanceCheck(
-        this,
-        distanceCallback,
-        distanceData,
-        measureName,
-        checkCallback,
-        calibrateDistanceCheckCm,
-        callbackStatic,
-        calibrateDistanceCheckSecs,
-        calibrateDistanceCheckLengthCm,
-        calibrateDistanceCenterYourEyesBool,
-        calibrateDistancePupil,
-        calibrateDistanceChecking,
-        calibrateDistanceSpotXYDeg,
-        calibrateDistance,
-        stepperHistory,
-        calibrateScreenSizeAllowedRatio,
-        calibrateDistanceAllowedRatio,
-        viewingDistanceWhichEye,
-      )
-    },
-    false,
-  )
+  await this.getEquipment(async () => {
+    return await trackDistanceCheck(
+      this,
+      distanceCallback,
+      distanceData,
+      measureName,
+      checkCallback,
+      calibrateDistanceCheckCm,
+      callbackStatic,
+      calibrateDistanceCheckSecs,
+      calibrateDistanceCheckLengthCm,
+      calibrateDistanceCenterYourEyesBool,
+      calibrateDistancePupil,
+      calibrateDistanceChecking,
+      calibrateDistanceSpotXYDeg,
+      calibrateDistance,
+      stepperHistory,
+      calibrateScreenSizeAllowedRatio,
+      calibrateDistanceAllowedRatio,
+      viewingDistanceWhichEye,
+    )
+  }, false)
 }
 
 const checkDistance = async (
@@ -1539,6 +1536,9 @@ const checkSize = async (
     navHandler: null,
   }
 
+  // Only gate SPACE behind the stepper on the first page (same instructions repeat)
+  let requireStepperForSpace = true
+
   // Loop through each length value to create dynamic pages
   for (let i = 0; i < processedLengthCm.length; i++) {
     const cm = processedLengthCm[i]
@@ -1636,6 +1636,22 @@ const checkSize = async (
         // Let instruction body use full container width (container is barely under half screen)
         instructionBody.style.width = '100%'
         instructionBody.style.maxWidth = '100%'
+
+        // Show "read instructions" note on the first iteration only
+        if (requireStepperForSpace) {
+          const note = document.createElement('p')
+          note.id = 'rc-read-instructions-note'
+          note.className = 'bodyText'
+          note.style.marginBottom = '0.5rem'
+          note.style.fontStyle = 'italic'
+          note.style.color = '#555'
+          note.textContent =
+            phrases.EE_ReadInstructionsToEndBeforeMakingSetting?.[
+              RC.language.value
+            ] 
+          instructionBody.appendChild(note)
+        }
+
         lengthStepperState.ui = createStepInstructionsUI(instructionBody, {
           layout: 'leftOnly',
           leftWidth: '100%',
@@ -1815,6 +1831,24 @@ const checkSize = async (
 
       function keyupListener(event) {
         if (event.key === ' ') {
+          // Gate SPACE on the first page only: require stepper to be on the last step
+          if (requireStepperForSpace && lengthStepperState.model) {
+            const maxIdx =
+              (lengthStepperState.model.flatSteps?.length || 1) - 1
+            if (lengthStepperState.stepIndex < maxIdx) {
+              console.log(
+                'SPACE ignored - stepper not on last step (' +
+                  lengthStepperState.stepIndex +
+                  ' of ' +
+                  maxIdx +
+                  ')',
+              )
+              return
+            }
+          }
+          requireStepperForSpace = false
+          const noteEl = document.getElementById('rc-read-instructions-note')
+          if (noteEl) noteEl.remove()
           handleMeasurement()
         }
       }
@@ -1825,6 +1859,24 @@ const checkSize = async (
         RC.keypadHandler,
         value => {
           if (value === 'space') {
+            // Gate SPACE on the first page only: require stepper to be on the last step
+            if (requireStepperForSpace && lengthStepperState.model) {
+              const maxIdx =
+                (lengthStepperState.model.flatSteps?.length || 1) - 1
+              if (lengthStepperState.stepIndex < maxIdx) {
+                console.log(
+                  'SPACE ignored (keypad) - stepper not on last step (' +
+                    lengthStepperState.stepIndex +
+                    ' of ' +
+                    maxIdx +
+                    ')',
+                )
+                return
+              }
+            }
+            requireStepperForSpace = false
+            const noteEl = document.getElementById('rc-read-instructions-note')
+            if (noteEl) noteEl.remove()
             handleMeasurement()
           }
         },
@@ -2552,6 +2604,9 @@ const trackDistanceCheck = async (
         calibrateDistanceSpotXYDeg
     }
 
+    // Only gate SPACE behind the stepper on the first page (same instructions repeat)
+    let requireStepperForSpaceDist = true
+
     for (let i = 0; i < calibrateDistanceCheckCm.length; i++) {
       let register = true
       const cm = calibrateDistanceCheckCm[i]
@@ -2559,6 +2614,9 @@ const trackDistanceCheck = async (
 
       // Track space bar listeners for this iteration
       const iterationListeners = []
+
+      // Stepper progress closure for SPACE gating (set inside the try block below)
+      let getStepperProgress = () => null
 
       updateProgressBar(
         (index / calibrateDistanceCheckCm.length) * 100,
@@ -2680,6 +2738,22 @@ const trackDistanceCheck = async (
         // Also ensure max-height accounts for progress bar
         instructionBody.style.maxHeight = `calc(100vh - 50px)`
         instructionBody.style.overflow = 'auto'
+
+        // Show "read instructions" note on the first iteration only
+        if (requireStepperForSpaceDist) {
+          const note = document.createElement('p')
+          note.id = 'rc-read-instructions-note-dist'
+          note.className = 'bodyText'
+          note.style.marginBottom = '0.5rem'
+          note.style.fontStyle = 'italic'
+          note.style.color = '#555'
+          note.textContent =
+            phrases.EE_ReadInstructionsToEndBeforeMakingSetting?.[
+              RC.language.value
+            ] 
+          instructionBody.appendChild(note)
+        }
+
         const ui = createStepInstructionsUI(instructionBody, {
           layout: 'leftOnly',
           leftWidth: '100%',
@@ -2797,6 +2871,13 @@ const trackDistanceCheck = async (
             })
           }
           doRender()
+
+          // Expose stepper progress for SPACE gating in the keyup handler
+          getStepperProgress = () => ({
+            current: stepIndex,
+            max: (stepModel.flatSteps?.length || 1) - 1,
+          })
+
           const navHandler = e => {
             if (e.key === 'ArrowDown') {
               const maxIdx = (stepModel.flatSteps?.length || 1) - 1
@@ -2837,6 +2918,26 @@ const trackDistanceCheck = async (
 
           async function keyupListener(event) {
             if (event.key === ' ' && register) {
+              // Gate SPACE on the first page only: require stepper to be on the last step
+              if (requireStepperForSpaceDist) {
+                const progress = getStepperProgress()
+                if (progress && progress.current < progress.max) {
+                  console.log(
+                    'SPACE ignored - stepper not on last step (' +
+                      progress.current +
+                      ' of ' +
+                      progress.max +
+                      ')',
+                  )
+                  return
+                }
+              }
+              requireStepperForSpaceDist = false
+              const noteEl = document.getElementById(
+                'rc-read-instructions-note-dist',
+              )
+              if (noteEl) noteEl.remove()
+
               // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
               const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
               if (!canProceed) {
@@ -3146,6 +3247,26 @@ const trackDistanceCheck = async (
             RC.keypadHandler,
             async value => {
               if (value === 'space') {
+                // Gate SPACE on the first page only: require stepper to be on the last step
+                if (requireStepperForSpaceDist) {
+                  const progress = getStepperProgress()
+                  if (progress && progress.current < progress.max) {
+                    console.log(
+                      'SPACE ignored (keypad) - stepper not on last step (' +
+                        progress.current +
+                        ' of ' +
+                        progress.max +
+                        ')',
+                    )
+                    return
+                  }
+                }
+                requireStepperForSpaceDist = false
+                const noteElDist = document.getElementById(
+                  'rc-read-instructions-note-dist',
+                )
+                if (noteElDist) noteElDist.remove()
+
                 // Check if iris tracking is active before proceeding
                 if (!irisTrackingIsActive) {
                   console.log(

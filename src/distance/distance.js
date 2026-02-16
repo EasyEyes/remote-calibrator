@@ -8197,9 +8197,9 @@ export async function objectTest(RC, options, callback = undefined) {
               } else {
                 // Rejected - show error message
                 const pctOfExpected = Math.round(ratio * 100)
-                const errorMsg = (phrases.RC_BadMatchToExpectedLength?.[
-                  RC.L
-                ]).replace('[[NNN]]', pctOfExpected.toString())
+                const errorMsg = (
+                  phrases.RC_BadMatchToExpectedLength?.[RC.L]
+                ).replace('[[NNN]]', pctOfExpected.toString())
 
                 // Prevent spacebar from closing the popup
                 const preventSpaceInPopup = ev => {
@@ -10477,7 +10477,6 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
             return
           }
         }
-
         // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
         ;(async () => {
           const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
