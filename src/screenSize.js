@@ -734,9 +734,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
     measurementState.acceptedRatioLength.push(
       prevAcceptedLength === null
         ? NaN
-        : parseFloat(
-            Number(currentPxPerCm / prevAcceptedLength).toFixed(4),
-          ),
+        : parseFloat(Number(currentPxPerCm / prevAcceptedLength).toFixed(4)),
     )
 
     // Store actual card width for next iteration's size constraint
@@ -896,9 +894,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         )
 
         // Rejected plot lists: capture before popping (only the more recent pxPerCm)
-        measurementState.rejectedLength.push(
-          toFixedNumber(newPxPerCm, 1),
-        )
+        measurementState.rejectedLength.push(toFixedNumber(newPxPerCm, 1))
         measurementState.rejectedRatioLength.push(
           parseFloat(Number(newPxPerCm / oldPxPerCm).toFixed(4)),
         )

@@ -232,6 +232,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateDistancePupil: 'iris',
       calibrateDistanceQuadBaseRatio: 2.0, // Default ratio for quadrilateral base
       calibrateDistanceIpdUsesZBool: true, // Use z coordinate from FaceMesh in IPD calculation (false = 2D only)
+      calibrateDistanceCameraResolution: [640, 480], // [width, height] e.g. [1920, 1080] — desired camera resolution
+      calibrateDistanceCameraHz: 60,          // number e.g. 30 — desired camera frame rate
     },
     trackDistanceOptions,
   )
@@ -446,6 +448,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       toFixedN: 1,
       showVideo: true,
       showFaceOverlay: options.showFaceOverlay,
+      desiredCameraResolution: options.calibrateDistanceCameraResolution,
+      desiredCameraHz: options.calibrateDistanceCameraHz,
     },
     'distance',
   )

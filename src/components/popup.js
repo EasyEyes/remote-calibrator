@@ -366,7 +366,10 @@ const getAvailableCameras = async () => {
 }
 
 /**
- * Applies ideal resolution constraints to the specified camera device only
+ * Applies ideal resolution constraints to the specified camera device only.
+ * When desiredCameraResolution and desiredCameraHz are set in webgazer.params,
+ * setCameraConstraints will automatically use findBestCameraMode for cost-function-based probing.
+ * Otherwise falls back to the original progressive fallback strategy.
  * @param {Object} RC - RemoteCalibrator instance
  * @param {string} deviceId - Camera device ID to apply constraints to
  * @returns {Promise<boolean>} - True if successful, false otherwise
@@ -377,12 +380,21 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
   }
 
   try {
-    console.log(
-      `Applying optimized resolution constraints to device ${deviceId}...`,
-    )
+    const desiredRes = RC.gazeTracker.webgazer.params.desiredCameraResolution
+    const desiredHz = RC.gazeTracker.webgazer.params.desiredCameraHz
 
-    // Use min constraints to force best resolution (same technique as preview loading)
-    // setCameraConstraints will use progressive fallback: min 1920 → 1280 → ideal-only
+    if (desiredRes && desiredHz) {
+      console.log(
+        `Applying resolution constraints via cost-function probing: desired ${desiredRes[0]}x${desiredRes[1]} @ ${desiredHz}Hz`,
+      )
+    } else {
+      console.log(
+        `Applying optimized resolution constraints to device ${deviceId}...`,
+      )
+    }
+
+    // setCameraConstraints will use findBestCameraMode when desiredCameraResolution/Hz are set,
+    // or fall back to progressive min/ideal strategy otherwise.
     await RC.gazeTracker.webgazer.setCameraConstraints({
       video: {
         deviceId: { exact: deviceId },
@@ -397,7 +409,12 @@ const applyIdealResolutionConstraints = async (RC, deviceId) => {
         `Resolution constraint result: ${videoParams.width}x${videoParams.height}`,
       )
 
-      // Consider it successful if we got at least 1280x720 or higher
+      // When using cost-function probing, any result is acceptable (no error thrown)
+      if (desiredRes && desiredHz) {
+        return true
+      }
+
+      // Original threshold: consider successful if at least 1280x720
       return videoParams.width >= 1280 && videoParams.height >= 720
     }
 
@@ -421,6 +438,22 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
   )
   if (webgazerFaceFeedbackBox) {
     webgazerFaceFeedbackBox.style.display = 'none'
+  }
+
+  // Skip resolution warning entirely when the user has explicitly requested a
+  // camera resolution via calibrateDistanceCameraResolution / calibrateDistanceCameraHz.
+  // The user chose their resolution on purpose, so no warning is appropriate.
+  const desiredRes = RC.gazeTracker?.webgazer?.params?.desiredCameraResolution
+  const desiredHz = RC.gazeTracker?.webgazer?.params?.desiredCameraHz
+  if (desiredRes && desiredHz) {
+    const videoParams = RC.gazeTracker?.webgazer?.videoParamsToReport
+    if (videoParams) {
+      console.log(
+        `Skipping resolution warning — user requested ${desiredRes[0]}x${desiredRes[1]} @ ${desiredHz}Hz, ` +
+        `got ${videoParams.width}x${videoParams.height}`,
+      )
+    }
+    return true
   }
 
   // Resolution is already optimized during preview loading - just check the result

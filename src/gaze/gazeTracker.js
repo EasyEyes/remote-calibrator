@@ -126,7 +126,8 @@ export default class GazeTracker {
 }
 
 GazeTracker.prototype._init = function (
-  { greedyLearner, framerate, toFixedN, showVideo, showFaceOverlay, showGazer },
+  { greedyLearner, framerate, toFixedN, showVideo, showFaceOverlay, showGazer,
+    desiredCameraResolution, desiredCameraHz },
   task,
 ) {
   if (!this.checkInitialized(task)) {
@@ -139,6 +140,15 @@ GazeTracker.prototype._init = function (
       this.webgazer.params.getLatestVideoFrameTimestamp =
         this._getLatestVideoTimestamp.bind(this)
       this.showGazer(showGazer)
+    }
+
+    // Set desired camera resolution and frame rate for both gaze and distance tasks.
+    // These are used by findBestCameraMode() in _begin() and setCameraConstraints().
+    if (desiredCameraResolution) {
+      this.webgazer.params.desiredCameraResolution = desiredCameraResolution
+    }
+    if (desiredCameraHz != null) {
+      this.webgazer.params.desiredCameraHz = desiredCameraHz
     }
 
     this._toFixedN = toFixedN

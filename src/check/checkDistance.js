@@ -1671,7 +1671,7 @@ const checkSize = async (
           note.textContent =
             phrases.EE_ReadInstructionsToEndBeforeMakingSetting?.[
               RC.language.value
-            ] 
+            ]
           instructionBody.appendChild(note)
         }
 
@@ -1852,9 +1852,9 @@ const checkSize = async (
             prevAcceptedCheckLength === null
               ? NaN
               : parseFloat(
-                  Number(
-                    currentCheckPxPerCm / prevAcceptedCheckLength,
-                  ).toFixed(4),
+                  Number(currentCheckPxPerCm / prevAcceptedCheckLength).toFixed(
+                    4,
+                  ),
                 ),
           )
 
@@ -1880,8 +1880,7 @@ const checkSize = async (
         if (event.key === ' ') {
           // Gate SPACE on the first page only: require stepper to be on the last step
           if (requireStepperForSpace && lengthStepperState.model) {
-            const maxIdx =
-              (lengthStepperState.model.flatSteps?.length || 1) - 1
+            const maxIdx = (lengthStepperState.model.flatSteps?.length || 1) - 1
             if (lengthStepperState.stepIndex < maxIdx) {
               console.log(
                 'SPACE ignored - stepper not on last step (' +
@@ -2260,7 +2259,10 @@ const checkSize = async (
     historyLength: RC.checkSizeHistoryLength.slice(),
   }
 
-  console.log('[checkSize] Final RC.sizeCheckJSON:', JSON.stringify(RC.sizeCheckJSON, null, 2))
+  console.log(
+    '[checkSize] Final RC.sizeCheckJSON:',
+    JSON.stringify(RC.sizeCheckJSON, null, 2),
+  )
 
   // Clean up the length display div when done
   removeLengthDisplayDiv()
@@ -2858,7 +2860,7 @@ const trackDistanceCheck = async (
           note.textContent =
             phrases.EE_ReadInstructionsToEndBeforeMakingSetting?.[
               RC.language.value
-            ] 
+            ]
           instructionBody.appendChild(note)
         }
 
