@@ -1490,6 +1490,34 @@ const checkSize = async (
   const rulerLengthCm = RC.equipment?.value?.length
   const maxLengthCm = Math.min(rulerLengthCm, screenWidthCm)
 
+  // Initialize arrays to store length data (similar to distance tracking)
+  RC.calibrateTrackLengthMeasuredCm = []
+  RC.calibrateTrackLengthRequestedCm = []
+  RC.calibrateDistancePxPerCm = []
+
+  // Tracking arrays for checkSize (following distance calibration pattern)
+  RC.checkSizeAcceptedLength = []
+  RC.checkSizeAcceptedRatioLength = []
+  RC.checkSizeRejectedLength = []
+  RC.checkSizeRejectedRatioLength = []
+  RC.checkSizeHistoryLength = []
+
+  // Initialize RC.sizeCheckJSON immediately so it always exists (even on early return)
+  RC.sizeCheckJSON = {
+    _calibrateScreenSizeAllowedRatio: calibrateScreenSizeAllowedRatio,
+    calibrationPxPerCm: parseFloat(Number(pxPerCm).toFixed(1)),
+    screenWidthCm: screenWidthCm,
+    rulerUnit: RC.equipment?.value?.unit,
+    pxPerCm: [],
+    lengthMeasuredPx: [],
+    lengthRequestedCm: [],
+    acceptedLength: [],
+    acceptedRatioLength: [],
+    rejectedLength: [],
+    rejectedRatioLength: [],
+    historyLength: [],
+  }
+
   // Process calibrateDistanceCheckLengthCm the same way as calibrateDistanceCheckCm
   let processedLengthCm = calibrateDistanceCheckLengthCm.map(cm =>
     RC.equipment?.value?.unit === 'inches'
@@ -1519,11 +1547,6 @@ const checkSize = async (
       `Requested sizes scaled down by factor ${scaleFactor.toFixed(3)} to fit screen. Original max: ${maxRequestedCm} cm, New max: ${Math.max(...processedLengthCm)} cm`,
     )
   }
-
-  // Initialize arrays to store length data (similar to distance tracking)
-  RC.calibrateTrackLengthMeasuredCm = []
-  RC.calibrateTrackLengthRequestedCm = []
-  RC.calibrateDistancePxPerCm = []
 
   // Create the length display div
   createLengthDisplayDiv(RC)
@@ -1811,6 +1834,30 @@ const checkSize = async (
             (Number(measuredLength.toFixed(1)) / lengthInCm).toFixed(1),
           )
 
+          // Track: push to history (every measurement, regardless of accept/reject)
+          const currentCheckPxPerCm = parseFloat(
+            (Number(measuredLength.toFixed(1)) / lengthInCm).toFixed(1),
+          )
+          RC.checkSizeHistoryLength.push(currentCheckPxPerCm)
+
+          // Tentatively accept (will pop on rejection, following distance calibration pattern)
+          const prevAcceptedCheckLength =
+            RC.checkSizeAcceptedLength.length > 0
+              ? RC.checkSizeAcceptedLength[
+                  RC.checkSizeAcceptedLength.length - 1
+                ]
+              : null
+          RC.checkSizeAcceptedLength.push(currentCheckPxPerCm)
+          RC.checkSizeAcceptedRatioLength.push(
+            prevAcceptedCheckLength === null
+              ? NaN
+              : parseFloat(
+                  Number(
+                    currentCheckPxPerCm / prevAcceptedCheckLength,
+                  ).toFixed(4),
+                ),
+          )
+
           document.removeEventListener('keyup', keyupListener)
           // Remove from tracking
           const index = checkSizeListeners.indexOf(keyupListener)
@@ -2057,6 +2104,13 @@ const checkSize = async (
       RC.calibrateTrackLengthRequestedCm = []
       RC.calibrateDistancePxPerCm = []
 
+      // Reset checkSize tracking arrays
+      RC.checkSizeAcceptedLength = []
+      RC.checkSizeAcceptedRatioLength = []
+      RC.checkSizeRejectedLength = []
+      RC.checkSizeRejectedRatioLength = []
+      RC.checkSizeHistoryLength = []
+
       // Clean up current UI
       removeLengthDisplayDiv()
 
@@ -2152,6 +2206,20 @@ const checkSize = async (
           },
         })
 
+        // Rejected plot lists: capture before popping (only the more recent pxPerCm)
+        RC.checkSizeRejectedLength.push(
+          parseFloat(Number(newPxPerCm).toFixed(1)),
+        )
+        RC.checkSizeRejectedRatioLength.push(
+          parseFloat(Number(newPxPerCm / oldPxPerCm).toFixed(4)),
+        )
+
+        // Shrink accepted lists: remove the two rejected entries (following distance check pattern)
+        for (let popCount = 0; popCount < 2; popCount++) {
+          RC.checkSizeAcceptedLength.pop()
+          RC.checkSizeAcceptedRatioLength.pop()
+        }
+
         // Reject BOTH measurements - remove them from the arrays
         RC.calibrateDistancePxPerCm.pop() // Remove last (new)
         RC.calibrateDistancePxPerCm.pop() // Remove second-to-last (old)
@@ -2172,6 +2240,27 @@ const checkSize = async (
       }
     }
   }
+
+  // Update RC.sizeCheckJSON with final data (copies by value to avoid reference issues)
+  RC.sizeCheckJSON = {
+    // Configuration
+    _calibrateScreenSizeAllowedRatio: calibrateScreenSizeAllowedRatio,
+    calibrationPxPerCm: parseFloat(Number(pxPerCm).toFixed(1)),
+    screenWidthCm: screenWidthCm,
+    rulerUnit: RC.equipment?.value?.unit,
+    // Per-measurement arrays (one entry per yellow tape measurement)
+    pxPerCm: RC.calibrateDistancePxPerCm.map(v => parseFloat(v)),
+    lengthMeasuredPx: RC.calibrateTrackLengthMeasuredCm.slice(),
+    lengthRequestedCm: RC.calibrateTrackLengthRequestedCm.slice(),
+    // Tracking arrays (following distance calibration pattern)
+    acceptedLength: RC.checkSizeAcceptedLength.slice(),
+    acceptedRatioLength: RC.checkSizeAcceptedRatioLength.slice(),
+    rejectedLength: RC.checkSizeRejectedLength.slice(),
+    rejectedRatioLength: RC.checkSizeRejectedRatioLength.slice(),
+    historyLength: RC.checkSizeHistoryLength.slice(),
+  }
+
+  console.log('[checkSize] Final RC.sizeCheckJSON:', JSON.stringify(RC.sizeCheckJSON, null, 2))
 
   // Clean up the length display div when done
   removeLengthDisplayDiv()
@@ -2440,6 +2529,25 @@ const trackDistanceCheck = async (
   //if participant has equipment
   //if the unit is inches, convert calibrateDistanceCheckCm to inches and round to integer
   //discard negative, zero, and values exceeding equipment length
+
+  // Ensure RC.sizeCheckJSON exists even if checkSize is never called (no equipment)
+  if (!RC.sizeCheckJSON) {
+    RC.sizeCheckJSON = {
+      _calibrateScreenSizeAllowedRatio: calibrateScreenSizeAllowedRatio,
+      calibrationPxPerCm: null,
+      screenWidthCm: null,
+      rulerUnit: RC.equipment?.value?.unit || null,
+      pxPerCm: [],
+      lengthMeasuredPx: [],
+      lengthRequestedCm: [],
+      acceptedLength: [],
+      acceptedRatioLength: [],
+      rejectedLength: [],
+      rejectedRatioLength: [],
+      historyLength: [],
+    }
+  }
+
   if (RC.equipment?.value?.has) {
     // Show dummy test page right after equipment is confirmed
     RC.pauseNudger()
