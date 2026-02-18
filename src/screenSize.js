@@ -193,6 +193,12 @@ function getSize(RC, parent, options, callback) {
     previousCardWidth: null, // Track previous iteration's actual card width
     originalCardLeftPosition: null, // Track original left position from first iteration
     rejectionCount: 0, // Track number of times user has been rejected for mismatched measurements
+    // Tracking arrays (following distance calibration pattern)
+    acceptedLength: [], // pxPerCm of each accepted measurement
+    acceptedRatioLength: [], // ratio of current/previous accepted pxPerCm (NaN for first)
+    rejectedLength: [], // pxPerCm of the more recent of each rejected pair
+    rejectedRatioLength: [], // ratio of newer/older pxPerCm of each rejected pair
+    historyLength: [], // pxPerCm of every measurement, regardless of accept/reject, in order taken
   }
 
   // Start the measurement loop
@@ -713,6 +719,24 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
       timestamp: performance.now(),
     })
 
+    // Track: push to history (every measurement, regardless of accept/reject)
+    const currentPxPerCm = toFixedNumber(ppi / 2.54, 1)
+    measurementState.historyLength.push(currentPxPerCm)
+
+    // Tentatively accept (will pop on rejection, following distance calibration pattern)
+    const prevAcceptedLength =
+      measurementState.acceptedLength.length > 0
+        ? measurementState.acceptedLength[
+            measurementState.acceptedLength.length - 1
+          ]
+        : null
+    measurementState.acceptedLength.push(currentPxPerCm)
+    measurementState.acceptedRatioLength.push(
+      prevAcceptedLength === null
+        ? NaN
+        : parseFloat(Number(currentPxPerCm / prevAcceptedLength).toFixed(4)),
+    )
+
     // Store actual card width for next iteration's size constraint
     measurementState.previousCardWidth = eleWidth
 
@@ -744,6 +768,11 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         pxPerCm: [singlePxPerCm],
         chosen: [singlePxPerCm],
         mean: singlePxPerCm,
+        acceptedLength: measurementState.acceptedLength,
+        acceptedRatioLength: measurementState.acceptedRatioLength,
+        rejectedLength: measurementState.rejectedLength,
+        rejectedRatioLength: measurementState.rejectedRatioLength,
+        historyLength: measurementState.historyLength,
       }
       breakFunction()
 
@@ -795,6 +824,11 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
             Math.sqrt(consistentPair.ppis[0] * consistentPair.ppis[1]) / 2.54,
             1,
           ),
+          acceptedLength: measurementState.acceptedLength,
+          acceptedRatioLength: measurementState.acceptedRatioLength,
+          rejectedLength: measurementState.rejectedLength,
+          rejectedRatioLength: measurementState.rejectedRatioLength,
+          historyLength: measurementState.historyLength,
         }
 
         // Remove listeners and DOM
@@ -858,6 +892,18 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         console.log(
           `Rejection count (screen size mismatch): ${measurementState.rejectionCount}`,
         )
+
+        // Rejected plot lists: capture before popping (only the more recent pxPerCm)
+        measurementState.rejectedLength.push(toFixedNumber(newPxPerCm, 1))
+        measurementState.rejectedRatioLength.push(
+          parseFloat(Number(newPxPerCm / oldPxPerCm).toFixed(4)),
+        )
+
+        // Shrink accepted lists: remove the two rejected entries (following distance check pattern)
+        for (let popCount = 0; popCount < 2; popCount++) {
+          measurementState.acceptedLength.pop()
+          measurementState.acceptedRatioLength.pop()
+        }
 
         // Reject BOTH measurements - remove them from the array
         measurementState.measurements.pop() // Remove last (new)

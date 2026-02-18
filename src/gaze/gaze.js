@@ -51,6 +51,8 @@ RemoteCalibrator.prototype.trackGaze = async function (
       decimalPlace: 0, // As the system itself has a high prediction error, it's not necessary to be too precise here
       headline: `👀 ${phrases.RC_gazeTrackingTitle[this.L]}`,
       description: phrases.RC_gazeTrackingIntro[this.L],
+      calibrateDistanceCameraResolution: undefined, // [width, height] e.g. [1920, 1080]
+      calibrateDistanceCameraHz: undefined,          // frame rate e.g. 30
     },
     trackGazeOptions,
   )
@@ -89,6 +91,8 @@ RemoteCalibrator.prototype.trackGaze = async function (
       showVideo: options.showVideo,
       showFaceOverlay: options.showFaceOverlay,
       showGazer: options.showGazer,
+      desiredCameraResolution: options.calibrateDistanceCameraResolution,
+      desiredCameraHz: options.calibrateDistanceCameraHz,
     },
     'gaze',
   )
