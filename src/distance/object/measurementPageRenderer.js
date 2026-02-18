@@ -128,16 +128,17 @@ export function createMeasurementPageRenderer(dependencies) {
 
   /**
    * Update arrow indicators to point to a specific location.
-   * @param {string} location - 'camera' or 'center'
+   * @param {string} location - One of the VALID_LOCATIONS values
+   * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
    * @returns {HTMLElement|null} The new arrow indicators element
    */
-  const updateArrows = location => {
+  const updateArrows = (location, offsetPx = 0) => {
     if (arrowIndicators) {
       arrowIndicators.remove()
       arrowIndicators = null
     }
 
-    const arrowXY = getArrowPositionForLocation(location)
+    const arrowXY = getArrowPositionForLocation(location, offsetPx)
     arrowIndicators = createArrowIndicators(arrowXY)
 
     if (arrowIndicators && RC.background) {
@@ -204,27 +205,19 @@ export function createMeasurementPageRenderer(dependencies) {
    * Uses the new location-aware phrases if available, falls back to legacy.
    *
    * @param {boolean} isFirst - Whether this is the first measurement
-   * @param {string} location - 'camera' or 'center'
-   * @param {string} eye - 'unspecified', 'left', or 'right'
+   * @param {string} location - One of the VALID_LOCATIONS values
    * @param {boolean} saveSnapshots - Whether snapshots are saved
    * @returns {string} The instruction phrase key to use
    */
-  const getInstructionPhraseKey = (isFirst, location, eye, saveSnapshots) => {
+  const getInstructionPhraseKey = (isFirst, location, saveSnapshots) => {
     // Try new location-aware phrases first
     const newPhraseKey = isFirst
-      ? 'RC_UseObjectToSetViewingDistanceToLocationPage3'
-      : 'RC_UseObjectToSetViewingDistanceToLocationPage4'
+      ? 'RC_UseObjectToSetViewingDistanceToLocationFirstPage'
+      : 'RC_UseObjectToSetViewingDistanceToLocationNextPage'
 
     // Check if the new phrase exists
     if (phrases?.[newPhraseKey]?.[RC.L]) {
       return newPhraseKey
-    }
-
-    // Fall back to legacy phrases based on location
-    if (location === 'camera') {
-      return 'RC_UseObjectToSetViewingDistancePage3'
-    } else {
-      return 'RC_UseObjectToSetViewingDistanceCenterPage4'
     }
   }
 
@@ -234,26 +227,28 @@ export function createMeasurementPageRenderer(dependencies) {
    *
    * @param {object} config - Configuration for the measurement page
    * @param {number} config.locationIndex - Index in the locations array (0-based)
-   * @param {string} config.location - 'camera' or 'center'
-   * @param {string} config.eye - 'unspecified', 'left', or 'right'
-   * @param {string} config.locEye - The raw location-eye string (e.g., 'cameraLeftEye')
+   * @param {string} config.location - One of the VALID_LOCATIONS values
+   * @param {string} config.locEye - The location string
    * @param {boolean} config.isFirst - Whether this is the first measurement
    * @param {number} config.totalLocations - Total number of locations to measure
    * @param {boolean} config.saveSnapshots - Whether snapshots are saved
+   * @param {boolean} [config.preferRightHandBool=true] - Participant hand/eye preference
+   * @param {number} [config.offsetPx=0] - Offset in px for topOffset* locations
    * @param {function} [config.onProgressUpdate] - Callback when progress updates
    * @param {object} [config.stepInstructionState] - State for step instruction renderer
-   * @param {number} [config.pageNumberOffset=0] - Offset to add to page numbers (e.g. 1 when paper selection page precedes measurements)
+   * @param {number} [config.pageNumberOffset=0] - Offset to add to page numbers
    * @returns {Promise<object>} Object with arrowIndicators and instructionText
    */
   const showMeasurementPage = async config => {
     const {
       locationIndex,
       location,
-      eye,
       locEye,
       isFirst,
       totalLocations,
       saveSnapshots,
+      preferRightHandBool = true,
+      offsetPx = 0,
       onProgressUpdate,
       stepInstructionState,
       pageNumberOffset = 0,
@@ -262,7 +257,9 @@ export function createMeasurementPageRenderer(dependencies) {
     console.log(
       `=== SHOWING MEASUREMENT PAGE FOR LOCATION ${locationIndex}: ${locEye} ===`,
     )
-    console.log(`  location: ${location}, eye: ${eye}, isFirst: ${isFirst}`)
+    console.log(
+      `  location: ${location}, preferRightHand: ${preferRightHandBool}, isFirst: ${isFirst}`,
+    )
 
     // 1. Hide common elements
     hideCommonElements()
@@ -290,12 +287,12 @@ export function createMeasurementPageRenderer(dependencies) {
 
     // 4. Show and position video
     RC.showVideo(true)
-    positionVideoForLocation(RC, location)
+    positionVideoForLocation(RC, location, offsetPx)
 
     // Re-position after layout stabilizes
     requestAnimationFrame(() => {
-      positionVideoForLocation(RC, location)
-      setTimeout(() => positionVideoForLocation(RC, location), 50)
+      positionVideoForLocation(RC, location, offsetPx)
+      setTimeout(() => positionVideoForLocation(RC, location, offsetPx), 50)
     })
 
     // 5. Ensure instructions don't overlap video
@@ -310,12 +307,7 @@ export function createMeasurementPageRenderer(dependencies) {
     }
 
     // 6. Get instruction text
-    const phraseKey = getInstructionPhraseKey(
-      isFirst,
-      location,
-      eye,
-      saveSnapshots,
-    )
+    const phraseKey = getInstructionPhraseKey(isFirst, location, saveSnapshots)
     let instructionText = ''
 
     // Check if we should use new location-aware phrases with placeholders
@@ -329,7 +321,7 @@ export function createMeasurementPageRenderer(dependencies) {
       instructionText = buildLocationInstructions(
         phraseKey,
         location,
-        eye,
+        preferRightHandBool,
         saveSnapshots,
         RC.L,
         phrases,
@@ -344,7 +336,6 @@ export function createMeasurementPageRenderer(dependencies) {
       console.warn(
         `  No instruction text found for ${phraseKey}, trying fallbacks...`,
       )
-      // Try common legacy phrases
       const fallbackKeys = [
         'RC_UseObjectToSetViewingDistancePage3',
         'RC_UseObjectToSetViewingDistanceStepperPage3',
@@ -357,27 +348,6 @@ export function createMeasurementPageRenderer(dependencies) {
           console.log(`  Found fallback instruction with key: ${key}`)
           break
         }
-      }
-    }
-
-    // If still no instructions, use a hardcoded fallback for testing
-    if (!instructionText) {
-      console.warn(`  No phrases found, using hardcoded fallback instructions`)
-      const eyeText =
-        eye === 'left'
-          ? 'your left eye'
-          : eye === 'right'
-            ? 'your right eye'
-            : 'your eye'
-      const locationText =
-        location === 'camera'
-          ? 'the top-center of the screen, above the video'
-          : 'the center of the screen'
-
-      if (isFirst) {
-        instructionText = `**Check eyes**\nTo measure viewing distance, we'll use your webcam to take a snapshot of your eyes.\n\n**Use object to set distance from ${eyeText} to ${locationText}**\nWith one hand, hold one end of your object next to **${eyeText}**.\nLean in so the far end touches near **${locationText}**, where the arrows point.\n\n**Take the snapshot**\nHold still, remove the object to reveal your face, and press SPACE.`
-      } else {
-        instructionText = `**Repeat for ${locationText}**, where the arrows point.\n\nAgain, use your object to set distance, now from **${eyeText} to ${locationText}**.\n\nHold still, remove object to reveal your face, and press SPACE.`
       }
     }
 
@@ -441,7 +411,7 @@ export function createMeasurementPageRenderer(dependencies) {
     }
 
     // 8. Update arrow indicators
-    const newArrows = updateArrows(location)
+    const newArrows = updateArrows(location, offsetPx)
     console.log(`  Arrow indicators pointing to ${location}`)
 
     // 9. Log ready state
@@ -453,7 +423,6 @@ export function createMeasurementPageRenderer(dependencies) {
       arrowIndicators: newArrows,
       instructionText,
       location,
-      eye,
       locationIndex,
     }
   }
@@ -495,25 +464,33 @@ export function createMeasurementPageRenderer(dependencies) {
  *
  * @param {object} locationManager - The location measurement manager
  * @param {boolean} saveSnapshots - Whether snapshots are saved
+ * @param {boolean} [preferRightHandBool=true] - Participant hand/eye preference
+ * @param {number} [offsetPx=0] - Offset in px for topOffset* locations
  * @returns {object|null} Config object for showMeasurementPage, or null if complete
  *
  * @example
- * const manager = createLocationMeasurementManager(['cameraLeftEye', 'center'])
- * const config = buildMeasurementPageConfig(manager, true)
- * // { locationIndex: 0, location: 'camera', eye: 'left', locEye: 'cameraLeftEye',
- * //   isFirst: true, totalLocations: 2, saveSnapshots: true }
+ * const manager = createLocationMeasurementManager(['camera', 'center', 'topCenter'])
+ * const config = buildMeasurementPageConfig(manager, true, true, 0)
+ * // { locationIndex: 0, location: 'camera', locEye: 'camera',
+ * //   isFirst: true, totalLocations: 3, saveSnapshots: true, preferRightHandBool: true, offsetPx: 0 }
  */
-export function buildMeasurementPageConfig(locationManager, saveSnapshots) {
+export function buildMeasurementPageConfig(
+  locationManager,
+  saveSnapshots,
+  preferRightHandBool = true,
+  offsetPx = 0,
+) {
   const info = locationManager.getCurrentLocationInfo()
   if (!info) return null
 
   return {
     locationIndex: info.index,
     location: info.location,
-    eye: info.eye,
     locEye: info.locEye,
     isFirst: info.isFirst,
     totalLocations: locationManager.getTotalLocations(),
     saveSnapshots,
+    preferRightHandBool,
+    offsetPx,
   }
 }

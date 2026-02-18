@@ -69,7 +69,7 @@ import {
   clearMeasurementOverlay,
 } from './distanceTrack'
 import {
-  parseLocationEye,
+  parseLocation,
   parseLocationsArray,
   getArrowPositionForLocation,
   positionVideoForLocation,
@@ -3656,6 +3656,24 @@ export async function objectTest(RC, options, callback = undefined) {
   let selectedPaperLengthCm = null
   let selectedPaperLabel = null
 
+  // ===================== HAND / EYE PREFERENCE =====================
+  // The participant chooses which hand (and thus which eye) to use.
+  // Right hand → right side of head → right eye.  Default: true.
+  let preferRightHandBool = true
+
+  // Offset distance in cm for topOffset* locations
+  const calibrateDistanceOffsetCm = options.calibrateDistanceOffsetCm ?? 4
+
+  /**
+   * Compute the current offset in CSS pixels for topOffset* locations.
+   * Depends on the screen PPI which may be measured later, so this is a function.
+   */
+  const getOffsetPx = () => {
+    const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
+    const pxPerCm = ppi / 2.54
+    return calibrateDistanceOffsetCm * pxPerCm
+  }
+
   // ===================== MEASUREMENT STATE MANAGEMENT =====================
   const measurementState = {
     currentIteration: 1,
@@ -3768,6 +3786,7 @@ export async function objectTest(RC, options, callback = undefined) {
     _calibrateDistance: options.calibrateDistance,
     _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
     _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
+    _calibrateDistanceOffsetCm: calibrateDistanceOffsetCm,
     _calibrateDistancePupil: options.calibrateDistancePupil,
     _calibrateDistanceShowRulerUnitsBool:
       options.calibrateDistanceShowRulerUnitsBool,
@@ -3777,6 +3796,7 @@ export async function objectTest(RC, options, callback = undefined) {
     _showPerpendicularFeetBool: options.showNearestPointsBool,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+    preferRightHandBool: preferRightHandBool,
     objectRulerIntervalCm: [],
     // objectLengthCm: [],
     objectMeasuredMsg: [],
@@ -3836,11 +3856,9 @@ export async function objectTest(RC, options, callback = undefined) {
   console.log('Raw input:', options.calibrateDistanceLocations)
   console.log('Parsed locations array:', calibrateDistanceLocations)
   console.log('Number of locations:', calibrateDistanceLocations.length)
-  calibrateDistanceLocations.forEach((locEye, index) => {
-    const parsed = parseLocationEye(locEye)
-    console.log(
-      `  [${index}] "${locEye}" => location: "${parsed.location}", eye: "${parsed.eye}"`,
-    )
+  calibrateDistanceLocations.forEach((loc, index) => {
+    const parsed = parseLocation(loc)
+    console.log(`  [${index}] "${loc}" => location: "${parsed.location}"`)
   })
   console.log('========================================')
   // ===================== END PARSE =====================
@@ -4871,8 +4889,78 @@ export async function objectTest(RC, options, callback = undefined) {
     paperOptionsList.appendChild(row)
   })
 
+  // ===================== HAND PREFERENCE RADIO BUTTONS =====================
+  // "Which do you prefer?" radio group — placed between paper-size options
+  // and the stepper.  Sets preferRightHandBool.
+  const handPreferenceContainer = document.createElement('div')
+  handPreferenceContainer.id = 'hand-preference-container'
+  handPreferenceContainer.style.display = 'flex'
+  handPreferenceContainer.style.flexDirection = 'column'
+  handPreferenceContainer.style.gap = 'clamp(0.3rem, 1.5vmin, 0.7rem)'
+  handPreferenceContainer.style.alignItems = 'flex-start'
+  handPreferenceContainer.style.marginTop = 'clamp(0.75rem, 3vmin, 1.5rem)'
+
+  const handPreferenceTitle = document.createElement('div')
+  // Render with markdown support so **bold** works
+  const handPreferenceTitleRaw =
+    phrases.RC_WhichDoYouPrefer?.[RC.L] || '**Which do you prefer?**'
+  handPreferenceTitle.innerHTML = processInlineFormatting(
+    handPreferenceTitleRaw,
+  )
+  handPreferenceTitle.style.fontSize = 'clamp(1rem, 3vmin, 1.4rem)'
+  handPreferenceTitle.style.fontWeight = '600'
+  handPreferenceTitle.style.color = '#111'
+  handPreferenceTitle.style.textAlign = 'left'
+  handPreferenceTitle.style.marginBottom = 'clamp(0.2rem, 1vmin, 0.4rem)'
+  handPreferenceContainer.appendChild(handPreferenceTitle)
+
+  const createHandOptionRow = (phraseKey, fallbackText, isRight) => {
+    const row = document.createElement('label')
+    row.style.display = 'flex'
+    row.style.alignItems = 'center'
+    row.style.gap = '1px'
+    row.style.cursor = 'pointer'
+    row.style.fontSize = 'clamp(1rem, 2.5vmin, 1.3rem)'
+    row.style.lineHeight = '1.2'
+    row.style.color = '#111'
+    row.style.textAlign = 'left'
+    row.style.padding = '0'
+
+    const radio = document.createElement('input')
+    radio.type = 'radio'
+    radio.name = 'hand-preference'
+    radio.value = isRight ? 'right' : 'left'
+    radio.checked = isRight ? preferRightHandBool : !preferRightHandBool
+    radio.style.cursor = 'pointer'
+    radio.style.marginRight = '0.5rem'
+    radio.style.padding = '0'
+    radio.style.width = 'clamp(14px, 3vmin, 16px)'
+    radio.style.height = 'clamp(14px, 3vmin, 16px)'
+    radio.style.flexShrink = '0'
+    radio.onchange = () => {
+      preferRightHandBool = isRight
+    }
+
+    const labelSpan = document.createElement('span')
+    const rawText = phrases[phraseKey]?.[RC.L] || fallbackText
+    labelSpan.innerHTML = processInlineFormatting(rawText)
+    labelSpan.style.fontSize = 'clamp(1rem, 2.5vmin, 1.3rem)'
+
+    row.appendChild(radio)
+    row.appendChild(labelSpan)
+    return row
+  }
+
+  handPreferenceContainer.appendChild(
+    createHandOptionRow('RC_UseMyRightHand', '', true),
+  )
+  handPreferenceContainer.appendChild(
+    createHandOptionRow('RC_UseMyLeftHand', '', false),
+  )
+
   paperSelectionCard.appendChild(paperSelectionTitle)
   paperSelectionCard.appendChild(paperOptionsList)
+  paperSelectionCard.appendChild(handPreferenceContainer)
   paperSelectionCard.appendChild(paperStepperContainer)
   paperSelectionCard.appendChild(paperSuggestionWrapper)
   paperSelectionCard.appendChild(paperImportantWarning)
@@ -6783,13 +6871,10 @@ export async function objectTest(RC, options, callback = undefined) {
       // ===================== PAGE 3: VIDEO ONLY =====================
       // Set reference point so showNearestPointsBool overlay uses camera (top) on page 3
       const currentLocInfo = locationManager.getCurrentLocationInfo()
-      globalPointXYPx.value = getGlobalPointForLocation(currentLocInfo.location)
-      console.log(
-        'page 3: globalPointXYPx:',
-        globalPointXYPx.value,
-        currentLocInfo,
+      globalPointXYPx.value = getGlobalPointForLocation(
+        currentLocInfo.location,
+        getOffsetPx(),
       )
-      //[window.screen.width / 2, 0]
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
 
       //========== CHANGE SOON: PAPER MODE ============
@@ -6806,6 +6891,8 @@ export async function objectTest(RC, options, callback = undefined) {
       const pageConfig = buildMeasurementPageConfig(
         locationManager,
         options.saveSnapshotsBool || false,
+        preferRightHandBool,
+        getOffsetPx(),
       )
 
       if (pageConfig) {
@@ -6876,7 +6963,7 @@ export async function objectTest(RC, options, callback = undefined) {
         arrowIndicators = pageResult.arrowIndicators
 
         // Update the measurement overlay (eye-side text + paper tube circles)
-        updateMeasurementOverlayForLocation(pageConfig.eye)
+        updateMeasurementOverlayForLocation()
 
         console.log(
           `Measurement page rendered for location ${pageConfig.locationIndex}: ${pageConfig.locEye}`,
@@ -8197,9 +8284,9 @@ export async function objectTest(RC, options, callback = undefined) {
               } else {
                 // Rejected - show error message
                 const pctOfExpected = Math.round(ratio * 100)
-                const errorMsg = (
-                  phrases.RC_BadMatchToExpectedLength?.[RC.L]
-                ).replace('[[NNN]]', pctOfExpected.toString())
+                const errorMsg = (phrases.RC_BadMatchToExpectedLength?.[
+                  RC.L
+                ]).replace('[[NNN]]', pctOfExpected.toString())
 
                 // Prevent spacebar from closing the popup
                 const preventSpaceInPopup = ev => {
@@ -8642,24 +8729,17 @@ export async function objectTest(RC, options, callback = undefined) {
                   const locactionInfo = locationManager.getCurrentLocationInfo()
                   const pointXYPx = getGlobalPointForLocation(
                     locactionInfo.location,
+                    getOffsetPx(),
                   )
 
                   console.log(
                     'page 3:3 globalPointXYPx:',
                     globalPointXYPx.value,
                   )
-                  const eye = locactionInfo.eye
-                  // Calculate average foot position
-                  let footXYPx
-                  if (eye === 'unspecified') {
-                    footXYPx = [
-                      (nearestXYPx_left[0] + nearestXYPx_right[0]) / 2,
-                      (nearestXYPx_left[1] + nearestXYPx_right[1]) / 2,
-                    ]
-                  } else {
-                    footXYPx =
-                      eye === 'left' ? nearestXYPx_left : nearestXYPx_right
-                  }
+                  // Calculate foot position based on participant's hand/eye preference
+                  const eye = preferRightHandBool ? 'right' : 'left'
+                  const footXYPx =
+                    eye === 'left' ? nearestXYPx_left : nearestXYPx_right
 
                   footToPointCm =
                     Math.hypot(
@@ -8823,7 +8903,6 @@ export async function objectTest(RC, options, callback = undefined) {
                     cameraResolution: cameraRes,
                     locationIndex: locationManager.getCurrentIndex(),
                     accepted: false,
-                    eye: failLocInfo.eye,
                   })
                   console.log(
                     `Queued rejected measurement for location ${failLocInfo.locEye}`,
@@ -8879,6 +8958,8 @@ export async function objectTest(RC, options, callback = undefined) {
                   const resetPageConfig = buildMeasurementPageConfig(
                     locationManager,
                     options.saveSnapshotsBool || false,
+                    preferRightHandBool,
+                    getOffsetPx(),
                   )
 
                   if (resetPageConfig) {
@@ -8899,7 +8980,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
                     arrowIndicators = pageResult.arrowIndicators
                     // Update measurement overlay for the reset location
-                    updateMeasurementOverlayForLocation(resetPageConfig.eye)
+                    updateMeasurementOverlayForLocation()
                     console.log(
                       `Re-rendered page after rejection for location ${locationManager.getCurrentIndex()}`,
                     )
@@ -8908,14 +8989,19 @@ export async function objectTest(RC, options, callback = undefined) {
                     const resetLocInfo =
                       locationManager.getCurrentLocationInfo()
                     if (resetLocInfo) {
-                      positionVideoForLocation(RC, resetLocInfo.location)
+                      positionVideoForLocation(
+                        RC,
+                        resetLocInfo.location,
+                        getOffsetPx(),
+                      )
                       if (arrowIndicators) arrowIndicators.remove()
                       const arrowXY = getArrowPositionForLocation(
                         resetLocInfo.location,
+                        getOffsetPx(),
                       )
                       arrowIndicators = createArrowIndicators(arrowXY)
                       RC.background.appendChild(arrowIndicators)
-                      updateMeasurementOverlayForLocation(resetLocInfo.eye)
+                      updateMeasurementOverlayForLocation()
                     }
                   }
 
@@ -8934,6 +9020,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     locationManager.getCurrentLocationInfo()
                   globalPointXYPx.value = getGlobalPointForLocation(
                     currentLocForPoint.location,
+                    getOffsetPx(),
                   )
                   console.log(
                     'page 3:4 globalPointXYPx:',
@@ -8957,7 +9044,6 @@ export async function objectTest(RC, options, callback = undefined) {
 
                   locationManager.storeMeasurement({
                     location: currentLocMeasurement.location,
-                    eye: currentLocMeasurement.eye,
                     faceMeshSamples: [...faceMeshSamplesPage3],
                     meshSamples: [...meshSamplesDuringPage3],
                     cameraResolution: cameraRes,
@@ -9050,7 +9136,6 @@ export async function objectTest(RC, options, callback = undefined) {
                     cameraResolution: cameraRes,
                     locationIndex: locationManager.getCurrentIndex(),
                     accepted: true,
-                    eye: currentLocMeasurement.eye,
                   })
                   console.log(
                     `Queued accepted measurement for location ${currentLocMeasurement.locEye}`,
@@ -9070,6 +9155,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       locationManager.getCurrentLocationInfo()
                     globalPointXYPx.value = getGlobalPointForLocation(
                       currentLocForPoint.location,
+                      getOffsetPx(),
                     )
                     // More locations to measure - stay on Page 3 with new positioning
                     console.log(
@@ -9084,6 +9170,8 @@ export async function objectTest(RC, options, callback = undefined) {
                     const nextPageConfig = buildMeasurementPageConfig(
                       locationManager,
                       options.saveSnapshotsBool || false,
+                      preferRightHandBool,
+                      getOffsetPx(),
                     )
 
                     if (nextPageConfig) {
@@ -9107,7 +9195,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       // Update the arrow indicators reference
                       arrowIndicators = pageResult.arrowIndicators
                       // Update measurement overlay for the next location
-                      updateMeasurementOverlayForLocation(nextPageConfig.eye)
+                      updateMeasurementOverlayForLocation()
 
                       console.log(
                         `Re-rendered page for location ${locationManager.getCurrentIndex()}: ${nextPageConfig.locEye}`,
@@ -9117,14 +9205,19 @@ export async function objectTest(RC, options, callback = undefined) {
                       const nextLocInfo =
                         locationManager.getCurrentLocationInfo()
                       if (nextLocInfo) {
-                        positionVideoForLocation(RC, nextLocInfo.location)
+                        positionVideoForLocation(
+                          RC,
+                          nextLocInfo.location,
+                          getOffsetPx(),
+                        )
                         if (arrowIndicators) arrowIndicators.remove()
                         const arrowXY = getArrowPositionForLocation(
                           nextLocInfo.location,
+                          getOffsetPx(),
                         )
                         arrowIndicators = createArrowIndicators(arrowXY)
                         RC.background.appendChild(arrowIndicators)
-                        updateMeasurementOverlayForLocation(nextLocInfo.eye)
+                        updateMeasurementOverlayForLocation()
                         console.log(
                           `Updated UI for location ${locationManager.getCurrentIndex()}: ${nextLocInfo.locEye}`,
                         )
@@ -9174,6 +9267,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     // Set global point based on last measurement location
                     globalPointXYPx.value = getGlobalPointForLocation(
                       lastMeasurementData.location,
+                      getOffsetPx(),
                     )
 
                     RC.page3FactorCmPx = firstMeasurementData.factorCmPx
@@ -9224,6 +9318,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       for (const entry of measurementSaveQueue) {
                         const entryPointXYPx = getGlobalPointForLocation(
                           entry.location,
+                          getOffsetPx(),
                         )
                         const {
                           nearestPointsData: entryNearestPointsData,
@@ -9277,6 +9372,9 @@ export async function objectTest(RC, options, callback = undefined) {
                         objectTestCommonData.historyFOverWidth.length
                       objectTestCommonData.snapshotsRejected =
                         objectTestCommonData.rejectedFOverWidth.length
+                      // Capture the participant's final hand preference
+                      objectTestCommonData.preferRightHandBool =
+                        preferRightHandBool
                       saveCalibrationMeasurements(
                         RC,
                         'object',
@@ -9564,21 +9662,17 @@ export async function objectTest(RC, options, callback = undefined) {
 
   // ===================== MEASUREMENT OVERLAY HELPER =====================
   // Updates the eye-side text + paper tube circle overlay on the iris canvas.
-  // Called whenever a measurement page is shown (pages 3/4).
-  const updateMeasurementOverlayForLocation = eye => {
+  // Called whenever a measurement page is shown (pages 3+).
+  // Eye placement is now determined by preferRightHandBool (participant choice),
+  // not by the location string.
+  const updateMeasurementOverlayForLocation = () => {
     const splitPhraseToWords = phraseKey => {
       const text = phrases?.[phraseKey]?.[RC.L] || ''
       return text.split(/\s+/).filter(w => w.length > 0)
     }
 
-    if (eye === 'left') {
-      setMeasurementOverlay({
-        isPaperMode: isPaperSelectionMode,
-        eye: 'left',
-        leftTextWords: splitPhraseToWords('RC_UseLeftEye'),
-        rightTextWords: null,
-      })
-    } else if (eye === 'right') {
+    if (preferRightHandBool) {
+      // Right hand → right side of head → circle on right
       setMeasurementOverlay({
         isPaperMode: isPaperSelectionMode,
         eye: 'right',
@@ -9586,11 +9680,12 @@ export async function objectTest(RC, options, callback = undefined) {
         rightTextWords: splitPhraseToWords('RC_UseRightEye'),
       })
     } else {
+      // Left hand → left side of head → circle on left
       setMeasurementOverlay({
         isPaperMode: isPaperSelectionMode,
-        eye: 'unspecified',
-        leftTextWords: splitPhraseToWords('RC_UseEitherEye'),
-        rightTextWords: splitPhraseToWords('RC_UseEitherEye'),
+        eye: 'left',
+        leftTextWords: splitPhraseToWords('RC_UseLeftEye'),
+        rightTextWords: null,
       })
     }
   }

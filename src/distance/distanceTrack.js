@@ -186,7 +186,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       fullscreen: false,
       repeatTesting: 1,
       objectMeasurementCount: 2, // Number of repeated ruler measurements for object test (DEPRECATED: use calibrateDistanceLocations instead)
-      calibrateDistanceLocations: ['camera', 'center'], // Array of locations for distance calibration. Each can be: camera, cameraLeftEye, cameraRightEye, center, centerLeftEye, centerRightEye
+      calibrateDistanceLocations: ['camera', 'center'], // Array of locations for distance calibration. Each can be: camera, center, topCenter, topOffsetLeft, topOffsetRight, topOffsetDown
+      calibrateDistanceOffsetCm: 4, // Offset in cm for topOffsetLeft/Right/Down locations
       objectMeasurementConsistencyThreshold: 1.1, // Ratio threshold - measurements must satisfy max(M1/M2, M2/M1) <= max(threshold, 1/threshold)
       sparkle: true,
       pipWidthPx:
@@ -804,16 +805,19 @@ const _drawEyeSideText = (videoRect, leftTextWords, rightTextWords) => {
 }
 
 /**
- * Draw paper tube circle(s) on the video frame.
+ * Draw paper tube circle on the video frame.
  *
  * Geometry (from the spec):
  *   - Paper tube radius  = 0.27 × ipdVpx
  *   - Tube center offset = 0.82 × ipdVpx from the near eye's center,
  *     measured along the imaginary line through the two pupils.
  *
- * For LeftEye:  one solid black circle LEFT of the left eye
- * For RightEye: one solid black circle RIGHT of the right eye
- * For unspecified (either eye): two DASHED black circles, one on each side
+ * Eye side is determined by the participant's hand preference
+ * (preferRightHandBool → 'right', else 'left').
+ * The obsolete "unspecified" case with two dashed circles has been removed.
+ *
+ * For 'left':  one solid black circle LEFT of the left eye
+ * For 'right': one solid black circle RIGHT of the right eye
  */
 const _drawTubeCircles = (leftPx, rightPx, ipdScreenPx, eye) => {
   if (!irisCtx) return
@@ -831,42 +835,23 @@ const _drawTubeCircles = (leftPx, rightPx, ipdScreenPx, eye) => {
 
   irisCtx.strokeStyle = 'black'
   irisCtx.lineWidth = 2
+  irisCtx.setLineDash([])
 
   if (eye === 'left') {
     // Solid circle left of the left eye (extending away from the right eye)
     const cx = leftPx.x + nx * tubeOffsetPx
     const cy = leftPx.y + ny * tubeOffsetPx
-    irisCtx.setLineDash([])
-    irisCtx.beginPath()
-    irisCtx.arc(cx, cy, tubeRadiusPx, 0, 2 * Math.PI)
-    irisCtx.stroke()
-  } else if (eye === 'right') {
-    // Solid circle right of the right eye (extending away from the left eye)
-    const cx = rightPx.x - nx * tubeOffsetPx
-    const cy = rightPx.y - ny * tubeOffsetPx
-    irisCtx.setLineDash([])
     irisCtx.beginPath()
     irisCtx.arc(cx, cy, tubeRadiusPx, 0, 2 * Math.PI)
     irisCtx.stroke()
   } else {
-    // Either eye: two dashed circles
-    irisCtx.setLineDash([5, 5])
-
-    // Left circle (left of left eye)
-    const lcx = leftPx.x + nx * tubeOffsetPx
-    const lcy = leftPx.y + ny * tubeOffsetPx
+    // Solid circle right of the right eye (extending away from the left eye)
+    // Default to 'right' for any non-'left' value
+    const cx = rightPx.x - nx * tubeOffsetPx
+    const cy = rightPx.y - ny * tubeOffsetPx
     irisCtx.beginPath()
-    irisCtx.arc(lcx, lcy, tubeRadiusPx, 0, 2 * Math.PI)
+    irisCtx.arc(cx, cy, tubeRadiusPx, 0, 2 * Math.PI)
     irisCtx.stroke()
-
-    // Right circle (right of right eye)
-    const rcx = rightPx.x - nx * tubeOffsetPx
-    const rcy = rightPx.y - ny * tubeOffsetPx
-    irisCtx.beginPath()
-    irisCtx.arc(rcx, rcy, tubeRadiusPx, 0, 2 * Math.PI)
-    irisCtx.stroke()
-
-    irisCtx.setLineDash([]) // Reset dash pattern
   }
 }
 
@@ -1385,13 +1370,9 @@ export const calculateNearestPoints = (
   let pointXYPx = distanceCheck ? cameraXYPx : _pointXYPx
   // Only use globalPointXYPx for live overlay (distanceCheck). When saving calibration
   // (distanceCheck false) use _pointXYPx so page 3 gets camera/top and page 4 gets center.
-  if (distanceCheck && globalPointXYPx.value !== null) {
-    pointXYPx = globalPointXYPx.value
-    console.log(
-      'calculateNearestPoints: globalPointXYPx:',
-      globalPointXYPx.value,
-    )
-  }
+  // if (distanceCheck && globalPointXYPx.value !== null) {
+  //   pointXYPx = globalPointXYPx.value
+  // }
   if (
     distanceCheck &&
     calibrateDistanceChecking &&

@@ -6,22 +6,25 @@
  * for _calibrateDistanceLocations with arbitrary measurement points.
  */
 
-import { parseLocationEye } from './locationUtils'
+import { parseLocation } from './locationUtils'
 import { checkConsecutiveMeasurementTolerance } from './locationUtils'
 
 /**
  * Factory function to create a location measurement state manager.
  * This encapsulates all the state and methods needed to track location-based measurements.
  *
+ * Eye is no longer encoded in the location string — it is determined at
+ * runtime by the participant's hand-preference choice (preferRightHandBool).
+ *
  * @param {string[]} calibrateDistanceLocations - Array of location strings to measure
  * @returns {object} State manager with methods to track and manage measurements
  *
  * @example
- * const manager = createLocationMeasurementManager(['cameraLeftEye', 'cameraRightEye', 'center'])
+ * const manager = createLocationMeasurementManager(['camera', 'center', 'topCenter'])
  *
  * // Get current location info
  * const info = manager.getCurrentLocationInfo()
- * // { index: 0, locEye: 'cameraLeftEye', location: 'camera', eye: 'left', isFirst: true, isLast: false }
+ * // { index: 0, location: 'camera', isFirst: true, isLast: false }
  *
  * // Store a measurement
  * manager.storeMeasurement({ fOverWidth: 0.5, faceMeshSamples: [...] })
@@ -73,13 +76,12 @@ export function createLocationMeasurementManager(calibrateDistanceLocations) {
       if (currentLocationIndex >= calibrateDistanceLocations.length) {
         return null
       }
-      const locEye = calibrateDistanceLocations[currentLocationIndex]
-      const parsed = parseLocationEye(locEye)
+      const loc = calibrateDistanceLocations[currentLocationIndex]
+      const parsed = parseLocation(loc)
       return {
         index: currentLocationIndex,
-        locEye,
+        locEye: loc, // kept for backward compatibility
         location: parsed.location,
-        eye: parsed.eye,
         isFirst: currentLocationIndex === 0,
         isLast: currentLocationIndex === calibrateDistanceLocations.length - 1,
       }
@@ -102,13 +104,12 @@ export function createLocationMeasurementManager(calibrateDistanceLocations) {
      * @param {object} measurementData - The measurement data to store
      */
     storeMeasurement(measurementData) {
-      const locEye = calibrateDistanceLocations[currentLocationIndex]
-      const parsed = parseLocationEye(locEye)
+      const loc = calibrateDistanceLocations[currentLocationIndex]
+      const parsed = parseLocation(loc)
       completedMeasurements.push({
         locationIndex: currentLocationIndex,
-        locEye,
+        locEye: loc, // kept for backward compatibility
         location: parsed.location,
-        eye: parsed.eye,
         ...measurementData,
         timestamp: Date.now(),
       })

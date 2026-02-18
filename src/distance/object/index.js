@@ -12,10 +12,14 @@
 
 // ─── Location utilities (parsing, instructions, positioning, tolerance) ──────
 export {
+  VALID_LOCATIONS,
+  parseLocation,
   parseLocationEye,
   parseLocationsArray,
   getLocationInstructionPhraseKey,
   buildLocationInstructions,
+  getVideoTopCenterXYPx,
+  getPointXYPxForLocation,
   getArrowPositionForLocation,
   positionVideoForLocation,
   getGlobalPointForLocation,
