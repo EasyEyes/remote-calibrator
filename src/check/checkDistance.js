@@ -2591,21 +2591,26 @@ const trackDistanceCheck = async (
 
     let cameraResolutionXY = ''
     let cameraResolutionMaxXY = ''
+    let cameraHz = null
+    let webcamMaxHz = null
     let horizontalVpx = null
     if (
       RC.gazeTracker &&
       RC.gazeTracker.webgazer &&
       RC.gazeTracker.webgazer.videoParamsToReport
     ) {
+      const vp = RC.gazeTracker.webgazer.videoParamsToReport
       const res = getCameraResolutionXY(RC)
       const height = res[1]
       const width = res[0]
-      const maxHeight = RC.gazeTracker.webgazer.videoParamsToReport.maxHeight
-      const maxWidth = RC.gazeTracker.webgazer.videoParamsToReport.maxWidth
+      const maxHeight = vp.maxHeight
+      const maxWidth = vp.maxWidth
       const w = Math.max(maxHeight, maxWidth)
       const h = Math.min(maxHeight, maxWidth)
       cameraResolutionXY = `${width}x${height}`
       cameraResolutionMaxXY = `${w},${h}`
+      cameraHz = vp.frameRate || null
+      webcamMaxHz = vp.maxFrameRate || null
       horizontalVpx = width
     }
 
@@ -2640,6 +2645,7 @@ const trackDistanceCheck = async (
       cameraXYPx: [window.screen.width / 2, 0],
       pxPerCm: safeRoundCm(pxPerCm),
       webcamMaxXYVpx: cameraResolutionMaxXY,
+      webcamMaxHz: webcamMaxHz,
       ipdCm: safeRoundCm(RC._CONST.IPD_CM),
       calibrationFOverWidth: calibrationFOverWidth, // median(calibration) as ratio
       rulerUnit: RC.equipment?.value?.unit,
@@ -2680,6 +2686,7 @@ const trackDistanceCheck = async (
       rulerBasedEyesToFootCm: [], //sqrt(rulerBasedEyesToPointCm**2 - footToPoint**2)
       pointXYPx: [],
       cameraResolutionXYVpx: [],
+      cameraHz: [],
       requestedEyesToPointCm: [],
       footToPointCm: [],
       rightEyeFootXYPx: [],
@@ -3144,6 +3151,9 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.cameraResolutionXYVpx.push(
                 cameraResolutionXYVpx,
               )
+              RC.distanceCheckJSON.cameraHz.push(
+                RC.gazeTracker?.webgazer?.videoParamsToReport?.frameRate || null,
+              )
 
               RC.calibrateDistanceMeasuredCm.push(distanceFromRC)
               RC.calibrateDistanceRequestedCm.push(
@@ -3457,6 +3467,9 @@ const trackDistanceCheck = async (
                 const cameraResolutionXYVpx = getCameraResolutionXY(RC)
                 RC.distanceCheckJSON.cameraResolutionXYVpx.push(
                   cameraResolutionXYVpx,
+                )
+                RC.distanceCheckJSON.cameraHz.push(
+                  RC.gazeTracker?.webgazer?.videoParamsToReport?.frameRate || null,
                 )
 
                 RC.calibrateDistanceMeasuredCm.push(distanceFromRC)

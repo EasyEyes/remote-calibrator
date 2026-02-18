@@ -435,6 +435,7 @@ function saveCalibrationAttempt(
     objectMeasuredMsg: COMMON?.objectMeasuredMsg,
     objectSuggestion: objectSuggestion,
     cameraResolutionXYVpx: safeRoundXYPx(cameraResolutionXYVpx), // camera resolution
+    cameraHz: RC.gazeTracker?.webgazer?.videoParamsToReport?.frameRate || null,
     screenResolutionXYVpx: safeRoundXYPx(screenResolutionXYVpx), // screen resolution
     pxPerCm: safeRoundCm(pxPerCmValue), //measured in size phase of rc
     ipdCm: safeRoundCm(ipdCmValue), //calculated from age
@@ -3764,6 +3765,20 @@ export async function objectTest(RC, options, callback = undefined) {
   await preloadAllInstructionMedia()
 
   // ===================== OBJECT TEST COMMON DATA TO BE SAVED IN RC.calibrationAttempts.COMMON =====================
+  let webcamMaxXYVpx = ''
+  let webcamMaxHz = null
+  if (
+    RC.gazeTracker &&
+    RC.gazeTracker.webgazer &&
+    RC.gazeTracker.webgazer.videoParamsToReport
+  ) {
+    const vp = RC.gazeTracker.webgazer.videoParamsToReport
+    const maxW = Math.max(vp.maxHeight || 0, vp.maxWidth || 0)
+    const maxH = Math.min(vp.maxHeight || 0, vp.maxWidth || 0)
+    if (maxW && maxH) webcamMaxXYVpx = `${maxW},${maxH}`
+    webcamMaxHz = vp.maxFrameRate || null
+  }
+
   const objectTestCommonData = {
     _calibrateDistance: options.calibrateDistance,
     _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
@@ -3778,6 +3793,8 @@ export async function objectTest(RC, options, callback = undefined) {
     _showPerpendicularFeetBool: options.showNearestPointsBool,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
+    webcamMaxXYVpx: webcamMaxXYVpx,
+    webcamMaxHz: webcamMaxHz,
     preferRightHandBool: preferRightHandBool,
     objectRulerIntervalCm: [],
     // objectLengthCm: [],
