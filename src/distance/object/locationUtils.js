@@ -191,7 +191,7 @@ export function buildLocationInstructions(
   //replace [[ALIGNOBJECTLOCATIONEYE]] with movieLink
   text = text.replace(/\[\[ALIGNOBJECTLOCATIONEYE\]\]/g, movieLink)
 
-  movieLinkKey = `RC_MovieGlance${objectKey}${locationKey}${eyeKey}`
+  movieLinkKey = `RC_MovieGlance${objectKey}${eyeKey}`
   movieLink = phrasesObj[movieLinkKey]?.[language] || ''
   text = text.replace(/\[\[GLANCEOBJECTEYE\]\]/g, movieLink)
 
