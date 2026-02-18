@@ -10,9 +10,6 @@ global.screen = dom.window.screen
 
 const packageJSON = require('../package.json')
 
-// Core rejection algorithm tests (deterministic, no webcam/DOM needed)
-require('./rejection-algorithm.test.js')
-
 describe('Installation', function () {
   describe('import', function () {
     global.RC = require('../src/index.js').default
