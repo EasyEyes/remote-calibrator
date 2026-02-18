@@ -79,6 +79,7 @@ import {
   buildMeasurementPageConfig,
 } from './object'
 import woodSvg from '../media/AdobeStock_1568677429.svg'
+import { captureVideoFrame } from '../check/captureVideoFrame'
 
 export const objectLengthCmGlobal = {
   value: null,
@@ -669,35 +670,6 @@ async function measureIntraocularDistancePx(
   meshSamples.length = 0
   meshSamples.push(...mesh)
   return eyeDist(leftEye, rightEye, calibrateDistanceIpdUsesZBool)
-}
-
-// Helper to capture current video frame as base64 image
-function captureVideoFrame(RC) {
-  try {
-    const video = document.getElementById('webgazerVideoCanvas')
-    if (!video) return null
-
-    // Create a canvas to capture the frame
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-
-    // Set canvas size to match video
-    canvas.width = video.videoWidth || video.width
-    canvas.height = video.videoHeight || video.height
-
-    // Mirror the image to match the video display (since video is mirrored by default)
-    ctx.save()
-    ctx.translate(canvas.width, 0)
-    ctx.scale(-1, 1)
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    ctx.restore()
-
-    // Convert to base64 data URL
-    return canvas.toDataURL('image/jpeg', 0.8)
-  } catch (error) {
-    console.warn('Failed to capture video frame:', error)
-    return null
-  }
 }
 
 // Helper function to calulcte the distance from the center of the screen to the top of the screen in cm
@@ -2881,11 +2853,15 @@ export async function blindSpotTestNew(
           // Temporarily remove the space key listener to prevent interference
           document.removeEventListener('keydown', onSpaceSnap)
 
+          let conditionalFaceImageNotSaved = ''
+          if (!options.saveSnapshots) {
+            conditionalFaceImageNotSaved = `<p style="margin-top:10px;font-size:0.8em;color:#666;">${phrases.RC_FaceImageNotSaved ? phrases.RC_FaceImageNotSaved[RC.L] : ''}</p>`
+          }
           await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
             title: phrases.RC_FaceBlocked ? phrases.RC_FaceBlocked[RC.L] : '',
             html: captured
-              ? `<div style="text-align:center"><img src="${captured}" style="max-width:300px;max-height:400px;border:2px solid #ccc;border-radius:8px;"/><p style="margin-top:10px;font-size:0.8em;color:#666;">${phrases.RC_FaceImageNotSaved ? phrases.RC_FaceImageNotSaved[RC.L] : ''}</p></div>`
+              ? `<div style="text-align:center"><img src="${captured}" style="max-width:300px;max-height:400px;border:2px solid #ccc;border-radius:8px;"/>${conditionalFaceImageNotSaved}</div>`
               : undefined,
             showConfirmButton: true,
             allowEnterKey: false,
@@ -3193,6 +3169,7 @@ export async function blindSpotTestNew(
       options.calibrateScreenSizeAllowedRatio,
       options.calibrateDistanceAllowedRatio,
       options.viewingDistanceWhichEye,
+      options.saveSnapshots,
     )
   else safeExecuteFunc(callback, data)
 
@@ -7950,6 +7927,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateScreenSizeAllowedRatio,
           options.calibrateDistanceAllowedRatio,
           options.viewingDistanceWhichEye,
+          options.saveSnapshots,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
@@ -8284,9 +8262,9 @@ export async function objectTest(RC, options, callback = undefined) {
               } else {
                 // Rejected - show error message
                 const pctOfExpected = Math.round(ratio * 100)
-                const errorMsg = (phrases.RC_BadMatchToExpectedLength?.[
-                  RC.L
-                ]).replace('[[NNN]]', pctOfExpected.toString())
+                const errorMsg = (
+                  phrases.RC_BadMatchToExpectedLength?.[RC.L]
+                ).replace('[[NNN]]', pctOfExpected.toString())
 
                 // Prevent spacebar from closing the popup
                 const preventSpaceInPopup = ev => {
@@ -8512,12 +8490,16 @@ export async function objectTest(RC, options, callback = undefined) {
                 // Use the image captured at space press
                 const capturedImage = lastCapturedFaceImage
 
+                let conditionalFaceImageNotSaved = ''
+                if (!options.saveSnapshots) {
+                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+                }
                 const result = await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
                   title: phrases.RC_FaceBlocked[RC.L],
                   html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
+                    ${conditionalFaceImageNotSaved}
                    </div>`,
                   showCancelButton: false,
                   showConfirmButton: false,
@@ -10625,13 +10607,16 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 faceMeshSamplesPage3.some(sample => isNaN(sample))
               ) {
                 const capturedImage = lastCapturedFaceImage
-
+                let conditionalFaceImageNotSaved = ''
+                if (!options.saveSnapshots) {
+                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+                }
                 const result = await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
                   title: phrases.RC_FaceBlocked[RC.L],
                   html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
+                    ${conditionalFaceImageNotSaved}
                    </div>`,
                   confirmButtonText: phrases.EE_ok[RC.L],
                   allowEnterKey: true,
@@ -10810,12 +10795,17 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
               ) {
                 const capturedImage = lastCapturedFaceImage
 
+                let conditionalFaceImageNotSaved = ''
+                if (!options.saveSnapshots) {
+                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+                }
+
                 const result = await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
                   title: phrases.RC_FaceBlocked[RC.L],
                   html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
-                    <p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>
+                    ${conditionalFaceImageNotSaved}
                    </div>`,
                   confirmButtonText: phrases.EE_ok[RC.L],
                   allowEnterKey: true,

@@ -234,7 +234,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateDistanceQuadBaseRatio: 2.0, // Default ratio for quadrilateral base
       calibrateDistanceIpdUsesZBool: true, // Use z coordinate from FaceMesh in IPD calculation (false = 2D only)
       calibrateDistanceCameraResolution: [640, 480], // [width, height] e.g. [1920, 1080] — desired camera resolution
-      calibrateDistanceCameraHz: 60,          // number e.g. 30 — desired camera frame rate
+      calibrateDistanceCameraHz: 60, // number e.g. 30 — desired camera frame rate
+      saveSnapshots: false,
     },
     trackDistanceOptions,
   )
@@ -269,7 +270,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
   )
 
   // Permissions
-  await checkPermissions(this)
+  let message = `${phrases.RC_requestCamera[this.L]}`
+  if (!options.saveSnapshots) {
+    message += `<br />${phrases.RC_privacyCamera[this.L]}`
+  }
+  await checkPermissions(this, message)
   ////
 
   // STEP 2 - Live estimate

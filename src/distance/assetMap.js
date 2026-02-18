@@ -56,8 +56,6 @@ export const test_phrases = {
     phrases.RC_UseObjectToSetViewingDistanceTapeStepperPage2,
   RC_UseObjectToSetViewingDistanceRulerPage2_MD:
     phrases.RC_UseObjectToSetViewingDistanceRulerStepperPage2,
-  RC_UseObjectToSetViewingDistancePage3_MD:
-    phrases.RC_UseObjectToSetViewingDistancePage3,
   RC_UseObjectToSetViewingDistanceLowerRightPage4_MD:
     phrases.RC_UseObjectToSetViewingDistanceStepperPage4,
   RC_produceDistanceLocation_MD: phrases.RC_produceDistanceLocation,

@@ -79,7 +79,11 @@ RemoteCalibrator.prototype.trackGaze = async function (
   this._addBackground()
 
   // Permissions
-  await checkPermissions(this)
+  let message = `${phrases.RC_requestCamera[this.L]}`
+  if (!trackGazeOptions.saveSnapshots) {
+    message += `<br />${phrases.RC_privacyCamera[this.L]}`
+  }
+  await checkPermissions(this, message)
   ////
 
   // Init
