@@ -126,7 +126,7 @@ export function getLocationInstructionPhraseKey(isFirstMeasurement) {
  * Placeholders:
  * - [[SSS]] = snapshot type (RC_temporarySnapshot or RC_snapshot based on saveSnapshots)
  * - [[EEE]] = eye phrase (RC_yourRightEye or RC_yourLeftEye based on preferRightHandBool)
- * - [[LLL]] = location phrase (RC_theCameraLocation or RC_theCenterOfLiveVideoLocation)
+ * - [[LLL]] = location phrase (RC_theCameraLocation or RC_theBigCircleLocation)
  * - [[ALIGNOBJECTLOCATIONEYE]] = movie link
  * - [[GLANCEOBJECTLOCATIONEYE]] = movie link
  * - [[SNAPSHOTOBJECTLOCATIONEYE]] = movie link
@@ -174,7 +174,7 @@ export function buildLocationInstructions(
     locationPhraseKey = 'RC_theCameraLocation'
   } else {
     // center, topCenter, topOffsetLeft, topOffsetRight, topOffsetDown
-    locationPhraseKey = 'RC_theCenterOfLiveVideoLocation'
+    locationPhraseKey = 'RC_theBigCircleLocation'
   }
   const locationText = phrasesObj[locationPhraseKey]?.[language] || 'the screen'
   text = text.replace(/\[\[LLL\]\]/g, locationText)
@@ -210,6 +210,107 @@ export function buildLocationInstructions(
  * UI POSITIONING
  * ============================================================================ */
 
+const BIG_CIRCLE_ID = 'rc-big-circle-target'
+
+/**
+ * Convert cm to CSS px using the best available PPI.
+ * @param {object} RC - The RemoteCalibrator instance
+ * @param {number} cm - Value in centimetres
+ * @returns {number} Value in CSS px
+ */
+function cmToPx(RC, cm) {
+  const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
+  return cm * (ppi / 2.54)
+}
+
+/**
+ * Get the tube diameter in CSS px from the RC instance.
+ */
+function getTubeDiameterPx(RC) {
+  const tubeCm =
+    RC._calibrateDistanceTubeDiameterCm ??
+    RC._options?.calibrateDistanceTubeDiameterCm ??
+    3.5
+  return cmToPx(RC, tubeCm)
+}
+
+/**
+ * Get the video container dimensions (width, height) in CSS px.
+ */
+function getVideoSizePx() {
+  const vc = document.getElementById('webgazerVideoContainer')
+  if (!vc) return { w: 0, h: 0 }
+  return {
+    w: parseInt(vc.style.width) || vc.offsetWidth || 0,
+    h: parseInt(vc.style.height) || vc.offsetHeight || 0,
+  }
+}
+
+/**
+ * Create (or update) the big circle DOM element immediately below the live
+ * video, horizontally centre-aligned with it.
+ *
+ * Position is computed from the known video-centre point rather than
+ * reading getBoundingClientRect, so it is always correct even before
+ * the browser has re-laid-out the video container.
+ *
+ * @param {object}  RC       - The RemoteCalibrator instance
+ * @param {[number,number]} videoCenterPt - [x,y] CSS-px centre of the video
+ * @param {number}  [gapPx=4] - Vertical gap between video bottom and circle top
+ * @returns {HTMLElement} The big-circle element
+ */
+function ensureBigCircle(RC, videoCenterPt, gapPx = 4) {
+  const diameterPx = getTubeDiameterPx(RC)
+  const { h: videoH } = getVideoSizePx()
+
+  let el = document.getElementById(BIG_CIRCLE_ID)
+  if (!el) {
+    el = document.createElement('div')
+    el.id = BIG_CIRCLE_ID
+    el.style.position = 'fixed'
+    el.style.pointerEvents = 'none'
+    el.style.boxSizing = 'border-box'
+    el.style.border = '2px solid black'
+    el.style.borderRadius = '50%'
+    el.style.zIndex = '999999999999'
+    document.body.appendChild(el)
+  }
+
+  el.style.width = `${diameterPx}px`
+  el.style.height = `${diameterPx}px`
+
+  // videoCenterPt is the centre of the video.
+  // Circle sits immediately below the video, horizontally aligned.
+  const videoBottom = videoCenterPt[1] + videoH / 2
+  el.style.left = `${videoCenterPt[0] - diameterPx / 2}px`
+  el.style.top = `${videoBottom + gapPx}px`
+
+  el.style.display = 'block'
+  return el
+}
+
+/**
+ * Return the centre [x, y] in CSS px of the big circle for a given
+ * video-centre point, creating the DOM element if needed.
+ */
+function getBigCircleCenterXYPx(RC, videoCenterPt) {
+  const diameterPx = getTubeDiameterPx(RC)
+  const { h: videoH } = getVideoSizePx()
+  const gapPx = 4
+  const videoBottom = videoCenterPt[1] + videoH / 2
+  const cx = videoCenterPt[0]
+  const cy = videoBottom + gapPx + diameterPx / 2
+  return [cx, cy]
+}
+
+/**
+ * Hide and remove the big circle from the DOM.
+ */
+export function removeBigCircle() {
+  const el = document.getElementById(BIG_CIRCLE_ID)
+  if (el) el.remove()
+}
+
 /**
  * Compute the center of the video if it were horizontally centered at the top
  * of the screen. Returns [x, y] in CSS px.
@@ -225,21 +326,21 @@ export function getVideoTopCenterXYPx() {
 }
 
 /**
- * Compute the target point [x, y] in CSS px for a given location.
+ * Compute the video-centre point [x, y] in CSS px for a given location.
+ * This is used internally to position the video container.
  *
  * @param {string} location - One of the VALID_LOCATIONS values
  * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
  * @returns {[number, number]}
  */
-export function getPointXYPxForLocation(location, offsetPx = 0) {
+function getVideoPointForLocation(location, offsetPx = 0) {
   switch (location) {
     case 'camera':
       return [window.innerWidth / 2, 0]
     case 'center':
       return [window.innerWidth / 2, window.innerHeight / 2]
-    case 'topCenter': {
+    case 'topCenter':
       return getVideoTopCenterXYPx()
-    }
     case 'topOffsetLeft': {
       const tc = getVideoTopCenterXYPx()
       return [tc[0] - offsetPx, tc[1]]
@@ -258,14 +359,38 @@ export function getPointXYPxForLocation(location, offsetPx = 0) {
 }
 
 /**
+ * Compute the measurement target point [x, y] in CSS px for a given location.
+ *
+ * For 'camera' the target is the top-centre of the screen.
+ * For every other location the target is the centre of the big circle
+ * drawn immediately below the live video.
+ *
+ * @param {string} location - One of the VALID_LOCATIONS values
+ * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
+ * @param {object} [RC=null]   - RemoteCalibrator instance (needed for non-camera)
+ * @returns {[number, number]}
+ */
+export function getPointXYPxForLocation(location, offsetPx = 0, RC = null) {
+  if (location === 'camera') {
+    return [window.innerWidth / 2, 0]
+  }
+  const videoPt = getVideoPointForLocation(location, offsetPx)
+  if (RC) {
+    return getBigCircleCenterXYPx(RC, videoPt)
+  }
+  return videoPt
+}
+
+/**
  * Get the arrow indicator position (in pixels) for a given location.
  *
  * @param {string} location - One of the VALID_LOCATIONS values
  * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
+ * @param {object} [RC=null]   - RemoteCalibrator instance
  * @returns {[number, number]} The [x, y] pixel coordinates for arrow indicators
  */
-export function getArrowPositionForLocation(location, offsetPx = 0) {
-  return getPointXYPxForLocation(location, offsetPx)
+export function getArrowPositionForLocation(location, offsetPx = 0, RC = null) {
+  return getPointXYPxForLocation(location, offsetPx, RC)
 }
 
 /**
@@ -275,6 +400,10 @@ export function getArrowPositionForLocation(location, offsetPx = 0) {
  * - center: screen center
  * - topCenter: horizontally centered, mid point of video
  * - topOffsetLeft/Right/Down: offset from topCenter (mid point of video)
+ *
+ * For non-camera locations a big circle ○ with diameter
+ * calibrateDistanceTubeDiameterCm is also drawn immediately below the
+ * video, horizontally centre-aligned with it.
  *
  * @param {object} RC - The RemoteCalibrator instance
  * @param {string} location - One of the VALID_LOCATIONS values
@@ -292,6 +421,7 @@ export function positionVideoForLocation(RC, location, offsetPx = 0) {
   if (location === 'camera') {
     delete videoContainer.dataset.screenCenterMode
     setDefaultVideoPosition(RC, videoContainer)
+    removeBigCircle()
     return
   }
 
@@ -302,31 +432,36 @@ export function positionVideoForLocation(RC, location, offsetPx = 0) {
   videoContainer.style.bottom = 'unset'
   videoContainer.style.transform = 'none'
 
-  const pt = getPointXYPxForLocation(location, offsetPx)
+  const pt = getVideoPointForLocation(location, offsetPx)
   videoContainer.style.left = `${pt[0] - videoWidth / 2}px`
   videoContainer.style.top = `${pt[1] - videoHeight / 2}px`
+
+  // Show the big circle immediately below the video, using the computed
+  // video-centre point so position is correct even before browser re-layout.
+  ensureBigCircle(RC, pt)
 }
 
 /**
  * Get the global point XY coordinates for face mesh calculation based on location.
  * Uses screen coordinates (window.screen.*) for consistency with the face mesh model.
  *
+ * For 'camera' → top-centre of screen.
+ * For all others → centre of the big circle below the video.
+ *
  * @param {string} location - One of the VALID_LOCATIONS values
  * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
+ * @param {object} [RC=null]   - RemoteCalibrator instance
  * @returns {[number, number]} The [x, y] coordinates for globalPointXYPx
  */
-export function getGlobalPointForLocation(location, offsetPx = 0) {
-  switch (location) {
-    case 'camera':
-      return [window.screen.width / 2, 0]
-    case 'center':
-      return [window.screen.width / 2, window.screen.height / 2]
-    default: {
-      // topCenter / topOffset* — use CSS-based calculation mapped to screen coords
-      const pt = getPointXYPxForLocation(location, offsetPx)
-      return pt
-    }
+export function getGlobalPointForLocation(location, offsetPx = 0, RC = null) {
+  if (location === 'camera') {
+    return [window.screen.width / 2, 0]
   }
+  const videoPt = getVideoPointForLocation(location, offsetPx)
+  if (RC) {
+    return getBigCircleCenterXYPx(RC, videoPt)
+  }
+  return videoPt
 }
 
 /* ============================================================================
@@ -388,7 +523,7 @@ export function setupLocationMeasurementUI(params) {
   if (arrowIndicatorsRef) {
     arrowIndicatorsRef.remove()
   }
-  const arrowXY = getArrowPositionForLocation(location, offsetPx)
+  const arrowXY = getArrowPositionForLocation(location, offsetPx, RC)
   const newArrows = createArrowIndicatorsFn(arrowXY)
   if (newArrows && background) {
     background.appendChild(newArrows)

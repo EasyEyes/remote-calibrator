@@ -188,6 +188,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       objectMeasurementCount: 2, // Number of repeated ruler measurements for object test (DEPRECATED: use calibrateDistanceLocations instead)
       calibrateDistanceLocations: ['camera', 'center'], // Array of locations for distance calibration. Each can be: camera, center, topCenter, topOffsetLeft, topOffsetRight, topOffsetDown
       calibrateDistanceOffsetCm: 4, // Offset in cm for topOffsetLeft/Right/Down locations
+      calibrateDistanceTubeDiameterCm: 3.5, // Tube outer diameter in cm (used for small circle on video and big circle on screen)
       objectMeasurementConsistencyThreshold: 1.1, // Ratio threshold - measurements must satisfy max(M1/M2, M2/M1) <= max(threshold, 1/threshold)
       sparkle: true,
       pipWidthPx:
@@ -433,6 +434,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.calibrateDistancePupil = options.calibrateDistancePupil
   trackingOptions.calibrateDistanceIpdUsesZBool =
     options.calibrateDistanceIpdUsesZBool
+  trackingOptions.calibrateDistanceTubeDiameterCm =
+    options.calibrateDistanceTubeDiameterCm
   // Store on RC instance for access from other modules
   this.calibrateDistanceIpdUsesZBool =
     options.calibrateDistanceIpdUsesZBool !== false
@@ -831,7 +834,9 @@ const _drawEyeSideText = (videoRect, leftTextWords, rightTextWords) => {
 const _drawTubeCircles = (leftPx, rightPx, ipdScreenPx, eye) => {
   if (!irisCtx) return
 
-  const tubeRadiusPx = 0.27 * ipdScreenPx
+  const tubeCm = trackingOptions.calibrateDistanceTubeDiameterCm ?? 3.5
+  const ipdCm = RC_instance?._CONST?.IPD_CM ?? 6.3
+  const tubeRadiusPx = (tubeCm / (2 * ipdCm)) * ipdScreenPx
   const tubeOffsetPx = 0.82 * ipdScreenPx
 
   // Unit direction vector along the pupil line, from right eye toward left eye

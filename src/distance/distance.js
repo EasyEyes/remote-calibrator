@@ -74,6 +74,7 @@ import {
   getArrowPositionForLocation,
   positionVideoForLocation,
   getGlobalPointForLocation,
+  removeBigCircle,
   createLocationMeasurementManager,
   createMeasurementPageRenderer,
   buildMeasurementPageConfig,
@@ -3478,6 +3479,10 @@ export async function objectTest(RC, options, callback = undefined) {
   })
   RC._addBackground()
 
+  // Store tube diameter on RC so locationUtils can access it for the big circle
+  RC._calibrateDistanceTubeDiameterCm =
+    options.calibrateDistanceTubeDiameterCm ?? 3.5
+
   // ===================== PAGE STATE MANAGEMENT =====================
   let currentPage = 1
   let savedMeasurementData = null // Store measurement data from page 2
@@ -6498,9 +6503,10 @@ export async function objectTest(RC, options, callback = undefined) {
     const previousPage = currentPage
     currentPage = pageNumber
 
-    // Clear measurement overlay when navigating away from measurement pages
+    // Clear measurement overlay and big circle when navigating away from measurement pages
     if (pageNumber !== 3 && pageNumber !== 4) {
       clearMeasurementOverlay()
+      removeBigCircle()
     }
 
     // Hide tube check tape when navigating away from tube check page
@@ -6851,6 +6857,7 @@ export async function objectTest(RC, options, callback = undefined) {
       globalPointXYPx.value = getGlobalPointForLocation(
         currentLocInfo.location,
         getOffsetPx(),
+        RC,
       )
       console.log('=== SHOWING PAGE 3: VIDEO ONLY ===')
 
@@ -6953,6 +6960,7 @@ export async function objectTest(RC, options, callback = undefined) {
         positionVideoForLocation(RC, 'camera')
         arrowIndicators = measurementPageRenderer.updateArrows('camera')
         clearMeasurementOverlay()
+        removeBigCircle()
       }
 
       // Note: Face Mesh samples will be collected when space key is pressed
@@ -7296,8 +7304,9 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keyup', handleKeyPress)
     document.removeEventListener('keydown', handleInstructionNav)
 
-    // Clear measurement overlay (eye-side text + tube circles)
+    // Clear measurement overlay (eye-side text + tube circles) and big circle
     clearMeasurementOverlay()
+    removeBigCircle()
 
     // Clean up tube check tape
     if (tubeCheckTape && tubeCheckTape.container) {
@@ -8033,8 +8042,9 @@ export async function objectTest(RC, options, callback = undefined) {
       instructionsUI.destroy()
     }
 
-    // Clear measurement overlay (eye-side text + tube circles)
+    // Clear measurement overlay (eye-side text + tube circles) and big circle
     clearMeasurementOverlay()
+    removeBigCircle()
 
     // Clean up background
     RC._removeBackground()
@@ -8046,8 +8056,9 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keyup', handleKeyPress)
     document.removeEventListener('keydown', handleInstructionNav)
 
-    // Clear measurement overlay (eye-side text + tube circles)
+    // Clear measurement overlay (eye-side text + tube circles) and big circle
     clearMeasurementOverlay()
+    removeBigCircle()
 
     // // Clean up radio button event listeners
     // if (customInputs) {
@@ -8712,6 +8723,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   const pointXYPx = getGlobalPointForLocation(
                     locactionInfo.location,
                     getOffsetPx(),
+                    RC,
                   )
 
                   console.log(
@@ -8980,6 +8992,7 @@ export async function objectTest(RC, options, callback = undefined) {
                       const arrowXY = getArrowPositionForLocation(
                         resetLocInfo.location,
                         getOffsetPx(),
+                        RC,
                       )
                       arrowIndicators = createArrowIndicators(arrowXY)
                       RC.background.appendChild(arrowIndicators)
@@ -9003,6 +9016,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   globalPointXYPx.value = getGlobalPointForLocation(
                     currentLocForPoint.location,
                     getOffsetPx(),
+                    RC,
                   )
                   console.log(
                     'page 3:4 globalPointXYPx:',
@@ -9138,6 +9152,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     globalPointXYPx.value = getGlobalPointForLocation(
                       currentLocForPoint.location,
                       getOffsetPx(),
+                      RC,
                     )
                     // More locations to measure - stay on Page 3 with new positioning
                     console.log(
@@ -9196,6 +9211,7 @@ export async function objectTest(RC, options, callback = undefined) {
                         const arrowXY = getArrowPositionForLocation(
                           nextLocInfo.location,
                           getOffsetPx(),
+                          RC,
                         )
                         arrowIndicators = createArrowIndicators(arrowXY)
                         RC.background.appendChild(arrowIndicators)
@@ -9250,6 +9266,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     globalPointXYPx.value = getGlobalPointForLocation(
                       lastMeasurementData.location,
                       getOffsetPx(),
+                      RC,
                     )
 
                     RC.page3FactorCmPx = firstMeasurementData.factorCmPx
@@ -9301,6 +9318,7 @@ export async function objectTest(RC, options, callback = undefined) {
                         const entryPointXYPx = getGlobalPointForLocation(
                           entry.location,
                           getOffsetPx(),
+                          RC,
                         )
                         const {
                           nearestPointsData: entryNearestPointsData,
@@ -9696,6 +9714,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     options.calibrateDistanceLocations,
   )
   RC._addBackground()
+
+  // Store tube diameter on RC so locationUtils can access it for the big circle
+  RC._calibrateDistanceTubeDiameterCm =
+    options.calibrateDistanceTubeDiameterCm ?? 3.5
 
   // ===================== PAGE STATE MANAGEMENT =====================
   let currentPage = 3 // Start directly at page 3 (skip pages 1-2)

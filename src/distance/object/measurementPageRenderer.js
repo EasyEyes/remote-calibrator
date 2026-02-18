@@ -138,7 +138,7 @@ export function createMeasurementPageRenderer(dependencies) {
       arrowIndicators = null
     }
 
-    const arrowXY = getArrowPositionForLocation(location, offsetPx)
+    const arrowXY = getArrowPositionForLocation(location, offsetPx, RC)
     arrowIndicators = createArrowIndicators(arrowXY)
 
     if (arrowIndicators && RC.background) {

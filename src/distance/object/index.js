@@ -23,6 +23,7 @@ export {
   getArrowPositionForLocation,
   positionVideoForLocation,
   getGlobalPointForLocation,
+  removeBigCircle,
   setupLocationMeasurementUI,
   checkConsecutiveMeasurementTolerance,
 } from './locationUtils'
