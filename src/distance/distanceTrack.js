@@ -934,7 +934,7 @@ const _drawTubeLines = smallCircle => {
   const P2y = Cy + R * Math.sin(alpha2)
 
   irisCtx.strokeStyle = 'black'
-  irisCtx.lineWidth = 2
+  irisCtx.lineWidth = 1.9
   irisCtx.setLineDash([])
 
   irisCtx.beginPath()

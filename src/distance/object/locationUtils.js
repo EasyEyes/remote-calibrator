@@ -277,8 +277,9 @@ function ensureBigCircle(RC, videoCenterPt, gapPx = 4) {
     el.id = BIG_CIRCLE_ID
     el.style.position = 'fixed'
     el.style.pointerEvents = 'none'
-    el.style.boxSizing = 'border-box'
-    el.style.border = '2px solid black'
+    el.style.border = 'none'
+    el.style.outline = '2px solid black'
+    el.style.outlineOffset = '-1px'
     el.style.borderRadius = '50%'
     el.style.zIndex = '999999999999'
     document.body.appendChild(el)
