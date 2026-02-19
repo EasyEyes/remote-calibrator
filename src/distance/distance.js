@@ -55,6 +55,7 @@ import { processInlineFormatting } from './markdownInstructionParser'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import {
+  showPopup,
   showTestPopup,
   hideResolutionSettingMessage,
   showVideoResolutionLabel,
@@ -4238,6 +4239,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // Get actual phrase key from main phrases system (bypasses test_phrases)
     const actualPhraseKey = phraseKeyMapping[phraseKey]
+    currentStepperPhraseKey = actualPhraseKey
     const chosenText = (phrases[actualPhraseKey]?.[RC.L] || '')
       .replace('[[IN1]]', minInch.toFixed(0))
       .replace('[[IN2]]', maxInch.toFixed(0))
@@ -4393,6 +4395,11 @@ export async function objectTest(RC, options, callback = undefined) {
     if (container && container.parentNode) {
       container.parentNode.removeChild(container)
     }
+    // Remove fixed "DON'T USE RULER" note from body
+    const rulerNote = document.getElementById('paper-dont-use-ruler-note')
+    if (rulerNote && rulerNote.parentNode) {
+      rulerNote.parentNode.removeChild(rulerNote)
+    }
   }
 
   // --- FOLLOW-UP BANNER fixed at upper-right (dontUseRuler) ---
@@ -4426,9 +4433,21 @@ export async function objectTest(RC, options, callback = undefined) {
   // Step-by-step instruction model and current index
   let stepInstructionModel = null
   let currentStepFlatIndex = 0
+  // The international phrase key for the current stepper instructions (for "read first" tracking)
+  let currentStepperPhraseKey = null
+  let _showingReadFirstPopup = false
 
   const renderCurrentStepView = () => {
     const maxIdx = (stepInstructionModel?.flatSteps?.length || 1) - 1
+
+    // Cement "already read" state whenever we're at or past the last step
+    if (
+      (currentPage === 3 || currentPage === 4) &&
+      currentStepFlatIndex >= maxIdx &&
+      currentStepperPhraseKey
+    ) {
+      RC._readInstructionPhraseKeys.add(currentStepperPhraseKey)
+    }
 
     const handlePrev = () => {
       if (currentStepFlatIndex > 0) {
@@ -4458,6 +4477,9 @@ export async function objectTest(RC, options, callback = undefined) {
         useCurrentSectionOnly: true,
         resolveMediaUrl: resolveInstructionMediaUrl,
         stepperHistory: options.stepperHistory,
+        readFirstPhraseKey:
+          (currentPage === 3 || currentPage === 4) ? currentStepperPhraseKey : null,
+        readPhraseKeys: RC._readInstructionPhraseKeys,
         onPrev: handlePrev,
         onNext: handleNext,
       },
@@ -4546,21 +4568,22 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSelectionContainer.style.color = '#111'
   paperSelectionContainer.style.padding = '0'
   paperSelectionContainer.style.paddingLeft = 'clamp(1rem, 5vw, 3rem)'
-  paperSelectionContainer.style.paddingRight = 'clamp(1rem, 5vw, 3rem)'
+  paperSelectionContainer.style.paddingRight = '1rem'
   paperSelectionContainer.style.paddingTop = '0.1rem'
   paperSelectionContainer.style.paddingBottom = '1rem'
   paperSelectionContainer.style.boxSizing = 'border-box'
-  // Calculate remaining viewport height below title (approx 4rem for title row)
+  paperSelectionContainer.style.width = '50vw'
+  paperSelectionContainer.style.maxWidth = '50vw'
   paperSelectionContainer.style.maxHeight = 'calc(100vh - 5rem)'
-  paperSelectionContainer.style.overflowY = 'auto' // Enable scrolling as fallback
+  paperSelectionContainer.style.overflowY = 'auto'
   paperSelectionContainer.style.overflowX = 'hidden'
   // Allow typing/clicking inside even when global listeners exist
   paperSelectionContainer.style.pointerEvents = 'auto'
   paperSelectionContainer.style.userSelect = 'auto'
 
   const paperSelectionCard = document.createElement('div')
-  paperSelectionCard.style.maxWidth = 'min(50vw, 100% - 2rem)'
-  paperSelectionCard.style.width = 'auto'
+  paperSelectionCard.style.maxWidth = '100%'
+  paperSelectionCard.style.width = '100%'
   paperSelectionCard.style.background = 'transparent'
   paperSelectionCard.style.border = 'none'
   paperSelectionCard.style.borderRadius = '0'
@@ -4736,10 +4759,13 @@ export async function objectTest(RC, options, callback = undefined) {
       !paperStepInstructionModel
     )
       return
-    // Don't navigate if focus is in an input field
+    // Don't navigate if focus is in a text-entry input (allow radio/checkbox)
+    if (document.activeElement && document.activeElement.tagName === 'TEXTAREA')
+      return
     if (
       document.activeElement &&
-      ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)
+      document.activeElement.tagName === 'INPUT' &&
+      !['radio', 'checkbox'].includes(document.activeElement.type)
     )
       return
 
@@ -4807,25 +4833,39 @@ export async function objectTest(RC, options, callback = undefined) {
   paperSuggestionWrapper.appendChild(paperSuggestionLabel)
   paperSuggestionWrapper.appendChild(paperSuggestionInput)
 
-  // Optional note right under the suggestion input (footnote - smaller on small screens)
-  // (only when calibrateDistanceCheckBool is true)
+  // "DON'T USE RULER" note — fixed in upper-right corner of the screen
+  // so it doesn't extend the left column and cause scrolling.
   const dontUseYourRulerNote = document.createElement('div')
+  dontUseYourRulerNote.id = 'paper-dont-use-ruler-note'
   const dontUseYourRulerRaw = phrases.RC_DontUseYourRulerYet?.[RC.L] || ''
-  // Support markdown formatting and "/n" (and literal "\n") for line breaks.
   dontUseYourRulerNote.innerHTML = processInlineFormatting(
     dontUseYourRulerRaw.replaceAll('/n', '<br>').replaceAll('\\n', '<br>'),
   )
-  dontUseYourRulerNote.style.marginTop = 'clamp(0.5rem, 2vmin, 1rem)'
+  dontUseYourRulerNote.style.position = 'fixed'
+  dontUseYourRulerNote.style.top = '12px'
+  dontUseYourRulerNote.style.zIndex = '999999999'
   dontUseYourRulerNote.style.fontSize = 'clamp(0.85rem, 2.5vmin, 1.3rem)'
   dontUseYourRulerNote.style.lineHeight = '1.4'
   dontUseYourRulerNote.style.color = '#555'
   dontUseYourRulerNote.style.whiteSpace = 'pre-line'
+  dontUseYourRulerNote.style.maxWidth = '45vw'
+  dontUseYourRulerNote.style.pointerEvents = 'none'
+  dontUseYourRulerNote.style.userSelect = 'none'
+  if (RC.LD === RC._CONST.RTL) {
+    dontUseYourRulerNote.style.left = '12px'
+    dontUseYourRulerNote.style.right = 'auto'
+    dontUseYourRulerNote.style.textAlign = 'left'
+  } else {
+    dontUseYourRulerNote.style.right = '12px'
+    dontUseYourRulerNote.style.left = 'auto'
+    dontUseYourRulerNote.style.textAlign = 'right'
+  }
   dontUseYourRulerNote.style.display =
     options.calibrateDistanceCheckBool === true &&
     dontUseYourRulerRaw.trim().length
       ? 'block'
       : 'none'
-  paperSuggestionWrapper.appendChild(dontUseYourRulerNote)
+  document.body.appendChild(dontUseYourRulerNote)
 
   // Important warning under suggestion input
   const paperImportantWarning = document.createElement('div')
@@ -6579,6 +6619,7 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Hide dontUseRuler column on page 0
       dontUseRulerColumn.style.display = 'none'
+      dontUseYourRulerNote.style.display = 'none'
       paperSelectionContainer.style.display = 'none'
       paperStepperMediaContainer.style.display = 'none'
       // Clean up paper stepper media content
@@ -6587,6 +6628,7 @@ export async function objectTest(RC, options, callback = undefined) {
     } else if (pageNumber === 1) {
       // ===================== PAGE 1: NO LINES =====================
       console.log('=== SHOWING PAGE 1: NO LINES ===')
+      dontUseYourRulerNote.style.display = 'none'
       paperSelectionContainer.style.display = 'none'
       paperStepperMediaContainer.style.display = 'none'
       // Clean up paper stepper media content
@@ -6681,6 +6723,14 @@ export async function objectTest(RC, options, callback = undefined) {
         dontUseRulerColumn.style.display = 'none'
         rulerShiftButton.style.display = 'none'
         explanationButton.style.display = 'none'
+
+        // Show the fixed "DON'T USE RULER" note in the upper right (paper mode)
+        if (
+          options.calibrateDistanceCheckBool === true &&
+          dontUseYourRulerRaw.trim().length
+        ) {
+          dontUseYourRulerNote.style.display = 'block'
+        }
 
         // Show paper selection UI
         paperSelectionContainer.style.display = 'flex'
@@ -6825,6 +6875,7 @@ export async function objectTest(RC, options, callback = undefined) {
       }
       unitRadioContainer.style.display = 'none'
       dontUseRulerColumn.style.display = 'none'
+      dontUseYourRulerNote.style.display = 'none'
       rulerShiftButton.style.display = 'none'
       explanationButton.style.display = 'none'
       proceedButton.style.display = 'none'
@@ -6869,6 +6920,7 @@ export async function objectTest(RC, options, callback = undefined) {
       tubeCheckTape.container.style.display = 'block'
     } else if (pageNumber === 3) {
       // ===================== PAGE 3: VIDEO ONLY =====================
+      dontUseYourRulerNote.style.display = 'none'
       // Set reference point so showNearestPointsBool overlay uses camera (top) on page 3
       const currentLocInfo = locationManager.getCurrentLocationInfo()
       globalPointXYPx.value = getGlobalPointForLocation(
@@ -6954,9 +7006,10 @@ export async function objectTest(RC, options, callback = undefined) {
             console.log(`Progress update: ${current} of ${total}`)
           },
           // Callback to set the step model and index in distance.js scope
-          setStepModel: (model, index) => {
+          setStepModel: (model, index, phraseKey) => {
             stepInstructionModel = model
             currentStepFlatIndex = index
+            if (phraseKey) currentStepperPhraseKey = phraseKey
           },
         })
 
@@ -8148,15 +8201,24 @@ export async function objectTest(RC, options, callback = undefined) {
         // (encourages participants to read the instructions before pressing SPACE)
         if ((currentPage === 3 || currentPage === 4) && stepInstructionModel) {
           const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
-          if (currentStepFlatIndex < maxIdx) {
-            console.log(
-              'SPACE ignored - stepper not on last step (' +
-                currentStepFlatIndex +
-                ' of ' +
-                maxIdx +
-                ')',
-            )
+          const alreadyRead = currentStepperPhraseKey &&
+            RC._readInstructionPhraseKeys.has(currentStepperPhraseKey)
+          if (!alreadyRead && currentStepFlatIndex < maxIdx) {
+            if (!_showingReadFirstPopup) {
+              _showingReadFirstPopup = true
+              ;(async () => {
+                await showPopup(
+                  RC,
+                  '',
+                  phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.L] || '',
+                )
+                _showingReadFirstPopup = false
+              })()
+            }
             return
+          }
+          if (currentStepperPhraseKey) {
+            RC._readInstructionPhraseKeys.add(currentStepperPhraseKey)
           }
         }
 
@@ -8983,9 +9045,10 @@ export async function objectTest(RC, options, callback = undefined) {
                             `Progress update after rejection: ${current} of ${total}`,
                           )
                         },
-                        setStepModel: (model, index) => {
+                        setStepModel: (model, index, phraseKey) => {
                           stepInstructionModel = model
                           currentStepFlatIndex = index
+                          if (phraseKey) currentStepperPhraseKey = phraseKey
                         },
                       })
 
@@ -9006,13 +9069,16 @@ export async function objectTest(RC, options, callback = undefined) {
                         getOffsetPx(),
                       )
                       if (arrowIndicators) arrowIndicators.remove()
-                      const arrowXY = getArrowPositionForLocation(
-                        resetLocInfo.location,
-                        getOffsetPx(),
-                        RC,
-                      )
-                      arrowIndicators = createArrowIndicators(arrowXY)
-                      RC.background.appendChild(arrowIndicators)
+                      arrowIndicators = null
+                      if (resetLocInfo.location === 'camera') {
+                        const arrowXY = getArrowPositionForLocation(
+                          resetLocInfo.location,
+                          getOffsetPx(),
+                          RC,
+                        )
+                        arrowIndicators = createArrowIndicators(arrowXY)
+                        RC.background.appendChild(arrowIndicators)
+                      }
                       updateMeasurementOverlayForLocation()
                     }
                   }
@@ -9200,9 +9266,10 @@ export async function objectTest(RC, options, callback = undefined) {
                               `Progress update: ${current} of ${total}`,
                             )
                           },
-                          setStepModel: (model, index) => {
+                          setStepModel: (model, index, phraseKey) => {
                             stepInstructionModel = model
                             currentStepFlatIndex = index
+                            if (phraseKey) currentStepperPhraseKey = phraseKey
                           },
                         })
 
@@ -9225,13 +9292,16 @@ export async function objectTest(RC, options, callback = undefined) {
                           getOffsetPx(),
                         )
                         if (arrowIndicators) arrowIndicators.remove()
-                        const arrowXY = getArrowPositionForLocation(
-                          nextLocInfo.location,
-                          getOffsetPx(),
-                          RC,
-                        )
-                        arrowIndicators = createArrowIndicators(arrowXY)
-                        RC.background.appendChild(arrowIndicators)
+                        arrowIndicators = null
+                        if (nextLocInfo.location === 'camera') {
+                          const arrowXY = getArrowPositionForLocation(
+                            nextLocInfo.location,
+                            getOffsetPx(),
+                            RC,
+                          )
+                          arrowIndicators = createArrowIndicators(arrowXY)
+                          RC.background.appendChild(arrowIndicators)
+                        }
                         updateMeasurementOverlayForLocation()
                         console.log(
                           `Updated UI for location ${locationManager.getCurrentIndex()}: ${nextLocInfo.locEye}`,
@@ -9624,14 +9694,13 @@ export async function objectTest(RC, options, callback = undefined) {
   explanationButton.style.borderRadius = '4px'
   explanationButton.style.cursor = 'pointer'
   explanationButton.onclick = () => {
-    // Insert a <br> before each numbered step (e.g., 1., 2., 3., 4.)
-    const explanationHtml = phrases.RC_viewingDistanceIntroPelliMethod[RC.L]
-      .replace(/(\d\.)/g, '<br>$1')
-      .replace(/^<br>/, '')
+    const rawText = phrases.RC_viewingDistanceIntroPelliMethod[RC.L]
+    const explanationHtml = processInlineFormatting(rawText)
+      .replace(/\n/g, '<br>')
     Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
       icon: undefined,
-      html: explanationHtml,
+      html: `<div style="text-align: left;">${explanationHtml}</div>`,
       allowEnterKey: true,
       confirmButtonText: phrases.T_ok ? phrases.T_ok[RC.L] : 'OK',
     })
@@ -10139,9 +10208,20 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
 
   let stepInstructionModel = null
   let currentStepFlatIndex = 0
+  let currentStepperPhraseKey = null
+  let _showingReadFirstPopup = false
 
   const renderCurrentStepView = () => {
     const maxIdx = (stepInstructionModel?.flatSteps?.length || 1) - 1
+
+    // Cement "already read" state whenever we're at or past the last step
+    if (
+      (currentPage === 3 || currentPage === 4) &&
+      currentStepFlatIndex >= maxIdx &&
+      currentStepperPhraseKey
+    ) {
+      RC._readInstructionPhraseKeys.add(currentStepperPhraseKey)
+    }
 
     const handlePrev = () => {
       if (currentStepFlatIndex > 0) {
@@ -10171,6 +10251,9 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         useCurrentSectionOnly: true,
         resolveMediaUrl: resolveInstructionMediaUrl,
         stepperHistory: options.stepperHistory,
+        readFirstPhraseKey:
+          (currentPage === 3 || currentPage === 4) ? currentStepperPhraseKey : null,
+        readPhraseKeys: RC._readInstructionPhraseKeys,
         onPrev: handlePrev,
         onNext: handleNext,
       },
@@ -10268,6 +10351,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         const p3Text =
           (phrases.RC_UseObjectToSetViewingDistanceCreditCardPage3?.[RC.L] ||
             '') + ''
+        currentStepperPhraseKey = 'RC_UseObjectToSetViewingDistanceCreditCardPage3'
         stepInstructionModel = parseInstructions(p3Text, {
           assetMap: test_assetMap,
         })
@@ -10295,6 +10379,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       )
     } else if (pageNumber === 4) {
       // ===================== PAGE 4: VIDEO AT TOP CENTER (SAME AS PAGE 3) =====================
+      dontUseYourRulerNote.style.display = 'none'
       console.log('=== SHOWING PAGE 4: VIDEO AT TOP CENTER ===')
 
       if (previousPage !== 4) {
@@ -10322,6 +10407,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
           (phrases.RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4?.[
             RC.L
           ] || '') + ''
+        currentStepperPhraseKey = 'RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4'
         stepInstructionModel = parseInstructions(p4Text, {
           assetMap: test_assetMap,
         })
@@ -10582,15 +10668,24 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         // Gate SPACE on pages 3/4: require stepper to be on the last step
         if (stepInstructionModel) {
           const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
-          if (currentStepFlatIndex < maxIdx) {
-            console.log(
-              'SPACE ignored - stepper not on last step (' +
-                currentStepFlatIndex +
-                ' of ' +
-                maxIdx +
-                ')',
-            )
+          const alreadyRead = currentStepperPhraseKey &&
+            RC._readInstructionPhraseKeys.has(currentStepperPhraseKey)
+          if (!alreadyRead && currentStepFlatIndex < maxIdx) {
+            if (!_showingReadFirstPopup) {
+              _showingReadFirstPopup = true
+              ;(async () => {
+                await showPopup(
+                  RC,
+                  '',
+                  phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.L] || '',
+                )
+                _showingReadFirstPopup = false
+              })()
+            }
             return
+          }
+          if (currentStepperPhraseKey) {
+            RC._readInstructionPhraseKeys.add(currentStepperPhraseKey)
           }
         }
         // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press

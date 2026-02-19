@@ -131,6 +131,9 @@ class RemoteCalibrator {
       showCancelButton: true,
     }
 
+    // Session-level tracking of which instruction phrase keys have been fully read
+    this._readInstructionPhraseKeys = new Set()
+
     // Function parameters
     this.viewingDistanceAllowedPreciseBool = true
 

@@ -126,6 +126,7 @@ export function getLocationInstructionPhraseKey(isFirstMeasurement) {
  * Placeholders:
  * - [[SSS]] = snapshot type (RC_temporarySnapshot or RC_snapshot based on saveSnapshots)
  * - [[EEE]] = eye phrase (RC_yourRightEye or RC_yourLeftEye based on preferRightHandBool)
+ * - [[RLHAND]] = hand phrase (RC_RightHand or RC_LeftHand based on preferRightHandBool)
  * - [[LLL]] = location phrase (RC_theCameraLocation or RC_theBigCircleLocation)
  * - [[ALIGNOBJECTLOCATIONEYE]] = movie link
  * - [[GLANCEOBJECTLOCATIONEYE]] = movie link
@@ -167,6 +168,11 @@ export function buildLocationInstructions(
     : 'RC_yourLeftEye'
   const eyeText = phrasesObj[eyePhraseKey]?.[language] || 'your eye'
   text = text.replace(/\[\[EEE\]\]/g, eyeText)
+
+  // Replace [[RLHAND]] with hand phrase (determined by hand preference)
+  const handPhraseKey = preferRightHandBool ? 'RC_RightHand' : 'RC_LeftHand'
+  const handText = phrasesObj[handPhraseKey]?.[language] || (preferRightHandBool ? 'right' : 'left')
+  text = text.replace(/\[\[RLHAND\]\]/g, handText)
 
   // Replace [[LLL]] with location phrase
   let locationPhraseKey

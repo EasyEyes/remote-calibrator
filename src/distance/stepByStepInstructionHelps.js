@@ -526,6 +526,10 @@ export function renderStepInstructions({
     showLargeHeading = false,
     // Offset from the bottom of the screen (e.g., for progress bar)
     bottomOffset = 0,
+    // "Read first" rule: phrase key identifying the current instruction set
+    readFirstPhraseKey = null,
+    // Set of phrase keys already read in this session (from RC._readInstructionPhraseKeys)
+    readPhraseKeys = null,
   } = options
 
   const { leftText, rightText, mediaContainer } = elements
@@ -711,6 +715,27 @@ export function renderStepInstructions({
 
   if (showAllSteps) {
     navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
+  }
+
+  // "Read first" / "Already read" note above the step invitation
+  if (readFirstPhraseKey) {
+    const alreadyRead = readPhraseKeys && readPhraseKeys.has(readFirstPhraseKey)
+    const maxIdx = totalFlatSteps > 0 ? totalFlatSteps - 1 : 0
+    const reachedEnd = safeFlatIndex >= maxIdx
+    const noteText = (alreadyRead || reachedEnd)
+      ? phrases.EE_AlreadyRead?.[lang] || ''
+      : phrases.EE_ReadInstructionsToEndBeforeMakingSetting?.[lang] || ''
+
+    if (noteText) {
+      const readNote = document.createElement('div')
+      readNote.style.color = '#555'
+      readNote.style.fontStyle = 'italic'
+      readNote.style.fontSize = 'clamp(0.85em, 1.8vw, 0.95em)'
+      readNote.style.marginBottom = '0.25rem'
+      readNote.style.textAlign = langDirection === 'RTL' ? 'right' : 'left'
+      readNote.textContent = noteText
+      navHintContainer.appendChild(readNote)
+    }
   }
 
   navHintContainer.appendChild(navHint)

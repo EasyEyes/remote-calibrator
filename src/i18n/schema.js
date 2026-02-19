@@ -76,6 +76,8 @@ const phrasesData = [
   'RC_viewingDistanceTitle',
   'T_proceed',
   'EE_ReadInstructionsToEndBeforeMakingSetting',
+  'EE_AlreadyRead',
+  'EE_SpaceBarDisabledUntilInstructionsFullyRead',
 ]
 const languages = [
   'en-US',

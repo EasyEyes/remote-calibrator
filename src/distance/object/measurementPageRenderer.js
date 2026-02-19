@@ -138,11 +138,13 @@ export function createMeasurementPageRenderer(dependencies) {
       arrowIndicators = null
     }
 
-    const arrowXY = getArrowPositionForLocation(location, offsetPx, RC)
-    arrowIndicators = createArrowIndicators(arrowXY)
+    if (location === 'camera') {
+      const arrowXY = getArrowPositionForLocation(location, offsetPx, RC)
+      arrowIndicators = createArrowIndicators(arrowXY)
 
-    if (arrowIndicators && RC.background) {
-      RC.background.appendChild(arrowIndicators)
+      if (arrowIndicators && RC.background) {
+        RC.background.appendChild(arrowIndicators)
+      }
     }
 
     return arrowIndicators
@@ -370,7 +372,7 @@ export function createMeasurementPageRenderer(dependencies) {
           assetMap: test_assetMap,
         })
         // Call the setter which updates the actual variables in distance.js
-        config.setStepModel(parsedModel, 0)
+        config.setStepModel(parsedModel, 0, phraseKey)
         // Now render with the updated model
         if (renderCurrentStepView) {
           renderCurrentStepView()

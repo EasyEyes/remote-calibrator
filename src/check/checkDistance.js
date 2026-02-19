@@ -14,6 +14,7 @@ import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { phrases } from '../i18n/schema'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
+import { showPopup } from '../components/popup'
 import { setDefaultVideoPosition } from '../components/video'
 import {
   buildStepInstructions,
@@ -1537,8 +1538,8 @@ const checkSize = async (
     navHandler: null,
   }
 
-  // Only gate SPACE behind the stepper on the first page (same instructions repeat)
-  let requireStepperForSpace = true
+  const checkSizePhraseKey = 'RC_SetLength'
+  let _showingReadFirstPopup = false
 
   // Loop through each length value to create dynamic pages
   for (let i = 0; i < processedLengthCm.length; i++) {
@@ -1638,21 +1639,6 @@ const checkSize = async (
         instructionBody.style.width = '100%'
         instructionBody.style.maxWidth = '100%'
 
-        // Show "read instructions" note on the first iteration only
-        if (requireStepperForSpace) {
-          const note = document.createElement('p')
-          note.id = 'rc-read-instructions-note'
-          note.className = 'bodyText'
-          note.style.marginBottom = '0.5rem'
-          note.style.fontStyle = 'italic'
-          note.style.color = '#555'
-          note.textContent =
-            phrases.EE_ReadInstructionsToEndBeforeMakingSetting?.[
-              RC.language.value
-            ]
-          instructionBody.appendChild(note)
-        }
-
         lengthStepperState.ui = createStepInstructionsUI(instructionBody, {
           layout: 'leftOnly',
           leftWidth: '100%',
@@ -1688,8 +1674,10 @@ const checkSize = async (
           const maxStep = (lengthStepperState.model.flatSteps?.length || 1) - 1
           if (lengthStepperState.stepIndex < maxStep) {
             lengthStepperState.stepIndex++
+            if (lengthStepperState.stepIndex >= maxStep) {
+              RC._readInstructionPhraseKeys.add(checkSizePhraseKey)
+            }
           }
-          // Always re-render to provide visual feedback (even if only one step)
           doRender()
         }
 
@@ -1708,6 +1696,8 @@ const checkSize = async (
               resolveMediaUrl: resolveInstructionMediaUrl,
               layout: 'leftOnly',
               stepperHistory: stepperHistory,
+              readFirstPhraseKey: checkSizePhraseKey,
+              readPhraseKeys: RC._readInstructionPhraseKeys,
               onPrev: handlePrev,
               onNext: handleNext,
             },
@@ -1731,8 +1721,10 @@ const checkSize = async (
               (lengthStepperState.model.flatSteps?.length || 1) - 1
             if (lengthStepperState.stepIndex < maxStep) {
               lengthStepperState.stepIndex++
+              if (lengthStepperState.stepIndex >= maxStep) {
+                RC._readInstructionPhraseKeys.add(checkSizePhraseKey)
+              }
             }
-            // Always re-render to provide visual feedback (even if only one step)
             doRender()
             e.preventDefault()
             e.stopPropagation()
@@ -1856,23 +1848,25 @@ const checkSize = async (
 
       function keyupListener(event) {
         if (event.key === ' ') {
-          // Gate SPACE on the first page only: require stepper to be on the last step
-          if (requireStepperForSpace && lengthStepperState.model) {
+          if (lengthStepperState.model) {
             const maxIdx = (lengthStepperState.model.flatSteps?.length || 1) - 1
-            if (lengthStepperState.stepIndex < maxIdx) {
-              console.log(
-                'SPACE ignored - stepper not on last step (' +
-                  lengthStepperState.stepIndex +
-                  ' of ' +
-                  maxIdx +
-                  ')',
-              )
+            const alreadyRead = RC._readInstructionPhraseKeys.has(checkSizePhraseKey)
+            if (!alreadyRead && lengthStepperState.stepIndex < maxIdx) {
+              if (!_showingReadFirstPopup) {
+                _showingReadFirstPopup = true
+                ;(async () => {
+                  await showPopup(
+                    RC,
+                    '',
+                    phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.language.value] || '',
+                  )
+                  _showingReadFirstPopup = false
+                })()
+              }
               return
             }
+            RC._readInstructionPhraseKeys.add(checkSizePhraseKey)
           }
-          requireStepperForSpace = false
-          const noteEl = document.getElementById('rc-read-instructions-note')
-          if (noteEl) noteEl.remove()
           handleMeasurement()
         }
       }
@@ -1883,24 +1877,26 @@ const checkSize = async (
         RC.keypadHandler,
         value => {
           if (value === 'space') {
-            // Gate SPACE on the first page only: require stepper to be on the last step
-            if (requireStepperForSpace && lengthStepperState.model) {
+            if (lengthStepperState.model) {
               const maxIdx =
                 (lengthStepperState.model.flatSteps?.length || 1) - 1
-              if (lengthStepperState.stepIndex < maxIdx) {
-                console.log(
-                  'SPACE ignored (keypad) - stepper not on last step (' +
-                    lengthStepperState.stepIndex +
-                    ' of ' +
-                    maxIdx +
-                    ')',
-                )
+              const alreadyRead = RC._readInstructionPhraseKeys.has(checkSizePhraseKey)
+              if (!alreadyRead && lengthStepperState.stepIndex < maxIdx) {
+                if (!_showingReadFirstPopup) {
+                  _showingReadFirstPopup = true
+                  ;(async () => {
+                    await showPopup(
+                      RC,
+                      '',
+                      phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.language.value] || '',
+                    )
+                    _showingReadFirstPopup = false
+                  })()
+                }
                 return
               }
+              RC._readInstructionPhraseKeys.add(checkSizePhraseKey)
             }
-            requireStepperForSpace = false
-            const noteEl = document.getElementById('rc-read-instructions-note')
-            if (noteEl) noteEl.remove()
             handleMeasurement()
           }
         },
@@ -2700,8 +2696,8 @@ const trackDistanceCheck = async (
         calibrateDistanceSpotXYDeg
     }
 
-    // Only gate SPACE behind the stepper on the first page (same instructions repeat)
-    let requireStepperForSpaceDist = true
+    let _showingReadFirstPopupDist = false
+    let checkDistMovieContainer = null
 
     for (let i = 0; i < calibrateDistanceCheckCm.length; i++) {
       let register = true
@@ -2835,21 +2831,6 @@ const trackDistanceCheck = async (
         instructionBody.style.maxHeight = `calc(100vh - 50px)`
         instructionBody.style.overflow = 'auto'
 
-        // Show "read instructions" note on the first iteration only
-        if (requireStepperForSpaceDist) {
-          const note = document.createElement('p')
-          note.id = 'rc-read-instructions-note-dist'
-          note.className = 'bodyText'
-          note.style.marginBottom = '0.5rem'
-          note.style.fontStyle = 'italic'
-          note.style.color = '#555'
-          note.textContent =
-            phrases.EE_ReadInstructionsToEndBeforeMakingSetting?.[
-              RC.language.value
-            ]
-          instructionBody.appendChild(note)
-        }
-
         const ui = createStepInstructionsUI(instructionBody, {
           layout: 'leftOnly',
           leftWidth: '100%',
@@ -2858,6 +2839,30 @@ const trackDistanceCheck = async (
           fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
           lineHeight: '1.4',
         })
+
+        if (!checkDistMovieContainer) {
+          checkDistMovieContainer = document.createElement('div')
+          checkDistMovieContainer.id = 'check-dist-movie-container'
+          checkDistMovieContainer.style.position = 'fixed'
+          checkDistMovieContainer.style.bottom = '44px'
+          checkDistMovieContainer.style.width = '50vw'
+          checkDistMovieContainer.style.maxWidth = '50vw'
+          checkDistMovieContainer.style.maxHeight = 'calc(45vh - 44px)'
+          checkDistMovieContainer.style.padding = '0.5rem'
+          checkDistMovieContainer.style.boxSizing = 'border-box'
+          checkDistMovieContainer.style.zIndex = '999999996'
+          checkDistMovieContainer.style.pointerEvents = 'none'
+          checkDistMovieContainer.style.overflow = 'hidden'
+          if (RC.LD === RC._CONST.RTL) {
+            checkDistMovieContainer.style.left = '0'
+            checkDistMovieContainer.style.right = 'auto'
+          } else {
+            checkDistMovieContainer.style.right = '0'
+            checkDistMovieContainer.style.left = 'auto'
+          }
+          document.body.appendChild(checkDistMovieContainer)
+        }
+
         // For checkDistance.js: use RC_produceDistanceLocation and apply [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
         const actualPhraseKey =
           phraseKeyMapping[phraseKeyForSteps] ||
@@ -2920,8 +2925,10 @@ const trackDistanceCheck = async (
           const handleNext = () => {
             if (stepIndex < maxIdx) {
               stepIndex++
+              if (stepIndex >= maxIdx) {
+                RC._readInstructionPhraseKeys.add(actualPhraseKey)
+              }
             }
-            // Always re-render to provide visual feedback (even if only one step)
             doRender()
           }
 
@@ -2940,6 +2947,8 @@ const trackDistanceCheck = async (
                 resolveMediaUrl: resolveInstructionMediaUrl,
                 layout: 'leftOnly',
                 stepperHistory: stepperHistory,
+                readFirstPhraseKey: actualPhraseKey,
+                readPhraseKeys: RC._readInstructionPhraseKeys,
                 onPrev: handlePrev,
                 onNext: handleNext,
                 bottomOffset: 40, // Account for progress bar height
@@ -2948,6 +2957,35 @@ const trackDistanceCheck = async (
               langDirection: RC.LD,
               phrases: phrases,
             })
+
+            if (checkDistMovieContainer) {
+              checkDistMovieContainer.innerHTML = ''
+              while (ui.mediaContainer.firstChild) {
+                checkDistMovieContainer.appendChild(ui.mediaContainer.firstChild)
+              }
+              const movedMedia = checkDistMovieContainer.querySelector('video, img')
+              if (movedMedia) {
+                movedMedia.style.maxHeight = '100%'
+              }
+              const distContainer = document.getElementById(
+                'calibration-trackDistance-check-viewingDistance-container',
+              )
+              if (distContainer) {
+                const hasMovie = checkDistMovieContainer.children.length > 0
+                if (hasMovie) {
+                  distContainer.style.height = '55%'
+                } else {
+                  distContainer.style.height = '100%'
+                }
+                const vdDiv = document.getElementById('viewing-distance-p')
+                const uDiv = document.getElementById(
+                  'calibration-trackDistance-check-viewingDistance-units',
+                )
+                if (vdDiv && uDiv) {
+                  adjustFontSize(vdDiv, uDiv)
+                }
+              }
+            }
 
             // Debug: Check DOM for all video/img elements after render
             const allVideos = instructionBody.querySelectorAll('video')
@@ -2979,8 +3017,10 @@ const trackDistanceCheck = async (
               const maxIdx = (stepModel.flatSteps?.length || 1) - 1
               if (stepIndex < maxIdx) {
                 stepIndex++
+                if (stepIndex >= maxIdx) {
+                  RC._readInstructionPhraseKeys.add(actualPhraseKey)
+                }
               }
-              // Always re-render to provide visual feedback (even if only one step)
               doRender()
               e.preventDefault()
               e.stopPropagation()
@@ -2988,7 +3028,6 @@ const trackDistanceCheck = async (
               if (stepIndex > 0) {
                 stepIndex--
               }
-              // Always re-render to provide visual feedback (even if only one step)
               doRender()
               e.preventDefault()
               e.stopPropagation()
@@ -3014,25 +3053,26 @@ const trackDistanceCheck = async (
 
           async function keyupListener(event) {
             if (event.key === ' ' && register) {
-              // Gate SPACE on the first page only: require stepper to be on the last step
-              if (requireStepperForSpaceDist) {
+              // Gate SPACE: require stepper to be on the last step (unless already read)
+              const alreadyReadDist = RC._readInstructionPhraseKeys.has('RC_produceDistanceLocation')
+              if (!alreadyReadDist) {
                 const progress = getStepperProgress()
                 if (progress && progress.current < progress.max) {
-                  console.log(
-                    'SPACE ignored - stepper not on last step (' +
-                      progress.current +
-                      ' of ' +
-                      progress.max +
-                      ')',
-                  )
+                  if (!_showingReadFirstPopupDist) {
+                    _showingReadFirstPopupDist = true
+                    ;(async () => {
+                      await showPopup(
+                        RC,
+                        '',
+                        phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.language.value] || '',
+                      )
+                      _showingReadFirstPopupDist = false
+                    })()
+                  }
                   return
                 }
               }
-              requireStepperForSpaceDist = false
-              const noteEl = document.getElementById(
-                'rc-read-instructions-note-dist',
-              )
-              if (noteEl) noteEl.remove()
+              RC._readInstructionPhraseKeys.add('RC_produceDistanceLocation')
 
               // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
               const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
@@ -3355,25 +3395,26 @@ const trackDistanceCheck = async (
             RC.keypadHandler,
             async value => {
               if (value === 'space') {
-                // Gate SPACE on the first page only: require stepper to be on the last step
-                if (requireStepperForSpaceDist) {
+                // Gate SPACE: require stepper to be on the last step (unless already read)
+                const alreadyReadDist = RC._readInstructionPhraseKeys.has('RC_produceDistanceLocation')
+                if (!alreadyReadDist) {
                   const progress = getStepperProgress()
                   if (progress && progress.current < progress.max) {
-                    console.log(
-                      'SPACE ignored (keypad) - stepper not on last step (' +
-                        progress.current +
-                        ' of ' +
-                        progress.max +
-                        ')',
-                    )
+                    if (!_showingReadFirstPopupDist) {
+                      _showingReadFirstPopupDist = true
+                      ;(async () => {
+                        await showPopup(
+                          RC,
+                          '',
+                          phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.language.value] || '',
+                        )
+                        _showingReadFirstPopupDist = false
+                      })()
+                    }
                     return
                   }
                 }
-                requireStepperForSpaceDist = false
-                const noteElDist = document.getElementById(
-                  'rc-read-instructions-note-dist',
-                )
-                if (noteElDist) noteElDist.remove()
+                RC._readInstructionPhraseKeys.add('RC_produceDistanceLocation')
 
                 // Check if iris tracking is active before proceeding
                 if (!irisTrackingIsActive) {
@@ -3856,6 +3897,11 @@ const trackDistanceCheck = async (
           )
         }
       }
+    }
+
+    if (checkDistMovieContainer && checkDistMovieContainer.parentNode) {
+      checkDistMovieContainer.parentNode.removeChild(checkDistMovieContainer)
+      checkDistMovieContainer = null
     }
 
     removeProgressBar(RC, calibrateDistanceChecking)
