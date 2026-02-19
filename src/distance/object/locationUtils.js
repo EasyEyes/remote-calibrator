@@ -171,7 +171,9 @@ export function buildLocationInstructions(
 
   // Replace [[RLHAND]] with hand phrase (determined by hand preference)
   const handPhraseKey = preferRightHandBool ? 'RC_RightHand' : 'RC_LeftHand'
-  const handText = phrasesObj[handPhraseKey]?.[language] || (preferRightHandBool ? 'right' : 'left')
+  const handText =
+    phrasesObj[handPhraseKey]?.[language] ||
+    (preferRightHandBool ? 'right' : 'left')
   text = text.replace(/\[\[RLHAND\]\]/g, handText)
 
   // Replace [[LLL]] with location phrase
@@ -188,7 +190,7 @@ export function buildLocationInstructions(
   //build movie link based on location, preferRightHandBool, object =tube
   let movieLink = ''
   let movieLinkKey = ''
-  const locationKey = location === 'camera' ? 'Camera' : 'Center'
+  const locationKey = location === 'center' ? 'Center' : 'Camera'
   const eyeKey = preferRightHandBool ? 'RightEye' : 'LeftEye'
   const objectKey = 'Tube'
   movieLinkKey = `RC_MovieAlign${objectKey}${locationKey}${eyeKey}`
