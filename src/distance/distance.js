@@ -6945,7 +6945,7 @@ export async function objectTest(RC, options, callback = undefined) {
       // Build config from current location manager state
       const pageConfig = buildMeasurementPageConfig(
         locationManager,
-        options.saveSnapshotsBool || false,
+        options.saveSnapshots || false,
         preferRightHandBool,
         getOffsetPx(),
       )
@@ -9032,7 +9032,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   // This will reset instructions to the beginning
                   const resetPageConfig = buildMeasurementPageConfig(
                     locationManager,
-                    options.saveSnapshotsBool || false,
+                    options.saveSnapshots || false,
                     preferRightHandBool,
                     getOffsetPx(),
                   )
@@ -9251,7 +9251,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     // Build new page config for the next location
                     const nextPageConfig = buildMeasurementPageConfig(
                       locationManager,
-                      options.saveSnapshotsBool || false,
+                      options.saveSnapshots || false,
                       preferRightHandBool,
                       getOffsetPx(),
                     )
