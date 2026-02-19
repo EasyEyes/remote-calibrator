@@ -3481,9 +3481,11 @@ export async function objectTest(RC, options, callback = undefined) {
   })
   RC._addBackground()
 
-  // Store tube diameter on RC so locationUtils can access it for the big circle
+  // Store tube options on RC so locationUtils can access them
   RC._calibrateDistanceTubeDiameterCm =
     options.calibrateDistanceTubeDiameterCm ?? 3.5
+  RC._calibrateDistanceDrawPaperTubeBool =
+    options.calibrateDistanceDrawPaperTubeBool !== false
 
   // ===================== PAGE STATE MANAGEMENT =====================
   let currentPage = 1
@@ -9801,9 +9803,11 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   )
   RC._addBackground()
 
-  // Store tube diameter on RC so locationUtils can access it for the big circle
+  // Store tube options on RC so locationUtils can access them
   RC._calibrateDistanceTubeDiameterCm =
     options.calibrateDistanceTubeDiameterCm ?? 3.5
+  RC._calibrateDistanceDrawPaperTubeBool =
+    options.calibrateDistanceDrawPaperTubeBool !== false
 
   // ===================== PAGE STATE MANAGEMENT =====================
   let currentPage = 3 // Start directly at page 3 (skip pages 1-2)

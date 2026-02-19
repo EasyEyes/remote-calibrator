@@ -189,6 +189,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateDistanceLocations: ['camera', 'center'], // Array of locations for distance calibration. Each can be: camera, center, topCenter, topOffsetLeft, topOffsetRight, topOffsetDown
       calibrateDistanceOffsetCm: 4, // Offset in cm for topOffsetLeft/Right/Down locations
       calibrateDistanceTubeDiameterCm: 3.5, // Tube outer diameter in cm (used for small circle on video and big circle on screen)
+      calibrateDistanceDrawPaperTubeBool: true, // Draw the paper tube visualization (two circles connected by tangent lines)
       objectMeasurementConsistencyThreshold: 1.1, // Ratio threshold - measurements must satisfy max(M1/M2, M2/M1) <= max(threshold, 1/threshold)
       sparkle: true,
       pipWidthPx:
@@ -436,6 +437,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
     options.calibrateDistanceIpdUsesZBool
   trackingOptions.calibrateDistanceTubeDiameterCm =
     options.calibrateDistanceTubeDiameterCm
+  trackingOptions.calibrateDistanceDrawPaperTubeBool =
+    options.calibrateDistanceDrawPaperTubeBool
   // Store on RC instance for access from other modules
   this.calibrateDistanceIpdUsesZBool =
     options.calibrateDistanceIpdUsesZBool !== false
@@ -767,9 +770,17 @@ const _drawMeasurementOverlay = (
   // 1. Draw static eye-side text on the video
   _drawEyeSideText(videoRect, leftTextWords, rightTextWords)
 
-  // 2. Draw paper tube circles (only in paper mode with valid eye positions)
+  // 2. Draw paper tube circles and (optionally) connecting tangent lines
   if (isPaperMode && leftPxScreen && rightPxScreen && ipdScreenPx > 0) {
-    _drawTubeCircles(leftPxScreen, rightPxScreen, ipdScreenPx, eye)
+    const smallCircle = _drawTubeCircles(
+      leftPxScreen,
+      rightPxScreen,
+      ipdScreenPx,
+      eye,
+    )
+    if (trackingOptions.calibrateDistanceDrawPaperTubeBool) {
+      _drawTubeLines(smallCircle)
+    }
   }
 }
 
@@ -832,7 +843,7 @@ const _drawEyeSideText = (videoRect, leftTextWords, rightTextWords) => {
  * For 'right': one solid black circle RIGHT of the right eye
  */
 const _drawTubeCircles = (leftPx, rightPx, ipdScreenPx, eye) => {
-  if (!irisCtx) return
+  if (!irisCtx) return null
 
   const tubeCm = trackingOptions.calibrateDistanceTubeDiameterCm ?? 3.5
   const ipdCm = RC_instance?._CONST?.IPD_CM ?? 6.3
@@ -843,7 +854,7 @@ const _drawTubeCircles = (leftPx, rightPx, ipdScreenPx, eye) => {
   const dx = leftPx.x - rightPx.x
   const dy = leftPx.y - rightPx.y
   const len = Math.hypot(dx, dy)
-  if (len === 0) return
+  if (len === 0) return null
   const nx = dx / len
   const ny = dy / len
 
@@ -851,22 +862,90 @@ const _drawTubeCircles = (leftPx, rightPx, ipdScreenPx, eye) => {
   irisCtx.lineWidth = 2
   irisCtx.setLineDash([])
 
+  let cx, cy
   if (eye === 'left') {
     // Solid circle left of the left eye (extending away from the right eye)
-    const cx = leftPx.x + nx * tubeOffsetPx
-    const cy = leftPx.y + ny * tubeOffsetPx
-    irisCtx.beginPath()
-    irisCtx.arc(cx, cy, tubeRadiusPx, 0, 2 * Math.PI)
-    irisCtx.stroke()
+    cx = leftPx.x + nx * tubeOffsetPx
+    cy = leftPx.y + ny * tubeOffsetPx
   } else {
     // Solid circle right of the right eye (extending away from the left eye)
     // Default to 'right' for any non-'left' value
-    const cx = rightPx.x - nx * tubeOffsetPx
-    const cy = rightPx.y - ny * tubeOffsetPx
-    irisCtx.beginPath()
-    irisCtx.arc(cx, cy, tubeRadiusPx, 0, 2 * Math.PI)
-    irisCtx.stroke()
+    cx = rightPx.x - nx * tubeOffsetPx
+    cy = rightPx.y - ny * tubeOffsetPx
   }
+
+  irisCtx.beginPath()
+  irisCtx.arc(cx, cy, tubeRadiusPx, 0, 2 * Math.PI)
+  irisCtx.stroke()
+
+  return { cx, cy, r: tubeRadiusPx }
+}
+
+/**
+ * Draw two straight lines connecting the small tube circle (on the video) to
+ * the big tube circle (below the video), each tangent to both circles.
+ *
+ * The two external-tangent lines suggest the outline of a cylindrical paper
+ * tube: one line runs along the left side, the other along the right side.
+ *
+ * Geometry: given small circle (cx, cy, r) and big circle (Cx, Cy, R),
+ * the outward-pointing normal angle α for an external tangent satisfies
+ *   cos(α − θ) = (r − R) / d
+ * where θ = atan2(Cy−cy, Cx−cx) and d = dist(centers).
+ * Each α yields a tangent point on each circle at (center + radius·(cosα, sinα)).
+ */
+const _drawTubeLines = smallCircle => {
+  if (!irisCtx || !smallCircle) return
+
+  const bigEl = document.getElementById('rc-big-circle-target')
+  if (!bigEl || bigEl.style.display === 'none') return
+
+  const bigRect = bigEl.getBoundingClientRect()
+  const Cx = bigRect.left + bigRect.width / 2
+  const Cy = bigRect.top + bigRect.height / 2
+  const R = bigRect.width / 2
+
+  const { cx, cy, r } = smallCircle
+
+  const dxC = Cx - cx
+  const dyC = Cy - cy
+  const d = Math.hypot(dxC, dyC)
+  if (d <= Math.abs(R - r) || d === 0) return
+
+  const theta = Math.atan2(dyC, dxC)
+  const cosVal = (r - R) / d
+  if (Math.abs(cosVal) > 1) return
+
+  const phi = Math.acos(cosVal)
+
+  const alpha1 = theta + phi
+  const alpha2 = theta - phi
+
+  // Tangent points on small circle
+  const p1x = cx + r * Math.cos(alpha1)
+  const p1y = cy + r * Math.sin(alpha1)
+  const p2x = cx + r * Math.cos(alpha2)
+  const p2y = cy + r * Math.sin(alpha2)
+
+  // Tangent points on big circle
+  const P1x = Cx + R * Math.cos(alpha1)
+  const P1y = Cy + R * Math.sin(alpha1)
+  const P2x = Cx + R * Math.cos(alpha2)
+  const P2y = Cy + R * Math.sin(alpha2)
+
+  irisCtx.strokeStyle = 'black'
+  irisCtx.lineWidth = 2
+  irisCtx.setLineDash([])
+
+  irisCtx.beginPath()
+  irisCtx.moveTo(p1x, p1y)
+  irisCtx.lineTo(P1x, P1y)
+  irisCtx.stroke()
+
+  irisCtx.beginPath()
+  irisCtx.moveTo(p2x, p2y)
+  irisCtx.lineTo(P2x, P2y)
+  irisCtx.stroke()
 }
 
 const startIrisDrawing = RC => {
