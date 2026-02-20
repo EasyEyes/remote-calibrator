@@ -2610,6 +2610,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
         options.calibrateScreenSizeAllowedRatio,
         options.calibrateDistanceAllowedRatio,
         options.viewingDistanceWhichEye,
+        undefined,
+        options.calibrateDistanceCheckMinRulerCm,
       )
     } else {
       if (typeof callback === 'function') {

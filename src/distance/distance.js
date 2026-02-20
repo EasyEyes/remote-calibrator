@@ -3173,6 +3173,7 @@ export async function blindSpotTestNew(
       options.calibrateDistanceAllowedRatio,
       options.viewingDistanceWhichEye,
       options.saveSnapshots,
+      options.calibrateDistanceCheckMinRulerCm,
     )
   else safeExecuteFunc(callback, data)
 
@@ -7935,6 +7936,8 @@ export async function objectTest(RC, options, callback = undefined) {
               options.calibrateScreenSizeAllowedRatio,
               options.calibrateDistanceAllowedRatio,
               options.viewingDistanceWhichEye,
+              undefined,
+              options.calibrateDistanceCheckMinRulerCm,
             )
           } else {
             // ===================== CALLBACK HANDLING =====================
@@ -8009,6 +8012,7 @@ export async function objectTest(RC, options, callback = undefined) {
           options.calibrateDistanceAllowedRatio,
           options.viewingDistanceWhichEye,
           options.saveSnapshots,
+          options.calibrateDistanceCheckMinRulerCm,
         )
       } else {
         // ===================== CALLBACK HANDLING =====================
@@ -10605,6 +10609,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         options.calibrateScreenSizeAllowedRatio,
         options.calibrateDistanceAllowedRatio,
         options.viewingDistanceWhichEye,
+        undefined,
+        options.calibrateDistanceCheckMinRulerCm,
       )
     } else {
       if (typeof callback === 'function') {
@@ -10868,6 +10874,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                       options.calibrateScreenSizeAllowedRatio,
                       options.calibrateDistanceAllowedRatio,
                       options.viewingDistanceWhichEye,
+                      undefined,
+                      options.calibrateDistanceCheckMinRulerCm,
                     )
                   } else {
                     // Call callback directly (same as knownDistanceTestFinishFunction)

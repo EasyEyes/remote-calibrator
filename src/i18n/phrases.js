@@ -699,7 +699,7 @@ export const remoteCalibratorPhrases = {
   },
   RC_howLong: {
     'en-US':
-      "How long is your ruler or tape measure, in AAA? More precisely, taking into account the size of the room, what's the longest viewing distance that you could measure now?",
+      '3. How long is your measuring stick or tape measure, in [[AAA]]? <small>It should be at least [[N1]] [[AAA]] and ideally long enough to reach [[N2]] [[AAA]]. (If you\'re not sure, but you know it\'s over [[N2]], it\'s ok to just type [[N2]].)</small>',
     ar: 'ما هو طول المسطرة أو شريط القياس الخاص بك، بوحدة AAA؟ وبشكل أكثر دقة، مع الأخذ في الاعتبار حجم الغرفة، ما هو أطول مسافة مشاهدة يمكنك قياسها الآن؟',
     hy: 'Որքա՞ն է ձեր քանոնը կամ ժապավենը AAA-ով: Ավելի ճիշտ, հաշվի առնելով սենյակի չափը, ո՞րն է ամենաերկար դիտման հեռավորությունը, որ կարող եք այժմ չափել:',
     bg: 'Колко дълга е вашата линийка или ролетка в AAA? По-точно, като вземем предвид размера на стаята, какво е най-дългото разстояние за гледане, което можете да измерите сега?',

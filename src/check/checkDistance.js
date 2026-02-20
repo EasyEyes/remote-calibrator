@@ -908,9 +908,14 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateDistanceAllowedRatio = 1.1,
   viewingDistanceWhichEye = undefined,
   saveSnapshots = false,
+  calibrateDistanceCheckMinRulerCm = 0,
 ) {
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
+
+  // Expose calibration params so getEquipment can fill [[N1]] and [[N2]] in RC_howLong
+  this._calibrateDistanceCheckCmForEquipment = calibrateDistanceCheckCm
+  this._calibrateDistanceCheckMinRulerCm = calibrateDistanceCheckMinRulerCm
 
   await this.getEquipment(async () => {
     return await trackDistanceCheck(
@@ -3374,8 +3379,8 @@ const trackDistanceCheck = async (
               }
               resolve()
             }
-            //check for the x key to skip
-            else if (event.key === 'x' && register) {
+            //check for the x key to skip (only allowed if requested distance > 60 cm)
+            else if (event.key === 'x' && register && cm > (RC.equipment?.value?.unit === 'inches' ? Math.round(60 / 2.54) : 60)) {
               register = false
               skippedDistancesCount++
               //remove distance from requested list
@@ -3690,8 +3695,8 @@ const trackDistanceCheck = async (
                 document.removeEventListener('keyup', keyupListener)
                 resolve()
               }
-              //check for the x key to skip
-              else if (value === '❌') {
+              //check for the x key to skip (only allowed if requested distance > 60 cm)
+              else if (value === '❌' && cm > (RC.equipment?.value?.unit === 'inches' ? Math.round(60 / 2.54) : 60)) {
                 skippedDistancesCount++
                 //remove distance from requested list
                 calibrateDistanceCheckCm.splice(i, 1)

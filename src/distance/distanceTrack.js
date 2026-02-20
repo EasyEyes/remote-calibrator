@@ -231,6 +231,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       viewingDistanceWhichPoint: undefined,
       calibrateDistanceBlindspotDebugging: false, // Debug option to show anatomical line and diamond center
       calibrateDistanceChecking: undefined,
+      calibrateDistanceCheckMinRulerCm: 0,
       calibrateDistanceShowRulerUnitsBool: false,
       calibrateDistancePupil: 'iris',
       calibrateDistanceQuadBaseRatio: 2.0, // Default ratio for quadrilateral base

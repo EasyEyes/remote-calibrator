@@ -168,10 +168,23 @@ RemoteCalibrator.prototype.getEquipment = async function (
         lengthInput.value = ''
       } else {
         q2Container.style.display = 'block'
-        // Update the howLong label with the chosen unit
+
+        // Compute [[N1]] and [[N2]] for RC_howLong placeholders
+        const cmPerUnit = selectedUnit === 'inches' ? 2.54 : 1
+        const distCheckCm = this._calibrateDistanceCheckCmForEquipment || []
+        const minRulerCm = this._calibrateDistanceCheckMinRulerCm || 0
+        const maxDistCm =
+          distCheckCm.length > 0
+            ? Math.max(...distCheckCm.map(Number))
+            : 0
+        const n1 = minRulerCm > 0 ? Math.round(minRulerCm / cmPerUnit) : ''
+        const n2 = maxDistCm > 0 ? Math.round(maxDistCm / cmPerUnit) : ''
+
         const howLongText = (phrases.RC_howLong[lang] || '')
-          .replace('[[AAA]]', selectedUnit)
-          .replace('AAA', selectedUnit)
+          .replace(/\[\[AAA\]\]/g, selectedUnit)
+          .replace(/AAA/g, selectedUnit)
+          .replace(/\[\[N1\]\]/g, n1)
+          .replace(/\[\[N2\]\]/g, n2)
         q2Label.innerHTML = howLongText.replace(/(?:\r\n|\r|\n)/g, '<br>')
         lengthInput.focus()
       }
