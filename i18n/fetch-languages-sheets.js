@@ -81,6 +81,7 @@ async function processLanguageSheet() {
         'RC_TestDistances',
         'RC_rulerUnit',
         'RC_howLong',
+        'RC_tooShort',
         'RC_produceDistanceLocation',
         'RC_tiltAndSwivel',
         'RC_snapshot',

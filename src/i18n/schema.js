@@ -21,6 +21,7 @@ const phrasesData = [
   'RC_distanceTrackingMoveFurther',
   'RC_rulerUnit',
   'RC_howLong',
+  'RC_tooShort',
   'RC_produceDistanceTitle1',
   'RC_produceDistanceTitle2',
   'RC_produceDistanceTitle',

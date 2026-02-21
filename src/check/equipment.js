@@ -110,6 +110,15 @@ RemoteCalibrator.prototype.getEquipment = async function (
   lengthInput.style.borderRadius = '4px'
   lengthInput.style.border = '1px solid #ccc'
   q2Container.appendChild(lengthInput)
+
+  const tooShortMsg = document.createElement('p')
+  tooShortMsg.id = 'ruler-too-short-msg'
+  tooShortMsg.style.color = 'red'
+  tooShortMsg.style.fontSize = '1.2rem'
+  tooShortMsg.style.marginTop = '0.4rem'
+  tooShortMsg.style.display = 'none'
+  q2Container.appendChild(tooShortMsg)
+
   instructionBody.appendChild(q2Container)
 
   // ---- Proceed button (greyed out until both questions are answered) ----
@@ -132,6 +141,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
 
   // ---- State & helpers ----
   let selectedUnit = null
+  let currentMinimum = null
 
   const enableProceed = () => {
     proceedButton.disabled = false
@@ -149,12 +159,27 @@ RemoteCalibrator.prototype.getEquipment = async function (
 
   const updateProceedButton = () => {
     if (!selectedUnit) return disableProceed()
-    if (selectedUnit === 'none') return enableProceed()
-    // inches or cm: need a valid length
+    if (selectedUnit === 'none') {
+      tooShortMsg.style.display = 'none'
+      return enableProceed()
+    }
     const v = lengthInput.value
     if (v && !isNaN(v) && parseInt(v) > 0) {
+      if (currentMinimum != null && Number(v) < currentMinimum) {
+        const msg = (
+          phrases.RC_tooShort?.[lang] ||
+          'Too short!'
+        )
+          .replace(/\[\[N1\]\]/g, currentMinimum)
+          .replace(/\[\[AAA\]\]/g, selectedUnit)
+        tooShortMsg.textContent = msg
+        tooShortMsg.style.display = 'block'
+        return disableProceed()
+      }
+      tooShortMsg.style.display = 'none'
       enableProceed()
     } else {
+      tooShortMsg.style.display = 'none'
       disableProceed()
     }
   }
@@ -179,6 +204,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
             : 0
         const n1 = minRulerCm > 0 ? Math.round(minRulerCm / cmPerUnit) : ''
         const n2 = maxDistCm > 0 ? Math.round(maxDistCm / cmPerUnit) : ''
+        currentMinimum = n1 !== '' ? n1 : null
 
         const howLongText = (phrases.RC_howLong[lang] || '')
           .replace(/\[\[AAA\]\]/g, selectedUnit)

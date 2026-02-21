@@ -3498,6 +3498,7 @@ export async function objectTest(RC, options, callback = undefined) {
   let tubeCheckTapeAdjusted = false // SPACE is disabled until the tape has been adjusted
   let tubeCheckTapeLengthPx = 0 // Current tape length in pixels (initialized later to 5 cm)
   let matchHalfLengthBool = false // Whether we are doing half-size matching
+  let tubeCheckLeftDistPx = 0 // Distance of left end from lower-left corner along the diagonal
 
   // ===================== UNIT SELECTION STATE =====================
   let selectedUnit = 'inches' // Default to inches
@@ -5263,7 +5264,7 @@ export async function objectTest(RC, options, callback = undefined) {
   // starts at 5 cm, and is always centered on the diagonal.
   const createTubeCheckTapeComponent = () => {
     const tcTapeWidth = Math.round(0.75 * ppi) // 3/4 inch width
-    const tcLineThickness = 6 // px — thick enough to be visible and easy to grab
+    const tcLineThickness = 3 // px — halved for a more realistic paper tube edge
 
     const tcContainer = document.createElement('div')
     tcContainer.id = 'tube-check-tape-container'
@@ -5276,36 +5277,59 @@ export async function objectTest(RC, options, callback = undefined) {
     tcContainer.style.zIndex = '10'
     tcContainer.style.display = 'none' // Hidden by default
 
-    // Yellow tape body
+    // Rolled white paper tube body
     const tcTapeBody = document.createElement('div')
     tcTapeBody.style.position = 'absolute'
-    tcTapeBody.style.background = 'rgba(255, 221, 51, 0.95)'
-    tcTapeBody.style.border = '2px solid rgb(0, 0, 0)'
-    tcTapeBody.style.borderRadius = '2px'
+    tcTapeBody.style.background = [
+      'linear-gradient(to bottom,',
+      'rgba(190, 185, 180, 0.92) 0%,',
+      'rgba(215, 212, 208, 0.95) 3%,',
+      'rgba(235, 233, 230, 0.97) 7%,',
+      'rgba(246, 245, 243, 0.99) 13%,',
+      'rgba(253, 252, 251, 1) 22%,',
+      'rgba(255, 255, 255, 1) 38%,',
+      'rgba(254, 254, 253, 1) 50%,',
+      'rgba(255, 255, 255, 1) 62%,',
+      'rgba(253, 252, 251, 1) 78%,',
+      'rgba(246, 245, 243, 0.99) 87%,',
+      'rgba(235, 233, 230, 0.97) 93%,',
+      'rgba(215, 212, 208, 0.95) 97%,',
+      'rgba(190, 185, 180, 0.92) 100%)',
+    ].join(' ')
+    tcTapeBody.style.border = '1px solid rgba(175, 170, 165, 0.45)'
+    tcTapeBody.style.borderRadius = '5px'
+    tcTapeBody.style.boxShadow = [
+      '0 4px 12px rgba(0, 0, 0, 0.16)',
+      '0 1px 4px rgba(0, 0, 0, 0.10)',
+      'inset 0 1px 1px rgba(255, 255, 255, 0.6)',
+      'inset 0 -1px 1px rgba(0, 0, 0, 0.04)',
+    ].join(', ')
     tcTapeBody.style.transformOrigin = 'left center'
     tcTapeBody.style.height = `${tcTapeWidth}px`
     tcTapeBody.style.pointerEvents = 'auto'
     tcTapeBody.style.cursor = 'pointer'
     tcContainer.appendChild(tcTapeBody)
 
-    // Left endpoint line (black, sits on top of the left edge of the tape)
+    // Left endpoint line (paper tube edge)
     const tcLeftLine = document.createElement('div')
     tcLeftLine.style.position = 'absolute'
     tcLeftLine.style.width = `${tcLineThickness}px`
-    tcLeftLine.style.height = `${tcTapeWidth}px` // Same height as the tape
-    tcLeftLine.style.background = 'rgb(0, 0, 0)'
+    tcLeftLine.style.height = `${tcTapeWidth}px`
+    tcLeftLine.style.background = 'linear-gradient(to bottom, rgba(140,135,130,0.7), rgba(90,85,80,0.85) 30%, rgba(70,65,60,0.9) 50%, rgba(90,85,80,0.85) 70%, rgba(140,135,130,0.7))'
+    tcLeftLine.style.borderRadius = '1px'
     tcLeftLine.style.transformOrigin = 'center center'
     tcLeftLine.style.pointerEvents = 'auto'
     tcLeftLine.style.cursor = 'pointer'
     tcLeftLine.style.zIndex = '3'
     tcContainer.appendChild(tcLeftLine)
 
-    // Right endpoint line (black, sits on top of the right edge of the tape)
+    // Right endpoint line (paper tube edge)
     const tcRightLine = document.createElement('div')
     tcRightLine.style.position = 'absolute'
     tcRightLine.style.width = `${tcLineThickness}px`
-    tcRightLine.style.height = `${tcTapeWidth}px` // Same height as the tape
-    tcRightLine.style.background = 'rgb(0, 0, 0)'
+    tcRightLine.style.height = `${tcTapeWidth}px`
+    tcRightLine.style.background = 'linear-gradient(to bottom, rgba(140,135,130,0.7), rgba(90,85,80,0.85) 30%, rgba(70,65,60,0.9) 50%, rgba(90,85,80,0.85) 70%, rgba(140,135,130,0.7))'
+    tcRightLine.style.borderRadius = '1px'
     tcRightLine.style.transformOrigin = 'center center'
     tcRightLine.style.pointerEvents = 'auto'
     tcRightLine.style.cursor = 'pointer'
@@ -5334,16 +5358,13 @@ export async function objectTest(RC, options, callback = undefined) {
     // Unit vector along diagonal from lower-left (0, sh) to upper-right (sw, 0)
     const ux = sw / diagPx
     const uy = -sh / diagPx
-    // Center of diagonal
-    const cx = sw / 2
-    const cy = sh / 2
 
-    const halfLen = tubeCheckTapeLengthPx / 2
-    // Tape endpoints
-    const leftX = cx - halfLen * ux
-    const leftY = cy - halfLen * uy
-    const rightX = cx + halfLen * ux
-    const rightY = cy + halfLen * uy
+    // Left endpoint: lower-left corner (0, sh) + tubeCheckLeftDistPx along diagonal
+    const leftX = tubeCheckLeftDistPx * ux
+    const leftY = sh + tubeCheckLeftDistPx * uy
+    // Right endpoint: left + tape length along diagonal
+    const rightX = leftX + tubeCheckTapeLengthPx * ux
+    const rightY = leftY + tubeCheckTapeLengthPx * uy
 
     // Angle of the diagonal (in degrees)
     const angleDeg =
@@ -5377,15 +5398,29 @@ export async function objectTest(RC, options, callback = undefined) {
     tubeCheckTape.elements.rightLine.style.height = `${lineHeight}px`
   }
 
-  // Dragging support for the tube check tape endpoints
-  // Both ends move symmetrically about the center of the diagonal.
+  // Dragging support for the tube check tape endpoints.
+  // Each end is independently draggable; the opposite end stays fixed.
+  // Whichever end the click is closer to becomes the drag target.
   let tcDragging = false
+  let tcDragTarget = null // 'left' or 'right'
+
   const handleTubeCheckDragStart = e => {
     if (currentPage !== TUBE_CHECK_PAGE) return
+    const sw = window.innerWidth
+    const sh = window.innerHeight
+    const diagPx = Math.sqrt(sw * sw + sh * sh)
+    const ux = sw / diagPx
+    const uy = -sh / diagPx
+    // Project click onto the diagonal from the lower-left corner
+    const clickDist = e.clientX * ux + (e.clientY - sh) * uy
+    // Pick whichever endpoint is closer
+    const midDist = tubeCheckLeftDistPx + tubeCheckTapeLengthPx / 2
+    tcDragTarget = clickDist < midDist ? 'left' : 'right'
     tcDragging = true
     document.body.style.cursor = 'pointer'
     e.preventDefault()
   }
+
   tubeCheckTape.elements.leftLine.addEventListener(
     'mousedown',
     handleTubeCheckDragStart,
@@ -5406,16 +5441,28 @@ export async function objectTest(RC, options, callback = undefined) {
     const diagPx = Math.sqrt(sw * sw + sh * sh)
     const ux = sw / diagPx
     const uy = -sh / diagPx
-    const cx = sw / 2
-    const cy = sh / 2
-    // Project mouse position onto the diagonal from center
-    const dx = e.clientX - cx
-    const dy = e.clientY - cy
-    const projection = Math.abs(dx * ux + dy * uy) // half-length
-    const minHalfPx = 1 * pxPerCm // 1 cm minimum half-length
-    const maxHalfPx = diagPx / 2 // max = full diagonal / 2
-    const newHalf = Math.max(minHalfPx, Math.min(maxHalfPx, projection))
-    tubeCheckTapeLengthPx = newHalf * 2
+    // Project mouse onto diagonal from the lower-left corner (0, sh)
+    const mouseDist = e.clientX * ux + (e.clientY - sh) * uy
+    const minLengthPx = 2 * pxPerCm
+
+    if (tcDragTarget === 'left') {
+      // Move left end; keep right end fixed.
+      // Enforce a minimum diagonal distance so the tape never goes off-screen.
+      const tw = tubeCheckTape.dimensions.tapeWidth
+      const minLeftDist = (tw / 2) * Math.max(sw / sh, sh / sw)
+      const rightDist = tubeCheckLeftDistPx + tubeCheckTapeLengthPx
+      const newLeftDist = Math.max(minLeftDist, Math.min(rightDist - minLengthPx, mouseDist))
+      tubeCheckTapeLengthPx = rightDist - newLeftDist
+      tubeCheckLeftDistPx = newLeftDist
+    } else {
+      // Move right end; keep left end fixed
+      const newRightDist = Math.max(
+        tubeCheckLeftDistPx + minLengthPx,
+        Math.min(diagPx, mouseDist),
+      )
+      tubeCheckTapeLengthPx = newRightDist - tubeCheckLeftDistPx
+    }
+
     tubeCheckTapeAdjusted = true
     updateTubeCheckTapePosition()
   })
@@ -6371,25 +6418,23 @@ export async function objectTest(RC, options, callback = undefined) {
       const sw = window.innerWidth
       const sh = window.innerHeight
       const diagPx = Math.sqrt(sw * sw + sh * sh)
-      const minLengthPx = 2 * pxPerCm // 2 cm minimum
-      const maxLengthPx = diagPx // full diagonal maximum
 
       arrowIntervalFunction = setInterval(() => {
         intervalCount++
         const moveAmount = tcCalculateStepSize()
 
         if (currentArrowKey === 'ArrowLeft') {
-          // Shorten the tape
+          // Shorten tape from the right end
+          const minLengthPx = 2 * pxPerCm
           tubeCheckTapeLengthPx = Math.max(
             minLengthPx,
-            tubeCheckTapeLengthPx - moveAmount * 2,
+            tubeCheckTapeLengthPx - moveAmount,
           )
         } else if (currentArrowKey === 'ArrowRight') {
-          // Lengthen the tape
-          tubeCheckTapeLengthPx = Math.min(
-            maxLengthPx,
-            tubeCheckTapeLengthPx + moveAmount * 2,
-          )
+          // Extend tape from the right end
+          const rightDist = tubeCheckLeftDistPx + tubeCheckTapeLengthPx
+          const newRightDist = Math.min(diagPx, rightDist + moveAmount)
+          tubeCheckTapeLengthPx = newRightDist - tubeCheckLeftDistPx
         }
         tubeCheckTapeAdjusted = true
         updateTubeCheckTapePosition()
@@ -6915,7 +6960,25 @@ export async function objectTest(RC, options, callback = undefined) {
 
       // Reset tube check state
       tubeCheckTapeAdjusted = false
-      // Initialize tape to 5 cm centered on the diagonal
+      // Calculate initial left-end position along the diagonal
+      const diagPxInit = Math.sqrt(sw * sw + sh * sh)
+      const expectedDisplayCm = matchHalfLengthBool
+        ? expectedLengthCm / 2
+        : expectedLengthCm
+      const expectedDisplayPx = expectedDisplayCm * pxPerCm
+      // Where the lower-left end would sit if the expected length were centered
+      const centeredLeftDist = (diagPxInit - expectedDisplayPx) / 2
+      // Clamp so nothing is off-screen (margin in screen-edge pixels, applied
+      // before computing the midpoint, as requested)
+      const edgeMargin = 15
+      const minDiagDist =
+        Math.max(edgeMargin * diagPxInit / sw, edgeMargin * diagPxInit / sh)
+      const clampedCenteredLeftDist = Math.max(minDiagDist, centeredLeftDist)
+      // Midpoint between the clamped centered position and the screen corner,
+      // then enforce tape-width minimum so the left end stays fully on-screen
+      const twInit = tubeCheckTape.dimensions.tapeWidth
+      const minLeftDistInit = (twInit / 2) * Math.max(sw / sh, sh / sw)
+      tubeCheckLeftDistPx = Math.max(minLeftDistInit, clampedCenteredLeftDist / 2)
       tubeCheckTapeLengthPx = 5 * pxPerCm
       updateTubeCheckTapePosition()
 
