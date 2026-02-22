@@ -25,6 +25,10 @@ import { parseInstructions } from '../distance/instructionParserAdapter'
 import { resolveInstructionMediaUrl } from '../distance/instructionMediaCache'
 import { test_phrases, test_assetMap } from '../distance/assetMap'
 import { irisTrackingIsActive } from '../distance/distanceTrack'
+import {
+  createHandPreferenceSelector,
+  scaleToFitAboveBar,
+} from '../components/handPreference'
 
 // Debug: Log what's imported
 console.log('📦 checkDistance.js imports:', {
@@ -2134,32 +2138,32 @@ const checkSize = async (
         RC.calibrateDistancePxPerCm[RC.calibrateDistancePxPerCm.length - 2],
       )
 
-      const logRatio = Math.abs(Math.log10(newPxPerCm / oldPxPerCm))
-      const logThreshold = Math.log10(allowedRatioLength)
+      const T_pxDen = allowedRatioLength
+      const pxDenRatio = newPxPerCm / oldPxPerCm
+      const pxDenRoundedPct = Math.round(100 * pxDenRatio)
+      const pxDenLower = Math.round(100 / T_pxDen)
+      const pxDenUpper = Math.round(100 * T_pxDen)
+      const pxDenAccepted =
+        pxDenRoundedPct >= pxDenLower && pxDenRoundedPct <= pxDenUpper
 
       console.log('[Pixel Density Check] ===== Measurement', i + 1, '=====')
       console.log('[Pixel Density Check] Old pxPerCm:', oldPxPerCm)
       console.log('[Pixel Density Check] New pxPerCm:', newPxPerCm)
-      console.log('[Pixel Density Check] Log ratio:', logRatio.toFixed(4))
       console.log(
-        '[Pixel Density Check] Log threshold:',
-        logThreshold.toFixed(4),
+        `[Pixel Density Check] Rounded ratio: ${pxDenRoundedPct}%, interval: [${pxDenLower}%, ${pxDenUpper}%]`,
       )
 
-      if (logRatio > logThreshold) {
-        // Calculate ratio as percentage: (100 * newPxPerCm / oldPxPerCm)
-        const ratioPercent = ((100 * newPxPerCm) / oldPxPerCm).toFixed(0)
-
+      if (!pxDenAccepted) {
         console.log(
-          `[Pixel Density Check] MISMATCH: New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,
+          `[Pixel Density Check] MISMATCH: New length is ${pxDenRoundedPct}% of expected. Rejecting BOTH measurements.`,
         )
 
         const errorMessage =
-          phrases.RC_pixelDensityMismatch?.[RC.language.value]?.replace(
-            '[[N1]]',
-            ratioPercent,
-          ) ||
-          `❌ The last two length settings are inconsistent. The new length is ${ratioPercent}% of that expected from the previous one. Let's try again. Click OK or press RETURN.`
+          phrases.RC_pixelDensityMismatch?.[RC.language.value]
+            ?.replace('[[N1]]', pxDenRoundedPct.toString())
+            .replace('[[TT1]]', pxDenLower.toString())
+            .replace('[[TT2]]', pxDenUpper.toString()) ||
+          `❌ The last two length settings are inconsistent. The new length is ${pxDenRoundedPct}% of that expected from the previous one. Let's try again. Click OK or press RETURN.`
 
         // Show popup and wait for OK or RETURN
         await Swal.fire({
@@ -2404,6 +2408,8 @@ const trackDistanceCheck = async (
   const isTrack = measureName === 'trackDistance'
   const isBlindspot = calibrateDistance === 'blindspot'
 
+  let preferRightHandBool = true
+
   // Track all space bar listeners for proper cleanup
   const activeListeners = []
 
@@ -2642,6 +2648,7 @@ const trackDistanceCheck = async (
       _calibrateDistance: calibrateDistance,
       _calibrateDistancePupil: calibrateDistancePupil,
       _calibrateDistanceAllowedRatioFOverWidth: calibrateDistanceAllowedRatio,
+      historyPreferRightHandBool: [],
       // Parameters with few values (before arrays with 8 values)
       cameraXYPx: [window.screen.width / 2, 0],
       pxPerCm: safeRoundCm(pxPerCm),
@@ -2669,6 +2676,7 @@ const trackDistanceCheck = async (
       acceptedRulerBasedEyesToPointCm: [],
       acceptedImageBasedEyesToFootCm: [],
       acceptedImageBasedEyesToPointCm: [],
+      acceptedPreferRightHandBool: [],
       rejectedLeftEyeFootXYPx: [],
       rejectedRightEyeFootXYPx: [],
       rejectedIpdOverWidth: [],
@@ -2676,6 +2684,7 @@ const trackDistanceCheck = async (
       rejectedRulerBasedEyesToPointCm: [],
       rejectedImageBasedEyesToFootCm: [],
       rejectedImageBasedEyesToPointCm: [],
+      rejectedPreferRightHandBool: [],
       // Arrays with 8 values (one per snapshot)
       fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
       fOverWidth: [], // fVpx / cameraWidthVpx
@@ -2825,18 +2834,25 @@ const trackDistanceCheck = async (
       }
       if (instructionBody) {
         instructionBody.innerHTML = ''
-        // Let instruction body use full container width (container is barely under half screen)
         instructionBody.style.width = '100%'
         instructionBody.style.maxWidth = '100%'
-        // Enable pointer events so stepper arrows are clickable (parent has pointer-events: none)
         instructionBody.style.pointerEvents = 'auto'
-        // Add bottom padding to prevent content from being occluded by progress bar
-        instructionBody.style.paddingBottom = '50px'
-        // Also ensure max-height accounts for progress bar
-        instructionBody.style.maxHeight = `calc(100vh - 50px)`
-        instructionBody.style.overflow = 'auto'
+        instructionBody.style.paddingBottom = '0'
+        instructionBody.style.maxHeight = 'none'
+        instructionBody.style.overflow = 'visible'
 
-        const ui = createStepInstructionsUI(instructionBody, {
+        // Allow the parent container to show overflow so scale measurement works
+        const instrParent = instructionBody.closest('.calibration-instruction')
+        if (instrParent) instrParent.style.overflow = 'visible'
+
+        // Wrapper that holds stepper + hand selector; scaled to fit above status bar
+        const scalableWrapper = document.createElement('div')
+        scalableWrapper.id = 'check-dist-scalable-wrapper'
+        scalableWrapper.style.width = '100%'
+        scalableWrapper.style.transformOrigin = 'top left'
+        instructionBody.appendChild(scalableWrapper)
+
+        const ui = createStepInstructionsUI(scalableWrapper, {
           layout: 'leftOnly',
           leftWidth: '100%',
           leftPaddingStart: '0rem',
@@ -3008,6 +3024,8 @@ const trackDistanceCheck = async (
               mediaContainerChildren: ui.mediaContainer.children.length,
               leftTextChildren: ui.leftText.children.length,
             })
+
+            scaleToFitAboveBar(scalableWrapper, 44)
           }
           doRender()
 
@@ -3040,6 +3058,25 @@ const trackDistanceCheck = async (
           }
           navHandlerRef = navHandler
           document.addEventListener('keydown', navHandlerRef)
+
+          // Hand-preference selector below stepper
+          const existingHandSel = scalableWrapper.querySelector(
+            '.rc-hand-preference-selector',
+          )
+          if (existingHandSel) existingHandSel.remove()
+          const handSel = createHandPreferenceSelector({
+            phrases,
+            lang: RC.language.value,
+            preferRight: preferRightHandBool,
+            onChange: isRight => {
+              preferRightHandBool = isRight
+            },
+            objectPhraseKey: 'RC_measuringStickOrTape',
+            compact: true,
+          })
+          scalableWrapper.appendChild(handSel)
+
+          scaleToFitAboveBar(scalableWrapper, 44)
         } catch (e) {
           // Fallback to plain text if parsing fails
           instructionBody.innerText = instructionBodyPhrase
@@ -3283,6 +3320,9 @@ const trackDistanceCheck = async (
               RC.distanceCheckJSON.historyEyesToFootCm.push(
                 safeRoundCm(rulerBasedEyesToFootCm),
               )
+              RC.distanceCheckJSON.historyPreferRightHandBool.push(
+                preferRightHandBool,
+              )
               RC.distanceCheckJSON.pointXYPx.push([
                 faceValidation.pointXYPx[0],
                 faceValidation.pointXYPx[1],
@@ -3366,6 +3406,9 @@ const trackDistanceCheck = async (
                       RC.distanceCheckJSON.imageBasedEyesToPointCm.length - 1
                     ]
                   : null,
+              )
+              RC.distanceCheckJSON.acceptedPreferRightHandBool.push(
+                preferRightHandBool,
               )
 
               // Clean up the captured image for privacy
@@ -3604,6 +3647,9 @@ const trackDistanceCheck = async (
                 RC.distanceCheckJSON.historyEyesToFootCm.push(
                   safeRoundCm(rulerBasedEyesToFootCm),
                 )
+                RC.distanceCheckJSON.historyPreferRightHandBool.push(
+                  preferRightHandBool,
+                )
                 RC.distanceCheckJSON.footToPointCm.push(
                   safeRoundCm(faceValidation.footToPointCm),
                 )
@@ -3686,6 +3732,9 @@ const trackDistanceCheck = async (
                       ]
                     : null,
                 )
+                RC.distanceCheckJSON.acceptedPreferRightHandBool.push(
+                  preferRightHandBool,
+                )
 
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
@@ -3740,27 +3789,23 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.fOverWidth.length - 2
           ]
 
-        // Check if abs(log10(newFOverWidth/oldFOverWidth)) > log10(allowedRatio)
-        const logRatio = Math.abs(Math.log10(newFOverWidth / oldFOverWidth))
-        const logThreshold = Math.log10(calibrateDistanceAllowedRatio)
+        const T_fow = calibrateDistanceAllowedRatio
+        const fowRatio = newFOverWidth / oldFOverWidth
+        const fowRoundedPct = Math.round(100 * fowRatio)
+        const fowLower = Math.round(100 / T_fow)
+        const fowUpper = Math.round(100 * T_fow)
+        const fowAccepted =
+          fowRoundedPct >= fowLower && fowRoundedPct <= fowUpper
 
         console.log('[fOverWidth Check] Old fOverWidth:', oldFOverWidth)
         console.log('[fOverWidth Check] New fOverWidth:', newFOverWidth)
-        console.log('[fOverWidth Check] Log ratio:', logRatio.toFixed(4))
         console.log(
-          '[fOverWidth Check] Log threshold:',
-          logThreshold.toFixed(4),
+          `[fOverWidth Check] Rounded ratio: ${fowRoundedPct}%, interval: [${fowLower}%, ${fowUpper}%]`,
         )
 
-        if (logRatio > logThreshold) {
-          // Calculate ratio as percentage: (100 * oldFOverWidth / newFOverWidth)
-          const fOverWidthRatioPercent = (
-            (100 * oldFOverWidth) /
-            newFOverWidth
-          ).toFixed(0)
-
+        if (!fowAccepted) {
           console.warn(
-            `[fOverWidth Check] MISMATCH: Ratio is ${fOverWidthRatioPercent}% (oldFOverWidth=${oldFOverWidth}, newFOverWidth=${newFOverWidth}). Rejecting BOTH measurements.`,
+            `[fOverWidth Check] MISMATCH: Ratio is ${fowRoundedPct}% (oldFOverWidth=${oldFOverWidth}, newFOverWidth=${newFOverWidth}). Rejecting BOTH measurements.`,
           )
 
           // Remove the last TWO measurements from all arrays
@@ -3825,6 +3870,9 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.rejectedImageBasedEyesToPointCm.push(
               RC.distanceCheckJSON.imageBasedEyesToPointCm[idx] ?? null,
             )
+            RC.distanceCheckJSON.rejectedPreferRightHandBool.push(
+              RC.distanceCheckJSON.historyPreferRightHandBool[idx] ?? null,
+            )
           }
 
           // Remove the last TWO from distanceCheckJSON per-snapshot arrays so the
@@ -3859,15 +3907,15 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.acceptedRulerBasedEyesToPointCm.pop()
             RC.distanceCheckJSON.acceptedImageBasedEyesToFootCm.pop()
             RC.distanceCheckJSON.acceptedImageBasedEyesToPointCm.pop()
+            RC.distanceCheckJSON.acceptedPreferRightHandBool.pop()
           }
 
-          // Use RC_focalLengthMismatch phrase with [[N1]] placeholder for ratio
           const errorMessage =
-            phrases.RC_focalLengthMismatch?.[RC.language.value]?.replace(
-              '[[N1]]',
-              fOverWidthRatioPercent,
-            ) ||
-            `The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Try again. Click OK or press RETURN.`
+            phrases.RC_focalLengthMismatch?.[RC.language.value]
+              ?.replace('[[N1]]', fowRoundedPct.toString())
+              .replace('[[TT1]]', fowLower.toString())
+              .replace('[[TT2]]', fowUpper.toString()) ||
+            `The last two snapshots are inconsistent. Your new distance is ${fowRoundedPct}% of that expected from your previous snapshot. Try again. Click OK or press RETURN.`
 
           // Show popup error message and wait for OK
           await Swal.fire({

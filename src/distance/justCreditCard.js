@@ -2478,8 +2478,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
       commonCalibrationData,
     )
 
-    const allowedRatio = options.calibrateDistanceAllowedRatio || 1.1
-    const maxAllowedRatio = Math.max(allowedRatio, 1 / allowedRatio)
+    const T_cc = options.calibrateDistanceAllowedRatio || 1.1
 
     // Validate consistency only when multiple measurements are requested
     if (measurementCount > 1 && measurements.length >= 2) {
@@ -2487,25 +2486,29 @@ export async function justCreditCard(RC, options, callback = undefined) {
       const secondLastIdx = measurements.length - 2
       const M1 = measurements[secondLastIdx].shortVPx
       const M2 = measurements[lastIdx].shortVPx
-      const ratio = Math.max(M2 / M1, M1 / M2)
+      const ccRatio = M2 / M1 // new / old
+      const ccRoundedPct = Math.round(100 * ccRatio)
+      const ccLower = Math.round(100 / T_cc)
+      const ccUpper = Math.round(100 * T_cc)
+      const ccAccepted =
+        ccRoundedPct >= ccLower && ccRoundedPct <= ccUpper
 
-      // Check if ratio is outside the allowed range
-      if (ratio > maxAllowedRatio) {
+      if (!ccAccepted) {
         console.log(
-          `Green line consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`,
+          `Green line consistency check failed. Ratio: ${ccRoundedPct}%. Showing popup.`,
         )
-        console.log(`M1=${M1}, M2=${M2}, ratio=${ratio}`)
+        console.log(`M1=${M1}, M2=${M2}, ratio=${ccRatio}`)
 
         const errorMessage =
-          phrases.RC_creditCardSizeMismatch?.[RC.L]?.replace(
-            '[[N1]]',
-            toFixedNumber(ratio, 2).toString(),
-          ) ||
-          phrases.RC_objectSizeMismatch?.[RC.L]?.replace(
-            '[[N1]]',
-            toFixedNumber(ratio, 2).toString(),
-          ) ||
-          `Green line measurements are inconsistent. Ratio: ${toFixedNumber(ratio, 2)}. Please try again.`
+          phrases.RC_creditCardSizeMismatch?.[RC.L]
+            ?.replace('[[N1]]', ccRoundedPct.toString())
+            .replace('[[TT1]]', ccLower.toString())
+            .replace('[[TT2]]', ccUpper.toString()) ||
+          phrases.RC_objectSizeMismatch?.[RC.L]
+            ?.replace('[[N1]]', ccRoundedPct.toString())
+            .replace('[[TT1]]', ccLower.toString())
+            .replace('[[TT2]]', ccUpper.toString()) ||
+          `Green line measurements are inconsistent. Ratio: ${ccRoundedPct}%. Please try again.`
 
         // Prevent spacebar from closing the popup
         const preventSpacebar = e => {

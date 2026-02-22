@@ -115,13 +115,18 @@ const getCameraInfo = RC => {
  */
 export const showResolutionSettingMessage = RC => {
   try {
-    // Remove any existing message first
     hideResolutionSettingMessage()
 
-    // Get camera info
     const cameraInfo = getCameraInfo(RC)
 
-    // Create the message container - plain text, centered on screen
+    // Requested values come from the EasyEyes parameters, not the camera.
+    const desiredRes =
+      RC?.gazeTracker?.webgazer?.params?.desiredCameraResolution
+    const desiredHz = RC?.gazeTracker?.webgazer?.params?.desiredCameraHz
+    const requestedWidth = Array.isArray(desiredRes) ? desiredRes[0] : '?'
+    const requestedHeight = Array.isArray(desiredRes) ? desiredRes[1] : '?'
+    const requestedFrameRate = desiredHz != null ? desiredHz : '?'
+
     const messageContainer = document.createElement('div')
     messageContainer.id = 'rc-resolution-setting-message'
     messageContainer.style.cssText = `
@@ -133,35 +138,35 @@ export const showResolutionSettingMessage = RC => {
       text-align: center;
       color: #666;
       font-style: normal;
-      font-size: 1.875em;
+      font-size: 1.6rem;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       pointer-events: none;
       user-select: none;
     `
 
-    // Build the text with camera info
     const lang = RC?.L || RC?.language?.value || 'en-US'
     let text =
       phrases?.RC_SettingWebcamResolution?.[lang] ||
       phrases?.RC_SettingWebcamResolution?.['en-US'] ||
-      'Setting webcam resolution → [[M11]]×[[M22]], [[M33]] Hz ...'
+      'Setting webcam resolution ...\nCurrently [[M11]]×[[M22]], [[M33]] Hz\nRequested [[M44]]×[[M55]], [[M66]] Hz'
 
-    // Replace placeholders with actual values
+    // M11-M33: current camera values; M44-M66: requested values
     text = text
       .replace('[[M11]]', cameraInfo.width || '?')
       .replace('[[M22]]', cameraInfo.height || '?')
       .replace('[[M33]]', cameraInfo.frameRate || '?')
+      .replace('[[M44]]', requestedWidth)
+      .replace('[[M55]]', requestedHeight)
+      .replace('[[M66]]', requestedFrameRate)
 
-    // Add camera name on a separate line if available
-    if (cameraInfo.name) {
-      messageContainer.innerHTML = `${cameraInfo.name}<br>${text}`
-    } else {
-      messageContainer.textContent = text
-    }
+    messageContainer.innerHTML = text.replace(/\n/g, '<br>')
 
-    // Always append to body to ensure highest z-index stacking context
     document.body.appendChild(messageContainer)
-    console.log('📹 Showing resolution setting message:', cameraInfo)
+    console.log(
+      '📹 Showing resolution setting message:',
+      'current=', cameraInfo,
+      'requested=', { width: requestedWidth, height: requestedHeight, frameRate: requestedFrameRate },
+    )
   } catch (error) {
     console.error('📹 Error showing resolution setting message:', error)
   }

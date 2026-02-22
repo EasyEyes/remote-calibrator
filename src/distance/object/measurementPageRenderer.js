@@ -11,6 +11,9 @@ import {
   getLocationInstructionPhraseKey,
   buildLocationInstructions,
 } from './locationUtils'
+import {
+  createHandPreferenceSelector,
+} from '../../components/handPreference'
 
 /* ============================================================================
  * MEASUREMENT PAGE RENDERER FACTORY
@@ -416,7 +419,44 @@ export function createMeasurementPageRenderer(dependencies) {
     const newArrows = updateArrows(location, offsetPx)
     console.log(`  Arrow indicators pointing to ${location}`)
 
-    // 9. Log ready state
+    // 9. Hand-preference selector (below stepper, above bottom of screen)
+    const existingHandSel = document.querySelector(
+      '.rc-hand-preference-selector',
+    )
+    if (existingHandSel) existingHandSel.remove()
+
+    if (config.onHandPreferenceChange && instructionsContainer) {
+      const handSel = createHandPreferenceSelector({
+        phrases,
+        lang: RC.L,
+        preferRight: preferRightHandBool,
+        onChange: config.onHandPreferenceChange,
+        objectPhraseKey: 'RC_paperTube',
+        marginStart: '3rem',
+      })
+      instructionsContainer.appendChild(handSel)
+
+      // If the video overlaps vertically, narrow the hand selector so text wraps
+      const constrainWidth = () => {
+        const v = document.getElementById('webgazerVideoContainer')
+        if (!v) return
+        handSel.style.maxWidth = ''
+        const vRect = v.getBoundingClientRect()
+        const hRect = handSel.getBoundingClientRect()
+        const vertOverlap =
+          vRect.bottom > hRect.top && vRect.top < hRect.bottom
+        if (vertOverlap) {
+          const availW = Math.max(vRect.left - hRect.left - 8, 80)
+          handSel.style.maxWidth = `${Math.floor(availW)}px`
+        }
+      }
+      requestAnimationFrame(() => {
+        constrainWidth()
+        setTimeout(constrainWidth, 80)
+      })
+    }
+
+    // 10. Log ready state
     console.log(
       `=== MEASUREMENT PAGE READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===`,
     )

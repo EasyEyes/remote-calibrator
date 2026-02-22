@@ -566,39 +566,43 @@ export function setupLocationMeasurementUI(params) {
 
 /**
  * Check if current measurement passes tolerance with previous measurement.
- * Uses the formula: abs(log10(current / previous)) <= log10(allowedRatio)
+ * Acceptance uses rounded integer percentages:
+ *   Math.round(100/T) <= Math.round(100*R) <= Math.round(100*T)
+ * where R = current / previous and T = allowedRatio.
  *
  * @param {number} currentFOverWidth - Current measurement's fOverWidth
  * @param {number|null} previousFOverWidth - Previous measurement's fOverWidth (null for first)
  * @param {number} allowedRatio - The allowed ratio threshold (e.g., 1.15)
- * @returns {{pass: boolean, ratio: number|null, logRatio: number|null, logThreshold: number}}
+ * @returns {{pass: boolean, ratio: number|null, roundedPercent: number|null, lower: number, upper: number}}
  */
 export function checkConsecutiveMeasurementTolerance(
   currentFOverWidth,
   previousFOverWidth,
   allowedRatio,
 ) {
+  const lower = Math.round(100 / allowedRatio)
+  const upper = Math.round(100 * allowedRatio)
+
   if (previousFOverWidth === null || previousFOverWidth === undefined) {
-    // First measurement - always passes
     return {
       pass: true,
       ratio: null,
-      logRatio: null,
-      logThreshold: Math.log10(allowedRatio),
+      roundedPercent: null,
+      lower,
+      upper,
     }
   }
 
-  const logRatio = Math.abs(Math.log10(currentFOverWidth / previousFOverWidth))
-  const logThreshold = Math.log10(allowedRatio)
-  const pass = logRatio <= logThreshold
   const ratio = currentFOverWidth / previousFOverWidth
+  const roundedPercent = Math.round(100 * ratio)
+  const pass = roundedPercent >= lower && roundedPercent <= upper
 
   console.log(
     `Tolerance check: current=${currentFOverWidth}, previous=${previousFOverWidth}`,
   )
   console.log(
-    `  log ratio: ${logRatio.toFixed(4)}, threshold: ${logThreshold.toFixed(4)}, pass: ${pass}`,
+    `  rounded ratio: ${roundedPercent}%, interval: [${lower}%, ${upper}%], pass: ${pass}`,
   )
 
-  return { pass, ratio, logRatio, logThreshold }
+  return { pass, ratio, roundedPercent, lower, upper }
 }

@@ -205,30 +205,26 @@ function getSize(RC, parent, options, callback) {
   performMeasurement(RC, parent, options, callback, measurementState)
 }
 
-// Helper function to check if the last 2 consecutive measurements are consistent
-// Uses log10 ratio comparison: abs(log10(newPxPerCm/oldPxPerCm)) > log10(threshold)
+// Accept ratio R = new/old only when its rounded percentage
+// falls within [Math.round(100/T), Math.round(100*T)].
 function checkLastTwoMeasurements(measurements, threshold) {
-  // Need at least 2 measurements to compare
   if (measurements.length < 2) return null
 
-  // Get the last two measurements
   const lastIdx = measurements.length - 1
   const secondLastIdx = measurements.length - 2
 
-  const M1 = measurements[secondLastIdx].ppi // oldPxPerCm (as PPI)
-  const M2 = measurements[lastIdx].ppi // newPxPerCm (as PPI)
+  const M1 = measurements[secondLastIdx].ppi
+  const M2 = measurements[lastIdx].ppi
 
-  // Calculate using log10 ratio: abs(log10(M2/M1)) <= log10(threshold)
-  // Test passes if logRatio <= logThreshold
-  const logRatio = Math.abs(Math.log10(M2 / M1))
-  const logThreshold = Math.log10(threshold)
+  const roundedPct = Math.round((100 * M2) / M1)
+  const lower = Math.round(100 / threshold)
+  const upper = Math.round(100 * threshold)
 
-  if (logRatio <= logThreshold) {
-    // Found consistent last two measurements!
+  if (roundedPct >= lower && roundedPct <= upper) {
     return { indices: [secondLastIdx, lastIdx], ppis: [M1, M2] }
   }
 
-  return null // Last two measurements are not consistent
+  return null
 }
 
 function performMeasurement(RC, parent, options, callback, measurementState) {
@@ -848,19 +844,21 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
           measurementState.measurements[secondLastIdx].ppi / 2.54
         const newPxPerCm = measurementState.measurements[lastIdx].ppi / 2.54
 
-        // Calculate ratio as percentage: (100 * newPxPerCm / oldPxPerCm)
-        const ratioPercent = ((100 * newPxPerCm) / oldPxPerCm).toFixed(0)
+        const T_ss = options.screenSizeConsistencyThreshold || 1.1
+        const ssRoundedPct = Math.round((100 * newPxPerCm) / oldPxPerCm)
+        const ssLower = Math.round(100 / T_ss)
+        const ssUpper = Math.round(100 * T_ss)
 
         console.log(
-          `Consistency check failed. New length is ${ratioPercent}% of expected. Rejecting BOTH measurements.`,
+          `Consistency check failed. New length is ${ssRoundedPct}% of expected. Rejecting BOTH measurements.`,
         )
 
         const errorMessage =
-          phrases.RC_pixelDensityMismatch?.[RC.L]?.replace(
-            '[[N1]]',
-            ratioPercent,
-          ) ||
-          `❌ The last two length settings are inconsistent. The new length is ${ratioPercent}% of that expected from the previous one. Let's try again. Click OK or press RETURN.`
+          phrases.RC_pixelDensityMismatch?.[RC.L]
+            ?.replace('[[N1]]', ssRoundedPct.toString())
+            .replace('[[TT1]]', ssLower.toString())
+            .replace('[[TT2]]', ssUpper.toString()) ||
+          `❌ The last two length settings are inconsistent. The new length is ${ssRoundedPct}% of that expected from the previous one. Let's try again. Click OK or press RETURN.`
 
         // Show popup (only accept Return/Enter, not spacebar)
         const preventSpacebar = e => {

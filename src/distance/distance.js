@@ -342,6 +342,9 @@ function saveCalibrationAttempt(
           key === 'rejectedImageBasedEyesToPointCm' ||
           key === 'historyFOverWidth' ||
           key === 'historyEyesToFootCm' ||
+          key === 'historyPreferRightHandBool' ||
+          key === 'acceptedPreferRightHandBool' ||
+          key === 'rejectedPreferRightHandBool' ||
           key === 'snapshotsTaken' ||
           key === 'snapshotsRejected' ||
           key === 'estimatedLengthCm' ||
@@ -3096,20 +3099,29 @@ export async function blindSpotTestNew(
     // Restart full calibration
     cleanup(false)
     return await blindSpotTestNew(RC, options, toTrackDistance, callback)
-  } else if (maxRatio > maxAllowedRatio) {
-    const ratioText = maxRatio.toFixed(2)
-    const displayMessage = phrases.RC_viewingBlindSpotRejected[RC.L]
-      .replace('[[N11]]', ratioText)
-      .replace('[[N22]]', '')
-    await Swal.fire({
-      ...swalInfoOptions(RC, { showIcon: false }),
-      html: displayMessage
-        ? displayMessage
-        : 'Calibration not consistent. Please retry.',
-    })
-    // Restart full calibration
-    cleanup(false)
-    return await blindSpotTestNew(RC, options, toTrackDistance, callback)
+  } else {
+    const T = options.calibrateDistanceAllowedRatio || 1.1
+    const eyeRatio = rightEyeFactor / leftEyeFactor
+    const roundedPercent = Math.round(100 * eyeRatio)
+    const lowerBound = Math.round(100 / T)
+    const upperBound = Math.round(100 * T)
+    const accepted = roundedPercent >= lowerBound && roundedPercent <= upperBound
+
+    if (!accepted) {
+      const displayMessage = phrases.RC_viewingBlindSpotRejected[RC.L]
+        .replace('[[N1]]', roundedPercent.toString())
+        .replace('[[TT1]]', lowerBound.toString())
+        .replace('[[TT2]]', upperBound.toString())
+      await Swal.fire({
+        ...swalInfoOptions(RC, { showIcon: false }),
+        html: displayMessage
+          ? displayMessage
+          : 'Calibration not consistent. Please retry.',
+      })
+      // Restart full calibration
+      cleanup(false)
+      return await blindSpotTestNew(RC, options, toTrackDistance, callback)
+    }
   }
 
   // Success → finalize data
@@ -3800,7 +3812,7 @@ export async function objectTest(RC, options, callback = undefined) {
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
     webcamMaxXYVpx: webcamMaxXYVpx,
     webcamMaxHz: webcamMaxHz,
-    preferRightHandBool: preferRightHandBool,
+    historyPreferRightHandBool: [],
     objectRulerIntervalCm: [],
     // objectLengthCm: [],
     objectMeasuredMsg: [],
@@ -3823,6 +3835,7 @@ export async function objectTest(RC, options, callback = undefined) {
     acceptedRulerBasedEyesToPointCm: [],
     acceptedImageBasedEyesToFootCm: [],
     acceptedImageBasedEyesToPointCm: [],
+    acceptedPreferRightHandBool: [],
     rejectedLeftEyeFootXYPx: [],
     rejectedRightEyeFootXYPx: [],
     rejectedIpdOverWidth: [],
@@ -3830,6 +3843,7 @@ export async function objectTest(RC, options, callback = undefined) {
     rejectedRulerBasedEyesToPointCm: [],
     rejectedImageBasedEyesToFootCm: [],
     rejectedImageBasedEyesToPointCm: [],
+    rejectedPreferRightHandBool: [],
     // Tube length check outputs (paper mode only)
     matchHalfLengthBool: null,
     estimatedLengthCm: [],
@@ -4932,78 +4946,8 @@ export async function objectTest(RC, options, callback = undefined) {
     paperOptionsList.appendChild(row)
   })
 
-  // ===================== HAND PREFERENCE RADIO BUTTONS =====================
-  // "Which do you prefer?" radio group — placed between paper-size options
-  // and the stepper.  Sets preferRightHandBool.
-  const handPreferenceContainer = document.createElement('div')
-  handPreferenceContainer.id = 'hand-preference-container'
-  handPreferenceContainer.style.display = 'flex'
-  handPreferenceContainer.style.flexDirection = 'column'
-  handPreferenceContainer.style.gap = 'clamp(0.3rem, 1.5vmin, 0.7rem)'
-  handPreferenceContainer.style.alignItems = 'flex-start'
-  handPreferenceContainer.style.marginTop = 'clamp(0.75rem, 3vmin, 1.5rem)'
-
-  const handPreferenceTitle = document.createElement('div')
-  // Render with markdown support so **bold** works
-  const handPreferenceTitleRaw =
-    phrases.RC_WhichDoYouPrefer?.[RC.L] || '**Which do you prefer?**'
-  handPreferenceTitle.innerHTML = processInlineFormatting(
-    handPreferenceTitleRaw,
-  )
-  handPreferenceTitle.style.fontSize = 'clamp(1rem, 3vmin, 1.4rem)'
-  handPreferenceTitle.style.fontWeight = '600'
-  handPreferenceTitle.style.color = '#111'
-  handPreferenceTitle.style.textAlign = 'left'
-  handPreferenceTitle.style.marginBottom = 'clamp(0.2rem, 1vmin, 0.4rem)'
-  handPreferenceContainer.appendChild(handPreferenceTitle)
-
-  const createHandOptionRow = (phraseKey, fallbackText, isRight) => {
-    const row = document.createElement('label')
-    row.style.display = 'flex'
-    row.style.alignItems = 'center'
-    row.style.gap = '1px'
-    row.style.cursor = 'pointer'
-    row.style.fontSize = 'clamp(1rem, 2.5vmin, 1.3rem)'
-    row.style.lineHeight = '1.2'
-    row.style.color = '#111'
-    row.style.textAlign = 'left'
-    row.style.padding = '0'
-
-    const radio = document.createElement('input')
-    radio.type = 'radio'
-    radio.name = 'hand-preference'
-    radio.value = isRight ? 'right' : 'left'
-    radio.checked = isRight ? preferRightHandBool : !preferRightHandBool
-    radio.style.cursor = 'pointer'
-    radio.style.marginRight = '0.5rem'
-    radio.style.padding = '0'
-    radio.style.width = 'clamp(14px, 3vmin, 16px)'
-    radio.style.height = 'clamp(14px, 3vmin, 16px)'
-    radio.style.flexShrink = '0'
-    radio.onchange = () => {
-      preferRightHandBool = isRight
-    }
-
-    const labelSpan = document.createElement('span')
-    const rawText = phrases[phraseKey]?.[RC.L] || fallbackText
-    labelSpan.innerHTML = processInlineFormatting(rawText)
-    labelSpan.style.fontSize = 'clamp(1rem, 2.5vmin, 1.3rem)'
-
-    row.appendChild(radio)
-    row.appendChild(labelSpan)
-    return row
-  }
-
-  handPreferenceContainer.appendChild(
-    createHandOptionRow('RC_UseMyRightHand', '', true),
-  )
-  handPreferenceContainer.appendChild(
-    createHandOptionRow('RC_UseMyLeftHand', '', false),
-  )
-
   paperSelectionCard.appendChild(paperSelectionTitle)
   paperSelectionCard.appendChild(paperOptionsList)
-  paperSelectionCard.appendChild(handPreferenceContainer)
   paperSelectionCard.appendChild(paperStepperContainer)
   paperSelectionCard.appendChild(paperSuggestionWrapper)
   paperSelectionCard.appendChild(paperImportantWarning)
@@ -7077,6 +7021,10 @@ export async function objectTest(RC, options, callback = undefined) {
             currentStepFlatIndex = index
             if (phraseKey) currentStepperPhraseKey = phraseKey
           },
+          onHandPreferenceChange: isRight => {
+            preferRightHandBool = isRight
+            updateMeasurementOverlayForLocation()
+          },
         })
 
         // Update the arrow indicators reference for cleanup
@@ -7351,19 +7299,23 @@ export async function objectTest(RC, options, callback = undefined) {
           const secondLastIdx = measurementState.measurements.length - 2
           const M1 = measurementState.measurements[secondLastIdx].objectLengthCm
           const M2 = measurementState.measurements[lastIdx].objectLengthCm
-          const ratio = M2 / M1 // Current / Previous
+          const ratio = M2 / M1 // new / old
+          const T = options.calibrateDistanceAllowedRatio || 1.1
+          const roundedPercent = Math.round(100 * ratio)
+          const lowerBound = Math.round(100 / T)
+          const upperBound = Math.round(100 * T)
 
           console.log(
-            `///Consistency check failed. Ratio: ${toFixedNumber(ratio, 2)}. Showing popup.`,
+            `///Consistency check failed. Ratio: ${roundedPercent}%. Showing popup.`,
           )
           console.log(`///M1=${M1}, M2=${M2}, ratio=${ratio}`)
 
           const errorMessage =
-            phrases.RC_objectSizeMismatch?.[RC.L]?.replace(
-              '[[N1]]',
-              toFixedNumber(ratio, 2).toString(),
-            ) ||
-            `Measurements are inconsistent. Ratio: ${toFixedNumber(ratio, 2)}`
+            phrases.RC_objectSizeMismatch?.[RC.L]
+              ?.replace('[[N1]]', roundedPercent.toString())
+              .replace('[[TT1]]', lowerBound.toString())
+              .replace('[[TT2]]', upperBound.toString()) ||
+            `Measurements are inconsistent. Ratio: ${roundedPercent}%`
 
           // Show popup (only accept Return/Enter, not spacebar)
           const preventSpacebar = e => {
@@ -8941,25 +8893,29 @@ export async function objectTest(RC, options, callback = undefined) {
                     ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
                     : null,
                 )
-
-                // Check tolerance with previous measurement (if not first)
-                const toleranceResult = locationManager.checkTolerance(
-                  fOverWidth,
-                  options.calibrateDistanceAllowedRatio || 1.15,
+                objectTestCommonData.historyPreferRightHandBool.push(
+                  preferRightHandBool,
                 )
 
-                if (!toleranceResult.pass) {
+                // Check tolerance with previous measurement (if not first)
+                const T_focal =
+                  options.calibrateDistanceAllowedRatio || 1.15
+                const prevFOverWidth = locationManager.getPreviousFOverWidth()
+                const focalRatio =
+                  prevFOverWidth != null ? fOverWidth / prevFOverWidth : 1
+                const focalRoundedPct = Math.round(100 * focalRatio)
+                const focalLower = Math.round(100 / T_focal)
+                const focalUpper = Math.round(100 * T_focal)
+                const focalAccepted =
+                  prevFOverWidth == null ||
+                  (focalRoundedPct >= focalLower &&
+                    focalRoundedPct <= focalUpper)
+
+                if (!focalAccepted) {
                   // Tolerance check FAILED - reject measurements
                   console.log(
                     '=== TOLERANCE CHECK FAILED - REJECTING MEASUREMENTS ===',
                   )
-
-                  // Calculate ratio percentage for display
-                  const prevFOverWidth = locationManager.getPreviousFOverWidth()
-                  const ratioPercent = (
-                    (100 * prevFOverWidth) /
-                    fOverWidth
-                  ).toFixed(0)
 
                   // Rejected plot lists: only the more recent (current) fOverWidth (4 decimals)
                   objectTestCommonData.rejectedFOverWidth.push(
@@ -9021,6 +8977,9 @@ export async function objectTest(RC, options, callback = undefined) {
                       ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
                       : null,
                   )
+                  objectTestCommonData.rejectedPreferRightHandBool.push(
+                    preferRightHandBool,
+                  )
                   // Shrink accepted lists: remove only the previous (retroactively rejected);
                   // the current (failing) was never pushed to accepted*
                   objectTestCommonData.acceptedFOverWidth.pop()
@@ -9034,6 +8993,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   objectTestCommonData.acceptedRulerBasedEyesToPointCm.pop()
                   objectTestCommonData.acceptedImageBasedEyesToFootCm.pop()
                   objectTestCommonData.acceptedImageBasedEyesToPointCm.pop()
+                  objectTestCommonData.acceptedPreferRightHandBool.pop()
 
                   // Queue the CURRENT (failing) measurement as rejected
                   measurementSaveQueue.push({
@@ -9072,11 +9032,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
                   // Show rejection popup
                   const displayMessage =
-                    phrases.RC_focalLengthMismatch?.[RC.L]?.replace(
-                      '[[N1]]',
-                      ratioPercent,
-                    ) ||
-                    `The last two snapshots are inconsistent. Your new distance is ${ratioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
+                    phrases.RC_focalLengthMismatch?.[RC.L]
+                      ?.replace('[[N1]]', focalRoundedPct.toString())
+                      .replace('[[TT1]]', focalLower.toString())
+                      .replace('[[TT2]]', focalUpper.toString()) ||
+                    `The last two snapshots are inconsistent. Your new distance is ${focalRoundedPct}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
 
                   await Swal.fire({
                     ...swalInfoOptions(RC, { showIcon: false }),
@@ -9118,6 +9078,10 @@ export async function objectTest(RC, options, callback = undefined) {
                           stepInstructionModel = model
                           currentStepFlatIndex = index
                           if (phraseKey) currentStepperPhraseKey = phraseKey
+                        },
+                        onHandPreferenceChange: isRight => {
+                          preferRightHandBool = isRight
+                          updateMeasurementOverlayForLocation()
                         },
                       })
 
@@ -9275,6 +9239,9 @@ export async function objectTest(RC, options, callback = undefined) {
                       ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
                       : null,
                   )
+                  objectTestCommonData.acceptedPreferRightHandBool.push(
+                    preferRightHandBool,
+                  )
                   measurementSaveQueue.push({
                     locEye: currentLocMeasurement.locEye,
                     location: currentLocMeasurement.location,
@@ -9339,6 +9306,10 @@ export async function objectTest(RC, options, callback = undefined) {
                             stepInstructionModel = model
                             currentStepFlatIndex = index
                             if (phraseKey) currentStepperPhraseKey = phraseKey
+                          },
+                          onHandPreferenceChange: isRight => {
+                            preferRightHandBool = isRight
+                            updateMeasurementOverlayForLocation()
                           },
                         })
 
@@ -9528,9 +9499,6 @@ export async function objectTest(RC, options, callback = undefined) {
                         objectTestCommonData.historyFOverWidth.length
                       objectTestCommonData.snapshotsRejected =
                         objectTestCommonData.rejectedFOverWidth.length
-                      // Capture the participant's final hand preference
-                      objectTestCommonData.preferRightHandBool =
-                        preferRightHandBool
                       saveCalibrationMeasurements(
                         RC,
                         'object',
@@ -10014,6 +9982,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     acceptedRulerBasedEyesToPointCm: [],
     acceptedImageBasedEyesToFootCm: [],
     acceptedImageBasedEyesToPointCm: [],
+    acceptedPreferRightHandBool: [],
     rejectedLeftEyeFootXYPx: [],
     rejectedRightEyeFootXYPx: [],
     rejectedIpdOverWidth: [],
@@ -10021,6 +9990,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     rejectedRulerBasedEyesToPointCm: [],
     rejectedImageBasedEyesToFootCm: [],
     rejectedImageBasedEyesToPointCm: [],
+    rejectedPreferRightHandBool: [],
   }
 
   // ===================== VIEWING DISTANCE MEASUREMENT TRACKING =====================
@@ -11104,11 +11074,16 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                     'out of allowed range',
                   )
 
-                  // For fOverWidth mismatch: ratio = (100 * oldFOverWidth / newFOverWidth).toFixed(0)
-                  const fOverWidthRatioPercent =
+                  // Ratio: new / old as integer percentage
+                  const T_kdt =
+                    options.calibrateDistanceAllowedRatio || 1.1
+                  const kdtRatio =
                     RC.fOverWidth1 && RC.fOverWidth2
-                      ? ((100 * RC.fOverWidth1) / RC.fOverWidth2).toFixed(0)
-                      : (100 * factorRatio).toFixed(0)
+                      ? RC.fOverWidth2 / RC.fOverWidth1
+                      : factorRatio
+                  const kdtRoundedPct = Math.round(100 * kdtRatio)
+                  const kdtLower = Math.round(100 / T_kdt)
+                  const kdtUpper = Math.round(100 * T_kdt)
 
                   let displayMessage = ''
                   if (reasonIsOutOfRange) {
@@ -11118,17 +11093,16 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                       .replace('[[N33]]', Math.round(RMin))
                       .replace('[[N44]]', Math.round(RMax))
                   } else {
-                    // fOverWidth mismatch - use RC_focalLengthMismatch
                     displayMessage =
-                      phrases.RC_focalLengthMismatch?.[RC.L]?.replace(
-                        '[[N1]]',
-                        fOverWidthRatioPercent,
-                      ) ||
-                      `❌ The last two snapshots are inconsistent. Your new distance is ${fOverWidthRatioPercent}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
+                      phrases.RC_focalLengthMismatch?.[RC.L]
+                        ?.replace('[[N1]]', kdtRoundedPct.toString())
+                        .replace('[[TT1]]', kdtLower.toString())
+                        .replace('[[TT2]]', kdtUpper.toString()) ||
+                      `❌ The last two snapshots are inconsistent. Your new distance is ${kdtRoundedPct}% of that expected from your previous snapshot. Let's try again. Click OK or press RETURN.`
                   }
 
                   console.log(
-                    `fOverWidth mismatch: ratio = ${fOverWidthRatioPercent}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
+                    `fOverWidth mismatch: ratio = ${kdtRoundedPct}% (fOverWidth1=${RC.fOverWidth1}, fOverWidth2=${RC.fOverWidth2})`,
                   )
 
                   // Rejected plot lists: only the more recent (page4) fOverWidth
@@ -11182,6 +11156,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                       knownDistanceTestCommonData.acceptedRulerBasedEyesToPointCm.pop()
                       knownDistanceTestCommonData.acceptedImageBasedEyesToFootCm.pop()
                       knownDistanceTestCommonData.acceptedImageBasedEyesToPointCm.pop()
+                      knownDistanceTestCommonData.acceptedPreferRightHandBool.pop()
                     }
                   }
 
