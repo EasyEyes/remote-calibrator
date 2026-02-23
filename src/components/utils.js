@@ -329,6 +329,7 @@ export function fitToViewport(container) {
 
   container.style.transform = 'none'
   container.style.height = '100vh'
+  container.style.width = '100vw'
 
   const contentHeight = container.scrollHeight
   const vh = window.innerHeight
@@ -337,7 +338,8 @@ export function fitToViewport(container) {
 
   const scale = vh / contentHeight
   container.style.height = `${contentHeight}px`
-  container.style.transformOrigin = 'top center'
+  container.style.width = `${100 / scale}vw`
+  container.style.transformOrigin = 'top left'
   container.style.transform = `scale(${scale})`
 }
 

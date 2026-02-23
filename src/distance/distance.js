@@ -5219,7 +5219,9 @@ export async function objectTest(RC, options, callback = undefined) {
   // It runs along the screen diagonal from lower-left to upper-right,
   // starts at 5 cm, and is always centered on the diagonal.
   const createTubeCheckTapeComponent = () => {
-    const tcTapeWidth = Math.round(0.75 * ppi) // 3/4 inch width
+    const tcTapeWidth = Math.round(
+      (options.calibrateDistanceTubeDiameterCm ?? 3.5) * pxPerCm,
+    )
     const tcLineThickness = 3 // px — halved for a more realistic paper tube edge
 
     const tcContainer = document.createElement('div')
