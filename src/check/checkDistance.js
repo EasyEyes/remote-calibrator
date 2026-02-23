@@ -8,6 +8,7 @@ import {
   forceFullscreen,
   enforceFullscreenOnSpacePress,
   isFullscreen,
+  fitInstructionPanelToViewport,
 } from '../components/utils'
 import { remoteCalibratorPhrases } from '../i18n/phrases'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
@@ -425,6 +426,7 @@ const setupSizeCheckFontAdjustment = () => {
   const resizeHandler = () => {
     console.log('Resize event detected')
     adjustSizeCheckFontSize()
+    fitInstructionPanelToViewport()
   }
 
   window.addEventListener('resize', resizeHandler)
@@ -1714,6 +1716,7 @@ const checkSize = async (
             langDirection: RC.LD,
             phrases: phrases,
           })
+          fitInstructionPanelToViewport()
         }
 
         doRender()

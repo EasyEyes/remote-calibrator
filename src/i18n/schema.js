@@ -74,6 +74,7 @@ const phrasesData = [
   'RC_viewingDistance',
   'RC_viewingDistanceIntroTitle',
   'RC_viewingDistanceIntroLiMethod',
+  'RC_viewingDistanceIntroPelliMethod',
   'RC_viewingDistanceTitle',
   'T_proceed',
   'EE_ReadInstructionsToEndBeforeMakingSetting',

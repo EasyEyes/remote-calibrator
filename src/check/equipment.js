@@ -3,6 +3,7 @@ import { constructInstructions, safeExecuteFunc } from '../components/utils'
 import { phrases } from '../i18n/schema'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { setDefaultVideoPosition } from '../components/video'
+import { processInlineFormatting } from '../distance/markdownInstructionParser'
 
 RemoteCalibrator.prototype.getEquipment = async function (
   afterResultCallback,
@@ -54,10 +55,9 @@ RemoteCalibrator.prototype.getEquipment = async function (
   q1Label.className = 'bodyText'
   q1Label.style.marginBottom = '0.5rem'
   q1Label.style.fontSize = '1.4rem'
-  q1Label.innerHTML = phrases.RC_rulerUnit[lang].replace(
-    /(?:\r\n|\r|\n)/g,
-    '<br>',
-  )
+  q1Label.innerHTML = processInlineFormatting(
+    phrases.RC_rulerUnit[lang],
+  ).replace(/(?:\r\n|\r|\n)/g, '<br>')
   instructionBody.appendChild(q1Label)
 
   const radioGroup = document.createElement('div')

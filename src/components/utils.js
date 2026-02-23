@@ -317,6 +317,49 @@ export function replaceNewlinesWithBreaks(str) {
   return str.replace(/\n/g, '<br/>')
 }
 
+/**
+ * Scale a fixed-position container so all content fits within the viewport.
+ * Resets any previous scaling, measures natural content height via scrollHeight,
+ * and applies transform: scale() when content overflows the viewport.
+ *
+ * Must be called after every content change (step navigation, page switch, resize).
+ */
+export function fitToViewport(container) {
+  if (!container) return
+
+  container.style.transform = 'none'
+  container.style.height = '100vh'
+
+  const contentHeight = container.scrollHeight
+  const vh = window.innerHeight
+
+  if (contentHeight <= vh || contentHeight === 0) return
+
+  const scale = vh / contentHeight
+  container.style.height = `${contentHeight}px`
+  container.style.transformOrigin = 'top center'
+  container.style.transform = `scale(${scale})`
+}
+
+/**
+ * Scale a .calibration-instruction panel so its content fits within the viewport.
+ * For absolutely-positioned instruction panels used in check phases (e.g. checkDistance).
+ */
+export function fitInstructionPanelToViewport() {
+  const el = document.querySelector('.calibration-instruction')
+  if (!el) return
+
+  el.style.transform = 'none'
+  const contentHeight = el.scrollHeight
+  const vh = window.innerHeight
+
+  if (contentHeight <= vh || contentHeight === 0) return
+
+  const scale = vh / contentHeight
+  el.style.transformOrigin = 'top left'
+  el.style.transform = `scale(${scale})`
+}
+
 export const getCameraResolutionXY = RC => {
   try {
     const cameraResolution = RC.gazeTracker?.webgazer?.getCameraResolutionXY()

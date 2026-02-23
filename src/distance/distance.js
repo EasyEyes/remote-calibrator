@@ -16,6 +16,7 @@ import {
   forceFullscreen,
   enforceFullscreenOnSpacePress,
   isFullscreen,
+  fitToViewport,
 } from '../components/utils'
 import { setDefaultVideoPosition } from '../components/video'
 import { irisTrackingIsActive } from './distanceTrack'
@@ -4456,6 +4457,14 @@ export async function objectTest(RC, options, callback = undefined) {
   let _showingReadFirstPopup = false
 
   const renderCurrentStepView = () => {
+    if (!stepInstructionModel) {
+      leftInstructionsText.textContent = currentInstructionText || ''
+      rightInstructionsText.textContent = ''
+      sectionMediaContainer.innerHTML = ''
+      fitToViewport(container)
+      return
+    }
+
     const maxIdx = (stepInstructionModel?.flatSteps?.length || 1) - 1
 
     // Cement "already read" state whenever we're at or past the last step
@@ -4521,6 +4530,8 @@ export async function objectTest(RC, options, callback = undefined) {
         }
       }
     }
+
+    fitToViewport(container)
   }
 
   // Replace the setter to support both legacy and step-by-step flows
@@ -4531,6 +4542,7 @@ export async function objectTest(RC, options, callback = undefined) {
     leftInstructionsText.textContent = currentInstructionText || ''
     rightInstructionsText.textContent = ''
     sectionMediaContainer.innerHTML = ''
+    fitToViewport(container)
   }
   // Initial flow (if text already computed)
   setInstructionsText(currentInstructionText)
@@ -10302,6 +10314,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       langDirection: RC.LD,
       phrases: phrases,
     })
+
+    fitToViewport(container)
   }
 
   const reflowInstructionsOnResize = () => renderCurrentStepView()
