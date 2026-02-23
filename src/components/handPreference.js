@@ -39,7 +39,7 @@ export function createHandPreferenceSelector({
     : 'clamp(0.75rem, 3vmin, 1.5rem) 0 0.3rem 0'
   container.style.paddingInlineStart = marginStart
   container.style.pointerEvents = 'auto'
-  container.style.maxWidth = `calc(50vw - ${marginStart})`
+  container.style.maxWidth = '50vw'
 
   const titleDiv = document.createElement('div')
   const titleRaw =
