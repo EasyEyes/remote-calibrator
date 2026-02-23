@@ -11,9 +11,7 @@ import {
   getLocationInstructionPhraseKey,
   buildLocationInstructions,
 } from './locationUtils'
-import {
-  createHandPreferenceSelector,
-} from '../../components/handPreference'
+import { createHandPreferenceSelector } from '../../components/handPreference'
 
 /* ============================================================================
  * MEASUREMENT PAGE RENDERER FACTORY
@@ -440,11 +438,10 @@ export function createMeasurementPageRenderer(dependencies) {
       const constrainWidth = () => {
         const v = document.getElementById('webgazerVideoContainer')
         if (!v) return
-        handSel.style.maxWidth = ''
+        handSel.style.maxWidth = '50vw'
         const vRect = v.getBoundingClientRect()
         const hRect = handSel.getBoundingClientRect()
-        const vertOverlap =
-          vRect.bottom > hRect.top && vRect.top < hRect.bottom
+        const vertOverlap = vRect.bottom > hRect.top && vRect.top < hRect.bottom
         if (vertOverlap) {
           const availW = Math.max(vRect.left - hRect.left - 8, 80)
           handSel.style.maxWidth = `${Math.floor(availW)}px`
