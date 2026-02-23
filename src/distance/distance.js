@@ -3106,7 +3106,8 @@ export async function blindSpotTestNew(
     const roundedPercent = Math.round(100 * eyeRatio)
     const lowerBound = Math.round(100 / T)
     const upperBound = Math.round(100 * T)
-    const accepted = roundedPercent >= lowerBound && roundedPercent <= upperBound
+    const accepted =
+      roundedPercent >= lowerBound && roundedPercent <= upperBound
 
     if (!accepted) {
       const displayMessage = phrases.RC_viewingBlindSpotRejected[RC.L]
@@ -4505,7 +4506,9 @@ export async function objectTest(RC, options, callback = undefined) {
         resolveMediaUrl: resolveInstructionMediaUrl,
         stepperHistory: options.stepperHistory,
         readFirstPhraseKey:
-          (currentPage === 3 || currentPage === 4) ? currentStepperPhraseKey : null,
+          currentPage === 3 || currentPage === 4
+            ? currentStepperPhraseKey
+            : null,
         readPhraseKeys: RC._readInstructionPhraseKeys,
         onPrev: handlePrev,
         onNext: handleNext,
@@ -5273,7 +5276,8 @@ export async function objectTest(RC, options, callback = undefined) {
     tcLeftLine.style.position = 'absolute'
     tcLeftLine.style.width = `${tcLineThickness}px`
     tcLeftLine.style.height = `${tcTapeWidth}px`
-    tcLeftLine.style.background = 'linear-gradient(to bottom, rgba(140,135,130,0.7), rgba(90,85,80,0.85) 30%, rgba(70,65,60,0.9) 50%, rgba(90,85,80,0.85) 70%, rgba(140,135,130,0.7))'
+    tcLeftLine.style.background =
+      'linear-gradient(to bottom, rgba(140,135,130,0.7), rgba(90,85,80,0.85) 30%, rgba(70,65,60,0.9) 50%, rgba(90,85,80,0.85) 70%, rgba(140,135,130,0.7))'
     tcLeftLine.style.borderRadius = '1px'
     tcLeftLine.style.transformOrigin = 'center center'
     tcLeftLine.style.pointerEvents = 'auto'
@@ -5286,7 +5290,8 @@ export async function objectTest(RC, options, callback = undefined) {
     tcRightLine.style.position = 'absolute'
     tcRightLine.style.width = `${tcLineThickness}px`
     tcRightLine.style.height = `${tcTapeWidth}px`
-    tcRightLine.style.background = 'linear-gradient(to bottom, rgba(140,135,130,0.7), rgba(90,85,80,0.85) 30%, rgba(70,65,60,0.9) 50%, rgba(90,85,80,0.85) 70%, rgba(140,135,130,0.7))'
+    tcRightLine.style.background =
+      'linear-gradient(to bottom, rgba(140,135,130,0.7), rgba(90,85,80,0.85) 30%, rgba(70,65,60,0.9) 50%, rgba(90,85,80,0.85) 70%, rgba(140,135,130,0.7))'
     tcRightLine.style.borderRadius = '1px'
     tcRightLine.style.transformOrigin = 'center center'
     tcRightLine.style.pointerEvents = 'auto'
@@ -5364,6 +5369,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
   const handleTubeCheckDragStart = e => {
     if (currentPage !== TUBE_CHECK_PAGE) return
+    if (!isFullscreen()) {
+      e.preventDefault()
+      forceFullscreen(RC.L, RC)
+      return
+    }
     const sw = window.innerWidth
     const sh = window.innerHeight
     const diagPx = Math.sqrt(sw * sw + sh * sh)
@@ -5394,6 +5404,12 @@ export async function objectTest(RC, options, callback = undefined) {
 
   window.addEventListener('mousemove', e => {
     if (!tcDragging || currentPage !== TUBE_CHECK_PAGE) return
+    if (!isFullscreen()) {
+      tcDragging = false
+      document.body.style.cursor = ''
+      forceFullscreen(RC.L, RC)
+      return
+    }
     const sw = window.innerWidth
     const sh = window.innerHeight
     const diagPx = Math.sqrt(sw * sw + sh * sh)
@@ -5409,7 +5425,10 @@ export async function objectTest(RC, options, callback = undefined) {
       const tw = tubeCheckTape.dimensions.tapeWidth
       const minLeftDist = (tw / 2) * Math.max(sw / sh, sh / sw)
       const rightDist = tubeCheckLeftDistPx + tubeCheckTapeLengthPx
-      const newLeftDist = Math.max(minLeftDist, Math.min(rightDist - minLengthPx, mouseDist))
+      const newLeftDist = Math.max(
+        minLeftDist,
+        Math.min(rightDist - minLengthPx, mouseDist),
+      )
       tubeCheckTapeLengthPx = rightDist - newLeftDist
       tubeCheckLeftDistPx = newLeftDist
     } else {
@@ -6354,6 +6373,10 @@ export async function objectTest(RC, options, callback = undefined) {
 
     // ===================== TUBE CHECK PAGE ARROW KEYS =====================
     if (currentPage === TUBE_CHECK_PAGE) {
+      if (!isFullscreen()) {
+        forceFullscreen(RC.L, RC)
+        return
+      }
       // Only ArrowLeft and ArrowRight adjust the tube check tape
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
 
@@ -6929,14 +6952,19 @@ export async function objectTest(RC, options, callback = undefined) {
       // Clamp so nothing is off-screen (margin in screen-edge pixels, applied
       // before computing the midpoint, as requested)
       const edgeMargin = 15
-      const minDiagDist =
-        Math.max(edgeMargin * diagPxInit / sw, edgeMargin * diagPxInit / sh)
+      const minDiagDist = Math.max(
+        (edgeMargin * diagPxInit) / sw,
+        (edgeMargin * diagPxInit) / sh,
+      )
       const clampedCenteredLeftDist = Math.max(minDiagDist, centeredLeftDist)
       // Midpoint between the clamped centered position and the screen corner,
       // then enforce tape-width minimum so the left end stays fully on-screen
       const twInit = tubeCheckTape.dimensions.tapeWidth
       const minLeftDistInit = (twInit / 2) * Math.max(sw / sh, sh / sw)
-      tubeCheckLeftDistPx = Math.max(minLeftDistInit, clampedCenteredLeftDist / 2)
+      tubeCheckLeftDistPx = Math.max(
+        minLeftDistInit,
+        clampedCenteredLeftDist / 2,
+      )
       tubeCheckTapeLengthPx = 5 * pxPerCm
       updateTubeCheckTapePosition()
 
@@ -8236,7 +8264,8 @@ export async function objectTest(RC, options, callback = undefined) {
         // (encourages participants to read the instructions before pressing SPACE)
         if ((currentPage === 3 || currentPage === 4) && stepInstructionModel) {
           const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
-          const alreadyRead = currentStepperPhraseKey &&
+          const alreadyRead =
+            currentStepperPhraseKey &&
             RC._readInstructionPhraseKeys.has(currentStepperPhraseKey)
           if (!alreadyRead && currentStepFlatIndex < maxIdx) {
             if (!_showingReadFirstPopup) {
@@ -8245,7 +8274,9 @@ export async function objectTest(RC, options, callback = undefined) {
                 await showPopup(
                   RC,
                   '',
-                  phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.L] || '',
+                  phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[
+                    RC.L
+                  ] || '',
                 )
                 _showingReadFirstPopup = false
               })()
@@ -8387,9 +8418,9 @@ export async function objectTest(RC, options, callback = undefined) {
               } else {
                 // Rejected - show error message
                 const pctOfExpected = Math.round(ratio * 100)
-                const errorMsg = (
-                  phrases.RC_BadMatchToExpectedLength?.[RC.L]
-                ).replace('[[NNN]]', pctOfExpected.toString())
+                const errorMsg = (phrases.RC_BadMatchToExpectedLength?.[
+                  RC.L
+                ]).replace('[[NNN]]', pctOfExpected.toString())
 
                 // Prevent spacebar from closing the popup
                 const preventSpaceInPopup = ev => {
@@ -8912,8 +8943,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 )
 
                 // Check tolerance with previous measurement (if not first)
-                const T_focal =
-                  options.calibrateDistanceAllowedRatio || 1.15
+                const T_focal = options.calibrateDistanceAllowedRatio || 1.15
                 const prevFOverWidth = locationManager.getPreviousFOverWidth()
                 const focalRatio =
                   prevFOverWidth != null ? fOverWidth / prevFOverWidth : 1
@@ -9745,9 +9775,13 @@ export async function objectTest(RC, options, callback = undefined) {
   explanationButton.style.borderRadius = '4px'
   explanationButton.style.cursor = 'pointer'
   explanationButton.onclick = () => {
-    const rawText = phrases.RC_viewingDistanceIntroPelliMethod[RC.L]
-    const explanationHtml = processInlineFormatting(rawText)
-      .replace(/\n/g, '<br>')
+    const rawText = isPaperSelectionMode
+      ? phrases.RC_viewingDistanceIntroPaperTubeMethod[RC.L]
+      : phrases.RC_viewingDistanceIntroPelliMethod[RC.L]
+    const explanationHtml = processInlineFormatting(rawText).replace(
+      /\n/g,
+      '<br>',
+    )
     Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
       icon: undefined,
@@ -10307,7 +10341,9 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         resolveMediaUrl: resolveInstructionMediaUrl,
         stepperHistory: options.stepperHistory,
         readFirstPhraseKey:
-          (currentPage === 3 || currentPage === 4) ? currentStepperPhraseKey : null,
+          currentPage === 3 || currentPage === 4
+            ? currentStepperPhraseKey
+            : null,
         readPhraseKeys: RC._readInstructionPhraseKeys,
         onPrev: handlePrev,
         onNext: handleNext,
@@ -10408,7 +10444,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         const p3Text =
           (phrases.RC_UseObjectToSetViewingDistanceCreditCardPage3?.[RC.L] ||
             '') + ''
-        currentStepperPhraseKey = 'RC_UseObjectToSetViewingDistanceCreditCardPage3'
+        currentStepperPhraseKey =
+          'RC_UseObjectToSetViewingDistanceCreditCardPage3'
         stepInstructionModel = parseInstructions(p3Text, {
           assetMap: test_assetMap,
         })
@@ -10464,7 +10501,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
           (phrases.RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4?.[
             RC.L
           ] || '') + ''
-        currentStepperPhraseKey = 'RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4'
+        currentStepperPhraseKey =
+          'RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4'
         stepInstructionModel = parseInstructions(p4Text, {
           assetMap: test_assetMap,
         })
@@ -10727,7 +10765,8 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         // Gate SPACE on pages 3/4: require stepper to be on the last step
         if (stepInstructionModel) {
           const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
-          const alreadyRead = currentStepperPhraseKey &&
+          const alreadyRead =
+            currentStepperPhraseKey &&
             RC._readInstructionPhraseKeys.has(currentStepperPhraseKey)
           if (!alreadyRead && currentStepFlatIndex < maxIdx) {
             if (!_showingReadFirstPopup) {
@@ -10736,7 +10775,9 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 await showPopup(
                   RC,
                   '',
-                  phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.L] || '',
+                  phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[
+                    RC.L
+                  ] || '',
                 )
                 _showingReadFirstPopup = false
               })()
@@ -11091,8 +11132,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   )
 
                   // Ratio: new / old as integer percentage
-                  const T_kdt =
-                    options.calibrateDistanceAllowedRatio || 1.1
+                  const T_kdt = options.calibrateDistanceAllowedRatio || 1.1
                   const kdtRatio =
                     RC.fOverWidth1 && RC.fOverWidth2
                       ? RC.fOverWidth2 / RC.fOverWidth1

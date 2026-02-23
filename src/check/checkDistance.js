@@ -1592,7 +1592,6 @@ const checkSize = async (
         lengthStepperState.ui = null
         lengthStepperState.model = null
 
-        // Set max-width to avoid video overlap
         const instructionElement = document.querySelector(
           '.calibration-instruction',
         )
@@ -1641,12 +1640,55 @@ const checkSize = async (
 
       if (!instructionBody) return
 
+      // Keep title on the left half and place instructions+stepper as a single
+      // right-side column directly under the title baseline.
+      const placeCheckSizeInstructionColumn = () => {
+        const sideInset = RC.LD === RC._CONST.RTL ? 'left' : 'right'
+        const oppositeSideInset = RC.LD === RC._CONST.RTL ? 'right' : 'left'
+        const titleEl = document.getElementById('instruction-title')
+
+        if (titleEl) {
+          titleEl.style.minWidth = '0'
+          titleEl.style.maxWidth = 'calc(50vw - 3rem)'
+          titleEl.style.overflowWrap = 'break-word'
+          titleEl.style.wordBreak = 'break-word'
+        }
+
+        instructionBody.style.position = 'fixed'
+        instructionBody.style.top = '7rem'
+        instructionBody.style[sideInset] = '0'
+        instructionBody.style[oppositeSideInset] = 'auto'
+        instructionBody.style.width = '50vw'
+        instructionBody.style.minWidth = '50vw'
+        instructionBody.style.maxWidth = '50vw'
+        instructionBody.style.boxSizing = 'border-box'
+        instructionBody.style.margin = '0'
+        instructionBody.style.padding = '0.25rem 1.25rem 0.5rem 0.75rem'
+        instructionBody.style.display = 'flex'
+        instructionBody.style.flexDirection = 'column'
+        instructionBody.style.alignItems = 'flex-start'
+        instructionBody.style.gap = '0.5rem'
+        instructionBody.style.overflowY = 'auto'
+        instructionBody.style.overflowX = 'hidden'
+        instructionBody.style.pointerEvents = 'auto'
+
+        const titleRect = titleEl?.getBoundingClientRect?.()
+        const topOffsetPx =
+          titleRect && Number.isFinite(titleRect.bottom)
+            ? Math.max(16, Math.ceil(titleRect.bottom + 8))
+            : 112
+        instructionBody.style.top = `${topOffsetPx}px`
+        instructionBody.style.maxHeight = `calc(100vh - ${topOffsetPx + 16}px)`
+      }
+
+      placeCheckSizeInstructionColumn()
+
       // Enable pointer events so stepper arrows are clickable (parent has pointer-events: none)
       instructionBody.style.pointerEvents = 'auto'
 
       if (!lengthStepperState.ui) {
         instructionBody.innerHTML = ''
-        // Let instruction body use full container width (container is barely under half screen)
+        // The right-side instruction column owns its full half-screen width.
         instructionBody.style.width = '100%'
         instructionBody.style.maxWidth = '100%'
 
@@ -1654,7 +1696,7 @@ const checkSize = async (
           layout: 'leftOnly',
           leftWidth: '100%',
           leftPaddingStart: '0rem',
-          leftPaddingEnd: '1rem',
+          leftPaddingEnd: '0.25rem',
           fontSize: 'inherit',
           lineHeight: 'inherit',
         })
@@ -1693,6 +1735,7 @@ const checkSize = async (
         }
 
         const doRender = () => {
+          placeCheckSizeInstructionColumn()
           renderStepInstructions({
             model: lengthStepperState.model,
             flatIndex: lengthStepperState.stepIndex,
@@ -1862,7 +1905,8 @@ const checkSize = async (
         if (event.key === ' ') {
           if (lengthStepperState.model) {
             const maxIdx = (lengthStepperState.model.flatSteps?.length || 1) - 1
-            const alreadyRead = RC._readInstructionPhraseKeys.has(checkSizePhraseKey)
+            const alreadyRead =
+              RC._readInstructionPhraseKeys.has(checkSizePhraseKey)
             if (!alreadyRead && lengthStepperState.stepIndex < maxIdx) {
               if (!_showingReadFirstPopup) {
                 _showingReadFirstPopup = true
@@ -1870,7 +1914,9 @@ const checkSize = async (
                   await showPopup(
                     RC,
                     '',
-                    phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.language.value] || '',
+                    phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[
+                      RC.language.value
+                    ] || '',
                   )
                   _showingReadFirstPopup = false
                 })()
@@ -1892,7 +1938,8 @@ const checkSize = async (
             if (lengthStepperState.model) {
               const maxIdx =
                 (lengthStepperState.model.flatSteps?.length || 1) - 1
-              const alreadyRead = RC._readInstructionPhraseKeys.has(checkSizePhraseKey)
+              const alreadyRead =
+                RC._readInstructionPhraseKeys.has(checkSizePhraseKey)
               if (!alreadyRead && lengthStepperState.stepIndex < maxIdx) {
                 if (!_showingReadFirstPopup) {
                   _showingReadFirstPopup = true
@@ -1900,7 +1947,9 @@ const checkSize = async (
                     await showPopup(
                       RC,
                       '',
-                      phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.language.value] || '',
+                      phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[
+                        RC.language.value
+                      ] || '',
                     )
                     _showingReadFirstPopup = false
                   })()
@@ -2800,7 +2849,6 @@ const trackDistanceCheck = async (
         RC._replaceBackground(html)
       }
 
-      // Set max-width to avoid video overlap
       const instructionElement = document.querySelector(
         '.calibration-instruction',
       )
@@ -2810,17 +2858,32 @@ const trackDistanceCheck = async (
         instructionElement.classList.add('rtl')
       }
 
+      // Constrain the title to the space left of the live video so it wraps
+      // rather than being hidden behind the video (which can appear anywhere).
+      // Recalculated on resize since the video can move.
       const video = document.getElementById('webgazerVideoContainer')
-      if (instructionElement && video) {
-        const videoRect = video.getBoundingClientRect()
-        const screenWidth = window.innerWidth
-        const videoLeftEdge = (screenWidth - videoRect.width) / 2
-        const leftColumnMaxPx = window.innerWidth * 0.495
-        // Give instruction column barely under half the screen to avoid occlusion with right-side elements
-        instructionElement.style.width = '49.5vw'
-        instructionElement.style.minWidth = '49.5vw'
-        instructionElement.style.maxWidth = `${Math.max(videoLeftEdge - 3, leftColumnMaxPx)}px`
+      const titleEl = document.getElementById(
+        'check-distance-instruction-title',
+      )
+      const updateTitleWidth = () => {
+        if (!titleEl) return
+        titleEl.style.minWidth = '0'
+        titleEl.style.overflowWrap = 'break-word'
+        titleEl.style.maxWidth = ''
+        const v = document.getElementById('webgazerVideoContainer')
+        if (v) {
+          const videoRect = v.getBoundingClientRect()
+          const titleRect = titleEl.getBoundingClientRect()
+          const gap = 20
+          const availableWidth = videoRect.left - titleRect.left - gap
+          if (availableWidth > 0) {
+            titleEl.style.maxWidth = `${availableWidth}px`
+          }
+        }
       }
+      updateTitleWidth()
+      let titleResizeHandler = () => updateTitleWidth()
+      window.addEventListener('resize', titleResizeHandler)
 
       // Build single-column (left-only) step-by-step UI in the instruction body
       let navHandlerRef = null
@@ -2844,9 +2907,8 @@ const trackDistanceCheck = async (
         instructionBody.style.maxHeight = 'none'
         instructionBody.style.overflow = 'visible'
 
-        // Allow the parent container to show overflow so scale measurement works
         const instrParent = instructionBody.closest('.calibration-instruction')
-        if (instrParent) instrParent.style.overflow = 'visible'
+        if (instrParent) instrParent.style.overflow = 'hidden'
 
         // Wrapper that holds stepper + hand selector; scaled to fit above status bar
         const scalableWrapper = document.createElement('div')
@@ -2985,9 +3047,12 @@ const trackDistanceCheck = async (
             if (checkDistMovieContainer) {
               checkDistMovieContainer.innerHTML = ''
               while (ui.mediaContainer.firstChild) {
-                checkDistMovieContainer.appendChild(ui.mediaContainer.firstChild)
+                checkDistMovieContainer.appendChild(
+                  ui.mediaContainer.firstChild,
+                )
               }
-              const movedMedia = checkDistMovieContainer.querySelector('video, img')
+              const movedMedia =
+                checkDistMovieContainer.querySelector('video, img')
               if (movedMedia) {
                 movedMedia.style.maxHeight = '100%'
               }
@@ -3075,7 +3140,7 @@ const trackDistanceCheck = async (
               preferRightHandBool = isRight
             },
             objectPhraseKey: 'RC_measuringStickOrTape',
-            compact: true,
+            compact: false,
           })
           scalableWrapper.appendChild(handSel)
 
@@ -3099,7 +3164,9 @@ const trackDistanceCheck = async (
           async function keyupListener(event) {
             if (event.key === ' ' && register) {
               // Gate SPACE: require stepper to be on the last step (unless already read)
-              const alreadyReadDist = RC._readInstructionPhraseKeys.has('RC_produceDistanceLocation')
+              const alreadyReadDist = RC._readInstructionPhraseKeys.has(
+                'RC_produceDistanceLocation',
+              )
               if (!alreadyReadDist) {
                 const progress = getStepperProgress()
                 if (progress && progress.current < progress.max) {
@@ -3109,7 +3176,9 @@ const trackDistanceCheck = async (
                       await showPopup(
                         RC,
                         '',
-                        phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.language.value] || '',
+                        phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[
+                          RC.language.value
+                        ] || '',
                       )
                       _showingReadFirstPopupDist = false
                     })()
@@ -3237,7 +3306,8 @@ const trackDistanceCheck = async (
                 cameraResolutionXYVpx,
               )
               RC.distanceCheckJSON.cameraHz.push(
-                RC.gazeTracker?.webgazer?.videoParamsToReport?.frameRate || null,
+                RC.gazeTracker?.webgazer?.videoParamsToReport?.frameRate ||
+                  null,
               )
 
               RC.calibrateDistanceMeasuredCm.push(distanceFromRC)
@@ -3423,10 +3493,21 @@ const trackDistanceCheck = async (
                 document.removeEventListener('keydown', navHandlerRef)
                 navHandlerRef = null
               }
+              if (titleResizeHandler) {
+                window.removeEventListener('resize', titleResizeHandler)
+                titleResizeHandler = null
+              }
               resolve()
             }
             //check for the x key to skip (only allowed if requested distance > 60 cm)
-            else if (event.key === 'x' && register && cm > (RC.equipment?.value?.unit === 'inches' ? Math.round(60 / 2.54) : 60)) {
+            else if (
+              event.key === 'x' &&
+              register &&
+              cm >
+                (RC.equipment?.value?.unit === 'inches'
+                  ? Math.round(60 / 2.54)
+                  : 60)
+            ) {
               register = false
               skippedDistancesCount++
               //remove distance from requested list
@@ -3438,6 +3519,10 @@ const trackDistanceCheck = async (
                 document.removeEventListener('keydown', navHandlerRef)
                 navHandlerRef = null
               }
+              if (titleResizeHandler) {
+                window.removeEventListener('resize', titleResizeHandler)
+                titleResizeHandler = null
+              }
               resolve()
             }
           }
@@ -3447,7 +3532,9 @@ const trackDistanceCheck = async (
             async value => {
               if (value === 'space') {
                 // Gate SPACE: require stepper to be on the last step (unless already read)
-                const alreadyReadDist = RC._readInstructionPhraseKeys.has('RC_produceDistanceLocation')
+                const alreadyReadDist = RC._readInstructionPhraseKeys.has(
+                  'RC_produceDistanceLocation',
+                )
                 if (!alreadyReadDist) {
                   const progress = getStepperProgress()
                   if (progress && progress.current < progress.max) {
@@ -3457,7 +3544,10 @@ const trackDistanceCheck = async (
                         await showPopup(
                           RC,
                           '',
-                          phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[RC.language.value] || '',
+                          phrases
+                            .EE_SpaceBarDisabledUntilInstructionsFullyRead?.[
+                            RC.language.value
+                          ] || '',
                         )
                         _showingReadFirstPopupDist = false
                       })()
@@ -3561,7 +3651,8 @@ const trackDistanceCheck = async (
                   cameraResolutionXYVpx,
                 )
                 RC.distanceCheckJSON.cameraHz.push(
-                  RC.gazeTracker?.webgazer?.videoParamsToReport?.frameRate || null,
+                  RC.gazeTracker?.webgazer?.videoParamsToReport?.frameRate ||
+                    null,
                 )
 
                 RC.calibrateDistanceMeasuredCm.push(distanceFromRC)
@@ -3748,7 +3839,13 @@ const trackDistanceCheck = async (
                 resolve()
               }
               //check for the x key to skip (only allowed if requested distance > 60 cm)
-              else if (value === '❌' && cm > (RC.equipment?.value?.unit === 'inches' ? Math.round(60 / 2.54) : 60)) {
+              else if (
+                value === '❌' &&
+                cm >
+                  (RC.equipment?.value?.unit === 'inches'
+                    ? Math.round(60 / 2.54)
+                    : 60)
+              ) {
                 skippedDistancesCount++
                 //remove distance from requested list
                 calibrateDistanceCheckCm.splice(i, 1)

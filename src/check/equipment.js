@@ -26,17 +26,19 @@ RemoteCalibrator.prototype.getEquipment = async function (
     'How do you measure?'
   ).replace(/(?:\r\n|\r|\n)/g, '<br>')
 
-  const pageHtml = constructInstructions(
-    headerText,
-    '',
-    false,
-    'bodyText',
-    'left',
-  )
+  const pageHtml = constructInstructions(headerText, '', false, 'bodyText')
   this._replaceBackground(pageHtml)
 
   // Create body container (constructInstructions omits it when body is empty)
   const container = document.querySelector('.calibration-instruction')
+  if (container) {
+    container.style.left = '0'
+    container.style.right = '0'
+    container.style.top = '0'
+    container.style.boxSizing = 'border-box'
+    container.style.padding = '2rem'
+  }
+
   let instructionBody = document.getElementById('instruction-body')
   if (!instructionBody && container) {
     instructionBody = document.createElement('div')
@@ -48,7 +50,21 @@ RemoteCalibrator.prototype.getEquipment = async function (
   if (!instructionBody) return
 
   instructionBody.style.pointerEvents = 'auto'
+  instructionBody.style.width = '100%'
+  instructionBody.style.maxWidth = 'none'
+  instructionBody.style.display = 'flex'
+  instructionBody.style.gap = '3rem'
   instructionBody.innerHTML = ''
+
+  const col1 = document.createElement('div')
+  col1.style.flex = '1'
+  col1.style.minWidth = '0'
+  instructionBody.appendChild(col1)
+
+  const col2 = document.createElement('div')
+  col2.style.flex = '1'
+  col2.style.minWidth = '0'
+  instructionBody.appendChild(col2)
 
   // ---- Question 1: Unit selection ----
   const q1Label = document.createElement('p')
@@ -58,7 +74,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
   q1Label.innerHTML = processInlineFormatting(
     phrases.RC_rulerUnit[lang],
   ).replace(/(?:\r\n|\r|\n)/g, '<br>')
-  instructionBody.appendChild(q1Label)
+  col1.appendChild(q1Label)
 
   const radioGroup = document.createElement('div')
   radioGroup.id = 'custom-radio-group'
@@ -83,13 +99,12 @@ RemoteCalibrator.prototype.getEquipment = async function (
     label.appendChild(document.createTextNode(' ' + option.label))
     radioGroup.appendChild(label)
   })
-  instructionBody.appendChild(radioGroup)
+  col1.appendChild(radioGroup)
 
   // ---- Question 2: Ruler length (hidden until inches or cm is chosen) ----
   const q2Container = document.createElement('div')
   q2Container.id = 'ruler-length-container'
   q2Container.style.display = 'none'
-  q2Container.style.marginTop = '2rem'
 
   const q2Label = document.createElement('p')
   q2Label.className = 'bodyText'
@@ -119,7 +134,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
   tooShortMsg.style.display = 'none'
   q2Container.appendChild(tooShortMsg)
 
-  instructionBody.appendChild(q2Container)
+  col2.appendChild(q2Container)
 
   // ---- Proceed button (greyed out until both questions are answered) ----
   const buttonContainer = document.createElement('div')
@@ -137,7 +152,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
   proceedButton.style.borderRadius = '4px'
   proceedButton.style.cursor = 'not-allowed'
   buttonContainer.appendChild(proceedButton)
-  instructionBody.appendChild(buttonContainer)
+  col1.appendChild(buttonContainer)
 
   // ---- State & helpers ----
   let selectedUnit = null
@@ -191,8 +206,10 @@ RemoteCalibrator.prototype.getEquipment = async function (
       if (selectedUnit === 'none') {
         q2Container.style.display = 'none'
         lengthInput.value = ''
+        col1.appendChild(buttonContainer)
       } else {
         q2Container.style.display = 'block'
+        col2.appendChild(buttonContainer)
 
         // Compute [[N1]] and [[N2]] for RC_howLong placeholders
         const cmPerUnit = selectedUnit === 'inches' ? 2.54 : 1

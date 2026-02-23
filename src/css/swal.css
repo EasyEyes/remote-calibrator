@@ -22,7 +22,7 @@
   margin-left: 2.5rem !important;
 }
 
-.my__swal2__html {
+.swal2-html-container.my__swal2__html {
   margin: 1.6rem;
   margin-left: 2.5rem !important;
   color: #444 !important;
@@ -30,6 +30,7 @@
   line-height: 150% !important;
   font-weight: normal !important;
   user-select: none !important;
+  text-align: start !important;
 }
 
 .my__swal2__html__center {

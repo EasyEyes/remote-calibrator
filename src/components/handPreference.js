@@ -34,9 +34,12 @@ export function createHandPreferenceSelector({
   container.style.flexDirection = 'column'
   container.style.gap = compact ? '0.1rem' : 'clamp(0.3rem, 1.5vmin, 0.7rem)'
   container.style.alignItems = 'flex-start'
-  container.style.padding = compact ? '0.2rem 0' : 'clamp(0.75rem, 3vmin, 1.5rem) 0 0.3rem 0'
+  container.style.padding = compact
+    ? '0.2rem 0'
+    : 'clamp(0.75rem, 3vmin, 1.5rem) 0 0.3rem 0'
   container.style.paddingInlineStart = marginStart
   container.style.pointerEvents = 'auto'
+  container.style.maxWidth = `calc(50vw - ${marginStart})`
 
   const titleDiv = document.createElement('div')
   const titleRaw =
@@ -46,7 +49,9 @@ export function createHandPreferenceSelector({
   titleDiv.style.fontWeight = '600'
   titleDiv.style.color = '#111'
   titleDiv.style.lineHeight = '1.15'
-  titleDiv.style.marginBottom = compact ? '0.05rem' : 'clamp(0.2rem, 1vmin, 0.4rem)'
+  titleDiv.style.marginBottom = compact
+    ? '0.05rem'
+    : 'clamp(0.2rem, 1vmin, 0.4rem)'
   // Force all children to inherit font-size (overrides .calibration-instruction * CSS)
   titleDiv.querySelectorAll('*').forEach(el => {
     el.style.fontSize = 'inherit'
