@@ -115,9 +115,7 @@ export function parseLocationsArray(rawLocations) {
  * @returns {string} The phrase key to use
  */
 export function getLocationInstructionPhraseKey(isFirstMeasurement) {
-  return isFirstMeasurement
-    ? 'RC_UseObjectToSetViewingDistanceToLocationFirstPage'
-    : 'RC_UseObjectToSetViewingDistanceToLocationNextPage'
+  return 'RC_UseObjectToSetViewingDistanceToLocationFirstPage'
 }
 
 /**

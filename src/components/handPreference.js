@@ -90,10 +90,10 @@ export function createHandPreferenceSelector({
     let rawText = phrases[phraseKey]?.[lang] || fallback
     rawText = rawText.replace('[[OOO]]', objectName)
     span.innerHTML = processInlineFormatting(rawText)
-    // Force all children inside the span to inherit too
+    // Force children to inherit font-size unless they already carry an explicit inline size
     span.querySelectorAll('*').forEach(el => {
-      el.style.fontSize = 'inherit'
-      el.style.lineHeight = 'inherit'
+      if (!el.style.fontSize) el.style.fontSize = 'inherit'
+      if (!el.style.lineHeight) el.style.lineHeight = 'inherit'
     })
 
     label.appendChild(radio)

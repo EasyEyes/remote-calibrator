@@ -25,7 +25,11 @@ import {
 import { parseInstructions } from '../distance/instructionParserAdapter'
 import { resolveInstructionMediaUrl } from '../distance/instructionMediaCache'
 import { test_phrases, test_assetMap } from '../distance/assetMap'
-import { irisTrackingIsActive } from '../distance/distanceTrack'
+import {
+  irisTrackingIsActive,
+  setMeasurementOverlay,
+  clearMeasurementOverlay,
+} from '../distance/distanceTrack'
 import {
   createHandPreferenceSelector,
   scaleToFitAboveBar,
@@ -2462,10 +2466,33 @@ const trackDistanceCheck = async (
 
   let preferRightHandBool = true
 
+  const updateHandOverlay = () => {
+    const splitPhraseToWords = phraseKey => {
+      const text = phrases?.[phraseKey]?.[RC.language.value] || ''
+      return text.split(/\s+/).filter(w => w.length > 0)
+    }
+    if (preferRightHandBool) {
+      setMeasurementOverlay({
+        isPaperMode: false,
+        eye: 'right',
+        leftTextWords: null,
+        rightTextWords: splitPhraseToWords('RC_UseRightEye'),
+      })
+    } else {
+      setMeasurementOverlay({
+        isPaperMode: false,
+        eye: 'left',
+        leftTextWords: splitPhraseToWords('RC_UseLeftEye'),
+        rightTextWords: null,
+      })
+    }
+  }
+
   // Track all space bar listeners for proper cleanup
   const activeListeners = []
 
   const quit = () => {
+    clearMeasurementOverlay()
     stopVideoTrimming()
     RC._removeBackground()
     if (!isTrack) safeExecuteFunc(distanceCallback, distanceData, false)
@@ -3138,10 +3165,12 @@ const trackDistanceCheck = async (
             preferRight: preferRightHandBool,
             onChange: isRight => {
               preferRightHandBool = isRight
+              updateHandOverlay()
             },
             objectPhraseKey: 'RC_measuringStickOrTape',
             compact: false,
           })
+          updateHandOverlay()
           scalableWrapper.appendChild(handSel)
 
           scaleToFitAboveBar(scalableWrapper, 44)

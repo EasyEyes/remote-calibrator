@@ -214,9 +214,7 @@ export function createMeasurementPageRenderer(dependencies) {
    */
   const getInstructionPhraseKey = (isFirst, location, saveSnapshots) => {
     // Try new location-aware phrases first
-    const newPhraseKey = isFirst
-      ? 'RC_UseObjectToSetViewingDistanceToLocationFirstPage'
-      : 'RC_UseObjectToSetViewingDistanceToLocationNextPage'
+    const newPhraseKey = 'RC_UseObjectToSetViewingDistanceToLocationFirstPage'
 
     // Check if the new phrase exists
     if (phrases?.[newPhraseKey]?.[RC.L]) {
