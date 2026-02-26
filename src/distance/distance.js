@@ -3518,6 +3518,61 @@ export async function objectTest(RC, options, callback = undefined) {
   let selectedUnit = 'inches' // Default to inches
   const showLength = !!options.calibrateDistanceShowRulerUnitsBool
 
+  // ===================== TYPICAL MODE =====================
+  const isTypicalMode = options.useObjectTestData === 'typical'
+  if (isTypicalMode) {
+    hideResolutionSettingMessage()
+
+    let range = options.calibrateDistanceFocalLengthRange
+    if (typeof range === 'string') {
+      range = range.split(',').map(s => parseFloat(s.trim()))
+    }
+    const fOverWidth = range.reduce((a, b) => a + b, 0) / range.length
+    RC.calibrationFOverWidth = fOverWidth
+
+    const cameraWidth =
+      options.calibrateDistanceCameraResolution[0] || 640
+    const calibrationFactor = fOverWidth * cameraWidth * RC._CONST.IPD_CM
+
+    const data = {
+      value: null,
+      timestamp: performance.now(),
+      method: 'typical',
+      calibrationFactor: calibrationFactor,
+      averageFaceMesh: null,
+    }
+
+    if (options.calibrateDistanceCheckBool) {
+      await RC._checkDistance(
+        callback,
+        data,
+        'trackDistance',
+        options.checkCallback,
+        options.calibrateDistanceCheckCm,
+        options.callbackStatic,
+        options.calibrateDistanceCheckSecs,
+        options.calibrateDistanceCheckLengthCm,
+        options.calibrateDistanceCenterYourEyesBool,
+        options.calibrateDistancePupil,
+        options.calibrateDistanceChecking,
+        options.calibrateDistanceSpotXYDeg,
+        options.calibrateDistance,
+        options.stepperHistory,
+        options.calibrateScreenSizeAllowedRatio,
+        options.calibrateDistanceAllowedRatio,
+        options.viewingDistanceWhichEye,
+        undefined,
+        options.calibrateDistanceCheckMinRulerCm,
+      )
+    } else {
+      if (typeof callback === 'function') {
+        callback(data)
+      }
+    }
+    RC._removeBackground()
+    return
+  }
+
   // ===================== PAPER SELECTION MODE =====================
   const isPaperSelectionMode = options.useObjectTestData === 'paper'
 

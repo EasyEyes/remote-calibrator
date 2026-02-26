@@ -239,6 +239,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateDistanceCameraResolution: [640, 480], // [width, height] e.g. [1920, 1080] — desired camera resolution
       calibrateDistanceCameraHz: 60, // number e.g. 30 — desired camera frame rate
       saveSnapshots: false,
+      calibrateDistanceFocalLengthRange: null, // fOverWidth range for "typical" mode; mean is used
     },
     trackDistanceOptions,
   )
@@ -440,6 +441,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
     options.calibrateDistanceTubeDiameterCm
   trackingOptions.calibrateDistanceDrawPaperTubeBool =
     options.calibrateDistanceDrawPaperTubeBool
+  trackingOptions.calibrateDistanceFocalLengthRange =
+    options.calibrateDistanceFocalLengthRange
   // Store on RC instance for access from other modules
   this.calibrateDistanceIpdUsesZBool =
     options.calibrateDistanceIpdUsesZBool !== false
