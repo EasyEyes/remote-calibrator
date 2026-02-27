@@ -120,6 +120,84 @@ export function createHandPreferenceSelector({
 }
 
 /**
+ * Adjust the hand-preference selector's font sizes and radio-button sizes so
+ * that it fits within `availableHeightPx` at its current width.
+ *
+ * Binary-searches for the largest font size in [minFontPx, baseFontPx] whose
+ * rendered height does not exceed availableHeightPx * fillTarget.
+ *
+ * @param {HTMLElement} container      - The .rc-hand-preference-selector element
+ * @param {number}      availableHeightPx
+ * @param {object}      [opts]
+ * @param {number}      [opts.baseFontPx=16]
+ * @param {number}      [opts.minFontPx=8]
+ * @param {number}      [opts.fillTarget=0.95]
+ */
+export function fitHandPreferenceToHeight(
+  container,
+  availableHeightPx,
+  { baseFontPx = 16, minFontPx = 8, fillTarget = 0.95 } = {},
+) {
+  if (!container || availableHeightPx <= 0) return
+
+  const targetH = availableHeightPx * fillTarget
+  const titleDiv = container.querySelector('div')
+  const labels = container.querySelectorAll('label')
+  const radios = container.querySelectorAll('input[type="radio"]')
+  const savedPaddingInlineStart = container.style.paddingInlineStart || '0'
+
+  const applySize = sz => {
+    container.style.paddingTop = `${sz * 0.4}px`
+    container.style.paddingBottom = `${sz * 0.15}px`
+    container.style.paddingInlineStart = savedPaddingInlineStart
+    container.style.gap = `${sz * 0.15}px`
+    if (titleDiv) {
+      titleDiv.style.fontSize = `${sz}px`
+      titleDiv.style.marginBottom = `${sz * 0.15}px`
+      titleDiv.querySelectorAll('*').forEach(el => {
+        el.style.fontSize = 'inherit'
+        el.style.lineHeight = 'inherit'
+      })
+    }
+    labels.forEach(l => {
+      l.style.fontSize = `${sz}px`
+      l.style.lineHeight = '1.2'
+    })
+    const radioSz = Math.max(10, sz * 0.85)
+    radios.forEach(r => {
+      r.style.width = `${radioSz}px`
+      r.style.height = `${radioSz}px`
+    })
+    void container.offsetHeight
+    return container.scrollHeight
+  }
+
+  let lo = minFontPx
+  let hi = baseFontPx
+  let bestSize = lo
+
+  if (applySize(hi) <= targetH) {
+    bestSize = hi
+  } else if (applySize(lo) > targetH) {
+    bestSize = lo
+  } else {
+    for (let i = 0; i < 10; i++) {
+      const mid = (lo + hi) / 2
+      if (applySize(mid) <= targetH) {
+        bestSize = mid
+        lo = mid
+      } else {
+        hi = mid
+      }
+    }
+  }
+
+  applySize(bestSize)
+  container.style.boxSizing = 'border-box'
+  container.style.overflow = 'hidden'
+}
+
+/**
  * Proportionally scale a container (CSS transform) so its bottom edge stays
  * above the status/progress bar. Both stepper and hand selector shrink together.
  *
@@ -131,15 +209,13 @@ export function scaleToFitAboveBar(container, barHeight = 44, minScale = 0.35) {
   if (!container) return
 
   const apply = () => {
-    // 1. Reset previous scaling so we measure natural size
     container.style.transform = 'none'
     container.style.height = 'auto'
     container.style.width = '100%'
     container.style.transformOrigin = 'top left'
 
-    // Force reflow so measurements reflect natural size
     // eslint-disable-next-line no-unused-expressions
-    container.offsetHeight
+    void container.offsetHeight
 
     const rect = container.getBoundingClientRect()
     const maxBottom = window.innerHeight - barHeight
@@ -147,7 +223,6 @@ export function scaleToFitAboveBar(container, barHeight = 44, minScale = 0.35) {
 
     const availableH = maxBottom - rect.top
     if (availableH <= 0 || availableH >= rect.height) {
-      // Fits already — clear the transform
       container.style.transform = ''
       return
     }
@@ -155,13 +230,79 @@ export function scaleToFitAboveBar(container, barHeight = 44, minScale = 0.35) {
     const scale = Math.max(availableH / rect.height, minScale)
 
     container.style.transform = `scale(${scale})`
-    // Tell the parent how tall the scaled content actually is
     container.style.height = `${Math.ceil(rect.height * scale)}px`
-    // Counter the horizontal squeeze from scale()
     container.style.width = `${Math.ceil(100 / scale)}%`
   }
 
-  // Run immediately (synchronous) then re-check after layout settles
   apply()
   requestAnimationFrame(() => setTimeout(apply, 60))
+}
+
+/**
+ * Compute available height below a video element (or the title) and above the
+ * bottom bar, then use fitStepperBoxToHeight + fitHandPreferenceToHeight to
+ * size the stepper and hand-selector so they collectively fill ~95 % of that
+ * space without overflowing.
+ *
+ * Call after every content change (step navigation, page switch, resize).
+ *
+ * @param {object} opts
+ * @param {HTMLElement}       opts.wrapper        - Wrapper containing stepper + hand selector
+ * @param {HTMLElement|null}  opts.navHintEl      - The "use keys to step" hint element above the stepper
+ * @param {HTMLElement|null}  opts.stepperBox     - The bordered stepper box
+ * @param {HTMLElement|null}  opts.handSelector   - The .rc-hand-preference-selector element
+ * @param {number}            [opts.barHeight=44] - Height of the fixed bottom bar
+ * @param {number}            [opts.fillTarget=0.95]
+ * @param {function}          [opts.fitStepper]   - fitStepperBoxToHeight (passed to avoid circular imports)
+ */
+export function fitContentToAvailableSpace({
+  wrapper,
+  navHintEl,
+  stepperBox,
+  handSelector,
+  barHeight = 44,
+  fillTarget = 0.95,
+  fitStepper,
+}) {
+  if (!wrapper) return
+
+  const run = () => {
+    wrapper.style.transform = 'none'
+    wrapper.style.height = 'auto'
+    wrapper.style.width = '100%'
+
+    void wrapper.offsetHeight
+
+    const wrapperTop = wrapper.getBoundingClientRect().top
+    const maxBottom = window.innerHeight - barHeight
+    let totalAvail = maxBottom - wrapperTop
+    if (totalAvail <= 0) totalAvail = 200
+
+    let navHintH = 0
+    if (navHintEl) {
+      navHintEl.style.fontSize = ''
+      void navHintEl.offsetHeight
+      navHintH = navHintEl.offsetHeight || 0
+    }
+
+    const spaceForComponents = Math.max(0, totalAvail - navHintH)
+    const stepperFraction = handSelector ? 0.7 : 1.0
+    const handFraction = 1.0 - stepperFraction
+
+    if (stepperBox && fitStepper) {
+      fitStepper(stepperBox, spaceForComponents * stepperFraction, {
+        fillTarget,
+      })
+    }
+    if (handSelector) {
+      fitHandPreferenceToHeight(
+        handSelector,
+        spaceForComponents * handFraction,
+        { fillTarget },
+      )
+    }
+  }
+
+  run()
+  requestAnimationFrame(() => setTimeout(run, 60))
 }

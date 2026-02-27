@@ -636,10 +636,9 @@ export function renderStepInstructions({
   if (rightText) rightText.innerHTML = ''
 
   const stepperBox = document.createElement('div')
+  stepperBox.className = 'rc-stepper-box'
   stepperBox.style.position = 'relative'
-  // Light background (more opaque for readability)
   stepperBox.style.backgroundColor = 'rgba(255, 255, 255, 0.7)'
-  // Thin black outline
   stepperBox.style.border = '1px solid #000'
   stepperBox.style.borderRadius = '4px'
   stepperBox.style.padding = '0.75rem 2rem 0.75rem 0.75rem'
@@ -687,8 +686,8 @@ export function renderStepInstructions({
     leftText.appendChild(instructionsHeading)
   }
 
-  // Add navigation hint on top of stepper box
   const navHintContainer = document.createElement('div')
+  navHintContainer.className = 'rc-stepper-nav-hint'
   navHintContainer.style.marginBottom = '0.5rem'
 
   const navHint = document.createElement('div')
@@ -906,4 +905,62 @@ export function renderStepInstructions({
       mediaContainer.appendChild(img)
     }
   }
+}
+
+/**
+ * Adjust the stepper box's font-size (and internal spacing proportionally) so
+ * that its rendered height fits within `availableHeightPx`.
+ *
+ * Works by resetting to a comfortable base size, measuring, and scaling down
+ * if needed (binary search). Width is assumed fixed (caller sets it, typically
+ * 50 vw). When the content already fits, no shrinking occurs.
+ *
+ * @param {HTMLElement} stepperBox - The .stepper-box element produced by renderStepInstructions
+ * @param {number}      availableHeightPx - Max height the box may occupy
+ * @param {object}      [opts]
+ * @param {number}      [opts.baseFontPx=18] - Starting font size (px) before scaling
+ * @param {number}      [opts.minFontPx=8]   - Smallest font size we'll allow
+ * @param {number}      [opts.fillTarget=0.95] - Fraction of availableHeightPx we aim to use
+ */
+export function fitStepperBoxToHeight(
+  stepperBox,
+  availableHeightPx,
+  { baseFontPx = 18, minFontPx = 8, fillTarget = 0.95 } = {},
+) {
+  if (!stepperBox || availableHeightPx <= 0) return
+
+  const targetH = availableHeightPx * fillTarget
+
+  const measure = fontSize => {
+    stepperBox.style.fontSize = `${fontSize}px`
+    stepperBox.style.padding =
+      `${fontSize * 0.42}px ${fontSize * 1.1}px ${fontSize * 0.42}px ${fontSize * 0.42}px`
+    void stepperBox.offsetHeight
+    return stepperBox.scrollHeight
+  }
+
+  let lo = minFontPx
+  let hi = baseFontPx
+  let bestSize = lo
+
+  if (measure(hi) <= targetH) {
+    bestSize = hi
+  } else if (measure(lo) > targetH) {
+    bestSize = lo
+  } else {
+    for (let i = 0; i < 10; i++) {
+      const mid = (lo + hi) / 2
+      if (measure(mid) <= targetH) {
+        bestSize = mid
+        lo = mid
+      } else {
+        hi = mid
+      }
+    }
+  }
+
+  measure(bestSize)
+  stepperBox.style.lineHeight = '1.35'
+  stepperBox.style.boxSizing = 'border-box'
+  stepperBox.style.overflow = 'hidden'
 }

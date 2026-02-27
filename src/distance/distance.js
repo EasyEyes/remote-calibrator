@@ -50,9 +50,11 @@ import {
   buildStepInstructions,
   createStepInstructionsUI,
   renderStepInstructions,
+  fitStepperBoxToHeight,
 } from './stepByStepInstructionHelps'
 import { parseInstructions } from './instructionParserAdapter'
 import { processInlineFormatting } from './markdownInstructionParser'
+import { fitContentToAvailableSpace } from '../components/handPreference'
 import { swalInfoOptions } from '../components/swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import {
@@ -4573,9 +4575,6 @@ export async function objectTest(RC, options, callback = undefined) {
       phrases: phrases,
     })
 
-    // Show/Hide Ruler-Shift button based on step and measurement iteration
-    // First measurement (iteration 1): show only at step index 5
-    // Subsequent measurements (iteration 2+): show only at step index 4
     if (currentPage === 2 && stepInstructionModel) {
       if (typeof rulerShiftButton !== 'undefined' && rulerShiftButton) {
         const isFirstMeasurement = measurementState.currentIteration === 1
@@ -4589,14 +4588,22 @@ export async function objectTest(RC, options, callback = undefined) {
       }
     }
 
+    // Fit stepper + hand selector into available space, then fall back to full-page scale
+    fitContentToAvailableSpace({
+      wrapper: instructionsContainer,
+      navHintEl: instructionsContainer.querySelector('.rc-stepper-nav-hint'),
+      stepperBox: instructionsContainer.querySelector('.rc-stepper-box'),
+      handSelector: instructionsContainer.querySelector('.rc-hand-preference-selector'),
+      barHeight: 44,
+      fillTarget: 0.95,
+      fitStepper: fitStepperBoxToHeight,
+    })
     fitToViewport(container)
   }
 
-  // Replace the setter to support both legacy and step-by-step flows
   const reflowInstructionsOnResize = () => renderCurrentStepView()
   setInstructionsText = text => {
     currentInstructionText = text
-    // Fallback: raw text mode
     leftInstructionsText.textContent = currentInstructionText || ''
     rightInstructionsText.textContent = ''
     sectionMediaContainer.innerHTML = ''
@@ -10408,6 +10415,15 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       phrases: phrases,
     })
 
+    fitContentToAvailableSpace({
+      wrapper: instructionsContainer,
+      navHintEl: instructionsContainer.querySelector('.rc-stepper-nav-hint'),
+      stepperBox: instructionsContainer.querySelector('.rc-stepper-box'),
+      handSelector: instructionsContainer.querySelector('.rc-hand-preference-selector'),
+      barHeight: 44,
+      fillTarget: 0.95,
+      fitStepper: fitStepperBoxToHeight,
+    })
     fitToViewport(container)
   }
 
@@ -10443,27 +10459,15 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     const previousPage = currentPage
     currentPage = pageNumber
 
-    // Ensure the video preview doesn't occlude the stepper/instructions on pages 3/4.
-    // Only adjusts when the video is positioned above the instructions (top overlap scenario).
     const ensureInstructionsBelowVideo = (gapPx = 16) => {
       const v = document.getElementById('webgazerVideoContainer')
       if (!v) return
       const apply = () => {
         try {
-          // Reset to default marginTop first to avoid compounding across calls/pages
           instructionsContainer.style.marginTop = ''
-          const vRect = v.getBoundingClientRect()
-          const iRect = instructionsContainer.getBoundingClientRect()
-          if (vRect.top <= iRect.top + 1) {
-            const overlapPx = vRect.bottom + gapPx - iRect.top
-            if (overlapPx > 0) {
-              const baseTop =
-                parseFloat(getComputedStyle(instructionsContainer).marginTop) ||
-                0
-              instructionsContainer.style.marginTop = `${Math.ceil(
-                baseTop + overlapPx,
-              )}px`
-            }
+          const vH = v.getBoundingClientRect().height || 0
+          if (vH > 0) {
+            instructionsContainer.style.marginTop = `${Math.ceil(vH + gapPx)}px`
           }
         } catch {}
       }

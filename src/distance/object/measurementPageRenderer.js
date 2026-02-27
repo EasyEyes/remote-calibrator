@@ -11,7 +11,11 @@ import {
   getLocationInstructionPhraseKey,
   buildLocationInstructions,
 } from './locationUtils'
-import { createHandPreferenceSelector } from '../../components/handPreference'
+import {
+  createHandPreferenceSelector,
+  fitContentToAvailableSpace,
+} from '../../components/handPreference'
+import { fitStepperBoxToHeight } from '../stepByStepInstructionHelps'
 
 /* ============================================================================
  * MEASUREMENT PAGE RENDERER FACTORY
@@ -76,8 +80,9 @@ export function createMeasurementPageRenderer(dependencies) {
   let lastInstructionsMarginTopPx = null
 
   /**
-   * Ensure instructions are positioned below the video (if video overlaps).
-   * @param {number} gapPx - Gap in pixels between video and instructions
+   * Set top margin of instructions to at least the video height so content
+   * always starts below the video feed.
+   * @param {number} gapPx - Extra gap in pixels between video bottom and content
    */
   const ensureInstructionsBelowVideo = (gapPx = 16) => {
     const v = document.getElementById('webgazerVideoContainer')
@@ -85,22 +90,11 @@ export function createMeasurementPageRenderer(dependencies) {
 
     const apply = () => {
       try {
-        // Reset to the default margin first (avoid compounding on repeated calls)
         instructionsContainer.style.marginTop = ''
-        const vRect = v.getBoundingClientRect()
-        const iRect = instructionsContainer.getBoundingClientRect()
-
-        // Only adjust when the video is above the instructions (top overlap scenario)
-        if (vRect.top <= iRect.top + 1) {
-          const overlapPx = vRect.bottom + gapPx - iRect.top
-          if (overlapPx > 0) {
-            const baseTop =
-              parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
-            instructionsContainer.style.marginTop = `${Math.ceil(baseTop + overlapPx)}px`
-          }
+        const vH = v.getBoundingClientRect().height || 0
+        if (vH > 0) {
+          instructionsContainer.style.marginTop = `${Math.ceil(vH + gapPx)}px`
         }
-
-        // Record the final marginTop for seamless transitions
         lastInstructionsMarginTopPx =
           parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
       } catch (e) {
@@ -110,7 +104,6 @@ export function createMeasurementPageRenderer(dependencies) {
 
     requestAnimationFrame(() => {
       apply()
-      // Run again shortly after in case the video container resizes/finishes layout
       setTimeout(apply, 50)
     })
   }
@@ -431,27 +424,26 @@ export function createMeasurementPageRenderer(dependencies) {
         marginStart: '3rem',
       })
       instructionsContainer.appendChild(handSel)
-
-      // If the video overlaps vertically, narrow the hand selector so text wraps
-      const constrainWidth = () => {
-        const v = document.getElementById('webgazerVideoContainer')
-        if (!v) return
-        handSel.style.maxWidth = '50vw'
-        const vRect = v.getBoundingClientRect()
-        const hRect = handSel.getBoundingClientRect()
-        const vertOverlap = vRect.bottom > hRect.top && vRect.top < hRect.bottom
-        if (vertOverlap) {
-          const availW = Math.max(vRect.left - hRect.left - 8, 80)
-          handSel.style.maxWidth = `${Math.floor(availW)}px`
-        }
-      }
-      requestAnimationFrame(() => {
-        constrainWidth()
-        setTimeout(constrainWidth, 80)
-      })
     }
 
-    // 10. Log ready state
+    // 10. Fit stepper + hand selector into available vertical space
+    const fitInstructions = () => {
+      fitContentToAvailableSpace({
+        wrapper: instructionsContainer,
+        navHintEl: instructionsContainer.querySelector('.rc-stepper-nav-hint'),
+        stepperBox: instructionsContainer.querySelector('.rc-stepper-box'),
+        handSelector: instructionsContainer.querySelector('.rc-hand-preference-selector'),
+        barHeight: 44,
+        fillTarget: 0.95,
+        fitStepper: fitStepperBoxToHeight,
+      })
+    }
+    requestAnimationFrame(() => {
+      fitInstructions()
+      setTimeout(fitInstructions, 100)
+    })
+
+    // 11. Log ready state
     console.log(
       `=== MEASUREMENT PAGE READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===`,
     )

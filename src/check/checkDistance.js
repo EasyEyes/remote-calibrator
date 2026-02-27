@@ -21,6 +21,7 @@ import {
   buildStepInstructions,
   createStepInstructionsUI,
   renderStepInstructions,
+  fitStepperBoxToHeight,
 } from '../distance/stepByStepInstructionHelps'
 import { parseInstructions } from '../distance/instructionParserAdapter'
 import { resolveInstructionMediaUrl } from '../distance/instructionMediaCache'
@@ -32,7 +33,7 @@ import {
 } from '../distance/distanceTrack'
 import {
   createHandPreferenceSelector,
-  scaleToFitAboveBar,
+  fitContentToAvailableSpace,
 } from '../components/handPreference'
 
 // Debug: Log what's imported
@@ -2940,10 +2941,16 @@ const trackDistanceCheck = async (
         instructionBody.style.maxHeight = 'none'
         instructionBody.style.overflow = 'visible'
 
+        // Leave a top margin equal to the video height so content starts below it
+        const videoEl = document.getElementById('webgazerVideoContainer')
+        if (videoEl) {
+          const videoH = videoEl.getBoundingClientRect().height || 0
+          instructionBody.style.marginTop = `${Math.ceil(videoH)}px`
+        }
+
         const instrParent = instructionBody.closest('.calibration-instruction')
         if (instrParent) instrParent.style.overflow = 'hidden'
 
-        // Wrapper that holds stepper + hand selector; scaled to fit above status bar
         const scalableWrapper = document.createElement('div')
         scalableWrapper.id = 'check-dist-scalable-wrapper'
         scalableWrapper.style.width = '100%'
@@ -3126,7 +3133,15 @@ const trackDistanceCheck = async (
               leftTextChildren: ui.leftText.children.length,
             })
 
-            scaleToFitAboveBar(scalableWrapper, 44)
+            fitContentToAvailableSpace({
+              wrapper: scalableWrapper,
+              navHintEl: scalableWrapper.querySelector('.rc-stepper-nav-hint'),
+              stepperBox: scalableWrapper.querySelector('.rc-stepper-box'),
+              handSelector: scalableWrapper.querySelector('.rc-hand-preference-selector'),
+              barHeight: 44,
+              fillTarget: 0.95,
+              fitStepper: fitStepperBoxToHeight,
+            })
           }
           doRender()
 
@@ -3179,7 +3194,15 @@ const trackDistanceCheck = async (
           updateHandOverlay()
           scalableWrapper.appendChild(handSel)
 
-          scaleToFitAboveBar(scalableWrapper, 44)
+          fitContentToAvailableSpace({
+            wrapper: scalableWrapper,
+            navHintEl: scalableWrapper.querySelector('.rc-stepper-nav-hint'),
+            stepperBox: scalableWrapper.querySelector('.rc-stepper-box'),
+            handSelector: handSel,
+            barHeight: 44,
+            fillTarget: 0.95,
+            fitStepper: fitStepperBoxToHeight,
+          })
         } catch (e) {
           // Fallback to plain text if parsing fails
           instructionBody.innerText = instructionBodyPhrase
