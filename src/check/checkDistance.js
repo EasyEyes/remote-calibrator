@@ -50,6 +50,12 @@ import {
 import { getLeftAndRightEyePointsFromMeshData } from '../distance/distance'
 import { captureVideoFrame } from './captureVideoFrame'
 
+const getLocalizedUnit = (unit, language) => {
+  if (unit === 'inches') return phrases.RC_Inches?.[language] || unit
+  if (unit === 'cm') return phrases.RC_Cm?.[language] || unit
+  return unit || ''
+}
+
 // Import sound feedback
 let cameraShutterSound
 try {
@@ -1562,7 +1568,7 @@ const checkSize = async (
     const index = i + 1
 
     // Update the length display with the current required length
-    updateLengthDisplayDiv(cm, RC.equipment?.value?.unit)
+    updateLengthDisplayDiv(cm, getLocalizedUnit(RC.equipment?.value?.unit, RC.L))
 
     // Create and update instruction content
     const updateInstructionText = (
@@ -1978,7 +1984,7 @@ const checkSize = async (
         const numeric = parseNumeric(raw)
         if (isNaN(numeric)) return
         const clamped = Math.max(1, Math.min(100, numeric))
-        e.target.value = `${clamped} ${RC.equipment?.value?.unit || ''}`
+        e.target.value = `${clamped} ${getLocalizedUnit(RC.equipment?.value?.unit, RC.L)}`
         updateInstructionText(clamped, yellowTape)
         adjustLengthFontSize(lengthDisplayInput)
       })
@@ -1987,11 +1993,11 @@ const checkSize = async (
         const raw = e.target.value
         const numeric = parseNumeric(raw)
         if (e.target.value === '' || isNaN(numeric) || numeric < 1) {
-          e.target.value = `1 ${RC.equipment?.value?.unit || ''}`
+          e.target.value = `1 ${getLocalizedUnit(RC.equipment?.value?.unit, RC.L)}`
           updateInstructionText(1, yellowTape)
         } else {
           const clamped = Math.max(1, Math.min(100, numeric))
-          e.target.value = `${clamped} ${RC.equipment?.value?.unit || ''}`
+          e.target.value = `${clamped} ${getLocalizedUnit(RC.equipment?.value?.unit, RC.L)}`
           updateInstructionText(clamped, yellowTape)
         }
         adjustLengthFontSize(lengthDisplayInput)
@@ -2808,7 +2814,7 @@ const trackDistanceCheck = async (
         index,
         calibrateDistanceCheckCm.length,
       )
-      updateViewingDistanceDiv(cm, RC.equipment?.value?.unit)
+      updateViewingDistanceDiv(cm, getLocalizedUnit(RC.equipment?.value?.unit, RC.L))
 
       // Single phrase RC_produceDistanceLocation with placeholders [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
       const checkingOptions = calibrateDistanceChecking
