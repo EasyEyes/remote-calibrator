@@ -2938,14 +2938,26 @@ const trackDistanceCheck = async (
         instructionBody.style.maxWidth = '100%'
         instructionBody.style.pointerEvents = 'auto'
         instructionBody.style.paddingBottom = '0'
-        instructionBody.style.maxHeight = 'none'
-        instructionBody.style.overflow = 'visible'
+        instructionBody.style.overflow = 'hidden'
 
-        // Leave a top margin equal to the video height so content starts below it
+        const PROGRESS_BAR_H = 40
+
+        // Top margin so content starts at videoHeight + 15px from screen top,
+        // measured relative to where instructionBody sits (below the title).
         const videoEl = document.getElementById('webgazerVideoContainer')
         if (videoEl) {
           const videoH = videoEl.getBoundingClientRect().height || 0
-          instructionBody.style.marginTop = `${Math.ceil(videoH)}px`
+          const bodyTop = instructionBody.getBoundingClientRect().top
+          const needed = videoH + 15 - bodyTop
+          instructionBody.style.marginTop = needed > 0 ? `${Math.ceil(needed)}px` : '0'
+        }
+
+        // Constrain max-height so nothing extends behind the progress bar
+        void instructionBody.offsetHeight
+        const bodyTopAfterMargin = instructionBody.getBoundingClientRect().top
+        const maxH = window.innerHeight - PROGRESS_BAR_H - bodyTopAfterMargin
+        if (maxH > 0) {
+          instructionBody.style.maxHeight = `${Math.floor(maxH)}px`
         }
 
         const instrParent = instructionBody.closest('.calibration-instruction')
@@ -3138,7 +3150,7 @@ const trackDistanceCheck = async (
               navHintEl: scalableWrapper.querySelector('.rc-stepper-nav-hint'),
               stepperBox: scalableWrapper.querySelector('.rc-stepper-box'),
               handSelector: scalableWrapper.querySelector('.rc-hand-preference-selector'),
-              barHeight: 44,
+              barHeight: 40,
               fillTarget: 0.95,
               fitStepper: fitStepperBoxToHeight,
             })
@@ -3199,7 +3211,7 @@ const trackDistanceCheck = async (
             navHintEl: scalableWrapper.querySelector('.rc-stepper-nav-hint'),
             stepperBox: scalableWrapper.querySelector('.rc-stepper-box'),
             handSelector: handSel,
-            barHeight: 44,
+            barHeight: 40,
             fillTarget: 0.95,
             fitStepper: fitStepperBoxToHeight,
           })

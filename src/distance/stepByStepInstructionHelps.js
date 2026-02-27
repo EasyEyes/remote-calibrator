@@ -931,10 +931,33 @@ export function fitStepperBoxToHeight(
 
   const targetH = availableHeightPx * fillTarget
 
-  const measure = fontSize => {
-    stepperBox.style.fontSize = `${fontSize}px`
+  const applyFontSize = fontSize => {
+    const px = `${fontSize}px`
+
+    // Set on the stepper box itself
+    stepperBox.style.fontSize = px
+    stepperBox.style.lineHeight = '1.35'
     stepperBox.style.padding =
       `${fontSize * 0.42}px ${fontSize * 1.1}px ${fontSize * 0.42}px ${fontSize * 0.42}px`
+
+    // Override ancestor containers (leftText, leftColumn) that may carry
+    // their own clamp()-based font-size which would prevent inheritance.
+    let el = stepperBox.parentElement
+    while (el) {
+      // Stop once we leave the stepper's immediate layout ancestors
+      if (el.id === 'check-dist-scalable-wrapper' || el.id === 'instruction-body') break
+      if (el.classList?.contains('rc-hand-preference-selector')) break
+      el.style.fontSize = px
+      el.style.lineHeight = '1.35'
+      el = el.parentElement
+    }
+
+    // Force every descendant inside the stepper box to inherit the new size
+    stepperBox.querySelectorAll('*').forEach(child => {
+      child.style.fontSize = 'inherit'
+      child.style.lineHeight = 'inherit'
+    })
+
     void stepperBox.offsetHeight
     return stepperBox.scrollHeight
   }
@@ -943,14 +966,14 @@ export function fitStepperBoxToHeight(
   let hi = baseFontPx
   let bestSize = lo
 
-  if (measure(hi) <= targetH) {
+  if (applyFontSize(hi) <= targetH) {
     bestSize = hi
-  } else if (measure(lo) > targetH) {
+  } else if (applyFontSize(lo) > targetH) {
     bestSize = lo
   } else {
     for (let i = 0; i < 10; i++) {
       const mid = (lo + hi) / 2
-      if (measure(mid) <= targetH) {
+      if (applyFontSize(mid) <= targetH) {
         bestSize = mid
         lo = mid
       } else {
@@ -959,8 +982,7 @@ export function fitStepperBoxToHeight(
     }
   }
 
-  measure(bestSize)
-  stepperBox.style.lineHeight = '1.35'
+  applyFontSize(bestSize)
   stepperBox.style.boxSizing = 'border-box'
   stepperBox.style.overflow = 'hidden'
 }

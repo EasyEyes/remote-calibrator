@@ -267,9 +267,28 @@ export function fitContentToAvailableSpace({
   if (!wrapper) return
 
   const run = () => {
+    // Reset all sizing so we measure from a clean state
     wrapper.style.transform = 'none'
     wrapper.style.height = 'auto'
     wrapper.style.width = '100%'
+
+    if (stepperBox) {
+      stepperBox.style.maxHeight = 'none'
+      stepperBox.style.height = 'auto'
+      stepperBox.style.fontSize = ''
+      // Reset font-size on ancestor containers that fitStepperBoxToHeight
+      // may have overridden (leftText, leftColumn, etc.)
+      let anc = stepperBox.parentElement
+      while (anc && anc !== wrapper) {
+        anc.style.fontSize = ''
+        anc.style.maxHeight = 'none'
+        anc = anc.parentElement
+      }
+    }
+    if (handSelector) {
+      handSelector.style.maxHeight = 'none'
+      handSelector.style.height = 'auto'
+    }
 
     void wrapper.offsetHeight
 
@@ -278,6 +297,7 @@ export function fitContentToAvailableSpace({
     let totalAvail = maxBottom - wrapperTop
     if (totalAvail <= 0) totalAvail = 200
 
+    // Measure the nav-hint height
     let navHintH = 0
     if (navHintEl) {
       navHintEl.style.fontSize = ''
@@ -286,20 +306,46 @@ export function fitContentToAvailableSpace({
     }
 
     const spaceForComponents = Math.max(0, totalAvail - navHintH)
-    const stepperFraction = handSelector ? 0.7 : 1.0
-    const handFraction = 1.0 - stepperFraction
+    const STEPPER_FRAC = 0.70
+    const HAND_FRAC = 0.30
+    const stepperBudget = handSelector
+      ? spaceForComponents * STEPPER_FRAC
+      : spaceForComponents
+    const handBudget = spaceForComponents * HAND_FRAC
 
+    // Fit stepper font to its budget
     if (stepperBox && fitStepper) {
-      fitStepper(stepperBox, spaceForComponents * stepperFraction, {
-        fillTarget,
-      })
+      fitStepper(stepperBox, stepperBudget, { fillTarget })
+      stepperBox.style.maxHeight = `${Math.floor(stepperBudget)}px`
+      stepperBox.style.overflow = 'hidden'
+      stepperBox.style.boxSizing = 'border-box'
     }
+
+    // Fit hand-selector font to its budget
     if (handSelector) {
-      fitHandPreferenceToHeight(
-        handSelector,
-        spaceForComponents * handFraction,
-        { fillTarget },
-      )
+      fitHandPreferenceToHeight(handSelector, handBudget, { fillTarget })
+      handSelector.style.maxHeight = `${Math.floor(handBudget)}px`
+      handSelector.style.overflow = 'hidden'
+      handSelector.style.boxSizing = 'border-box'
+    }
+
+    // Constrain every intermediate container between wrapper and
+    // stepperBox/handSelector so none of them can grow past totalAvail
+    // and push content behind the progress bar.
+    wrapper.style.maxHeight = `${Math.floor(totalAvail)}px`
+    wrapper.style.overflow = 'hidden'
+
+    // Also constrain the stepper's ancestor chain (leftText, leftColumn,
+    // ui.wrapper) which sit between scalableWrapper and stepperBox.
+    if (stepperBox) {
+      const stepperAreaH = Math.floor(navHintH + stepperBudget)
+      let el = stepperBox.parentElement
+      while (el && el !== wrapper) {
+        el.style.maxHeight = `${stepperAreaH}px`
+        el.style.overflow = 'hidden'
+        el.style.boxSizing = 'border-box'
+        el = el.parentElement
+      }
     }
   }
 

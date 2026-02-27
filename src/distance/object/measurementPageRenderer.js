@@ -84,17 +84,19 @@ export function createMeasurementPageRenderer(dependencies) {
    * always starts below the video feed.
    * @param {number} gapPx - Extra gap in pixels between video bottom and content
    */
-  const ensureInstructionsBelowVideo = (gapPx = 16) => {
+  const ensureInstructionsBelowVideo = (gapPx = 15) => {
     const v = document.getElementById('webgazerVideoContainer')
     if (!v) return
 
     const apply = () => {
       try {
         instructionsContainer.style.marginTop = ''
+        void instructionsContainer.offsetHeight
         const vH = v.getBoundingClientRect().height || 0
-        if (vH > 0) {
-          instructionsContainer.style.marginTop = `${Math.ceil(vH + gapPx)}px`
-        }
+        const containerTop = instructionsContainer.getBoundingClientRect().top
+        const needed = vH + gapPx - containerTop
+        instructionsContainer.style.marginTop =
+          needed > 0 ? `${Math.ceil(needed)}px` : '0'
         lastInstructionsMarginTopPx =
           parseFloat(getComputedStyle(instructionsContainer).marginTop) || 0
       } catch (e) {
