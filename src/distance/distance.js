@@ -4472,11 +4472,17 @@ export async function objectTest(RC, options, callback = undefined) {
     if (container && container.parentNode) {
       container.parentNode.removeChild(container)
     }
-    // Remove fixed "DON'T USE RULER" note from body
+    // Remove paper-mode elements appended to document.body
     const rulerNote = document.getElementById('paper-dont-use-ruler-note')
     if (rulerNote && rulerNote.parentNode) {
       rulerNote.parentNode.removeChild(rulerNote)
     }
+    const rulerColumn = document.getElementById('dont-use-ruler-column')
+    if (rulerColumn && rulerColumn.parentNode) {
+      rulerColumn.parentNode.removeChild(rulerColumn)
+    }
+    // Remove paper stepper keyboard listener
+    document.removeEventListener('keydown', handlePaperStepperNav)
   }
 
   // --- FOLLOW-UP BANNER fixed at upper-right (dontUseRuler) ---
@@ -4692,8 +4698,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
   const paperSelectionTitle = document.createElement('div')
   // Support markdown formatting (bold, italic, etc.) in paper mode instructions
+  const paperInstructionsPhraseKey = usePaperOnlyChoices
+    ? 'RC_PaperChoicesInstructions'
+    : 'RC_PaperAndRulerChoicesInstructions'
   paperSelectionTitle.innerHTML = processInlineFormatting(
-    phrases.RC_PaperChoicesInstructions[RC.L] || '',
+    phrases[paperInstructionsPhraseKey]?.[RC.L] || '',
   )
   paperSelectionTitle.style.fontSize = 'clamp(1rem, 3vmin, 1.4rem)'
   paperSelectionTitle.style.fontWeight = '600'
@@ -7119,10 +7128,13 @@ export async function objectTest(RC, options, callback = undefined) {
           onProgressUpdate: (current, total) => {
             console.log(`Progress update: ${current} of ${total}`)
           },
-          // Callback to set the step model and index in distance.js scope
+          // Callback to set the step model and index in distance.js scope.
+          // Pass index=null to preserve the current step (used for live hand-preference refresh).
           setStepModel: (model, index, phraseKey) => {
             stepInstructionModel = model
-            currentStepFlatIndex = index
+            if (index != null) currentStepFlatIndex = index
+            const maxIdx = (model?.flatSteps?.length || 1) - 1
+            if (currentStepFlatIndex > maxIdx) currentStepFlatIndex = maxIdx
             if (phraseKey) currentStepperPhraseKey = phraseKey
           },
           onHandPreferenceChange: isRight => {
@@ -7495,6 +7507,25 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
     document.removeEventListener('keydown', handleInstructionNav)
+    document.removeEventListener('keydown', handlePaperStepperNav)
+
+    // Remove paper-mode / calibration elements appended to document.body
+    if (buttonContainer && buttonContainer.parentNode) {
+      buttonContainer.parentNode.removeChild(buttonContainer)
+    }
+    const _rulerNote = document.getElementById('paper-dont-use-ruler-note')
+    if (_rulerNote && _rulerNote.parentNode) {
+      _rulerNote.parentNode.removeChild(_rulerNote)
+    }
+    const _rulerColumn = document.getElementById('dont-use-ruler-column')
+    if (_rulerColumn && _rulerColumn.parentNode) {
+      _rulerColumn.parentNode.removeChild(_rulerColumn)
+    }
+
+    // Remove stepper UI
+    if (instructionsUI?.destroy) {
+      instructionsUI.destroy()
+    }
 
     // Clear measurement overlay (eye-side text + tube circles) and big circle
     clearMeasurementOverlay()
@@ -8197,6 +8228,7 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
     document.removeEventListener('keydown', handleInstructionNav)
+    document.removeEventListener('keydown', handlePaperStepperNav)
 
     // // Clean up radio button event listeners
     // if (customInputs) {
@@ -8237,6 +8269,16 @@ export async function objectTest(RC, options, callback = undefined) {
       instructionsUI.destroy()
     }
 
+    // Remove paper-mode elements appended to document.body
+    const rulerNote = document.getElementById('paper-dont-use-ruler-note')
+    if (rulerNote && rulerNote.parentNode) {
+      rulerNote.parentNode.removeChild(rulerNote)
+    }
+    const rulerColumn = document.getElementById('dont-use-ruler-column')
+    if (rulerColumn && rulerColumn.parentNode) {
+      rulerColumn.parentNode.removeChild(rulerColumn)
+    }
+
     // Clear measurement overlay (eye-side text + tube circles) and big circle
     clearMeasurementOverlay()
     removeBigCircle()
@@ -8250,6 +8292,7 @@ export async function objectTest(RC, options, callback = undefined) {
     document.removeEventListener('keydown', handleKeyPress)
     document.removeEventListener('keyup', handleKeyPress)
     document.removeEventListener('keydown', handleInstructionNav)
+    document.removeEventListener('keydown', handlePaperStepperNav)
 
     // Clear measurement overlay (eye-side text + tube circles) and big circle
     clearMeasurementOverlay()
@@ -9182,7 +9225,10 @@ export async function objectTest(RC, options, callback = undefined) {
                         },
                         setStepModel: (model, index, phraseKey) => {
                           stepInstructionModel = model
-                          currentStepFlatIndex = index
+                          if (index != null) currentStepFlatIndex = index
+                          const maxIdx = (model?.flatSteps?.length || 1) - 1
+                          if (currentStepFlatIndex > maxIdx)
+                            currentStepFlatIndex = maxIdx
                           if (phraseKey) currentStepperPhraseKey = phraseKey
                         },
                         onHandPreferenceChange: isRight => {
@@ -9410,7 +9456,10 @@ export async function objectTest(RC, options, callback = undefined) {
                           },
                           setStepModel: (model, index, phraseKey) => {
                             stepInstructionModel = model
-                            currentStepFlatIndex = index
+                            if (index != null) currentStepFlatIndex = index
+                            const maxIdx = (model?.flatSteps?.length || 1) - 1
+                            if (currentStepFlatIndex > maxIdx)
+                              currentStepFlatIndex = maxIdx
                             if (phraseKey) currentStepperPhraseKey = phraseKey
                           },
                           onHandPreferenceChange: isRight => {

@@ -421,7 +421,30 @@ export function createMeasurementPageRenderer(dependencies) {
         phrases,
         lang: RC.L,
         preferRight: preferRightHandBool,
-        onChange: config.onHandPreferenceChange,
+        onChange: isRight => {
+          config.onHandPreferenceChange(isRight)
+
+          // Live-refresh stepper text to reflect the new hand/eye preference
+          if (isNewPhrase && config.setStepModel && parseInstructions) {
+            const refreshedText = buildLocationInstructions(
+              phraseKey,
+              location,
+              isRight,
+              saveSnapshots,
+              RC.L,
+              phrases,
+            )
+            try {
+              const refreshedModel = parseInstructions(refreshedText, {
+                assetMap: test_assetMap,
+              })
+              config.setStepModel(refreshedModel, null, phraseKey)
+              if (renderCurrentStepView) renderCurrentStepView()
+            } catch (e) {
+              console.warn('Failed to refresh stepper on hand change', e)
+            }
+          }
+        },
         objectPhraseKey: 'RC_paperTube',
         marginStart: '3rem',
       })

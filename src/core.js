@@ -954,6 +954,42 @@ RemoteCalibrator.prototype._cleanupDistanceCalibrationElements = function () {
     buttonContainer.parentNode.removeChild(buttonContainer)
   }
 
+  // Remove paper-mode elements appended to document.body
+  const paperMediaContainer = document.getElementById(
+    'paper-stepper-media-container',
+  )
+  if (paperMediaContainer && paperMediaContainer.parentNode) {
+    paperMediaContainer.parentNode.removeChild(paperMediaContainer)
+  }
+
+  const paperSelectionContainer = document.getElementById(
+    'paper-selection-container',
+  )
+  if (paperSelectionContainer && paperSelectionContainer.parentNode) {
+    paperSelectionContainer.parentNode.removeChild(paperSelectionContainer)
+  }
+
+  const rulerNote = document.getElementById('paper-dont-use-ruler-note')
+  if (rulerNote && rulerNote.parentNode) {
+    rulerNote.parentNode.removeChild(rulerNote)
+  }
+
+  const rulerColumn = document.getElementById('dont-use-ruler-column')
+  if (rulerColumn && rulerColumn.parentNode) {
+    rulerColumn.parentNode.removeChild(rulerColumn)
+  }
+
+  // Remove viewport-positioned stepper media containers (appended to body
+  // by createStepInstructionsUI when mediaPositionMode === 'viewport')
+  const stepperMediaContainers = document.querySelectorAll(
+    '.rc-stepper-media-container',
+  )
+  stepperMediaContainers.forEach(element => {
+    if (element.parentNode) {
+      element.parentNode.removeChild(element)
+    }
+  })
+
   // Reset instruction element reference to null to prevent getBoundingClientRect errors
   if (this._background) {
     this._background.instructionElement = null

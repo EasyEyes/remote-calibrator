@@ -168,7 +168,7 @@ export function buildLocationInstructions(
   text = text.replace(/\[\[EEE\]\]/g, eyeText)
 
   // Replace [[RLHAND]] with hand phrase (determined by hand preference)
-  const handPhraseKey = preferRightHandBool ? 'RC_RightHand' : 'RC_LeftHand'
+  const handPhraseKey = preferRightHandBool ? 'RC_RightHand' : 'RC_LefttHand'
   const handText =
     phrasesObj[handPhraseKey]?.[language] ||
     (preferRightHandBool ? 'right' : 'left')

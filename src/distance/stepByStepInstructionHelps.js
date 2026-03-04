@@ -216,6 +216,7 @@ export function createStepInstructionsUI(parent, options = {}) {
   let rightColumn = null
   let rightText = null
   const mediaContainer = document.createElement('div')
+  mediaContainer.className = 'rc-stepper-media-container'
   mediaContainer.style.marginTop = '0.8rem' // Reduced by 20% to prevent video occlusion
   mediaContainer.style.display = 'block'
   mediaContainer.style.width = '100%'
