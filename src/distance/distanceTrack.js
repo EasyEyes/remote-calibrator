@@ -37,6 +37,7 @@ import {
   showTestPopup,
   hideResolutionSettingMessage,
 } from '../components/popup'
+import { processInlineFormatting } from './markdownInstructionParser'
 
 const originalStyles = {
   video: false,
@@ -49,7 +50,7 @@ const showPreCalibrationPopup = async RC => {
 
   const html = `
     <p style="text-align: left; margin-top: 1rem; font-size: 1.4rem; line-height: 1.6;">
-      ${phrases.RC_IsCameraTopCenter[RC.L].replace('\n', '<br />').replace('\n', '<br />')}
+      ${processInlineFormatting(phrases.RC_IsCameraTopCenter[RC.L]).replace('\n', '<br />').replace('\n', '<br />')}
     </p>
     <div id="custom-radio-group">
       <label>

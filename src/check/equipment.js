@@ -228,7 +228,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
           .replace(/AAA/g, selectedUnit)
           .replace(/\[\[N1\]\]/g, n1)
           .replace(/\[\[N2\]\]/g, n2)
-        q2Label.innerHTML = howLongText.replace(/(?:\r\n|\r|\n)/g, '<br>')
+        q2Label.innerHTML = processInlineFormatting(howLongText).replace(/(?:\r\n|\r|\n)/g, '<br>')
         lengthInput.focus()
       }
       updateProceedButton()

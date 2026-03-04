@@ -9,6 +9,7 @@ import {
   createAnchoredStepperUI,
 } from './stepByStepInstructionHelps'
 import { parseInstructions } from './instructionParserAdapter'
+import { processInlineFormatting } from './markdownInstructionParser'
 import { startIrisDrawingWithMesh } from './distanceTrack'
 import {
   getFullscreen,
@@ -2540,7 +2541,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
         await Swal.fire({
           ...swalInfoOptions(RC, { showIcon: false }),
           icon: undefined,
-          html: errorMessage,
+          html: processInlineFormatting(errorMessage),
           allowEnterKey: true,
           confirmButtonText:
             phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',

@@ -2864,11 +2864,11 @@ export async function blindSpotTestNew(
 
           let conditionalFaceImageNotSaved = ''
           if (!options.saveSnapshots) {
-            conditionalFaceImageNotSaved = `<p style="margin-top:10px;font-size:0.8em;color:#666;">${phrases.RC_FaceImageNotSaved ? phrases.RC_FaceImageNotSaved[RC.L] : ''}</p>`
+            conditionalFaceImageNotSaved = `<p style="margin-top:10px;font-size:0.8em;color:#666;">${processInlineFormatting(phrases.RC_FaceImageNotSaved ? phrases.RC_FaceImageNotSaved[RC.L] : '')}</p>`
           }
           await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
-            title: phrases.RC_FaceBlocked ? phrases.RC_FaceBlocked[RC.L] : '',
+            title: processInlineFormatting(phrases.RC_FaceBlocked ? phrases.RC_FaceBlocked[RC.L] : ''),
             html: captured
               ? `<div style="text-align:center"><img src="${captured}" style="max-width:300px;max-height:400px;border:2px solid #ccc;border-radius:8px;"/>${conditionalFaceImageNotSaved}</div>`
               : undefined,
@@ -3095,9 +3095,9 @@ export async function blindSpotTestNew(
       .replace('[[N44]]', Math.round(RMax))
     await Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
-      html: displayMessage
-        ? displayMessage
-        : 'Calibration not consistent. Please retry.',
+      html: processInlineFormatting(
+        displayMessage || 'Calibration not consistent. Please retry.',
+      ),
     })
     // Restart full calibration
     cleanup(false)
@@ -3118,9 +3118,9 @@ export async function blindSpotTestNew(
         .replace('[[TT2]]', upperBound.toString())
       await Swal.fire({
         ...swalInfoOptions(RC, { showIcon: false }),
-        html: displayMessage
-          ? displayMessage
-          : 'Calibration not consistent. Please retry.',
+        html: processInlineFormatting(
+          displayMessage || 'Calibration not consistent. Please retry.',
+        ),
       })
       // Restart full calibration
       cleanup(false)
@@ -4604,7 +4604,7 @@ export async function objectTest(RC, options, callback = undefined) {
   const reflowInstructionsOnResize = () => renderCurrentStepView()
   setInstructionsText = text => {
     currentInstructionText = text
-    leftInstructionsText.textContent = currentInstructionText || ''
+    leftInstructionsText.innerHTML = processInlineFormatting(currentInstructionText || '')
     rightInstructionsText.textContent = ''
     sectionMediaContainer.innerHTML = ''
     fitToViewport(container)
@@ -7432,7 +7432,7 @@ export async function objectTest(RC, options, callback = undefined) {
           await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
             icon: undefined,
-            html: errorMessage,
+            html: processInlineFormatting(errorMessage),
             allowEnterKey: true,
             confirmButtonText:
               phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
@@ -8495,7 +8495,7 @@ export async function objectTest(RC, options, callback = undefined) {
                 await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
                   icon: undefined,
-                  html: errorMsg,
+                  html: processInlineFormatting(errorMsg),
                   allowEnterKey: true,
                   confirmButtonText:
                     phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',
@@ -8610,7 +8610,7 @@ export async function objectTest(RC, options, callback = undefined) {
                   await Swal.fire({
                     ...swalInfoOptions(RC, { showIcon: false }),
                     icon: undefined,
-                    html: errorMessage,
+                    html: processInlineFormatting(errorMessage),
                     allowEnterKey: true,
                     confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
                   })
@@ -8710,11 +8710,11 @@ export async function objectTest(RC, options, callback = undefined) {
 
                 let conditionalFaceImageNotSaved = ''
                 if (!options.saveSnapshots) {
-                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${processInlineFormatting(phrases.RC_FaceImageNotSaved[RC.L])}</p>`
                 }
                 const result = await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
-                  title: phrases.RC_FaceBlocked[RC.L],
+                  title: processInlineFormatting(phrases.RC_FaceBlocked[RC.L]),
                   html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
                     ${conditionalFaceImageNotSaved}
@@ -8729,7 +8729,7 @@ export async function objectTest(RC, options, callback = undefined) {
                     </button>
                     <div style="display: flex; align-items: center; gap: 10px;">
                       <div style="color: #000; font-size: 1.6em;">
-                        ${phrases.RC_LongerObjectHelps[RC.L]}
+                        ${processInlineFormatting(phrases.RC_LongerObjectHelps[RC.L])}
                       </div>
                       <button class="swal2-confirm swal2-styled" id="new-object-button-page3" style="background-color: #28a745; border: none; flex: 0 0 auto;">
                         ${phrases.RC_NewObjectButton[RC.L]}
@@ -9146,8 +9146,8 @@ export async function objectTest(RC, options, callback = undefined) {
 
                   await Swal.fire({
                     ...swalInfoOptions(RC, { showIcon: false }),
-                    title: '', // No heading - message uses international phrase RC_focalLengthMismatch only
-                    html: `<p>${displayMessage}</p>`,
+                    title: '',
+                    html: `<p>${processInlineFormatting(displayMessage)}</p>`,
                     confirmButtonText: phrases.EE_ok?.[RC.L] || 'OK',
                   })
 
@@ -9757,7 +9757,7 @@ export async function objectTest(RC, options, callback = undefined) {
           await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
             icon: undefined,
-            html: errorMessage,
+            html: processInlineFormatting(errorMessage),
             allowEnterKey: true,
             confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
           })
@@ -10904,11 +10904,11 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                 const capturedImage = lastCapturedFaceImage
                 let conditionalFaceImageNotSaved = ''
                 if (!options.saveSnapshots) {
-                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${processInlineFormatting(phrases.RC_FaceImageNotSaved[RC.L])}</p>`
                 }
                 const result = await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
-                  title: phrases.RC_FaceBlocked[RC.L],
+                  title: processInlineFormatting(phrases.RC_FaceBlocked[RC.L]),
                   html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
                     ${conditionalFaceImageNotSaved}
@@ -11094,12 +11094,12 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
 
                 let conditionalFaceImageNotSaved = ''
                 if (!options.saveSnapshots) {
-                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.L]}</p>`
+                  conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${processInlineFormatting(phrases.RC_FaceImageNotSaved[RC.L])}</p>`
                 }
 
                 const result = await Swal.fire({
                   ...swalInfoOptions(RC, { showIcon: false }),
-                  title: phrases.RC_FaceBlocked[RC.L],
+                  title: processInlineFormatting(phrases.RC_FaceBlocked[RC.L]),
                   html: `<div style="text-align: center;">
                     <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
                     ${conditionalFaceImageNotSaved}
@@ -11281,7 +11281,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                   await Swal.fire({
                     ...swalInfoOptions(RC, { showIcon: false }),
                     icon: undefined,
-                    html: displayMessage,
+                    html: processInlineFormatting(displayMessage),
                     allowEnterKey: true,
                     confirmButtonText: phrases.T_ok?.[RC.L] || 'OK',
                   })

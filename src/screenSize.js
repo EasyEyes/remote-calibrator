@@ -871,7 +871,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         await Swal.fire({
           ...swalInfoOptions(RC, { showIcon: false }),
           icon: undefined,
-          html: errorMessage,
+          html: processInlineFormatting(errorMessage),
           allowEnterKey: true,
           confirmButtonText:
             phrases.T_ok?.[RC.L] || phrases.RC_OK?.[RC.L] || 'OK',

@@ -3,6 +3,7 @@ import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from './swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
+import { processInlineFormatting } from '../distance/markdownInstructionParser'
 
 /**
  * Shows the camera selection title in the top right of the webpage
@@ -22,7 +23,7 @@ export const showCameraTitleInTopRight = (
   // Create the title element
   const titleElement = document.createElement('div')
   titleElement.id = 'rc-camera-title-top-right'
-  titleElement.innerHTML = `<h1>${phrases[titleKey][RC.L]}</h1>`
+  titleElement.innerHTML = `<h1>${processInlineFormatting(phrases[titleKey][RC.L])}</h1>`
 
   // Add CSS styling - no background, high z-index to appear above popup, positioned on left
   titleElement.style.cssText = `
@@ -159,7 +160,7 @@ export const showResolutionSettingMessage = RC => {
       .replace('[[M55]]', requestedHeight)
       .replace('[[M66]]', requestedFrameRate)
 
-    messageContainer.innerHTML = text.replace(/\n/g, '<br>')
+    messageContainer.innerHTML = processInlineFormatting(text).replace(/\n/g, '<br>')
 
     document.body.appendChild(messageContainer)
     console.log(
@@ -285,7 +286,7 @@ export const showPopup = async (RC, title, message, onClose = null) => {
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title,
-    html: message,
+    html: processInlineFormatting(message || ''),
     confirmButtonText: phrases.T_ok ? phrases.T_ok[RC.L] : 'OK',
     allowEnterKey: true,
     didOpen: () => {
@@ -504,10 +505,10 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
 
       await Swal.fire({
         ...swalInfoOptions(RC, { showIcon: false }),
-        title: phrases.RC_ImprovingCameraResolutionTitle[RC.L],
+        title: processInlineFormatting(phrases.RC_ImprovingCameraResolutionTitle[RC.L]),
         html: `
             <div style="text-align: left; margin: 1rem 0; padding: 0;">
-              <p style="margin: 0; padding: 0; text-align: left; font-style: normal;"> ${phrases.RC_ImprovingCameraResolution[RC.L].replace('𝟙𝟙𝟙', width).replace('𝟚𝟚𝟚', height)}</p>
+              <p style="margin: 0; padding: 0; text-align: left; font-style: normal;"> ${processInlineFormatting(phrases.RC_ImprovingCameraResolution[RC.L].replace('𝟙𝟙𝟙', width).replace('𝟚𝟚𝟚', height))}</p>
             </div>
           `,
         showCancelButton: false,
@@ -800,7 +801,7 @@ const updateTitleAndDescription = (
     if (privacyMessage) {
       messageHtml += `<br><br>${phrases.RC_privacyCamera[RC.L]}`
     }
-    messageDiv.innerHTML = messageHtml
+    messageDiv.innerHTML = processInlineFormatting(messageHtml)
   }
 }
 
@@ -1056,7 +1057,7 @@ export const showCameraSelectionPopup = async (
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title: '', // Remove the default title since we're adding our own
-    html: `${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${message}</div>`,
+    html: `${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${processInlineFormatting(message || '')}</div>`,
     showConfirmButton: false,
     allowEnterKey: false, // To be changed
     // Dynamic popup width based on number of cameras
@@ -1742,7 +1743,7 @@ const showNoCameraPopup = async (
     ...swalInfoOptions(RC, { showIcon: false }),
     html: `
       <p style="text-align: left; margin-top: 1rem; font-size: 1.2rem; line-height: 1.6;">
-        ${phrases.RC_CameraNotFound[RC.L].replace('\n', '<br />')}
+        ${processInlineFormatting(phrases.RC_CameraNotFound[RC.L]).replace('\n', '<br />')}
       </p>
     `,
     showCancelButton: true,

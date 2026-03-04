@@ -16,6 +16,7 @@ import { phrases } from '../i18n/schema'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { showPopup } from '../components/popup'
+import { processInlineFormatting } from '../distance/markdownInstructionParser'
 import { setDefaultVideoPosition } from '../components/video'
 import {
   buildStepInstructions,
@@ -731,11 +732,11 @@ const showFaceBlockedPopup = async (RC, capturedImage, saveSnapshots) => {
 
   let conditionalFaceImageNotSaved = ''
   if (!saveSnapshots) {
-    conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${phrases.RC_FaceImageNotSaved[RC.language.value]}</p>`
+    conditionalFaceImageNotSaved = `<p style="margin-top: 15px; font-size: 0.7em; color: #666;">${processInlineFormatting(phrases.RC_FaceImageNotSaved[RC.language.value])}</p>`
   }
   const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
-    title: phrases.RC_FaceBlocked[RC.language.value],
+    title: processInlineFormatting(phrases.RC_FaceBlocked[RC.language.value]),
     html: `<div style="text-align: center;">
         <img src="${capturedImage}" style="max-width: 300px; max-height: 400px; border: 2px solid #ccc; border-radius: 8px;" alt="Camera view" />
         ${conditionalFaceImageNotSaved}
@@ -2126,7 +2127,7 @@ const checkSize = async (
         ...swalInfoOptions(RC, { showIcon: false }),
         icon: '',
         title: '',
-        html: errorMessage,
+        html: processInlineFormatting(errorMessage),
         allowEnterKey: true,
         focusConfirm: true,
         confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
@@ -2233,7 +2234,7 @@ const checkSize = async (
           ...swalInfoOptions(RC, { showIcon: false }),
           icon: '',
           title: '',
-          html: errorMessage,
+          html: processInlineFormatting(errorMessage),
           allowEnterKey: true,
           focusConfirm: true,
           confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
@@ -3070,6 +3071,115 @@ const trackDistanceCheck = async (
             doRender()
           }
 
+          // On small screens, after the stepper is fitted, harmonize the
+          // nav-hint italic text and hand-preference font sizes to 0.7× the
+          // stepper font so there are only TWO font sizes: the stepper (focal
+          // point) and subdued surrounding text.
+          const harmonizeCheckDistFonts = () => {
+            const stepperBox = scalableWrapper.querySelector('.rc-stepper-box')
+            const navHintEl = scalableWrapper.querySelector(
+              '.rc-stepper-nav-hint',
+            )
+            const handSelector = scalableWrapper.querySelector(
+              '.rc-hand-preference-selector',
+            )
+            const stepperFontPx =
+              parseFloat(stepperBox?.style.fontSize) || 18
+
+            if (stepperFontPx >= 17.5) return
+
+            const RATIO = 0.7
+            const MIN_FONT = 8
+            let surroundingFontPx = Math.max(
+              MIN_FONT,
+              stepperFontPx * RATIO,
+            )
+
+            if (navHintEl && navHintEl.style.display !== 'none') {
+              const applyNavFont = fontPx => {
+                const px = `${fontPx}px`
+                navHintEl.style.fontSize = px
+                navHintEl.querySelectorAll(':scope > div').forEach(child => {
+                  child.style.fontSize = px
+                  child.style.lineHeight = '1.3'
+                  child.querySelectorAll('*').forEach(desc => {
+                    desc.style.fontSize = 'inherit'
+                    desc.style.lineHeight = 'inherit'
+                  })
+                })
+              }
+
+              applyNavFont(surroundingFontPx)
+              void navHintEl.offsetHeight
+
+              const availableWidth = navHintEl.clientWidth
+              if (availableWidth > 0) {
+                let shrinkRatio = 1
+                navHintEl
+                  .querySelectorAll(':scope > div')
+                  .forEach(child => {
+                    const savedWS = child.style.whiteSpace
+                    const savedMW = child.style.maxWidth
+                    child.style.whiteSpace = 'nowrap'
+                    child.style.maxWidth = 'none'
+                    void child.offsetWidth
+                    const neededWidth = child.scrollWidth
+                    child.style.whiteSpace = savedWS
+                    child.style.maxWidth = savedMW || ''
+                    if (neededWidth > availableWidth) {
+                      shrinkRatio = Math.min(
+                        shrinkRatio,
+                        availableWidth / neededWidth,
+                      )
+                    }
+                  })
+                if (shrinkRatio < 1) {
+                  surroundingFontPx = Math.max(
+                    MIN_FONT,
+                    surroundingFontPx * shrinkRatio,
+                  )
+                  applyNavFont(surroundingFontPx)
+                }
+              }
+            }
+
+            if (handSelector) {
+              const px = `${surroundingFontPx}px`
+              const savedPIS =
+                handSelector.style.paddingInlineStart || '0'
+              const titleDiv = handSelector.querySelector('div')
+              const labels = handSelector.querySelectorAll('label')
+              const radios = handSelector.querySelectorAll(
+                'input[type="radio"]',
+              )
+
+              handSelector.style.paddingTop = `${surroundingFontPx * 0.4}px`
+              handSelector.style.paddingBottom = `${surroundingFontPx * 0.15}px`
+              handSelector.style.paddingInlineStart = savedPIS
+              handSelector.style.gap = `${surroundingFontPx * 0.15}px`
+
+              if (titleDiv) {
+                titleDiv.style.fontSize = px
+                titleDiv.style.marginBottom = `${surroundingFontPx * 0.15}px`
+                titleDiv.querySelectorAll('*').forEach(el => {
+                  el.style.fontSize = 'inherit'
+                  el.style.lineHeight = 'inherit'
+                })
+              }
+
+              labels.forEach(l => {
+                l.style.fontSize = px
+                l.style.lineHeight = '1.2'
+              })
+
+              const radioSz = Math.max(10, surroundingFontPx * 0.85)
+              radios.forEach(r => {
+                r.style.width = `${radioSz}px`
+                r.style.height = `${radioSz}px`
+              })
+            }
+          }
+
           const doRender = () => {
             renderStepInstructions({
               model: stepModel,
@@ -3154,6 +3264,10 @@ const trackDistanceCheck = async (
               fillTarget: 0.95,
               fitStepper: fitStepperBoxToHeight,
             })
+            harmonizeCheckDistFonts()
+            requestAnimationFrame(() =>
+              setTimeout(harmonizeCheckDistFonts, 80),
+            )
           }
           doRender()
 
@@ -3215,6 +3329,10 @@ const trackDistanceCheck = async (
             fillTarget: 0.95,
             fitStepper: fitStepperBoxToHeight,
           })
+          harmonizeCheckDistFonts()
+          requestAnimationFrame(() =>
+            setTimeout(harmonizeCheckDistFonts, 80),
+          )
         } catch (e) {
           // Fallback to plain text if parsing fails
           instructionBody.innerText = instructionBodyPhrase
@@ -4090,11 +4208,11 @@ const trackDistanceCheck = async (
           // Show popup error message and wait for OK
           await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
-            icon: '', //no icon
-            title: '', //no title
-            html: errorMessage,
+            icon: '',
+            title: '',
+            html: processInlineFormatting(errorMessage),
             allowEnterKey: true,
-            focusConfirm: true, // Focus OK button so Enter key works
+            focusConfirm: true,
             confirmButtonText: phrases.RC_ok?.[RC.L],
             didOpen: () => {
               // Prevent Space key from triggering the OK button (only allow Return/Enter)
@@ -4163,9 +4281,11 @@ const trackDistanceCheck = async (
       }),
       title:
         '<p class="heading2">' +
-        phrases.RC_AllDistancesRecorded[RC.language.value].replace(
-          '[[N11]]',
-          RC.calibrateDistanceRequestedCm.length,
+        processInlineFormatting(
+          phrases.RC_AllDistancesRecorded[RC.language.value].replace(
+            '[[N11]]',
+            RC.calibrateDistanceRequestedCm.length,
+          ),
         ) +
         '</p>',
       didOpen: () => {
