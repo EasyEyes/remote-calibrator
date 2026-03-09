@@ -3262,8 +3262,8 @@ RemoteCalibrator.prototype.measureDistance = async function (
   // FIX this is pointless. Either we are accidentally calling the same phrase twice, or the conditional should be removed - gus
   let description
   if (measureDistanceOptions.control === false)
-    description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
-  else description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
+    description = processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L])
+  else description = processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L])
 
   const options = Object.assign(
     {
@@ -3302,7 +3302,7 @@ RemoteCalibrator.prototype.measureDistanceObject = async function (
       fullscreen: false,
       repeatTesting: 1,
       headline: `📏 ${phrases.RC_viewingDistanceTitle[this.L]}`,
-      description: phrases.RC_viewingDistanceIntroLiMethod[this.L],
+      description: processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L]),
       showCancelButton: true,
     },
     options,
@@ -3326,7 +3326,7 @@ RemoteCalibrator.prototype.measureDistanceKnown = async function (
       fullscreen: false,
       repeatTesting: 1,
       headline: `📏 ${phrases.RC_viewingDistanceTitle[this.L]}`,
-      description: phrases.RC_viewingDistanceIntroLiMethod[this.L],
+      description: processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L]),
       showCancelButton: true,
     },
     options,

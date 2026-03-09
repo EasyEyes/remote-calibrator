@@ -179,8 +179,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
     trackDistanceOptions.control !== undefined &&
     trackDistanceOptions.control === false
   )
-    description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
-  else description = phrases.RC_viewingDistanceIntroLiMethod[this.L]
+    description = processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L])
+  else description = processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L])
 
   const options = Object.assign(
     {
