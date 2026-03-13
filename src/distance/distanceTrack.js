@@ -38,6 +38,7 @@ import {
   hideResolutionSettingMessage,
 } from '../components/popup'
 import { processInlineFormatting } from './markdownInstructionParser'
+import { objectTestNew } from './object'
 
 const originalStyles = {
   video: false,
@@ -179,8 +180,13 @@ RemoteCalibrator.prototype.trackDistance = async function (
     trackDistanceOptions.control !== undefined &&
     trackDistanceOptions.control === false
   )
-    description = processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L])
-  else description = processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L])
+    description = processInlineFormatting(
+      phrases.RC_viewingDistanceIntroLiMethod[this.L],
+    )
+  else
+    description = processInlineFormatting(
+      phrases.RC_viewingDistanceIntroLiMethod[this.L],
+    )
 
   const options = Object.assign(
     {
@@ -396,6 +402,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
         'This will run object test first, then blindspot test, then use median calibration factor',
       )
       // First run object test
+      // await objectTestNew(this, options, getStdDist)
       await objectTest(this, options, getStdDist)
     } else if (options.useObjectTestData === 'creditCard') {
       // Call knownDistanceTest directly for calibration
@@ -409,6 +416,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       console.log('=== Starting Object Test Only ===')
       console.log('This will use object test calibration factor for tracking')
       // Call objectTest directly for calibration
+      // await objectTestNew(this, options, getStdDist)
       await objectTest(this, options, getStdDist)
     } else {
       console.log('=== Starting Blindspot Test Only ===')

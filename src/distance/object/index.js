@@ -8,6 +8,7 @@
  * - locationUtils:              Parsing, instructions, UI positioning, tolerance checking
  * - locationManager:            Location measurement state manager factory
  * - measurementPageRenderer:    Dynamic measurement page renderer factory + config builder
+ * - objectTestOrchestrator:     New modular entry point (opt-in, not yet wired to distance.js)
  */
 
 // ─── Location utilities (parsing, instructions, positioning, tolerance) ──────
@@ -36,3 +37,6 @@ export {
   createMeasurementPageRenderer,
   buildMeasurementPageConfig,
 } from './measurementPageRenderer'
+
+// ─── New modular orchestrator (opt-in, not yet wired to distance.js) ────────
+export { objectTestNew } from './objectTestOrchestrator'

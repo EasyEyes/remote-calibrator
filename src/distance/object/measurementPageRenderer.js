@@ -457,7 +457,9 @@ export function createMeasurementPageRenderer(dependencies) {
         wrapper: instructionsContainer,
         navHintEl: instructionsContainer.querySelector('.rc-stepper-nav-hint'),
         stepperBox: instructionsContainer.querySelector('.rc-stepper-box'),
-        handSelector: instructionsContainer.querySelector('.rc-hand-preference-selector'),
+        handSelector: instructionsContainer.querySelector(
+          '.rc-hand-preference-selector',
+        ),
         barHeight: 44,
         fillTarget: 0.95,
         fitStepper: fitStepperBoxToHeight,

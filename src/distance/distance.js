@@ -201,7 +201,7 @@ const blindSpotHTML = `
 /* -------------------------------------------------------------------------- */
 
 // helper function to save multiple calibration measurements separately
-function saveCalibrationMeasurements(
+export function saveCalibrationMeasurements(
   RC,
   method,
   measurements, // array of measurement objects
@@ -506,7 +506,7 @@ function saveCalibrationAttempt(
 }
 
 // Helper to process mesh data and calculate nearest points
-async function processMeshDataAndCalculateNearestPoints(
+export async function processMeshDataAndCalculateNearestPoints(
   RC,
   options,
   meshSamples,
@@ -566,7 +566,7 @@ async function processMeshDataAndCalculateNearestPoints(
 }
 
 // Helper to create measurement object from nearest points data
-function createMeasurementObject(
+export function createMeasurementObject(
   type,
   distance,
   calibrationFactor,
@@ -642,7 +642,7 @@ function calculateSpotXYPx(circleX, circleY, greenSide, fixationX, squareSize) {
 }
 
 // Helper to get intraocular distance in pixels (not cm) - moved to global scope
-async function measureIntraocularDistancePx(
+export async function measureIntraocularDistancePx(
   RC,
   calibrateDistancePupil = 'iris',
   meshSamples = [],
@@ -2868,7 +2868,9 @@ export async function blindSpotTestNew(
           }
           await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
-            title: processInlineFormatting(phrases.RC_FaceBlocked ? phrases.RC_FaceBlocked[RC.L] : ''),
+            title: processInlineFormatting(
+              phrases.RC_FaceBlocked ? phrases.RC_FaceBlocked[RC.L] : '',
+            ),
             html: captured
               ? `<div style="text-align:center"><img src="${captured}" style="max-width:300px;max-height:400px;border:2px solid #ccc;border-radius:8px;"/>${conditionalFaceImageNotSaved}</div>`
               : undefined,
@@ -3262,8 +3264,13 @@ RemoteCalibrator.prototype.measureDistance = async function (
   // FIX this is pointless. Either we are accidentally calling the same phrase twice, or the conditional should be removed - gus
   let description
   if (measureDistanceOptions.control === false)
-    description = processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L])
-  else description = processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L])
+    description = processInlineFormatting(
+      phrases.RC_viewingDistanceIntroLiMethod[this.L],
+    )
+  else
+    description = processInlineFormatting(
+      phrases.RC_viewingDistanceIntroLiMethod[this.L],
+    )
 
   const options = Object.assign(
     {
@@ -3302,7 +3309,9 @@ RemoteCalibrator.prototype.measureDistanceObject = async function (
       fullscreen: false,
       repeatTesting: 1,
       headline: `📏 ${phrases.RC_viewingDistanceTitle[this.L]}`,
-      description: processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L]),
+      description: processInlineFormatting(
+        phrases.RC_viewingDistanceIntroLiMethod[this.L],
+      ),
       showCancelButton: true,
     },
     options,
@@ -3326,7 +3335,9 @@ RemoteCalibrator.prototype.measureDistanceKnown = async function (
       fullscreen: false,
       repeatTesting: 1,
       headline: `📏 ${phrases.RC_viewingDistanceTitle[this.L]}`,
-      description: processInlineFormatting(phrases.RC_viewingDistanceIntroLiMethod[this.L]),
+      description: processInlineFormatting(
+        phrases.RC_viewingDistanceIntroLiMethod[this.L],
+      ),
       showCancelButton: true,
     },
     options,
@@ -3532,8 +3543,7 @@ export async function objectTest(RC, options, callback = undefined) {
     const fOverWidth = range.reduce((a, b) => a + b, 0) / range.length
     RC.calibrationFOverWidth = fOverWidth
 
-    const cameraWidth =
-      options.calibrateDistanceCameraResolution[0] || 640
+    const cameraWidth = options.calibrateDistanceCameraResolution[0] || 640
     const calibrationFactor = fOverWidth * cameraWidth * RC._CONST.IPD_CM
 
     const data = {
@@ -4599,7 +4609,9 @@ export async function objectTest(RC, options, callback = undefined) {
       wrapper: instructionsContainer,
       navHintEl: instructionsContainer.querySelector('.rc-stepper-nav-hint'),
       stepperBox: instructionsContainer.querySelector('.rc-stepper-box'),
-      handSelector: instructionsContainer.querySelector('.rc-hand-preference-selector'),
+      handSelector: instructionsContainer.querySelector(
+        '.rc-hand-preference-selector',
+      ),
       barHeight: 44,
       fillTarget: 0.95,
       fitStepper: fitStepperBoxToHeight,
@@ -4610,7 +4622,9 @@ export async function objectTest(RC, options, callback = undefined) {
   const reflowInstructionsOnResize = () => renderCurrentStepView()
   setInstructionsText = text => {
     currentInstructionText = text
-    leftInstructionsText.innerHTML = processInlineFormatting(currentInstructionText || '')
+    leftInstructionsText.innerHTML = processInlineFormatting(
+      currentInstructionText || '',
+    )
     rightInstructionsText.textContent = ''
     sectionMediaContainer.innerHTML = ''
     fitToViewport(container)
@@ -10468,7 +10482,9 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       wrapper: instructionsContainer,
       navHintEl: instructionsContainer.querySelector('.rc-stepper-nav-hint'),
       stepperBox: instructionsContainer.querySelector('.rc-stepper-box'),
-      handSelector: instructionsContainer.querySelector('.rc-hand-preference-selector'),
+      handSelector: instructionsContainer.querySelector(
+        '.rc-hand-preference-selector',
+      ),
       barHeight: 44,
       fillTarget: 0.95,
       fitStepper: fitStepperBoxToHeight,
