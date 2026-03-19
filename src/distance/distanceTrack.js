@@ -402,8 +402,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
         'This will run object test first, then blindspot test, then use median calibration factor',
       )
       // First run object test
-      // await objectTestNew(this, options, getStdDist)
-      await objectTest(this, options, getStdDist)
+      await objectTestNew(this, options, getStdDist)
+      // await objectTest(this, options, getStdDist)
     } else if (options.useObjectTestData === 'creditCard') {
       // Call knownDistanceTest directly for calibration
 
@@ -416,8 +416,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       console.log('=== Starting Object Test Only ===')
       console.log('This will use object test calibration factor for tracking')
       // Call objectTest directly for calibration
-      // await objectTestNew(this, options, getStdDist)
-      await objectTest(this, options, getStdDist)
+      await objectTestNew(this, options, getStdDist)
+      // await objectTest(this, options, getStdDist)
     } else {
       console.log('=== Starting Blindspot Test Only ===')
       console.log(
@@ -845,8 +845,6 @@ const _drawEyeSideText = (videoRect, leftTextWords, rightTextWords) => {
  *
  * Geometry (from the spec):
  *   - Paper tube radius  = 0.27 × ipdVpx
- *   - Tube center offset = 0.82 × ipdVpx from the near eye's center,
- *     measured along the imaginary line through the two pupils.
  *
  * Eye side is determined by the participant's hand preference
  * (preferRightHandBool → 'right', else 'left').
@@ -861,30 +859,21 @@ const _drawTubeCircles = (leftPx, rightPx, ipdScreenPx, eye) => {
   const tubeCm = trackingOptions.calibrateDistanceTubeDiameterCm ?? 3.5
   const ipdCm = RC_instance?._CONST?.IPD_CM ?? 6.3
   const tubeRadiusPx = (tubeCm / (2 * ipdCm)) * ipdScreenPx
-  const tubeOffsetPx = 0.82 * ipdScreenPx
-
-  // Unit direction vector along the pupil line, from right eye toward left eye
-  const dx = leftPx.x - rightPx.x
-  const dy = leftPx.y - rightPx.y
-  const len = Math.hypot(dx, dy)
-  if (len === 0) return null
-  const nx = dx / len
-  const ny = dy / len
 
   irisCtx.strokeStyle = 'black'
-  irisCtx.lineWidth = 2
+  irisCtx.lineWidth = 1
   irisCtx.setLineDash([])
 
   let cx, cy
   if (eye === 'left') {
     // Solid circle left of the left eye (extending away from the right eye)
-    cx = leftPx.x + nx * tubeOffsetPx
-    cy = leftPx.y + ny * tubeOffsetPx
+    cx = leftPx.x //+ nx * tubeOffsetPx
+    cy = leftPx.y //+ ny * tubeOffsetPx
   } else {
     // Solid circle right of the right eye (extending away from the left eye)
     // Default to 'right' for any non-'left' value
-    cx = rightPx.x - nx * tubeOffsetPx
-    cy = rightPx.y - ny * tubeOffsetPx
+    cx = rightPx.x //- nx * tubeOffsetPx
+    cy = rightPx.y //- ny * tubeOffsetPx
   }
 
   irisCtx.beginPath()
@@ -947,7 +936,7 @@ const _drawTubeLines = smallCircle => {
   const P2y = Cy + R * Math.sin(alpha2)
 
   irisCtx.strokeStyle = 'black'
-  irisCtx.lineWidth = 1.9
+  irisCtx.lineWidth = 0.9
   irisCtx.setLineDash([])
 
   irisCtx.beginPath()
