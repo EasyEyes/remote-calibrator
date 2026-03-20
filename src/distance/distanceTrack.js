@@ -197,7 +197,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateDistanceOffsetCm: 4, // Offset in cm for topOffsetLeft/Right/Down locations
       calibrateDistanceTubeDiameterCm: 3.5, // Tube outer diameter in cm (used for small circle on video and big circle on screen)
       calibrateDistanceDrawPaperTubeBool: true, // Draw the paper tube visualization (two circles connected by tangent lines)
-      objectMeasurementConsistencyThreshold: 1.1, // Ratio threshold - measurements must satisfy max(M1/M2, M2/M1) <= max(threshold, 1/threshold)
+      calibrateDistanceAllowedRatioCm: 1.1, // Ratio threshold - measurements must satisfy max(M1/M2, M2/M1) <= max(threshold, 1/threshold)
       sparkle: true,
       pipWidthPx:
         this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP'],
@@ -226,7 +226,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       callbackStatic,
       useObjectTestData: false, // New option to use object test data
       objecttestdebug: false, // New option to show debug feedback div in object test
-      calibrateDistanceAllowedRatio: 1.1,
+      calibrateDistanceAllowedRatioFOverWidth: 1.1,
       calibrateDistanceAllowedRatioCm: 1.2, // Tube check full-size acceptance threshold
       calibrateDistanceAllowedRatioHalfCm: 1.4, // Tube check half-size acceptance threshold
       calibrateDistanceAllowedRangeCm: [30, 70],
@@ -441,8 +441,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.objectMeasurementCount = options.objectMeasurementCount
   trackingOptions.calibrateDistanceLocations =
     options.calibrateDistanceLocations
-  trackingOptions.objectMeasurementConsistencyThreshold =
-    options.objectMeasurementConsistencyThreshold
+  trackingOptions.calibrateDistanceAllowedRatioCm =
+    options.calibrateDistanceAllowedRatioCm
   trackingOptions.calibrateDistancePupil = options.calibrateDistancePupil
   trackingOptions.calibrateDistanceIpdUsesZBool =
     options.calibrateDistanceIpdUsesZBool

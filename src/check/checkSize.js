@@ -473,7 +473,7 @@ export const checkSize = async (
   calibrateDistanceCheckLengthCm = [],
   calibrateDistanceChecking = undefined,
   stepperHistory = 1,
-  calibrateScreenSizeAllowedRatio = 1.1,
+  calibrateDistanceAllowedRatioPxPerCm = 1.1,
 ) => {
   // Hide video during checkSize (yellow tape measurement)
   RC.showVideo(false)
@@ -501,7 +501,7 @@ export const checkSize = async (
 
   // Initialize RC.sizeCheckJSON immediately so it always exists (even on early return)
   RC.sizeCheckJSON = {
-    _calibrateScreenSizeAllowedRatio: calibrateScreenSizeAllowedRatio,
+    _calibrateDistanceAllowedRatioPxPerCm: calibrateDistanceAllowedRatioPxPerCm,
     calibrationPxPerCm: parseFloat(Number(pxPerCm).toFixed(1)),
     screenWidthCm: screenWidthCm,
     rulerUnit: RC.equipment?.value?.unit,
@@ -565,7 +565,10 @@ export const checkSize = async (
     const index = i + 1
 
     // Update the length display with the current required length
-    updateLengthDisplayDiv(cm, getLocalizedUnit(RC.equipment?.value?.unit, RC.L))
+    updateLengthDisplayDiv(
+      cm,
+      getLocalizedUnit(RC.equipment?.value?.unit, RC.L),
+    )
 
     // Create and update instruction content
     const updateInstructionText = (
@@ -1189,7 +1192,7 @@ export const checkSize = async (
     // pxPerCm values are consistent. If not, reject BOTH measurements and restart.
     // Uses: abs(log10(newPxPerCm/oldPxPerCm)) > log10(threshold)
     if (RC.calibrateDistancePxPerCm.length >= 2) {
-      const allowedRatioLength = calibrateScreenSizeAllowedRatio // Use passed threshold
+      const allowedRatioLength = calibrateDistanceAllowedRatioPxPerCm // Use passed threshold
       const newPxPerCm = parseFloat(
         RC.calibrateDistancePxPerCm[RC.calibrateDistancePxPerCm.length - 1],
       )
@@ -1285,7 +1288,7 @@ export const checkSize = async (
   // Update RC.sizeCheckJSON with final data (copies by value to avoid reference issues)
   RC.sizeCheckJSON = {
     // Configuration
-    _calibrateScreenSizeAllowedRatio: calibrateScreenSizeAllowedRatio,
+    _calibrateDistanceAllowedRatioPxPerCm: calibrateDistanceAllowedRatioPxPerCm,
     calibrationPxPerCm: parseFloat(Number(pxPerCm).toFixed(1)),
     screenWidthCm: screenWidthCm,
     rulerUnit: RC.equipment?.value?.unit,

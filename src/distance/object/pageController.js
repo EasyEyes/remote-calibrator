@@ -889,7 +889,7 @@ export function createPageController(deps) {
       // Done minimum N measurements — check consistency of last 2
       const consistentPair = checkLastTwoObjectMeasurements(
         measurementState.measurements,
-        options.objectMeasurementConsistencyThreshold,
+        options.calibrateDistanceAllowedRatioCm,
       )
 
       if (consistentPair) {
@@ -968,7 +968,7 @@ export function createPageController(deps) {
           const M1 = measurementState.measurements[secondLastIdx].objectLengthCm
           const M2 = measurementState.measurements[lastIdx].objectLengthCm
           const ratio = M2 / M1
-          const T = options.calibrateDistanceAllowedRatio || 1.1
+          const T = options.calibrateDistanceAllowedRatioCm || 1.1
           const roundedPercent = Math.round(100 * ratio)
           const lowerBound = Math.round(100 / T)
           const upperBound = Math.round(100 * T)
@@ -1040,9 +1040,10 @@ export function createPageController(deps) {
     const m2Cm = measurements[lastIndex].objectLengthCm
 
     const ratio = Math.max(m1Cm / m2Cm, m2Cm / m1Cm)
-    const maxThreshold = Math.max(threshold, 1 / threshold)
+    const roundedRatio = Math.round(ratio * 100) / 100
+    const roundedMaxThreshold = Math.round(Math.max(threshold, 1 / threshold))
 
-    if (ratio <= maxThreshold) {
+    if (roundedRatio <= roundedMaxThreshold) {
       return { indices: [secondLastIndex, lastIndex], values: [m1Cm, m2Cm] }
     }
     return null

@@ -94,12 +94,19 @@ export async function handleSpaceOnTubeCheck(context) {
   const ratioThresholdFull = options.calibrateDistanceAllowedRatioCm
   const ratioThresholdHalf = options.calibrateDistanceAllowedRatioHalfCm
 
-  let accepted
-  if (!matchHalfLengthBool) {
-    accepted = Math.abs(Math.log10(ratio)) <= Math.log10(ratioThresholdFull)
-  } else {
-    accepted = Math.abs(Math.log10(ratio)) <= Math.log10(ratioThresholdHalf)
-  }
+  // Round ratio to integer percentage BEFORE testing so the accept/reject
+  // decision is consistent with what the participant sees (e.g. 102%).
+  const roundedRatio = Math.round(ratio * 100) / 100
+  const log10RoundedRatio = Math.round(Math.abs(Math.log10(roundedRatio)))
+  const pctOfExpected = Math.round(roundedRatio * 100)
+  const threshold = matchHalfLengthBool
+    ? ratioThresholdHalf
+    : ratioThresholdFull
+  const roundedThreshold = Math.round(threshold)
+  const log10RoundedThreshold = Math.round(
+    Math.abs(Math.log10(roundedThreshold)),
+  )
+  const accepted = log10RoundedRatio <= log10RoundedThreshold
 
   console.log(
     `Tube check: accepted=${accepted}, threshold=${matchHalfLengthBool ? ratioThresholdHalf : ratioThresholdFull}`,
@@ -123,8 +130,7 @@ export async function handleSpaceOnTubeCheck(context) {
     await showPage(3)
     setTimeout(() => reattachKeydown(), 0)
   } else {
-    // Rejected – show error message
-    const pctOfExpected = Math.round(ratio * 100)
+    // Rejected – show error message (pctOfExpected already computed above)
     const errorMsg = (phrases.RC_BadMatchToExpectedLength?.[RC.L]).replace(
       '[[NNN]]',
       pctOfExpected.toString(),
@@ -644,7 +650,8 @@ export async function handleSpaceOnPage3(context) {
 
   // ── Tolerance check ───────────────────────────────────────────────────
   const T_focal =
-    options.calibrateDistanceAllowedRatio || DEFAULT_FOCAL_TOLERANCE_RATIO
+    options.calibrateDistanceAllowedRatioFOverWidth ||
+    DEFAULT_FOCAL_TOLERANCE_RATIO
   const prevFOverWidth = locationManager.getPreviousFOverWidth()
   const focalRatio = prevFOverWidth != null ? fOverWidth / prevFOverWidth : 1
   const focalRoundedPct = Math.round(100 * focalRatio)
