@@ -31,6 +31,7 @@ import {
   createHandPreferenceSelector,
   fitContentToAvailableSpace,
 } from '../components/handPreference'
+import { showPutGlassesBackOnScreen } from '../distance/object/objectTestFinish'
 
 // Debug: Log what's imported
 console.log('📦 checkDistance.js imports:', {
@@ -2046,5 +2047,11 @@ const trackDistanceCheck = async (
 
     RC.resumeNudger()
   }
+
+  if (RC._showPutGlassesBackOn) {
+    RC._showPutGlassesBackOn = false
+    await showPutGlassesBackOnScreen(RC)
+  }
+
   quit()
 }

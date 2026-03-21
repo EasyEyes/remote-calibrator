@@ -733,7 +733,7 @@ export function renderStepInstructions({
       readNote.style.fontSize = 'clamp(0.85em, 1.8vw, 0.95em)'
       readNote.style.marginBottom = '0.25rem'
       readNote.style.textAlign = langDirection === 'RTL' ? 'right' : 'left'
-      readNote.textContent = noteText
+      readNote.innerHTML = processInlineFormatting(noteText)
       navHintContainer.appendChild(readNote)
     }
   }
