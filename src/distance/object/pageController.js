@@ -889,7 +889,7 @@ export function createPageController(deps) {
       // Done minimum N measurements — check consistency of last 2
       const consistentPair = checkLastTwoObjectMeasurements(
         measurementState.measurements,
-        options.objectMeasurementConsistencyThreshold,
+        options.calibrateDistanceAllowedRatioCm,
       )
 
       if (consistentPair) {
@@ -968,7 +968,7 @@ export function createPageController(deps) {
           const M1 = measurementState.measurements[secondLastIdx].objectLengthCm
           const M2 = measurementState.measurements[lastIdx].objectLengthCm
           const ratio = M2 / M1
-          const T = options.calibrateDistanceAllowedRatio || 1.1
+          const T = options.calibrateDistanceAllowedRatioCm || 1.1
           const roundedPercent = Math.round(100 * ratio)
           const lowerBound = Math.round(100 / T)
           const upperBound = Math.round(100 * T)
@@ -1039,10 +1039,13 @@ export function createPageController(deps) {
     const m1Cm = measurements[secondLastIndex].objectLengthCm
     const m2Cm = measurements[lastIndex].objectLengthCm
 
-    const ratio = Math.max(m1Cm / m2Cm, m2Cm / m1Cm)
-    const maxThreshold = Math.max(threshold, 1 / threshold)
+    // Round to integer percentage before testing so the accept/reject
+    // decision is consistent with what the participant sees.
+    const roundedPct = Math.round((100 * m2Cm) / m1Cm)
+    const lower = Math.round(100 / threshold)
+    const upper = Math.round(100 * threshold)
 
-    if (ratio <= maxThreshold) {
+    if (roundedPct >= lower && roundedPct <= upper) {
       return { indices: [secondLastIndex, lastIndex], values: [m1Cm, m2Cm] }
     }
     return null

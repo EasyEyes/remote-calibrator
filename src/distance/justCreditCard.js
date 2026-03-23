@@ -1513,13 +1513,15 @@ export async function justCreditCard(RC, options, callback = undefined) {
     longCm: CREDIT_CARD_LONG_CM,
     _calibrateDistance: options.calibrateDistance,
     _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
-    _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
+    _calibrateDistanceAllowedRatioFOverWidth:
+      options.calibrateDistanceAllowedRatioFOverWidth,
     _calibrateDistancePupil: options.calibrateDistancePupil,
     _calibrateDistanceShowRulerUnitsBool:
       options.calibrateDistanceShowRulerUnitsBool,
     _calibrateDistanceTimes: options.objectMeasurementCount,
     _showPerpendicularFeetBool: options.showNearestPointsBool,
-    _calibrateScreenSizeAllowedRatio: options.calibrateScreenSizeAllowedRatio,
+    _calibrateDistanceAllowedRatioPxPerCm:
+      options.calibrateDistanceAllowedRatioPxPerCm,
     _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
     _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
@@ -2479,7 +2481,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
       commonCalibrationData,
     )
 
-    const T_cc = options.calibrateDistanceAllowedRatio || 1.1
+    const T_cc = options.calibrateDistanceAllowedRatioFOverWidth || 1.1
 
     // Validate consistency only when multiple measurements are requested
     if (measurementCount > 1 && measurements.length >= 2) {
@@ -2491,8 +2493,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
       const ccRoundedPct = Math.round(100 * ccRatio)
       const ccLower = Math.round(100 / T_cc)
       const ccUpper = Math.round(100 * T_cc)
-      const ccAccepted =
-        ccRoundedPct >= ccLower && ccRoundedPct <= ccUpper
+      const ccAccepted = ccRoundedPct >= ccLower && ccRoundedPct <= ccUpper
 
       if (!ccAccepted) {
         console.log(
@@ -2611,8 +2612,8 @@ export async function justCreditCard(RC, options, callback = undefined) {
         options.calibrateDistanceSpotXYDeg,
         options.calibrateDistance,
         options.stepperHistory,
-        options.calibrateScreenSizeAllowedRatio,
-        options.calibrateDistanceAllowedRatio,
+        options.calibrateDistanceAllowedRatioPxPerCm,
+        options.calibrateDistanceAllowedRatioFOverWidth,
         options.viewingDistanceWhichEye,
         undefined,
         options.calibrateDistanceCheckMinRulerCm,

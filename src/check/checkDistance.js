@@ -31,6 +31,7 @@ import {
   createHandPreferenceSelector,
   fitContentToAvailableSpace,
 } from '../components/handPreference'
+import { showPutGlassesBackOnScreen } from '../distance/object/objectTestFinish'
 
 // Debug: Log what's imported
 console.log('📦 checkDistance.js imports:', {
@@ -83,8 +84,8 @@ RemoteCalibrator.prototype._checkDistance = async function (
   calibrateDistanceSpotXYDeg = null,
   calibrateDistance = '',
   stepperHistory = 1,
-  calibrateScreenSizeAllowedRatio = 1.1,
-  calibrateDistanceAllowedRatio = 1.1,
+  calibrateDistanceAllowedRatioPxPerCm = 1.1,
+  calibrateDistanceAllowedRatioFOverWidth = 1.1,
   viewingDistanceWhichEye = undefined,
   saveSnapshots = false,
   calibrateDistanceCheckMinRulerCm = 0,
@@ -113,8 +114,8 @@ RemoteCalibrator.prototype._checkDistance = async function (
       calibrateDistanceSpotXYDeg,
       calibrateDistance,
       stepperHistory,
-      calibrateScreenSizeAllowedRatio,
-      calibrateDistanceAllowedRatio,
+      calibrateDistanceAllowedRatioPxPerCm,
+      calibrateDistanceAllowedRatioFOverWidth,
       viewingDistanceWhichEye,
       saveSnapshots,
     )
@@ -206,8 +207,8 @@ const trackDistanceCheck = async (
   calibrateDistanceSpotXYDeg = null,
   calibrateDistance = '',
   stepperHistory = 1,
-  calibrateScreenSizeAllowedRatio = 1.1,
-  calibrateDistanceAllowedRatio = 1.1,
+  calibrateDistanceAllowedRatioPxPerCm = 1.1,
+  calibrateDistanceAllowedRatioFOverWidth = 1.1,
   viewingDistanceWhichEye = undefined,
   saveSnapshots = false,
 ) => {
@@ -350,7 +351,8 @@ const trackDistanceCheck = async (
   // Ensure RC.sizeCheckJSON exists even if checkSize is never called (no equipment)
   if (!RC.sizeCheckJSON) {
     RC.sizeCheckJSON = {
-      _calibrateScreenSizeAllowedRatio: calibrateScreenSizeAllowedRatio,
+      _calibrateDistanceAllowedRatioPxPerCm:
+        calibrateDistanceAllowedRatioPxPerCm,
       calibrationPxPerCm: null,
       screenWidthCm: null,
       rulerUnit: RC.equipment?.value?.unit || null,
@@ -373,7 +375,7 @@ const trackDistanceCheck = async (
       calibrateDistanceCheckLengthCm,
       calibrateDistanceChecking,
       stepperHistory,
-      calibrateScreenSizeAllowedRatio,
+      calibrateDistanceAllowedRatioPxPerCm,
     )
     RC.resumeNudger()
     // Start video trimming for screen center distance measurement
@@ -476,7 +478,8 @@ const trackDistanceCheck = async (
       _calibrateDistanceChecking: calibrateDistanceChecking,
       _calibrateDistance: calibrateDistance,
       _calibrateDistancePupil: calibrateDistancePupil,
-      _calibrateDistanceAllowedRatioFOverWidth: calibrateDistanceAllowedRatio,
+      _calibrateDistanceAllowedRatioFOverWidth:
+        calibrateDistanceAllowedRatioFOverWidth,
       historyPreferRightHandBool: [],
       // Parameters with few values (before arrays with 8 values)
       cameraXYPx: [window.screen.width / 2, 0],
@@ -558,7 +561,10 @@ const trackDistanceCheck = async (
         index,
         calibrateDistanceCheckCm.length,
       )
-      updateViewingDistanceDiv(cm, getLocalizedUnit(RC.equipment?.value?.unit, RC.L))
+      updateViewingDistanceDiv(
+        cm,
+        getLocalizedUnit(RC.equipment?.value?.unit, RC.L),
+      )
 
       // Single phrase RC_produceDistanceLocation with placeholders [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
       const checkingOptions = calibrateDistanceChecking
@@ -692,7 +698,8 @@ const trackDistanceCheck = async (
           const videoH = videoEl.getBoundingClientRect().height || 0
           const bodyTop = instructionBody.getBoundingClientRect().top
           const needed = videoH + 15 - bodyTop
-          instructionBody.style.marginTop = needed > 0 ? `${Math.ceil(needed)}px` : '0'
+          instructionBody.style.marginTop =
+            needed > 0 ? `${Math.ceil(needed)}px` : '0'
         }
 
         // Constrain max-height so nothing extends behind the progress bar
@@ -825,17 +832,13 @@ const trackDistanceCheck = async (
             const handSelector = scalableWrapper.querySelector(
               '.rc-hand-preference-selector',
             )
-            const stepperFontPx =
-              parseFloat(stepperBox?.style.fontSize) || 18
+            const stepperFontPx = parseFloat(stepperBox?.style.fontSize) || 18
 
             if (stepperFontPx >= 17.5) return
 
             const RATIO = 0.7
             const MIN_FONT = 8
-            let surroundingFontPx = Math.max(
-              MIN_FONT,
-              stepperFontPx * RATIO,
-            )
+            let surroundingFontPx = Math.max(MIN_FONT, stepperFontPx * RATIO)
 
             if (navHintEl && navHintEl.style.display !== 'none') {
               const applyNavFont = fontPx => {
@@ -857,24 +860,22 @@ const trackDistanceCheck = async (
               const availableWidth = navHintEl.clientWidth
               if (availableWidth > 0) {
                 let shrinkRatio = 1
-                navHintEl
-                  .querySelectorAll(':scope > div')
-                  .forEach(child => {
-                    const savedWS = child.style.whiteSpace
-                    const savedMW = child.style.maxWidth
-                    child.style.whiteSpace = 'nowrap'
-                    child.style.maxWidth = 'none'
-                    void child.offsetWidth
-                    const neededWidth = child.scrollWidth
-                    child.style.whiteSpace = savedWS
-                    child.style.maxWidth = savedMW || ''
-                    if (neededWidth > availableWidth) {
-                      shrinkRatio = Math.min(
-                        shrinkRatio,
-                        availableWidth / neededWidth,
-                      )
-                    }
-                  })
+                navHintEl.querySelectorAll(':scope > div').forEach(child => {
+                  const savedWS = child.style.whiteSpace
+                  const savedMW = child.style.maxWidth
+                  child.style.whiteSpace = 'nowrap'
+                  child.style.maxWidth = 'none'
+                  void child.offsetWidth
+                  const neededWidth = child.scrollWidth
+                  child.style.whiteSpace = savedWS
+                  child.style.maxWidth = savedMW || ''
+                  if (neededWidth > availableWidth) {
+                    shrinkRatio = Math.min(
+                      shrinkRatio,
+                      availableWidth / neededWidth,
+                    )
+                  }
+                })
                 if (shrinkRatio < 1) {
                   surroundingFontPx = Math.max(
                     MIN_FONT,
@@ -887,8 +888,7 @@ const trackDistanceCheck = async (
 
             if (handSelector) {
               const px = `${surroundingFontPx}px`
-              const savedPIS =
-                handSelector.style.paddingInlineStart || '0'
+              const savedPIS = handSelector.style.paddingInlineStart || '0'
               const titleDiv = handSelector.querySelector('div')
               const labels = handSelector.querySelectorAll('label')
               const radios = handSelector.querySelectorAll(
@@ -1001,15 +1001,15 @@ const trackDistanceCheck = async (
               wrapper: scalableWrapper,
               navHintEl: scalableWrapper.querySelector('.rc-stepper-nav-hint'),
               stepperBox: scalableWrapper.querySelector('.rc-stepper-box'),
-              handSelector: scalableWrapper.querySelector('.rc-hand-preference-selector'),
+              handSelector: scalableWrapper.querySelector(
+                '.rc-hand-preference-selector',
+              ),
               barHeight: 40,
               fillTarget: 0.95,
               fitStepper: fitStepperBoxToHeight,
             })
             harmonizeCheckDistFonts()
-            requestAnimationFrame(() =>
-              setTimeout(harmonizeCheckDistFonts, 80),
-            )
+            requestAnimationFrame(() => setTimeout(harmonizeCheckDistFonts, 80))
           }
           doRender()
 
@@ -1072,9 +1072,7 @@ const trackDistanceCheck = async (
             fitStepper: fitStepperBoxToHeight,
           })
           harmonizeCheckDistFonts()
-          requestAnimationFrame(() =>
-            setTimeout(harmonizeCheckDistFonts, 80),
-          )
+          requestAnimationFrame(() => setTimeout(harmonizeCheckDistFonts, 80))
         } catch (e) {
           // Fallback to plain text if parsing fails
           instructionBody.innerText = instructionBodyPhrase
@@ -1819,7 +1817,7 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.fOverWidth.length - 2
           ]
 
-        const T_fow = calibrateDistanceAllowedRatio
+        const T_fow = calibrateDistanceAllowedRatioFOverWidth
         const fowRatio = newFOverWidth / oldFOverWidth
         const fowRoundedPct = Math.round(100 * fowRatio)
         const fowLower = Math.round(100 / T_fow)
@@ -2049,5 +2047,11 @@ const trackDistanceCheck = async (
 
     RC.resumeNudger()
   }
+
+  if (RC._showPutGlassesBackOn) {
+    RC._showPutGlassesBackOn = false
+    await showPutGlassesBackOnScreen(RC)
+  }
+
   quit()
 }

@@ -118,13 +118,13 @@ RemoteCalibrator.prototype.screenSize = function (
       fullscreen: false,
       repeatTesting: 1,
       screenSizeMeasurementCount: 2, // Number of repeated measurements
-      screenSizeConsistencyThreshold: 1.03, // Ratio threshold - last two measurements must satisfy max(M1/M2, M2/M1) <= threshold
       decimalPlace: 1,
       defaultObject: 'card', // Can be card, usba, usbc
       headline: `${phrases.RC_screenSizeTitleN[this.L]}`, // Will be overridden with RC_screenSizeTitleN
       description: phrases.RC_screenSizeIntro[this.L],
       check: false,
       checkCallback: null,
+      calibrateDistanceAllowedRatioPxPerCm: 1.03, // Ratio threshold - last two measurements must satisfy max(M1/M2, M2/M1) <= threshold
     },
     screenSizeOptions,
   )
@@ -796,7 +796,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
     if (measurementState.measurements.length > 1) {
       const consistentPair = checkLastTwoMeasurements(
         measurementState.measurements,
-        options.screenSizeConsistencyThreshold,
+        options.calibrateDistanceAllowedRatioPxPerCm,
       )
 
       if (consistentPair) {
@@ -844,7 +844,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
           measurementState.measurements[secondLastIdx].ppi / 2.54
         const newPxPerCm = measurementState.measurements[lastIdx].ppi / 2.54
 
-        const T_ss = options.screenSizeConsistencyThreshold || 1.1
+        const T_ss = options.calibrateDistanceAllowedRatioPxPerCm || 1.1
         const ssRoundedPct = Math.round((100 * newPxPerCm) / oldPxPerCm)
         const ssLower = Math.round(100 / T_ss)
         const ssUpper = Math.round(100 * T_ss)

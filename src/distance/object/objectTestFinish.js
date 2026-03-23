@@ -11,6 +11,8 @@
  *   cleanupAllResources(context)     – Full teardown (keyboard, DOM, resize, background)
  */
 
+import Swal from 'sweetalert2'
+
 import { BLINDSPOT_TRANSITION_DELAY_MS, Z_INDEX } from './objectTestConstants'
 import { debugLog, debugError } from './debugLogger'
 import {
@@ -19,6 +21,45 @@ import {
   sanitizeDataObject,
   filterAndRoundSamples,
 } from './calibrationCalculator'
+import { swalInfoOptions } from '../../components/swalOptions'
+import { phrases } from '../../i18n/schema'
+import { processInlineFormatting } from '../markdownInstructionParser'
+import { setUpEasyEyesKeypadHandler } from '../../extensions/keypadHandler'
+
+// ---------------------------------------------------------------------------
+// "Put Your Glasses Back On" screen
+// ---------------------------------------------------------------------------
+
+/**
+ * Show a full-screen prompt asking the participant to put their glasses
+ * back on, with an OK button.  Uses the same Swal styling as the rest
+ * of the distance calibration / check pages.
+ */
+export async function showPutGlassesBackOnScreen(RC) {
+  await Swal.fire({
+    ...swalInfoOptions(RC, { showIcon: false }),
+    confirmButtonText: phrases.RC_ok[RC.L],
+    title:
+      '<p class="heading2">' +
+      processInlineFormatting(phrases.RC_PutYourGlassesBackOn[RC.L]) +
+      '</p>',
+    didOpen: () => {
+      if (RC.keypadHandler) {
+        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+          null,
+          RC.keypadHandler,
+          () => {
+            removeKeypadHandler()
+            Swal.clickConfirm()
+          },
+          false,
+          ['space'],
+          RC,
+        )
+      }
+    },
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -655,6 +696,7 @@ export async function finishObjectTest(context) {
         RC.newViewingDistanceData = medianData
 
         if (options.calibrateDistanceCheckBool) {
+          RC._showPutGlassesBackOn = true
           cleanupBeforeCheckDistance(context)
           await RC._checkDistance(
             callback,
@@ -671,13 +713,14 @@ export async function finishObjectTest(context) {
             options.calibrateDistanceSpotXYDeg,
             options.calibrateDistance,
             options.stepperHistory,
-            options.calibrateScreenSizeAllowedRatio,
-            options.calibrateDistanceAllowedRatio,
+            options.calibrateDistanceAllowedRatioPxPerCm,
+            options.calibrateDistanceAllowedRatioFOverWidth,
             options.viewingDistanceWhichEye,
             undefined,
             options.calibrateDistanceCheckMinRulerCm,
           )
         } else {
+          await showPutGlassesBackOnScreen(RC)
           if (typeof callback === 'function') {
             callback(data)
           }
@@ -705,6 +748,7 @@ export async function finishObjectTest(context) {
       checkForProblems(data)
       console.log('=== END DEBUG ===')
 
+      RC._showPutGlassesBackOn = true
       cleanupBeforeCheckDistance(context)
       await RC._checkDistance(
         callback,
@@ -721,8 +765,8 @@ export async function finishObjectTest(context) {
         options.calibrateDistanceSpotXYDeg,
         options.calibrateDistance,
         options.stepperHistory,
-        options.calibrateScreenSizeAllowedRatio,
-        options.calibrateDistanceAllowedRatio,
+        options.calibrateDistanceAllowedRatioPxPerCm,
+        options.calibrateDistanceAllowedRatioFOverWidth,
         options.viewingDistanceWhichEye,
         options.saveSnapshots,
         options.calibrateDistanceCheckMinRulerCm,
@@ -747,6 +791,8 @@ export async function finishObjectTest(context) {
 
       checkForProblems(data)
       console.log('=== END DEBUG ===')
+
+      await showPutGlassesBackOnScreen(RC)
 
       if (typeof callback === 'function') {
         callback(data)

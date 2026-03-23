@@ -94,12 +94,15 @@ export async function handleSpaceOnTubeCheck(context) {
   const ratioThresholdFull = options.calibrateDistanceAllowedRatioCm
   const ratioThresholdHalf = options.calibrateDistanceAllowedRatioHalfCm
 
-  let accepted
-  if (!matchHalfLengthBool) {
-    accepted = Math.abs(Math.log10(ratio)) <= Math.log10(ratioThresholdFull)
-  } else {
-    accepted = Math.abs(Math.log10(ratio)) <= Math.log10(ratioThresholdHalf)
-  }
+  const threshold = matchHalfLengthBool
+    ? ratioThresholdHalf
+    : ratioThresholdFull
+  // Round ratio to integer percentage BEFORE testing so the accept/reject
+  // decision is consistent with what the participant sees (e.g. 102%).
+  const pctOfExpected = Math.round(ratio * 100)
+  const lower = Math.round(100 / threshold)
+  const upper = Math.round(100 * threshold)
+  const accepted = pctOfExpected >= lower && pctOfExpected <= upper
 
   console.log(
     `Tube check: accepted=${accepted}, threshold=${matchHalfLengthBool ? ratioThresholdHalf : ratioThresholdFull}`,
@@ -123,8 +126,7 @@ export async function handleSpaceOnTubeCheck(context) {
     await showPage(3)
     setTimeout(() => reattachKeydown(), 0)
   } else {
-    // Rejected – show error message
-    const pctOfExpected = Math.round(ratio * 100)
+    // Rejected – show error message (pctOfExpected already computed above)
     const errorMsg = (phrases.RC_BadMatchToExpectedLength?.[RC.L]).replace(
       '[[NNN]]',
       pctOfExpected.toString(),
@@ -644,7 +646,8 @@ export async function handleSpaceOnPage3(context) {
 
   // ── Tolerance check ───────────────────────────────────────────────────
   const T_focal =
-    options.calibrateDistanceAllowedRatio || DEFAULT_FOCAL_TOLERANCE_RATIO
+    options.calibrateDistanceAllowedRatioFOverWidth ||
+    DEFAULT_FOCAL_TOLERANCE_RATIO
   const prevFOverWidth = locationManager.getPreviousFOverWidth()
   const focalRatio = prevFOverWidth != null ? fOverWidth / prevFOverWidth : 1
   const focalRoundedPct = Math.round(100 * focalRatio)

@@ -180,13 +180,15 @@ export function createObjectTestUI(context) {
   const objectTestCommonData = {
     _calibrateDistance: options.calibrateDistance,
     _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
-    _calibrateDistanceAllowedRatio: options.calibrateDistanceAllowedRatio,
+    _calibrateDistanceAllowedRatioFOverWidth:
+      options.calibrateDistanceAllowedRatioFOverWidth,
     _calibrateDistanceOffsetCm: calibrateDistanceOffsetCm,
     _calibrateDistancePupil: options.calibrateDistancePupil,
     _calibrateDistanceShowRulerUnitsBool:
       options.calibrateDistanceShowRulerUnitsBool,
     _calibrateDistanceTimes: options.objectMeasurementCount,
-    _calibrateScreenSizeAllowedRatio: options.calibrateScreenSizeAllowedRatio,
+    _calibrateDistanceAllowedRatioPxPerCm:
+      options.calibrateDistanceAllowedRatioPxPerCm,
     _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
     _showPerpendicularFeetBool: options.showNearestPointsBool,
     _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
