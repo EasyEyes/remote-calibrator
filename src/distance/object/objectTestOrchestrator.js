@@ -399,6 +399,8 @@ export async function objectTestNew(RC, options, callback = undefined) {
     soundFeedback,
     cameraShutterSound,
     stampOfApprovalSound,
+    isCameraDisconnected: () =>
+      RC.gazeTracker?.isCameraDisconnected?.() ?? false,
   }
 
   // ─── Show initial popup before creating UI ─────────────────────────
@@ -547,6 +549,56 @@ export async function objectTestNew(RC, options, callback = undefined) {
   if (!options.calibrateDistanceCenterYourEyesBool && webgazerFaceFeedbackBox) {
     webgazerFaceFeedbackBox.style.display = 'none'
   }
+
+  // ─── Camera disconnection handling ─────────────────────────────────
+  let cameraDisconnectedDuringTest = false
+
+  const unsubDisconnect = RC.gazeTracker.onCameraDisconnected(() => {
+    cameraDisconnectedDuringTest = true
+    keyboardHandler.detach()
+    debugLog('orchestrator', 'Camera disconnected – keyboard input blocked')
+  })
+
+  const unsubReconnect = RC.gazeTracker.onCameraReconnected(() => {
+    if (!cameraDisconnectedDuringTest) return
+    cameraDisconnectedDuringTest = false
+    debugLog(
+      'orchestrator',
+      'Camera reconnected – discarding current location measurements',
+    )
+
+    const locationManager = deps.locationManager
+    if (locationManager && locationManager.getCurrentIndex() > 0) {
+      locationManager.rejectAndGoBack(1)
+    }
+
+    const faceMeshSamplesPage3 = deps.getFaceMeshSamplesPage3()
+    const meshSamplesDuringPage3 = deps.getMeshSamplesDuringPage3()
+    if (faceMeshSamplesPage3) faceMeshSamplesPage3.length = 0
+    if (meshSamplesDuringPage3) meshSamplesDuringPage3.length = 0
+
+    const resetPageConfig = buildMeasurementPageConfig(
+      locationManager,
+      options.saveSnapshots || false,
+      deps.getPreferRightHandBool(),
+      getOffsetPx(),
+    )
+
+    if (resetPageConfig && deps.measurementPageRenderer) {
+      deps.measurementPageRenderer.showMeasurementPage({
+        ...resetPageConfig,
+        pageNumberOffset: deps.state?.isPaperSelectionMode ? 1 : 0,
+      })
+    }
+
+    keyboardHandler.attach()
+  })
+
+  // Expose unsub functions so objectTestFinish can clean them up
+  context._unsubCameraDisconnect = unsubDisconnect
+  context._unsubCameraReconnect = unsubReconnect
+  deps._unsubCameraDisconnect = unsubDisconnect
+  deps._unsubCameraReconnect = unsubReconnect
 
   // ─── Attach keyboard and show first page ─────────────────────────────
   keyboardHandler.attach()

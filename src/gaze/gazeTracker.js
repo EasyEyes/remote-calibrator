@@ -30,6 +30,11 @@ export default class GazeTracker {
     this._runningVideo = false
 
     this._toFixedN = 1
+
+    this._cameraDisconnected = false
+    this._cameraMonitoringSetUp = false
+    this._onDisconnectCallbacks = new Set()
+    this._onReconnectCallbacks = new Set()
   }
 
   begin({ pipWidthPx }, callback) {
@@ -38,6 +43,7 @@ export default class GazeTracker {
         this.webgazer.begin(this.videoFailed.bind(this))
         this._running.gaze = true
         this._runningVideo = true
+        this.setupCameraMonitoring()
       }
 
       checkWebgazerReady(
@@ -56,6 +62,7 @@ export default class GazeTracker {
       if (!this._runningVideo) {
         this.webgazer.beginVideo(this.videoFailed.bind(this))
         this._runningVideo = true
+        this.setupCameraMonitoring()
       }
 
       checkWebgazerReady(
@@ -293,4 +300,49 @@ GazeTracker.prototype.showVideo = function (show) {
 
 GazeTracker.prototype.showFaceOverlay = function (show) {
   this.webgazer.showFaceOverlay(show)
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Camera disconnect / reconnect monitoring                                  */
+/* -------------------------------------------------------------------------- */
+
+GazeTracker.prototype.setupCameraMonitoring = function () {
+  if (this._cameraMonitoringSetUp) return
+  this._cameraMonitoringSetUp = true
+
+  this.webgazer.setOnCameraDisconnected((message) => {
+    console.warn('GazeTracker: Camera disconnected -', message)
+    this._cameraDisconnected = true
+    this._onDisconnectCallbacks.forEach(fn => fn(message))
+  })
+
+  this.webgazer.setOnCameraReconnected(() => {
+    console.log('GazeTracker: Camera reconnected')
+    this._cameraDisconnected = false
+    this._onReconnectCallbacks.forEach(fn => fn())
+  })
+}
+
+/**
+ * Register a callback for camera disconnection.
+ * @param {Function} fn - Called with (message) when camera disconnects
+ * @returns {Function} Unsubscribe function
+ */
+GazeTracker.prototype.onCameraDisconnected = function (fn) {
+  this._onDisconnectCallbacks.add(fn)
+  return () => this._onDisconnectCallbacks.delete(fn)
+}
+
+/**
+ * Register a callback for successful camera reconnection.
+ * @param {Function} fn - Called with no args when camera reconnects
+ * @returns {Function} Unsubscribe function
+ */
+GazeTracker.prototype.onCameraReconnected = function (fn) {
+  this._onReconnectCallbacks.add(fn)
+  return () => this._onReconnectCallbacks.delete(fn)
+}
+
+GazeTracker.prototype.isCameraDisconnected = function () {
+  return this._cameraDisconnected
 }

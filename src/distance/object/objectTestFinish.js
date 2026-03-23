@@ -914,6 +914,14 @@ export function cleanupAllResources(context) {
   clearMeasurementOverlay()
   removeBigCircle()
 
+  // Unsubscribe camera disconnect/reconnect handlers
+  if (typeof context._unsubCameraDisconnect === 'function') {
+    context._unsubCameraDisconnect()
+  }
+  if (typeof context._unsubCameraReconnect === 'function') {
+    context._unsubCameraReconnect()
+  }
+
   // Clean up background
   RC._removeBackground()
 }
@@ -962,6 +970,13 @@ export function breakAndRestart(context, objectTestFn) {
   }
   if (buttonContainer?.parentNode) {
     buttonContainer.parentNode.removeChild(buttonContainer)
+  }
+
+  if (typeof context._unsubCameraDisconnect === 'function') {
+    context._unsubCameraDisconnect()
+  }
+  if (typeof context._unsubCameraReconnect === 'function') {
+    context._unsubCameraReconnect()
   }
 
   objectTestFn(RC, options, callback)

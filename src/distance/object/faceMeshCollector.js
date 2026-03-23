@@ -37,6 +37,12 @@ export async function collectFaceMeshSamples(
   samplesArr.length = 0
 
   for (let i = 0; i < FACE_MESH_SAMPLE_COUNT; i++) {
+    if (RC.gazeTracker?.isCameraDisconnected?.()) {
+      debugWarn('faceMesh', 'Camera disconnected during sample collection, aborting')
+      samplesArr.length = 0
+      return
+    }
+
     try {
       const pxDist = await measureIntraocularDistancePx(
         RC,
