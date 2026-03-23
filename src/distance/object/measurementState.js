@@ -30,17 +30,17 @@ function checkLastTwoMeasurements(measurements, threshold) {
 
   // Round to integer percentage before testing so the accept/reject
   // decision is consistent with what the participant sees.
-  const ratio = Math.max(m1Cm / m2Cm, m2Cm / m1Cm)
-  const roundedRatio = Math.round(ratio * 100) / 100
-  const roundedMaxThreshold = Math.round(Math.max(threshold, 1 / threshold))
+  const roundedPct = Math.round((100 * m2Cm) / m1Cm)
+  const lower = Math.round(100 / threshold)
+  const upper = Math.round(100 * threshold)
 
   debugLog(
     'measurementState',
     `Checking last two: M1=${m1Cm.toFixed(1)}cm, M2=${m2Cm.toFixed(1)}cm, ` +
-      `ratio=${roundedRatio}%, maxThreshold=${roundedMaxThreshold}`,
+      `ratio=${roundedPct}%, interval=[${lower}%, ${upper}%]`,
   )
 
-  if (roundedRatio <= roundedMaxThreshold) {
+  if (roundedPct >= lower && roundedPct <= upper) {
     debugLog('measurementState', 'Last two measurements are consistent')
     return { indices: [secondLastIndex, lastIndex], values: [m1Cm, m2Cm] }
   }

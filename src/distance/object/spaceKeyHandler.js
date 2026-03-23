@@ -94,16 +94,15 @@ export async function handleSpaceOnTubeCheck(context) {
   const ratioThresholdFull = options.calibrateDistanceAllowedRatioCm
   const ratioThresholdHalf = options.calibrateDistanceAllowedRatioHalfCm
 
-  // Round ratio to integer percentage BEFORE testing so the accept/reject
-  // decision is consistent with what the participant sees (e.g. 102%).
-  const roundedRatio = Math.round(ratio * 100) / 100
-  const log10Ratio = Math.abs(Math.log10(roundedRatio))
-  const pctOfExpected = roundedRatio * 100
   const threshold = matchHalfLengthBool
     ? ratioThresholdHalf
     : ratioThresholdFull
-  const log10Threshold = Math.abs(Math.log10(threshold))
-  const accepted = log10Ratio <= log10Threshold
+  // Round ratio to integer percentage BEFORE testing so the accept/reject
+  // decision is consistent with what the participant sees (e.g. 102%).
+  const pctOfExpected = Math.round(ratio * 100)
+  const lower = Math.round(100 / threshold)
+  const upper = Math.round(100 * threshold)
+  const accepted = pctOfExpected >= lower && pctOfExpected <= upper
 
   console.log(
     `Tube check: accepted=${accepted}, threshold=${matchHalfLengthBool ? ratioThresholdHalf : ratioThresholdFull}`,

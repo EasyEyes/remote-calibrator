@@ -1039,11 +1039,13 @@ export function createPageController(deps) {
     const m1Cm = measurements[secondLastIndex].objectLengthCm
     const m2Cm = measurements[lastIndex].objectLengthCm
 
-    const ratio = Math.max(m1Cm / m2Cm, m2Cm / m1Cm)
-    const roundedRatio = Math.round(ratio * 100) / 100
-    const roundedMaxThreshold = Math.round(Math.max(threshold, 1 / threshold))
+    // Round to integer percentage before testing so the accept/reject
+    // decision is consistent with what the participant sees.
+    const roundedPct = Math.round((100 * m2Cm) / m1Cm)
+    const lower = Math.round(100 / threshold)
+    const upper = Math.round(100 * threshold)
 
-    if (roundedRatio <= roundedMaxThreshold) {
+    if (roundedPct >= lower && roundedPct <= upper) {
       return { indices: [secondLastIndex, lastIndex], values: [m1Cm, m2Cm] }
     }
     return null
