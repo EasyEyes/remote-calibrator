@@ -160,13 +160,22 @@ export const showResolutionSettingMessage = RC => {
       .replace('[[M55]]', requestedHeight)
       .replace('[[M66]]', requestedFrameRate)
 
-    messageContainer.innerHTML = processInlineFormatting(text).replace(/\n/g, '<br>')
+    messageContainer.innerHTML = processInlineFormatting(text).replace(
+      /\n/g,
+      '<br>',
+    )
 
     document.body.appendChild(messageContainer)
     console.log(
       '📹 Showing resolution setting message:',
-      'current=', cameraInfo,
-      'requested=', { width: requestedWidth, height: requestedHeight, frameRate: requestedFrameRate },
+      'current=',
+      cameraInfo,
+      'requested=',
+      {
+        width: requestedWidth,
+        height: requestedHeight,
+        frameRate: requestedFrameRate,
+      },
     )
   } catch (error) {
     console.error('📹 Error showing resolution setting message:', error)
@@ -457,7 +466,7 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
     if (videoParams) {
       console.log(
         `Skipping resolution warning — user requested ${desiredRes[0]}x${desiredRes[1]} @ ${desiredHz}Hz, ` +
-        `got ${videoParams.width}x${videoParams.height}`,
+          `got ${videoParams.width}x${videoParams.height}`,
       )
     }
     return true
@@ -505,7 +514,9 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
 
       await Swal.fire({
         ...swalInfoOptions(RC, { showIcon: false }),
-        title: processInlineFormatting(phrases.RC_ImprovingCameraResolutionTitle[RC.L]),
+        title: processInlineFormatting(
+          phrases.RC_ImprovingCameraResolutionTitle[RC.L],
+        ),
         html: `
             <div style="text-align: left; margin: 1rem 0; padding: 0;">
               <p style="margin: 0; padding: 0; text-align: left; font-style: normal;"> ${processInlineFormatting(phrases.RC_ImprovingCameraResolution[RC.L].replace('𝟙𝟙𝟙', width).replace('𝟚𝟚𝟚', height))}</p>

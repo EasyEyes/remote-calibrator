@@ -722,9 +722,10 @@ export function renderStepInstructions({
     const alreadyRead = readPhraseKeys && readPhraseKeys.has(readFirstPhraseKey)
     const maxIdx = totalFlatSteps > 0 ? totalFlatSteps - 1 : 0
     const reachedEnd = safeFlatIndex >= maxIdx
-    const noteText = (alreadyRead || reachedEnd)
-      ? phrases.EE_AlreadyRead?.[lang] || ''
-      : phrases.EE_ReadInstructionsToEndBeforeMakingSetting?.[lang] || ''
+    const noteText =
+      alreadyRead || reachedEnd
+        ? phrases.EE_AlreadyRead?.[lang] || ''
+        : phrases.EE_ReadInstructionsToEndBeforeMakingSetting?.[lang] || ''
 
     if (noteText) {
       const readNote = document.createElement('div')
@@ -938,15 +939,18 @@ export function fitStepperBoxToHeight(
     // Set on the stepper box itself
     stepperBox.style.fontSize = px
     stepperBox.style.lineHeight = '1.35'
-    stepperBox.style.padding =
-      `${fontSize * 0.42}px ${fontSize * 1.1}px ${fontSize * 0.42}px ${fontSize * 0.42}px`
+    stepperBox.style.padding = `${fontSize * 0.42}px ${fontSize * 1.1}px ${fontSize * 0.42}px ${fontSize * 0.42}px`
 
     // Override ancestor containers (leftText, leftColumn) that may carry
     // their own clamp()-based font-size which would prevent inheritance.
     let el = stepperBox.parentElement
     while (el) {
       // Stop once we leave the stepper's immediate layout ancestors
-      if (el.id === 'check-dist-scalable-wrapper' || el.id === 'instruction-body') break
+      if (
+        el.id === 'check-dist-scalable-wrapper' ||
+        el.id === 'instruction-body'
+      )
+        break
       if (el.classList?.contains('rc-hand-preference-selector')) break
       el.style.fontSize = px
       el.style.lineHeight = '1.35'

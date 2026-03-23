@@ -861,6 +861,15 @@ function cleanupBeforeCheckDistance(context) {
   }
 
   document.removeEventListener('keydown', handlePaperStepperNav)
+
+  // Unsubscribe camera disconnect/reconnect handlers so they don't fire
+  // during the subsequent _checkDistance / equipment page.
+  if (typeof context._unsubCameraDisconnect === 'function') {
+    context._unsubCameraDisconnect()
+  }
+  if (typeof context._unsubCameraReconnect === 'function') {
+    context._unsubCameraReconnect()
+  }
 }
 
 // ---------------------------------------------------------------------------

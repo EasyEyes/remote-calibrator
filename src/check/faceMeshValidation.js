@@ -274,7 +274,11 @@ export const validateFaceMeshSamples = async (
   }
 }
 
-export const showFaceBlockedPopup = async (RC, capturedImage, saveSnapshots) => {
+export const showFaceBlockedPopup = async (
+  RC,
+  capturedImage,
+  saveSnapshots,
+) => {
   // Hide video container when popup opens
   const videoContainer = document.getElementById('webgazerVideoContainer')
   let originalVideoDisplay = null

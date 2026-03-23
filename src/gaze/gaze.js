@@ -52,7 +52,7 @@ RemoteCalibrator.prototype.trackGaze = async function (
       headline: `👀 ${phrases.RC_gazeTrackingTitle[this.L]}`,
       description: phrases.RC_gazeTrackingIntro[this.L],
       calibrateDistanceCameraResolution: undefined, // [width, height] e.g. [1920, 1080]
-      calibrateDistanceCameraHz: undefined,          // frame rate e.g. 30
+      calibrateDistanceCameraHz: undefined, // frame rate e.g. 30
     },
     trackGazeOptions,
   )

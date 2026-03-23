@@ -128,7 +128,10 @@ export const updateViewingDistanceDiv = (distance, units) => {
 }
 
 // Function to create the progress bar div
-export const createProgressBar = (RC, calibrateDistanceChecking = undefined) => {
+export const createProgressBar = (
+  RC,
+  calibrateDistanceChecking = undefined,
+) => {
   // Check if the progress bar already exists
   if (document.getElementById('custom-progress-bar')) {
     console.warn('Progress bar already exists.')
@@ -196,7 +199,10 @@ export const updateProgressBar = (progress, current, total) => {
 }
 
 // Function to remove the progress bar
-export const removeProgressBar = (RC, calibrateDistanceChecking = undefined) => {
+export const removeProgressBar = (
+  RC,
+  calibrateDistanceChecking = undefined,
+) => {
   // Teardown resize/fullscreen listeners from distance check
   if (RC._distanceCheckFontCleanup) {
     RC._distanceCheckFontCleanup()

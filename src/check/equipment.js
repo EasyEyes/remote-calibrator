@@ -16,6 +16,23 @@ RemoteCalibrator.prototype.getEquipment = async function (
   const video = document.querySelector('#webgazerVideoContainer')
   if (video) video.style.zIndex = 9999999999
   this.showVideo(false)
+  console.log('[Equipment] Video hidden on equipment page entry')
+
+  // Keep video hidden if camera reconnects while the equipment page is open.
+  // WebGazer's setCameraConstraints → resume() restarts the prediction loop,
+  // which can make the video feed reappear even though we explicitly hid it.
+  let unsubReconnect = null
+  if (this.gazeTracker?._initialized?.distance || this.gazeTracker?._initialized?.gaze) {
+    unsubReconnect = this.gazeTracker.onCameraReconnected(() => {
+      console.log('[Equipment] Camera reconnected while on equipment page — re-hiding video')
+      this.showVideo(false)
+      const vc = document.querySelector('#webgazerVideoContainer')
+      if (vc) {
+        vc.style.display = 'none'
+        vc.style.opacity = '0'
+      }
+    })
+  }
 
   const lang = this.language.value
 
@@ -181,10 +198,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
     const v = lengthInput.value
     if (v && !isNaN(v) && parseInt(v) > 0) {
       if (currentMinimum != null && Number(v) < currentMinimum) {
-        const msg = (
-          phrases.RC_tooShort?.[lang] ||
-          'Too short!'
-        )
+        const msg = (phrases.RC_tooShort?.[lang] || 'Too short!')
           .replace(/\[\[N1\]\]/g, currentMinimum)
           .replace(/\[\[AAA\]\]/g, selectedUnit)
         tooShortMsg.textContent = msg
@@ -216,9 +230,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
         const distCheckCm = this._calibrateDistanceCheckCmForEquipment || []
         const minRulerCm = this._calibrateDistanceCheckMinRulerCm || 0
         const maxDistCm =
-          distCheckCm.length > 0
-            ? Math.max(...distCheckCm.map(Number))
-            : 0
+          distCheckCm.length > 0 ? Math.max(...distCheckCm.map(Number)) : 0
         const n1 = minRulerCm > 0 ? Math.round(minRulerCm / cmPerUnit) : ''
         const n2 = maxDistCm > 0 ? Math.round(maxDistCm / cmPerUnit) : ''
         currentMinimum = n1 !== '' ? n1 : null
@@ -228,7 +240,10 @@ RemoteCalibrator.prototype.getEquipment = async function (
           .replace(/AAA/g, selectedUnit)
           .replace(/\[\[N1\]\]/g, n1)
           .replace(/\[\[N2\]\]/g, n2)
-        q2Label.innerHTML = processInlineFormatting(howLongText).replace(/(?:\r\n|\r|\n)/g, '<br>')
+        q2Label.innerHTML = processInlineFormatting(howLongText).replace(
+          /(?:\r\n|\r|\n)/g,
+          '<br>',
+        )
         lengthInput.focus()
       }
       updateProceedButton()
@@ -300,6 +315,13 @@ RemoteCalibrator.prototype.getEquipment = async function (
     data.value.length = result.length
   }
   this.newEquipmentData = data
+
+  // Stop suppressing video now that the equipment page is done
+  if (unsubReconnect) {
+    unsubReconnect()
+    unsubReconnect = null
+  }
+  console.log('[Equipment] Equipment page complete, video suppression lifted')
 
   // Show video again and position properly
   this.showVideo(true)

@@ -306,8 +306,8 @@ export function fitContentToAvailableSpace({
     }
 
     const spaceForComponents = Math.max(0, totalAvail - navHintH)
-    const STEPPER_FRAC = 0.70
-    const HAND_FRAC = 0.30
+    const STEPPER_FRAC = 0.7
+    const HAND_FRAC = 0.3
     const stepperBudget = handSelector
       ? spaceForComponents * STEPPER_FRAC
       : spaceForComponents

@@ -65,7 +65,10 @@ export const removeDistancePageArrowIndicators = () => {
   })
 }
 
-export const repositionVideoForCameraMonitoring = (RC, calibrateDistanceChecking) => {
+export const repositionVideoForCameraMonitoring = (
+  RC,
+  calibrateDistanceChecking,
+) => {
   if (!RC || !calibrateDistanceChecking) return
 
   const videoContainer = document.getElementById('webgazerVideoContainer')

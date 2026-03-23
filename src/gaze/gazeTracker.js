@@ -133,8 +133,16 @@ export default class GazeTracker {
 }
 
 GazeTracker.prototype._init = function (
-  { greedyLearner, framerate, toFixedN, showVideo, showFaceOverlay, showGazer,
-    desiredCameraResolution, desiredCameraHz },
+  {
+    greedyLearner,
+    framerate,
+    toFixedN,
+    showVideo,
+    showFaceOverlay,
+    showGazer,
+    desiredCameraResolution,
+    desiredCameraHz,
+  },
   task,
 ) {
   if (!this.checkInitialized(task)) {
@@ -310,14 +318,20 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
   if (this._cameraMonitoringSetUp) return
   this._cameraMonitoringSetUp = true
 
-  this.webgazer.setOnCameraDisconnected((message) => {
+  this.webgazer.setOnCameraDisconnected(message => {
     console.warn('GazeTracker: Camera disconnected -', message)
     this._cameraDisconnected = true
     this._onDisconnectCallbacks.forEach(fn => fn(message))
   })
 
   this.webgazer.setOnCameraReconnected(() => {
-    console.log('GazeTracker: Camera reconnected')
+    const vc = document.getElementById('webgazerVideoContainer')
+    console.log('GazeTracker: Camera reconnected', {
+      showVideoParam: this.webgazer.params.showVideo,
+      videoContainerDisplay: vc?.style?.display,
+      videoContainerOpacity: vc?.style?.opacity,
+      subscriberCount: this._onReconnectCallbacks.size,
+    })
     this._cameraDisconnected = false
     this._onReconnectCallbacks.forEach(fn => fn())
   })
