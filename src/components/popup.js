@@ -71,7 +71,7 @@ export const showCameraTitleInTopRight = (
     titleH1.style.cssText = `
       margin: 0;
       padding: 0;
-      font-size: clamp(28px, 6vw, 36px);
+      font-size: clamp(16px, 4vw, 36px);
     `
   }
 
@@ -708,14 +708,18 @@ const createCameraPreviews = async (
     return '<p style="color: #666; font-style: italic;">No cameras detected</p>'
   }
 
-  // Get the size of the main video preview for reference
+  // Responsive preview sizing: max matches original, scales down for small windows
   const videoContainer = document.getElementById('webgazerVideoContainer')
-  const previewSize = videoContainer
-    ? {
-        width: `calc(${videoContainer.style.width || '320px'} * 0.85)`,
-        height: videoContainer.style.height || '240px',
-      }
-    : { width: '272px', height: '240px' } // 320px * 0.85 = 272px
+  const maxW = videoContainer
+    ? Math.round(parseInt(videoContainer.style.width || '320') * 0.85)
+    : 272
+  const maxH = videoContainer
+    ? parseInt(videoContainer.style.height || '240')
+    : 240
+  const previewSize = {
+    width: `clamp(120px, 18vw, ${maxW}px)`,
+    height: `clamp(90px, 13.5vw, ${maxH}px)`,
+  }
 
   let previewsHTML =
     '<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 0; justify-content: center; align-items: center; width: 100%;">'
@@ -1069,7 +1073,19 @@ export const showCameraSelectionPopup = async (
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title: '', // Remove the default title since we're adding our own
-    html: `${cameraPreviewsHTML}<br><div style="background: transparent; padding: 1rem; margin-top: 1rem;">${processInlineFormatting(message || '')}</div>`,
+    html: `
+      <div style="display: flex; flex-direction: column; align-items: center; height: 100%; max-height: 100vh; overflow: hidden; box-sizing: border-box;">
+        <div style="flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%;">
+          ${cameraPreviewsHTML}
+        </div>
+        <div id="rc-camera-instruction-text" style="background: transparent; padding: 0.5rem 1rem; margin-top: 0.5rem; flex-shrink: 0; text-align: center;">${processInlineFormatting(message || '')}</div>
+        <div style="text-align: center; margin-top: 0.5rem; flex-shrink: 0; padding-bottom: 0.5rem;">
+          <button id="rc-choose-another-screen-btn" class="rc-button" style="font-size: 0.85rem !important; padding: 0.35rem 1rem !important; background: #999 !important;">
+            ${phrases.RC_ChooseAnotherScreenButton?.[RC.L]}
+          </button>
+        </div>
+      </div>
+    `,
     showConfirmButton: false,
     allowEnterKey: false, // To be changed
     // Dynamic popup width based on number of cameras
@@ -1086,17 +1102,58 @@ export const showCameraSelectionPopup = async (
       confirmButton: 'rc-button rc-go-button',
     },
     didOpen: () => {
-      // Make popup seamless with background
+      // Make popup seamless with background and responsive
       const popup = Swal.getPopup()
       if (popup) {
         popup.style.boxShadow = 'none'
         popup.style.border = 'none'
         popup.style.outline = 'none'
         popup.style.borderRadius = '0'
+        popup.style.maxHeight = '100vh'
+        popup.style.overflow = 'hidden'
+      }
+      const htmlContainer = popup?.querySelector('.swal2-html-container')
+      if (htmlContainer) {
+        htmlContainer.style.maxHeight = 'calc(100vh - 2rem)'
+        htmlContainer.style.overflow = 'hidden'
       }
 
       // Show the camera title now that the popup is visible
       showCameraTitleInTopRight(RC, titleKey)
+
+      // --- "Choose another screen" / "Choose this screen" toggle ---
+      let isInChooseAnotherScreenMode = false
+      const screenBtn = document.getElementById('rc-choose-another-screen-btn')
+      const instructionDiv = document.getElementById('rc-camera-instruction-text')
+      const originalMessage = processInlineFormatting(message || '')
+
+      if (screenBtn) {
+        screenBtn.onclick = async () => {
+          if (!isInChooseAnotherScreenMode) {
+            // Switch to "drag to another screen" mode
+            isInChooseAnotherScreenMode = true
+            await exitFullscreen()
+            if (instructionDiv) {
+              instructionDiv.innerHTML = processInlineFormatting(
+                phrases.RC_DragToAnotherScreen?.[RC.L]
+              )
+            }
+            screenBtn.textContent =
+              phrases.RC_ChooseThisScreenButton?.[RC.L]
+            screenBtn.style.background = '#019267'
+          } else {
+            // Restore to camera selection mode
+            isInChooseAnotherScreenMode = false
+            await getFullscreen(RC.L, RC)
+            if (instructionDiv) {
+              instructionDiv.innerHTML = originalMessage
+            }
+            screenBtn.textContent =
+              phrases.RC_ChooseAnotherScreenButton?.[RC.L]
+            screenBtn.style.background = '#999'
+          }
+        }
+      }
 
       // Store initial cameras for comparison
       let currentCameras = [...cameras]
@@ -1225,6 +1282,9 @@ export const showCameraSelectionPopup = async (
         }
 
         if (event.key === 'Enter' || event.key === 'Return') {
+          // Ignore while not in fullscreen (participant is dragging window)
+          if (!isFullscreen()) return
+
           // Prevent action if already loading
           if (RC.cameraSelectionLoading) {
             return
@@ -1397,6 +1457,9 @@ export const showCameraSelectionPopup = async (
 
           // Click to commit (same as clicking OK)
           container.addEventListener('click', async () => {
+            // Ignore clicks while not in fullscreen (participant is dragging window)
+            if (!isFullscreen()) return
+
             // Prevent action if already loading
             if (RC.cameraSelectionLoading) {
               return
@@ -1834,7 +1897,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   const result = await showCameraSelectionPopup(
     RC,
     '',
-    phrases.RC_ChooseCamera[RC.L],
+    phrases.RC_ImprovingCameraResolution[RC.L],
     conditionalPrivacyCamera,
     onClose,
     'RC_ChooseCameraTitle',
