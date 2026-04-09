@@ -6,6 +6,32 @@ import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
 import { processInlineFormatting } from '../distance/markdownInstructionParser'
 
 /**
+ * Remove parenthesized hex device IDs from camera labels.
+ * e.g. "FaceTime HD Camera (0x1400000005ac8514)" → "FaceTime HD Camera"
+ */
+const _stripHexId = label =>
+  String(label)
+    .replace(/\s*\([0-9a-fA-Fx:]+\)\s*/g, '')
+    .trim()
+
+const _cameraCaptionHTML = (label, resolution) => {
+  const clean = _stripHexId(label)
+  if (!resolution || !resolution.width) return `<div>${clean}</div>`
+  const hz = resolution.frameRate ? `, ${Math.round(resolution.frameRate)} Hz` : ''
+  return `<div>${clean}</div><div>${resolution.width}×${resolution.height}${hz}</div>`
+}
+
+const _updateCaptionInContainer = (container, camera, index) => {
+  const caption = container.querySelector('.rc-camera-caption')
+  if (caption) {
+    caption.innerHTML = _cameraCaptionHTML(
+      camera.label || `Camera ${index + 1}`,
+      camera.resolution,
+    )
+  }
+}
+
+/**
  * Shows the camera selection title in the top right of the webpage
  * @param {Object} RC - RemoteCalibrator instance
  * @param {string} titleKey - title key to retrieve the phrase
@@ -20,33 +46,35 @@ export const showCameraTitleInTopRight = (
     existingTitle.remove()
   }
 
+  const isRTL = RC.LD === RC._CONST.RTL
+
   // Create the title element
   const titleElement = document.createElement('div')
   titleElement.id = 'rc-camera-title-top-right'
+  titleElement.dir = isRTL ? 'rtl' : 'ltr'
   titleElement.innerHTML = `<h1>${processInlineFormatting(phrases[titleKey][RC.L])}</h1>`
 
-  // Add CSS styling - no background, high z-index to appear above popup, positioned on left
   titleElement.style.cssText = `
     position: fixed;
     top: 2rem;
-    left: 3rem;
+    ${isRTL ? 'right' : 'left'}: 3rem;
     z-index: 9999999999;
     color: #000;
     margin: 0;
-    text-align: left;
+    text-align: ${isRTL ? 'right' : 'left'};
+    direction: ${isRTL ? 'rtl' : 'ltr'};
     pointer-events: none;
   `
 
-  // Style the inner h1
   const titleH1 = titleElement.querySelector('h1')
   if (titleH1) {
     titleH1.style.cssText = `
       margin: 0;
       padding: 0;
+      font-size: clamp(28px, 6vw, 36px);
     `
   }
 
-  // Add to the page
   document.body.appendChild(titleElement)
 }
 
@@ -590,8 +618,10 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
       }
 
       // Re-show the resolution setting message after the popup closes
-      // This will stay visible until the calling code hides it
-      showResolutionSettingMessage(RC)
+      // only if _showCameraResolutionBool is not explicitly false
+      if (options._showCameraResolutionBool === true) {
+        showResolutionSettingMessage(RC)
+      }
     }
   }
 
@@ -696,12 +726,14 @@ const createCameraPreviews = async (
     const isActive =
       currentActiveCamera && currentActiveCamera.deviceId === camera.deviceId
 
+    const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
+
     previewsHTML += `
       <div 
         id="camera-preview-container-${i}"
         class="camera-preview-container"
         data-device-id="${camera.deviceId}"
-        data-camera-label="${camera.label || `Camera ${i + 1}`}"
+        data-camera-label="${cleanLabel}"
         style="display: flex; flex-direction: column; align-items: center; margin: 0; padding: 5px; border-radius: 8px; transition: all 0.2s ease; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
       >
         <video 
@@ -711,8 +743,8 @@ const createCameraPreviews = async (
           muted 
           playsinline
         ></video>
-        <div style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; word-wrap: break-word; white-space: normal; color: ${isActive ? '#28a745' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'};">
-          ${camera.label || `Camera ${i + 1}`}
+        <div class="rc-camera-caption" style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; word-wrap: break-word; white-space: normal; color: ${isActive ? '#28a745' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; line-height: 1.4;">
+          <div>${cleanLabel}</div>
         </div>
       </div>
     `
@@ -725,7 +757,7 @@ const createCameraPreviews = async (
     cameras.forEach(async (camera, i) => {
       const videoElement = document.getElementById(`camera-preview-${i}`)
       const container = document.getElementById(`camera-preview-container-${i}`)
-      const labelDiv = container?.querySelector('div[style*="font-size: 12px"]')
+      const captionDiv = container?.querySelector('.rc-camera-caption')
 
       if (videoElement) {
         try {
@@ -763,16 +795,20 @@ const createCameraPreviews = async (
 
           videoElement.srcObject = stream
 
-          // Get resolution and update label
+          // Get resolution + frame rate and update caption
           const videoTrack = stream.getVideoTracks()[0]
-          if (videoTrack && labelDiv) {
+          if (videoTrack && captionDiv) {
             const settings = videoTrack.getSettings()
             const width = settings.width || 0
             const height = settings.height || 0
-            const currentLabel = camera.label || `Camera ${i + 1}`
-            labelDiv.textContent = `${currentLabel}, ${width}×${height}`
+            const frameRate = settings.frameRate
+              ? Math.round(settings.frameRate)
+              : 0
+            const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
+            captionDiv.innerHTML =
+              `<div>${cleanLabel}</div>` +
+              `<div>${width}×${height}${frameRate ? `, ${frameRate} Hz` : ''}</div>`
 
-            // Store resolution for camera switching (skip re-probing)
             camera.resolution = { width, height }
           }
         } catch (error) {
@@ -888,22 +924,16 @@ const updateCameraPreviews = async (
           if (otherContainer) {
             otherContainer.style.backgroundColor = 'transparent'
             otherContainer.style.border = '2px solid transparent'
-            const otherDiv = otherContainer.querySelector('div')
-            if (otherDiv) {
-              otherDiv.style.color = '#666'
-              otherDiv.style.fontWeight = 'normal'
-            }
+            const cap = otherContainer.querySelector('.rc-camera-caption')
+            if (cap) { cap.style.color = '#666'; cap.style.fontWeight = 'normal' }
           }
         })
 
         // Highlight current container as tentative selection
         container.style.backgroundColor = '#e8f5e8'
         container.style.border = '2px solid #28a745'
-        const div = container.querySelector('div')
-        if (div) {
-          div.style.color = '#28a745'
-          div.style.fontWeight = 'bold'
-        }
+        const cap = container.querySelector('.rc-camera-caption')
+        if (cap) { cap.style.color = '#28a745'; cap.style.fontWeight = 'bold' }
 
         // Actually switch to this camera temporarily
         const selectedCamera = newCameras.find(cam => cam.deviceId === deviceId)
@@ -940,36 +970,8 @@ const updateCameraPreviews = async (
           }
         })
 
-        // Add loading text between preview and instruction
-        const loadingText = document.createElement('div')
-        loadingText.id = 'camera-loading-text'
-        loadingText.style.cssText = `
-          text-align: center;
-          color: #666;
-          font-style: italic;
-          margin: 10px 0;
-          font-size: 14px;
-        `
-        loadingText.textContent = phrases.RC_LoadingVideo[RC.L]
-
-        // Insert loading text after the preview container
-        const previewContainer = document.querySelector(
-          '.camera-selection-popup .swal2-html-container',
-        )
-        if (previewContainer) {
-          previewContainer.appendChild(loadingText)
-        }
-
         // Call the same function that OK button would call
         await window.selectCamera(deviceId, label)
-
-        // Remove loading text
-        const loadingTextElement = document.getElementById(
-          'camera-loading-text',
-        )
-        if (loadingTextElement) {
-          loadingTextElement.remove()
-        }
 
         // Close the popup (same as clicking OK)
         Swal.clickConfirm()
@@ -996,8 +998,7 @@ export const showCameraSelectionPopup = async (
   onClose = null,
   titleKey = 'RC_ChooseCameraTitle',
 ) => {
-  // Show the camera title in the top right of the webpage
-  showCameraTitleInTopRight(RC, titleKey)
+  // Title will be shown in didOpen callback to avoid flash before popup renders
 
   // Store current video visibility state
   const originalVideoState = {
@@ -1068,13 +1069,15 @@ export const showCameraSelectionPopup = async (
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title: '', // Remove the default title since we're adding our own
-    html: `${cameraPreviewsHTML}<br><div style="background: white; padding: 1rem; border-radius: 6px; margin-top: 1rem;">${processInlineFormatting(message || '')}</div>`,
+    html: `${cameraPreviewsHTML}<br><div style="background: transparent; padding: 1rem; margin-top: 1rem;">${processInlineFormatting(message || '')}</div>`,
     showConfirmButton: false,
     allowEnterKey: false, // To be changed
     // Dynamic popup width based on number of cameras
     width: dynamicMaxWidth,
-    background: '#eee', // Match standard RC background color
+    background: 'transparent',
     backdrop: '#eee',
+    showClass: { popup: '' },
+    hideClass: { popup: '' },
     customClass: {
       popup: 'my__swal2__container camera-selection-popup camera-no-overlay',
       icon: 'my__swal2__icon',
@@ -1083,6 +1086,18 @@ export const showCameraSelectionPopup = async (
       confirmButton: 'rc-button rc-go-button',
     },
     didOpen: () => {
+      // Make popup seamless with background
+      const popup = Swal.getPopup()
+      if (popup) {
+        popup.style.boxShadow = 'none'
+        popup.style.border = 'none'
+        popup.style.outline = 'none'
+        popup.style.borderRadius = '0'
+      }
+
+      // Show the camera title now that the popup is visible
+      showCameraTitleInTopRight(RC, titleKey)
+
       // Store initial cameras for comparison
       let currentCameras = [...cameras]
       let cameraPollingInterval = null
@@ -1164,29 +1179,18 @@ export const showCameraSelectionPopup = async (
                           camera.deviceId === selectedCamera.deviceId
 
                         if (container) {
-                          const label = camera.label || `Camera ${index + 1}`
-                          const res = camera.resolution
-                            ? `, ${camera.resolution.width}×${camera.resolution.height}`
-                            : ''
-
                           if (isActive) {
                             container.style.backgroundColor = '#e8f5e8'
                             container.style.border = '2px solid #28a745'
-                            container.querySelector('div').style.color =
-                              '#28a745'
-                            container.querySelector('div').style.fontWeight =
-                              'bold'
-                            container.querySelector('div').textContent =
-                              `${label}${res}`
+                            const cap = container.querySelector('.rc-camera-caption')
+                            if (cap) { cap.style.color = '#28a745'; cap.style.fontWeight = 'bold' }
                           } else {
                             container.style.backgroundColor = 'transparent'
                             container.style.border = '2px solid transparent'
-                            container.querySelector('div').style.color = '#666'
-                            container.querySelector('div').style.fontWeight =
-                              'normal'
-                            container.querySelector('div').textContent =
-                              `${label}${res}`
+                            const cap = container.querySelector('.rc-camera-caption')
+                            if (cap) { cap.style.color = '#666'; cap.style.fontWeight = 'normal' }
                           }
+                          _updateCaptionInContainer(container, camera, index)
                         }
                       })
 
@@ -1254,44 +1258,14 @@ export const showCameraSelectionPopup = async (
               }
             })
 
-            // Add loading text between preview and instruction
-            const loadingText = document.createElement('div')
-            loadingText.id = 'camera-loading-text'
-            loadingText.style.cssText = `
-              text-align: center;
-              color: #666;
-              font-style: italic;
-              margin: 10px 0;
-              font-size: 14px;
-            `
-            loadingText.textContent = phrases.RC_LoadingVideo[RC.L]
-
-            // Insert loading text after the preview container
-            const previewContainer = document.querySelector(
-              '.camera-selection-popup .swal2-html-container',
-            )
-            if (previewContainer) {
-              previewContainer.appendChild(loadingText)
-            }
-
             // Call selectCamera and wait for it to complete (same as click handler)
             window
               .selectCamera(hoveredCamera.deviceId, hoveredCamera.label)
               .then(() => {
-                // Remove loading text
-                const loadingTextElement = document.getElementById(
-                  'camera-loading-text',
-                )
-                if (loadingTextElement) {
-                  loadingTextElement.remove()
-                }
-
-                // Close the popup
                 Swal.clickConfirm()
               })
               .catch(error => {
                 console.error('Error selecting camera via Enter key:', error)
-                // Still close the popup on error
                 Swal.clickConfirm()
               })
           } else {
@@ -1350,26 +1324,18 @@ export const showCameraSelectionPopup = async (
                 const isActive = camera.deviceId === selectedCamera.deviceId
 
                 if (container) {
-                  const label = camera.label || `Camera ${index + 1}`
-                  const res = camera.resolution
-                    ? `, ${camera.resolution.width}×${camera.resolution.height}`
-                    : ''
-
                   if (isActive) {
                     container.style.backgroundColor = '#e8f5e8'
                     container.style.border = '2px solid #28a745'
-                    container.querySelector('div').style.color = '#28a745'
-                    container.querySelector('div').style.fontWeight = 'bold'
-                    container.querySelector('div').textContent =
-                      `${label}${res}`
+                    const cap = container.querySelector('.rc-camera-caption')
+                    if (cap) { cap.style.color = '#28a745'; cap.style.fontWeight = 'bold' }
                   } else {
                     container.style.backgroundColor = 'transparent'
                     container.style.border = '2px solid transparent'
-                    container.querySelector('div').style.color = '#666'
-                    container.querySelector('div').style.fontWeight = 'normal'
-                    container.querySelector('div').textContent =
-                      `${label}${res}`
+                    const cap = container.querySelector('.rc-camera-caption')
+                    if (cap) { cap.style.color = '#666'; cap.style.fontWeight = 'normal' }
                   }
+                  _updateCaptionInContainer(container, camera, index)
                 }
               })
 
@@ -1403,22 +1369,16 @@ export const showCameraSelectionPopup = async (
               if (otherContainer) {
                 otherContainer.style.backgroundColor = 'transparent'
                 otherContainer.style.border = '2px solid transparent'
-                const otherDiv = otherContainer.querySelector('div')
-                if (otherDiv) {
-                  otherDiv.style.color = '#666'
-                  otherDiv.style.fontWeight = 'normal'
-                }
+                const cap = otherContainer.querySelector('.rc-camera-caption')
+                if (cap) { cap.style.color = '#666'; cap.style.fontWeight = 'normal' }
               }
             })
 
             // Highlight current container as tentative selection
             container.style.backgroundColor = '#e8f5e8'
             container.style.border = '2px solid #28a745'
-            const div = container.querySelector('div')
-            if (div) {
-              div.style.color = '#28a745'
-              div.style.fontWeight = 'bold'
-            }
+            const cap = container.querySelector('.rc-camera-caption')
+            if (cap) { cap.style.color = '#28a745'; cap.style.fontWeight = 'bold' }
 
             // Actually switch to this camera temporarily
             const selectedCamera = cameras.find(
@@ -1459,36 +1419,8 @@ export const showCameraSelectionPopup = async (
               }
             })
 
-            // Add loading text between preview and instruction
-            const loadingText = document.createElement('div')
-            loadingText.id = 'camera-loading-text'
-            loadingText.style.cssText = `
-              text-align: center;
-              color: #666;
-              font-style: italic;
-              margin: 10px 0;
-              font-size: 14px;
-            `
-            loadingText.textContent = phrases.RC_LoadingVideo[RC.L]
-
-            // Insert loading text after the preview container
-            const previewContainer = document.querySelector(
-              '.camera-selection-popup .swal2-html-container',
-            )
-            if (previewContainer) {
-              previewContainer.appendChild(loadingText)
-            }
-
             // Call the same function that OK button would call
             await window.selectCamera(deviceId, label)
-
-            // Remove loading text
-            const loadingTextElement = document.getElementById(
-              'camera-loading-text',
-            )
-            if (loadingTextElement) {
-              loadingTextElement.remove()
-            }
 
             // Close the popup (same as clicking OK)
             Swal.clickConfirm()
@@ -1544,26 +1476,6 @@ export const showCameraSelectionPopup = async (
           // Set loading state
           RC.cameraSelectionLoading = true
 
-          // Add loading text between preview and instruction
-          const loadingText = document.createElement('div')
-          loadingText.id = 'camera-loading-text'
-          loadingText.style.cssText = `
-            text-align: center;
-            color: #666;
-            font-style: italic;
-            margin: 10px 0;
-            font-size: 14px;
-          `
-          loadingText.textContent = phrases.RC_LoadingVideo[RC.L]
-
-          // Insert loading text after the preview container
-          const previewContainer = document.querySelector(
-            '.camera-selection-popup .swal2-html-container',
-          )
-          if (previewContainer) {
-            previewContainer.appendChild(loadingText)
-          }
-
           // Disable all preview containers during switching
           cameras.forEach((camera, index) => {
             const container = document.getElementById(
@@ -1579,50 +1491,11 @@ export const showCameraSelectionPopup = async (
             const success = await switchToCamera(RC, selectedCamera)
 
             if (success) {
-              // Store the selected camera for return
               RC.selectedCamera = selectedCamera
-
-              // Remove loading text
-              const loadingTextElement = document.getElementById(
-                'camera-loading-text',
-              )
-              if (loadingTextElement) {
-                loadingTextElement.remove()
-              }
-
-              // Close the popup immediately after successful switch
               Swal.clickConfirm()
-            } else {
-              // Remove loading text on error
-              const loadingTextElement = document.getElementById(
-                'camera-loading-text',
-              )
-              if (loadingTextElement) {
-                loadingTextElement.remove()
-              }
-
-              // Show error status immediately
-              if (statusDiv) {
-                statusDiv.innerHTML = '✗ Failed to switch camera'
-                statusDiv.style.color = '#dc3545'
-              }
             }
           } catch (error) {
             console.error('Camera switch error:', error)
-
-            // Remove loading text on error
-            const loadingTextElement = document.getElementById(
-              'camera-loading-text',
-            )
-            if (loadingTextElement) {
-              loadingTextElement.remove()
-            }
-
-            // Show error status immediately
-            if (statusDiv) {
-              statusDiv.innerHTML = '✗ Failed to switch camera'
-              statusDiv.style.color = '#dc3545'
-            }
           }
         }
       }
@@ -1805,6 +1678,83 @@ const showNoCameraPopup = async (
 }
 
 /**
+ * After camera is selected: enter fullscreen, apply resolution constraints,
+ * and optionally show the original/final resolution with an OK button.
+ */
+const _handlePostCameraResolution = async (RC, options) => {
+  // Capture original resolution BEFORE applying constraints
+  const origInfo = getCameraInfo(RC)
+
+  // Brief "Setting..." message while resolution is being applied
+  // (only shown when _showCameraResolutionBool is true, so the participant
+  //  knows something is happening)
+  if (options._showCameraResolutionBool) {
+    showResolutionSettingMessage(RC)
+  }
+
+  // Force fullscreen
+  try {
+    await getFullscreen(RC.L, RC)
+  } catch (error) {
+    console.warn('Failed to enter fullscreen after camera selection:', error)
+  }
+
+  // Apply resolution constraints
+  await checkResolutionAfterSelection(RC, options)
+
+  // Now get the FINAL resolution after constraints are applied
+  const finalInfo = getCameraInfo(RC)
+
+  // Always hide the brief "Setting..." message
+  hideResolutionSettingMessage()
+
+  if (options._showCameraResolutionBool) {
+    const lang = RC?.L || RC?.language?.value || 'en-US'
+    let text =
+      phrases?.RC_SettingWebcamResolution?.[lang] ||
+      phrases?.RC_SettingWebcamResolution?.['en-US'] ||
+      'Setting webcam resolution ...\nCurrently [[M11]]×[[M22]], [[M33]] Hz\nRequested [[M44]]×[[M55]], [[M66]] Hz'
+
+    text = text
+      .replace('[[M11]]', origInfo.width || '?')
+      .replace('[[M22]]', origInfo.height || '?')
+      .replace('[[M33]]', origInfo.frameRate || '?')
+      .replace('[[M44]]', finalInfo.width || '?')
+      .replace('[[M55]]', finalInfo.height || '?')
+      .replace('[[M66]]', finalInfo.frameRate || '?')
+
+    await Swal.fire({
+      ...swalInfoOptions(RC, { showIcon: false }),
+      icon: undefined,
+      title: '',
+      html: `<div style="text-align: center; color: #666; font-style: normal; font-size: 1.6rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; line-height: 1.6;">${processInlineFormatting(text).replace(/\n/g, '<br>')}</div>`,
+      confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
+      allowEnterKey: true,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      background: 'transparent',
+      backdrop: '#eee',
+      showClass: { popup: '' },
+      hideClass: { popup: '' },
+      customClass: {
+        popup: 'my__swal2__container',
+        confirmButton: 'rc-button rc-go-button',
+      },
+      didOpen: () => {
+        const popup = Swal.getPopup()
+        if (popup) {
+          popup.style.boxShadow = 'none'
+          popup.style.border = 'none'
+          popup.style.padding = '0'
+        }
+        const confirmBtn = Swal.getConfirmButton()
+        if (confirmBtn) confirmBtn.focus()
+      },
+    })
+  }
+}
+
+/**
  * Shows a unified popup for all tests with camera selection
  * @param {Object} RC - RemoteCalibrator instance
  * @param {Function} onClose - Callback function when popup is closed
@@ -1863,30 +1813,12 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       phrases.RC_NeedCamera[RC.L],
       conditionalPrivacyCamera,
       onClose,
-      'RC_NeedCameraTitle',
+      'RC_ChooseCameraTitle',
     )
 
     // After camera selection, force fullscreen and check resolution if a camera was selected
     if (result.selectedCamera) {
-      // Show the resolution setting message on the white page
-      // This message will stay visible until the calling code (e.g., objectTest, blindSpotTestNew)
-      // explicitly hides it when they're ready to display their UI
-      showResolutionSettingMessage(RC)
-
-      // Force fullscreen when camera is selected
-      try {
-        await getFullscreen(RC.L, RC)
-        console.log('Entered fullscreen after camera selection')
-      } catch (error) {
-        console.warn(
-          'Failed to enter fullscreen after camera selection:',
-          error,
-        )
-      }
-
-      await checkResolutionAfterSelection(RC, options)
-      // Note: Resolution message is intentionally NOT hidden here
-      // It will be hidden by the calling code when they're ready to display UI
+      await _handlePostCameraResolution(RC, options)
     }
 
     // Final safety cleanup - ensure camera polling is stopped
@@ -1910,22 +1842,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
 
   // After camera selection, force fullscreen and check resolution if a camera was selected
   if (result.selectedCamera) {
-    // Show the resolution setting message on the white page
-    // This message will stay visible until the calling code (e.g., objectTest, blindSpotTestNew)
-    // explicitly hides it when they're ready to display their UI
-    showResolutionSettingMessage(RC)
-
-    // Force fullscreen when camera is selected
-    try {
-      await getFullscreen(RC.L, RC)
-      console.log('Entered fullscreen after camera selection')
-    } catch (error) {
-      console.warn('Failed to enter fullscreen after camera selection:', error)
-    }
-
-    await checkResolutionAfterSelection(RC, options)
-    // Note: Resolution message is intentionally NOT hidden here
-    // It will be hidden by the calling code when they're ready to display UI
+    await _handlePostCameraResolution(RC, options)
   }
 
   // Final safety cleanup - ensure camera polling is stopped
