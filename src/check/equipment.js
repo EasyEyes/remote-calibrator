@@ -22,9 +22,14 @@ RemoteCalibrator.prototype.getEquipment = async function (
   // WebGazer's setCameraConstraints → resume() restarts the prediction loop,
   // which can make the video feed reappear even though we explicitly hid it.
   let unsubReconnect = null
-  if (this.gazeTracker?._initialized?.distance || this.gazeTracker?._initialized?.gaze) {
+  if (
+    this.gazeTracker?._initialized?.distance ||
+    this.gazeTracker?._initialized?.gaze
+  ) {
     unsubReconnect = this.gazeTracker.onCameraReconnected(() => {
-      console.log('[Equipment] Camera reconnected while on equipment page — re-hiding video')
+      console.log(
+        '[Equipment] Camera reconnected while on equipment page — re-hiding video',
+      )
       this.showVideo(false)
       const vc = document.querySelector('#webgazerVideoContainer')
       if (vc) {

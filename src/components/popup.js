@@ -17,7 +17,9 @@ const _stripHexId = label =>
 const _cameraCaptionHTML = (label, resolution) => {
   const clean = _stripHexId(label)
   if (!resolution || !resolution.width) return `<div>${clean}</div>`
-  const hz = resolution.frameRate ? `, ${Math.round(resolution.frameRate)} Hz` : ''
+  const hz = resolution.frameRate
+    ? `, ${Math.round(resolution.frameRate)} Hz`
+    : ''
   return `<div>${clean}</div><div>${resolution.width}×${resolution.height}${hz}</div>`
 }
 
@@ -861,11 +863,7 @@ const createCameraPreviews = async (
  * @param {string} messageKey - messageKey to retrieve the phrase
  * @param {string} privacyMessage - privacyMessage
  */
-const updateTitleAndDescription = (
-  RC,
-  titleKey,
-  messageKey,
-) => {
+const updateTitleAndDescription = (RC, titleKey, messageKey) => {
   showCameraTitleInTopRight(RC, titleKey)
   const messageDiv = document.getElementById('rc-camera-instruction-text')
   if (messageDiv) {
@@ -943,7 +941,10 @@ const updateCameraPreviews = async (
             otherContainer.style.backgroundColor = 'transparent'
             otherContainer.style.border = '2px solid transparent'
             const cap = otherContainer.querySelector('.rc-camera-caption')
-            if (cap) { cap.style.color = '#666'; cap.style.fontWeight = 'normal' }
+            if (cap) {
+              cap.style.color = '#666'
+              cap.style.fontWeight = 'normal'
+            }
           }
         })
 
@@ -951,7 +952,10 @@ const updateCameraPreviews = async (
         container.style.backgroundColor = '#e8f5e8'
         container.style.border = '2px solid #28a745'
         const cap = container.querySelector('.rc-camera-caption')
-        if (cap) { cap.style.color = '#28a745'; cap.style.fontWeight = 'bold' }
+        if (cap) {
+          cap.style.color = '#28a745'
+          cap.style.fontWeight = 'bold'
+        }
 
         // Actually switch to this camera temporarily
         const selectedCamera = newCameras.find(cam => cam.deviceId === deviceId)
@@ -1264,13 +1268,21 @@ export const showCameraSelectionPopup = async (
                           if (isActive) {
                             container.style.backgroundColor = '#e8f5e8'
                             container.style.border = '2px solid #28a745'
-                            const cap = container.querySelector('.rc-camera-caption')
-                            if (cap) { cap.style.color = '#28a745'; cap.style.fontWeight = 'bold' }
+                            const cap =
+                              container.querySelector('.rc-camera-caption')
+                            if (cap) {
+                              cap.style.color = '#28a745'
+                              cap.style.fontWeight = 'bold'
+                            }
                           } else {
                             container.style.backgroundColor = 'transparent'
                             container.style.border = '2px solid transparent'
-                            const cap = container.querySelector('.rc-camera-caption')
-                            if (cap) { cap.style.color = '#666'; cap.style.fontWeight = 'normal' }
+                            const cap =
+                              container.querySelector('.rc-camera-caption')
+                            if (cap) {
+                              cap.style.color = '#666'
+                              cap.style.fontWeight = 'normal'
+                            }
                           }
                           _updateCaptionInContainer(container, camera, index)
                         }
@@ -1413,12 +1425,18 @@ export const showCameraSelectionPopup = async (
                     container.style.backgroundColor = '#e8f5e8'
                     container.style.border = '2px solid #28a745'
                     const cap = container.querySelector('.rc-camera-caption')
-                    if (cap) { cap.style.color = '#28a745'; cap.style.fontWeight = 'bold' }
+                    if (cap) {
+                      cap.style.color = '#28a745'
+                      cap.style.fontWeight = 'bold'
+                    }
                   } else {
                     container.style.backgroundColor = 'transparent'
                     container.style.border = '2px solid transparent'
                     const cap = container.querySelector('.rc-camera-caption')
-                    if (cap) { cap.style.color = '#666'; cap.style.fontWeight = 'normal' }
+                    if (cap) {
+                      cap.style.color = '#666'
+                      cap.style.fontWeight = 'normal'
+                    }
                   }
                   _updateCaptionInContainer(container, camera, index)
                 }
@@ -1455,7 +1473,10 @@ export const showCameraSelectionPopup = async (
                 otherContainer.style.backgroundColor = 'transparent'
                 otherContainer.style.border = '2px solid transparent'
                 const cap = otherContainer.querySelector('.rc-camera-caption')
-                if (cap) { cap.style.color = '#666'; cap.style.fontWeight = 'normal' }
+                if (cap) {
+                  cap.style.color = '#666'
+                  cap.style.fontWeight = 'normal'
+                }
               }
             })
 
@@ -1463,7 +1484,10 @@ export const showCameraSelectionPopup = async (
             container.style.backgroundColor = '#e8f5e8'
             container.style.border = '2px solid #28a745'
             const cap = container.querySelector('.rc-camera-caption')
-            if (cap) { cap.style.color = '#28a745'; cap.style.fontWeight = 'bold' }
+            if (cap) {
+              cap.style.color = '#28a745'
+              cap.style.fontWeight = 'bold'
+            }
 
             // Actually switch to this camera temporarily
             const selectedCamera = cameras.find(
