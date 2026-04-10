@@ -722,7 +722,7 @@ const createCameraPreviews = async (
   }
 
   let previewsHTML =
-    '<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 0; justify-content: center; align-items: center; width: 100%;">'
+    '<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 0; justify-content: center; align-items: flex-start; width: 100%;">'
 
   for (let i = 0; i < cameras.length; i++) {
     const camera = cameras[i]
@@ -753,6 +753,30 @@ const createCameraPreviews = async (
       </div>
     `
   }
+
+  // Add "Choose another screen" button as a square item in the row
+  previewsHTML += `
+    <div style="display: flex; flex-direction: column; align-items: center; margin: 0; padding: 5px; border: 2px solid transparent;">
+      <button id="rc-choose-another-screen-btn" class="rc-button" style="
+        width: ${previewSize.width};
+        height: ${previewSize.height};
+        background: #999 !important;
+        border: 2px solid #ccc !important;
+        border-radius: 4px !important;
+        font-size: clamp(0.7rem, 1.5vw, 1rem) !important;
+        padding: 0 0.5rem !important;
+        margin: 0 !important;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 1.3;
+        word-wrap: break-word;
+        box-sizing: border-box;
+      ">${phrases.RC_ChooseAnotherScreenButton?.[RC.L] || 'Choose another screen'}</button>
+    </div>
+  `
 
   previewsHTML += '</div>'
 
@@ -841,18 +865,11 @@ const updateTitleAndDescription = (
   RC,
   titleKey,
   messageKey,
-  privacyMessage,
 ) => {
   showCameraTitleInTopRight(RC, titleKey)
-  const messageDiv = document.querySelector(
-    '.camera-selection-popup .swal2-html-container div[style*="background: white"]',
-  )
+  const messageDiv = document.getElementById('rc-camera-instruction-text')
   if (messageDiv) {
-    let messageHtml = phrases[messageKey][RC.L]
-    if (privacyMessage) {
-      messageHtml += `<br><br>${phrases.RC_privacyCamera[RC.L]}`
-    }
-    messageDiv.innerHTML = processInlineFormatting(messageHtml)
+    messageDiv.innerHTML = processInlineFormatting(phrases[messageKey][RC.L])
   }
 }
 
@@ -893,20 +910,17 @@ const updateCameraPreviews = async (
     currentActiveCamera,
   )
 
-  // Replace the previews section
+  // Replace only the camera previews row (flex-wrap row), not the outer layout
   const oldPreviewsDiv = previewContainer.querySelector(
-    'div[style*="display: flex"]',
+    'div[style*="flex-wrap"]',
   )
   if (oldPreviewsDiv) {
     oldPreviewsDiv.outerHTML = newPreviewsHTML
   }
 
-  const isSingleCamera = newCameras.length === 1
-  const titleKey = isSingleCamera
-    ? 'RC_NeedCameraTitle'
-    : 'RC_ChooseCameraTitle'
-  const messageKey = isSingleCamera ? 'RC_NeedCamera' : 'RC_ChooseCamera'
-  updateTitleAndDescription(RC, titleKey, messageKey, privacyMessage)
+  const titleKey = 'RC_ChooseCameraTitle'
+  const messageKey = 'RC_ChooseCamera'
+  updateTitleAndDescription(RC, titleKey, messageKey)
 
   // Re-add event listeners for new previews
   newCameras.forEach((camera, index) => {
@@ -982,6 +996,12 @@ const updateCameraPreviews = async (
       })
     }
   })
+
+  // Re-attach "Choose another screen" button listener if it exists
+  const newScreenBtn = document.getElementById('rc-choose-another-screen-btn')
+  if (newScreenBtn && window._rcScreenBtnHandler) {
+    newScreenBtn.onclick = window._rcScreenBtnHandler
+  }
 }
 
 /**
@@ -1065,7 +1085,7 @@ export const showCameraSelectionPopup = async (
   const minWidth = 600 // Minimum width for 2 cameras
   const calculatedWidth = Math.max(
     minWidth,
-    totalCameraWidth * cameras.length + 100,
+    totalCameraWidth * (cameras.length + 1) + 100, // +1 for the "Choose another screen" button
   )
   const dynamicMaxWidth = `${calculatedWidth}px`
 
@@ -1079,11 +1099,6 @@ export const showCameraSelectionPopup = async (
           ${cameraPreviewsHTML}
         </div>
         <div id="rc-camera-instruction-text" style="background: transparent; padding: 0.5rem 1rem; margin-top: 0.5rem; flex-shrink: 0; text-align: center;">${processInlineFormatting(message || '')}</div>
-        <div style="text-align: center; margin-top: 0.5rem; flex-shrink: 0; padding-bottom: 0.5rem;">
-          <button id="rc-choose-another-screen-btn" class="rc-button" style="font-size: 0.85rem !important; padding: 0.35rem 1rem !important; background: #999 !important;">
-            ${phrases.RC_ChooseAnotherScreenButton?.[RC.L]}
-          </button>
-        </div>
       </div>
     `,
     showConfirmButton: false,
@@ -1123,36 +1138,46 @@ export const showCameraSelectionPopup = async (
 
       // --- "Choose another screen" / "Choose this screen" toggle ---
       let isInChooseAnotherScreenMode = false
-      const screenBtn = document.getElementById('rc-choose-another-screen-btn')
-      const instructionDiv = document.getElementById('rc-camera-instruction-text')
       const originalMessage = processInlineFormatting(message || '')
 
-      if (screenBtn) {
-        screenBtn.onclick = async () => {
-          if (!isInChooseAnotherScreenMode) {
-            // Switch to "drag to another screen" mode
-            isInChooseAnotherScreenMode = true
-            await exitFullscreen()
-            if (instructionDiv) {
-              instructionDiv.innerHTML = processInlineFormatting(
-                phrases.RC_DragToAnotherScreen?.[RC.L]
-              )
-            }
-            screenBtn.textContent =
-              phrases.RC_ChooseThisScreenButton?.[RC.L]
-            screenBtn.style.background = '#019267'
-          } else {
-            // Restore to camera selection mode
-            isInChooseAnotherScreenMode = false
-            await getFullscreen(RC.L, RC)
-            if (instructionDiv) {
-              instructionDiv.innerHTML = originalMessage
-            }
-            screenBtn.textContent =
-              phrases.RC_ChooseAnotherScreenButton?.[RC.L]
-            screenBtn.style.background = '#999'
+      const screenBtnHandler = async () => {
+        const btn = document.getElementById('rc-choose-another-screen-btn')
+        const instrDiv = document.getElementById('rc-camera-instruction-text')
+        if (!btn) return
+
+        if (!isInChooseAnotherScreenMode) {
+          isInChooseAnotherScreenMode = true
+          await exitFullscreen()
+          if (instrDiv) {
+            instrDiv.innerHTML = processInlineFormatting(
+              phrases.RC_DragToAnotherScreen?.[RC.L] ||
+                'Drag this window to another screen.',
+            )
           }
+          btn.textContent =
+            phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen'
+          btn.style.background = '#019267'
+          showCameraTitleInTopRight(RC, 'RC_ChooseScreenTitle')
+        } else {
+          isInChooseAnotherScreenMode = false
+          await getFullscreen(RC.L, RC)
+          if (instrDiv) {
+            instrDiv.innerHTML = originalMessage
+          }
+          btn.textContent =
+            phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
+            'Choose another screen'
+          btn.style.background = '#999'
+          showCameraTitleInTopRight(RC, titleKey)
         }
+      }
+
+      // Store handler so updateCameraPreviews can re-attach it
+      window._rcScreenBtnHandler = screenBtnHandler
+
+      const screenBtn = document.getElementById('rc-choose-another-screen-btn')
+      if (screenBtn) {
+        screenBtn.onclick = screenBtnHandler
       }
 
       // Store initial cameras for comparison
@@ -1605,6 +1630,9 @@ export const showCameraSelectionPopup = async (
       if (window.selectAndCommitCamera) {
         delete window.selectAndCommitCamera
       }
+      if (window._rcScreenBtnHandler) {
+        delete window._rcScreenBtnHandler
+      }
 
       // DON'T restore video container here - let the next step handle it
       // This prevents the blank page flash between popup close and next UI render
@@ -1873,7 +1901,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     const result = await showCameraSelectionPopup(
       RC,
       '',
-      phrases.RC_NeedCamera[RC.L],
+      phrases.RC_ChooseCamera[RC.L],
       conditionalPrivacyCamera,
       onClose,
       'RC_ChooseCameraTitle',
@@ -1897,7 +1925,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   const result = await showCameraSelectionPopup(
     RC,
     '',
-    phrases.RC_ImprovingCameraResolution[RC.L],
+    phrases.RC_ChooseCamera[RC.L],
     conditionalPrivacyCamera,
     onClose,
     'RC_ChooseCameraTitle',
