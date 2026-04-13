@@ -764,7 +764,7 @@ const createCameraPreviews = async (
         height: ${previewSize.height};
         background: #999 !important;
         border: 2px solid #ccc !important;
-        border-radius: 4px !important;
+        border-radius: 12px !important;
         font-size: clamp(0.7rem, 1.5vw, 1rem) !important;
         padding: 0 0.5rem !important;
         margin: 0 !important;
@@ -776,7 +776,7 @@ const createCameraPreviews = async (
         line-height: 1.3;
         word-wrap: break-word;
         box-sizing: border-box;
-      ">${phrases.RC_ChooseAnotherScreenButton?.[RC.L] || 'Choose another screen'}</button>
+      ">${processInlineFormatting(phrases.RC_ChooseAnotherScreenButton?.[RC.L] || 'Choose another screen')}</button>
     </div>
   `
 
@@ -1149,6 +1149,8 @@ export const showCameraSelectionPopup = async (
         const instrDiv = document.getElementById('rc-camera-instruction-text')
         if (!btn) return
 
+        const btnParent = btn.parentElement
+
         if (!isInChooseAnotherScreenMode) {
           isInChooseAnotherScreenMode = true
           await exitFullscreen()
@@ -1158,20 +1160,45 @@ export const showCameraSelectionPopup = async (
                 'Drag this window to another screen.',
             )
           }
-          btn.textContent =
-            phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen'
+          btn.innerHTML = processInlineFormatting(
+            phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen',
+          )
           btn.style.background = '#019267'
           showCameraTitleInTopRight(RC, 'RC_ChooseScreenTitle')
+
+          // Move button below instruction text as a normal centered button
+          if (btnParent) btnParent.style.display = 'none'
+          const belowDiv = document.createElement('div')
+          belowDiv.id = 'rc-choose-screen-btn-below'
+          belowDiv.style.cssText = 'text-align: center; margin-top: 0.75rem; flex-shrink: 0; padding-bottom: 0.5rem;'
+          const belowBtn = btn.cloneNode(true)
+          belowBtn.id = 'rc-choose-another-screen-btn'
+          belowBtn.className = 'rc-button rc-go-button'
+          belowBtn.style.cssText = 'font-size: 1rem !important; padding: 0.5rem 2rem !important;'
+          belowDiv.appendChild(belowBtn)
+          instrDiv.parentElement.appendChild(belowDiv)
+          belowBtn.onclick = screenBtnHandler
         } else {
           isInChooseAnotherScreenMode = false
           await getFullscreen(RC.L, RC)
           if (instrDiv) {
             instrDiv.innerHTML = originalMessage
           }
-          btn.textContent =
-            phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
-            'Choose another screen'
-          btn.style.background = '#999'
+          // Remove the below-text button and restore the in-row one
+          const belowDiv = document.getElementById('rc-choose-screen-btn-below')
+          if (belowDiv) belowDiv.remove()
+          if (btnParent) {
+            btnParent.style.display = ''
+            const rowBtn = btnParent.querySelector('button')
+            if (rowBtn) {
+              rowBtn.innerHTML = processInlineFormatting(
+                phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
+                'Choose another screen',
+              )
+              rowBtn.style.background = '#999'
+              rowBtn.onclick = screenBtnHandler
+            }
+          }
           showCameraTitleInTopRight(RC, titleKey)
         }
       }
