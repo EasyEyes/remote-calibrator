@@ -139,6 +139,9 @@ class RemoteCalibrator {
 
     // ! Extensions
     this.keypadHandler = null
+
+    // Quit callback (set by consumer app via setOnQuit)
+    this._onQuitCallback = null
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -1147,6 +1150,61 @@ RemoteCalibrator.prototype._removeBackground = function () {
   }
   // Cannot find the background
   return false
+}
+
+/**
+ * Register a callback for when the participant clicks Quit on the camera
+ * reconnect popup. The consumer app (e.g. EasyEyes) uses this to trigger
+ * its end-of-study flow (save data, show final page).
+ * @param {Function} callback
+ */
+RemoteCalibrator.prototype.setOnQuit = function (callback) {
+  this._onQuitCallback = callback
+}
+
+/**
+ * Comprehensive teardown of all RC-created DOM elements.
+ * Called before the quit callback fires so the consumer app's
+ * end-of-study page is not polluted by leftover RC UI.
+ */
+RemoteCalibrator.prototype._cleanupAllRC = function () {
+  this._removeBackground()
+
+  if (this._panelStatus?.hasPanel) {
+    try { this.removePanel() } catch (e) {
+      console.warn('[RC _cleanupAllRC] removePanel error:', e)
+    }
+  }
+
+  this._cleanupDistanceCalibrationElements()
+
+  try {
+    if (this.gazeTracker?._initialized?.gaze) this.endGaze()
+  } catch (e) {
+    console.warn('[RC _cleanupAllRC] endGaze error:', e)
+  }
+  try {
+    if (this.gazeTracker?._initialized?.distance) this.endDistance()
+  } catch (e) {
+    console.warn('[RC _cleanupAllRC] endDistance error:', e)
+  }
+
+  const vc = document.getElementById('webgazerVideoContainer')
+  if (vc) vc.style.display = 'none'
+
+  const gazeDot = document.getElementById('webgazerGazeDot')
+  if (gazeDot) gazeDot.style.display = 'none'
+
+  const faceOverlay = document.getElementById('webgazerFaceOverlay')
+  if (faceOverlay) faceOverlay.style.display = 'none'
+
+  const faceFeedbackBox = document.getElementById('webgazerFaceFeedbackBox')
+  if (faceFeedbackBox) faceFeedbackBox.style.display = 'none'
+
+  const bigCircle = document.getElementById('rc-big-circle-target')
+  if (bigCircle) bigCircle.remove()
+
+  document.body.classList.remove('lock-view')
 }
 
 /**

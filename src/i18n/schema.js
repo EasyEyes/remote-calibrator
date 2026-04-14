@@ -81,6 +81,11 @@ const phrasesData = [
   'EE_ReadInstructionsToEndBeforeMakingSetting',
   'EE_AlreadyRead',
   'EE_SpaceBarDisabledUntilInstructionsFullyRead',
+  'RC_CameraReconnectTitle',
+  'RC_CameraReconnectText',
+  'RC_CameraReconnectCantFindIt',
+  'RC_Resume',
+  'RC_Quit',
 ]
 const languages = [
   'en-US',
