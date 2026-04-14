@@ -74,6 +74,7 @@ export const showCameraTitleInTopRight = (
       margin: 0;
       padding: 0;
       font-size: clamp(16px, 4vw, 36px);
+      font-weight: 350;
     `
   }
 
@@ -723,8 +724,16 @@ const createCameraPreviews = async (
     height: `clamp(90px, 13.5vw, ${maxH}px)`,
   }
 
+  const isRTL = RC.LD === RC._CONST.RTL
+  const arrowChar = isRTL ? '←' : '→'
+
   let previewsHTML =
-    '<div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 0; justify-content: center; align-items: flex-start; width: 100%;">'
+    `<div style="display: flex; flex-wrap: nowrap; gap: 10px; margin: 0; justify-content: center; align-items: center; width: 100%; direction: ${isRTL ? 'rtl' : 'ltr'};">`
+
+  // Huge arrow: appears on the left for LTR, on the right for RTL (via direction)
+  previewsHTML += `
+    <div id="rc-camera-arrow" style="font-size: clamp(36pt, 8vw, 72pt); color: #000; user-select: none; pointer-events: none; padding: 0 5px; line-height: 1;">${arrowChar}</div>
+  `
 
   for (let i = 0; i < cameras.length; i++) {
     const camera = cameras[i]
@@ -758,15 +767,16 @@ const createCameraPreviews = async (
 
   // Add "Choose another screen" button as a square item in the row
   previewsHTML += `
-    <div style="display: flex; flex-direction: column; align-items: center; margin: 0; padding: 5px; border: 2px solid transparent;">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; padding: 5px; border: 2px solid transparent;">
       <button id="rc-choose-another-screen-btn" class="rc-button" style="
-        width: ${previewSize.width};
-        height: ${previewSize.height};
+        min-width: ${previewSize.width};
+        width: auto;
+        height: calc(${previewSize.height} / 3 * 1.3);
         background: #999 !important;
         border: 2px solid #ccc !important;
-        border-radius: 12px !important;
-        font-size: clamp(0.7rem, 1.5vw, 1rem) !important;
-        padding: 0 0.5rem !important;
+        border-radius: 24px !important;
+        font-size: clamp(0.8rem, 1.5vw, 1rem) !important;
+        padding: 0.5rem 1rem !important;
         margin: 0 !important;
         cursor: pointer;
         display: flex;
@@ -775,6 +785,7 @@ const createCameraPreviews = async (
         text-align: center;
         line-height: 1.3;
         word-wrap: break-word;
+        ${isRTL ? 'word-break: break-all;' : ''}
         box-sizing: border-box;
       ">${processInlineFormatting(phrases.RC_ChooseAnotherScreenButton?.[RC.L] || 'Choose another screen')}</button>
     </div>
@@ -867,7 +878,7 @@ const updateTitleAndDescription = (RC, titleKey, messageKey) => {
   showCameraTitleInTopRight(RC, titleKey)
   const messageDiv = document.getElementById('rc-camera-instruction-text')
   if (messageDiv) {
-    messageDiv.innerHTML = processInlineFormatting(phrases[messageKey][RC.L])
+    messageDiv.innerHTML = processInlineFormatting(phrases[messageKey][RC.L]).replace(/\n/g, '<br>')
   }
 }
 
@@ -1102,7 +1113,8 @@ export const showCameraSelectionPopup = async (
         <div style="flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%;">
           ${cameraPreviewsHTML}
         </div>
-        <div id="rc-camera-instruction-text" style="background: transparent; padding: 0.5rem 1rem; margin-top: 0.5rem; flex-shrink: 0; text-align: center;">${processInlineFormatting(message || '')}</div>
+        <div id="rc-camera-instruction-text" style="background: transparent; padding: 0.5rem 30px; margin-top: 0.5rem; flex-shrink: 0; text-align: ${RC.LD === RC._CONST.RTL ? 'right' : 'left'}; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; width: 100%; box-sizing: border-box; align-self: flex-start;">${processInlineFormatting(message || '').replace(/\n/g, '<br>')}</div>
+        ${privacyMessage ? `<div id="rc-camera-privacy-text" style="font-size: ${(16 / 1.4) * 1.25}px; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; line-height: 1.4; white-space: pre-line; max-width: 500px; text-align: ${RC.LD === RC._CONST.RTL ? 'right' : 'left'}; flex-shrink: 0; margin-top: 12px; padding: 0 30px 0.5rem 30px; align-self: flex-start; box-sizing: border-box;">${processInlineFormatting(privacyMessage).replace(/\n/g, '<br>')}</div>` : ''}
       </div>
     `,
     showConfirmButton: false,
@@ -1142,7 +1154,7 @@ export const showCameraSelectionPopup = async (
 
       // --- "Choose another screen" / "Choose this screen" toggle ---
       let isInChooseAnotherScreenMode = false
-      const originalMessage = processInlineFormatting(message || '')
+      const originalMessage = processInlineFormatting(message || '').replace(/\n/g, '<br>')
 
       const screenBtnHandler = async () => {
         const btn = document.getElementById('rc-choose-another-screen-btn')
@@ -1158,7 +1170,7 @@ export const showCameraSelectionPopup = async (
             instrDiv.innerHTML = processInlineFormatting(
               phrases.RC_DragToAnotherScreen?.[RC.L] ||
                 'Drag this window to another screen.',
-            )
+            ).replace(/\n/g, '<br>')
           }
           btn.innerHTML = processInlineFormatting(
             phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen',
@@ -1166,16 +1178,38 @@ export const showCameraSelectionPopup = async (
           btn.style.background = '#019267'
           showCameraTitleInTopRight(RC, 'RC_ChooseScreenTitle')
 
-          // Move button below instruction text as a normal centered button
+          // Move button below instruction text as a normal centered button with arrow
           if (btnParent) btnParent.style.display = 'none'
+          // Hide the camera arrow too
+          const cameraArrow = document.getElementById('rc-camera-arrow')
+          if (cameraArrow) cameraArrow.style.display = 'none'
+
+          const isRTL = RC.LD === RC._CONST.RTL
+          const screenArrow = isRTL ? '←' : '→'
           const belowDiv = document.createElement('div')
           belowDiv.id = 'rc-choose-screen-btn-below'
-          belowDiv.style.cssText = 'text-align: center; margin-top: 0.75rem; flex-shrink: 0; padding-bottom: 0.5rem;'
+          belowDiv.style.cssText =
+            'display: flex; align-items: center; justify-content: center; margin-top: 0.75rem; flex-shrink: 0; padding-bottom: 0.5rem;'
+          if (isRTL) belowDiv.style.direction = 'rtl'
+
+          const arrowSpan = document.createElement('span')
+          arrowSpan.style.cssText = 'font-size: clamp(36pt, 8vw, 72pt); color: #000; user-select: none; pointer-events: none; line-height: 1; flex-shrink: 0;'
+          arrowSpan.textContent = screenArrow
+
           const belowBtn = btn.cloneNode(true)
           belowBtn.id = 'rc-choose-another-screen-btn'
           belowBtn.className = 'rc-button rc-go-button'
-          belowBtn.style.cssText = 'font-size: 1rem !important; padding: 0.5rem 2rem !important;'
+          belowBtn.style.cssText =
+            'font-size: 1rem !important; padding: 0.5rem 2rem !important;'
+
+          // Invisible spacer to balance the arrow so button stays centered
+          const spacer = document.createElement('span')
+          spacer.style.cssText = 'font-size: clamp(36pt, 8vw, 72pt); visibility: hidden; flex-shrink: 0; line-height: 1;'
+          spacer.textContent = screenArrow
+
+          belowDiv.appendChild(arrowSpan)
           belowDiv.appendChild(belowBtn)
+          belowDiv.appendChild(spacer)
           instrDiv.parentElement.appendChild(belowDiv)
           belowBtn.onclick = screenBtnHandler
         } else {
@@ -1184,16 +1218,18 @@ export const showCameraSelectionPopup = async (
           if (instrDiv) {
             instrDiv.innerHTML = originalMessage
           }
-          // Remove the below-text button and restore the in-row one
+          // Remove the below-text button + arrow and restore the in-row ones
           const belowDiv = document.getElementById('rc-choose-screen-btn-below')
           if (belowDiv) belowDiv.remove()
+          const cameraArrow = document.getElementById('rc-camera-arrow')
+          if (cameraArrow) cameraArrow.style.display = ''
           if (btnParent) {
             btnParent.style.display = ''
             const rowBtn = btnParent.querySelector('button')
             if (rowBtn) {
               rowBtn.innerHTML = processInlineFormatting(
                 phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
-                'Choose another screen',
+                  'Choose another screen',
               )
               rowBtn.style.background = '#999'
               rowBtn.onclick = screenBtnHandler
@@ -1865,6 +1901,16 @@ const _handlePostCameraResolution = async (RC, options) => {
       .replace('[[M55]]', finalInfo.height || '?')
       .replace('[[M66]]', finalInfo.frameRate || '?')
 
+    // Build camera label + resolution caption
+    const selectedCameraLabel = _stripHexId(
+      RC.selectedCamera?.label || finalInfo.name || 'Camera',
+    )
+    const captionHTML = _cameraCaptionHTML(selectedCameraLabel, {
+      width: finalInfo.width,
+      height: finalInfo.height,
+      frameRate: finalInfo.frameRate,
+    })
+
     await Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
       icon: undefined,
@@ -1883,14 +1929,74 @@ const _handlePostCameraResolution = async (RC, options) => {
         confirmButton: 'rc-button rc-go-button',
       },
       didOpen: () => {
+        showCameraTitleInTopRight(RC, 'RC_CameraResolutionTitle')
+
         const popup = Swal.getPopup()
         if (popup) {
           popup.style.boxShadow = 'none'
           popup.style.border = 'none'
           popup.style.padding = '0'
         }
+
+        // Create a fixed video preview at top center of screen
+        const wrapper = document.createElement('div')
+        wrapper.id = 'rc-resolution-video-wrapper'
+        wrapper.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 9999999999;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        `
+        // Use the same size as webgazer's standard video pip
+        const pipW = RC._CONST.N.VIDEO_W[RC.isMobile.value ? 'MOBILE' : 'DESKTOP']
+        const vc = document.getElementById('webgazerVideoContainer')
+        const pipH = vc
+          ? Math.round((pipW / Number.parseInt(vc.style.width || pipW)) * Number.parseInt(vc.style.height || Math.round(pipW * 0.75)))
+          : Math.round(pipW * 0.75)
+
+        const preview = document.createElement('video')
+        preview.id = 'rc-resolution-preview'
+        preview.autoplay = true
+        preview.muted = true
+        preview.playsInline = true
+        preview.style.cssText = `
+          width: ${pipW}px;
+          height: ${pipH}px;
+          border: 2px solid #ccc;
+          border-radius: 4px;
+          object-fit: cover;
+          transform: scaleX(-1);
+        `
+        const captionDiv = document.createElement('div')
+        captionDiv.style.cssText = 'margin-top: 5px; font-size: 12px; text-align: center; color: #666; line-height: 1.4;'
+        captionDiv.innerHTML = captionHTML
+
+        wrapper.appendChild(preview)
+        wrapper.appendChild(captionDiv)
+        document.body.appendChild(wrapper)
+
+        const webgazerVideo = document.getElementById('webgazerVideoFeed')
+        if (webgazerVideo && webgazerVideo.srcObject) {
+          preview.srcObject = webgazerVideo.srcObject
+        }
+
         const confirmBtn = Swal.getConfirmButton()
         if (confirmBtn) confirmBtn.focus()
+      },
+      willClose: () => {
+        hideCameraTitleFromTopRight()
+
+        // Remove the fixed video preview
+        const wrapper = document.getElementById('rc-resolution-video-wrapper')
+        if (wrapper) {
+          const preview = wrapper.querySelector('video')
+          if (preview) preview.srcObject = null
+          wrapper.remove()
+        }
       },
     })
   }
@@ -1923,7 +2029,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
 
   let conditionalPrivacyCamera = ''
   if (!options.saveSnapshots) {
-    conditionalPrivacyCamera = phrases.RC_privacyCamera[RC.L]
+    conditionalPrivacyCamera = phrases.RC_CameraPrivacyAssurance[RC.L]
   }
 
   // Handle different camera scenarios
