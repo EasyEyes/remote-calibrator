@@ -1186,7 +1186,9 @@ export const showCameraSelectionPopup = async (
           showCameraTitleInTopRight(RC, 'RC_ChooseScreenTitle')
 
           // Hide the original button wrapper, camera arrow, and privacy text
-          const btnWrapper = document.getElementById('rc-choose-screen-btn-wrapper')
+          const btnWrapper = document.getElementById(
+            'rc-choose-screen-btn-wrapper',
+          )
           if (btnWrapper) btnWrapper.style.display = 'none'
           const cameraArrow = document.getElementById('rc-camera-arrow')
           if (cameraArrow) cameraArrow.style.display = 'none'
@@ -1206,11 +1208,14 @@ export const showCameraSelectionPopup = async (
             'font-size: clamp(36pt, 8vw, 72pt); color: #000; user-select: none; pointer-events: none; line-height: 1; flex-shrink: 0;'
           arrowSpan.textContent = screenArrow
 
-          const belowBtn = btn.cloneNode(true)
+          const belowBtn = document.createElement('button')
           belowBtn.id = 'rc-choose-another-screen-btn'
           belowBtn.className = 'rc-button rc-go-button'
           belowBtn.style.cssText =
             'font-size: 1rem !important; padding: 0.5rem 2rem !important;'
+          belowBtn.innerHTML = processInlineFormatting(
+            phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen',
+          )
 
           // Invisible spacer to balance the arrow so button stays centered
           const spacer = document.createElement('span')
@@ -1236,7 +1241,9 @@ export const showCameraSelectionPopup = async (
           if (cameraArrow) cameraArrow.style.display = ''
           const privacyText = document.getElementById('rc-camera-privacy-text')
           if (privacyText) privacyText.style.display = ''
-          const btnWrapper = document.getElementById('rc-choose-screen-btn-wrapper')
+          const btnWrapper = document.getElementById(
+            'rc-choose-screen-btn-wrapper',
+          )
           if (btnWrapper) {
             btnWrapper.style.display = ''
             const rowBtn = btnWrapper.querySelector('button')
@@ -1925,12 +1932,12 @@ const _handlePostCameraResolution = async (RC, options) => {
           popup.style.padding = '0'
         }
 
-        // Position button at bottom-right (LTR) or bottom-left (RTL)
-        const isRTL = RC.LD === RC._CONST.RTL
+        // Position button horizontally centered, shifted down by ~1/3
         const actions = popup?.querySelector('.swal2-actions')
         if (actions) {
-          actions.style.cssText = `position: fixed; bottom: 1.25rem; ${isRTL ? 'left' : 'right'}: 1.25rem; justify-content: flex-end; margin: 0;`
+          actions.style.cssText = 'position: fixed; top: 66%; left: 50%; transform: translateX(-50%); margin: 0;'
         }
+
         const confirmBtn = Swal.getConfirmButton()
         if (confirmBtn) {
           confirmBtn.disabled = true
