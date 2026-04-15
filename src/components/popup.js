@@ -727,13 +727,19 @@ const createCameraPreviews = async (
   const isRTL = RC.LD === RC._CONST.RTL
   const arrowChar = isRTL ? '←' : '→'
 
-  let previewsHTML =
-    `<div style="display: flex; flex-wrap: nowrap; gap: 10px; margin: 0; justify-content: center; align-items: center; width: 100%; direction: ${isRTL ? 'rtl' : 'ltr'};">`
+  // Outer wrapper centers the video group
+  let previewsHTML = `<div id="rc-camera-previews-outer" style="display: flex; justify-content: center; width: 100%;">`
 
-  // Huge arrow: appears on the left for LTR, on the right for RTL (via direction)
+  // Inner wrapper: relative, so arrow + button are positioned relative to the video group
+  previewsHTML += `<div style="position: relative; display: inline-flex; overflow: visible;">`
+
+  // Arrow positioned just outside the left (LTR) or right (RTL) of the video group
   previewsHTML += `
-    <div id="rc-camera-arrow" style="font-size: clamp(36pt, 8vw, 72pt); color: #000; user-select: none; pointer-events: none; padding: 0 5px; line-height: 1;">${arrowChar}</div>
+    <div id="rc-camera-arrow" style="position: absolute; ${isRTL ? 'right' : 'left'}: 0; top: 50%; transform: translate(${isRTL ? '100%' : '-100%'}, -50%); font-size: clamp(36pt, 8vw, 72pt); color: #000; user-select: none; pointer-events: none; line-height: 1; z-index: 1;">${arrowChar}</div>
   `
+
+  // Videos row
+  previewsHTML += `<div style="display: flex; flex-wrap: nowrap; gap: 10px; align-items: center;">`
 
   for (let i = 0; i < cameras.length; i++) {
     const camera = cameras[i]
@@ -765,17 +771,20 @@ const createCameraPreviews = async (
     `
   }
 
-  // Add "Choose another screen" button as a square item in the row
+  // Close the videos flex row
+  previewsHTML += '</div>'
+
+  // "Choose another screen" button positioned just outside the right (LTR) or left (RTL) of videos
   previewsHTML += `
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; padding: 5px; border: 2px solid transparent;">
+    <div id="rc-choose-screen-btn-wrapper" style="position: absolute; ${isRTL ? 'left' : 'right'}: 0; top: 50%; transform: translate(${isRTL ? '-100%' : '100%'}, -50%); display: flex; align-items: center; justify-content: center; padding: 5px; z-index: 1;">
       <button id="rc-choose-another-screen-btn" class="rc-button" style="
-        min-width: ${previewSize.width};
+        min-width: clamp(120px, 18vw, ${maxW} * 1.35px);
         width: auto;
-        height: calc(${previewSize.height} / 3 * 1.3);
+        height: calc(${previewSize.height} / 3 * 1.15 * 0.75);
         background: #999 !important;
         border: 2px solid #ccc !important;
         border-radius: 24px !important;
-        font-size: clamp(0.8rem, 1.5vw, 1rem) !important;
+        font-size: clamp(0.8rem, 1.2vw, 1rem) !important;
         padding: 0.5rem 1rem !important;
         margin: 0 !important;
         cursor: pointer;
@@ -791,7 +800,8 @@ const createCameraPreviews = async (
     </div>
   `
 
-  previewsHTML += '</div>'
+  // Close inner relative wrapper + outer centering wrapper
+  previewsHTML += '</div></div>'
 
   // Start video streams for all cameras in PARALLEL with optimized resolution
   setTimeout(() => {
@@ -878,7 +888,9 @@ const updateTitleAndDescription = (RC, titleKey, messageKey) => {
   showCameraTitleInTopRight(RC, titleKey)
   const messageDiv = document.getElementById('rc-camera-instruction-text')
   if (messageDiv) {
-    messageDiv.innerHTML = processInlineFormatting(phrases[messageKey][RC.L]).replace(/\n/g, '<br>')
+    messageDiv.innerHTML = processInlineFormatting(
+      phrases[messageKey][RC.L],
+    ).replace(/\n/g, '<br>')
   }
 }
 
@@ -919,12 +931,10 @@ const updateCameraPreviews = async (
     currentActiveCamera,
   )
 
-  // Replace only the camera previews row (flex-wrap row), not the outer layout
-  const oldPreviewsDiv = previewContainer.querySelector(
-    'div[style*="flex-wrap"]',
-  )
-  if (oldPreviewsDiv) {
-    oldPreviewsDiv.outerHTML = newPreviewsHTML
+  // Replace the entire previews outer wrapper (arrow + videos + button)
+  const oldPreviewsOuter = document.getElementById('rc-camera-previews-outer')
+  if (oldPreviewsOuter) {
+    oldPreviewsOuter.outerHTML = newPreviewsHTML
   }
 
   const titleKey = 'RC_ChooseCameraTitle'
@@ -1109,7 +1119,7 @@ export const showCameraSelectionPopup = async (
     icon: undefined,
     title: '', // Remove the default title since we're adding our own
     html: `
-      <div style="display: flex; flex-direction: column; align-items: center; height: 100%; max-height: 100vh; overflow: hidden; box-sizing: border-box;">
+      <div style="display: flex; flex-direction: column; align-items: center; height: 100%; max-height: 100vh; overflow: visible; box-sizing: border-box;">
         <div style="flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%;">
           ${cameraPreviewsHTML}
         </div>
@@ -1141,12 +1151,12 @@ export const showCameraSelectionPopup = async (
         popup.style.outline = 'none'
         popup.style.borderRadius = '0'
         popup.style.maxHeight = '100vh'
-        popup.style.overflow = 'hidden'
+        popup.style.overflow = 'visible'
       }
       const htmlContainer = popup?.querySelector('.swal2-html-container')
       if (htmlContainer) {
         htmlContainer.style.maxHeight = 'calc(100vh - 2rem)'
-        htmlContainer.style.overflow = 'hidden'
+        htmlContainer.style.overflow = 'visible'
       }
 
       // Show the camera title now that the popup is visible
@@ -1154,14 +1164,15 @@ export const showCameraSelectionPopup = async (
 
       // --- "Choose another screen" / "Choose this screen" toggle ---
       let isInChooseAnotherScreenMode = false
-      const originalMessage = processInlineFormatting(message || '').replace(/\n/g, '<br>')
+      const originalMessage = processInlineFormatting(message || '').replace(
+        /\n/g,
+        '<br>',
+      )
 
       const screenBtnHandler = async () => {
         const btn = document.getElementById('rc-choose-another-screen-btn')
         const instrDiv = document.getElementById('rc-camera-instruction-text')
         if (!btn) return
-
-        const btnParent = btn.parentElement
 
         if (!isInChooseAnotherScreenMode) {
           isInChooseAnotherScreenMode = true
@@ -1172,17 +1183,15 @@ export const showCameraSelectionPopup = async (
                 'Drag this window to another screen.',
             ).replace(/\n/g, '<br>')
           }
-          btn.innerHTML = processInlineFormatting(
-            phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen',
-          )
-          btn.style.background = '#019267'
           showCameraTitleInTopRight(RC, 'RC_ChooseScreenTitle')
 
-          // Move button below instruction text as a normal centered button with arrow
-          if (btnParent) btnParent.style.display = 'none'
-          // Hide the camera arrow too
+          // Hide the original button wrapper, camera arrow, and privacy text
+          const btnWrapper = document.getElementById('rc-choose-screen-btn-wrapper')
+          if (btnWrapper) btnWrapper.style.display = 'none'
           const cameraArrow = document.getElementById('rc-camera-arrow')
           if (cameraArrow) cameraArrow.style.display = 'none'
+          const privacyText = document.getElementById('rc-camera-privacy-text')
+          if (privacyText) privacyText.style.display = 'none'
 
           const isRTL = RC.LD === RC._CONST.RTL
           const screenArrow = isRTL ? '←' : '→'
@@ -1193,7 +1202,8 @@ export const showCameraSelectionPopup = async (
           if (isRTL) belowDiv.style.direction = 'rtl'
 
           const arrowSpan = document.createElement('span')
-          arrowSpan.style.cssText = 'font-size: clamp(36pt, 8vw, 72pt); color: #000; user-select: none; pointer-events: none; line-height: 1; flex-shrink: 0;'
+          arrowSpan.style.cssText =
+            'font-size: clamp(36pt, 8vw, 72pt); color: #000; user-select: none; pointer-events: none; line-height: 1; flex-shrink: 0;'
           arrowSpan.textContent = screenArrow
 
           const belowBtn = btn.cloneNode(true)
@@ -1204,7 +1214,8 @@ export const showCameraSelectionPopup = async (
 
           // Invisible spacer to balance the arrow so button stays centered
           const spacer = document.createElement('span')
-          spacer.style.cssText = 'font-size: clamp(36pt, 8vw, 72pt); visibility: hidden; flex-shrink: 0; line-height: 1;'
+          spacer.style.cssText =
+            'font-size: clamp(36pt, 8vw, 72pt); visibility: hidden; flex-shrink: 0; line-height: 1;'
           spacer.textContent = screenArrow
 
           belowDiv.appendChild(arrowSpan)
@@ -1223,9 +1234,12 @@ export const showCameraSelectionPopup = async (
           if (belowDiv) belowDiv.remove()
           const cameraArrow = document.getElementById('rc-camera-arrow')
           if (cameraArrow) cameraArrow.style.display = ''
-          if (btnParent) {
-            btnParent.style.display = ''
-            const rowBtn = btnParent.querySelector('button')
+          const privacyText = document.getElementById('rc-camera-privacy-text')
+          if (privacyText) privacyText.style.display = ''
+          const btnWrapper = document.getElementById('rc-choose-screen-btn-wrapper')
+          if (btnWrapper) {
+            btnWrapper.style.display = ''
+            const rowBtn = btnWrapper.querySelector('button')
             if (rowBtn) {
               rowBtn.innerHTML = processInlineFormatting(
                 phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
@@ -1857,19 +1871,9 @@ const showNoCameraPopup = async (
 
 /**
  * After camera is selected: enter fullscreen, apply resolution constraints,
- * and optionally show the original/final resolution with an OK button.
+ * and optionally show the resolution page with video preview.
  */
 const _handlePostCameraResolution = async (RC, options) => {
-  // Capture original resolution BEFORE applying constraints
-  const origInfo = getCameraInfo(RC)
-
-  // Brief "Setting..." message while resolution is being applied
-  // (only shown when _showCameraResolutionBool is true, so the participant
-  //  knows something is happening)
-  if (options._showCameraResolutionBool) {
-    showResolutionSettingMessage(RC)
-  }
-
   // Force fullscreen
   try {
     await getFullscreen(RC.L, RC)
@@ -1877,47 +1881,30 @@ const _handlePostCameraResolution = async (RC, options) => {
     console.warn('Failed to enter fullscreen after camera selection:', error)
   }
 
-  // Apply resolution constraints
-  await checkResolutionAfterSelection(RC, options)
-
-  // Now get the FINAL resolution after constraints are applied
-  const finalInfo = getCameraInfo(RC)
-
-  // Always hide the brief "Setting..." message
-  hideResolutionSettingMessage()
-
   if (options._showCameraResolutionBool) {
+    const origInfo = getCameraInfo(RC)
+    const selectedCameraLabel = _stripHexId(
+      RC.selectedCamera?.label || origInfo.name || 'Camera',
+    )
+    const origCaptionHTML = _cameraCaptionHTML(selectedCameraLabel, {
+      width: origInfo.width,
+      height: origInfo.height,
+      frameRate: origInfo.frameRate,
+    })
+
     const lang = RC?.L || RC?.language?.value || 'en-US'
-    let text =
+    const settingText =
       phrases?.RC_SettingWebcamResolution?.[lang] ||
       phrases?.RC_SettingWebcamResolution?.['en-US'] ||
-      'Setting webcam resolution ...\nCurrently [[M11]]×[[M22]], [[M33]] Hz\nRequested [[M44]]×[[M55]], [[M66]] Hz'
-
-    text = text
-      .replace('[[M11]]', origInfo.width || '?')
-      .replace('[[M22]]', origInfo.height || '?')
-      .replace('[[M33]]', origInfo.frameRate || '?')
-      .replace('[[M44]]', finalInfo.width || '?')
-      .replace('[[M55]]', finalInfo.height || '?')
-      .replace('[[M66]]', finalInfo.frameRate || '?')
-
-    // Build camera label + resolution caption
-    const selectedCameraLabel = _stripHexId(
-      RC.selectedCamera?.label || finalInfo.name || 'Camera',
-    )
-    const captionHTML = _cameraCaptionHTML(selectedCameraLabel, {
-      width: finalInfo.width,
-      height: finalInfo.height,
-      frameRate: finalInfo.frameRate,
-    })
+      'Setting webcam resolution ...'
 
     await Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
       icon: undefined,
       title: '',
-      html: `<div style="text-align: center; color: #666; font-style: normal; font-size: 1.6rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; line-height: 1.6;">${processInlineFormatting(text).replace(/\n/g, '<br>')}</div>`,
-      confirmButtonText: phrases.RC_ok?.[RC.L] || 'OK',
-      allowEnterKey: true,
+      html: '',
+      confirmButtonText: phrases.T_proceed?.[RC.L] || 'Proceed',
+      allowEnterKey: false,
       allowOutsideClick: false,
       allowEscapeKey: false,
       background: 'transparent',
@@ -1926,9 +1913,9 @@ const _handlePostCameraResolution = async (RC, options) => {
       hideClass: { popup: '' },
       customClass: {
         popup: 'my__swal2__container',
-        confirmButton: 'rc-button rc-go-button',
+        confirmButton: 'rc-button',
       },
-      didOpen: () => {
+      didOpen: async () => {
         showCameraTitleInTopRight(RC, 'RC_CameraResolutionTitle')
 
         const popup = Swal.getPopup()
@@ -1938,7 +1925,20 @@ const _handlePostCameraResolution = async (RC, options) => {
           popup.style.padding = '0'
         }
 
-        // Create a fixed video preview at top center of screen
+        // Position button at bottom-right (LTR) or bottom-left (RTL)
+        const isRTL = RC.LD === RC._CONST.RTL
+        const actions = popup?.querySelector('.swal2-actions')
+        if (actions) {
+          actions.style.cssText = `position: fixed; bottom: 1.25rem; ${isRTL ? 'left' : 'right'}: 1.25rem; justify-content: flex-end; margin: 0;`
+        }
+        const confirmBtn = Swal.getConfirmButton()
+        if (confirmBtn) {
+          confirmBtn.disabled = true
+          confirmBtn.style.background = '#999'
+          confirmBtn.style.cursor = 'not-allowed'
+        }
+
+        // Create fixed video preview at top center
         const wrapper = document.createElement('div')
         wrapper.id = 'rc-resolution-video-wrapper'
         wrapper.style.cssText = `
@@ -1951,11 +1951,14 @@ const _handlePostCameraResolution = async (RC, options) => {
           flex-direction: column;
           align-items: center;
         `
-        // Use the same size as webgazer's standard video pip
-        const pipW = RC._CONST.N.VIDEO_W[RC.isMobile.value ? 'MOBILE' : 'DESKTOP']
+        const pipW =
+          RC._CONST.N.VIDEO_W[RC.isMobile.value ? 'MOBILE' : 'DESKTOP']
         const vc = document.getElementById('webgazerVideoContainer')
         const pipH = vc
-          ? Math.round((pipW / Number.parseInt(vc.style.width || pipW)) * Number.parseInt(vc.style.height || Math.round(pipW * 0.75)))
+          ? Math.round(
+              (pipW / Number.parseInt(vc.style.width || pipW)) *
+                Number.parseInt(vc.style.height || Math.round(pipW * 0.75)),
+            )
           : Math.round(pipW * 0.75)
 
         const preview = document.createElement('video')
@@ -1972,8 +1975,10 @@ const _handlePostCameraResolution = async (RC, options) => {
           transform: scaleX(-1);
         `
         const captionDiv = document.createElement('div')
-        captionDiv.style.cssText = 'margin-top: 5px; font-size: 12px; text-align: center; color: #666; line-height: 1.4;'
-        captionDiv.innerHTML = captionHTML
+        captionDiv.id = 'rc-resolution-caption'
+        captionDiv.style.cssText =
+          'margin-top: 5px; font-size: 12px; text-align: center; color: #666; line-height: 1.4;'
+        captionDiv.innerHTML = origCaptionHTML
 
         wrapper.appendChild(preview)
         wrapper.appendChild(captionDiv)
@@ -1984,13 +1989,33 @@ const _handlePostCameraResolution = async (RC, options) => {
           preview.srcObject = webgazerVideo.srcObject
         }
 
-        const confirmBtn = Swal.getConfirmButton()
-        if (confirmBtn) confirmBtn.focus()
+        // Apply resolution in the background
+        await checkResolutionAfterSelection(RC, options)
+        hideResolutionSettingMessage()
+
+        // Update caption with final resolution
+        const finalInfo = getCameraInfo(RC)
+        const finalCaptionHTML = _cameraCaptionHTML(selectedCameraLabel, {
+          width: finalInfo.width,
+          height: finalInfo.height,
+          frameRate: finalInfo.frameRate,
+        })
+        const capDiv = document.getElementById('rc-resolution-caption')
+        if (capDiv) capDiv.innerHTML = finalCaptionHTML
+
+        // Enable Proceed button (green)
+        if (confirmBtn) {
+          confirmBtn.disabled = false
+          confirmBtn.style.background = '#019267'
+          confirmBtn.style.cursor = 'pointer'
+          confirmBtn.classList.add('rc-go-button')
+          confirmBtn.focus()
+          Swal.update({ allowEnterKey: true })
+        }
       },
       willClose: () => {
         hideCameraTitleFromTopRight()
 
-        // Remove the fixed video preview
         const wrapper = document.getElementById('rc-resolution-video-wrapper')
         if (wrapper) {
           const preview = wrapper.querySelector('video')
@@ -1999,6 +2024,10 @@ const _handlePostCameraResolution = async (RC, options) => {
         }
       },
     })
+  } else {
+    // Silent resolution setting — no UI
+    await checkResolutionAfterSelection(RC, options)
+    hideResolutionSettingMessage()
   }
 }
 
