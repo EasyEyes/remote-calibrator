@@ -526,28 +526,10 @@ export function createObjectTestUI(context) {
   const reflowInstructionsOnResize = () => renderCurrentStepView()
   window.addEventListener('resize', reflowInstructionsOnResize)
 
-  // Up/Down navigation for step-by-step instructions
-  // Legacy distance.js L4624-4645
-  const handleInstructionNav = e => {
-    if (![2, 3, 4].includes(_currentPage) || !stepInstructionModel) return
-    if (e.key === 'ArrowDown') {
-      const maxIdx = (stepInstructionModel.flatSteps?.length || 1) - 1
-      if (currentStepFlatIndex < maxIdx) {
-        currentStepFlatIndex++
-      }
-      renderCurrentStepView()
-      e.preventDefault()
-      e.stopPropagation()
-    } else if (e.key === 'ArrowUp') {
-      if (currentStepFlatIndex > 0) {
-        currentStepFlatIndex--
-      }
-      renderCurrentStepView()
-      e.preventDefault()
-      e.stopPropagation()
-    }
-  }
-  document.addEventListener('keydown', handleInstructionNav)
+  // ArrowUp/ArrowDown navigation is handled by keyboardHandler.js
+  // (registered via createKeyboardHandler → attach()). No duplicate
+  // listener here — a duplicate would increment currentStepFlatIndex
+  // twice per keypress, causing the stepper to skip steps.
 
   // ===================== RADIO OVERLAY =====================
   // Legacy distance.js L4648-4657
@@ -2578,7 +2560,7 @@ export function createObjectTestUI(context) {
     document.removeEventListener('keydown', handlePaperStepperNav)
     document.removeEventListener('keydown', arrowDownFunction)
     document.removeEventListener('keyup', arrowUpFunction)
-    document.removeEventListener('keydown', handleInstructionNav)
+    // handleInstructionNav cleanup is handled by keyboardHandler.cleanup()
     window.removeEventListener('resize', reflowInstructionsOnResize)
     if (arrowIntervalFunction) {
       clearInterval(arrowIntervalFunction)
