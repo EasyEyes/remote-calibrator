@@ -68,6 +68,18 @@ RemoteCalibrator.prototype.nudgeDistance = function (
 
   if (!this._distanceTrackNudging.distanceDesired) return
 
+  // Yaw has priority: if the head-rotation nudger is currently showing, do
+  // NOT start (or try to update) a distance nudger on top of it. Tear down
+  // any stale distance-nudger state so we cleanly start fresh once the
+  // yaw nudger clears.
+  if (this._distanceTrackNudging.headRotationCorrecting !== null) {
+    if (this._distanceTrackNudging.distanceCorrecting !== null) {
+      clearInterval(this._distanceTrackNudging.distanceCorrecting)
+      this._distanceTrackNudging.distanceCorrecting = null
+    }
+    return false
+  }
+
   if (
     this.viewingDistanceCm &&
     this.viewingDistanceCm.method === this._CONST.VIEW_METHOD.F
@@ -150,6 +162,17 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           )
 
         const _update = () => {
+          // Defensive: another nudger (e.g. the yaw nudger) may have
+          // replaced #calibration-nudger's contents since this interval
+          // was created. Bail out silently rather than crashing.
+          if (
+            !moveElement ||
+            !guideNumNow ||
+            !guideNumDesired ||
+            !canUseKeypad
+          )
+            return
+
           moveElement.innerHTML = getMoveInner(
             this,
             this.viewingDistanceCm.value,
@@ -334,43 +357,32 @@ RemoteCalibrator.prototype.nudgeHeadRotation = function (
 
   const yawDeg = Number.isFinite(state.headYawDeg) ? state.headYawDeg : 0
 
-  // Head is too rotated → show the "face the screen" nudger unless a
-  // distance nudger is already showing (distance has priority).
-  const needsNudger =
-    this._nudger &&
-    !this._nudger.nudgerPaused &&
-    !withinAllowedYaw(yawDeg, allowedDeg) &&
-    state.distanceCorrecting === null
-
-  if (!needsNudger) return true
+  // Yaw has priority over the distance nudger: if the head is rotated too
+  // far, always show the "face the screen" overlay — even if a distance
+  // nudger is currently visible. In that case we tear the distance nudger
+  // down first so this function can own the #calibration-nudger DOM.
+  if (withinAllowedYaw(yawDeg, allowedDeg) || this._nudger?.nudgerPaused) {
+    return true
+  }
 
   // Nudger already running – nothing more to do; the setInterval keeps the
   // text in sync and tears it down once the head is back within range.
   if (state.headRotationCorrecting !== null) return false
 
-  // ! Start a new head-rotation nudger
-  let bindKeysFunction = null
-  const BLOCKED_KEYS = new Set([
-    ' ',
-    'Spacebar',
-    'Enter',
-    'Return',
-    'ArrowUp',
-    'ArrowDown',
-    'ArrowLeft',
-    'ArrowRight',
-  ])
-  // Capture-phase key blocker: swallow Space, Enter and arrow keys so the
-  // underlying calibration handlers do not advance the calibration while
-  // the yaw nudger is on screen. Runs in the capture phase so it fires
-  // before any document-level listeners attached by the calibration UI.
-  const blockCalibrationKeys = e => {
-    if (!BLOCKED_KEYS.has(e.key)) return
-    e.preventDefault()
-    e.stopPropagation()
-    if (typeof e.stopImmediatePropagation === 'function')
-      e.stopImmediatePropagation()
+  // If a distance nudger is currently up, dismiss it so we can show yaw.
+  if (state.distanceCorrecting !== null) {
+    clearInterval(state.distanceCorrecting)
+    state.distanceCorrecting = null
   }
+  if (this.nudger) {
+    // Remove any existing nudger DOM so _addNudger creates fresh yaw markup.
+    this._removeNudger()
+  }
+
+  // ! Start a new head-rotation nudger. _addNudger (called inside
+  // startHeadRotationCorrecting) installs the global capture-phase input
+  // blocker, so we don't need our own key blocker here.
+  let bindKeysFunction = null
 
   const breakFunction = () => {
     this._removeNudger()
@@ -379,22 +391,15 @@ RemoteCalibrator.prototype.nudgeHeadRotation = function (
       state.headRotationCorrecting = null
     }
     if (bindKeysFunction) unbindKeys(bindKeysFunction)
-    document.removeEventListener('keydown', blockCalibrationKeys, true)
-    document.removeEventListener('keyup', blockCalibrationKeys, true)
     state.headRotationCleanup = null
   }
-
-  document.addEventListener('keydown', blockCalibrationKeys, true)
-  document.addEventListener('keyup', blockCalibrationKeys, true)
 
   bindKeysFunction = bindKeys(cancelable ? { Escape: this.endNudger } : {})
 
   // Expose a cleanup hook so endNudger (and endDistance) can release the
-  // capture-phase listeners even if the nudger is torn down from outside.
+  // key binding even if the nudger is torn down from outside.
   state.headRotationCleanup = () => {
     if (bindKeysFunction) unbindKeys(bindKeysFunction)
-    document.removeEventListener('keydown', blockCalibrationKeys, true)
-    document.removeEventListener('keyup', blockCalibrationKeys, true)
   }
 
   const { instructionEl, nowEl, allowedEl, sideEl } =
@@ -414,14 +419,18 @@ RemoteCalibrator.prototype.nudgeHeadRotation = function (
   }
 
   const _update = () => {
+    // Defensive: if the nudger DOM was swapped out (e.g. because another
+    // nudger took over), bail silently rather than crashing on innerHTML.
+    if (!instructionEl || !nowEl || !allowedEl || !sideEl) return
+
     const currentYaw = Number.isFinite(state.headYawDeg) ? state.headYawDeg : 0
     instructionEl.innerHTML =
       (phrases.RC_distanceTrackingFaceScreen &&
         phrases.RC_distanceTrackingFaceScreen[this.L]) ||
       'Face the screen'
-    if (nowEl) nowEl.innerHTML = String(Math.round(Math.abs(currentYaw)))
-    if (allowedEl) allowedEl.innerHTML = String(Math.round(allowedDeg))
-    if (sideEl) sideEl.innerHTML = getYawSideLabel(this, currentYaw)
+    nowEl.innerHTML = String(Math.round(Math.abs(currentYaw)))
+    allowedEl.innerHTML = String(Math.round(allowedDeg))
+    sideEl.innerHTML = getYawSideLabel(this, currentYaw)
   }
   _update()
 
