@@ -1,10 +1,15 @@
 import tinycolor from 'tinycolor2'
 
-import { safeExecuteFunc } from '../components/utils'
+import { safeExecuteFunc, blurAll } from '../components/utils'
 import RemoteCalibrator from '../core'
 import { _setDebugControl } from './panelDebugControl'
 import { phrases } from '../i18n/schema'
 import { PanelState } from './panelState'
+import { checkPermissions } from '../components/mediaPermission'
+import {
+  showTestPopup,
+  hideResolutionSettingMessage,
+} from '../components/popup'
 
 // Icons from Google Material UI
 import Camera from '../media/photo-camera.svg'
@@ -36,6 +41,8 @@ RemoteCalibrator.prototype.removePanel = function () {
 
   this._panelStatus.hasPanel = false
   this._panelStatus.panelFinished = false
+  this._cameraSelectionDone = false
+  this._distanceTrackingFullyInitialized = false
   _clearPanelIntervals(this)
 
   return true
@@ -157,6 +164,21 @@ RemoteCalibrator.prototype.panel = async function (
   panel.innerHTML += `<h1 class="rc-panel-title" id="rc-panel-title">${options.headline}</h1>`
   panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${options.description}</p>`
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
+
+  // --- Camera selection before panel is visible ---
+  // If any task is trackDistance and camera hasn't been selected yet,
+  // run the full webcam pipeline now, before appending the panel to the DOM.
+  if (!this._cameraSelectionDone) {
+    const tdTask = tasks.find(
+      t => (typeof t === 'string' ? t : t.name) === 'trackDistance',
+    )
+    if (tdTask) {
+      const tdOpts = typeof tdTask === 'object' ? tdTask.options || {} : {}
+      await _runCameraSelectionBeforePanel(this, tdOpts)
+    }
+  }
+
+  hideResolutionSettingMessage()
 
   if (!__reset__) parentElement.appendChild(panel)
   else parentElement.replaceChild(panel, this._panel.panel) // ! reset
@@ -582,6 +604,90 @@ const _getTaskOptionsCallbacks = (
       task.callbackTrack || null,
     ]
   }
+}
+
+/**
+ * Initialise the webcam pipeline and run camera selection before the panel
+ * step buttons become active.  Mirrors the init sequence that trackDistance
+ * performs (gazeTracker._init → permissions → loadModel → beginVideo →
+ * showTestPopup) so that when trackDistance runs later it can skip all of
+ * that and go straight to calibration.
+ */
+const _runCameraSelectionBeforePanel = async (RC, tdOpts) => {
+  // 1. gazeTracker init (distance mode) — sets desired resolution/Hz
+  if (!RC.gazeTracker.checkInitialized('distance')) {
+    RC.gazeTracker._init(
+      {
+        toFixedN: 1,
+        showVideo: true,
+        showFaceOverlay: false,
+        desiredCameraResolution: tdOpts.calibrateDistanceCameraResolution,
+        desiredCameraHz: tdOpts.calibrateDistanceCameraHz,
+      },
+      'distance',
+    )
+  }
+
+  // 2. Camera permissions
+  let permMessage = `${phrases.RC_requestCamera[RC.L]}`
+  if (!tdOpts.saveSnapshots) {
+    permMessage += `<br />${phrases.RC_privacyCamera[RC.L]}`
+  }
+  await checkPermissions(RC, permMessage)
+
+  // 3. Show "Starting..." in the same style as the resolution message
+  const startingMsg = document.createElement('div')
+  startingMsg.id = 'rc-starting-message'
+  startingMsg.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999999999;
+    text-align: center;
+    color: #666;
+    font-style: normal;
+    font-size: 1.6rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    pointer-events: none;
+    user-select: none;
+  `
+  startingMsg.textContent = phrases.RC_starting[RC.L]
+  document.body.appendChild(startingMsg)
+
+  // 4. Load FaceMesh model + start video
+  await RC.gazeTracker.webgazer.getTracker().loadModel()
+  await new Promise(resolve => {
+    const pipWidthPx =
+      RC._CONST.N.VIDEO_W[RC.isMobile.value ? 'MOBILE' : 'DESKTOP']
+    RC.gazeTracker.beginVideo({ pipWidthPx }, () => {
+      resolve()
+    })
+  })
+
+  // Remove "Starting..." message
+  startingMsg.remove()
+
+  // 4. Camera selection + resolution
+  const cameraResult = await showTestPopup(RC, null, tdOpts)
+  if (cameraResult?.experimentEnded) {
+    console.log('Experiment ended - no cameras detected')
+  }
+
+  // 5. Only mark done if a camera was actually selected
+  if (!cameraResult?.experimentEnded) {
+    RC._cameraSelectionDone = true
+  }
+
+  // Clean up any leftover text from camera selection
+  const leftoverLoading = document.getElementById('camera-loading-text')
+  if (leftoverLoading) leftoverLoading.remove()
+  hideResolutionSettingMessage()
+
+  // 6. Hide video so it doesn't show during screenSize (credit card step)
+  RC.showVideo(false)
+  const vc = document.getElementById('webgazerVideoContainer')
+  if (vc) vc.style.display = 'none'
 }
 
 const _clearPanelIntervals = RC => {

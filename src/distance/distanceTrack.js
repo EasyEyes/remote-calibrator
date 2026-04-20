@@ -258,6 +258,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateDistanceFocalLengthRange: null, // fOverWidth range for "typical" mode; mean is used
       calibrateDistanceCorrectForHeadRotation: 'none', // 'none' | 'useZ' — how to estimate head yaw to correct ipdOverWidth
       viewingDistanceAllowedHeadRotationDeg: 180, // abs(yaw) above this value triggers the "face the screen" nudger
+      _showCameraResolutionBool: true, // If true, show original+final resolution with OK button after camera selection
     },
     trackDistanceOptions,
   )
@@ -274,8 +275,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
 
-  if (this.gazeTracker.checkInitialized('distance')) {
-    // ! Initialized
+  if (
+    this.gazeTracker.checkInitialized('distance') &&
+    this._distanceTrackingFullyInitialized
+  ) {
+    // Already fully initialized (re-tracking case) — just reconfigure
     this.gazeTracker._toFixedN = options.decimalPlace
     this.showNearPoint(options.showNearPoint)
     this.showVideo(options.showVideo)
@@ -285,18 +289,21 @@ RemoteCalibrator.prototype.trackDistance = async function (
     return
   }
 
-  this._addBackground()
-  this._constructFloatInstructionElement(
-    'gaze-system-instruction',
-    phrases.RC_starting[this.L],
-  )
+  // Skip permission check + "Starting..." screen if camera selection
+  // was already completed (e.g. before the panel in the improved flow).
+  if (!this._cameraSelectionDone) {
+    this._addBackground()
+    this._constructFloatInstructionElement(
+      'gaze-system-instruction',
+      phrases.RC_starting[this.L],
+    )
 
-  // Permissions
-  let message = `${phrases.RC_requestCamera[this.L]}`
-  if (!options.saveSnapshots) {
-    message += `<br />${phrases.RC_privacyCamera[this.L]}`
+    let message = `${phrases.RC_requestCamera[this.L]}`
+    if (!options.saveSnapshots) {
+      message += `<br />${phrases.RC_privacyCamera[this.L]}`
+    }
+    await checkPermissions(this, message)
   }
-  await checkPermissions(this, message)
   ////
 
   // STEP 2 - Live estimate
@@ -356,13 +363,16 @@ RemoteCalibrator.prototype.trackDistance = async function (
         this.showGazer(false)
     }
 
-    // Show camera selection popup first (if multiple cameras available)
-    console.log('=== Checking for camera selection ===')
-    const cameraResult = await showTestPopup(this, null, options)
-
-    // Check if experiment was ended due to no cameras
-    if (cameraResult?.experimentEnded) {
-      console.log('Experiment ended - no cameras detected')
+    // Show camera selection popup (skip if already done before the panel)
+    if (this._cameraSelectionDone) {
+      console.log('=== Camera selection already completed — skipping ===')
+    } else {
+      console.log('=== Checking for camera selection ===')
+      const cameraResult = await showTestPopup(this, null, options)
+      if (cameraResult?.experimentEnded) {
+        console.log('Experiment ended - no cameras detected')
+      }
+      this._cameraSelectionDone = true
     }
 
     // Mark that camera selection has been done to avoid calling it again in calibration methods
@@ -511,6 +521,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
   )
 
   this._trackingSetupFinishedStatus.distance = false
+  this._distanceTrackingFullyInitialized = true
 
   const trackingConfig = {
     options: options,
@@ -3185,6 +3196,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     // Nudger
     this.endNudger()
 
+    this._distanceTrackingFullyInitialized = false
     if (_r) this.gazeTracker.end('distance', endAll)
     return this
   }

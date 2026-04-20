@@ -157,17 +157,27 @@
   margin-top: 0 !important;
 }
 
+/* Reconnect overlay: transparent backdrop so dimmed study page shows through */
+.camera-reconnect-container {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 /* Remove any overlay effects completely */
 .camera-no-overlay {
   box-shadow: none !important;
   border: none !important;
-  background: #eee !important;
-  background-color: #eee !important;
+  outline: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .camera-no-overlay.swal2-popup {
   box-shadow: none !important;
   border: none !important;
-  background: #eee !important;
-  background-color: #eee !important;
+  outline: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }

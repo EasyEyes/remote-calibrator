@@ -4,6 +4,58 @@ import { phrases } from '../i18n/schema'
 import { addButtons } from '../components/buttons'
 import { sleep } from '../components/utils'
 
+// ── Input-blocking infrastructure for the nudger ──
+// When the nudger is visible we intercept ALL user-input events during the
+// capture phase so nothing reaches the page underneath (including EasyEyes'
+// keypad handler or any other document-level listener).
+const _blockedEvents = [
+  'keydown',
+  'keyup',
+  'keypress',
+  'mousedown',
+  'mouseup',
+  'click',
+  'dblclick',
+  'contextmenu',
+  'touchstart',
+  'touchend',
+  'touchmove',
+  'pointerdown',
+  'pointerup',
+  'pointermove',
+  'wheel',
+  'input',
+  'focus',
+  'blur',
+]
+
+let _inputBlockers = []
+
+function _blockAllInput() {
+  if (_inputBlockers.length > 0) return // already blocking
+
+  _blockedEvents.forEach(eventName => {
+    const handler = e => {
+      const nudger = document.getElementById('calibration-nudger')
+      // Allow events whose target lives inside the nudger (its own buttons)
+      if (nudger && nudger.contains(e.target)) return
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+      e.preventDefault()
+    }
+    // Capture phase = fires before any bubble-phase listener on the page
+    document.addEventListener(eventName, handler, true)
+    _inputBlockers.push({ eventName, handler })
+  })
+}
+
+function _unblockAllInput() {
+  _inputBlockers.forEach(({ eventName, handler }) => {
+    document.removeEventListener(eventName, handler, true)
+  })
+  _inputBlockers = []
+}
+
 RemoteCalibrator.prototype.nudgeDistance = function (
   cancelable, // = false
   allowRecalibrate, // = true
@@ -402,10 +454,14 @@ RemoteCalibrator.prototype._addNudger = function (inner) {
   if (inner) b.innerHTML = inner
   this._nudger.element = b
 
+  _blockAllInput()
+
   return this.nudger
 }
 
 RemoteCalibrator.prototype._removeNudger = function () {
+  _unblockAllInput()
+
   const b = document.getElementById('calibration-nudger')
   if (b) {
     document.body.classList.remove('lock-view')
@@ -425,11 +481,13 @@ RemoteCalibrator.prototype._removeNudger = function () {
 RemoteCalibrator.prototype.pauseNudger = function () {
   this._nudger.nudgerPaused = true
   document.body.classList.add('hide-nudger')
+  _unblockAllInput()
 }
 
 RemoteCalibrator.prototype.resumeNudger = function () {
   this._nudger.nudgerPaused = false
   document.body.classList.remove('hide-nudger')
+  if (this.nudger) _blockAllInput()
 }
 
 RemoteCalibrator.prototype.endNudger = function () {

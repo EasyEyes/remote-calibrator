@@ -1,6 +1,6 @@
 import webgazer from '../WebGazer4RC/src/index.mjs'
 
-import { safeExecuteFunc, toFixedNumber } from '../components/utils'
+import { safeExecuteFunc, toFixedNumber, getFullscreen, isFullscreen } from '../components/utils'
 import { checkWebgazerReady } from '../components/video'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
@@ -318,13 +318,16 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
   if (this._cameraMonitoringSetUp) return
   this._cameraMonitoringSetUp = true
 
+  this.webgazer.params.phrases = phrases
+  this.webgazer.params.language = this.calibrator.L
+
   this.webgazer.setOnCameraDisconnected(message => {
     console.warn('GazeTracker: Camera disconnected -', message)
     this._cameraDisconnected = true
     this._onDisconnectCallbacks.forEach(fn => fn(message))
   })
 
-  this.webgazer.setOnCameraReconnected(() => {
+  this.webgazer.setOnCameraReconnected(async () => {
     const vc = document.getElementById('webgazerVideoContainer')
     console.log('GazeTracker: Camera reconnected', {
       showVideoParam: this.webgazer.params.showVideo,
@@ -334,6 +337,19 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
     })
     this._cameraDisconnected = false
     this._onReconnectCallbacks.forEach(fn => fn())
+
+    if (!isFullscreen()) {
+      console.log('GazeTracker: Restoring fullscreen after camera reconnection')
+      await getFullscreen(this.calibrator.L, this.calibrator)
+    }
+  })
+
+  this.webgazer.setOnQuit(() => {
+    console.log('GazeTracker: Quit requested from camera reconnect popup')
+    if (typeof this.calibrator._onQuitCallback === 'function') {
+      this.calibrator._cleanupAllRC()
+      this.calibrator._onQuitCallback()
+    }
   })
 }
 
