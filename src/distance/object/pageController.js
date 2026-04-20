@@ -20,6 +20,7 @@ import {
 } from './objectTestConstants'
 import { debugLog, debugWarn } from './debugLogger'
 
+import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
 /**
  * Sentinel value for the tube-check page, matching legacy `TUBE_CHECK_PAGE`.
  * @type {string}
@@ -56,7 +57,7 @@ const TUBE_CHECK_PAGE = 'tubeCheck'
  * @param {object}      deps.measurementPageRenderer     - Measurement page renderer
  * @param {object}      deps.measurementState            - Measurement iteration state manager
  * @param {object}      deps.locationManager             - Location measurement manager
- * @param {object}      deps.objectTestCommonData        - Telemetry state manager
+ * @param {object}      deps.stateManager                - Telemetry state manager
  * @param {object}      deps.objectLengthCmGlobal        - { value: number } shared ref
  * @param {object}      deps.globalPointXYPx             - { value: [x,y] } shared ref
  * @param {boolean}     deps.isPaperSelectionMode        - Whether paper selection mode is active
@@ -176,9 +177,7 @@ export function createPageController(deps) {
     measurementPageRenderer,
     measurementState,
     locationManager,
-    objectTestCommonData,
-    objectLengthCmGlobal,
-    globalPointXYPx,
+    stateManager,
     isPaperSelectionMode,
     showLength,
     pxPerCm,
@@ -610,7 +609,7 @@ export function createPageController(deps) {
       const matchHalf =
         expectedLengthCm > HALF_LENGTH_SCREEN_RATIO * diagScreenCm
       setMatchHalfLengthBool(matchHalf)
-      objectTestCommonData.matchHalfLengthBool = matchHalf
+      stateManager.setMatchHalfLengthBool(matchHalf)
       console.log(
         `Tube check: expectedLengthCm=${expectedLengthCm}, diagScreenCm=${diagScreenCm.toFixed(1)}, matchHalfLengthBool=${matchHalf}`,
       )
@@ -752,12 +751,13 @@ export function createPageController(deps) {
         const paperTimestamp = performance.now()
         setFirstMeasurement(selectedPaperLengthCm)
         objectLengthCmGlobal.value = selectedPaperLengthCm
+        console.log('objectLengthCmGlobal...:', objectLengthCmGlobal.value)
 
         const roundedLength =
           Math.round(Number(selectedPaperLengthCm) * 10) / 10
-        objectTestCommonData.objectMeasuredMsg.push('ok')
+        stateManager.pushObjectMeasuredMsg('ok')
 
-        objectTestCommonData.objectRulerIntervalCm.push(null)
+        stateManager.pushObjectRulerIntervalCm(null)
 
         measurementState.measurements.push({
           objectLengthCm: selectedPaperLengthCm,
@@ -866,7 +866,7 @@ export function createPageController(deps) {
           },
         }
         console.log('Single measurement accepted:', savedMeasurementData)
-        objectTestCommonData.objectMeasuredMsg.push('ok')
+        stateManager.pushObjectMeasuredMsg('ok')
         await showPage(3)
         return
       }
@@ -879,7 +879,7 @@ export function createPageController(deps) {
         console.log(
           `Need more measurements: ${measurementState.currentIteration}/${measurementState.totalIterations}`,
         )
-        objectTestCommonData.objectMeasuredMsg.push(
+        stateManager.pushObjectMeasuredMsg(
           measurementState.lastAttemptWasTooShort ? 'short' : 'ok',
         )
         await resetPage2ForNextMeasurement()
@@ -897,7 +897,7 @@ export function createPageController(deps) {
           consistentPair.values[0] * consistentPair.values[1],
         )
         measurementState.consistentPair = consistentPair
-        objectTestCommonData.objectMeasuredMsg.push('ok')
+        stateManager.pushObjectMeasuredMsg('ok')
 
         console.log(
           'Found consistent pair:',
@@ -1013,7 +1013,7 @@ export function createPageController(deps) {
           )
         }
 
-        objectTestCommonData.objectMeasuredMsg.push('mismatch')
+        stateManager.pushObjectMeasuredMsg('mismatch')
 
         measurementState.currentIteration++
         console.log('No consistent measurements found yet, continuing...')

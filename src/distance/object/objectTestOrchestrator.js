@@ -237,6 +237,7 @@ export async function objectTestNew(RC, options, callback = undefined) {
         options.viewingDistanceWhichEye,
         undefined,
         options.calibrateDistanceCheckMinRulerCm,
+        options.calibrateDistanceCorrectForHeadRotation,
       )
     } else if (typeof callback === 'function') {
       callback(data)
@@ -332,8 +333,6 @@ export async function objectTestNew(RC, options, callback = undefined) {
     stateManager,
     measurementState,
     saveQueue,
-    objectLengthCmGlobal,
-    globalPointXYPx,
     woodSvg,
     test_assetMap,
     // Functions from external modules
@@ -436,7 +435,6 @@ export async function objectTestNew(RC, options, callback = undefined) {
   // getter functions (e.g. `getTubeCheckTapeAdjusted()`).  We resolve all
   // getters into a flat snapshot so the handlers work unchanged.
   const TUBE_CHECK_PAGE = 'tubeCheck'
-  const measurementSaveQueueArray = []
   deps.spaceKeyHandler = async (currentPage, listenerCtx) => {
     const handlerContext = {
       // Start with the orchestrator's context (has all external utility functions)
@@ -517,7 +515,6 @@ export async function objectTestNew(RC, options, callback = undefined) {
       currentStepperPhraseKey: deps.state?.currentStepperPhraseKey,
       setCurrentStepperPhraseKey: deps.setCurrentStepperPhraseKey,
       isPaperSelectionMode: deps.state?.isPaperSelectionMode,
-      measurementSaveQueue: measurementSaveQueueArray,
       // Map keyboard handler's attach/detach to the names space handlers expect
       reattachKeydown: listenerCtx.attach,
       detachKeydown: listenerCtx.detach,

@@ -13,6 +13,8 @@ import Swal from 'sweetalert2'
 
 import { debugLog, debugError } from './debugLogger'
 import { DEFAULT_FOCAL_TOLERANCE_RATIO } from './objectTestConstants'
+import { correctIpdForHeadRotation } from '../headYaw'
+import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
 
 const CATEGORY = 'spaceKey'
 
@@ -45,9 +47,8 @@ export async function handleSpaceOnTubeCheck(context) {
     pxPerCm,
     matchHalfLengthBool,
     selectedPaperLengthCm,
-    objectTestCommonData,
+    stateManager,
     options,
-    objectLengthCmGlobal,
     RC,
     phrases,
     tubeCheckTape,
@@ -80,11 +81,7 @@ export async function handleSpaceOnTubeCheck(context) {
 
   const ratio = estimatedCm / expectedCm
 
-  // Save to objectTestCommonData arrays
-  objectTestCommonData.estimatedLengthCm.push(Math.round(estimatedCm * 10) / 10)
-  objectTestCommonData.estimatedLengthRatio.push(
-    Math.round(ratio * 1000) / 1000,
-  )
+  stateManager.pushEstimatedLength(estimatedCm, ratio)
 
   console.log(
     `Tube check: tapeLengthCm=${tapeLengthCm.toFixed(1)}, estimatedCm=${estimatedCm.toFixed(1)}, expectedCm=${expectedCm}, ratio=${ratio.toFixed(3)}, matchHalf=${matchHalfLengthBool}`,
@@ -176,7 +173,7 @@ export async function handleSpaceOnPage2(context) {
     pxPerMm,
     measurementState,
     options,
-    objectTestCommonData,
+    stateManager,
     intervalCmCurrent,
     phrases,
     swalInfoOptions,
@@ -223,7 +220,7 @@ export async function handleSpaceOnPage2(context) {
   const shouldEnforceMinimum =
     isFirstMeasurement || measurementState.lastAttemptWasTooShort
 
-  objectTestCommonData.objectRulerIntervalCm.push(
+  stateManager.pushObjectRulerIntervalCm(
     Math.round(Number(intervalCmCurrent) * 10) / 10,
   )
 
@@ -234,7 +231,7 @@ export async function handleSpaceOnPage2(context) {
       )
 
       measurementState.lastAttemptWasTooShort = true
-      objectTestCommonData.objectMeasuredMsg.push('short')
+      stateManager.pushObjectMeasuredMsg('short')
       measurementState.rejectionCount++
       console.log(`Rejection count: ${measurementState.rejectionCount}`)
 
@@ -273,7 +270,7 @@ export async function handleSpaceOnPage2(context) {
         `Current measurement is too short (${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm) – will enforce on NEXT measurement`,
       )
       measurementState.lastAttemptWasTooShort = true
-      objectTestCommonData.objectMeasuredMsg.push('short')
+      stateManager.pushObjectMeasuredMsg('short')
     } else {
       measurementState.lastAttemptWasTooShort = false
     }
@@ -330,16 +327,14 @@ export async function handleSpaceOnPage3(context) {
     lastCapturedFaceImage,
     setLastCapturedFaceImage,
     locationManager,
-    objectTestCommonData,
-    measurementSaveQueue,
+    stateManager,
+    saveQueue,
     measurementState,
     isPaperSelectionMode,
     preferRightHandBool,
     setPreferRightHandBool,
     viewingDistanceMeasurementCount,
     setViewingDistanceMeasurementCount,
-    globalPointXYPx,
-    objectLengthCmGlobal,
     arrowIndicators,
     setArrowIndicators,
     stepInstructionModel,
@@ -562,10 +557,20 @@ export async function handleSpaceOnPage3(context) {
   let ipdOverWidth = null
   let imageBasedEyesToFootCm = null
   let imageBasedEyesToPointCm = null
+  let ipdUncorrectedOverWidth = null
+  let headYawDeg = null
 
   if (mesh) {
-    const { leftEye, rightEye, video, currentIPDDistance: ipdVpx } = mesh
+    const {
+      leftEye,
+      rightEye,
+      video,
+      currentIPDDistance: ipdVpx,
+      ipdShrinkage,
+      yawDeg,
+    } = mesh
     currentIPDDistance = ipdVpx
+    headYawDeg = yawDeg
     const pxPerCmLocal = ppi / 2.54
 
     const footResult = calculateFootXYPx(
@@ -599,16 +604,22 @@ export async function handleSpaceOnPage3(context) {
     rulerBasedEyesToFootCm = Math.sqrt(
       rulerBasedEyesToPointCm ** 2 - footToPointCm ** 2,
     )
-    factorCmPx = currentIPDDistance * rulerBasedEyesToFootCm
-    fOverWidth = factorCmPx / cameraRes[0] / RC._CONST.IPD_CM
+    const ipdCorrected = correctIpdForHeadRotation(
+      currentIPDDistance,
+      ipdShrinkage,
+    )
     ipdOverWidth =
+      ipdCorrected && cameraRes[0] ? ipdCorrected / cameraRes[0] : null
+    factorCmPx = ipdCorrected * rulerBasedEyesToFootCm
+    fOverWidth = (ipdOverWidth * rulerBasedEyesToFootCm) / RC._CONST.IPD_CM
+    ipdUncorrectedOverWidth =
       currentIPDDistance && cameraRes[0]
         ? currentIPDDistance / cameraRes[0]
         : null
     const fVpx = fOverWidth * cameraRes[0]
     imageBasedEyesToFootCm =
-      currentIPDDistance && RC._CONST?.IPD_CM
-        ? (fVpx * RC._CONST.IPD_CM) / currentIPDDistance
+      ipdCorrected && RC._CONST?.IPD_CM
+        ? (fVpx * RC._CONST.IPD_CM) / ipdCorrected
         : null
     imageBasedEyesToPointCm =
       imageBasedEyesToFootCm != null && footToPointCm != null
@@ -633,16 +644,35 @@ export async function handleSpaceOnPage3(context) {
     `  avgFaceMesh: ${avgFaceMesh}, factorCmPx: ${factorCmPx}, fOverWidth: ${fOverWidth}`,
   )
 
+  // Shared telemetry payload for stateManager calls
+  const telemetryPayload = {
+    fOverWidth,
+    locEye: currentLocMeasurement.locEye,
+    pointXYPx: globalPointXYPx.value,
+    leftEyeFootXYPx: nearestXYPx_left,
+    rightEyeFootXYPx: nearestXYPx_right,
+    ipdOverWidth,
+    ipdUncorrectedOverWidth,
+    ipdCorrectedOverWidth: ipdOverWidth,
+    rulerBasedEyesToFootCm,
+    rulerBasedEyesToPointCm,
+    imageBasedEyesToFootCm,
+    imageBasedEyesToPointCm,
+    preferRightHandBool,
+    headYawDeg,
+  }
+
+  console.log('telemetryPayload...:', telemetryPayload)
+
   // History lists: record every snapshot regardless of acceptance
-  objectTestCommonData.historyFOverWidth.push(
-    parseFloat(Number(fOverWidth).toFixed(4)),
-  )
-  objectTestCommonData.historyEyesToFootCm.push(
-    rulerBasedEyesToFootCm != null
-      ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
-      : null,
-  )
-  objectTestCommonData.historyPreferRightHandBool.push(preferRightHandBool)
+  stateManager.pushHistoryEntry({
+    fOverWidth,
+    rulerBasedEyesToFootCm,
+    preferRightHandBool,
+    ipdUncorrectedOverWidth,
+    ipdCorrectedOverWidth: ipdOverWidth,
+    headYawDeg,
+  })
 
   // ── Tolerance check ───────────────────────────────────────────────────
   const T_focal =
@@ -661,102 +691,30 @@ export async function handleSpaceOnPage3(context) {
     // ── TOLERANCE FAILED ──────────────────────────────────────────────
     console.log('=== TOLERANCE CHECK FAILED - REJECTING MEASUREMENTS ===')
 
-    // Rejected plot lists
-    objectTestCommonData.rejectedFOverWidth.push(
-      parseFloat(Number(fOverWidth).toFixed(4)),
-    )
-    objectTestCommonData.rejectedRatioFOverWidth.push(
-      parseFloat(Number(fOverWidth / prevFOverWidth).toFixed(4)),
-    )
+    stateManager.pushRejectedMeasurement({
+      ...telemetryPayload,
+      prevFOverWidth,
+    })
+    stateManager.retroactivelyRejectPreviousAccepted()
+
     const failLocInfo = locationManager.getCurrentLocationInfo()
-    objectTestCommonData.rejectedLocation.push(failLocInfo.locEye)
-    objectTestCommonData.rejectedPointXYPx.push(
-      globalPointXYPx.value ? [...globalPointXYPx.value] : [null, null],
-    )
-    objectTestCommonData.rejectedLeftEyeFootXYPx.push(
-      nearestXYPx_left && nearestXYPx_left.length >= 2
-        ? [
-            Math.round(nearestXYPx_left[0] * 100) / 100,
-            Math.round(nearestXYPx_left[1] * 100) / 100,
-          ]
-        : null,
-    )
-    objectTestCommonData.rejectedRightEyeFootXYPx.push(
-      nearestXYPx_right && nearestXYPx_right.length >= 2
-        ? [
-            Math.round(nearestXYPx_right[0] * 100) / 100,
-            Math.round(nearestXYPx_right[1] * 100) / 100,
-          ]
-        : null,
-    )
-    objectTestCommonData.rejectedIpdOverWidth.push(
-      ipdOverWidth != null && !isNaN(ipdOverWidth)
-        ? parseFloat(Number(ipdOverWidth).toFixed(4))
-        : null,
-    )
-    objectTestCommonData.rejectedRulerBasedEyesToFootCm.push(
-      rulerBasedEyesToFootCm != null && !isNaN(rulerBasedEyesToFootCm)
-        ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
-        : null,
-    )
-    objectTestCommonData.rejectedRulerBasedEyesToPointCm.push(
-      rulerBasedEyesToPointCm != null && !isNaN(rulerBasedEyesToPointCm)
-        ? parseFloat(Number(rulerBasedEyesToPointCm).toFixed(2))
-        : null,
-    )
-    objectTestCommonData.rejectedImageBasedEyesToFootCm.push(
-      imageBasedEyesToFootCm != null && !isNaN(imageBasedEyesToFootCm)
-        ? parseFloat(Number(imageBasedEyesToFootCm).toFixed(2))
-        : null,
-    )
-    objectTestCommonData.rejectedImageBasedEyesToPointCm.push(
-      imageBasedEyesToPointCm != null && !isNaN(imageBasedEyesToPointCm)
-        ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
-        : null,
-    )
-    objectTestCommonData.rejectedPreferRightHandBool.push(preferRightHandBool)
 
-    // Shrink accepted lists: remove only the previous (retroactively rejected)
-    objectTestCommonData.acceptedFOverWidth.pop()
-    objectTestCommonData.acceptedRatioFOverWidth.pop()
-    objectTestCommonData.acceptedLocation.pop()
-    objectTestCommonData.acceptedPointXYPx.pop()
-    objectTestCommonData.acceptedLeftEyeFootXYPx.pop()
-    objectTestCommonData.acceptedRightEyeFootXYPx.pop()
-    objectTestCommonData.acceptedIpdOverWidth.pop()
-    objectTestCommonData.acceptedRulerBasedEyesToFootCm.pop()
-    objectTestCommonData.acceptedRulerBasedEyesToPointCm.pop()
-    objectTestCommonData.acceptedImageBasedEyesToFootCm.pop()
-    objectTestCommonData.acceptedImageBasedEyesToPointCm.pop()
-    objectTestCommonData.acceptedPreferRightHandBool.pop()
-
-    // Queue the CURRENT (failing) measurement as rejected
-    measurementSaveQueue.push({
+    saveQueue.pushRejected({
       locEye: failLocInfo.locEye,
       location: failLocInfo.location,
       meshSamples: [...meshSamplesDuringPage3],
       factorCmPx,
       fOverWidth,
+      ipdUncorrectedOverWidth,
+      ipdCorrectedOverWidth: ipdOverWidth,
       cameraResolution: cameraRes,
       locationIndex: locationManager.getCurrentIndex(),
-      accepted: false,
     })
     console.log(
       `Queued rejected measurement for location ${failLocInfo.locEye}`,
     )
 
-    // Retroactively reject the PREVIOUS measurement
-    for (let qi = measurementSaveQueue.length - 2; qi >= 0; qi--) {
-      if (measurementSaveQueue[qi].accepted) {
-        measurementSaveQueue[qi].accepted = false
-        console.log(
-          `Retroactively rejected queued measurement at index ${qi} ` +
-            `(location ${measurementSaveQueue[qi].locEye}, ` +
-            `fOverWidth ${measurementSaveQueue[qi].fOverWidth})`,
-        )
-        break
-      }
-    }
+    saveQueue.retroactivelyRejectPrevious()
 
     // Show rejection popup
     const displayMessage =
@@ -877,74 +835,21 @@ export async function handleSpaceOnPage3(context) {
     objectLengthCm: firstMeasurement,
   })
 
-  // Queue this snapshot as accepted
-  objectTestCommonData.acceptedFOverWidth.push(
-    parseFloat(Number(fOverWidth).toFixed(4)),
-  )
-  objectTestCommonData.acceptedRatioFOverWidth.push(
-    prevF == null
-      ? NaN
-      : (() => {
-          const r = fOverWidth / prevF
-          return r != null && !isNaN(r) ? parseFloat(Number(r).toFixed(4)) : NaN
-        })(),
-  )
-  objectTestCommonData.acceptedLocation.push(currentLocMeasurement.locEye)
-  objectTestCommonData.acceptedPointXYPx.push(
-    globalPointXYPx.value ? [...globalPointXYPx.value] : [null, null],
-  )
-  objectTestCommonData.acceptedLeftEyeFootXYPx.push(
-    nearestXYPx_left && nearestXYPx_left.length >= 2
-      ? [
-          Math.round(nearestXYPx_left[0] * 100) / 100,
-          Math.round(nearestXYPx_left[1] * 100) / 100,
-        ]
-      : null,
-  )
-  objectTestCommonData.acceptedRightEyeFootXYPx.push(
-    nearestXYPx_right && nearestXYPx_right.length >= 2
-      ? [
-          Math.round(nearestXYPx_right[0] * 100) / 100,
-          Math.round(nearestXYPx_right[1] * 100) / 100,
-        ]
-      : null,
-  )
-  objectTestCommonData.acceptedIpdOverWidth.push(
-    ipdOverWidth != null && !isNaN(ipdOverWidth)
-      ? parseFloat(Number(ipdOverWidth).toFixed(4))
-      : null,
-  )
-  objectTestCommonData.acceptedRulerBasedEyesToFootCm.push(
-    rulerBasedEyesToFootCm != null && !isNaN(rulerBasedEyesToFootCm)
-      ? parseFloat(Number(rulerBasedEyesToFootCm).toFixed(2))
-      : null,
-  )
-  objectTestCommonData.acceptedRulerBasedEyesToPointCm.push(
-    rulerBasedEyesToPointCm != null && !isNaN(rulerBasedEyesToPointCm)
-      ? parseFloat(Number(rulerBasedEyesToPointCm).toFixed(2))
-      : null,
-  )
-  objectTestCommonData.acceptedImageBasedEyesToFootCm.push(
-    imageBasedEyesToFootCm != null && !isNaN(imageBasedEyesToFootCm)
-      ? parseFloat(Number(imageBasedEyesToFootCm).toFixed(2))
-      : null,
-  )
-  objectTestCommonData.acceptedImageBasedEyesToPointCm.push(
-    imageBasedEyesToPointCm != null && !isNaN(imageBasedEyesToPointCm)
-      ? parseFloat(Number(imageBasedEyesToPointCm).toFixed(2))
-      : null,
-  )
-  objectTestCommonData.acceptedPreferRightHandBool.push(preferRightHandBool)
+  stateManager.pushAcceptedMeasurement({
+    ...telemetryPayload,
+    prevFOverWidth: prevF,
+  })
 
-  measurementSaveQueue.push({
+  saveQueue.pushAccepted({
     locEye: currentLocMeasurement.locEye,
     location: currentLocMeasurement.location,
     meshSamples: [...meshSamplesDuringPage3],
     factorCmPx,
     fOverWidth,
+    ipdUncorrectedOverWidth,
+    ipdCorrectedOverWidth: ipdOverWidth,
     cameraResolution: cameraRes,
     locationIndex: locationManager.getCurrentIndex(),
-    accepted: true,
   })
   console.log(
     `Queued accepted measurement for location ${currentLocMeasurement.locEye}`,
@@ -1086,87 +991,25 @@ export async function handleSpaceOnPage3(context) {
     // Remove listeners BEFORE calling finish to prevent re-triggering
     detachKeydown()
 
-    // ── BULK SAVE ─────────────────────────────────────────────────────
-    try {
-      const allMeasurementObjects = []
-      for (const entry of measurementSaveQueue) {
-        const entryPointXYPx = getGlobalPointForLocation(
-          entry.location,
-          getOffsetPx(),
-          RC,
-        )
-        const {
-          nearestPointsData: entryNearestPointsData,
-          currentIPDDistance: entryCurrentIPDDistance,
-          ipdXYZVpx: entryIpdXYZVpx,
-        } = await processMeshDataAndCalculateNearestPoints(
-          RC,
-          options,
-          [...entry.meshSamples],
-          entry.factorCmPx,
-          ppi,
-          0,
-          0,
-          'object',
-          entry.locationIndex + 1,
-          [0, 0],
-          [0, 0],
-          0,
-          0,
-          0,
-          options.calibrateDistanceChecking,
-          entryPointXYPx,
-          firstMeasurement,
-        )
-
-        allMeasurementObjects.push(
-          createMeasurementObject(
-            `location-${entry.locEye}`,
-            firstMeasurement,
-            entry.factorCmPx,
-            entryNearestPointsData,
-            entryCurrentIPDDistance,
-            null,
-            entry.cameraResolution,
-            isPaperSelectionMode
-              ? selectedPaperLabel ||
-                  paperSelectionOptions.find(o => o.key === selectedPaperOption)
-                    ?.label ||
-                  null
-              : null,
-            isPaperSelectionMode ? paperSuggestionValue : null,
-            entryIpdXYZVpx,
-            entry.fOverWidth,
-            entry.accepted,
-          ),
-        )
-      }
-
-      objectTestCommonData.snapshotsTaken =
-        objectTestCommonData.historyFOverWidth.length
-      objectTestCommonData.snapshotsRejected =
-        objectTestCommonData.rejectedFOverWidth.length
-
-      saveCalibrationMeasurements(
-        RC,
-        'object',
-        allMeasurementObjects,
-        undefined,
-        objectTestCommonData,
-      )
-
-      const acceptedCount = allMeasurementObjects.filter(
-        m => m.snapshotAcceptedBool,
-      ).length
-      const rejectedCount = allMeasurementObjects.length - acceptedCount
-      console.log(
-        `Saved ${allMeasurementObjects.length} measurement attempts ` +
-          `(${acceptedCount} accepted, ${rejectedCount} rejected) ` +
-          `in chronological order`,
-      )
-    } catch (error) {
-      console.error('Error in bulk save of measurement attempts:', error)
-    }
+    // ── BULK SAVE via saveQueue ───────────────────────────────────────
+    const commonData = stateManager.getCommonData()
+    await saveQueue.processBulkSave({
+      RC,
+      options,
+      ppi,
+      firstMeasurementCm: firstMeasurement,
+      isPaperSelectionModeBool: isPaperSelectionMode,
+      selectedPaperLabel,
+      paperSelectionOptions,
+      selectedPaperOption,
+      paperSuggestionValue,
+      getOffsetPx,
+      getGlobalPointForLocation,
+      processMeshDataAndCalculateNearestPoints,
+      createMeasurementObject,
+      saveCalibrationMeasurements,
+      commonData,
+    })
 
     // Call finish function DIRECTLY
     console.log('=== CALLING objectTestFinishFunction DIRECTLY ===')

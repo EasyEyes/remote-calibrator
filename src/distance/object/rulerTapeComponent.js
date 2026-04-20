@@ -44,6 +44,8 @@ import {
   Z_INDEX,
 } from './objectTestConstants'
 
+import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
+
 import { debugLog } from './debugLogger'
 
 // ─── Geometry helpers ────────────────────────────────────────────────────────
@@ -364,7 +366,6 @@ export function createRulerTapeComponent(config) {
     phrases,
     RC,
     options,
-    objectLengthCmGlobal,
     woodSvg,
     isPaperSelectionMode = false,
     getCurrentPage = () => 2,

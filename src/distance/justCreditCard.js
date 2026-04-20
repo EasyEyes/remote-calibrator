@@ -2617,6 +2617,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
         options.viewingDistanceWhichEye,
         undefined,
         options.calibrateDistanceCheckMinRulerCm,
+        options.calibrateDistanceCorrectForHeadRotation,
       )
     } else {
       if (typeof callback === 'function') {

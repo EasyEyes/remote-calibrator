@@ -27,6 +27,7 @@ import {
   clearMeasurementOverlay,
   stdDist,
 } from '../distance/distanceTrack'
+import { correctIpdForHeadRotation } from '../distance/headYaw'
 import {
   createHandPreferenceSelector,
   fitContentToAvailableSpace,
@@ -89,6 +90,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
   viewingDistanceWhichEye = undefined,
   saveSnapshots = false,
   calibrateDistanceCheckMinRulerCm = 0,
+  calibrateDistanceCorrectForHeadRotation = 'useZ',
 ) {
   // Force fullscreen unconditionally on "Set your viewing distance" page arrival
   forceFullscreen(this.L, this)
@@ -118,6 +120,7 @@ RemoteCalibrator.prototype._checkDistance = async function (
       calibrateDistanceAllowedRatioFOverWidth,
       viewingDistanceWhichEye,
       saveSnapshots,
+      calibrateDistanceCorrectForHeadRotation,
     )
   }, false)
 }
@@ -211,6 +214,7 @@ const trackDistanceCheck = async (
   calibrateDistanceAllowedRatioFOverWidth = 1.1,
   viewingDistanceWhichEye = undefined,
   saveSnapshots = false,
+  calibrateDistanceCorrectForHeadRotation = 'useZ',
 ) => {
   const isTrack = measureName === 'trackDistance'
   const isBlindspot = calibrateDistance === 'blindspot'
@@ -534,6 +538,15 @@ const trackDistanceCheck = async (
       rightEyeFootXYPx: [],
       leftEyeFootXYPx: [],
       footXYPx: [],
+      acceptedHeadYawDeg: [],
+      acceptedIpdUncorrectedOverWidth: [],
+      acceptedIpdCorrectedOverWidth: [],
+      rejectedHeadYawDeg: [],
+      rejectedIpdUncorrectedOverWidth: [],
+      rejectedIpdCorrectedOverWidth: [],
+      historyHeadYawDeg: [],
+      historyIpdUncorrectedOverWidth: [],
+      historyIpdCorrectedOverWidth: [],
     }
 
     // Include spot parameter only if _calibrateDistance === 'blindspot'
@@ -1155,6 +1168,7 @@ const trackDistanceCheck = async (
                 calibrateDistancePupil,
                 calibrateDistanceChecking,
                 RC.calibrateDistanceIpdUsesZBool !== false,
+                calibrateDistanceCorrectForHeadRotation,
               )
 
               if (!faceValidation.isValid) {
@@ -1272,10 +1286,22 @@ const trackDistanceCheck = async (
               const rulerBasedEyesToFootCm = Math.sqrt(
                 requestedEyesToPointCm ** 2 - faceValidation.footToPointCm ** 2,
               )
+              let ipdOverWidth = null
+              let correctedIpd = null
+              let ipdUncorrectedOverWidth = null
               try {
                 const cameraResolutionXYVpx = getCameraResolutionXY(RC)
                 const horizontalVpx = cameraResolutionXYVpx[0]
-                const ipdOverWidth = faceValidation.ipdPixels / horizontalVpx
+                ipdOverWidth = correctIpdForHeadRotation(
+                  faceValidation.ipdPixels / horizontalVpx,
+                  faceValidation.ipdShrinkage,
+                )
+                correctedIpd = correctIpdForHeadRotation(
+                  faceValidation.ipdPixels,
+                  faceValidation.ipdShrinkage,
+                )
+                ipdUncorrectedOverWidth =
+                  faceValidation.ipdPixels / horizontalVpx
                 const imageBasedEyesToFootCm =
                   (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
                 RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
@@ -1304,8 +1330,7 @@ const trackDistanceCheck = async (
               )
               const currentFVpx =
                 Math.round(
-                  ((faceValidation.ipdPixels * rulerBasedEyesToFootCm) /
-                    RC._CONST.IPD_CM) *
+                  ((correctedIpd * rulerBasedEyesToFootCm) / RC._CONST.IPD_CM) *
                     10,
                 ) / 10
               RC.distanceCheckJSON.fVpx.push(currentFVpx)
@@ -1332,14 +1357,10 @@ const trackDistanceCheck = async (
                 safeRoundCm(faceValidation.footToPointCm),
               )
               RC.distanceCheckJSON.ipdOverWidth.push(
-                safeRoundRatio(
-                  faceValidation.ipdPixels / cameraResolutionXYVpx[0],
-                ),
+                safeRoundRatio(ipdOverWidth),
               )
               RC.distanceCheckJSON.ipdOverWidthXYZ.push(
-                safeRoundRatio(
-                  faceValidation.ipdXYZPixels / cameraResolutionXYVpx[0],
-                ),
+                safeRoundRatio(ipdOverWidth),
               )
               RC.distanceCheckJSON.rightEyeFootXYPx.push([
                 faceValidation.nearestXYPx_right[0],
@@ -1353,6 +1374,15 @@ const trackDistanceCheck = async (
                 faceValidation.footXYPx[0],
                 faceValidation.footXYPx[1],
               ])
+              RC.distanceCheckJSON.historyHeadYawDeg.push(
+                faceValidation.yawDeg ?? null,
+              )
+              RC.distanceCheckJSON.historyIpdUncorrectedOverWidth.push(
+                safeRoundRatio(ipdUncorrectedOverWidth),
+              )
+              RC.distanceCheckJSON.historyIpdCorrectedOverWidth.push(
+                safeRoundRatio(ipdOverWidth),
+              )
               // Plot lists: accepted (ratio is NaN for first)
               const prevAccepted =
                 RC.distanceCheckJSON.acceptedFOverWidth.length > 0
@@ -1384,9 +1414,7 @@ const trackDistanceCheck = async (
                 faceValidation.nearestXYPx_right[1],
               ])
               RC.distanceCheckJSON.acceptedIpdOverWidth.push(
-                safeRoundRatio(
-                  faceValidation.ipdPixels / cameraResolutionXYVpx[0],
-                ),
+                safeRoundRatio(ipdOverWidth),
               )
               RC.distanceCheckJSON.acceptedRulerBasedEyesToFootCm.push(
                 safeRoundCm(rulerBasedEyesToFootCm),
@@ -1410,6 +1438,15 @@ const trackDistanceCheck = async (
               )
               RC.distanceCheckJSON.acceptedPreferRightHandBool.push(
                 preferRightHandBool,
+              )
+              RC.distanceCheckJSON.acceptedHeadYawDeg.push(
+                faceValidation.yawDeg ?? null,
+              )
+              RC.distanceCheckJSON.acceptedIpdUncorrectedOverWidth.push(
+                safeRoundRatio(ipdUncorrectedOverWidth),
+              )
+              RC.distanceCheckJSON.acceptedIpdCorrectedOverWidth.push(
+                safeRoundRatio(ipdOverWidth),
               )
 
               // Clean up the captured image for privacy
@@ -1509,8 +1546,9 @@ const trackDistanceCheck = async (
                 const faceValidation = await validateFaceMeshSamples(
                   RC,
                   calibrateDistancePupil,
-                  'camera',
+                  calibrateDistanceChecking,
                   RC.calibrateDistanceIpdUsesZBool !== false,
+                  calibrateDistanceCorrectForHeadRotation,
                 )
 
                 if (!faceValidation.isValid) {
@@ -1613,10 +1651,22 @@ const trackDistanceCheck = async (
                   faceValidation.pointXYPx[0],
                   faceValidation.pointXYPx[1],
                 ])
+                let ipdOverWidth = null
+                let correctedIpd = null
+                let ipdUncorrectedOverWidth = null
                 try {
                   const cameraResolutionXYVpx = getCameraResolutionXY(RC)
                   const horizontalVpx = cameraResolutionXYVpx[0]
-                  const ipdOverWidth = faceValidation.ipdPixels / horizontalVpx
+                  ipdOverWidth = correctIpdForHeadRotation(
+                    faceValidation.ipdPixels / horizontalVpx,
+                    faceValidation.ipdShrinkage,
+                  )
+                  correctedIpd = correctIpdForHeadRotation(
+                    faceValidation.ipdPixels,
+                    faceValidation.ipdShrinkage,
+                  )
+                  ipdUncorrectedOverWidth =
+                    faceValidation.ipdPixels / horizontalVpx
                   const imageBasedEyesToFootCm =
                     (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
                   RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
@@ -1651,7 +1701,7 @@ const trackDistanceCheck = async (
                 )
                 const currentFVpxKeypad =
                   Math.round(
-                    ((faceValidation.ipdPixels * rulerBasedEyesToFootCm) /
+                    ((correctedIpd * rulerBasedEyesToFootCm) /
                       RC._CONST.IPD_CM) *
                       10,
                   ) / 10
@@ -1676,9 +1726,7 @@ const trackDistanceCheck = async (
                   safeRoundCm(faceValidation.footToPointCm),
                 )
                 RC.distanceCheckJSON.ipdOverWidth.push(
-                  safeRoundRatio(
-                    faceValidation.ipdPixels / cameraResolutionXYVpx[0],
-                  ),
+                  safeRoundRatio(ipdOverWidth),
                 )
                 RC.distanceCheckJSON.ipdOverWidthXYZ.push(
                   safeRoundRatio(
@@ -1697,6 +1745,15 @@ const trackDistanceCheck = async (
                   faceValidation.footXYPx[0],
                   faceValidation.footXYPx[1],
                 ])
+                RC.distanceCheckJSON.historyHeadYawDeg.push(
+                  faceValidation.yawDeg ?? null,
+                )
+                RC.distanceCheckJSON.historyIpdUncorrectedOverWidth.push(
+                  safeRoundRatio(ipdUncorrectedOverWidth),
+                )
+                RC.distanceCheckJSON.historyIpdCorrectedOverWidth.push(
+                  safeRoundRatio(ipdOverWidth),
+                )
                 // Plot lists: accepted (ratio is NaN for first)
                 const prevAcceptedKeypad =
                   RC.distanceCheckJSON.acceptedFOverWidth.length > 0
@@ -1730,9 +1787,7 @@ const trackDistanceCheck = async (
                   faceValidation.nearestXYPx_right[1],
                 ])
                 RC.distanceCheckJSON.acceptedIpdOverWidth.push(
-                  safeRoundRatio(
-                    faceValidation.ipdPixels / cameraResolutionXYVpx[0],
-                  ),
+                  safeRoundRatio(ipdOverWidth),
                 )
                 RC.distanceCheckJSON.acceptedRulerBasedEyesToFootCm.push(
                   safeRoundCm(rulerBasedEyesToFootCm),
@@ -1756,6 +1811,15 @@ const trackDistanceCheck = async (
                 )
                 RC.distanceCheckJSON.acceptedPreferRightHandBool.push(
                   preferRightHandBool,
+                )
+                RC.distanceCheckJSON.acceptedHeadYawDeg.push(
+                  faceValidation.yawDeg ?? null,
+                )
+                RC.distanceCheckJSON.acceptedIpdUncorrectedOverWidth.push(
+                  safeRoundRatio(ipdUncorrectedOverWidth),
+                )
+                RC.distanceCheckJSON.acceptedIpdCorrectedOverWidth.push(
+                  safeRoundRatio(ipdOverWidth),
                 )
 
                 // Clean up the captured image for privacy
@@ -1901,6 +1965,15 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.rejectedPreferRightHandBool.push(
               RC.distanceCheckJSON.historyPreferRightHandBool[idx] ?? null,
             )
+            RC.distanceCheckJSON.rejectedHeadYawDeg.push(
+              RC.distanceCheckJSON.historyHeadYawDeg[idx] ?? null,
+            )
+            RC.distanceCheckJSON.rejectedIpdUncorrectedOverWidth.push(
+              RC.distanceCheckJSON.historyIpdUncorrectedOverWidth[idx] ?? null,
+            )
+            RC.distanceCheckJSON.rejectedIpdCorrectedOverWidth.push(
+              RC.distanceCheckJSON.historyIpdCorrectedOverWidth[idx] ?? null,
+            )
           }
 
           // Remove the last TWO from distanceCheckJSON per-snapshot arrays so the
@@ -1936,6 +2009,9 @@ const trackDistanceCheck = async (
             RC.distanceCheckJSON.acceptedImageBasedEyesToFootCm.pop()
             RC.distanceCheckJSON.acceptedImageBasedEyesToPointCm.pop()
             RC.distanceCheckJSON.acceptedPreferRightHandBool.pop()
+            RC.distanceCheckJSON.acceptedHeadYawDeg.pop()
+            RC.distanceCheckJSON.acceptedIpdUncorrectedOverWidth.pop()
+            RC.distanceCheckJSON.acceptedIpdCorrectedOverWidth.pop()
           }
 
           const errorMessage =

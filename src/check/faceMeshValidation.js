@@ -5,12 +5,18 @@ import { swalInfoOptions } from '../components/swalOptions'
 import { processInlineFormatting } from '../distance/markdownInstructionParser'
 import { calculateNearestPoints } from '../distance/distanceTrack'
 import { getLeftAndRightEyePointsFromMeshData } from '../distance/distance'
+import {
+  estimateHeadYaw,
+  correctIpdForHeadRotation,
+  estimateHeadYawRobust,
+} from '../distance/headYaw'
 
 export const validateFaceMeshSamples = async (
   RC,
   calibrateDistancePupil = 'iris',
   calibrateDistanceChecking = 'camera',
   calibrateDistanceIpdUsesZBool = true,
+  calibrateDistanceCorrectForHeadRotation = 'useZ',
 ) => {
   const samples = []
 
@@ -61,6 +67,9 @@ export const validateFaceMeshSamples = async (
   let pointYYSum = 0
   let pointXYCount = 0
 
+  let yawDegSum = 0
+  let yawDegCount = 0
+
   // Collect exactly 5 samples, using NaN for failed measurements
   for (let i = 0; i < 5; i++) {
     try {
@@ -69,6 +78,7 @@ export const validateFaceMeshSamples = async (
         calibrateDistancePupil,
         calibrateDistanceChecking,
         calibrateDistanceIpdUsesZBool,
+        calibrateDistanceCorrectForHeadRotation,
       )
       if (ipdData && ipdData.ipdPixels && !isNaN(ipdData.ipdPixels)) {
         samples.push(ipdData.ipdPixels)
@@ -160,6 +170,11 @@ export const validateFaceMeshSamples = async (
           pointXXSum += Number(ipdData.pointXYPx[0])
           pointYYSum += Number(ipdData.pointXYPx[1])
           pointXYCount++
+        }
+
+        if (ipdData.yawDeg && !isNaN(ipdData.yawDeg)) {
+          yawDegSum += Number(ipdData.yawDeg)
+          yawDegCount++
         }
       } else {
         samples.push(NaN)
@@ -253,6 +268,9 @@ export const validateFaceMeshSamples = async (
       ? Math.round((ipdXYZPixelsSum / ipdXYZPixelsCount) * 10) / 10
       : null
 
+  const yawDeg =
+    yawDegCount > 0 ? Math.round((yawDegSum / yawDegCount) * 10) / 10 : null
+
   return {
     isValid,
     samples,
@@ -271,6 +289,7 @@ export const validateFaceMeshSamples = async (
     ipdXYZPixels, // Always 3D IPD
     pointXYPx,
     eyeToFootCm,
+    yawDeg,
   }
 }
 
@@ -339,6 +358,7 @@ export const captureIPDFromFaceMesh = async (
   calibrateDistancePupil = 'iris',
   calibrateDistanceChecking = 'camera',
   calibrateDistanceIpdUsesZBool = true,
+  calibrateDistanceCorrectForHeadRotation = 'useZ',
 ) => {
   try {
     const video = document.getElementById('webgazerVideoCanvas')
@@ -371,16 +391,27 @@ export const captureIPDFromFaceMesh = async (
     const ipdPixels = eyeDist(leftEye, rightEye, calibrateDistanceIpdUsesZBool)
     // Always calculate 3D IPD for ipdOverWidthXYZ (uses Z coordinate)
     const ipdXYZPixels = eyeDist(leftEye, rightEye, true)
+
+    // Correct for head rotation shrinkage
+    const { ipdShrinkage, yawDeg } = estimateHeadYawRobust(
+      mesh,
+      leftEye,
+      rightEye,
+      calibrateDistanceCorrectForHeadRotation,
+    )
+
+    const correctedIPD = correctIpdForHeadRotation(ipdPixels, ipdShrinkage)
+
     // Convert to cm if we have screen PPI
     let ipdCm = null
     if (RC.screenPpi && RC.screenPpi.value) {
       // Use the same conversion logic as in distance tracking
-      const VpxPerCm = ipdPixels / RC._CONST.IPD_CM
-      ipdCm = ipdPixels / VpxPerCm
+      const VpxPerCm = correctedIPD / RC._CONST.IPD_CM
+      ipdCm = correctedIPD / VpxPerCm
     }
     const cameraResolutionXYVpx = getCameraResolutionXY(RC)
     const horizontalVpx = cameraResolutionXYVpx[0]
-    const ipdOverWidth = ipdPixels / horizontalVpx
+    const ipdOverWidth = correctedIPD / horizontalVpx
     let eyesToFootCm =
       (RC.calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
     if (
@@ -389,7 +420,7 @@ export const captureIPDFromFaceMesh = async (
     ) {
       try {
         eyesToFootCm =
-          (RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM) / ipdPixels
+          (RC.fRatio * RC.getHorizontalVpx() * RC._CONST.IPD_CM) / correctedIPD
       } catch (error) {
         console.error('Error calculating webcamToEyeDistance:', error)
       }
@@ -402,7 +433,7 @@ export const captureIPDFromFaceMesh = async (
       video,
       leftEye,
       rightEye,
-      ipdPixels,
+      correctedIPD,
       eyesToFootCm,
       pxPerCm,
       RC.screenPpi.value,
@@ -416,7 +447,7 @@ export const captureIPDFromFaceMesh = async (
       [],
       0,
       0,
-      ipdPixels,
+      correctedIPD,
       true,
       calibrateDistanceChecking,
     )
@@ -436,9 +467,11 @@ export const captureIPDFromFaceMesh = async (
     } = nearestPoints
 
     return {
-      ipdPixels: ipdPixels ? Number(ipdPixels.toFixed(1)) : null,
+      ipdPixels: correctedIPD ? Number(correctedIPD.toFixed(1)) : null,
       ipdXYZPixels: ipdXYZPixels ? Number(ipdXYZPixels.toFixed(1)) : null, // Always 3D
       ipdCm: ipdCm ? Number(ipdCm.toFixed(2)) : null,
+      ipdShrinkage,
+      yawDeg: Number(yawDeg.toFixed(1)),
       timestamp: performance.now(),
       eyePositions: {
         left: leftEye,

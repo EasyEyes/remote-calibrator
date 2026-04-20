@@ -86,6 +86,9 @@ export function createObjectTestStateManager({
   const acceptedImageBasedEyesToFootCm = []
   const acceptedImageBasedEyesToPointCm = []
   const acceptedPreferRightHandBool = []
+  const acceptedIpdUncorrectedOverWidth = []
+  const acceptedIpdCorrectedOverWidth = []
+  const acceptedHeadYawDeg = []
 
   const rejectedFOverWidth = []
   const rejectedRatioFOverWidth = []
@@ -99,9 +102,15 @@ export function createObjectTestStateManager({
   const rejectedImageBasedEyesToFootCm = []
   const rejectedImageBasedEyesToPointCm = []
   const rejectedPreferRightHandBool = []
+  const rejectedIpdUncorrectedOverWidth = []
+  const rejectedIpdCorrectedOverWidth = []
+  const rejectedHeadYawDeg = []
 
   const historyFOverWidth = []
   const historyEyesToFootCm = []
+  const historyIpdUncorrectedOverWidth = []
+  const historyIpdCorrectedOverWidth = []
+  const historyHeadYawDeg = []
 
   const estimatedLengthCm = []
   const estimatedLengthRatio = []
@@ -117,10 +126,16 @@ export function createObjectTestStateManager({
       fOverWidth,
       rulerBasedEyesToFootCm,
       preferRightHandBool: prefRightBool,
+      ipdUncorrectedOverWidth: ipdUncOW,
+      ipdCorrectedOverWidth: ipdCorOW,
+      headYawDeg,
     }) {
       historyFOverWidth.push(roundOrNull(fOverWidth, 4))
       historyEyesToFootCm.push(roundOrNull(rulerBasedEyesToFootCm, 2))
       historyPreferRightHandBool.push(prefRightBool)
+      historyIpdUncorrectedOverWidth.push(roundOrNull(ipdUncOW, 4))
+      historyIpdCorrectedOverWidth.push(roundOrNull(ipdCorOW, 4))
+      historyHeadYawDeg.push(roundOrNull(headYawDeg, 2))
     },
 
     /**
@@ -135,6 +150,9 @@ export function createObjectTestStateManager({
       leftEyeFootXYPx,
       rightEyeFootXYPx,
       ipdOverWidth: ipdOW,
+      ipdUncorrectedOverWidth: ipdUncOW,
+      ipdCorrectedOverWidth: ipdCorOW,
+      headYawDeg,
       rulerBasedEyesToFootCm: rbEyesFoot,
       rulerBasedEyesToPointCm: rbEyesPoint,
       imageBasedEyesToFootCm: ibEyesFoot,
@@ -162,6 +180,9 @@ export function createObjectTestStateManager({
       acceptedImageBasedEyesToFootCm.push(roundOrNull(ibEyesFoot, 2))
       acceptedImageBasedEyesToPointCm.push(roundOrNull(ibEyesPoint, 2))
       acceptedPreferRightHandBool.push(prefRightBool)
+      acceptedIpdUncorrectedOverWidth.push(roundOrNull(ipdUncOW, 4))
+      acceptedIpdCorrectedOverWidth.push(roundOrNull(ipdCorOW, 4))
+      acceptedHeadYawDeg.push(roundOrNull(headYawDeg, 2))
       debugLog('stateManager', `Accepted measurement for ${locEye}`)
     },
 
@@ -177,6 +198,9 @@ export function createObjectTestStateManager({
       leftEyeFootXYPx,
       rightEyeFootXYPx,
       ipdOverWidth: ipdOW,
+      ipdUncorrectedOverWidth: ipdUncOW,
+      ipdCorrectedOverWidth: ipdCorOW,
+      headYawDeg,
       rulerBasedEyesToFootCm: rbEyesFoot,
       rulerBasedEyesToPointCm: rbEyesPoint,
       imageBasedEyesToFootCm: ibEyesFoot,
@@ -200,6 +224,9 @@ export function createObjectTestStateManager({
       rejectedImageBasedEyesToFootCm.push(roundOrNull(ibEyesFoot, 2))
       rejectedImageBasedEyesToPointCm.push(roundOrNull(ibEyesPoint, 2))
       rejectedPreferRightHandBool.push(prefRightBool)
+      rejectedIpdUncorrectedOverWidth.push(roundOrNull(ipdUncOW, 4))
+      rejectedIpdCorrectedOverWidth.push(roundOrNull(ipdCorOW, 4))
+      rejectedHeadYawDeg.push(roundOrNull(headYawDeg, 2))
       debugLog('stateManager', `Rejected measurement for ${locEye}`)
     },
 
@@ -220,6 +247,9 @@ export function createObjectTestStateManager({
       acceptedImageBasedEyesToFootCm.pop()
       acceptedImageBasedEyesToPointCm.pop()
       acceptedPreferRightHandBool.pop()
+      acceptedIpdUncorrectedOverWidth.pop()
+      acceptedIpdCorrectedOverWidth.pop()
+      acceptedHeadYawDeg.pop()
       debugLog(
         'stateManager',
         'Retroactively rejected previous accepted measurement',
@@ -292,6 +322,9 @@ export function createObjectTestStateManager({
         rejectedPointXYPx: [...rejectedPointXYPx],
         historyFOverWidth: [...historyFOverWidth],
         historyEyesToFootCm: [...historyEyesToFootCm],
+        historyIpdUncorrectedOverWidth: [...historyIpdUncorrectedOverWidth],
+        historyIpdCorrectedOverWidth: [...historyIpdCorrectedOverWidth],
+        historyHeadYawDeg: [...historyHeadYawDeg],
         acceptedLeftEyeFootXYPx: [...acceptedLeftEyeFootXYPx],
         acceptedRightEyeFootXYPx: [...acceptedRightEyeFootXYPx],
         acceptedIpdOverWidth: [...acceptedIpdOverWidth],
@@ -300,6 +333,9 @@ export function createObjectTestStateManager({
         acceptedImageBasedEyesToFootCm: [...acceptedImageBasedEyesToFootCm],
         acceptedImageBasedEyesToPointCm: [...acceptedImageBasedEyesToPointCm],
         acceptedPreferRightHandBool: [...acceptedPreferRightHandBool],
+        acceptedIpdUncorrectedOverWidth: [...acceptedIpdUncorrectedOverWidth],
+        acceptedIpdCorrectedOverWidth: [...acceptedIpdCorrectedOverWidth],
+        acceptedHeadYawDeg: [...acceptedHeadYawDeg],
         rejectedLeftEyeFootXYPx: [...rejectedLeftEyeFootXYPx],
         rejectedRightEyeFootXYPx: [...rejectedRightEyeFootXYPx],
         rejectedIpdOverWidth: [...rejectedIpdOverWidth],
@@ -308,6 +344,9 @@ export function createObjectTestStateManager({
         rejectedImageBasedEyesToFootCm: [...rejectedImageBasedEyesToFootCm],
         rejectedImageBasedEyesToPointCm: [...rejectedImageBasedEyesToPointCm],
         rejectedPreferRightHandBool: [...rejectedPreferRightHandBool],
+        rejectedIpdUncorrectedOverWidth: [...rejectedIpdUncorrectedOverWidth],
+        rejectedIpdCorrectedOverWidth: [...rejectedIpdCorrectedOverWidth],
+        rejectedHeadYawDeg: [...rejectedHeadYawDeg],
         matchHalfLengthBool,
         estimatedLengthCm: [...estimatedLengthCm],
         estimatedLengthRatio: [...estimatedLengthRatio],

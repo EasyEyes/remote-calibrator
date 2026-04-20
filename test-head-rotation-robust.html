@@ -1,0 +1,1214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Head Yaw Correction — Automated IPD Stability Test</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #111;
+        color: #eee;
+        overflow: hidden;
+        height: 100vh;
+      }
+      #container {
+        display: flex;
+        height: 100vh;
+      }
+
+      #sidebar {
+        width: 460px;
+        min-width: 460px;
+        background: #1a1a2e;
+        padding: 14px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-right: 1px solid #333;
+      }
+      #sidebar h2 {
+        font-size: 15px;
+        color: #7fdbca;
+        margin-bottom: 2px;
+      }
+      #sidebar h3 {
+        font-size: 13px;
+        margin-top: 4px;
+      }
+      .metric {
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .metric .label {
+        color: #888;
+      }
+      .metric .value {
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+        font-family: 'SF Mono', Consolas, monospace;
+      }
+      .metric .unit {
+        color: #666;
+        font-size: 11px;
+      }
+      .good {
+        color: #addb67;
+      }
+      .warn {
+        color: #ffcb6b;
+      }
+      .bad {
+        color: #ff5370;
+      }
+
+      .columns {
+        display: flex;
+        gap: 12px;
+      }
+      .col {
+        flex: 1;
+        min-width: 0;
+      }
+      .col-header {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 0;
+        margin-bottom: 3px;
+        border-bottom: 1px solid #333;
+      }
+
+      /* ── Test panel ── */
+      #test-panel {
+        background: #0d1117;
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 12px;
+      }
+      #test-panel h3 {
+        color: #7fdbca;
+        margin-bottom: 6px;
+      }
+      #test-instructions {
+        font-size: 12px;
+        color: #aaa;
+        margin-bottom: 8px;
+        line-height: 1.5;
+      }
+      .btn {
+        background: #1a1a2e;
+        border: 1px solid #444;
+        color: #eee;
+        padding: 6px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-right: 6px;
+        margin-bottom: 4px;
+      }
+      .btn:hover {
+        background: #2a2a4e;
+        border-color: #666;
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .btn.primary {
+        background: #1a4a3a;
+        border-color: #7fdbca;
+        color: #7fdbca;
+      }
+      .btn.primary:hover {
+        background: #2a5a4a;
+      }
+      .btn.danger {
+        border-color: #ff5370;
+        color: #ff5370;
+      }
+      .btn.danger:hover {
+        background: #3a1a2e;
+      }
+      #test-progress {
+        font-size: 12px;
+        color: #7fdbca;
+        margin-top: 6px;
+        min-height: 18px;
+      }
+
+      /* ── Chart ── */
+      .chart-wrap {
+        position: relative;
+        background: #0d1117;
+        border: 1px solid #333;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .chart-wrap canvas {
+        display: block;
+      }
+
+      /* ── Results table ── */
+      table.results {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        margin-top: 4px;
+      }
+      table.results th {
+        text-align: left;
+        color: #888;
+        padding: 3px 4px;
+        border-bottom: 1px solid #333;
+      }
+      table.results td {
+        padding: 3px 4px;
+        font-family: 'SF Mono', Consolas, monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      table.results tr.best td {
+        background: rgba(173, 219, 103, 0.1);
+      }
+
+      /* ── Canvas area ── */
+      #canvas-area {
+        flex: 1;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+      #video {
+        transform: scaleX(-1);
+        border-radius: 8px;
+        max-width: 100%;
+        max-height: 80vh;
+      }
+      #overlay {
+        position: absolute;
+        pointer-events: none;
+      }
+      #status {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        white-space: nowrap;
+        z-index: 5;
+      }
+      #pose-guide {
+        position: absolute;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.85);
+        padding: 10px 24px;
+        border-radius: 12px;
+        font-size: 18px;
+        font-weight: 600;
+        text-align: center;
+        z-index: 5;
+        display: none;
+        border: 2px solid #7fdbca;
+      }
+      #pose-guide .sub {
+        font-size: 12px;
+        font-weight: 400;
+        color: #aaa;
+        margin-top: 2px;
+      }
+      #pose-countdown {
+        font-size: 48px;
+        font-weight: 700;
+        color: #7fdbca;
+      }
+      #overlay-legend {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        background: rgba(0, 0, 0, 0.65);
+        padding: 4px 8px;
+        border-radius: 6px;
+        pointer-events: none;
+        z-index: 10;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        font-size: 11px;
+        color: #aaa;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .legend-swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .legend-line {
+        width: 14px;
+        height: 2px;
+        flex-shrink: 0;
+      }
+
+      /* ── Winner banner ── */
+      #winner-banner {
+        display: none;
+        background: #1a4a3a;
+        border: 1px solid #7fdbca;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      #winner-banner strong {
+        color: #7fdbca;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="sidebar">
+        <h2>IPD Stability Test</h2>
+        <p style="font-size: 11px; color: #888; margin-bottom: 2px">
+          Tests whether corrected ipdOverWidth stays constant as you turn your
+          head. A perfect correction keeps it identical to the straight-ahead
+          baseline.
+        </p>
+
+        <!-- ── Test controls ── -->
+        <div id="test-panel">
+          <h3>Automated Test</h3>
+          <div id="test-instructions">
+            Press <strong>Start Test</strong>. You will be guided through 5
+            poses: face straight, then turn left and right at gentle and
+            moderate angles. Hold each pose for 3 seconds. The test takes about
+            30 seconds total.
+          </div>
+          <div>
+            <button class="btn primary" id="btn-start">Start Test</button>
+            <button class="btn danger" id="btn-reset" disabled>Reset</button>
+            <button class="btn" id="btn-csv" disabled>Export CSV</button>
+          </div>
+          <div id="test-progress"></div>
+        </div>
+
+        <!-- ── Winner banner ── -->
+        <div id="winner-banner"></div>
+
+        <!-- ── Live metrics ── -->
+        <div class="columns">
+          <div class="col">
+            <div class="col-header" style="color: #666">No correction</div>
+            <div class="metric">
+              <span class="label">ipdOverW:</span>
+              <span class="value" id="none-iow">—</span>
+            </div>
+            <div class="metric">
+              <span class="label">Drift:</span>
+              <span class="value" id="none-drift">—</span
+              ><span class="unit"> %</span>
+            </div>
+          </div>
+          <div class="col">
+            <div class="col-header" style="color: #888">Original (nose)</div>
+            <div class="metric">
+              <span class="label">Yaw:</span>
+              <span class="value" id="old-yaw">—</span
+              ><span class="unit">°</span>
+            </div>
+            <div class="metric">
+              <span class="label">ipdOverW:</span>
+              <span class="value" id="old-iow">—</span>
+            </div>
+            <div class="metric">
+              <span class="label">Drift:</span>
+              <span class="value" id="old-drift">—</span
+              ><span class="unit"> %</span>
+            </div>
+          </div>
+          <div class="col">
+            <div class="col-header" style="color: #c792ea">Robust (3D)</div>
+            <div class="metric">
+              <span class="label">Yaw:</span>
+              <span class="value" id="new-yaw">—</span
+              ><span class="unit">°</span>
+            </div>
+            <div class="metric">
+              <span class="label">ipdOverW:</span>
+              <span class="value" id="new-iow">—</span>
+            </div>
+            <div class="metric">
+              <span class="label">Drift:</span>
+              <span class="value" id="new-drift">—</span
+              ><span class="unit"> %</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Chart: ipdOverWidth over time ── -->
+        <div>
+          <h3 style="color: #7fdbca">ipdOverWidth vs. Time</h3>
+          <div class="chart-wrap">
+            <canvas id="chart-iow" width="430" height="160"></canvas>
+          </div>
+          <div class="legend" style="margin-top: 4px">
+            <div class="legend-item">
+              <span class="legend-line" style="background: #666"></span>
+              Uncorrected
+            </div>
+            <div class="legend-item">
+              <span class="legend-line" style="background: #888"></span>
+              Original
+            </div>
+            <div class="legend-item">
+              <span class="legend-line" style="background: #c792ea"></span>
+              Robust
+            </div>
+            <div class="legend-item">
+              <span
+                class="legend-line"
+                style="background: rgba(127, 219, 202, 0.3)"
+              ></span>
+              Baseline
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Chart: drift % over time ── -->
+        <div>
+          <h3 style="color: #7fdbca">Drift from Baseline (%)</h3>
+          <div class="chart-wrap">
+            <canvas id="chart-drift" width="430" height="140"></canvas>
+          </div>
+        </div>
+
+        <!-- ── Results table ── -->
+        <div>
+          <h3 style="color: #7fdbca">Per-Pose Results</h3>
+          <table class="results" id="results-table">
+            <thead>
+              <tr>
+                <th>Pose</th>
+                <th>Yaw°(old)</th>
+                <th>Yaw°(new)</th>
+                <th>Uncorr%</th>
+                <th>Old%</th>
+                <th>Robust%</th>
+              </tr>
+            </thead>
+            <tbody id="results-body"></tbody>
+          </table>
+          <div style="font-size: 10px; color: #666; margin-top: 2px">
+            % columns show mean drift from baseline. Lower is better.
+          </div>
+        </div>
+
+        <!-- ── Pair details ── -->
+        <div>
+          <h3 style="color: #c792ea">Symmetric Pair Details (live)</h3>
+          <table class="results">
+            <thead>
+              <tr>
+                <th>Pair</th>
+                <th>2D</th>
+                <th>3D</th>
+                <th>Shrink</th>
+                <th>Yaw°</th>
+              </tr>
+            </thead>
+            <tbody id="pairs-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="canvas-area">
+        <video id="video" playsinline></video>
+        <canvas id="overlay"></canvas>
+        <div id="status">Initializing camera&hellip;</div>
+        <div id="pose-guide">
+          <div id="pose-text"></div>
+          <div class="sub" id="pose-sub"></div>
+          <div id="pose-countdown"></div>
+        </div>
+        <div id="overlay-legend" class="legend">
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: #00bcd4"></span> Eyes
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: #ff9800"></span> Nose
+          </div>
+          <div class="legend-item">
+            <span
+              class="legend-line"
+              style="background: #c792ea; height: 3px"
+            ></span>
+            Sym. pairs
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import {
+        FaceLandmarker,
+        FilesetResolver,
+      } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs'
+
+      const $ = id => document.getElementById(id)
+
+      const videoEl = $('video')
+      const overlayEl = $('overlay')
+      const statusEl = $('status')
+      const poseGuide = $('pose-guide')
+      const poseText = $('pose-text')
+      const poseSub = $('pose-sub')
+      const poseCountdown = $('pose-countdown')
+      const chartIowCanvas = $('chart-iow')
+      const chartDriftCanvas = $('chart-drift')
+      const btnStart = $('btn-start')
+      const btnReset = $('btn-reset')
+      const btnCsv = $('btn-csv')
+
+      // =====================================================================
+      //  Algorithms (identical to headYaw.js)
+      // =====================================================================
+
+      function estimateOriginal(landmarks) {
+        const leftEye = landmarks[468],
+          rightEye = landmarks[473],
+          noseTip = landmarks[1]
+        if (!leftEye || !rightEye || !noseTip) return null
+
+        const eyeMidX = (leftEye.x + rightEye.x) / 2
+        const eyeMidY = (leftEye.y + rightEye.y) / 2
+        const ipdNorm = Math.hypot(
+          leftEye.x - rightEye.x,
+          leftEye.y - rightEye.y,
+        )
+        if (ipdNorm < 1e-6) return null
+
+        const ipdDx = rightEye.x - leftEye.x,
+          ipdDy = rightEye.y - leftEye.y
+        const ax = ipdDx / ipdNorm,
+          ay = ipdDy / ipdNorm
+        const px = -ipdDy / ipdNorm,
+          py = ipdDx / ipdNorm
+
+        const ndx = noseTip.x - eyeMidX,
+          ndy = noseTip.y - eyeMidY
+        const lat = ndx * ax + ndy * ay
+        const fwd = ndx * px + ndy * py
+        const minF = 0.15 * ipdNorm
+        const yawRad = Math.atan2(lat, Math.max(Math.abs(fwd), minF))
+        const ipdShrinkage = Math.max(Math.cos(yawRad), 0.5)
+
+        const nd2 = Math.hypot(lat, fwd)
+        const ne = Math.max(nd2, minF)
+        const cpr = fwd / (ne * Math.cos(yawRad))
+        const cpc = Math.max(-1, Math.min(1, cpr))
+        const pitchDeg = ((fwd >= 0 ? 1 : -1) * Math.acos(cpc) * 180) / Math.PI
+
+        return {
+          yawDeg: (yawRad * 180) / Math.PI,
+          pitchDeg,
+          ipdShrinkage,
+          lateralShift: lat,
+          forwardProjection: fwd,
+          leftEye,
+          rightEye,
+          noseTip,
+          eyeMidX,
+          eyeMidY,
+          ipdNorm,
+        }
+      }
+
+      const SYM_PAIRS = [
+        [33, 263],
+        [133, 362],
+        [159, 386],
+        [145, 374],
+      ]
+
+      function medianOf(arr) {
+        const s = [...arr].sort((a, b) => a - b)
+        const m = Math.floor(s.length / 2)
+        return s.length % 2 ? s[m] : 0.5 * (s[m - 1] + s[m])
+      }
+
+      function estimateRobust(landmarks) {
+        const shrinks = [],
+          yaws = [],
+          details = []
+        for (const [li, ri] of SYM_PAIRS) {
+          const L = landmarks[li],
+            R = landmarks[ri]
+          if (!L || !R) continue
+          const dx = L.x - R.x,
+            dy = L.y - R.y,
+            dz = (L.z ?? 0) - (R.z ?? 0)
+          const l2 = Math.hypot(dx, dy),
+            l3 = Math.hypot(dx, dy, dz)
+          if (l2 < 1e-6 || l3 < 1e-6) continue
+          const sh = l2 / l3,
+            yd = (Math.atan2(dz, l2) * 180) / Math.PI
+          shrinks.push(sh)
+          yaws.push(yd)
+          details.push({ li, ri, len2D: l2, len3D: l3, shrink: sh, yawDeg: yd })
+        }
+        if (!shrinks.length)
+          return { yawDeg: 0, ipdShrinkage: 1, pairsUsed: 0, pairDetails: [] }
+        return {
+          yawDeg: medianOf(yaws),
+          ipdShrinkage: Math.max(Math.min(medianOf(shrinks), 1), 0.5),
+          pairsUsed: shrinks.length,
+          pairDetails: details,
+        }
+      }
+
+      // =====================================================================
+      //  Test protocol state
+      // =====================================================================
+
+      const POSES = [
+        {
+          name: 'Straight',
+          instruction: 'Face the camera straight on',
+          icon: '  ↑',
+          holdSec: 3,
+          isBaseline: true,
+        },
+        {
+          name: 'Gentle left',
+          instruction: 'Turn head gently to YOUR LEFT',
+          icon: '← ~10°',
+          holdSec: 3,
+          isBaseline: false,
+        },
+        {
+          name: 'Gentle right',
+          instruction: 'Turn head gently to YOUR RIGHT',
+          icon: '~10° →',
+          holdSec: 3,
+          isBaseline: false,
+        },
+        {
+          name: 'Moderate left',
+          instruction: 'Turn head more to YOUR LEFT',
+          icon: '← ~20°',
+          holdSec: 3,
+          isBaseline: false,
+        },
+        {
+          name: 'Moderate right',
+          instruction: 'Turn head more to YOUR RIGHT',
+          icon: '~20° →',
+          holdSec: 3,
+          isBaseline: false,
+        },
+      ]
+      const SETTLE_MS = 1500
+      const FPS_SAMPLE = 20
+
+      let testState = 'idle'
+      let currentPoseIdx = -1
+      let poseStartTime = 0
+      let settleUntil = 0
+      let baseline = null
+      let poseResults = []
+      let allSamples = []
+      let testStartTime = 0
+
+      // Per-pose accumulators
+      let poseSamples = []
+
+      function resetTest() {
+        testState = 'idle'
+        currentPoseIdx = -1
+        baseline = null
+        poseResults = []
+        allSamples = []
+        poseSamples = []
+        testStartTime = 0
+        poseGuide.style.display = 'none'
+        $('results-body').innerHTML = ''
+        $('winner-banner').style.display = 'none'
+        btnStart.disabled = false
+        btnReset.disabled = true
+        btnCsv.disabled = true
+        $('test-progress').textContent = ''
+      }
+
+      function startTest() {
+        resetTest()
+        testState = 'running'
+        testStartTime = performance.now()
+        currentPoseIdx = -1
+        btnStart.disabled = true
+        btnReset.disabled = false
+        advancePose()
+      }
+
+      function advancePose() {
+        currentPoseIdx++
+        if (currentPoseIdx >= POSES.length) {
+          finishTest()
+          return
+        }
+        const pose = POSES[currentPoseIdx]
+        poseSamples = []
+        settleUntil = performance.now() + SETTLE_MS
+        poseStartTime = 0
+
+        poseGuide.style.display = 'block'
+        poseText.textContent = `${pose.icon}  ${pose.instruction}`
+        poseSub.textContent = 'Get into position...'
+        poseCountdown.textContent = ''
+        $('test-progress').textContent =
+          `Pose ${currentPoseIdx + 1}/${POSES.length}: ${pose.name}`
+      }
+
+      function tickTest(rawIow, oldIow, newIow, oldYaw, newYaw, now) {
+        if (testState !== 'running') return
+
+        const pose = POSES[currentPoseIdx]
+
+        // Settling phase
+        if (now < settleUntil) {
+          const left = Math.ceil((settleUntil - now) / 1000)
+          poseSub.textContent = `Settling... get into position`
+          poseCountdown.textContent = ''
+          return
+        }
+
+        // Start collecting
+        if (!poseStartTime) poseStartTime = now
+
+        const elapsed = now - poseStartTime
+        const remaining = Math.max(0, pose.holdSec * 1000 - elapsed)
+        const remSec = Math.ceil(remaining / 1000)
+
+        poseSub.textContent = 'Hold still — sampling'
+        poseCountdown.textContent = remSec > 0 ? remSec : '✓'
+
+        poseSamples.push({ rawIow, oldIow, newIow, oldYaw, newYaw, t: now })
+
+        // Also record into the global timeline
+        allSamples.push({
+          t: now - testStartTime,
+          pose: pose.name,
+          rawIow,
+          oldIow,
+          newIow,
+          oldYaw,
+          newYaw,
+        })
+
+        if (elapsed >= pose.holdSec * 1000) {
+          // Compute pose summary
+          const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length
+          const rawMean = avg(poseSamples.map(s => s.rawIow))
+          const oldMean = avg(poseSamples.map(s => s.oldIow))
+          const newMean = avg(poseSamples.map(s => s.newIow))
+          const oldYawMean = avg(poseSamples.map(s => s.oldYaw))
+          const newYawMean = avg(poseSamples.map(s => s.newYaw))
+
+          if (pose.isBaseline) {
+            baseline = { rawIow: rawMean, oldIow: oldMean, newIow: newMean }
+          }
+
+          poseResults.push({
+            name: pose.name,
+            rawMean,
+            oldMean,
+            newMean,
+            oldYawMean,
+            newYawMean,
+            nSamples: poseSamples.length,
+          })
+
+          advancePose()
+        }
+      }
+
+      function finishTest() {
+        testState = 'done'
+        poseGuide.style.display = 'none'
+        btnStart.disabled = false
+        btnCsv.disabled = false
+        $('test-progress').textContent = 'Test complete!'
+
+        renderResults()
+      }
+
+      function renderResults() {
+        if (!baseline) return
+        const tbody = $('results-body')
+        let sumRaw = 0,
+          sumOld = 0,
+          sumNew = 0,
+          n = 0
+
+        tbody.innerHTML = poseResults
+          .map(r => {
+            const rawDrift = Math.abs(
+              ((r.rawMean - baseline.rawIow) / baseline.rawIow) * 100,
+            )
+            const oldDrift = Math.abs(
+              ((r.oldMean - baseline.oldIow) / baseline.oldIow) * 100,
+            )
+            const newDrift = Math.abs(
+              ((r.newMean - baseline.newIow) / baseline.newIow) * 100,
+            )
+
+            if (!POSES.find(p => p.name === r.name)?.isBaseline) {
+              sumRaw += rawDrift
+              sumOld += oldDrift
+              sumNew += newDrift
+              n++
+            }
+
+            const minD = Math.min(rawDrift, oldDrift, newDrift)
+            const cls = v => (v === minD ? 'good' : '')
+            return `<tr>
+      <td>${r.name}</td>
+      <td>${r.oldYawMean.toFixed(1)}</td>
+      <td>${r.newYawMean.toFixed(1)}</td>
+      <td class="${cls(rawDrift)}">${rawDrift.toFixed(2)}</td>
+      <td class="${cls(oldDrift)}">${oldDrift.toFixed(2)}</td>
+      <td class="${cls(newDrift)}">${newDrift.toFixed(2)}</td>
+    </tr>`
+          })
+          .join('')
+
+        // Summary row
+        if (n > 0) {
+          const avgRaw = sumRaw / n,
+            avgOld = sumOld / n,
+            avgNew = sumNew / n
+          const minAvg = Math.min(avgRaw, avgOld, avgNew)
+          const cls = v => (Math.abs(v - minAvg) < 0.001 ? 'good' : '')
+          tbody.innerHTML += `<tr style="border-top:2px solid #333;font-weight:600">
+      <td>Mean</td><td></td><td></td>
+      <td class="${cls(avgRaw)}">${avgRaw.toFixed(2)}</td>
+      <td class="${cls(avgOld)}">${avgOld.toFixed(2)}</td>
+      <td class="${cls(avgNew)}">${avgNew.toFixed(2)}</td>
+    </tr>`
+
+          // Winner banner
+          const banner = $('winner-banner')
+          banner.style.display = 'block'
+          const methods = [
+            { name: 'No correction', drift: avgRaw },
+            { name: 'Original (nose-tip 2D)', drift: avgOld },
+            { name: 'Robust (3D symmetric pairs)', drift: avgNew },
+          ].sort((a, b) => a.drift - b.drift)
+
+          banner.innerHTML =
+            `<strong>Winner: ${methods[0].name}</strong> — mean drift ${methods[0].drift.toFixed(2)}%<br>` +
+            methods
+              .map(
+                (m, i) =>
+                  `${i + 1}. ${m.name}: <span class="${i === 0 ? 'good' : ''}">${m.drift.toFixed(2)}%</span>`,
+              )
+              .join(' &nbsp;|&nbsp; ')
+        }
+      }
+
+      function exportCsv() {
+        if (!allSamples.length) return
+        const header =
+          'time_ms,pose,raw_ipdOverWidth,original_corrected_ipdOverWidth,robust_corrected_ipdOverWidth,original_yaw_deg,robust_yaw_deg\n'
+        const rows = allSamples
+          .map(
+            s =>
+              `${s.t.toFixed(1)},${s.pose},${s.rawIow.toFixed(6)},${s.oldIow.toFixed(6)},${s.newIow.toFixed(6)},${s.oldYaw.toFixed(2)},${s.newYaw.toFixed(2)}`,
+          )
+          .join('\n')
+        const blob = new Blob([header + rows], { type: 'text/csv' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `ipd-stability-test-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+
+      btnStart.addEventListener('click', startTest)
+      btnReset.addEventListener('click', resetTest)
+      btnCsv.addEventListener('click', exportCsv)
+
+      // =====================================================================
+      //  Charts
+      // =====================================================================
+
+      const CHART_HISTORY = 300
+
+      const iowHistory = { raw: [], old: [], new: [], times: [] }
+      const driftHistory = { raw: [], old: [], new: [], times: [] }
+
+      function pushChartSample(t, rawIow, oldIow, newIow) {
+        iowHistory.raw.push(rawIow)
+        iowHistory.old.push(oldIow)
+        iowHistory.new.push(newIow)
+        iowHistory.times.push(t)
+        if (iowHistory.raw.length > CHART_HISTORY) {
+          iowHistory.raw.shift()
+          iowHistory.old.shift()
+          iowHistory.new.shift()
+          iowHistory.times.shift()
+        }
+
+        if (baseline) {
+          driftHistory.raw.push(
+            ((rawIow - baseline.rawIow) / baseline.rawIow) * 100,
+          )
+          driftHistory.old.push(
+            ((oldIow - baseline.oldIow) / baseline.oldIow) * 100,
+          )
+          driftHistory.new.push(
+            ((newIow - baseline.newIow) / baseline.newIow) * 100,
+          )
+          driftHistory.times.push(t)
+          if (driftHistory.raw.length > CHART_HISTORY) {
+            driftHistory.raw.shift()
+            driftHistory.old.shift()
+            driftHistory.new.shift()
+            driftHistory.times.shift()
+          }
+        }
+      }
+
+      function drawLineChart(canvas, series, colors, yLabel, baselineVal) {
+        const ctx = canvas.getContext('2d')
+        const W = canvas.width,
+          H = canvas.height
+        const pad = { t: 10, b: 18, l: 50, r: 8 }
+        const cw = W - pad.l - pad.r,
+          ch = H - pad.t - pad.b
+
+        ctx.clearRect(0, 0, W, H)
+
+        const allVals = series.flatMap(s => s)
+        if (!allVals.length) return
+        if (baselineVal != null) allVals.push(baselineVal)
+
+        let yMin = Math.min(...allVals),
+          yMax = Math.max(...allVals)
+        const margin = (yMax - yMin) * 0.15 || 0.001
+        yMin -= margin
+        yMax += margin
+
+        const toX = i => pad.l + (i / (series[0].length - 1 || 1)) * cw
+        const toY = v => pad.t + (1 - (v - yMin) / (yMax - yMin)) * ch
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)'
+        ctx.lineWidth = 1
+        const nGrid = 4
+        for (let i = 0; i <= nGrid; i++) {
+          const y = pad.t + (i / nGrid) * ch
+          ctx.beginPath()
+          ctx.moveTo(pad.l, y)
+          ctx.lineTo(W - pad.r, y)
+          ctx.stroke()
+          const val = yMax - (i / nGrid) * (yMax - yMin)
+          ctx.fillStyle = '#666'
+          ctx.font = '10px monospace'
+          ctx.textAlign = 'right'
+          ctx.fillText(val.toFixed(val < 1 ? 4 : 1), pad.l - 4, y + 3)
+        }
+
+        // Baseline
+        if (baselineVal != null) {
+          const by = toY(baselineVal)
+          ctx.strokeStyle = 'rgba(127,219,202,0.3)'
+          ctx.lineWidth = 1
+          ctx.setLineDash([4, 4])
+          ctx.beginPath()
+          ctx.moveTo(pad.l, by)
+          ctx.lineTo(W - pad.r, by)
+          ctx.stroke()
+          ctx.setLineDash([])
+        }
+
+        // Lines
+        series.forEach((data, si) => {
+          if (data.length < 2) return
+          ctx.strokeStyle = colors[si]
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          data.forEach((v, i) => {
+            i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v))
+          })
+          ctx.stroke()
+        })
+
+        // Y-axis label
+        ctx.fillStyle = '#555'
+        ctx.font = '10px system-ui'
+        ctx.textAlign = 'center'
+        ctx.save()
+        ctx.translate(10, H / 2)
+        ctx.rotate(-Math.PI / 2)
+        ctx.fillText(yLabel, 0, 0)
+        ctx.restore()
+      }
+
+      let chartFrameSkip = 0
+
+      function updateCharts() {
+        if (++chartFrameSkip % 3 !== 0) return
+
+        drawLineChart(
+          chartIowCanvas,
+          [iowHistory.raw, iowHistory.old, iowHistory.new],
+          ['#666', '#888', '#c792ea'],
+          'ipdOverWidth',
+          baseline?.rawIow ?? null,
+        )
+
+        if (driftHistory.raw.length > 1) {
+          drawLineChart(
+            chartDriftCanvas,
+            [driftHistory.raw, driftHistory.old, driftHistory.new],
+            ['#666', '#888', '#c792ea'],
+            'Drift %',
+            0,
+          )
+        }
+      }
+
+      // =====================================================================
+      //  Overlay
+      // =====================================================================
+
+      function drawOverlay(landmarks, oldR, robustR) {
+        const ctx = overlayEl.getContext('2d')
+        const w = overlayEl.width,
+          h = overlayEl.height
+        ctx.clearRect(0, 0, w, h)
+        if (!oldR) return
+
+        const sx = v => w - v * w,
+          sy = v => v * h
+
+        ctx.fillStyle = 'rgba(255,255,255,0.05)'
+        for (const lm of landmarks) {
+          ctx.beginPath()
+          ctx.arc(sx(lm.x), sy(lm.y), 1, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        ctx.fillStyle = '#00bcd4'
+        ctx.beginPath()
+        ctx.arc(sx(oldR.leftEye.x), sy(oldR.leftEye.y), 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(sx(oldR.rightEye.x), sy(oldR.rightEye.y), 5, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.strokeStyle = '#00bcd4'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(sx(oldR.leftEye.x), sy(oldR.leftEye.y))
+        ctx.lineTo(sx(oldR.rightEye.x), sy(oldR.rightEye.y))
+        ctx.stroke()
+
+        ctx.fillStyle = '#ff9800'
+        ctx.beginPath()
+        ctx.arc(sx(oldR.noseTip.x), sy(oldR.noseTip.y), 4, 0, Math.PI * 2)
+        ctx.fill()
+
+        if (robustR?.pairDetails) {
+          ctx.strokeStyle = '#c792ea'
+          ctx.lineWidth = 2
+          for (const p of robustR.pairDetails) {
+            const L = landmarks[p.li],
+              R = landmarks[p.ri]
+            ctx.beginPath()
+            ctx.moveTo(sx(L.x), sy(L.y))
+            ctx.lineTo(sx(R.x), sy(R.y))
+            ctx.stroke()
+            ctx.fillStyle = 'rgba(199,146,234,0.6)'
+            ctx.beginPath()
+            ctx.arc(sx(L.x), sy(L.y), 3, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.arc(sx(R.x), sy(R.y), 3, 0, Math.PI * 2)
+            ctx.fill()
+          }
+        }
+      }
+
+      // =====================================================================
+      //  Live UI
+      // =====================================================================
+
+      function shrinkClass(v) {
+        return v > 0.95 ? 'good' : v > 0.85 ? 'warn' : 'bad'
+      }
+
+      function updateLiveUI(rawIow, oldIow, newIow, oldR, robustR, vw) {
+        $('none-iow').textContent = rawIow.toFixed(4)
+        $('old-yaw').textContent = oldR.yawDeg.toFixed(1)
+        $('old-iow').textContent = oldIow.toFixed(4)
+        $('new-yaw').textContent = robustR.yawDeg.toFixed(1)
+        $('new-iow').textContent = newIow.toFixed(4)
+
+        if (baseline) {
+          const d = (v, b) => ((v - b) / b) * 100
+          const dr = d(rawIow, baseline.rawIow)
+          const dOld = d(oldIow, baseline.oldIow)
+          const dNew = d(newIow, baseline.newIow)
+          $('none-drift').textContent = dr.toFixed(2)
+          $('old-drift').textContent = dOld.toFixed(2)
+          $('new-drift').textContent = dNew.toFixed(2)
+          $('none-drift').className =
+            'value ' +
+            (Math.abs(dr) < 1 ? 'good' : Math.abs(dr) < 3 ? 'warn' : 'bad')
+          $('old-drift').className =
+            'value ' +
+            (Math.abs(dOld) < 1 ? 'good' : Math.abs(dOld) < 3 ? 'warn' : 'bad')
+          $('new-drift').className =
+            'value ' +
+            (Math.abs(dNew) < 1 ? 'good' : Math.abs(dNew) < 3 ? 'warn' : 'bad')
+        }
+
+        $('pairs-body').innerHTML = (robustR.pairDetails || [])
+          .map(p => {
+            return `<tr>
+      <td>${p.li}–${p.ri}</td>
+      <td>${(p.len2D * vw).toFixed(1)}</td>
+      <td>${(p.len3D * vw).toFixed(1)}</td>
+      <td class="${shrinkClass(p.shrink)}">${p.shrink.toFixed(4)}</td>
+      <td>${p.yawDeg.toFixed(1)}</td>
+    </tr>`
+          })
+          .join('')
+      }
+
+      // =====================================================================
+      //  Main
+      // =====================================================================
+
+      async function main() {
+        statusEl.textContent = 'Loading face landmark model\u2026'
+
+        const vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
+        )
+        const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            delegate: 'GPU',
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+          outputFacialTransformationMatrixes: false,
+          outputFaceBlendshapes: false,
+        })
+
+        statusEl.textContent = 'Requesting camera\u2026'
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user',
+          },
+        })
+        videoEl.srcObject = stream
+        await videoEl.play()
+
+        const vw = videoEl.videoWidth,
+          vh = videoEl.videoHeight
+        overlayEl.width = vw
+        overlayEl.height = vh
+
+        function syncOverlay() {
+          const vRect = videoEl.getBoundingClientRect()
+          const aRect = videoEl.parentElement.getBoundingClientRect()
+          overlayEl.style.left = vRect.left - aRect.left + 'px'
+          overlayEl.style.top = vRect.top - aRect.top + 'px'
+          overlayEl.style.width = vRect.width + 'px'
+          overlayEl.style.height = vRect.height + 'px'
+        }
+        syncOverlay()
+        window.addEventListener('resize', syncOverlay)
+
+        statusEl.textContent =
+          'Ready — press Start Test or just observe live values'
+
+        let lastTime = -1
+
+        function tick() {
+          const now = performance.now()
+          if (videoEl.readyState >= 2 && now !== lastTime) {
+            lastTime = now
+            const results = faceLandmarker.detectForVideo(videoEl, now)
+
+            if (results.faceLandmarks?.length > 0) {
+              const lm = results.faceLandmarks[0]
+              const oldR = estimateOriginal(lm)
+              const robustR = estimateRobust(lm)
+
+              if (oldR && robustR) {
+                const ipdPx = oldR.ipdNorm * vw
+                const rawIow = oldR.ipdNorm
+                const oldIow = rawIow / oldR.ipdShrinkage
+                const newIow = rawIow / robustR.ipdShrinkage
+
+                drawOverlay(lm, oldR, robustR)
+                updateLiveUI(rawIow, oldIow, newIow, oldR, robustR, vw)
+                pushChartSample(now, rawIow, oldIow, newIow)
+                updateCharts()
+                tickTest(
+                  rawIow,
+                  oldIow,
+                  newIow,
+                  oldR.yawDeg,
+                  robustR.yawDeg,
+                  now,
+                )
+
+                statusEl.textContent =
+                  testState === 'running'
+                    ? `Pose ${currentPoseIdx + 1}/${POSES.length} — sampling`
+                    : `Yaw: old ${oldR.yawDeg.toFixed(1)}° / new ${robustR.yawDeg.toFixed(1)}°`
+              }
+            }
+          }
+          requestAnimationFrame(tick)
+        }
+
+        requestAnimationFrame(tick)
+      }
+
+      main().catch(err => {
+        statusEl.textContent = `Error: ${err.message}`
+        console.error(err)
+      })
+    </script>
+  </body>
+</html>

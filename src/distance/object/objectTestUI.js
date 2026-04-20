@@ -18,6 +18,7 @@
  */
 
 import { resolveInstructionMediaUrl } from '../instructionMediaCache'
+import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
 
 /**
  * Create all UI elements, state, and helpers needed by pageController.
@@ -41,8 +42,6 @@ export function createObjectTestUI(context) {
     usePaperOnlyChoicesBool,
     measurementState,
     calibrateDistanceOffsetCm,
-    objectLengthCmGlobal,
-    globalPointXYPx,
     woodSvg,
     test_assetMap,
     // Utility functions
@@ -160,74 +159,9 @@ export function createObjectTestUI(context) {
   let endX = leftMarginPx + initialRulerLengthPx
   let endY = tapeYPosition
 
-  // objectTestCommonData: a mutable object matching the legacy shape exactly.
-  // The pageController and spaceKeyHandler mutate it directly (push to arrays,
-  // set scalar fields).  At save time, the entire object is passed to
-  // saveCalibrationMeasurements.  We build the initial structure here, mirroring
-  // legacy distance.js L3858-3910.
-  //
-  // NOTE: We intentionally use a raw mutable object (not the state manager)
-  // because the pageController/spaceKeyHandler push to its arrays directly.
-  let webcamMaxXYVpx = ''
-  let webcamMaxHz = null
-  if (RC.gazeTracker?.webgazer?.videoParamsToReport) {
-    const vp = RC.gazeTracker.webgazer.videoParamsToReport
-    const maxW = Math.max(vp.maxHeight || 0, vp.maxWidth || 0)
-    const maxH = Math.min(vp.maxHeight || 0, vp.maxWidth || 0)
-    if (maxW && maxH) webcamMaxXYVpx = `${maxW},${maxH}`
-    webcamMaxHz = vp.maxFrameRate || null
-  }
-  const objectTestCommonData = {
-    _calibrateDistance: options.calibrateDistance,
-    _calibrateDistanceAllowedRangeCm: options.calibrateDistanceAllowedRangeCm,
-    _calibrateDistanceAllowedRatioFOverWidth:
-      options.calibrateDistanceAllowedRatioFOverWidth,
-    _calibrateDistanceOffsetCm: calibrateDistanceOffsetCm,
-    _calibrateDistancePupil: options.calibrateDistancePupil,
-    _calibrateDistanceShowRulerUnitsBool:
-      options.calibrateDistanceShowRulerUnitsBool,
-    _calibrateDistanceTimes: options.objectMeasurementCount,
-    _calibrateDistanceAllowedRatioPxPerCm:
-      options.calibrateDistanceAllowedRatioPxPerCm,
-    _calibrateScreenSizeTimes: options.calibrateScreenSizeTimes,
-    _showPerpendicularFeetBool: options.showNearestPointsBool,
-    _viewingDistanceWhichEye: options.viewingDistanceWhichEye,
-    _viewingDistanceWhichPoint: options.viewingDistanceWhichPoint,
-    webcamMaxXYVpx,
-    webcamMaxHz,
-    historyPreferRightHandBool: [],
-    objectRulerIntervalCm: [],
-    objectMeasuredMsg: [],
-    acceptedFOverWidth: [],
-    acceptedRatioFOverWidth: [],
-    acceptedLocation: [],
-    acceptedPointXYPx: [],
-    rejectedFOverWidth: [],
-    rejectedRatioFOverWidth: [],
-    rejectedLocation: [],
-    rejectedPointXYPx: [],
-    historyFOverWidth: [],
-    historyEyesToFootCm: [],
-    acceptedLeftEyeFootXYPx: [],
-    acceptedRightEyeFootXYPx: [],
-    acceptedIpdOverWidth: [],
-    acceptedRulerBasedEyesToFootCm: [],
-    acceptedRulerBasedEyesToPointCm: [],
-    acceptedImageBasedEyesToFootCm: [],
-    acceptedImageBasedEyesToPointCm: [],
-    acceptedPreferRightHandBool: [],
-    rejectedLeftEyeFootXYPx: [],
-    rejectedRightEyeFootXYPx: [],
-    rejectedIpdOverWidth: [],
-    rejectedRulerBasedEyesToFootCm: [],
-    rejectedRulerBasedEyesToPointCm: [],
-    rejectedImageBasedEyesToFootCm: [],
-    rejectedImageBasedEyesToPointCm: [],
-    rejectedPreferRightHandBool: [],
-    matchHalfLengthBool: null,
-    estimatedLengthCm: [],
-    estimatedLengthRatio: [],
-  }
+  // Telemetry state is managed by stateManager (from objectTestStateManager.js).
+  // All accepted/rejected/history pushes go through stateManager methods.
+  // At save time, stateManager.getCommonData() provides the legacy-shaped object.
 
   // ===================== CONTAINER =====================
   // Legacy distance.js L4217-4225
@@ -2426,7 +2360,7 @@ export function createObjectTestUI(context) {
       const shouldEnforceMinimum =
         isFirstMeasurement || measurementState.lastAttemptWasTooShort
 
-      objectTestCommonData.objectRulerIntervalCm.push(
+      stateManager.pushObjectRulerIntervalCm(
         Math.round(Number(intervalCmCurrent) * 10) / 10,
       )
 
@@ -2437,7 +2371,7 @@ export function createObjectTestUI(context) {
           )
 
           measurementState.lastAttemptWasTooShort = true
-          objectTestCommonData.objectMeasuredMsg.push('short')
+          stateManager.pushObjectMeasuredMsg('short')
 
           measurementState.tooShortRejectionCount++
           console.log(
@@ -2479,7 +2413,7 @@ export function createObjectTestUI(context) {
             `Current measurement is too short (${Math.round(firstMeasurement)}cm < ${Math.round(minCm)}cm) - will enforce on NEXT measurement`,
           )
           measurementState.lastAttemptWasTooShort = true
-          objectTestCommonData.objectMeasuredMsg.push('short')
+          stateManager.pushObjectMeasuredMsg('short')
         } else {
           measurementState.lastAttemptWasTooShort = false
         }
@@ -2709,10 +2643,8 @@ export function createObjectTestUI(context) {
     measurementPageRenderer,
     locationManager,
     measurementState,
-    objectTestCommonData,
-    objectLengthCmGlobal,
-    globalPointXYPx,
-
+    stateManager,
+    saveQueue,
     // Scalar config (from context, passed through to pageController)
     RC,
     phrases,

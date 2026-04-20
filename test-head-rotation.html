@@ -1,0 +1,1602 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Head Rotation IPD Correction — Test</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+    />
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    ></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #111;
+        color: #eee;
+        overflow: hidden;
+        height: 100vh;
+      }
+      #container {
+        display: flex;
+        height: 100vh;
+      }
+      #sidebar {
+        width: 360px;
+        min-width: 360px;
+        background: #1a1a2e;
+        padding: 16px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        border-right: 1px solid #333;
+      }
+      #sidebar h2 {
+        font-size: 15px;
+        color: #7fdbca;
+        margin-bottom: 4px;
+      }
+      #sidebar h3 {
+        font-size: 13px;
+        color: #c792ea;
+        margin-top: 8px;
+      }
+      .metric {
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .metric .label {
+        color: #888;
+      }
+      .metric .value {
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+        font-family: 'SF Mono', 'Consolas', monospace;
+      }
+      .metric .unit {
+        color: #666;
+        font-size: 11px;
+      }
+      .good {
+        color: #addb67;
+      }
+      .warn {
+        color: #ffcb6b;
+      }
+      .bad {
+        color: #ff5370;
+      }
+      #canvas-area {
+        flex: 1;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #video {
+        transform: scaleX(-1);
+        border-radius: 8px;
+        max-width: 100%;
+        max-height: 100%;
+      }
+      #overlay {
+        position: absolute;
+        pointer-events: none;
+      }
+      #status {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+      }
+      #crosshair {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        display: none;
+      }
+      #crosshair::before,
+      #crosshair::after {
+        content: '';
+        position: absolute;
+        background: rgba(255, 255, 255, 0.3);
+      }
+      #crosshair::before {
+        width: 1px;
+        height: 20px;
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+      }
+      #crosshair::after {
+        height: 1px;
+        width: 20px;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+      }
+      #headDot {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        background: lime;
+        border: 2px solid #000;
+        border-radius: 50%;
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        display: none;
+        z-index: 10;
+        transition:
+          left 0.05s linear,
+          top 0.05s linear;
+      }
+      #eyeMidDot {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: cyan;
+        border: 1px solid #000;
+        border-radius: 50%;
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        display: none;
+        z-index: 9;
+      }
+      table.history {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        margin-top: 4px;
+      }
+      table.history th {
+        text-align: left;
+        color: #888;
+        padding: 2px 4px;
+        border-bottom: 1px solid #333;
+      }
+      table.history td {
+        padding: 2px 4px;
+        font-family: 'SF Mono', 'Consolas', monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      #diagram-wrapper {
+        position: relative;
+        width: 320px;
+        height: 180px;
+        background: #0d1117;
+        border-radius: 6px;
+        border: 1px solid #333;
+        margin-top: 4px;
+      }
+      #geometry-diagram {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+      .diagram-label {
+        position: absolute;
+        font-size: 10px;
+        font-family: system-ui, sans-serif;
+        white-space: nowrap;
+        pointer-events: none;
+        transform: translateX(-50%);
+        text-align: center;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        font-size: 11px;
+        color: #aaa;
+        margin-top: 6px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .legend-swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .legend-line {
+        width: 14px;
+        height: 2px;
+        flex-shrink: 0;
+      }
+      #overlay-legend {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        background: rgba(0, 0, 0, 0.65);
+        padding: 4px 8px;
+        border-radius: 6px;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      /* ── Geometry explanation popup ── */
+      #geometry-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+      }
+      #geometry-backdrop.open {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #geometry-modal {
+        --m-bg: #0d1117;
+        --m-text: #e6edf3;
+        --m-muted: #8b949e;
+        --m-border: #30363d;
+        --m-code-bg: #161b22;
+        --m-th-bg: #161b22;
+        --m-link: #58a6ff;
+        --m-head-border: #30363d;
+        background: var(--m-bg);
+        color: var(--m-text);
+        border-radius: 12px;
+        width: min(880px, 92vw);
+        max-height: 88vh;
+        overflow-y: auto;
+        padding: 2.5rem 2rem 3rem;
+        position: relative;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica,
+          Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.7;
+      }
+      #geometry-modal h1 {
+        font-size: 1.8rem;
+        border-bottom: 2px solid var(--m-head-border);
+        padding-bottom: 0.4rem;
+        margin: 0 0 1rem;
+      }
+      #geometry-modal h2 {
+        font-size: 1.35rem;
+        border-bottom: 1px solid var(--m-head-border);
+        padding-bottom: 0.3rem;
+        margin-top: 2.2rem;
+      }
+      #geometry-modal h3 {
+        font-size: 1.1rem;
+        margin-top: 1.8rem;
+      }
+      #geometry-modal p {
+        margin: 0.75rem 0;
+      }
+      #geometry-modal a {
+        color: var(--m-link);
+      }
+      #geometry-modal code {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo,
+          monospace;
+        font-size: 0.875em;
+        background: var(--m-code-bg);
+        border: 1px solid var(--m-border);
+        border-radius: 4px;
+        padding: 0.15em 0.4em;
+      }
+      #geometry-modal pre {
+        background: var(--m-code-bg);
+        border: 1px solid var(--m-border);
+        border-radius: 6px;
+        padding: 1rem 1.2rem;
+        overflow-x: auto;
+        line-height: 1.5;
+      }
+      #geometry-modal pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: 0.85em;
+      }
+      #geometry-modal .katex-display {
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0.25rem 0;
+      }
+      #geometry-modal table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1.25rem 0;
+        font-size: 0.93rem;
+      }
+      #geometry-modal th {
+        background: var(--m-th-bg);
+        font-weight: 600;
+        text-align: left;
+      }
+      #geometry-modal th,
+      #geometry-modal td {
+        border: 1px solid var(--m-border);
+        padding: 0.5rem 0.85rem;
+        vertical-align: top;
+      }
+      #geometry-modal tr:nth-child(even) td {
+        background: color-mix(in srgb, var(--m-th-bg) 40%, var(--m-bg));
+      }
+      #geometry-modal ul,
+      #geometry-modal ol {
+        padding-left: 1.5rem;
+      }
+      #geometry-modal li {
+        margin: 0.3rem 0;
+      }
+      #geometry-modal hr {
+        border: none;
+        border-top: 1px solid var(--m-border);
+        margin: 2.2rem 0;
+      }
+      #close-modal {
+        position: sticky;
+        top: 0;
+        float: right;
+        background: none;
+        border: 1px solid var(--m-border);
+        color: var(--m-muted);
+        font-size: 22px;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+      }
+      #close-modal:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+      }
+      #info-btn {
+        background: none;
+        border: 1px solid #444;
+        color: #aaa;
+        font-size: 13px;
+        padding: 3px 10px;
+        border-radius: 12px;
+        cursor: pointer;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+      #info-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        border-color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="sidebar">
+        <h2>
+          Head Rotation IPD Correction
+          <button id="info-btn" title="How the geometry works">
+            ? Geometry
+          </button>
+        </h2>
+
+        <div>
+          <h3>Head Orientation</h3>
+          <div class="metric">
+            <span class="label">Yaw:</span>
+            <span class="value" id="val-yaw">—</span
+            ><span class="unit"> deg</span>
+          </div>
+          <div class="metric">
+            <span class="label">Pitch:</span>
+            <span class="value" id="val-pitch">—</span
+            ><span class="unit"> deg</span>
+          </div>
+        </div>
+
+        <div>
+          <h3>IPD Correction</h3>
+          <div class="metric">
+            <span class="label">ipdShrinkage:</span>
+            <span class="value" id="val-shrinkage">—</span>
+          </div>
+          <div class="metric">
+            <span class="label">Measured IPD:</span>
+            <span class="value" id="val-ipd-raw">—</span
+            ><span class="unit"> px</span>
+          </div>
+          <div class="metric">
+            <span class="label">Corrected IPD:</span>
+            <span class="value" id="val-ipd-corr">—</span
+            ><span class="unit"> px</span>
+          </div>
+          <div class="metric">
+            <span class="label">Correction:</span>
+            <span class="value" id="val-correction-pct">—</span
+            ><span class="unit"> %</span>
+          </div>
+        </div>
+
+        <div>
+          <h3>Landmarks</h3>
+          <div class="metric">
+            <span class="label">Nose tip (1):</span>
+            <span class="value" id="val-nose">—</span>
+          </div>
+          <div class="metric">
+            <span class="label">Left eye (468):</span>
+            <span class="value" id="val-left">—</span>
+          </div>
+          <div class="metric">
+            <span class="label">Right eye (473):</span>
+            <span class="value" id="val-right">—</span>
+          </div>
+          <div class="metric">
+            <span class="label">Eye midpoint:</span>
+            <span class="value" id="val-mid">—</span>
+          </div>
+        </div>
+
+        <div>
+          <h3>Decomposition</h3>
+          <div class="metric">
+            <span class="label">Lateral shift:</span>
+            <span class="value" id="val-lateral">—</span>
+          </div>
+          <div class="metric">
+            <span class="label">Forward proj:</span>
+            <span class="value" id="val-forward">—</span>
+          </div>
+        </div>
+
+        <div>
+          <h3>Top-Down Geometry</h3>
+          <div id="diagram-wrapper">
+            <canvas id="geometry-diagram" width="320" height="180"></canvas>
+            <span class="diagram-label" id="dlbl-camera" style="color: #aaa"
+              >Camera</span
+            >
+            <span class="diagram-label" id="dlbl-apparent"></span>
+            <span
+              class="diagram-label"
+              id="dlbl-true"
+              style="color: rgba(255, 255, 255, 0.3)"
+              >true IPD</span
+            >
+            <span
+              class="diagram-label"
+              id="dlbl-yaw"
+              style="color: rgba(255, 255, 255, 0.5)"
+            ></span>
+          </div>
+          <div class="legend" style="max-width: 320px">
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: #00bcd4"></span>
+              Eyes
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch" style="background: cyan"></span>
+              Midpoint
+            </div>
+            <div class="legend-item">
+              <span class="legend-line" style="background: #ff9800"></span> Nose
+              dir.
+            </div>
+            <div class="legend-item">
+              <span class="legend-line" style="background: #addb67"></span>
+              Apparent IPD
+            </div>
+            <div class="legend-item">
+              <span
+                class="legend-line"
+                style="
+                  background: repeating-linear-gradient(
+                    90deg,
+                    rgba(255, 255, 255, 0.3) 0 3px,
+                    transparent 3px 6px
+                  );
+                "
+              ></span>
+              True IPD
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3>History (last 10)</h3>
+          <table class="history">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Yaw°</th>
+                <th>Pitch°</th>
+                <th>Shrink</th>
+                <th>Corr%</th>
+              </tr>
+            </thead>
+            <tbody id="history-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="canvas-area">
+        <video id="video" playsinline></video>
+        <canvas id="overlay"></canvas>
+        <div id="status">Initializing camera…</div>
+        <div id="crosshair"></div>
+        <div id="headDot"></div>
+        <div id="eyeMidDot"></div>
+        <div id="overlay-legend" class="legend">
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: #00bcd4"></span> Eyes
+            / IPD
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: cyan"></span> Eye
+            midpoint
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: #ff9800"></span> Nose
+            tip
+          </div>
+          <div class="legend-item">
+            <span class="legend-line" style="background: #ff5370"></span>
+            Lateral shift
+          </div>
+          <div class="legend-item">
+            <span class="legend-line" style="background: #addb67"></span>
+            Forward proj.
+          </div>
+          <div class="legend-item">
+            <span
+              class="legend-swatch"
+              style="background: lime; border: 1px solid #000"
+            ></span>
+            Head direction
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import {
+        FaceLandmarker,
+        FilesetResolver,
+      } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs'
+
+      const videoEl = document.getElementById('video')
+      const overlayEl = document.getElementById('overlay')
+      const statusEl = document.getElementById('status')
+      const headDotEl = document.getElementById('headDot')
+      const eyeMidDotEl = document.getElementById('eyeMidDot')
+      const crosshairEl = document.getElementById('crosshair')
+      const canvasArea = document.getElementById('canvas-area')
+      const diagramCanvas = document.getElementById('geometry-diagram')
+      const diagramCtx = diagramCanvas.getContext('2d')
+      const dlblCamera = document.getElementById('dlbl-camera')
+      const dlblApparent = document.getElementById('dlbl-apparent')
+      const dlblTrue = document.getElementById('dlbl-true')
+      const dlblYaw = document.getElementById('dlbl-yaw')
+
+      const vals = {}
+      for (const id of [
+        'yaw',
+        'pitch',
+        'shrinkage',
+        'ipd-raw',
+        'ipd-corr',
+        'correction-pct',
+        'nose',
+        'left',
+        'right',
+        'mid',
+        'lateral',
+        'forward',
+      ]) {
+        vals[id] = document.getElementById(`val-${id}`)
+      }
+
+      const history = []
+      let historyCounter = 0
+
+      // ─── Head yaw estimation (same algorithm as headYaw.js) ─────────────
+
+      function estimateHeadOrientation(landmarks) {
+        const leftEye = landmarks[468]
+        const rightEye = landmarks[473]
+        const noseTip = landmarks[1]
+        if (!leftEye || !rightEye || !noseTip) {
+          return null
+        }
+
+        const eyeMidX = (leftEye.x + rightEye.x) / 2
+        const eyeMidY = (leftEye.y + rightEye.y) / 2
+
+        const ipdNorm = Math.hypot(
+          leftEye.x - rightEye.x,
+          leftEye.y - rightEye.y,
+        )
+        if (ipdNorm < 1e-6) return null
+
+        const ipdDx = rightEye.x - leftEye.x
+        const ipdDy = rightEye.y - leftEye.y
+        const alongX = ipdDx / ipdNorm
+        const alongY = ipdDy / ipdNorm
+        const perpX = -ipdDy / ipdNorm
+        const perpY = ipdDx / ipdNorm
+
+        const noseDx = noseTip.x - eyeMidX
+        const noseDy = noseTip.y - eyeMidY
+
+        const lateralShift = noseDx * alongX + noseDy * alongY
+        const forwardProjection = noseDx * perpX + noseDy * perpY
+        const absForward = Math.abs(forwardProjection)
+
+        const minForward = 0.15 * ipdNorm
+        const safeForward = Math.max(absForward, minForward)
+
+        const yawRad = Math.atan2(lateralShift, safeForward)
+        const yawDeg = yawRad * (180 / Math.PI)
+
+        const noseDist2D = Math.hypot(lateralShift, forwardProjection)
+        const noseProtrusionEst = Math.max(noseDist2D, minForward)
+        const cosYaw = Math.cos(yawRad)
+        const cosPitchRaw = forwardProjection / (noseProtrusionEst * cosYaw)
+        const cosPitchClamped = Math.max(-1, Math.min(1, cosPitchRaw))
+        const pitchRad = Math.acos(cosPitchClamped)
+        const pitchSign = forwardProjection >= 0 ? 1 : -1
+        const pitchDeg = pitchSign * pitchRad * (180 / Math.PI)
+
+        const ipdShrinkage = Math.max(Math.cos(yawRad), 0.5)
+
+        return {
+          yawDeg,
+          pitchDeg,
+          ipdShrinkage,
+          lateralShift,
+          forwardProjection,
+          leftEye,
+          rightEye,
+          noseTip,
+          eyeMidX,
+          eyeMidY,
+          ipdNorm,
+        }
+      }
+
+      // ─── Overlay drawing ─────────────────────────────────────────────────
+
+      function drawOverlay(landmarks, result, videoW, videoH) {
+        const ctx = overlayEl.getContext('2d')
+        const w = overlayEl.width
+        const h = overlayEl.height
+
+        ctx.clearRect(0, 0, w, h)
+        if (!result) return
+
+        const sx = v => w - v * w // mirror X
+        const sy = v => v * h
+
+        const { leftEye, rightEye, noseTip, eyeMidX, eyeMidY } = result
+
+        // Draw all face mesh points faintly
+        ctx.fillStyle = 'rgba(255,255,255,0.08)'
+        for (const lm of landmarks) {
+          ctx.beginPath()
+          ctx.arc(sx(lm.x), sy(lm.y), 1, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        // Eyes
+        ctx.fillStyle = '#00bcd4'
+        ctx.beginPath()
+        ctx.arc(sx(leftEye.x), sy(leftEye.y), 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(sx(rightEye.x), sy(rightEye.y), 5, 0, Math.PI * 2)
+        ctx.fill()
+
+        // IPD line
+        ctx.strokeStyle = '#00bcd4'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(sx(leftEye.x), sy(leftEye.y))
+        ctx.lineTo(sx(rightEye.x), sy(rightEye.y))
+        ctx.stroke()
+
+        // Eye midpoint
+        ctx.fillStyle = 'cyan'
+        ctx.beginPath()
+        ctx.arc(sx(eyeMidX), sy(eyeMidY), 4, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Nose tip
+        ctx.fillStyle = '#ff9800'
+        ctx.beginPath()
+        ctx.arc(sx(noseTip.x), sy(noseTip.y), 5, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Line from eye midpoint to nose
+        ctx.strokeStyle = 'rgba(255,152,0,0.5)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([4, 4])
+        ctx.beginPath()
+        ctx.moveTo(sx(eyeMidX), sy(eyeMidY))
+        ctx.lineTo(sx(noseTip.x), sy(noseTip.y))
+        ctx.stroke()
+        ctx.setLineDash([])
+
+        // Decomposition vectors
+        const scale = 300
+        const ipdDx = rightEye.x - leftEye.x
+        const ipdDy = rightEye.y - leftEye.y
+        const ipdN = result.ipdNorm
+        const alongX = ipdDx / ipdN
+        const alongY = ipdDy / ipdN
+        const perpX = -ipdDy / ipdN
+        const perpY = ipdDx / ipdN
+
+        // Lateral (along interocular axis) — red
+        const latEndX = eyeMidX + result.lateralShift * alongX
+        const latEndY = eyeMidY + result.lateralShift * alongY
+        ctx.strokeStyle = '#ff5370'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(sx(eyeMidX), sy(eyeMidY))
+        ctx.lineTo(sx(latEndX), sy(latEndY))
+        ctx.stroke()
+
+        // Forward (perpendicular) — green
+        const fwdEndX = eyeMidX + result.forwardProjection * perpX
+        const fwdEndY = eyeMidY + result.forwardProjection * perpY
+        ctx.strokeStyle = '#addb67'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(sx(eyeMidX), sy(eyeMidY))
+        ctx.lineTo(sx(fwdEndX), sy(fwdEndY))
+        ctx.stroke()
+
+        // Yaw arc
+        const arcRadius = 40
+        const baseAngle = Math.atan2(-perpY, -perpX) // "forward" direction in canvas
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)'
+        ctx.lineWidth = 1
+        const yawRad = (result.yawDeg * Math.PI) / 180
+        // In mirrored canvas space
+        const startA = Math.PI - baseAngle - yawRad
+        const endA = Math.PI - baseAngle
+        ctx.beginPath()
+        ctx.arc(
+          sx(eyeMidX),
+          sy(eyeMidY),
+          arcRadius,
+          Math.min(startA, endA),
+          Math.max(startA, endA),
+        )
+        ctx.stroke()
+      }
+
+      // ─── Top-down geometry diagram ───────────────────────────────────────
+
+      function drawDiagram(yawDeg, ipdShrinkage) {
+        const w = diagramCanvas.width
+        const h = diagramCanvas.height
+        const ctx = diagramCtx
+
+        ctx.clearRect(0, 0, w, h)
+
+        const cx = w / 2
+        const camY = 25
+        const eyeY = h - 35
+        const ipdHalf = 50
+
+        // Camera rectangle
+        ctx.fillStyle = '#888'
+        ctx.fillRect(cx - 15, camY - 5, 30, 10)
+
+        // Viewing distance line
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'
+        ctx.setLineDash([3, 3])
+        ctx.beginPath()
+        ctx.moveTo(cx, camY + 8)
+        ctx.lineTo(cx, eyeY)
+        ctx.stroke()
+        ctx.setLineDash([])
+
+        // Rotate eyes by yaw
+        const yawRad = (yawDeg * Math.PI) / 180
+        const cosY = Math.cos(yawRad)
+        const sinY = Math.sin(yawRad)
+
+        const lx = cx - ipdHalf * cosY
+        const rx = cx + ipdHalf * cosY
+        const apparentHalf = ipdHalf * cosY
+
+        // Eye dots
+        ctx.fillStyle = '#00bcd4'
+        ctx.beginPath()
+        ctx.arc(lx, eyeY, 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(rx, eyeY, 5, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Interocular line
+        ctx.strokeStyle = '#00bcd4'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(lx, eyeY)
+        ctx.lineTo(rx, eyeY)
+        ctx.stroke()
+
+        // Eye midpoint
+        ctx.fillStyle = 'cyan'
+        ctx.beginPath()
+        ctx.arc(cx, eyeY, 3, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Nose direction indicator
+        const noseLen = 25
+        const noseX = cx + noseLen * sinY
+        const noseY = eyeY - noseLen * cosY
+        ctx.strokeStyle = '#ff9800'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(cx, eyeY)
+        ctx.lineTo(noseX, noseY)
+        ctx.stroke()
+        ctx.fillStyle = '#ff9800'
+        ctx.beginPath()
+        ctx.arc(noseX, noseY, 3, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Apparent IPD bracket
+        const bracketY = eyeY + 15
+        const bracketColor =
+          ipdShrinkage > 0.95
+            ? '#addb67'
+            : ipdShrinkage > 0.85
+              ? '#ffcb6b'
+              : '#ff5370'
+        ctx.strokeStyle = bracketColor
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(cx - apparentHalf, bracketY - 3)
+        ctx.lineTo(cx - apparentHalf, bracketY)
+        ctx.lineTo(cx + apparentHalf, bracketY)
+        ctx.lineTo(cx + apparentHalf, bracketY - 3)
+        ctx.stroke()
+
+        // Full IPD bracket (faint)
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([2, 2])
+        ctx.beginPath()
+        ctx.moveTo(cx - ipdHalf, bracketY + 8)
+        ctx.lineTo(cx - ipdHalf, bracketY + 5)
+        ctx.lineTo(cx + ipdHalf, bracketY + 5)
+        ctx.lineTo(cx + ipdHalf, bracketY + 8)
+        ctx.stroke()
+        ctx.setLineDash([])
+
+        // Yaw angle arc
+        if (Math.abs(yawDeg) > 1) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)'
+          ctx.lineWidth = 1
+          const arcR = 18
+          const startA = -Math.PI / 2
+          const endA = -Math.PI / 2 + yawRad
+          ctx.beginPath()
+          ctx.arc(
+            cx,
+            eyeY,
+            arcR,
+            Math.min(startA, endA),
+            Math.max(startA, endA),
+          )
+          ctx.stroke()
+        }
+
+        // ── Position HTML labels over the canvas ──
+        dlblCamera.style.left = cx + 'px'
+        dlblCamera.style.top = camY - 18 + 'px'
+
+        dlblApparent.textContent = `apparent: ${(ipdShrinkage * 100).toFixed(0)}%`
+        dlblApparent.style.color = bracketColor
+        dlblApparent.style.left = cx + 'px'
+        dlblApparent.style.top = bracketY + 3 + 'px'
+
+        dlblTrue.style.left = cx + 'px'
+        dlblTrue.style.top = bracketY + 15 + 'px'
+
+        if (Math.abs(yawDeg) > 1) {
+          dlblYaw.textContent = `${yawDeg.toFixed(0)}°`
+          dlblYaw.style.left = cx + (yawDeg > 0 ? 28 : -28) + 'px'
+          dlblYaw.style.top = eyeY - 18 + 'px'
+          dlblYaw.style.display = ''
+        } else {
+          dlblYaw.style.display = 'none'
+        }
+      }
+
+      // ─── Update UI ───────────────────────────────────────────────────────
+
+      function updateUI(result, ipdPx) {
+        if (!result) return
+
+        const correctedIpd = ipdPx / result.ipdShrinkage
+        const correctionPct = ((correctedIpd - ipdPx) / ipdPx) * 100
+
+        vals['yaw'].textContent = result.yawDeg.toFixed(1)
+        vals['pitch'].textContent = result.pitchDeg.toFixed(1)
+        vals['shrinkage'].textContent = result.ipdShrinkage.toFixed(4)
+        vals['ipd-raw'].textContent = ipdPx.toFixed(1)
+        vals['ipd-corr'].textContent = correctedIpd.toFixed(1)
+        vals['correction-pct'].textContent = correctionPct.toFixed(1)
+        vals['nose'].textContent =
+          `(${result.noseTip.x.toFixed(3)}, ${result.noseTip.y.toFixed(3)})`
+        vals['left'].textContent =
+          `(${result.leftEye.x.toFixed(3)}, ${result.leftEye.y.toFixed(3)})`
+        vals['right'].textContent =
+          `(${result.rightEye.x.toFixed(3)}, ${result.rightEye.y.toFixed(3)})`
+        vals['mid'].textContent =
+          `(${result.eyeMidX.toFixed(3)}, ${result.eyeMidY.toFixed(3)})`
+        vals['lateral'].textContent = result.lateralShift.toFixed(4)
+        vals['forward'].textContent = result.forwardProjection.toFixed(4)
+
+        // Color the shrinkage value
+        const el = vals['shrinkage']
+        el.className =
+          'value ' +
+          (result.ipdShrinkage > 0.95
+            ? 'good'
+            : result.ipdShrinkage > 0.85
+              ? 'warn'
+              : 'bad')
+
+        // History
+        historyCounter++
+        history.unshift({
+          n: historyCounter,
+          yaw: result.yawDeg,
+          pitch: result.pitchDeg,
+          shrink: result.ipdShrinkage,
+          corr: correctionPct,
+        })
+        if (history.length > 10) history.length = 10
+
+        const tbody = document.getElementById('history-body')
+        tbody.innerHTML = history
+          .map(h => {
+            const cls =
+              h.shrink > 0.95 ? 'good' : h.shrink > 0.85 ? 'warn' : 'bad'
+            return `<tr>
+      <td>${h.n}</td>
+      <td>${h.yaw.toFixed(1)}</td>
+      <td>${h.pitch.toFixed(1)}</td>
+      <td class="${cls}">${h.shrink.toFixed(3)}</td>
+      <td>${h.corr.toFixed(1)}</td>
+    </tr>`
+          })
+          .join('')
+
+        drawDiagram(result.yawDeg, result.ipdShrinkage)
+      }
+
+      // ─── Position overlay dots ───────────────────────────────────────────
+
+      function positionDots(result) {
+        const vRect = videoEl.getBoundingClientRect()
+        const aRect = canvasArea.getBoundingClientRect()
+        const offX = vRect.left - aRect.left
+        const offY = vRect.top - aRect.top
+        const w = vRect.width
+        const h = vRect.height
+
+        const mirrorX = v => offX + w - v * w
+        const toY = v => offY + v * h
+
+        const midX = mirrorX(result.eyeMidX)
+        const midY = toY(result.eyeMidY)
+
+        eyeMidDotEl.style.display = 'block'
+        eyeMidDotEl.style.left = midX + 'px'
+        eyeMidDotEl.style.top = midY + 'px'
+
+        // Head direction dot: offset from midpoint by yaw/pitch
+        // Use a fixed "virtual distance" for the projection
+        const projDist = 300 // pixels — arbitrary, just for visual feedback
+        const yawRad = (result.yawDeg * Math.PI) / 180
+        const pitchRad = (result.pitchDeg * Math.PI) / 180
+        const dx = projDist * Math.tan(yawRad)
+        const dy = projDist * Math.tan(pitchRad)
+
+        headDotEl.style.display = 'block'
+        headDotEl.style.left = midX - dx + 'px'
+        headDotEl.style.top = midY - dy + 'px'
+
+        crosshairEl.style.display = 'block'
+        crosshairEl.style.left = midX + 'px'
+        crosshairEl.style.top = midY + 'px'
+      }
+
+      // ─── Main ────────────────────────────────────────────────────────────
+
+      async function main() {
+        statusEl.textContent = 'Loading face landmark model…'
+
+        const vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
+        )
+
+        const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            delegate: 'GPU',
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+          outputFacialTransformationMatrixes: false,
+          outputFaceBlendshapes: false,
+        })
+
+        statusEl.textContent = 'Requesting camera…'
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user',
+          },
+        })
+        videoEl.srcObject = stream
+        await videoEl.play()
+
+        const vw = videoEl.videoWidth
+        const vh = videoEl.videoHeight
+        overlayEl.width = vw
+        overlayEl.height = vh
+
+        function syncOverlayToVideo() {
+          const vRect = videoEl.getBoundingClientRect()
+          const aRect = videoEl.parentElement.getBoundingClientRect()
+          overlayEl.style.left = vRect.left - aRect.left + 'px'
+          overlayEl.style.top = vRect.top - aRect.top + 'px'
+          overlayEl.style.width = vRect.width + 'px'
+          overlayEl.style.height = vRect.height + 'px'
+        }
+        syncOverlayToVideo()
+        window.addEventListener('resize', syncOverlayToVideo)
+
+        statusEl.textContent = 'Running — turn your head to see the correction'
+
+        let lastTime = -1
+
+        function tick() {
+          const now = performance.now()
+          if (videoEl.readyState >= 2 && now !== lastTime) {
+            lastTime = now
+            const results = faceLandmarker.detectForVideo(videoEl, now)
+
+            if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+              const landmarks = results.faceLandmarks[0]
+              const orientation = estimateHeadOrientation(landmarks)
+
+              if (orientation) {
+                const ipdPx = orientation.ipdNorm * vw
+                drawOverlay(landmarks, orientation, vw, vh)
+                updateUI(orientation, ipdPx)
+                positionDots(orientation)
+                statusEl.textContent = `Yaw: ${orientation.yawDeg.toFixed(1)}°  Pitch: ${orientation.pitchDeg.toFixed(1)}°  Shrinkage: ${orientation.ipdShrinkage.toFixed(3)}`
+              }
+            }
+          }
+          requestAnimationFrame(tick)
+        }
+
+        requestAnimationFrame(tick)
+      }
+
+      main().catch(err => {
+        statusEl.textContent = `Error: ${err.message}`
+        console.error(err)
+      })
+    </script>
+
+    <!-- ── Geometry Explanation Popup ────────────────────────────────────── -->
+    <div id="geometry-backdrop">
+      <div id="geometry-modal">
+        <button id="close-modal" title="Close">&times;</button>
+
+        <h1>IPD Correction Geometry</h1>
+
+        <h2>The Problem</h2>
+
+        <p>
+          EasyEyes estimates viewing distance from the
+          <strong>interpupillary distance (IPD)</strong> — the pixel distance
+          between the two eye centers as seen by the webcam. When the observer
+          faces the camera straight on, the full physical IPD projects onto the
+          image plane and the distance estimate is accurate.
+        </p>
+
+        <p>
+          When the observer <strong>turns their head</strong> (yaw), the line
+          connecting the two eyes is no longer perpendicular to the camera's
+          line of sight. The 2D projection of the IPD shrinks by \(\cos(\psi)\),
+          where \(\psi\) is the yaw angle. This makes the eyes appear closer
+          together, causing the system to
+          <strong>overestimate viewing distance</strong>.
+        </p>
+
+        <p>
+          We correct for this by estimating the yaw angle from the face mesh and
+          dividing out the shrinkage factor.
+        </p>
+
+        <hr />
+
+        <h2>Top-Down View (Yaw Geometry)</h2>
+
+        <p>Imagine looking down from above at the observer and camera.</p>
+
+        <pre><code>                Camera
+                  |
+                  |  viewing distance (d)
+                  |
+                  M ← eye midpoint (Cyclopean eye)
+                 ╱ ╲
+                ╱ ψ  ╲          ψ = yaw angle
+               ╱       ╲
+           L ●───────────● R    true IPD
+               ←───────→
+               apparent IPD
+               (projected)</code></pre>
+
+        <ul>
+          <li><strong>L, R</strong> — left and right eye positions in 3D.</li>
+          <li><strong>M</strong> — midpoint between the two eyes.</li>
+          <li>
+            <strong>d</strong> — viewing distance from camera to eye midpoint.
+          </li>
+          <li>
+            <strong>\(\psi\)</strong> — yaw angle (rotation about the vertical
+            axis).
+          </li>
+        </ul>
+
+        <h3>Apparent vs. True IPD</h3>
+
+        <p>When the head is rotated by yaw angle \(\psi\):</p>
+
+        $$\text{IPD}_{\text{apparent}} = \text{IPD}_{\text{true}} \cdot
+        \cos(\psi)$$
+
+        <p>
+          The camera sees only the horizontal projection of the interocular
+          segment. At \(\psi = 0\) (facing straight), the full IPD is visible.
+          At \(\psi = 30°\), only \(\cos(30°) \approx 86.6\%\) of the true IPD
+          is visible.
+        </p>
+
+        <h3>The Shrinkage Factor</h3>
+
+        <p>We define:</p>
+
+        $$\text{ipdShrinkage} = \cos(\psi)$$
+
+        <p>And correct the measured IPD ratio by dividing out the shrinkage:</p>
+
+        $$\texttt{ipdOverWidth}_{\text{corrected}} =
+        \frac{\texttt{ipdOverWidth}_{\text{measured}}}{\text{ipdShrinkage}}$$
+
+        <p>
+          This restores the value that would have been measured if the observer
+          were facing the camera straight on. The corrected ratio is then used
+          in the standard viewing distance formula.
+        </p>
+
+        <hr />
+
+        <h2>Estimating Yaw from FaceMesh (No Calibration)</h2>
+
+        <p>
+          We estimate the yaw angle directly from the 2D FaceMesh landmarks,
+          without requiring calibration or the unreliable Z coordinate.
+        </p>
+
+        <h3>Key Landmarks</h3>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Landmark</th>
+              <th>Index</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Left iris center</td>
+              <td>468</td>
+              <td>Left eye position</td>
+            </tr>
+            <tr>
+              <td>Right iris center</td>
+              <td>473</td>
+              <td>Right eye position</td>
+            </tr>
+            <tr>
+              <td>Nose tip</td>
+              <td>1</td>
+              <td>Head-facing direction indicator</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>The Nose-Tip Trick</h3>
+
+        <p>
+          The nose protrudes along the face-forward axis. This means its 2D
+          image position encodes which way the head is pointing: when the head
+          turns, the nose tip shifts
+          <em>along the interocular axis</em> relative to the eye midpoint,
+          while a forward-facing head has no such lateral shift.
+        </p>
+
+        <p>
+          Note that "lateral" here means along the interocular axis — not
+          necessarily vertical in the image. The algorithm works in the head's
+          own reference frame, so the exact image position of the nose relative
+          to the eyes (e.g. whether it appears below or at an angle) doesn't
+          matter. What matters is the component of the nose offset
+          <em>along</em> vs. <em>perpendicular to</em> the eye-to-eye axis.
+        </p>
+
+        <pre><code>  Facing camera          Turned right (yaw &gt; 0)
+  ┌─────────┐            ┌─────────┐
+  │  L   R  │            │ L   R   │
+  │    M    │            │   M     │
+  │    |    │            │    \    │
+  │    N    │            │     N   │
+  └─────────┘            └─────────┘
+     zero lateral            nose shifted along
+     shift along L→R         the interocular axis</code></pre>
+
+        <h3>Head-Relative Coordinate Frame</h3>
+
+        <p>
+          Rather than working in raw image coordinates (which would break if the
+          head is tilted/rolled), we decompose the nose offset in a coordinate
+          frame defined by the interocular axis itself:
+        </p>
+
+        <ol>
+          <li>
+            <strong>Along axis</strong> — unit vector from left eye to right
+            eye: $$\hat{a} = \frac{\vec{R} - \vec{L}}{|\vec{R} - \vec{L}|}$$
+          </li>
+          <li>
+            <strong>Perpendicular axis</strong> — 90° rotation of the along axis
+            in the image plane, pointing roughly from eyes toward nose (downward
+            when head is upright): $$\hat{p} = \text{rotate}_{90°}(\hat{a})$$ If
+            \(\hat{a} = (a_x,\, a_y)\), then \(\hat{p} = (-a_y,\, a_x)\).
+          </li>
+        </ol>
+
+        <h3>Decomposing the Nose Offset</h3>
+
+        <p>
+          Let \(\vec{M}\) be the eye midpoint and \(\vec{N}\) the nose tip. The
+          offset vector \(\vec{d} = \vec{N} - \vec{M}\) is decomposed as:
+        </p>
+
+        $$\text{lateralShift} = \vec{d} \cdot \hat{a}$$
+        $$\text{forwardProjection} = \vec{d} \cdot \hat{p}$$
+
+        <ul>
+          <li>
+            <strong>lateralShift</strong> — how far the nose has shifted along
+            the interocular axis. This is zero when facing the camera and grows
+            with yaw.
+          </li>
+          <li>
+            <strong>forwardProjection</strong> — how far the nose projects
+            perpendicular to the interocular axis. This is the "depth" of the
+            nose as seen in the image.
+          </li>
+        </ul>
+
+        <h3>3D Interpretation</h3>
+
+        <p>
+          In 3D, the nose tip sits at a fixed distance \(L\) (the nose
+          protrusion length) in front of the eye midpoint, along the
+          face-forward direction. When the head rotates by yaw \(\psi\) and
+          pitch \(\phi\):
+        </p>
+
+        $$\text{lateralShift} \approx L \cdot \sin(\psi)$$
+        $$\text{forwardProjection} \approx L \cdot \cos(\psi) \cdot \cos(\phi)$$
+
+        <p>
+          The nose protrusion \(L\) cancels out in the ratio, making the
+          estimate <strong>scale-invariant</strong> — it works identically
+          whether the FaceMesh provides normalized \([0, 1]\) coordinates or
+          pixel-scale coordinates.
+        </p>
+
+        <h3>Computing Yaw</h3>
+
+        <p>From the two components:</p>
+
+        $$\psi = \text{atan2}(\text{lateralShift},\; \text{forwardProjection})$$
+
+        <p>
+          Using <code>atan2</code> (rather than <code>asin</code> or
+          <code>atan</code>) gives robust results across the full angular range
+          and avoids division-by-zero issues.
+        </p>
+
+        <p>
+          <strong>Safety clamp:</strong> The
+          <code>forwardProjection</code> denominator is clamped to a minimum of
+          \(0.15 \times \text{IPD}_{norm}\) to prevent instability at extreme
+          angles (e.g. when the face is nearly in profile and the nose tip
+          overlaps the eye midpoint).
+        </p>
+
+        <h3>Computing Pitch</h3>
+
+        <p>Pitch (up/down head nod) is derived from the same decomposition:</p>
+
+        $$\cos(\phi) \approx \frac{\text{forwardProjection}}{L_{\text{est}}
+        \cdot \cos(\psi)}$$
+
+        <p>
+          where \(L_{\text{est}} = \text{hypot}(\text{lateralShift},\,
+          \text{forwardProjection})\) is the estimated nose protrusion.
+        </p>
+
+        <p>
+          The sign of <code>forwardProjection</code> determines pitch direction:
+        </p>
+        <ul>
+          <li>
+            Positive → nose below eyes → normal upright or tilting back
+            (positive pitch)
+          </li>
+          <li>Negative → nose above eyes → bowing forward (negative pitch)</li>
+        </ul>
+
+        <p>
+          Pitch does <strong>not</strong> affect the IPD correction, but is
+          logged as useful diagnostic data.
+        </p>
+
+        <hr />
+
+        <h2>Applying the Correction</h2>
+
+        <h3>In Distance Tracking (<code>distanceTrack.js</code>)</h3>
+
+        <p>
+          Every frame, <code>getMeshData()</code> returns the head orientation
+          alongside the eye positions. The rendering function applies:
+        </p>
+
+        <pre><code>const correctedIpdOverWidth = ipdOverWidthMeasured / ipdShrinkage</code></pre>
+
+        <p>before computing viewing distance.</p>
+
+        <h3>
+          In Distance Calibration (<code>distance.js</code>,
+          <code>spaceKeyHandler.js</code>)
+        </h3>
+
+        <p>
+          During calibration snapshots, the same correction is applied to the
+          measured IPD before saving the calibrated focal-length ratio.
+        </p>
+
+        <h3>
+          In Distance Check (<code>checkDistance.js</code>,
+          <code>faceMeshValidation.js</code>)
+        </h3>
+
+        <p>
+          Each validation snapshot corrects the IPD measurement and logs
+          <code>yawDeg</code>, <code>pitchDeg</code>, and
+          <code>ipdShrinkage</code> into the distance check JSON.
+        </p>
+
+        <hr />
+
+        <h2>Logged Data</h2>
+
+        <p>Each measurement snapshot records:</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>headYawDeg</code></td>
+              <td>number</td>
+              <td>Yaw in degrees (positive = turned right)</td>
+            </tr>
+            <tr>
+              <td><code>headPitchDeg</code></td>
+              <td>number</td>
+              <td>Pitch in degrees (positive = tilted up)</td>
+            </tr>
+            <tr>
+              <td><code>ipdShrinkage</code></td>
+              <td>number</td>
+              <td>\(\cos(\psi)\), clamped to \([0.5, 1]\)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <hr />
+
+        <h2>Limitations and Assumptions</h2>
+
+        <ol>
+          <li>
+            <p>
+              <strong>Pitch independence.</strong> The correction only accounts
+              for yaw. Pitch reduces the vertical component of the nose offset
+              but does not affect the horizontal IPD projection. At moderate
+              pitch (\(&lt; 20°\)), the \(\cos(\phi)\) factor in
+              <code>forwardProjection</code> is close to 1 and has negligible
+              effect on yaw estimation.
+            </p>
+          </li>
+
+          <li>
+            <p>
+              <strong>Roll tolerance.</strong> By using the interocular axis as
+              the reference frame (rather than the image vertical), the
+              algorithm is inherently tolerant of head roll (tilting ear toward
+              shoulder). The decomposition adapts to the actual eye positions
+              regardless of roll.
+            </p>
+          </li>
+
+          <li>
+            <p>
+              <strong>Nose protrusion assumption.</strong> The algorithm assumes
+              the nose protrudes approximately along the face-forward axis. This
+              is true for the vast majority of face shapes. The protrusion
+              length \(L\) cancels out, so nose size does not matter.
+            </p>
+          </li>
+
+          <li>
+            <p>
+              <strong>Extreme angles.</strong> Beyond approximately \(\pm 60°\)
+              of yaw, the face landmarks become unreliable (the far eye may be
+              occluded). The <code>ipdShrinkage</code> is clamped to a minimum
+              of 0.5 (corresponding to \(60°\)) to prevent overcorrection from
+              noisy data.
+            </p>
+          </li>
+
+          <li>
+            <p>
+              <strong>Z coordinate not used.</strong> FaceMesh provides a Z
+              coordinate for each landmark, but empirical testing showed it is
+              too noisy to improve distance estimation. This algorithm
+              deliberately uses only the 2D (x, y) projections.
+            </p>
+          </li>
+        </ol>
+
+        <hr />
+
+        <h2>Summary</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Quantity</th>
+              <th>Formula</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Lateral shift</td>
+              <td>\(\vec{d} \cdot \hat{a}\)</td>
+            </tr>
+            <tr>
+              <td>Forward projection</td>
+              <td>\(\vec{d} \cdot \hat{p}\)</td>
+            </tr>
+            <tr>
+              <td>Yaw</td>
+              <td>\(\text{atan2}(\text{lateral},\, \text{forward})\)</td>
+            </tr>
+            <tr>
+              <td>IPD shrinkage</td>
+              <td>\(\cos(\psi)\)</td>
+            </tr>
+            <tr>
+              <td>Corrected IPD</td>
+              <td>\(\text{IPD}_{\text{measured}} / \cos(\psi)\)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const infoBtn = document.getElementById('info-btn')
+      const backdrop = document.getElementById('geometry-backdrop')
+      const closeBtn = document.getElementById('close-modal')
+
+      function openModal() {
+        backdrop.classList.add('open')
+        if (typeof renderMathInElement === 'function') {
+          renderMathInElement(document.getElementById('geometry-modal'), {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\[', right: '\\]', display: true },
+              { left: '\\(', right: '\\)', display: true },
+              { left: '$', right: '$', display: false },
+            ],
+            throwOnError: false,
+          })
+        }
+      }
+
+      function closeModal() {
+        backdrop.classList.remove('open')
+      }
+
+      infoBtn.addEventListener('click', openModal)
+      closeBtn.addEventListener('click', closeModal)
+      backdrop.addEventListener('click', e => {
+        if (e.target === backdrop) closeModal()
+      })
+      window.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && backdrop.classList.contains('open'))
+          closeModal()
+      })
+    </script>
+  </body>
+</html>

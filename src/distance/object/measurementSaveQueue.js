@@ -128,6 +128,7 @@ export function createMeasurementSaveQueue() {
             nearestPointsData: entryNearestPointsData,
             currentIPDDistance: entryCurrentIPDDistance,
             ipdXYZVpx: entryIpdXYZVpx,
+            headRotation: entryHeadRotation,
           } = await processMeshDataAndCalculateNearestPoints(
             RC,
             options,
@@ -168,6 +169,8 @@ export function createMeasurementSaveQueue() {
               entryIpdXYZVpx,
               entry.fOverWidth,
               entry.accepted,
+              entryHeadRotation,
+              entry.ipdCorrectedOverWidth,
             ),
           )
         }

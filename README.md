@@ -305,6 +305,9 @@ Pass `{ value: { viewingDistanceCm, nearPointCm: { x, y }, latencyMs }, timestam
   desiredDistanceMonitor: false,
   desiredDistanceMonitorCancelable: false,
   desiredDistanceMonitorAllowRecalibrate: true,
+  // Head rotation (yaw) correction & nudging
+  calibrateDistanceCorrectForHeadRotation: 'none', // 'none' | 'useZ' — how to estimate head yaw to correct the apparent ipdOverWidth
+  viewingDistanceAllowedHeadRotationDeg: 180, // When abs(yaw) exceeds this threshold, the nudger tells the participant to face the screen. Default 180 disables the rotation nudger.
   // Near point
   nearPoint: true,
   showNearPoint: false,
@@ -337,6 +340,7 @@ The value returned are the horizontal and vertical offsets, in centimeters, comp
 #### Nudger
 
 - (Beta) `.nudgeDistance(cancelable = false, allowRecalibrate = true, { options, callbackStatic, callbackTrack } = distanceTrackingConfig)` If `cancelable` is `true`, then participants can use ESC or click to cancel the nudger. `distanceTrackingConfig` is used to configure a new distance tracking that can be restarted within the nudger. We recommend to start nudger when starting distance tracking using its `desiredDistanceCm` and `desiredDistanceMonitor` options.
+- (Beta) `.nudgeHeadRotation(cancelable = false, { options, callbackStatic, callbackTrack } = distanceTrackingConfig)` Runs automatically inside `trackDistance()` whenever `calibrateDistanceCorrectForHeadRotation` is not `'none'` and `viewingDistanceAllowedHeadRotationDeg < 180`. Displays the `RC_distanceTrackingFaceScreen` title and the `RC_distanceTrackingRotationGuide` message (with `[[N1]]` = `abs(yaw)`, `[[N2]]` = the allowed rotation, and `[[DDD]]` replaced by `RC_left` / `RC_right`) until the participant faces the screen again.
 - `.setDistanceDesired(distanceDesired, [allowedRatio])`
 - `.pauseNudger()`
 - `.resumeNudger()`

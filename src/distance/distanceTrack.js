@@ -4,13 +4,22 @@ import {
   _getEyeToCameraCm,
   blindSpotTestNew,
   getLeftAndRightEyePointsFromMeshData,
-  globalPointXYPx,
   knownDistanceTest,
   // objectLengthCmGlobal, objectTest, solveEyeToScreenCm already below
-  objectLengthCmGlobal,
   objectTest,
   solveEyeToScreenCm,
 } from './distance'
+
+import {
+  objectLengthCmGlobal,
+  globalPointXYPx,
+} from './object/objectTestOrchestrator'
+import {
+  estimateHeadYaw,
+  correctIpdForHeadRotation,
+  estimateHeadYawRobust,
+  isHeadRotationCorrectionEnabled,
+} from './headYaw'
 import { justCreditCard } from './justCreditCard'
 import {
   toFixedNumber,
@@ -247,6 +256,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateDistanceCameraHz: 60, // number e.g. 30 — desired camera frame rate
       saveSnapshots: false,
       calibrateDistanceFocalLengthRange: null, // fOverWidth range for "typical" mode; mean is used
+      calibrateDistanceCorrectForHeadRotation: 'none', // 'none' | 'useZ' — how to estimate head yaw to correct ipdOverWidth
+      viewingDistanceAllowedHeadRotationDeg: 180, // abs(yaw) above this value triggers the "face the screen" nudger
     },
     trackDistanceOptions,
   )
@@ -466,6 +477,26 @@ RemoteCalibrator.prototype.trackDistance = async function (
   trackingOptions.viewingDistanceWhichEye = options.viewingDistanceWhichEye
   trackingOptions.viewingDistanceWhichPoint = options.viewingDistanceWhichPoint
 
+  trackingOptions.calibrateDistanceCorrectForHeadRotation =
+    options.calibrateDistanceCorrectForHeadRotation
+  trackingOptions.viewingDistanceAllowedHeadRotationDeg =
+    options.viewingDistanceAllowedHeadRotationDeg
+
+  // Enable the head-rotation nudger for the entire distance session,
+  // including the calibration phase (object / blindspot / credit card).
+  // The nudger only shows when yaw estimation is enabled and the allowed
+  // rotation threshold is below 180° (the "ignore" value).
+  this._distanceTrackNudging.headRotationCorrectingEnabled =
+    isHeadRotationCorrectionEnabled(
+      options.calibrateDistanceCorrectForHeadRotation,
+    )
+  this._distanceTrackNudging.headRotationAllowedDeg = Number.isFinite(
+    options.viewingDistanceAllowedHeadRotationDeg,
+  )
+    ? options.viewingDistanceAllowedHeadRotationDeg
+    : 180
+  this._distanceTrackNudging.headYawDeg = 0
+
   originalStyles.video = options.showVideo
 
   this.gazeTracker._init(
@@ -553,6 +584,8 @@ const trackingOptions = {
   desiredDistanceMonitor: false,
   desiredDistanceMonitorCancelable: false,
   desiredDistanceMonitorAllowRecalibrate: true,
+  calibrateDistanceCorrectForHeadRotation: 'none',
+  viewingDistanceAllowedHeadRotationDeg: 180,
 }
 
 export const stdDist = {
@@ -667,9 +700,14 @@ const drawIrisAndPupil = () => {
     sharedFaceData &&
     videoEl
   ) {
-    const { leftEye, rightEye, video, currentIPDDistance } = sharedFaceData
+    const { leftEye, rightEye, video, currentIPDDistance, ipdShrinkage } =
+      sharedFaceData
+    const correctedIPD = correctIpdForHeadRotation(
+      currentIPDDistance,
+      ipdShrinkage,
+    )
 
-    if (leftEye && rightEye && video && currentIPDDistance && videoRect) {
+    if (leftEye && rightEye && video && correctedIPD && videoRect) {
       const rect = videoRect
 
       // Source coordinate space - use LIVE camera resolution, not stale canvas dimensions
@@ -700,7 +738,7 @@ const drawIrisAndPupil = () => {
 
       // Compute iris diameter from IPD (19%) in source pixels, then scale to CSS
       const ipdSrcPx =
-        currentIPDDistance ||
+        correctedIPD ||
         Math.hypot(rightEye.x - leftEye.x, rightEye.y - leftEye.y)
       ipdScreenPx = ipdSrcPx * uniformScale
       const irisDiameter = Math.max(4, 0.19 * ipdScreenPx)
@@ -975,8 +1013,18 @@ const startIrisDrawing = RC => {
           objectLengthCmGlobal.value !== null &&
           trackingOptions.showNearestPointsBool
         ) {
-          const { leftEye, rightEye, video, currentIPDDistance } =
-            sharedFaceData
+          const {
+            leftEye,
+            rightEye,
+            video,
+            currentIPDDistance,
+            ipdShrinkage: overlayIpdShrinkage,
+            yawDeg: overlayYawDeg,
+          } = sharedFaceData
+          const correctedIPD = correctIpdForHeadRotation(
+            currentIPDDistance,
+            overlayIpdShrinkage,
+          )
           const eyeToPointCm = objectLengthCmGlobal.value
           const ppi = RC.screenPpi
             ? RC.screenPpi.value
@@ -991,7 +1039,7 @@ const startIrisDrawing = RC => {
             video,
             leftEye,
             rightEye,
-            currentIPDDistance,
+            correctedIPD,
             eyeToPointCm,
             pxPerCm,
             ppi,
@@ -1005,7 +1053,7 @@ const startIrisDrawing = RC => {
             [],
             0,
             0,
-            currentIPDDistance,
+            correctedIPD,
             false,
             'camera',
             overlayPointXYPx,
@@ -1017,7 +1065,7 @@ const startIrisDrawing = RC => {
           const eyeToScreenCm = eyeToFootCm // parallel to optical axis (screen normal)
           const eyeToCameraCm = Math.hypot(eyeToScreenCm, footToCameraCm)
 
-          let factorVpxCm = currentIPDDistance * eyeToScreenCm
+          let factorVpxCm = correctedIPD * eyeToScreenCm
           if (
             trackingOptions.useObjectTestData === 'justCreditCard' ||
             trackingOptions.useObjectTestData === 'autoCreditCard'
@@ -1035,7 +1083,7 @@ const startIrisDrawing = RC => {
           )
           const cameraResolutionXYVpx = getCameraResolutionXY(RC)
           const horizontalVpx = cameraResolutionXYVpx[0]
-          const ipdOverWidth = currentIPDDistance / horizontalVpx
+          const ipdOverWidth = correctedIPD / horizontalVpx
           const fOverWidth =
             (rulerBasedEyesToFootCm * ipdOverWidth) / RC._CONST.IPD_CM
           const imageBasedEyesToFootCm =
@@ -1051,7 +1099,7 @@ const startIrisDrawing = RC => {
             trackingOptions.decimalPlace,
             nearestPointsData.nearestEyeToWebcamDistanceCM,
             factorVpxCm,
-            currentIPDDistance,
+            correctedIPD,
             {
               x: leftEye.x,
               y: leftEye.y,
@@ -1078,6 +1126,8 @@ const startIrisDrawing = RC => {
             pxPerCm,
             nearestPointsData.footXYPx,
             RC._CONST.IPD_CM,
+            overlayYawDeg,
+            overlayIpdShrinkage,
           )
         }
       }
@@ -1106,8 +1156,22 @@ const stopIrisDrawing = () => {
   sharedFaceData = null // Clear shared data
 }
 
-const updateSharedFaceData = (leftEye, rightEye, video, currentIPDDistance) => {
-  sharedFaceData = { leftEye, rightEye, video, currentIPDDistance }
+const updateSharedFaceData = (
+  leftEye,
+  rightEye,
+  video,
+  currentIPDDistance,
+  ipdShrinkage = 1,
+  yawDeg = 0,
+) => {
+  sharedFaceData = {
+    leftEye,
+    rightEye,
+    video,
+    currentIPDDistance,
+    ipdShrinkage,
+    yawDeg,
+  }
 }
 
 // Start iris drawing with continuous mesh data tracking
@@ -1146,7 +1210,30 @@ export const startIrisDrawingWithMesh = async RC => {
         const { leftEye, rightEye, video, currentIPDDistance } = meshData
 
         // Update shared face data for iris drawing
-        updateSharedFaceData(leftEye, rightEye, video, currentIPDDistance)
+        updateSharedFaceData(
+          leftEye,
+          rightEye,
+          video,
+          currentIPDDistance,
+          meshData.ipdShrinkage,
+          meshData.yawDeg,
+        )
+
+        // Keep latest yaw on RC so the head-rotation nudger can read it
+        // during calibration (before the main _tracking loop starts).
+        if (typeof meshData.yawDeg === 'number' && !isNaN(meshData.yawDeg)) {
+          RC._distanceTrackNudging.headYawDeg = meshData.yawDeg
+        }
+
+        // Show the "face the screen" nudger during calibration when the
+        // participant's head is rotated past the allowed threshold.
+        if (
+          RC._distanceTrackNudging.headRotationCorrectingEnabled &&
+          RC._distanceTrackNudging.headRotationAllowedDeg < 180 &&
+          typeof RC.nudgeHeadRotation === 'function'
+        ) {
+          RC.nudgeHeadRotation(false, null)
+        }
 
         // Log occasionally for debugging (every ~30 frames at 30fps = 1 second)
         // if (Math.random() < 0.033) {
@@ -1225,9 +1312,18 @@ export const getMeshData = async (
     )
     if (leftEye && rightEye) {
       const useZ = trackingOptions.calibrateDistanceIpdUsesZBool !== false
+      const calibrateDistanceCorrectForHeadRotation =
+        trackingOptions.calibrateDistanceCorrectForHeadRotation
       const currentIPDDistance = eyeDist(leftEye, rightEye, useZ)
       // Always calculate 3D IPD for ipdOverWidthXYZ
       const ipdXYZVpx = eyeDist(leftEye, rightEye, true)
+
+      const { yawDeg, ipdShrinkage } = estimateHeadYawRobust(
+        mesh,
+        leftEye,
+        rightEye,
+        calibrateDistanceCorrectForHeadRotation,
+      )
 
       return {
         mesh,
@@ -1236,6 +1332,8 @@ export const getMeshData = async (
         video,
         currentIPDDistance,
         ipdXYZVpx, // Always 3D IPD
+        yawDeg,
+        ipdShrinkage,
       }
     }
   }
@@ -1313,6 +1411,10 @@ const _tracking = async (
   RC._distanceTrackNudging.distanceCorrectEnabled = true
   RC._distanceTrackNudging.distanceDesired = desiredDistanceCm
   RC._distanceTrackNudging.distanceAllowedRatio = desiredDistanceTolerance
+
+  // Note: head-rotation nudging state (headRotationCorrectingEnabled,
+  // headRotationAllowedDeg) is initialized earlier in trackDistance(), so
+  // it is active throughout calibration as well.
 
   // Set break to false to start the tracking loop
   iRepeatOptions.break = false
@@ -1697,7 +1799,12 @@ const renderDistanceResult = async (
   const meshData = await getMeshData(RC, trackingOptions.calibrateDistancePupil)
 
   if (meshData) {
-    const { mesh, leftEye, rightEye, currentIPDDistance } = meshData
+    const { mesh, leftEye, rightEye, currentIPDDistance, ipdShrinkage } =
+      meshData
+    const correctedIPD = correctIpdForHeadRotation(
+      currentIPDDistance,
+      ipdShrinkage,
+    )
     RC._trackingVideoFrameTimestamps.distance = videoTimestamp
 
     // Initialize calibration factor on first run
@@ -1751,7 +1858,7 @@ const renderDistanceResult = async (
 
       const cameraResolutionXYVpx = getCameraResolutionXY(RC)
       const horizontalVpx = cameraResolutionXYVpx[0]
-      const ipdOverWidth = currentIPDDistance / horizontalVpx
+      const ipdOverWidth = correctedIPD / horizontalVpx
       const eyesToFootCm =
         (RC.calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
 
@@ -1760,7 +1867,7 @@ const renderDistanceResult = async (
         video,
         leftEye,
         rightEye,
-        currentIPDDistance,
+        correctedIPD,
         eyesToFootCm,
         pxPerCm,
         ppi,
@@ -1774,7 +1881,7 @@ const renderDistanceResult = async (
         [],
         0,
         0,
-        currentIPDDistance,
+        correctedIPD,
         true,
         trackingOptions.calibrateDistanceChecking,
       )
@@ -1821,7 +1928,7 @@ const renderDistanceResult = async (
         nearestXYPx: nearestXYPx,
         nearestDistanceCm: nearestDistanceCm,
         // oldDistanceCm: screenCenterToEyeDistance,
-        ipdDistancePx: currentIPDDistance,
+        ipdDistancePx: correctedIPD,
       }
 
       const data = {
@@ -1835,9 +1942,28 @@ const renderDistanceResult = async (
       RC.newViewingDistanceData = data
 
       // Update shared face data for iris drawing
-      updateSharedFaceData(leftEye, rightEye, video, currentIPDDistance)
+      updateSharedFaceData(
+        leftEye,
+        rightEye,
+        video,
+        currentIPDDistance,
+        ipdShrinkage,
+        meshData.yawDeg,
+      )
 
       // Debug: Draw nearest points on screen using clamped coordinates
+      console.log(
+        'nearestPointsData...:',
+        nearestPointsData,
+        'objectLengthCmGlobal...:',
+        objectLengthCmGlobal,
+        'correctedIPD...:',
+        correctedIPD,
+        'ipdShrinkage...:',
+        ipdShrinkage,
+        'meshData.yawDeg...:',
+        meshData.yawDeg,
+      )
       if (trackingConfig.options.showNearestPointsBool) {
         const rulerBasedEyesToPointCm = objectLengthCmGlobal.value
         const rulerBasedEyesToFootCm = Math.sqrt(
@@ -1845,7 +1971,7 @@ const renderDistanceResult = async (
         )
         const cameraResolutionXYVpx = getCameraResolutionXY(RC)
         const horizontalVpx = cameraResolutionXYVpx[0]
-        const ipdOverWidth = currentIPDDistance / horizontalVpx
+        const ipdOverWidth = correctedIPD / horizontalVpx
         const fOverWidth =
           (rulerBasedEyesToFootCm * ipdOverWidth) / RC._CONST.IPD_CM
         const imageBasedEyesToFootCm =
@@ -1862,7 +1988,7 @@ const renderDistanceResult = async (
           trackingOptions.decimalPlace,
           nearestEyeToWebcamDistanceCM,
           stdFactor,
-          currentIPDDistance,
+          correctedIPD,
           {
             x: leftEye.x,
             y: leftEye.y,
@@ -1889,7 +2015,14 @@ const renderDistanceResult = async (
           pxPerCm, // pxPerCm
           nearestPointsData.footXYPx, // footXYPx
           RC._CONST.IPD_CM, // ipdCm
+          meshData.yawDeg,
+          ipdShrinkage,
         )
+      }
+
+      // Keep latest head yaw on RC so the head-rotation nudger can read it.
+      if (typeof meshData.yawDeg === 'number' && !isNaN(meshData.yawDeg)) {
+        RC._distanceTrackNudging.headYawDeg = meshData.yawDeg
       }
 
       if (readyToGetFirstData || desiredDistanceMonitor) {
@@ -1902,6 +2035,17 @@ const renderDistanceResult = async (
           )
         }
         readyToGetFirstData = false
+      }
+
+      // ! Check head rotation (yaw). Runs on every rendered frame once
+      // tracking is live, independent of desiredDistanceCm. The nudger only
+      // shows when yaw estimation is enabled and the allowed-rotation
+      // threshold is below 180 (the "ignore" value).
+      if (
+        RC._distanceTrackNudging.headRotationCorrectingEnabled &&
+        RC._distanceTrackNudging.headRotationAllowedDeg < 180
+      ) {
+        RC.nudgeHeadRotation(desiredDistanceMonitorCancelable, trackingConfig)
       }
 
       /* -------------------------------------------------------------------------- */
@@ -2001,6 +2145,10 @@ let footXYPxLabel = null
 let pointXYPxLabel = null
 let viewingDistanceWhichEyeLabel = null
 let viewingDistanceWhichPointLabel = null
+let headYawLabel = null
+let headPitchLabel = null
+let ipdShrinkageLabel = null
+let headRotationDot = null
 let eyePointDots = { left: null, right: null }
 let pupilDots = { left: null, right: null }
 let nearestPointCoordsLabels = { left: null, right: null }
@@ -2037,6 +2185,8 @@ const _drawNearestPoints = (
   pxPerCm = null,
   footXYPx = null,
   ipdCm = 6.3,
+  headYawDeg = null,
+  headIpdShrinkage = null,
 ) => {
   // Get video container and its bounding rect once for reuse
   const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -2552,6 +2702,76 @@ const _drawNearestPoints = (
     viewingDistanceWhichPointLabel.style.left = `${labelLeft}px`
     viewingDistanceWhichPointLabel.style.top = '440px'
   }
+
+  // ── Head rotation labels ───────────────────────────────────────────
+  if (headYawDeg != null) {
+    headYawLabel = createOrUpdateElement(
+      headYawLabel,
+      'rc-head-yaw-label',
+      labelBaseStyles,
+    )
+    if (shouldUpdateLabels) {
+      headYawLabel.textContent = `headYawDeg: ${headYawDeg.toFixed(1)}°`
+    }
+    headYawLabel.style.left = `${labelLeft}px`
+    headYawLabel.style.top = '470px'
+  }
+
+  if (headIpdShrinkage != null) {
+    ipdShrinkageLabel = createOrUpdateElement(
+      ipdShrinkageLabel,
+      'rc-ipd-shrinkage-label',
+      labelBaseStyles,
+    )
+    if (shouldUpdateLabels) {
+      ipdShrinkageLabel.textContent = `ipdShrinkage: ${headIpdShrinkage.toFixed(4)}`
+    }
+    ipdShrinkageLabel.style.left = `${labelLeft}px`
+    ipdShrinkageLabel.style.top = '500px'
+  }
+
+  // ── Head rotation dot ──────────────────────────────────────────────
+  // Green dot on screen showing where the head is pointing relative to
+  // the eye midpoint. Uses yaw and pitch scaled by the current distance
+  // estimate to project a screen position.
+  if (headYawDeg != null && pxPerCm != null && nearestLeft && nearestRight) {
+    headRotationDot = createOrUpdateElement(
+      headRotationDot,
+      'rc-head-rotation-dot',
+      {
+        position: 'fixed',
+        width: '14px',
+        height: '14px',
+        background: 'lime',
+        border: '2px solid black',
+        borderRadius: '50%',
+        zIndex: '99999999999999',
+        pointerEvents: 'none',
+      },
+    )
+
+    // Eye midpoint in screen px (average of left and right foot points)
+    const eyeMidScreenX = (nearestLeft[0] + nearestRight[0]) / 2
+    const eyeMidScreenY = (nearestLeft[1] + nearestRight[1]) / 2
+
+    // Use the average reported distance (from either eye) as the
+    // depth for projecting the angle onto the screen plane.
+    const avgDistCm =
+      distanceLeft != null && distanceRight != null
+        ? (distanceLeft + distanceRight) / 2
+        : (distanceLeft ?? distanceRight ?? 50)
+
+    const yawRad = (headYawDeg * Math.PI) / 180
+    const dxCm = avgDistCm * Math.tan(yawRad)
+    const dotX = eyeMidScreenX + dxCm * pxPerCm
+    const dotY = eyeMidScreenY
+
+    const clampedX = Math.max(0, Math.min(dotX, window.innerWidth - 14))
+    const clampedY = Math.max(0, Math.min(dotY, window.innerHeight - 14))
+
+    headRotationDot.style.left = `${clampedX - 7}px`
+    headRotationDot.style.top = `${clampedY - 7}px`
+  }
 }
 
 const cleanUpEyePoints = () => {
@@ -2631,6 +2851,18 @@ const cleanUpEyePoints = () => {
   if (viewingDistanceWhichPointLabel) {
     document.body.removeChild(viewingDistanceWhichPointLabel)
     viewingDistanceWhichPointLabel = null
+  }
+  if (headYawLabel) {
+    document.body.removeChild(headYawLabel)
+    headYawLabel = null
+  }
+  if (ipdShrinkageLabel) {
+    document.body.removeChild(ipdShrinkageLabel)
+    ipdShrinkageLabel = null
+  }
+  if (headRotationDot) {
+    document.body.removeChild(headRotationDot)
+    headRotationDot = null
   }
   if (nearestPointCoordsLabels.left) {
     document.body.removeChild(nearestPointCoordsLabels.left)
@@ -2825,6 +3057,8 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     trackingOptions.desiredDistanceMonitor = false
     trackingOptions.desiredDistanceMonitorCancelable = false
     trackingOptions.desiredDistanceMonitorAllowRecalibrate = true
+    trackingOptions.calibrateDistanceCorrectForHeadRotation = 'none'
+    trackingOptions.viewingDistanceAllowedHeadRotationDeg = 180
 
     stdDist.current = null
     stdFactor = null
@@ -2918,6 +3152,18 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
       document.body.removeChild(viewingDistanceWhichPointLabel)
       viewingDistanceWhichPointLabel = null
     }
+    if (headYawLabel) {
+      document.body.removeChild(headYawLabel)
+      headYawLabel = null
+    }
+    if (ipdShrinkageLabel) {
+      document.body.removeChild(ipdShrinkageLabel)
+      ipdShrinkageLabel = null
+    }
+    if (headRotationDot) {
+      document.body.removeChild(headRotationDot)
+      headRotationDot = null
+    }
     if (nearestPointCoordsLabels.left) {
       document.body.removeChild(nearestPointCoordsLabels.left)
       nearestPointCoordsLabels.left = null
@@ -2963,27 +3209,35 @@ RemoteCalibrator.prototype.getDistanceNow = async function (callback = null) {
   if (f.length) {
     const mesh = f[0].scaledMesh
     const useZ = trackingOptions.calibrateDistanceIpdUsesZBool !== false
-    const dist = eyeDist(
-      {
-        x: mesh[468].x,
-        y: mesh[468].y,
-        z: mesh[468].z,
-      },
-      {
-        x: mesh[473].x,
-        y: mesh[473].y,
-        z: mesh[473].z,
-      },
-      useZ,
+    const calibrateDistanceCorrectForHeadRotation =
+      trackingOptions.calibrateDistanceCorrectForHeadRotation
+    const leftEyePt = {
+      x: mesh[468].x,
+      y: mesh[468].y,
+      z: mesh[468].z,
+    }
+    const rightEyePt = {
+      x: mesh[473].x,
+      y: mesh[473].y,
+      z: mesh[473].z,
+    }
+    const dist = eyeDist(leftEyePt, rightEyePt, useZ)
+
+    const { ipdShrinkage: shrinkageNow } = estimateHeadYawRobust(
+      mesh,
+      leftEyePt,
+      rightEyePt,
+      calibrateDistanceCorrectForHeadRotation,
     )
+    const correctedDist = dist / shrinkageNow
 
     const timestamp = performance.now()
     //
     const latency = timestamp - videoTimestamp
     //
 
-    // Calculate webcam-to-eye distance
-    const webcamToEyeDistance = stdFactor / dist
+    // Calculate webcam-to-eye distance (using head-rotation-corrected IPD)
+    const webcamToEyeDistance = stdFactor / correctedDist
 
     // Apply trigonometric adjustment to get screen-center-to-eye distance
     const ppi = this.screenPpi

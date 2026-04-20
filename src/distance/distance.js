@@ -72,6 +72,7 @@ import {
   setMeasurementOverlay,
   clearMeasurementOverlay,
 } from './distanceTrack'
+import { correctIpdForHeadRotation } from './headYaw'
 import {
   parseLocation,
   parseLocationsArray,
@@ -86,12 +87,6 @@ import {
 import woodSvg from '../media/AdobeStock_1568677429.svg'
 import { captureVideoFrame } from '../check/captureVideoFrame'
 
-export const objectLengthCmGlobal = {
-  value: null,
-}
-export const globalPointXYPx = {
-  value: [window.screen.width / 2, 0],
-}
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
 let cameraShutterSound
@@ -259,6 +254,7 @@ export function saveCalibrationMeasurements(
       COMMON,
       measurement.ipdXYZVpx, // 3D IPD in pixels
       measurement.fOverWidth,
+      measurement.ipdOverWidth,
     )
   })
 }
@@ -300,6 +296,7 @@ function saveCalibrationAttempt(
   COMMON = undefined,
   ipdXYZVpx = undefined, // 3D IPD in pixels (always with Z coordinate)
   fOverWidth = undefined,
+  ipdOverWidth = undefined,
 ) {
   // Maintain a transposed view of calibration attempts where each field accumulates
   // arrays of values across attempts for easier downstream analysis.
@@ -352,7 +349,16 @@ function saveCalibrationAttempt(
           key === 'snapshotsRejected' ||
           key === 'estimatedLengthCm' ||
           key === 'estimatedLengthRatio' ||
-          key === 'matchHalfLengthBool'
+          key === 'matchHalfLengthBool' ||
+          key === 'acceptedIpdUncorrectedOverWidth' ||
+          key === 'acceptedIpdCorrectedOverWidth' ||
+          key === 'rejectedIpdUncorrectedOverWidth' ||
+          key === 'rejectedIpdCorrectedOverWidth' ||
+          key === 'historyIpdUncorrectedOverWidth' ||
+          key === 'historyIpdCorrectedOverWidth' ||
+          key === 'acceptedHeadYawDeg' ||
+          key === 'rejectedHeadYawDeg' ||
+          key === 'historyHeadYawDeg'
         ) {
           RC.calibrationAttemptsT[key] = v
         } else if (Array.isArray(v)) {
@@ -424,11 +430,9 @@ function saveCalibrationAttempt(
   const fVpx = fOverWidth * cameraWidth
   // Use camera width for all ratios since fVpx, ipdOverWidth are derived from camera-space measurements
 
-  const ipdOverWidth =
-    currentIPDDistance && cameraWidth ? currentIPDDistance / cameraWidth : null
   const ipdOverWidthXYZ =
     ipdXYZVpx && cameraWidth ? ipdXYZVpx / cameraWidth : null
-  const imageBasedEyesToFootCm = (fVpx * ipdCmValue) / currentIPDDistance
+  const imageBasedEyesToFootCm = (fVpx * ipdCmValue) / ipdOverWidth
   const imageBasedEyesToPointCm = Math.sqrt(
     imageBasedEyesToFootCm ** 2 + footToPointCm ** 2,
   )
@@ -531,14 +535,21 @@ export async function processMeshDataAndCalculateNearestPoints(
     options.calibrateDistancePupil,
     meshSamples,
   )
-  const { leftEye, rightEye, video, currentIPDDistance, ipdXYZVpx } = mesh
-  const webcamToEyeDistance = calibrationFactor / currentIPDDistance
+  const {
+    leftEye,
+    rightEye,
+    video,
+    currentIPDDistance,
+    ipdXYZVpx,
+    ipdShrinkage,
+  } = mesh
+  const correctedIPD = currentIPDDistance / (ipdShrinkage || 1)
   const pxPerCm = ppi / 2.54
   const nearestPointsData = calculateNearestPoints(
     video,
     leftEye,
     rightEye,
-    currentIPDDistance,
+    correctedIPD,
     objectLengthCm,
     pxPerCm,
     ppi,
@@ -552,7 +563,7 @@ export async function processMeshDataAndCalculateNearestPoints(
     spotPoint,
     blindspotDeg,
     fixationToSpotCm,
-    ipdVpx === 0 ? currentIPDDistance : ipdVpx,
+    ipdVpx === 0 ? correctedIPD : ipdVpx,
     false,
     calibrateDistanceChecking,
     _pointXYPx,
@@ -562,6 +573,10 @@ export async function processMeshDataAndCalculateNearestPoints(
     nearestPointsData,
     currentIPDDistance,
     ipdXYZVpx, // Always 3D IPD
+    headRotation: {
+      yawDeg: mesh.yawDeg ?? 0,
+      ipdShrinkage: ipdShrinkage ?? 1,
+    },
   }
 }
 
@@ -579,6 +594,8 @@ export function createMeasurementObject(
   ipdXYZVpx = null, // Always 3D IPD for ipdOverWidthXYZ
   fOverWidth = null,
   snapshotAcceptedBool = false,
+  headRotation = null, // { yawDeg, pitchDeg, ipdShrinkage }
+  ipdOverWidth = null,
 ) {
   const {
     nearestDistanceCm_left,
@@ -625,6 +642,11 @@ export function createMeasurementObject(
     ipdXYZVpx: ipdXYZVpx, // Always 3D IPD for ipdOverWidthXYZ
     fOverWidth: fOverWidth,
     snapshotAcceptedBool: snapshotAcceptedBool,
+    ipdOverWidth: ipdOverWidth,
+  }
+
+  if (headRotation) {
+    measurement.headYawDeg = headRotation.yawDeg
   }
 
   if (ipdVpx !== null) {
@@ -3198,6 +3220,7 @@ export async function blindSpotTestNew(
       options.viewingDistanceWhichEye,
       options.saveSnapshots,
       options.calibrateDistanceCheckMinRulerCm,
+      options.calibrateDistanceCorrectForHeadRotation,
     )
   else safeExecuteFunc(callback, data)
 
@@ -4146,6 +4169,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
         options.viewingDistanceWhichEye,
         undefined,
         options.calibrateDistanceCheckMinRulerCm,
+        options.calibrateDistanceCorrectForHeadRotation,
       )
     } else {
       if (typeof callback === 'function') {
@@ -4414,6 +4438,7 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
                       options.viewingDistanceWhichEye,
                       undefined,
                       options.calibrateDistanceCheckMinRulerCm,
+                      options.calibrateDistanceCorrectForHeadRotation,
                     )
                   } else {
                     // Call callback directly (same as knownDistanceTestFinishFunction)

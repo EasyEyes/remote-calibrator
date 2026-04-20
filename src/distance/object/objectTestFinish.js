@@ -25,6 +25,7 @@ import { swalInfoOptions } from '../../components/swalOptions'
 import { phrases } from '../../i18n/schema'
 import { processInlineFormatting } from '../markdownInstructionParser'
 import { setUpEasyEyesKeypadHandler } from '../../extensions/keypadHandler'
+import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
 
 // ---------------------------------------------------------------------------
 // "Put Your Glasses Back On" screen
@@ -187,7 +188,6 @@ export function cleanupObjectTestDOM(deps) {
     tubeCheckTape,
     arrowIndicators,
     removeArrowIndicatorsFromDOM,
-    globalPointXYPx,
     leftLabel,
     rightLabel,
     options,
@@ -357,7 +357,6 @@ export async function finishObjectTest(context) {
     instructionsUI,
     tubeCheckTape,
     arrowIndicators,
-    globalPointXYPx,
     leftLabel,
     rightLabel,
     container,
@@ -429,7 +428,6 @@ export async function finishObjectTest(context) {
     tubeCheckTape,
     arrowIndicators,
     removeArrowIndicatorsFromDOM,
-    globalPointXYPx,
     leftLabel,
     rightLabel,
     options,
@@ -718,6 +716,7 @@ export async function finishObjectTest(context) {
             options.viewingDistanceWhichEye,
             undefined,
             options.calibrateDistanceCheckMinRulerCm,
+            options.calibrateDistanceCorrectForHeadRotation,
           )
         } else {
           await showPutGlassesBackOnScreen(RC)
@@ -770,6 +769,7 @@ export async function finishObjectTest(context) {
         options.viewingDistanceWhichEye,
         options.saveSnapshots,
         options.calibrateDistanceCheckMinRulerCm,
+        options.calibrateDistanceCorrectForHeadRotation,
       )
     } else {
       console.log('=== DEBUG: FINAL DATA OBJECT BEING PASSED TO CALLBACK ===')

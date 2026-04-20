@@ -85,6 +85,12 @@ class RemoteCalibrator {
       distanceDesired: null,
       distanceAllowedRatio: null,
       needEasyEyesKeypadBeyondCm: null,
+      // Head rotation nudging
+      headRotationCorrecting: null, // setInterval for head rotation nudger
+      headRotationCorrectingEnabled: false, // Whether head-rotation nudging is active
+      headRotationAllowedDeg: 180, // viewingDistanceAllowedHeadRotationDeg
+      headYawDeg: 0, // Latest measured yaw (signed, deg)
+      headRotationCleanup: null, // Removes capture-phase key listeners while nudger is up
     }
 
     this._gazeTrackNudging = {
