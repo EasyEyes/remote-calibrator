@@ -142,6 +142,9 @@ class RemoteCalibrator {
 
     // Function parameters
     this.viewingDistanceAllowedPreciseBool = true
+    // abs(yaw) above this value triggers the "face the screen" nudger.
+    // 180 (default) disables the head-rotation nudger.
+    this._viewingDistanceAllowedHeadRotationDeg = 180
 
     // ! Extensions
     this.keypadHandler = null
@@ -394,6 +397,10 @@ class RemoteCalibrator {
 
   get PDCm() {
     return this._helper_get(this._PDData)
+  }
+
+  get viewingDistanceAllowedHeadRotationDeg() {
+    return this._viewingDistanceAllowedHeadRotationDeg
   }
 
   // Gaze

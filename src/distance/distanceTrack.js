@@ -489,8 +489,6 @@ RemoteCalibrator.prototype.trackDistance = async function (
 
   trackingOptions.calibrateDistanceCorrectForHeadRotation =
     options.calibrateDistanceCorrectForHeadRotation
-  trackingOptions.viewingDistanceAllowedHeadRotationDeg =
-    options.viewingDistanceAllowedHeadRotationDeg
 
   // Enable the head-rotation nudger for the entire distance session,
   // including the calibration phase (object / blindspot / credit card).
@@ -500,11 +498,9 @@ RemoteCalibrator.prototype.trackDistance = async function (
     isHeadRotationCorrectionEnabled(
       options.calibrateDistanceCorrectForHeadRotation,
     )
-  this._distanceTrackNudging.headRotationAllowedDeg = Number.isFinite(
+  this.setViewingDistanceAllowedHeadRotationDeg(
     options.viewingDistanceAllowedHeadRotationDeg,
   )
-    ? options.viewingDistanceAllowedHeadRotationDeg
-    : 180
   this._distanceTrackNudging.headYawDeg = 0
 
   originalStyles.video = options.showVideo
@@ -548,6 +544,26 @@ RemoteCalibrator.prototype.setViewingDistanceAllowedPreciseBool = function (
 ) {
   this.viewingDistanceAllowedPreciseBool = value
 }
+
+/**
+ * Set the allowed head-rotation (yaw) threshold, in degrees, used by the
+ * "face the screen" nudger. When the absolute yaw exceeds this value the
+ * nudger is shown; 180 (the default) effectively disables it.
+ *
+ * Called internally by `trackDistance()` to seed the value from
+ * `options.viewingDistanceAllowedHeadRotationDeg`, but can also be called
+ * at any time to change the threshold while tracking is live.
+ *
+ * @param {number} value Allowed absolute yaw in degrees. Non-finite values fall back to 180.
+ */
+RemoteCalibrator.prototype.setViewingDistanceAllowedHeadRotationDeg =
+  function (value = 180) {
+    const deg = Number.isFinite(value) ? value : 180
+    this._viewingDistanceAllowedHeadRotationDeg = deg
+    trackingOptions.viewingDistanceAllowedHeadRotationDeg = deg
+    if (this._distanceTrackNudging)
+      this._distanceTrackNudging.headRotationAllowedDeg = deg
+  }
 
 /* -------------------------------------------------------------------------- */
 
