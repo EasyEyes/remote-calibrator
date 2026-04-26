@@ -88,7 +88,7 @@ const phrasesData = [
   'RC_CameraReconnectTitle',
   'RC_CameraReconnectText',
   'RC_CameraReconnectCantFindIt',
-  'RC_Resume',
+  'RC_Proceed',
   'RC_Quit',
 ]
 const languages = [

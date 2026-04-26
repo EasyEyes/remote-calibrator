@@ -1745,9 +1745,13 @@ export const showCameraSelectionPopup = async (
       // DON'T restore video container here - let the next step handle it
       // This prevents the blank page flash between popup close and next UI render
 
-      // If no camera was explicitly selected, restore the original camera
-      if (!RC.selectedCamera && RC.gazeTracker?.webgazer) {
-        // Restore to the original active camera
+      // If no camera was explicitly selected, restore the original camera.
+      // Skip if camera is disconnected — the reconnection flow handles it.
+      if (
+        !RC.selectedCamera &&
+        RC.gazeTracker?.webgazer &&
+        !RC.gazeTracker?.isCameraDisconnected()
+      ) {
         const originalCamera = getCurrentActiveCamera(RC)
         if (originalCamera) {
           const originalCameraObj = cameras.find(
@@ -1791,8 +1795,14 @@ export const showCameraSelectionPopup = async (
   // Get selected camera (only from user selection, no fallback)
   const selectedCamera = RC.selectedCamera
 
-  // Call onClose callback if provided
-  if (onClose && typeof onClose === 'function') {
+  // Skip onClose if popup was interrupted by camera disconnection — the
+  // caller (showTestPopup) will wait for reconnection and retry, at which
+  // point onClose will be called with the definitive result.
+  if (
+    onClose &&
+    typeof onClose === 'function' &&
+    !RC.gazeTracker?.isCameraDisconnected()
+  ) {
     onClose(selectedCamera)
   }
 
@@ -1905,7 +1915,7 @@ const _handlePostCameraResolution = async (RC, options) => {
       phrases?.RC_SettingWebcamResolution?.['en-US'] ||
       'Setting webcam resolution ...'
 
-    await Swal.fire({
+    const resolutionResult = await Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
       icon: undefined,
       title: '',
@@ -2031,6 +2041,21 @@ const _handlePostCameraResolution = async (RC, options) => {
         }
       },
     })
+
+    // If the resolution Swal was interrupted by camera disconnection,
+    // wait for reconnection and then re-show the resolution page.
+    if (
+      !resolutionResult.isConfirmed &&
+      RC.gazeTracker?.isCameraDisconnected()
+    ) {
+      await new Promise(resolve => {
+        const unsub = RC.gazeTracker.onCameraReconnected(() => {
+          unsub()
+          resolve()
+        })
+      })
+      return await _handlePostCameraResolution(RC, options)
+    }
   } else {
     // Silent resolution setting — no UI
     await checkResolutionAfterSelection(RC, options)
@@ -2100,6 +2125,19 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       'RC_ChooseCameraTitle',
     )
 
+    // If popup was interrupted by camera disconnection, wait for the
+    // reconnection flow to finish and then re-show camera selection.
+    if (!result.selectedCamera && RC.gazeTracker?.isCameraDisconnected()) {
+      await new Promise(resolve => {
+        const unsub = RC.gazeTracker.onCameraReconnected(() => {
+          unsub()
+          resolve()
+        })
+      })
+      RC.selectedCamera = null
+      return await showTestPopup(RC, onClose, options)
+    }
+
     // After camera selection, force fullscreen and check resolution if a camera was selected
     if (result.selectedCamera) {
       await _handlePostCameraResolution(RC, options)
@@ -2123,6 +2161,19 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     onClose,
     'RC_ChooseCameraTitle',
   )
+
+  // If popup was interrupted by camera disconnection, wait for the
+  // reconnection flow to finish and then re-show camera selection.
+  if (!result.selectedCamera && RC.gazeTracker?.isCameraDisconnected()) {
+    await new Promise(resolve => {
+      const unsub = RC.gazeTracker.onCameraReconnected(() => {
+        unsub()
+        resolve()
+      })
+    })
+    RC.selectedCamera = null
+    return await showTestPopup(RC, onClose, options)
+  }
 
   // After camera selection, force fullscreen and check resolution if a camera was selected
   if (result.selectedCamera) {

@@ -324,6 +324,15 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
   this.webgazer.setOnCameraDisconnected(message => {
     console.warn('GazeTracker: Camera disconnected -', message)
     this._cameraDisconnected = true
+
+    // Remove any stale capture-phase key listener from popups (camera
+    // selection, resolution, etc.) that may block keyboard events (e.g.
+    // SPACE) after the camera reconnects and the page is restored.
+    if (this.calibrator.popupKeydownListener) {
+      document.removeEventListener('keydown', this.calibrator.popupKeydownListener, true)
+      this.calibrator.popupKeydownListener = null
+    }
+
     this._onDisconnectCallbacks.forEach(fn => fn(message))
   })
 
