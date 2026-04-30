@@ -92,27 +92,39 @@ export function parseLengthCmFromLabel(labelRaw) {
 
 /**
  * Build paper/ruler selection options from a raw newline-delimited phrase string.
- * Falls back to positional fallbackLengths when label parsing fails.
+ * Parses lengths from a matching English phrase when provided, while preserving
+ * the localized phrase text as the display label.
  *
  * Legacy: distance.js lines 3643-3668
  *
  * @param {string} rawChoices - Newline-separated list of choice labels
  * @param {number[]} fallbackLengths - Positional fallback lengths in cm
+ * @param {string} rawLengthChoices - Newline-separated English labels for parsing lengths
  * @returns {Array<{key: string, label: string, lengthCm: number|null}>|null}
  */
-export function buildPaperSelectionOptions(rawChoices, fallbackLengths) {
+export function buildPaperSelectionOptions(
+  rawChoices,
+  fallbackLengths,
+  rawLengthChoices = rawChoices,
+) {
   try {
-    const raw = rawChoices || ''
-    const lines = raw
+    const lines = (rawChoices || '')
       .split('\n')
       .map(l => l.trim())
       .filter(l => l.length)
     if (!lines.length) return null
+    const lengthLines = (rawLengthChoices || rawChoices || '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length)
+
     return lines.map((label, idx) => {
+      const lengthLabel = lengthLines[idx] || label
       const lengthCm = (() => {
-        if (label in PAPER_CHOICE_LENGTH_MAP)
-          return PAPER_CHOICE_LENGTH_MAP[label]
-        const parsed = parseLengthCmFromLabel(label)
+        if (lengthLabel in PAPER_CHOICE_LENGTH_MAP) {
+          return PAPER_CHOICE_LENGTH_MAP[lengthLabel]
+        }
+        const parsed = parseLengthCmFromLabel(lengthLabel)
         if (parsed !== null) return parsed
         return fallbackLengths?.[idx] ?? null
       })()
@@ -158,6 +170,8 @@ export function resolvePaperSelectionOptions({
     ? 'RC_PaperChoices'
     : 'RC_PaperAndRulerChoices'
   const rawPaperChoices = phrases?.[paperChoicesPhraseKey]?.[lang] || ''
+  const rawEnglishPaperChoices =
+    phrases?.[paperChoicesPhraseKey]?.en || rawPaperChoices
 
   const fallbackLengths = (
     usePaperOnlyChoicesBool
@@ -166,7 +180,11 @@ export function resolvePaperSelectionOptions({
   ).map(o => o.lengthCm)
 
   const paperSelectionOptions =
-    buildPaperSelectionOptions(rawPaperChoices, fallbackLengths) ||
+    buildPaperSelectionOptions(
+      rawPaperChoices,
+      fallbackLengths,
+      rawEnglishPaperChoices,
+    ) ||
     (usePaperOnlyChoicesBool
       ? PAPER_ONLY_FALLBACK_OPTIONS
       : PAPER_AND_RULER_FALLBACK_OPTIONS)
