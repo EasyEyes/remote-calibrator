@@ -22,6 +22,7 @@ import './check/checkScreenSize'
 import './check/checkDistance'
 
 import './panel/panel'
+import './cameraSelection'
 import './customization'
 
 /* ----------------------------------- CSS ---------------------------------- */
