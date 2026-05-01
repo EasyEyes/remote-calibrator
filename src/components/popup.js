@@ -4,6 +4,7 @@ import { swalInfoOptions } from './swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
 import { processInlineFormatting } from '../distance/markdownInstructionParser'
+import { likelyBuiltIn } from './cameraClassifier'
 
 /**
  * Remove parenthesized hex device IDs from camera labels.
@@ -14,21 +15,40 @@ const _stripHexId = label =>
     .replace(/\s*\([0-9a-fA-Fx:]+\)\s*/g, '')
     .trim()
 
-const _cameraCaptionHTML = (label, resolution) => {
+// Localized "built-in" / "external" / "unknown" tag for a caption.
+const _incorporationLabel = (RC, incorporation) => {
+  if (!incorporation) return ''
+  const lang = RC?.L
+  if (incorporation === 'built-in')
+    return phrases?.RC_builtIn?.[lang] || 'built-in'
+  if (incorporation === 'external')
+    return phrases?.RC_external?.[lang] || 'external'
+  return phrases?.RC_unknown?.[lang] || 'unknown'
+}
+
+const _cameraCaptionHTML = (label, resolution, RC, incorporation) => {
   const clean = _stripHexId(label)
-  if (!resolution || !resolution.width) return `<div>${clean}</div>`
+  const tag = _incorporationLabel(RC, incorporation)
+  if (!resolution || !resolution.width) {
+    return tag
+      ? `<div>${clean}</div><div>${tag}</div>`
+      : `<div>${clean}</div>`
+  }
   const hz = resolution.frameRate
     ? `, ${Math.round(resolution.frameRate)} Hz`
     : ''
-  return `<div>${clean}</div><div>${resolution.width}×${resolution.height}${hz}</div>`
+  const tagSuffix = tag ? `, ${tag}` : ''
+  return `<div>${clean}</div><div>${resolution.width}×${resolution.height}${hz}${tagSuffix}</div>`
 }
 
-const _updateCaptionInContainer = (container, camera, index) => {
+const _updateCaptionInContainer = (container, camera, index, RC) => {
   const caption = container.querySelector('.rc-camera-caption')
   if (caption) {
     caption.innerHTML = _cameraCaptionHTML(
       camera.label || `Camera ${index + 1}`,
       camera.resolution,
+      RC,
+      camera.incorporation,
     )
   }
 }
@@ -142,11 +162,21 @@ export const showCameraTitleInTopRight = (
 
   const isRTL = RC.LD === RC._CONST.RTL
 
-  // Create the title element
+  // Choose Camera / Choose Screen show a "Device compatibility" eyebrow.
+  const showEyebrow =
+    titleKey === 'RC_ChooseCameraTitle' || titleKey === 'RC_ChooseScreenTitle'
+  const eyebrowText = showEyebrow
+    ? phrases?.EE_DeviceCompatibility?.[RC.L] || 'Device compatibility'
+    : ''
+
   const titleElement = document.createElement('div')
   titleElement.id = 'rc-camera-title-top-right'
   titleElement.dir = isRTL ? 'rtl' : 'ltr'
-  titleElement.innerHTML = `<h1>${processInlineFormatting(phrases[titleKey][RC.L])}</h1>`
+  titleElement.innerHTML = `${
+    showEyebrow
+      ? `<div class="rc-camera-title-eyebrow">${processInlineFormatting(eyebrowText)}</div>`
+      : ''
+  }<h1>${processInlineFormatting(phrases[titleKey][RC.L])}</h1>`
 
   titleElement.style.cssText = `
     position: fixed;
@@ -160,14 +190,38 @@ export const showCameraTitleInTopRight = (
     pointer-events: none;
   `
 
-  const titleH1 = titleElement.querySelector('h1')
-  if (titleH1) {
-    titleH1.style.cssText = `
-      margin: 0;
+  // Eyebrow is the page header; H1 below it is a slightly smaller subtitle.
+  const eyebrow = titleElement.querySelector('.rc-camera-title-eyebrow')
+  if (eyebrow) {
+    eyebrow.style.cssText = `
+      margin: 0 0 0.15em 0;
       padding: 0;
       font-size: clamp(16px, 4vw, 36px);
       font-weight: 350;
+      color: #000;
+      line-height: 1.1;
     `
+  }
+
+  const titleH1 = titleElement.querySelector('h1')
+  if (titleH1) {
+    const subtitle = !!eyebrow
+    titleH1.style.cssText = subtitle
+      ? `
+        margin: 0;
+        padding: 0;
+        font-size: clamp(14px, 3vw, 28px);
+        font-weight: 300;
+        color: #444;
+        line-height: 1.15;
+      `
+      : `
+        margin: 0;
+        padding: 0;
+        font-size: clamp(16px, 4vw, 36px);
+        font-weight: 350;
+        line-height: 1.1;
+      `
   }
 
   document.body.appendChild(titleElement)
@@ -180,6 +234,184 @@ export const hideCameraTitleFromTopRight = () => {
   const titleElement = document.getElementById('rc-camera-title-top-right')
   if (titleElement) {
     titleElement.remove()
+  }
+}
+
+// Push camera-selection result into RC._cameraData (see src/core.js).
+// Idempotent: guarded by RC._cameraDataPushed against retry loops.
+const _recordCameraData = RC => {
+  if (RC._cameraDataPushed) return
+  RC.newCameraData = {
+    value: {
+      selectedCameraName: RC.selectedCamera?.label || null,
+      cameraIncorporation: RC.cameraIncorporation || null,
+      cameraIncorporationReported: RC.cameraIncorporationReported || null,
+      cameraArray: Array.isArray(RC.cameraArray) ? RC.cameraArray : [],
+    },
+    timestamp: performance.now(),
+  }
+  RC._cameraDataPushed = true
+}
+
+// Ask the participant whether an "unknown"-classified camera is built-in.
+// Sets RC.cameraIncorporationReported and back-fills RC.cameraArray.opinion.
+const askCameraIncorporationOpinion = async RC => {
+  const Q = phrases?.RC_IsCameraBuiltIn?.[RC.L] ||
+    'Check the video. Is its camera built-into this screen?'
+  const yesText = phrases?.RC_Yes?.[RC.L] || 'Yes'
+  const noText = phrases?.RC_No?.[RC.L] || 'No'
+  const dontKnowText =
+    phrases?.RC_DontKnow?.[RC.L] ||
+    "Don't know. (All answers are OK -- this won't affect your participation.)"
+  const proceedText = phrases?.T_proceed?.[RC.L] || 'Proceed'
+  const isRTL = RC.LD === RC._CONST.RTL
+
+  // Flex row + explicit label-for pairing so radio and text always
+  // align and a single click reliably toggles the radio.
+  const rowStyle = `display: flex; align-items: center; gap: 0.6rem; margin: 0.6rem 0; ${isRTL ? 'flex-direction: row-reverse; justify-content: flex-end;' : ''}`
+  const inputStyle =
+    'margin: 0; flex: 0 0 auto; width: 1.1rem; height: 1.1rem; cursor: pointer;'
+  const labelStyle =
+    'margin: 0; font-size: 1.05rem; line-height: 1.4; cursor: pointer; user-select: none;'
+
+  const optionsHTML = `
+    <div id="rc-camera-opinion" style="text-align: ${isRTL ? 'right' : 'left'}; direction: ${isRTL ? 'rtl' : 'ltr'}; margin-top: 1rem;">
+      <p style="margin: 0 0 1rem 0; font-size: 1.2rem; line-height: 1.5;">${processInlineFormatting(Q)}</p>
+      <div style="${rowStyle}">
+        <input id="rc-opinion-built-in" type="radio" name="rc-camera-opinion" value="built-in" style="${inputStyle}" />
+        <label for="rc-opinion-built-in" style="${labelStyle}">${processInlineFormatting(yesText)}</label>
+      </div>
+      <div style="${rowStyle}">
+        <input id="rc-opinion-external" type="radio" name="rc-camera-opinion" value="external" style="${inputStyle}" />
+        <label for="rc-opinion-external" style="${labelStyle}">${processInlineFormatting(noText)}</label>
+      </div>
+      <div style="${rowStyle}">
+        <input id="rc-opinion-dont-know" type="radio" name="rc-camera-opinion" value="dontKnow" style="${inputStyle}" />
+        <label for="rc-opinion-dont-know" style="${labelStyle}">${processInlineFormatting(dontKnowText)}</label>
+      </div>
+    </div>
+  `
+
+  let chosenAnswer = null
+
+  // We handle Enter ourselves -- Swal.update re-renders the body and
+  // would visually reset the radios.
+  let opinionKeydownListener = null
+
+  const result = await Swal.fire({
+    ...swalInfoOptions(RC, { showIcon: false }),
+    icon: undefined,
+    title: '',
+    html: optionsHTML,
+    confirmButtonText: proceedText,
+    showCancelButton: false,
+    allowEnterKey: false,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    customClass: {
+      popup: 'my__swal2__container',
+      htmlContainer: `my__swal2__html rc-lang-${RC.LD.toLowerCase()}`,
+      confirmButton: 'rc-button',
+    },
+    didOpen: () => {
+      const confirmBtn = Swal.getConfirmButton()
+      if (confirmBtn) {
+        confirmBtn.disabled = true
+        confirmBtn.style.background = '#999'
+        confirmBtn.style.cursor = 'not-allowed'
+      }
+
+      // Delegated listener handles click / keyboard / label clicks alike.
+      const enableProceed = value => {
+        chosenAnswer = value
+        if (confirmBtn) {
+          confirmBtn.disabled = false
+          confirmBtn.style.background = '#019267'
+          confirmBtn.style.cursor = 'pointer'
+          confirmBtn.classList.add('rc-go-button')
+        }
+      }
+      const opinionContainer = document.getElementById('rc-camera-opinion')
+      if (opinionContainer) {
+        const handler = () => {
+          const checked = opinionContainer.querySelector(
+            'input[name="rc-camera-opinion"]:checked',
+          )
+          if (checked) enableProceed(checked.value)
+        }
+        opinionContainer.addEventListener('change', handler)
+        opinionContainer.addEventListener('click', handler)
+      }
+
+      // Enter commits only after a radio has been picked.
+      opinionKeydownListener = event => {
+        if (event.key !== 'Enter' && event.key !== 'Return') return
+        if (!chosenAnswer) return
+        event.preventDefault()
+        event.stopPropagation()
+        Swal.clickConfirm()
+      }
+      document.addEventListener('keydown', opinionKeydownListener, true)
+
+      // EasyEyes keypad support (matches the rest of the camera flow).
+      if (RC.keypadHandler) {
+        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+          null,
+          RC.keypadHandler,
+          () => {
+            if (!chosenAnswer) return
+            removeKeypadHandler()
+            Swal.clickConfirm()
+          },
+          false,
+          ['return'],
+          RC,
+        )
+      }
+    },
+    willClose: () => {
+      if (opinionKeydownListener) {
+        document.removeEventListener('keydown', opinionKeydownListener, true)
+        opinionKeydownListener = null
+      }
+    },
+  })
+
+  // Camera disconnected -- wait for reconnect, then re-show the popup.
+  // Mirrors the pattern in showCameraSelectionPopup / _handlePostCameraResolution.
+  if (!chosenAnswer && RC.gazeTracker?.isCameraDisconnected()) {
+    RC._isWaitingForCameraReconnect = true
+    await new Promise(resolve => {
+      const unsub = RC.gazeTracker.onCameraReconnected(() => {
+        unsub()
+        RC._isWaitingForCameraReconnect = false
+        resolve()
+      })
+    })
+    // Let the reconnection spinner close before we re-open.
+    let waitedMs = 0
+    while (Swal.isVisible() && waitedMs < 5000) {
+      await new Promise(r => setTimeout(r, 100))
+      waitedMs += 100
+    }
+    return await askCameraIncorporationOpinion(RC)
+  }
+
+  if (!chosenAnswer) return
+
+  const reportedMap = {
+    'built-in': 'built-in',
+    external: 'external',
+    dontKnow: "Don't know",
+  }
+  RC.cameraIncorporationReported = reportedMap[chosenAnswer]
+
+  // Back-fill the chosen camera's opinion in the stats array.
+  if (Array.isArray(RC.cameraArray) && RC.selectedCamera?.label) {
+    const idx = RC.cameraArray.findIndex(
+      c => c.name === RC.selectedCamera.label,
+    )
+    if (idx !== -1) RC.cameraArray[idx].opinion = chosenAnswer
   }
 }
 
@@ -487,15 +719,25 @@ export const showPopup = async (RC, title, message, onClose = null) => {
   return result
 }
 
-/**
- * Gets available camera devices
- * @returns {Promise<Array>} - Array of camera devices
- */
+// Enumerate cameras and tag each with likelyBuiltIn + incorporation.
+// Labels are only populated after getUserMedia permission is granted.
 const getAvailableCameras = async () => {
   try {
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
       const devices = await navigator.mediaDevices.enumerateDevices()
-      return devices.filter(device => device.kind === 'videoinput')
+      const cameras = devices.filter(device => device.kind === 'videoinput')
+      return cameras.map(cam => {
+        // MediaDeviceInfo is read-only -- wrap in a plain object.
+        const { score, classification } = likelyBuiltIn(cam)
+        return {
+          deviceId: cam.deviceId,
+          kind: cam.kind,
+          label: cam.label,
+          groupId: cam.groupId,
+          likelyBuiltIn: score,
+          incorporation: classification,
+        }
+      })
     }
     return []
   } catch (error) {
@@ -859,6 +1101,12 @@ const createCameraPreviews = async (
       currentActiveCamera && currentActiveCamera.deviceId === camera.deviceId
 
     const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
+    const initialCaption = _cameraCaptionHTML(
+      camera.label || `Camera ${i + 1}`,
+      camera.resolution,
+      RC,
+      camera.incorporation,
+    )
 
     previewsHTML += `
       <div 
@@ -877,7 +1125,7 @@ const createCameraPreviews = async (
           playsinline
         ></video>
         <div class="rc-camera-caption" style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; word-wrap: break-word; white-space: normal; color: ${isActive ? '#28a745' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; line-height: 1.4;">
-          <div>${cleanLabel}</div>
+          ${initialCaption}
         </div>
       </div>
     `
@@ -929,7 +1177,16 @@ const createCameraPreviews = async (
   // `_promoteCameraPreviewsBottomToBody()` so its `position: fixed`
   // resolves relative to the viewport.
   if (acceptBottomBool) {
-    previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; width: 100%; padding: 0 0 1rem 0; z-index: 9147483649; pointer-events: auto;">`
+    // Column flex so the explanation sits centered above the videos.
+    const bottomCaptionText =
+      phrases?.RC_BottomCameras?.[RC.L] ||
+      'Before 2020, some laptop screens had a camera built into the bottom of the screen.'
+    previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 0 1rem 1rem 1rem; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
+    previewsHTML += `
+      <div id="rc-bottom-cameras-caption" style="text-align: center; color: #444; font-size: clamp(12px, 1.6vw, 16px); font-weight: 300; line-height: 1.4; max-width: 70vw; margin: 0 0 0.5rem 0; direction: ${isRTL ? 'rtl' : 'ltr'};">
+        ${processInlineFormatting(bottomCaptionText)}
+      </div>
+    `
     previewsHTML += `<div style="display: flex; flex-wrap: nowrap; gap: 10px; align-items: center;">`
 
     for (let i = 0; i < cameras.length; i++) {
@@ -938,6 +1195,12 @@ const createCameraPreviews = async (
       const isActive =
         currentActiveCamera && currentActiveCamera.deviceId === camera.deviceId
       const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
+      const initialCaption = _cameraCaptionHTML(
+        camera.label || `Camera ${i + 1}`,
+        camera.resolution,
+        RC,
+        camera.incorporation,
+      )
 
       previewsHTML += `
         <div 
@@ -956,7 +1219,7 @@ const createCameraPreviews = async (
             playsinline
           ></video>
           <div class="rc-camera-caption" style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; word-wrap: break-word; white-space: normal; color: ${isActive ? '#28a745' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; line-height: 1.4;">
-            <div>${cleanLabel}</div>
+            ${initialCaption}
           </div>
         </div>
       `
@@ -1033,14 +1296,15 @@ const createCameraPreviews = async (
             const frameRate = settings.frameRate
               ? Math.round(settings.frameRate)
               : 0
-            const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
-            const captionHTML =
-              `<div>${cleanLabel}</div>` +
-              `<div>${width}×${height}${frameRate ? `, ${frameRate} Hz` : ''}</div>`
+            camera.resolution = { width, height, frameRate }
+            const captionHTML = _cameraCaptionHTML(
+              camera.label || `Camera ${i + 1}`,
+              camera.resolution,
+              RC,
+              camera.incorporation,
+            )
             if (captionDiv) captionDiv.innerHTML = captionHTML
             if (bottomCaptionDiv) bottomCaptionDiv.innerHTML = captionHTML
-
-            camera.resolution = { width, height }
           }
         } catch (error) {
           console.error(
@@ -1281,11 +1545,20 @@ export const showCameraSelectionPopup = async (
     mainVideoContainer.style.display = 'none'
   }
 
-  // Get available cameras
-  const cameras = await getAvailableCameras()
-
-  // Store available cameras on RC object
-  RC.availableCameras = cameras
+  // Prefer the pre-filtered list from showTestPopup; enumerate as fallback.
+  let cameras = RC._visibleCameras
+  if (!cameras || cameras.length === 0) {
+    const allCameras = await getAvailableCameras()
+    if (!RC.availableCameras) RC.availableCameras = allCameras
+    if (!RC.cameraArray) {
+      RC.cameraArray = allCameras.map(c => ({
+        name: c.label || '',
+        likelyBuiltIn: c.likelyBuiltIn,
+        opinion: null,
+      }))
+    }
+    cameras = allCameras
+  }
 
   // Get current active camera
   const currentActiveCamera = getCurrentActiveCamera(RC)
@@ -1504,7 +1777,24 @@ export const showCameraSelectionPopup = async (
 
         cameraPollingInterval = setInterval(async () => {
           try {
-            const newCameras = await getAvailableCameras()
+            const newCamerasAll = await getAvailableCameras()
+            // Refresh the full-list stats (covers hot-plugged cameras).
+            RC.availableCameras = newCamerasAll
+            RC.cameraArray = newCamerasAll.map(c => ({
+              name: c.label || '',
+              likelyBuiltIn: c.likelyBuiltIn,
+              opinion:
+                RC.cameraArray?.find(prev => prev.name === c.label)?.opinion ||
+                null,
+            }))
+            // Re-apply the same exclude-external filter.
+            const opts = RC._cameraSelectionOptions || {}
+            const excludeExternalPoll =
+              opts.calibrateDistanceExcludeExternalCamerasBool !== false
+            const newCameras = excludeExternalPoll
+              ? newCamerasAll.filter(c => c.likelyBuiltIn >= 0)
+              : newCamerasAll
+            RC._visibleCameras = newCameras
 
             // Check if camera list has changed
             const hasChanged =
@@ -1553,12 +1843,13 @@ export const showCameraSelectionPopup = async (
                           isActive ? 'highlight' : 'normal',
                         )
                         for (const c of _getCameraContainersForIndex(index)) {
-                          _updateCaptionInContainer(c, camera, index)
+                          _updateCaptionInContainer(c, camera, index, RC)
                         }
                       })
 
-                      // Store the selected camera for return
                       RC.selectedCamera = selectedCamera
+                      RC.cameraIncorporation =
+                        selectedCamera.incorporation || 'unknown'
                     }
                   } catch (error) {
                     console.error('Camera switch error:', error)
@@ -1675,12 +1966,13 @@ export const showCameraSelectionPopup = async (
                   isActive ? 'highlight' : 'normal',
                 )
                 for (const c of _getCameraContainersForIndex(index)) {
-                  _updateCaptionInContainer(c, camera, index)
+                  _updateCaptionInContainer(c, camera, index, RC)
                 }
               })
 
-              // Store the selected camera for return
               RC.selectedCamera = selectedCamera
+              RC.cameraIncorporation =
+                selectedCamera.incorporation || 'unknown'
             }
           } catch (error) {
             console.error('Camera switch error:', error)
@@ -2042,11 +2334,18 @@ export const _handlePostCameraResolution = async (RC, options) => {
     const selectedCameraLabel = _stripHexId(
       RC.selectedCamera?.label || origInfo.name || 'Camera',
     )
-    const origCaptionHTML = _cameraCaptionHTML(selectedCameraLabel, {
-      width: origInfo.width,
-      height: origInfo.height,
-      frameRate: origInfo.frameRate,
-    })
+    const selectedIncorporation =
+      RC.selectedCamera?.incorporation || RC.cameraIncorporation || null
+    const origCaptionHTML = _cameraCaptionHTML(
+      selectedCameraLabel,
+      {
+        width: origInfo.width,
+        height: origInfo.height,
+        frameRate: origInfo.frameRate,
+      },
+      RC,
+      selectedIncorporation,
+    )
 
     const lang = RC?.L || RC?.language?.value || 'en-US'
     const settingText =
@@ -2155,11 +2454,16 @@ export const _handlePostCameraResolution = async (RC, options) => {
 
         // Update caption with final resolution
         const finalInfo = getCameraInfo(RC)
-        const finalCaptionHTML = _cameraCaptionHTML(selectedCameraLabel, {
-          width: finalInfo.width,
-          height: finalInfo.height,
-          frameRate: finalInfo.frameRate,
-        })
+        const finalCaptionHTML = _cameraCaptionHTML(
+          selectedCameraLabel,
+          {
+            width: finalInfo.width,
+            height: finalInfo.height,
+            frameRate: finalInfo.frameRate,
+          },
+          RC,
+          selectedIncorporation,
+        )
         const capDiv = document.getElementById('rc-resolution-caption')
         if (capDiv) capDiv.innerHTML = finalCaptionHTML
 
@@ -2250,15 +2554,30 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     mainVideoContainer.style.display = 'none'
   }
 
-  // Check if there are cameras available
-  const cameras = await getAvailableCameras()
+  // Enumerate + classify ALL cameras (full list goes to RC.cameraArray
+  // for CSV stats, regardless of the visible filter below).
+  const allCameras = await getAvailableCameras()
+  RC.cameraArray = allCameras.map(c => ({
+    name: c.label || '',
+    likelyBuiltIn: c.likelyBuiltIn,
+    opinion: null,
+  }))
+
+  // Default TRUE: hide externals; built-in and unknown stay visible.
+  const excludeExternal =
+    options.calibrateDistanceExcludeExternalCamerasBool !== false
+  const cameras = excludeExternal
+    ? allCameras.filter(c => c.likelyBuiltIn >= 0)
+    : allCameras
+  RC.availableCameras = allCameras
+  RC._visibleCameras = cameras
 
   let conditionalPrivacyCamera = ''
   if (!options.saveSnapshots) {
     conditionalPrivacyCamera = phrases.RC_CameraPrivacyAssurance[RC.L]
   }
 
-  // Handle different camera scenarios
+  // Handle different camera scenarios (after exclude-external filter)
   if (cameras.length === 0) {
     // No cameras detected - show retry popup
     // Make sure no title is shown since we're not showing camera selection
@@ -2314,15 +2633,20 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
         waitedMs += 100
       }
       RC.selectedCamera = null
+      RC.cameraIncorporation = null
+      RC.cameraIncorporationReported = null
       return await showTestPopup(RC, onClose, options)
     }
 
-    // After camera selection, force fullscreen and check resolution if a camera was selected
+    // Ask opinion when classification is unknown, then run resolution.
     if (result.selectedCamera) {
+      if (RC.cameraIncorporation === 'unknown') {
+        await askCameraIncorporationOpinion(RC)
+      }
+      _recordCameraData(RC)
       await _handlePostCameraResolution(RC, options)
     }
 
-    // Final safety cleanup - ensure camera polling is stopped
     if (RC.cameraPollingInterval) {
       clearInterval(RC.cameraPollingInterval)
       RC.cameraPollingInterval = null
@@ -2331,7 +2655,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     return result
   }
 
-  // Show popup for 2 or more cameras
+  // 2+ cameras
   const result = await showCameraSelectionPopup(
     RC,
     '',
@@ -2365,15 +2689,20 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       waitedMs += 100
     }
     RC.selectedCamera = null
+    RC.cameraIncorporation = null
+    RC.cameraIncorporationReported = null
     return await showTestPopup(RC, onClose, options)
   }
 
-  // After camera selection, force fullscreen and check resolution if a camera was selected
+  // Ask opinion when classification is unknown, then run resolution.
   if (result.selectedCamera) {
+    if (RC.cameraIncorporation === 'unknown') {
+      await askCameraIncorporationOpinion(RC)
+    }
+    _recordCameraData(RC)
     await _handlePostCameraResolution(RC, options)
   }
 
-  // Final safety cleanup - ensure camera polling is stopped
   if (RC.cameraPollingInterval) {
     clearInterval(RC.cameraPollingInterval)
     RC.cameraPollingInterval = null

@@ -21,10 +21,7 @@ import RemoteCalibrator from './core'
 
 import { phrases } from './i18n/schema'
 import { checkPermissions } from './components/mediaPermission'
-import {
-  showTestPopup,
-  hideResolutionSettingMessage,
-} from './components/popup'
+import { showTestPopup, hideResolutionSettingMessage } from './components/popup'
 
 RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   if (!this.checkInitialized()) return null
@@ -32,7 +29,9 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   // Idempotent: if camera selection already ran (e.g. from the panel
   // pre-flight) just return.
   if (this._cameraSelectionDone) {
-    console.log('[RC.selectCamera] Camera selection already completed — skipping')
+    console.log(
+      '[RC.selectCamera] Camera selection already completed — skipping',
+    )
     return { selectedCamera: this.selectedCamera || null, alreadyDone: true }
   }
 
@@ -49,6 +48,8 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
       _showCameraResolutionBool: true,
       // Whether the bottom-row preview is shown on Choose Camera.
       calibrateDistanceAcceptBottomCameraBool: false,
+      // Hide cameras the label classifier marks external (default true).
+      calibrateDistanceExcludeExternalCamerasBool: true,
       // Forwarded to checkPermissions to hide the privacy line when the
       // experiment is recording snapshots.
       saveSnapshots: false,
@@ -153,5 +154,11 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   const vc = document.getElementById('webgazerVideoContainer')
   if (vc) vc.style.display = 'none'
 
-  return cameraResult
+  // Surface camera-classification stats alongside the existing result.
+  return {
+    ...cameraResult,
+    cameraArray: this.cameraArray || [],
+    cameraIncorporation: this.cameraIncorporation || null,
+    cameraIncorporationReported: this.cameraIncorporationReported || null,
+  }
 }

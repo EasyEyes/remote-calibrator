@@ -118,6 +118,9 @@ class RemoteCalibrator {
     this._equipmentData = []
     this._checkData = []
 
+    // Camera selection result (see set newCameraData).
+    this._cameraData = []
+
     ////
 
     this._background = {
@@ -339,6 +342,10 @@ class RemoteCalibrator {
     return this._helper_get(this._equipmentData)
   }
 
+  get camera() {
+    return this._helper_get(this._cameraData)
+  }
+
   // Screen
 
   get displayWidthPx() {
@@ -463,6 +470,10 @@ class RemoteCalibrator {
     return this._checkData
   }
 
+  get cameraData() {
+    return this._cameraData
+  }
+
   /**
    * Get the current panel state (for tracking task progress)
    */
@@ -561,6 +572,13 @@ class RemoteCalibrator {
    */
   set newCheckData(data) {
     this._checkData.push(data)
+  }
+
+  /**
+   * @param {{ value: { selectedCameraName: string|null; cameraIncorporation: 'built-in'|'external'|'unknown'|null; cameraIncorporationReported: 'built-in'|'external'|"Don't know"|null; cameraArray: Array<{ name: string; likelyBuiltIn: number; opinion: 'built-in'|'external'|'dontKnow'|null }>; }; timestamp: number; }} data
+   */
+  set newCameraData(data) {
+    this._cameraData.push(data)
   }
 }
 
