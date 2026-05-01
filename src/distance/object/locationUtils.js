@@ -9,6 +9,7 @@
  */
 
 import { setDefaultVideoPosition } from '../../components/video'
+import { isBottomCenterCamera } from '../../components/utils'
 
 /* ============================================================================
  * VALID LOCATIONS
@@ -16,15 +17,71 @@ import { setDefaultVideoPosition } from '../../components/video'
 
 /**
  * Set of all recognised _calibrateDistanceLocations values.
+ *
+ * The legacy `top*` values are top-anchored regardless of where the
+ * camera is. They are kept for backwards compatibility during the
+ * transition to the new camera-aware `nearCamera*` keywords:
+ *
+ *   topCenter            -> nearCamera
+ *   topOffsetLeft        -> nearCameraOffsetLeft
+ *   topOffsetRight       -> nearCameraOffsetRight
+ *   topOffsetDown        -> nearCameraOffsetInward
+ *   topOffsetInward      -> alias of topOffsetDown (top-only "inward" = down)
+ *
+ * The `nearCamera*` keywords flip top/bottom based on
+ * `RC.selectedCameraRow`: for top-center cameras "near camera" means
+ * abutting the top edge; for bottom-center cameras (only possible when
+ * `calibrateDistanceAcceptBottomCameraBool === true` AND the participant
+ * picked the bottom-row preview) it means abutting the bottom edge.
+ * "Inward" always means toward the centre of the screen -- downward for
+ * top cameras, upward for bottom cameras.
  */
 export const VALID_LOCATIONS = new Set([
   'camera',
   'center',
+  // Legacy top-anchored keywords (kept for transition; obsolete).
   'topCenter',
   'topOffsetLeft',
   'topOffsetRight',
   'topOffsetDown',
+  'topOffsetInward',
+  // New camera-aware keywords.
+  'nearCamera',
+  'nearCameraOffsetLeft',
+  'nearCameraOffsetRight',
+  'nearCameraOffsetInward',
 ])
+
+const _NEAR_CAMERA_LOCATIONS = new Set([
+  'nearCamera',
+  'nearCameraOffsetLeft',
+  'nearCameraOffsetRight',
+  'nearCameraOffsetInward',
+])
+
+const _isNearCameraLocation = location => _NEAR_CAMERA_LOCATIONS.has(location)
+
+/**
+ * Y-coordinate of the camera edge in viewport CSS px:
+ *   - 0           for top-center cameras
+ *   - innerHeight for bottom-center cameras
+ */
+const _getCameraEdgeY = RC =>
+  isBottomCenterCamera(RC) ? window.innerHeight : 0
+
+/**
+ * Y-coordinate of the camera edge in **screen** CSS px (for global /
+ * face-mesh calculations).
+ */
+const _getCameraEdgeYScreen = RC =>
+  isBottomCenterCamera(RC) ? window.screen.height : 0
+
+/**
+ * Sign that points "inward" (toward the centre of the screen) from the
+ * camera edge: +1 (downward) for top cameras, -1 (upward) for bottom
+ * cameras.
+ */
+const _getInwardSign = RC => (isBottomCenterCamera(RC) ? -1 : 1)
 
 /* ============================================================================
  * LOCATION PARSING
@@ -47,7 +104,10 @@ export function parseLocation(location) {
   if (VALID_LOCATIONS.has(location)) {
     return { location }
   }
-  console.error(`Unknown calibrateDistanceLocation value: ${location}`)
+  console.error(
+    `Unknown calibrateDistanceLocation value "${location}". ` +
+      `Valid values: ${Array.from(VALID_LOCATIONS).join(', ')}.`,
+  )
   return { location: 'camera' }
 }
 
@@ -96,12 +156,27 @@ export function parseLocationsArray(rawLocations) {
     parsed = ['camera', 'center']
   }
 
-  // Validate each location; warn about and drop unknown values
-  return parsed.filter(loc => {
+  // Validate each location; warn about and drop unknown values.
+  const valid = parsed.filter(loc => {
     if (VALID_LOCATIONS.has(loc)) return true
-    console.error(`Unknown calibrateDistanceLocation value "${loc}" — skipping`)
+    console.error(
+      `Unknown calibrateDistanceLocation value "${loc}" — skipping. ` +
+        `Valid values: ${Array.from(VALID_LOCATIONS).join(', ')}.`,
+    )
     return false
   })
+
+  // Safety net: if every value was dropped, fall back to the safe
+  // default so downstream code (locationManager / pageController) does
+  // not crash on an empty list.
+  if (valid.length === 0) {
+    console.warn(
+      'calibrateDistanceLocations: no valid values, falling back to ["camera", "center"].',
+    )
+    return ['camera', 'center']
+  }
+
+  return valid
 }
 
 /* ============================================================================
@@ -253,8 +328,14 @@ function getVideoSizePx() {
 }
 
 /**
- * Create (or update) the big circle DOM element immediately below the live
- * video, horizontally centre-aligned with it.
+ * Create (or update) the big circle DOM element on the inward side of
+ * the live video, horizontally centre-aligned with it.
+ *
+ *   - For legacy `top*` locations (and the default), the circle sits
+ *     BELOW the video (legacy behaviour, preserves existing experiments).
+ *   - For new `nearCamera*` locations, the circle sits on the inward
+ *     side of the video -- BELOW for top-centre cameras, ABOVE for
+ *     bottom-centre cameras.
  *
  * Position is computed from the known video-centre point rather than
  * reading getBoundingClientRect, so it is always correct even before
@@ -262,12 +343,14 @@ function getVideoSizePx() {
  *
  * @param {object}  RC       - The RemoteCalibrator instance
  * @param {[number,number]} videoCenterPt - [x,y] CSS-px centre of the video
- * @param {number}  [gapPx=4] - Vertical gap between video bottom and circle top
+ * @param {string}  [location=null] - location keyword (controls top/bottom side)
+ * @param {number}  [gapPx=4] - Gap between video edge and circle edge
  * @returns {HTMLElement} The big-circle element
  */
-function ensureBigCircle(RC, videoCenterPt, gapPx = 4) {
+function ensureBigCircle(RC, videoCenterPt, location = null, gapPx = 4) {
   const diameterPx = getTubeDiameterPx(RC)
   const { h: videoH } = getVideoSizePx()
+  const inward = _isNearCameraLocation(location) ? _getInwardSign(RC) : 1
 
   let el = document.getElementById(BIG_CIRCLE_ID)
   if (!el) {
@@ -286,11 +369,11 @@ function ensureBigCircle(RC, videoCenterPt, gapPx = 4) {
   el.style.width = `${diameterPx}px`
   el.style.height = `${diameterPx}px`
 
-  // videoCenterPt is the centre of the video.
-  // Circle sits immediately below the video, horizontally aligned.
-  const videoBottom = videoCenterPt[1] + videoH / 2
+  // Circle abuts the inward edge of the video.
+  const videoInwardEdgeY = videoCenterPt[1] + inward * (videoH / 2)
+  const cy = videoInwardEdgeY + inward * (gapPx + diameterPx / 2)
   el.style.left = `${videoCenterPt[0] - diameterPx / 2}px`
-  el.style.top = `${videoBottom + gapPx}px`
+  el.style.top = `${cy - diameterPx / 2}px`
 
   el.style.display = 'block'
   return el
@@ -298,16 +381,20 @@ function ensureBigCircle(RC, videoCenterPt, gapPx = 4) {
 
 /**
  * Return the centre [x, y] in CSS px of the big circle for a given
- * video-centre point, creating the DOM element if needed.
+ * video-centre point and location keyword.
+ *
+ * Same flip rule as `ensureBigCircle`: legacy `top*` keywords keep the
+ * circle below the video; new `nearCamera*` keywords place it on the
+ * inward side (above for bottom-centre cameras).
  */
-function getBigCircleCenterXYPx(RC, videoCenterPt) {
+function getBigCircleCenterXYPx(RC, videoCenterPt, location = null) {
   const diameterPx = getTubeDiameterPx(RC)
   const { h: videoH } = getVideoSizePx()
   const gapPx = 4
-  const videoBottom = videoCenterPt[1] + videoH / 2
-  const cx = videoCenterPt[0]
-  const cy = videoBottom + gapPx + diameterPx / 2
-  return [cx, cy]
+  const inward = _isNearCameraLocation(location) ? _getInwardSign(RC) : 1
+  const videoInwardEdgeY = videoCenterPt[1] + inward * (videoH / 2)
+  const cy = videoInwardEdgeY + inward * (gapPx + diameterPx / 2)
+  return [videoCenterPt[0], cy]
 }
 
 /**
@@ -319,8 +406,9 @@ export function removeBigCircle() {
 }
 
 /**
- * Compute the center of the video if it were horizontally centered at the top
- * of the screen. Returns [x, y] in CSS px.
+ * Compute the centre of the video if it were horizontally centered at
+ * the **top** of the screen. Returns [x, y] in CSS px. Used by the
+ * legacy `top*` keywords so they keep their original behaviour.
  *
  * @returns {[number, number]}
  */
@@ -333,19 +421,40 @@ export function getVideoTopCenterXYPx() {
 }
 
 /**
+ * Compute the centre of the video if it were horizontally centered and
+ * abutting the camera edge of the screen (top edge for top-centre
+ * cameras, bottom edge for bottom-centre cameras). Returns [x, y] in
+ * CSS px. Used by the new `nearCamera*` keywords.
+ */
+export function getVideoNearCameraXYPx(RC) {
+  const videoContainer = document.getElementById('webgazerVideoContainer')
+  const videoHeight = videoContainer
+    ? parseInt(videoContainer.style.height) || videoContainer.offsetHeight || 0
+    : 0
+  const inward = _getInwardSign(RC)
+  const cameraEdgeY = _getCameraEdgeY(RC)
+  return [window.innerWidth / 2, cameraEdgeY + inward * (videoHeight / 2)]
+}
+
+/**
  * Compute the video-centre point [x, y] in CSS px for a given location.
  * This is used internally to position the video container.
  *
  * @param {string} location - One of the VALID_LOCATIONS values
- * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
+ * @param {number} [offsetPx=0] - Offset in pixels for offset locations
+ * @param {object} [RC=null]    - RemoteCalibrator instance (controls
+ *   top vs bottom anchoring for the new `nearCamera*` keywords)
  * @returns {[number, number]}
  */
-function getVideoPointForLocation(location, offsetPx = 0) {
+function getVideoPointForLocation(location, offsetPx = 0, RC = null) {
   switch (location) {
     case 'camera':
-      return [window.innerWidth / 2, 0]
+      // Camera-aware: top-edge for top cameras, bottom-edge for bottom.
+      return [window.innerWidth / 2, _getCameraEdgeY(RC)]
     case 'center':
       return [window.innerWidth / 2, window.innerHeight / 2]
+
+    // ---- Legacy top-anchored keywords (kept for backwards compat) ----
     case 'topCenter':
       return getVideoTopCenterXYPx()
     case 'topOffsetLeft': {
@@ -356,34 +465,58 @@ function getVideoPointForLocation(location, offsetPx = 0) {
       const tc = getVideoTopCenterXYPx()
       return [tc[0] + offsetPx, tc[1]]
     }
-    case 'topOffsetDown': {
+    case 'topOffsetDown':
+    // For top-anchored "inward" means down (same as topOffsetDown).
+    case 'topOffsetInward': {
       const tc = getVideoTopCenterXYPx()
       return [tc[0], tc[1] + offsetPx]
     }
+
+    // ---- New camera-aware keywords ----
+    case 'nearCamera':
+      return getVideoNearCameraXYPx(RC)
+    case 'nearCameraOffsetLeft': {
+      const nc = getVideoNearCameraXYPx(RC)
+      return [nc[0] - offsetPx, nc[1]]
+    }
+    case 'nearCameraOffsetRight': {
+      const nc = getVideoNearCameraXYPx(RC)
+      return [nc[0] + offsetPx, nc[1]]
+    }
+    case 'nearCameraOffsetInward': {
+      const nc = getVideoNearCameraXYPx(RC)
+      // "Inward" = toward screen centre. Down for top cameras (+1),
+      // up for bottom cameras (-1).
+      return [nc[0], nc[1] + offsetPx * _getInwardSign(RC)]
+    }
+
     default:
-      return [window.innerWidth / 2, 0]
+      return [window.innerWidth / 2, _getCameraEdgeY(RC)]
   }
 }
 
 /**
- * Compute the measurement target point [x, y] in CSS px for a given location.
+ * Compute the measurement target point [x, y] in CSS px for a given
+ * location.
  *
- * For 'camera' the target is the top-centre of the screen.
+ * For 'camera' the target is the centre of the camera edge of the
+ * screen (top-centre for top cameras, bottom-centre for bottom cameras).
  * For every other location the target is the centre of the big circle
- * drawn immediately below the live video.
+ * drawn next to the live video (below for legacy `top*` keywords;
+ * inward of the video for `nearCamera*` keywords).
  *
  * @param {string} location - One of the VALID_LOCATIONS values
- * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
- * @param {object} [RC=null]   - RemoteCalibrator instance (needed for non-camera)
+ * @param {number} [offsetPx=0] - Offset in pixels for offset locations
+ * @param {object} [RC=null]    - RemoteCalibrator instance (needed for non-camera)
  * @returns {[number, number]}
  */
 export function getPointXYPxForLocation(location, offsetPx = 0, RC = null) {
   if (location === 'camera') {
-    return [window.innerWidth / 2, 0]
+    return [window.innerWidth / 2, _getCameraEdgeY(RC)]
   }
-  const videoPt = getVideoPointForLocation(location, offsetPx)
+  const videoPt = getVideoPointForLocation(location, offsetPx, RC)
   if (RC) {
-    return getBigCircleCenterXYPx(RC, videoPt)
+    return getBigCircleCenterXYPx(RC, videoPt, location)
   }
   return videoPt
 }
@@ -392,8 +525,8 @@ export function getPointXYPxForLocation(location, offsetPx = 0, RC = null) {
  * Get the arrow indicator position (in pixels) for a given location.
  *
  * @param {string} location - One of the VALID_LOCATIONS values
- * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
- * @param {object} [RC=null]   - RemoteCalibrator instance
+ * @param {number} [offsetPx=0] - Offset in pixels for offset locations
+ * @param {object} [RC=null]    - RemoteCalibrator instance
  * @returns {[number, number]} The [x, y] pixel coordinates for arrow indicators
  */
 export function getArrowPositionForLocation(location, offsetPx = 0, RC = null) {
@@ -403,18 +536,20 @@ export function getArrowPositionForLocation(location, offsetPx = 0, RC = null) {
 /**
  * Position the video container based on the measurement location.
  *
- * - camera: default top-center (webcam) position
- * - center: screen center
- * - topCenter: horizontally centered, mid point of video
- * - topOffsetLeft/Right/Down: offset from topCenter (mid point of video)
+ *   - camera: default position (top-centre for top cameras,
+ *     bottom-centre for bottom cameras).
+ *   - center: screen centre.
+ *   - topCenter / topOffset{Left,Right,Down,Inward}: legacy
+ *     top-anchored, video sits abutting the top edge.
+ *   - nearCamera / nearCameraOffset{Left,Right,Inward}:
+ *     camera-aware, video abuts the camera edge of the screen.
  *
- * For non-camera locations a big circle ○ with diameter
- * calibrateDistanceTubeDiameterCm is also drawn immediately below the
- * video, horizontally centre-aligned with it.
+ * For non-camera locations a big circle is also drawn next to the video
+ * (below for legacy `top*`, on the inward side for `nearCamera*`).
  *
  * @param {object} RC - The RemoteCalibrator instance
  * @param {string} location - One of the VALID_LOCATIONS values
- * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
+ * @param {number} [offsetPx=0] - Offset in pixels for offset locations
  */
 export function positionVideoForLocation(RC, location, offsetPx = 0) {
   const videoContainer = document.getElementById('webgazerVideoContainer')
@@ -432,41 +567,44 @@ export function positionVideoForLocation(RC, location, offsetPx = 0) {
     return
   }
 
-  // All other locations use explicit positioning
+  // All other locations use explicit positioning.
   videoContainer.dataset.screenCenterMode = 'true'
   videoContainer.style.zIndex = 999999999999
   videoContainer.style.right = 'unset'
   videoContainer.style.bottom = 'unset'
   videoContainer.style.transform = 'none'
 
-  const pt = getVideoPointForLocation(location, offsetPx)
+  const pt = getVideoPointForLocation(location, offsetPx, RC)
   videoContainer.style.left = `${pt[0] - videoWidth / 2}px`
   videoContainer.style.top = `${pt[1] - videoHeight / 2}px`
 
-  // Show the big circle immediately below the video, using the computed
-  // video-centre point so position is correct even before browser re-layout.
-  ensureBigCircle(RC, pt)
+  // Show the big circle next to the video. For legacy `top*` keywords
+  // it sits BELOW; for new `nearCamera*` keywords it sits on the
+  // INWARD side (above the video for bottom-centre cameras).
+  ensureBigCircle(RC, pt, location)
 }
 
 /**
  * Get the global point XY coordinates for face mesh calculation based on location.
  * Uses screen coordinates (window.screen.*) for consistency with the face mesh model.
  *
- * For 'camera' → top-centre of screen.
- * For all others → centre of the big circle below the video.
+ * For 'camera' → centre of the camera edge of the screen
+ * (top-centre for top cameras, bottom-centre for bottom cameras).
+ * For all others → centre of the big circle next to the video
+ * (below for legacy `top*`, inward for `nearCamera*`).
  *
  * @param {string} location - One of the VALID_LOCATIONS values
- * @param {number} [offsetPx=0] - Offset in pixels for topOffset* locations
+ * @param {number} [offsetPx=0] - Offset in pixels for offset locations
  * @param {object} [RC=null]   - RemoteCalibrator instance
  * @returns {[number, number]} The [x, y] coordinates for globalPointXYPx
  */
 export function getGlobalPointForLocation(location, offsetPx = 0, RC = null) {
   if (location === 'camera') {
-    return [window.screen.width / 2, 0]
+    return [window.screen.width / 2, _getCameraEdgeYScreen(RC)]
   }
-  const videoPt = getVideoPointForLocation(location, offsetPx)
+  const videoPt = getVideoPointForLocation(location, offsetPx, RC)
   if (RC) {
-    return getBigCircleCenterXYPx(RC, videoPt)
+    return getBigCircleCenterXYPx(RC, videoPt, location)
   }
   return videoPt
 }

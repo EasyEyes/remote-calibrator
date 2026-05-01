@@ -6,6 +6,7 @@ import {
   safeExecuteFunc,
   forceFullscreen,
   enforceFullscreenOnSpacePress,
+  getCameraXYPx,
 } from '../components/utils'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { phrases } from '../i18n/schema'
@@ -485,8 +486,13 @@ const trackDistanceCheck = async (
       _calibrateDistanceAllowedRatioFOverWidth:
         calibrateDistanceAllowedRatioFOverWidth,
       historyPreferRightHandBool: [],
-      // Parameters with few values (before arrays with 8 values)
-      cameraXYPx: [window.screen.width / 2, 0],
+      // Parameters with few values (before arrays with 8 values).
+      // cameraXYPx is the anchor point of the participant's camera in
+      // SCREEN CSS px: top-centre for top-camera setups, bottom-centre
+      // for bottom-camera setups (driven by RC.selectedCameraRow set
+      // on the Choose Camera page when
+      // calibrateDistanceAcceptBottomCameraBool is true).
+      cameraXYPx: getCameraXYPx(RC),
       pxPerCm: safeRoundCm(pxPerCm),
       webcamMaxXYVpx: cameraResolutionMaxXY,
       webcamMaxHz: webcamMaxHz,

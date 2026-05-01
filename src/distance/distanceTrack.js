@@ -34,6 +34,7 @@ import {
   replaceNewlinesWithBreaks,
   getCameraResolutionXY,
   forceFullscreen,
+  getCameraXYPx,
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n/schema'
@@ -259,6 +260,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       calibrateDistanceCorrectForHeadRotation: 'none', // 'none' | 'useZ' — how to estimate head yaw to correct ipdOverWidth
       viewingDistanceAllowedHeadRotationDeg: 180, // abs(yaw) above this value triggers the "face the screen" nudger
       _showCameraResolutionBool: true, // If true, show original+final resolution with OK button after camera selection
+      calibrateDistanceAcceptBottomCameraBool: false, // If true, also show a duplicate row of camera previews fixed at the bottom of the screen on Choose Camera / Choose Screen pages, so participants whose built-in camera is at the bottom-center of the display can pick the video that mirrors them. When the participant clicks a bottom-row preview, cameraXYPx flips to bottom-center and the PiP / Camera Resolution preview / blindspot fixation / etc. all anchor to the bottom edge.
     },
     trackDistanceOptions,
   )
@@ -1061,7 +1063,7 @@ const startIrisDrawing = RC => {
           const overlayPointXYPx =
             globalPointXYPx.value !== null
               ? globalPointXYPx.value
-              : [window.screen.width / 2, 0]
+              : getCameraXYPx(RC)
           const nearestPointsData = calculateNearestPoints(
             video,
             leftEye,
@@ -1529,7 +1531,11 @@ export const calculateFootXYPx = (
     (offsetXYVpx_right[1] * RC._CONST.IPD_CM) / currentIPDDistance,
   ]
 
-  const cameraXYPx = [window.screen.width / 2, 0]
+  // Anchor point of the participant's camera in screen CSS px:
+  // top-centre for top-camera setups, bottom-centre for bottom-camera
+  // setups (driven by RC.selectedCameraRow set on the Choose Camera
+  // page when calibrateDistanceAcceptBottomCameraBool is true).
+  const cameraXYPx = getCameraXYPx(RC)
 
   const nearestXYPx_left = [
     cameraXYPx[0] + offsetXYCm_left[0] * pxPerCm,

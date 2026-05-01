@@ -17,6 +17,7 @@ import {
   toFixedNumber,
   forceFullscreen,
   enforceFullscreenOnSpacePress,
+  getCameraXYPxViewport,
 } from '../components/utils'
 import { hideResolutionSettingMessage } from '../components/popup'
 
@@ -2880,7 +2881,10 @@ const saveCalibrationAttempt = (
   }
 
   const pxPerCmValue = RC.screenPpi.value / 2.54
-  const cameraXYPxValue = [window.innerWidth / 2, 0] // Top center of screen
+  // Anchor point of the participant's camera (top-center for top-camera
+  // setups; bottom-center if they selected a bottom-row camera in the
+  // Choose Camera page).
+  const cameraXYPxValue = getCameraXYPxViewport(RC)
   const centerXYPxValue = [window.innerWidth / 2, window.innerHeight / 2] // Screen center
 
   // Store single shared values in COMMON (not per-attempt) to avoid array growth

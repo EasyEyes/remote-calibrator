@@ -373,3 +373,42 @@ export const getCameraResolutionXY = RC => {
     return [0, 0]
   }
 }
+
+/**
+ * Returns true when the participant selected a camera in the BOTTOM row
+ * of the Choose Camera page (i.e. their built-in camera is at the bottom
+ * centre of the screen). The flag is recorded by `showCameraSelectionPopup`
+ * in [src/components/popup.js] when the user clicks a row and only ever
+ * becomes true if `calibrateDistanceAcceptBottomCameraBool === true`,
+ * because otherwise the bottom row is never rendered.
+ *
+ * Defaults to top-camera behaviour when the flag has not been set yet.
+ */
+export const isBottomCenterCamera = RC =>
+  RC?.selectedCameraRow === 'bottom'
+
+/**
+ * Returns the camera anchor point [x, y] in **screen** CSS pixels
+ * (window.screen.*). Top-centre for top-camera setups, bottom-centre
+ * for bottom-camera setups. This is the value that calibration code
+ * stores as `cameraXYPx` in calibration JSON / footXYPx geometry.
+ *
+ * Pass `RC` so we can read `RC.selectedCameraRow`.
+ */
+export const getCameraXYPx = RC => {
+  const x = window.screen.width / 2
+  const y = isBottomCenterCamera(RC) ? window.screen.height : 0
+  return [x, y]
+}
+
+/**
+ * Returns the camera anchor point [x, y] in **viewport** CSS pixels
+ * (window.innerWidth / window.innerHeight). Used when the caller is
+ * positioning DOM elements relative to the current viewport rather than
+ * the physical screen.
+ */
+export const getCameraXYPxViewport = RC => {
+  const x = window.innerWidth / 2
+  const y = isBottomCenterCamera(RC) ? window.innerHeight : 0
+  return [x, y]
+}

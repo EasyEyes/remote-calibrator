@@ -17,6 +17,7 @@ import {
   enforceFullscreenOnSpacePress,
   isFullscreen,
   fitToViewport,
+  getCameraXYPxViewport,
 } from '../components/utils'
 import { setDefaultVideoPosition } from '../components/video'
 import { irisTrackingIsActive } from './distanceTrack'
@@ -3934,10 +3935,13 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const cameraXYPx = [window.innerWidth / 2, 0]
+      const cameraXYPx = getCameraXYPxViewport(RC)
       arrowIndicators = createArrowIndicators(cameraXYPx)
       RC.background.appendChild(arrowIndicators)
-      console.log('Arrow indicators added for page 3, pointing to top-center')
+      console.log(
+        'Arrow indicators added for page 3, pointing to camera anchor',
+        cameraXYPx,
+      )
 
       console.log(
         '=== PAGE 3 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',
@@ -3988,14 +3992,17 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
           phrases.RC_UseObjectToSetViewingDistanceRepeatCreditCardPage4[RC.L]
       }
 
-      // Point arrows to TOP CENTER (same as page 3)
+      // Point arrows toward the camera anchor (top or bottom).
       if (arrowIndicators) {
         arrowIndicators.remove()
       }
-      const cameraXYPx = [window.innerWidth / 2, 0]
+      const cameraXYPx = getCameraXYPxViewport(RC)
       arrowIndicators = createArrowIndicators(cameraXYPx)
       RC.background.appendChild(arrowIndicators)
-      console.log('Arrow indicators added for page 4, pointing to top-center')
+      console.log(
+        'Arrow indicators added for page 4, pointing to camera anchor',
+        cameraXYPx,
+      )
 
       console.log(
         '=== PAGE 4 READY - PRESS SPACE TO CAPTURE FACE MESH DATA ===',

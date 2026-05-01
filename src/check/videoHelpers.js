@@ -1,4 +1,8 @@
 import { setDefaultVideoPosition } from '../components/video'
+import {
+  getCameraXYPxViewport,
+  isBottomCenterCamera,
+} from '../components/utils'
 
 export const createFixationCrossOnVideo = () => {
   // Remove existing cross if any
@@ -99,30 +103,45 @@ export const repositionVideoForCameraMonitoring = (
       videoContainer._hasResizeListener = false
     }
 
-    // Position video at top center of current viewport (use innerWidth so it persists on resize/fullscreen exit)
-    const cameraXYPx = [window.innerWidth / 2, 0]
+    // Position the PiP video at the camera anchor on the current
+    // viewport. Top-camera setups: anchor at viewport top.
+    // Bottom-camera setups: anchor at viewport bottom. (Use
+    // innerWidth/innerHeight so the position survives
+    // resize / fullscreen-exit.)
+    const cameraXYPx = getCameraXYPxViewport(RC)
+    const isBottom = isBottomCenterCamera(RC)
 
     videoContainer.style.zIndex = '999999999999'
     videoContainer.style.position = 'fixed'
 
     if (RC.isMobile.value) {
-      // Mobile - keep standard positioning
+      // Mobile - keep PiP in the corner closest to the camera.
       videoContainer.style.left = 'unset'
       videoContainer.style.right = RC._CONST.N.VIDEO_MARGIN
-      videoContainer.style.top = '0px'
-      videoContainer.style.bottom = 'unset'
+      if (isBottom) {
+        videoContainer.style.top = 'unset'
+        videoContainer.style.bottom = '0px'
+      } else {
+        videoContainer.style.top = '0px'
+        videoContainer.style.bottom = 'unset'
+      }
     } else {
-      // Desktop - position at top center (cameraXYPx)
+      // Desktop - center horizontally at cameraXYPx[0]; anchor
+      // vertically at top (y=0) for top cameras, at bottom
+      // (y=innerHeight) for bottom cameras.
       const videoWidth =
         parseInt(videoContainer.style.width) || videoContainer.offsetWidth || 0
 
-      // Center horizontally at cameraXYPx[0]
       videoContainer.style.left = `${cameraXYPx[0] - videoWidth / 2}px`
       videoContainer.style.right = 'unset'
 
-      // Position at top (cameraXYPx[1] = 0)
-      videoContainer.style.top = `${cameraXYPx[1]}px`
-      videoContainer.style.bottom = 'unset'
+      if (isBottom) {
+        videoContainer.style.top = 'unset'
+        videoContainer.style.bottom = '0px'
+      } else {
+        videoContainer.style.top = `${cameraXYPx[1]}px`
+        videoContainer.style.bottom = 'unset'
+      }
       videoContainer.style.transform = 'none'
     }
 

@@ -5,6 +5,7 @@ import { checkWebgazerReady } from '../components/video'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { phrases } from '../i18n/schema'
+import { _handlePostCameraResolution } from '../components/popup'
 
 /**
  * The gaze tracker object to wrap all gaze-related functions
@@ -345,11 +346,52 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
       subscriberCount: this._onReconnectCallbacks.size,
     })
     this._cameraDisconnected = false
+
+    // Capture whether a popup (showTestPopup / _handlePostCameraResolution
+    // retry) is already waiting for this reconnection. If so, that popup
+    // will re-run the camera-selection / resolution flow itself, and we
+    // must NOT trigger _handlePostCameraResolution again here, or we'd
+    // end up showing the Camera Resolution page twice.
+    const popupWillHandle =
+      this.calibrator._isWaitingForCameraReconnect === true
+
     this._onReconnectCallbacks.forEach(fn => fn())
 
     if (!isFullscreen()) {
       console.log('GazeTracker: Restoring fullscreen after camera reconnection')
       await getFullscreen(this.calibrator.L, this.calibrator)
+    }
+
+    // Re-run the resolution-setting code (and re-show the "Camera resolution"
+    // page if `_showCameraResolutionBool === true`) on every reconnect, so
+    // that the camera ends up at the correct resolution even when the
+    // reconnection happens AFTER the participant has already moved past the
+    // initial resolution page.
+    if (
+      !popupWillHandle &&
+      this.calibrator._cameraSelectionOptions &&
+      typeof _handlePostCameraResolution === 'function'
+    ) {
+      // Wait for any open Swal (e.g. the reconnection spinner from
+      // showCameraReconnectionPopup) to close, so our resolution page
+      // does not collide with it.
+      let waitedMs = 0
+      while (Swal.isVisible() && waitedMs < 5000) {
+        await new Promise(r => setTimeout(r, 100))
+        waitedMs += 100
+      }
+
+      try {
+        await _handlePostCameraResolution(
+          this.calibrator,
+          this.calibrator._cameraSelectionOptions,
+        )
+      } catch (error) {
+        console.error(
+          'GazeTracker: _handlePostCameraResolution after reconnect failed',
+          error,
+        )
+      }
     }
   })
 

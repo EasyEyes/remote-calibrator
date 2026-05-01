@@ -33,6 +33,98 @@ const _updateCaptionInContainer = (container, camera, index) => {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/*   Helpers for the optional bottom-row camera previews (Feature B)  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Returns both the top-row and bottom-row preview containers for a
+ * camera index, filtering out any that don't exist. The bottom row only
+ * exists when the experiment is built with
+ * `calibrateDistanceAcceptBottomCameraBool === true`.
+ */
+const _getCameraContainersForIndex = index =>
+  [
+    document.getElementById(`camera-preview-container-${index}`),
+    document.getElementById(`camera-preview-container-bottom-${index}`),
+  ].filter(Boolean)
+
+/**
+ * Sets the visual state of all containers (top + bottom rows, if the
+ * bottom row exists) for the given camera index.
+ *
+ * @param {number} index - camera index
+ * @param {'highlight'|'normal'} state
+ */
+const _applyCameraContainerState = (index, state) => {
+  const containers = _getCameraContainersForIndex(index)
+  for (const c of containers) {
+    if (state === 'highlight') {
+      c.style.backgroundColor = '#e8f5e8'
+      c.style.border = '2px solid #28a745'
+      const cap = c.querySelector('.rc-camera-caption')
+      if (cap) {
+        cap.style.color = '#28a745'
+        cap.style.fontWeight = 'bold'
+      }
+    } else {
+      c.style.backgroundColor = 'transparent'
+      c.style.border = '2px solid transparent'
+      const cap = c.querySelector('.rc-camera-caption')
+      if (cap) {
+        cap.style.color = '#666'
+        cap.style.fontWeight = 'normal'
+      }
+    }
+  }
+}
+
+/**
+ * Disables (or re-enables) all preview containers in both rows during
+ * loading.
+ */
+const _setAllCameraContainersDisabled = (cameras, disabled) => {
+  for (let i = 0; i < cameras.length; i++) {
+    const containers = _getCameraContainersForIndex(i)
+    for (const c of containers) {
+      c.style.pointerEvents = disabled ? 'none' : 'auto'
+      c.style.opacity = disabled ? '0.6' : '1'
+    }
+  }
+}
+
+/**
+ * Moves the bottom-row preview wrapper from inside the Swal popup to
+ * `document.body`.
+ *
+ * The bottom row uses `position: fixed; bottom: 0` so it can sit at the
+ * very bottom of the viewport. However, when the wrapper lives inside a
+ * SweetAlert2 popup, Swal's CSS (transforms / containment / stacking
+ * context) makes `position: fixed` resolve relative to the popup
+ * rather than the viewport, which causes the bottom row to render
+ * somewhere in the middle of the page. Promoting the wrapper to a
+ * direct child of <body> ensures it is truly viewport-fixed.
+ */
+const _promoteCameraPreviewsBottomToBody = () => {
+  const bottomOuter = document.getElementById(
+    'rc-camera-previews-bottom-outer',
+  )
+  if (bottomOuter && bottomOuter.parentElement !== document.body) {
+    document.body.appendChild(bottomOuter)
+  }
+}
+
+/**
+ * Removes the bottom-row preview wrapper (whether it currently lives in
+ * the Swal popup or has been promoted to <body>).
+ */
+const _removeCameraPreviewsBottom = () => {
+  const bottomOuter = document.getElementById(
+    'rc-camera-previews-bottom-outer',
+  )
+  if (bottomOuter) bottomOuter.remove()
+}
+
 /**
  * Shows the camera selection title in the top right of the webpage
  * @param {Object} RC - RemoteCalibrator instance
@@ -706,22 +798,41 @@ const createCameraPreviews = async (
   RC,
   onCameraSelect,
   currentActiveCamera,
+  acceptBottomBool = false,
 ) => {
   if (cameras.length === 0) {
     return '<p style="color: #666; font-style: italic;">No cameras detected</p>'
   }
 
-  // Responsive preview sizing: max matches original, scales down for small windows
+  // Responsive preview sizing: max matches original, scales down for small windows.
+  //
+  // We resolve the size to CONCRETE PIXEL VALUES at render time (rather
+  // than using `clamp(... 18vw ...)`) so the top-row and bottom-row
+  // previews are guaranteed to render at exactly the same dimensions.
+  // The bottom row is promoted to <body> after the popup opens, which
+  // can change how CSS units / parent containing blocks resolve --
+  // using fixed pixels keeps both rows identical no matter where the
+  // wrapper ends up living.
   const videoContainer = document.getElementById('webgazerVideoContainer')
   const maxW = videoContainer
-    ? Math.round(parseInt(videoContainer.style.width || '320') * 0.85)
+    ? Math.round(Number.parseInt(videoContainer.style.width || '320') * 0.85)
     : 272
   const maxH = videoContainer
-    ? parseInt(videoContainer.style.height || '240')
+    ? Number.parseInt(videoContainer.style.height || '240')
     : 240
+  const viewportW =
+    window.innerWidth ||
+    document.documentElement?.clientWidth ||
+    1024
+  const previewWidthPx = Math.round(
+    Math.min(maxW, Math.max(120, viewportW * 0.18)),
+  )
+  const previewHeightPx = Math.round(
+    Math.min(maxH, Math.max(90, viewportW * 0.135)),
+  )
   const previewSize = {
-    width: `clamp(120px, 18vw, ${maxW}px)`,
-    height: `clamp(90px, 13.5vw, ${maxH}px)`,
+    width: `${previewWidthPx}px`,
+    height: `${previewHeightPx}px`,
   }
 
   const isRTL = RC.LD === RC._CONST.RTL
@@ -755,11 +866,12 @@ const createCameraPreviews = async (
         class="camera-preview-container"
         data-device-id="${camera.deviceId}"
         data-camera-label="${cleanLabel}"
-        style="display: flex; flex-direction: column; align-items: center; margin: 0; padding: 5px; border-radius: 8px; transition: all 0.2s ease; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
+        data-camera-row="top"
+        style="display: flex; flex-direction: column; align-items: center; margin: 0; padding: 5px; border-radius: 8px; transition: all 0.2s ease; box-sizing: border-box; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
       >
         <video 
           id="${previewId}" 
-          style="width: ${previewSize.width}; height: ${previewSize.height}; border: 2px solid #ccc; border-radius: 4px; object-fit: cover; pointer-events: none;"
+          style="width: ${previewSize.width}; height: ${previewSize.height}; border: 2px solid #ccc; border-radius: 4px; object-fit: cover; pointer-events: none; box-sizing: border-box;"
           autoplay 
           muted 
           playsinline
@@ -803,12 +915,74 @@ const createCameraPreviews = async (
   // Close inner relative wrapper + outer centering wrapper
   previewsHTML += '</div></div>'
 
-  // Start video streams for all cameras in PARALLEL with optimized resolution
+  // ---- Optional bottom row of camera previews (Feature B) ----
+  // Only rendered when the experiment opts in via
+  // `calibrateDistanceAcceptBottomCameraBool === true`. Mirrors the
+  // top row with the same set of cameras. Anchored to the bottom of the
+  // viewport via `position: fixed` so participants whose built-in
+  // camera is at the bottom of the screen can pick the video they see
+  // themselves looking at. No arrow / "Choose another screen" button is
+  // duplicated here -- those belong to the top row only.
+  //
+  // High z-index keeps the row above any other UI on the page. The
+  // wrapper is later promoted to <body> via
+  // `_promoteCameraPreviewsBottomToBody()` so its `position: fixed`
+  // resolves relative to the viewport.
+  if (acceptBottomBool) {
+    previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; width: 100%; padding: 0 0 1rem 0; z-index: 9147483649; pointer-events: auto;">`
+    previewsHTML += `<div style="display: flex; flex-wrap: nowrap; gap: 10px; align-items: center;">`
+
+    for (let i = 0; i < cameras.length; i++) {
+      const camera = cameras[i]
+      const previewBottomId = `camera-preview-bottom-${i}`
+      const isActive =
+        currentActiveCamera && currentActiveCamera.deviceId === camera.deviceId
+      const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
+
+      previewsHTML += `
+        <div 
+          id="camera-preview-container-bottom-${i}"
+          class="camera-preview-container camera-preview-container-bottom"
+          data-device-id="${camera.deviceId}"
+          data-camera-label="${cleanLabel}"
+          data-camera-row="bottom"
+          style="display: flex; flex-direction: column; align-items: center; margin: 0; padding: 5px; border-radius: 8px; transition: all 0.2s ease; box-sizing: border-box; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
+        >
+          <video 
+            id="${previewBottomId}" 
+            style="width: ${previewSize.width}; height: ${previewSize.height}; border: 2px solid #ccc; border-radius: 4px; object-fit: cover; pointer-events: none; box-sizing: border-box;"
+            autoplay 
+            muted 
+            playsinline
+          ></video>
+          <div class="rc-camera-caption" style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; word-wrap: break-word; white-space: normal; color: ${isActive ? '#28a745' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; line-height: 1.4;">
+            <div>${cleanLabel}</div>
+          </div>
+        </div>
+      `
+    }
+
+    previewsHTML += '</div></div>'
+  }
+
+  // Start video streams for all cameras in PARALLEL with optimized
+  // resolution. The same MediaStream object is shared with the bottom
+  // row's <video> when the bottom row is rendered, to avoid opening a
+  // second getUserMedia per camera.
   setTimeout(() => {
     cameras.forEach(async (camera, i) => {
       const videoElement = document.getElementById(`camera-preview-${i}`)
+      const bottomVideoElement = acceptBottomBool
+        ? document.getElementById(`camera-preview-bottom-${i}`)
+        : null
       const container = document.getElementById(`camera-preview-container-${i}`)
+      const bottomContainer = acceptBottomBool
+        ? document.getElementById(`camera-preview-container-bottom-${i}`)
+        : null
       const captionDiv = container?.querySelector('.rc-camera-caption')
+      const bottomCaptionDiv = bottomContainer?.querySelector(
+        '.rc-camera-caption',
+      )
 
       if (videoElement) {
         try {
@@ -845,10 +1019,14 @@ const createCameraPreviews = async (
           }
 
           videoElement.srcObject = stream
+          // Share the same stream with the bottom row.
+          if (bottomVideoElement) {
+            bottomVideoElement.srcObject = stream
+          }
 
           // Get resolution + frame rate and update caption
           const videoTrack = stream.getVideoTracks()[0]
-          if (videoTrack && captionDiv) {
+          if (videoTrack) {
             const settings = videoTrack.getSettings()
             const width = settings.width || 0
             const height = settings.height || 0
@@ -856,9 +1034,11 @@ const createCameraPreviews = async (
               ? Math.round(settings.frameRate)
               : 0
             const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
-            captionDiv.innerHTML =
+            const captionHTML =
               `<div>${cleanLabel}</div>` +
               `<div>${width}×${height}${frameRate ? `, ${frameRate} Hz` : ''}</div>`
+            if (captionDiv) captionDiv.innerHTML = captionHTML
+            if (bottomCaptionDiv) bottomCaptionDiv.innerHTML = captionHTML
 
             camera.resolution = { width, height }
           }
@@ -869,6 +1049,10 @@ const createCameraPreviews = async (
           )
           videoElement.style.border = '2px solid #dc3545'
           videoElement.style.backgroundColor = '#f8d7da'
+          if (bottomVideoElement) {
+            bottomVideoElement.style.border = '2px solid #dc3545'
+            bottomVideoElement.style.backgroundColor = '#f8d7da'
+          }
         }
       }
     })
@@ -914,24 +1098,50 @@ const updateCameraPreviews = async (
   )
   if (!previewContainer) return
 
-  // Stop old video streams
+  // Read whether the bottom row is enabled. We stored it on RC when the
+  // popup first opened so updateCameraPreviews doesn't need a new
+  // parameter.
+  const acceptBottomBool = RC.calibrateDistanceAcceptBottomCameraBool === true
+
+  // Stop old video streams (top row only -- the bottom row shares the
+  // top row's stream object, so stopping the top tracks releases
+  // everything). Detach any srcObject from the bottom video too so the
+  // <video> doesn't keep a dangling reference.
   oldCameras.forEach((camera, index) => {
     const videoElement = document.getElementById(`camera-preview-${index}`)
     if (videoElement && videoElement.srcObject) {
       const stream = videoElement.srcObject
       stream.getTracks().forEach(track => track.stop())
     }
+    const bottomVideoElement = document.getElementById(
+      `camera-preview-bottom-${index}`,
+    )
+    if (bottomVideoElement) {
+      bottomVideoElement.srcObject = null
+    }
   })
 
-  // Create new previews HTML
+  // Create new previews HTML (includes BOTH top and bottom row wrappers
+  // when the bottom row is enabled).
   const newPreviewsHTML = await createCameraPreviews(
     newCameras,
     RC,
     null,
     currentActiveCamera,
+    acceptBottomBool,
   )
 
   // Replace the entire previews outer wrapper (arrow + videos + button)
+  // and the separate bottom-row wrapper. The new HTML contains both, so
+  // we remove the old bottom wrapper first (it might be on <body> from
+  // _promoteCameraPreviewsBottomToBody) and then swap the top wrapper's
+  // outerHTML, which inserts both new wrappers as siblings in the same
+  // parent the old top wrapper lived in.
+  const oldBottomOuter = document.getElementById(
+    'rc-camera-previews-bottom-outer',
+  )
+  if (oldBottomOuter) oldBottomOuter.remove()
+
   const oldPreviewsOuter = document.getElementById('rc-camera-previews-outer')
   if (oldPreviewsOuter) {
     oldPreviewsOuter.outerHTML = newPreviewsHTML
@@ -941,45 +1151,32 @@ const updateCameraPreviews = async (
   const messageKey = 'RC_ChooseCamera'
   updateTitleAndDescription(RC, titleKey, messageKey)
 
-  // Re-add event listeners for new previews
+  // Re-add event listeners for new previews, on BOTH rows. Hover/click
+  // state is mirrored across rows so the visual cue is consistent
+  // regardless of which row the participant is interacting with.
   newCameras.forEach((camera, index) => {
-    const container = document.getElementById(
-      `camera-preview-container-${index}`,
-    )
-    if (container) {
+    const containers = _getCameraContainersForIndex(index)
+
+    for (const container of containers) {
       // Hover highlight - treat as tentative selection
       container.addEventListener('mouseenter', async () => {
         const deviceId = container.getAttribute('data-device-id')
-        const label = container.getAttribute('data-camera-label')
-        RC.highlightedCameraDeviceId = deviceId // Store highlighted camera
+        RC.highlightedCameraDeviceId = deviceId
+        // Track which row the participant is interacting with so
+        // Feature C can map the selection to top vs bottom cameraXYPx.
+        RC.highlightedCameraRow =
+          container.getAttribute('data-camera-row') || 'top'
 
-        // Unhighlight all containers first (including active ones)
-        newCameras.forEach((otherCamera, otherIndex) => {
-          const otherContainer = document.getElementById(
-            `camera-preview-container-${otherIndex}`,
-          )
-          if (otherContainer) {
-            otherContainer.style.backgroundColor = 'transparent'
-            otherContainer.style.border = '2px solid transparent'
-            const cap = otherContainer.querySelector('.rc-camera-caption')
-            if (cap) {
-              cap.style.color = '#666'
-              cap.style.fontWeight = 'normal'
-            }
-          }
-        })
-
-        // Highlight current container as tentative selection
-        container.style.backgroundColor = '#e8f5e8'
-        container.style.border = '2px solid #28a745'
-        const cap = container.querySelector('.rc-camera-caption')
-        if (cap) {
-          cap.style.color = '#28a745'
-          cap.style.fontWeight = 'bold'
+        // Unhighlight every container in BOTH rows...
+        for (let j = 0; j < newCameras.length; j++) {
+          _applyCameraContainerState(j, 'normal')
         }
+        // ...then highlight the matching device in BOTH rows.
+        _applyCameraContainerState(index, 'highlight')
 
-        // Actually switch to this camera temporarily
-        const selectedCamera = newCameras.find(cam => cam.deviceId === deviceId)
+        const selectedCamera = newCameras.find(
+          cam => cam.deviceId === deviceId,
+        )
         if (selectedCamera && RC.gazeTracker?.webgazer) {
           try {
             await switchToCamera(RC, selectedCamera)
@@ -998,25 +1195,15 @@ const updateCameraPreviews = async (
 
         const deviceId = container.getAttribute('data-device-id')
         const label = container.getAttribute('data-camera-label')
+        // Record whether the user clicked the top or bottom row.
+        // Feature C reads this to set cameraXYPx accordingly.
+        RC.selectedCameraRow =
+          container.getAttribute('data-camera-row') || 'top'
 
-        // Set loading state
         RC.cameraSelectionLoading = true
+        _setAllCameraContainersDisabled(newCameras, true)
 
-        // Disable all camera previews during loading
-        newCameras.forEach((camera, index) => {
-          const container = document.getElementById(
-            `camera-preview-container-${index}`,
-          )
-          if (container) {
-            container.style.pointerEvents = 'none'
-            container.style.opacity = '0.6'
-          }
-        })
-
-        // Call the same function that OK button would call
         await window.selectCamera(deviceId, label)
-
-        // Close the popup (same as clicking OK)
         Swal.clickConfirm()
       })
     }
@@ -1027,6 +1214,11 @@ const updateCameraPreviews = async (
   if (newScreenBtn && window._rcScreenBtnHandler) {
     newScreenBtn.onclick = window._rcScreenBtnHandler
   }
+
+  // The bottom-row wrapper was just re-inserted as a sibling of the top
+  // row inside the Swal popup. Promote it back to <body> so its
+  // `position: fixed; bottom: 0` resolves relative to the viewport.
+  if (acceptBottomBool) _promoteCameraPreviewsBottomToBody()
 }
 
 /**
@@ -1046,8 +1238,16 @@ export const showCameraSelectionPopup = async (
   privacyMessage,
   onClose = null,
   titleKey = 'RC_ChooseCameraTitle',
+  acceptBottomBool = false,
 ) => {
   // Title will be shown in didOpen callback to avoid flash before popup renders
+
+  // Stash the bottom-camera support flag on RC so updateCameraPreviews
+  // (called by polling when the camera list changes) and the rest of
+  // this popup's helpers can read it without needing the parameter.
+  RC.calibrateDistanceAcceptBottomCameraBool = acceptBottomBool === true
+  // Default selectedCameraRow to 'top' until the participant clicks.
+  if (RC.selectedCameraRow !== 'bottom') RC.selectedCameraRow = 'top'
 
   // Store current video visibility state
   const originalVideoState = {
@@ -1090,12 +1290,13 @@ export const showCameraSelectionPopup = async (
   // Get current active camera
   const currentActiveCamera = getCurrentActiveCamera(RC)
 
-  // Create camera previews
+  // Create camera previews (top row + optional bottom row)
   const cameraPreviewsHTML = await createCameraPreviews(
     cameras,
     RC,
     null,
     currentActiveCamera,
+    RC.calibrateDistanceAcceptBottomCameraBool,
   )
 
   // Title will be shown in top right of webpage instead of popup
@@ -1157,6 +1358,16 @@ export const showCameraSelectionPopup = async (
       if (htmlContainer) {
         htmlContainer.style.maxHeight = 'calc(100vh - 2rem)'
         htmlContainer.style.overflow = 'visible'
+      }
+
+      // Move the bottom-row preview wrapper out of the Swal popup and
+      // onto <body> so its `position: fixed; bottom: 0` resolves
+      // relative to the viewport. Inside the Swal popup, Swal's own
+      // CSS turns the popup into a containing block and the bottom row
+      // ends up rendering somewhere in the middle of the page instead.
+      // No-op when the bottom row was not rendered.
+      if (RC.calibrateDistanceAcceptBottomCameraBool) {
+        _promoteCameraPreviewsBottomToBody()
       }
 
       // Show the camera title now that the popup is visible
@@ -1325,50 +1536,24 @@ export const showCameraSelectionPopup = async (
                 )
 
                 if (selectedCamera && RC.gazeTracker?.webgazer) {
-                  // Disable all preview containers during switching
-                  newCameras.forEach((camera, index) => {
-                    const container = document.getElementById(
-                      `camera-preview-container-${index}`,
-                    )
-                    if (container) {
-                      container.style.pointerEvents = 'none'
-                      container.style.opacity = '0.6'
-                    }
-                  })
+                  // Disable all preview containers during switching (both rows)
+                  _setAllCameraContainersDisabled(newCameras, true)
 
                   try {
                     const success = await switchToCamera(RC, selectedCamera)
 
                     if (success) {
                       // Update visual state of all previews immediately
+                      // (in both top and bottom rows, kept in sync).
                       newCameras.forEach((camera, index) => {
-                        const container = document.getElementById(
-                          `camera-preview-container-${index}`,
-                        )
                         const isActive =
                           camera.deviceId === selectedCamera.deviceId
-
-                        if (container) {
-                          if (isActive) {
-                            container.style.backgroundColor = '#e8f5e8'
-                            container.style.border = '2px solid #28a745'
-                            const cap =
-                              container.querySelector('.rc-camera-caption')
-                            if (cap) {
-                              cap.style.color = '#28a745'
-                              cap.style.fontWeight = 'bold'
-                            }
-                          } else {
-                            container.style.backgroundColor = 'transparent'
-                            container.style.border = '2px solid transparent'
-                            const cap =
-                              container.querySelector('.rc-camera-caption')
-                            if (cap) {
-                              cap.style.color = '#666'
-                              cap.style.fontWeight = 'normal'
-                            }
-                          }
-                          _updateCaptionInContainer(container, camera, index)
+                        _applyCameraContainerState(
+                          index,
+                          isActive ? 'highlight' : 'normal',
+                        )
+                        for (const c of _getCameraContainersForIndex(index)) {
+                          _updateCaptionInContainer(c, camera, index)
                         }
                       })
 
@@ -1428,16 +1613,8 @@ export const showCameraSelectionPopup = async (
             // Set loading state
             RC.cameraSelectionLoading = true
 
-            // Disable all camera previews during loading
-            cameras.forEach((camera, index) => {
-              const container = document.getElementById(
-                `camera-preview-container-${index}`,
-              )
-              if (container) {
-                container.style.pointerEvents = 'none'
-                container.style.opacity = '0.6'
-              }
-            })
+            // Disable all camera previews during loading (both rows)
+            _setAllCameraContainersDisabled(cameras, true)
 
             // Call selectCamera and wait for it to complete (same as click handler)
             window
@@ -1482,47 +1659,23 @@ export const showCameraSelectionPopup = async (
         const selectedCamera = cameras.find(cam => cam.deviceId === deviceId)
 
         if (selectedCamera && RC.gazeTracker?.webgazer) {
-          // Disable all preview containers during switching
-          cameras.forEach((camera, index) => {
-            const container = document.getElementById(
-              `camera-preview-container-${index}`,
-            )
-            if (container) {
-              container.style.pointerEvents = 'none'
-              container.style.opacity = '0.6'
-            }
-          })
+          // Disable all preview containers during switching (both rows)
+          _setAllCameraContainersDisabled(cameras, true)
 
           try {
             const success = await switchToCamera(RC, selectedCamera)
 
             if (success) {
               // Update visual state of all previews immediately
+              // (kept in sync across top and bottom rows).
               cameras.forEach((camera, index) => {
-                const container = document.getElementById(
-                  `camera-preview-container-${index}`,
-                )
                 const isActive = camera.deviceId === selectedCamera.deviceId
-
-                if (container) {
-                  if (isActive) {
-                    container.style.backgroundColor = '#e8f5e8'
-                    container.style.border = '2px solid #28a745'
-                    const cap = container.querySelector('.rc-camera-caption')
-                    if (cap) {
-                      cap.style.color = '#28a745'
-                      cap.style.fontWeight = 'bold'
-                    }
-                  } else {
-                    container.style.backgroundColor = 'transparent'
-                    container.style.border = '2px solid transparent'
-                    const cap = container.querySelector('.rc-camera-caption')
-                    if (cap) {
-                      cap.style.color = '#666'
-                      cap.style.fontWeight = 'normal'
-                    }
-                  }
-                  _updateCaptionInContainer(container, camera, index)
+                _applyCameraContainerState(
+                  index,
+                  isActive ? 'highlight' : 'normal',
+                )
+                for (const c of _getCameraContainersForIndex(index)) {
+                  _updateCaptionInContainer(c, camera, index)
                 }
               })
 
@@ -1536,42 +1689,30 @@ export const showCameraSelectionPopup = async (
         }
       }
 
-      // Add event listeners for hover and click behavior
+      // Add event listeners for hover and click behavior on BOTH rows
+      // (top + bottom). The bottom row mirrors the top row for
+      // participants whose camera is at the bottom of the screen; both
+      // rows behave identically except that the click handler records
+      // which row was chosen via `data-camera-row` (used by Feature C
+      // to set cameraXYPx to top vs bottom centre).
       cameras.forEach((camera, index) => {
-        const container = document.getElementById(
-          `camera-preview-container-${index}`,
-        )
-        if (container) {
+        const containers = _getCameraContainersForIndex(index)
+
+        for (const container of containers) {
           // Hover highlight - treat as tentative selection
           container.addEventListener('mouseenter', async () => {
             const deviceId = container.getAttribute('data-device-id')
-            const label = container.getAttribute('data-camera-label')
-            RC.highlightedCameraDeviceId = deviceId // Store highlighted camera
+            RC.highlightedCameraDeviceId = deviceId
+            RC.highlightedCameraRow =
+              container.getAttribute('data-camera-row') || 'top'
 
-            // Unhighlight all containers first (including active ones)
-            cameras.forEach((otherCamera, otherIndex) => {
-              const otherContainer = document.getElementById(
-                `camera-preview-container-${otherIndex}`,
-              )
-              if (otherContainer) {
-                otherContainer.style.backgroundColor = 'transparent'
-                otherContainer.style.border = '2px solid transparent'
-                const cap = otherContainer.querySelector('.rc-camera-caption')
-                if (cap) {
-                  cap.style.color = '#666'
-                  cap.style.fontWeight = 'normal'
-                }
-              }
-            })
-
-            // Highlight current container as tentative selection
-            container.style.backgroundColor = '#e8f5e8'
-            container.style.border = '2px solid #28a745'
-            const cap = container.querySelector('.rc-camera-caption')
-            if (cap) {
-              cap.style.color = '#28a745'
-              cap.style.fontWeight = 'bold'
+            // Unhighlight every container in BOTH rows...
+            for (let j = 0; j < cameras.length; j++) {
+              _applyCameraContainerState(j, 'normal')
             }
+            // ...then highlight the matching device in BOTH rows so the
+            // visual state is consistent regardless of which row is hovered.
+            _applyCameraContainerState(index, 'highlight')
 
             // Actually switch to this camera temporarily
             const selectedCamera = cameras.find(
@@ -1600,20 +1741,17 @@ export const showCameraSelectionPopup = async (
 
             const deviceId = container.getAttribute('data-device-id')
             const label = container.getAttribute('data-camera-label')
+            // Record whether the user clicked the top or bottom row.
+            // Feature C reads RC.selectedCameraRow to set cameraXYPx
+            // accordingly.
+            RC.selectedCameraRow =
+              container.getAttribute('data-camera-row') || 'top'
 
             // Set loading state
             RC.cameraSelectionLoading = true
 
-            // Disable all camera previews during loading
-            cameras.forEach((camera, index) => {
-              const container = document.getElementById(
-                `camera-preview-container-${index}`,
-              )
-              if (container) {
-                container.style.pointerEvents = 'none'
-                container.style.opacity = '0.6'
-              }
-            })
+            // Disable all camera previews during loading (both rows)
+            _setAllCameraContainersDisabled(cameras, true)
 
             // Call the same function that OK button would call
             await window.selectCamera(deviceId, label)
@@ -1628,10 +1766,9 @@ export const showCameraSelectionPopup = async (
       window.highlightCamera = deviceId => {
         const cameraIndex = cameras.findIndex(cam => cam.deviceId === deviceId)
         if (cameraIndex !== -1) {
-          const container = document.getElementById(
-            `camera-preview-container-${cameraIndex}`,
-          )
-          if (container) {
+          // Apply the alternative blue highlight to BOTH top and bottom
+          // containers for this camera so they stay visually in sync.
+          for (const container of _getCameraContainersForIndex(cameraIndex)) {
             container.style.backgroundColor = '#f0f8ff'
             container.style.border = '2px solid #007bff'
             container.style.transform = 'scale(1.02)'
@@ -1642,12 +1779,9 @@ export const showCameraSelectionPopup = async (
       window.unhighlightCamera = deviceId => {
         const cameraIndex = cameras.findIndex(cam => cam.deviceId === deviceId)
         if (cameraIndex !== -1) {
-          const container = document.getElementById(
-            `camera-preview-container-${cameraIndex}`,
-          )
-          if (container) {
-            const isActive =
-              currentActiveCamera && currentActiveCamera.deviceId === deviceId
+          const isActive =
+            currentActiveCamera && currentActiveCamera.deviceId === deviceId
+          for (const container of _getCameraContainersForIndex(cameraIndex)) {
             container.style.backgroundColor = isActive
               ? '#e8f5e8'
               : 'transparent'
@@ -1672,16 +1806,8 @@ export const showCameraSelectionPopup = async (
           // Set loading state
           RC.cameraSelectionLoading = true
 
-          // Disable all preview containers during switching
-          cameras.forEach((camera, index) => {
-            const container = document.getElementById(
-              `camera-preview-container-${index}`,
-            )
-            if (container) {
-              container.style.pointerEvents = 'none'
-              container.style.opacity = '0.6'
-            }
-          })
+          // Disable all preview containers during switching (both rows)
+          _setAllCameraContainersDisabled(cameras, true)
 
           try {
             const success = await switchToCamera(RC, selectedCamera)
@@ -1765,14 +1891,27 @@ export const showCameraSelectionPopup = async (
         }
       }
 
-      // Stop all preview video streams
+      // Stop all preview video streams (the bottom row shares the top
+      // row's stream object, so stopping the top row's tracks releases
+      // both -- but we still detach the bottom video's srcObject so the
+      // <video> element doesn't keep a dangling reference).
       cameras.forEach((camera, index) => {
         const videoElement = document.getElementById(`camera-preview-${index}`)
         if (videoElement && videoElement.srcObject) {
           const stream = videoElement.srcObject
           stream.getTracks().forEach(track => track.stop())
         }
+        const bottomVideoElement = document.getElementById(
+          `camera-preview-bottom-${index}`,
+        )
+        if (bottomVideoElement) {
+          bottomVideoElement.srcObject = null
+        }
       })
+
+      // Remove the bottom-row wrapper that was promoted to <body> so it
+      // doesn't outlive the popup.
+      _removeCameraPreviewsBottom()
 
       // DON'T restore video container here - let the next step handle it
       // This prevents the blank page flash between popup close and next UI render
@@ -1890,7 +2029,7 @@ const showNoCameraPopup = async (
  * After camera is selected: enter fullscreen, apply resolution constraints,
  * and optionally show the resolution page with video preview.
  */
-const _handlePostCameraResolution = async (RC, options) => {
+export const _handlePostCameraResolution = async (RC, options) => {
   // Force fullscreen
   try {
     await getFullscreen(RC.L, RC)
@@ -1955,17 +2094,21 @@ const _handlePostCameraResolution = async (RC, options) => {
           confirmBtn.style.cursor = 'not-allowed'
         }
 
-        // Create fixed video preview at top center
+        // Create fixed video preview at the camera edge: top for
+        // top-camera setups, bottom for bottom-camera setups (driven
+        // by RC.selectedCameraRow set on the Choose Camera page when
+        // calibrateDistanceAcceptBottomCameraBool is true).
+        const isBottomCam = RC?.selectedCameraRow === 'bottom'
         const wrapper = document.createElement('div')
         wrapper.id = 'rc-resolution-video-wrapper'
         wrapper.style.cssText = `
           position: fixed;
-          top: 0;
+          ${isBottomCam ? 'bottom: 0;' : 'top: 0;'}
           left: 50%;
           transform: translateX(-50%);
           z-index: 9999999999;
           display: flex;
-          flex-direction: column;
+          flex-direction: ${isBottomCam ? 'column-reverse' : 'column'};
           align-items: center;
         `
         const pipW =
@@ -2044,16 +2187,32 @@ const _handlePostCameraResolution = async (RC, options) => {
 
     // If the resolution Swal was interrupted by camera disconnection,
     // wait for reconnection and then re-show the resolution page.
+    // Set _isWaitingForCameraReconnect so GazeTracker's reconnect
+    // handler knows we are going to re-run the resolution flow
+    // ourselves and should NOT also re-run _handlePostCameraResolution.
     if (
       !resolutionResult.isConfirmed &&
       RC.gazeTracker?.isCameraDisconnected()
     ) {
+      RC._isWaitingForCameraReconnect = true
       await new Promise(resolve => {
         const unsub = RC.gazeTracker.onCameraReconnected(() => {
           unsub()
+          RC._isWaitingForCameraReconnect = false
           resolve()
         })
       })
+      // Wait for any open Swal (the reconnection spinner from
+      // showCameraReconnectionPopup) to close before re-opening the
+      // Camera Resolution page. Otherwise the spinner's pending
+      // `Swal.close()` (fired after a 2-second min display) will close
+      // OUR new resolution Swal and the participant lands on the next
+      // step without ever seeing or pressing Proceed.
+      let waitedMs = 0
+      while (Swal.isVisible() && waitedMs < 5000) {
+        await new Promise(r => setTimeout(r, 100))
+        waitedMs += 100
+      }
       return await _handlePostCameraResolution(RC, options)
     }
   } else {
@@ -2076,6 +2235,12 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     RC.resolutionWarningShown = false
   }
   // Don't reset it on retries - this prevents the loop
+
+  // Stash the camera-selection options on RC so the reconnection handler
+  // in GazeTracker can re-run resolution setting / re-show the Camera
+  // Resolution page if the camera reconnects later in the session
+  // (Feature A).
+  RC._cameraSelectionOptions = options
 
   // Hide the main video preview immediately to prevent flash
   const mainVideoContainer = document.getElementById('webgazerVideoContainer')
@@ -2123,17 +2288,31 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       conditionalPrivacyCamera,
       onClose,
       'RC_ChooseCameraTitle',
+      options.calibrateDistanceAcceptBottomCameraBool === true,
     )
 
     // If popup was interrupted by camera disconnection, wait for the
     // reconnection flow to finish and then re-show camera selection.
+    // Set _isWaitingForCameraReconnect so GazeTracker's reconnect
+    // handler knows we are going to re-run the camera flow ourselves
+    // and should NOT also re-run _handlePostCameraResolution.
     if (!result.selectedCamera && RC.gazeTracker?.isCameraDisconnected()) {
+      RC._isWaitingForCameraReconnect = true
       await new Promise(resolve => {
         const unsub = RC.gazeTracker.onCameraReconnected(() => {
           unsub()
+          RC._isWaitingForCameraReconnect = false
           resolve()
         })
       })
+      // Wait for the reconnection spinner Swal to close before
+      // re-opening Choose Camera, otherwise the spinner's pending
+      // `Swal.close()` will close our new popup.
+      let waitedMs = 0
+      while (Swal.isVisible() && waitedMs < 5000) {
+        await new Promise(r => setTimeout(r, 100))
+        waitedMs += 100
+      }
       RC.selectedCamera = null
       return await showTestPopup(RC, onClose, options)
     }
@@ -2160,17 +2339,31 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     conditionalPrivacyCamera,
     onClose,
     'RC_ChooseCameraTitle',
+    options.calibrateDistanceAcceptBottomCameraBool === true,
   )
 
   // If popup was interrupted by camera disconnection, wait for the
   // reconnection flow to finish and then re-show camera selection.
+  // Set _isWaitingForCameraReconnect so GazeTracker's reconnect handler
+  // knows we are going to re-run the camera flow ourselves and should
+  // NOT also re-run _handlePostCameraResolution.
   if (!result.selectedCamera && RC.gazeTracker?.isCameraDisconnected()) {
+    RC._isWaitingForCameraReconnect = true
     await new Promise(resolve => {
       const unsub = RC.gazeTracker.onCameraReconnected(() => {
         unsub()
+        RC._isWaitingForCameraReconnect = false
         resolve()
       })
     })
+    // Wait for the reconnection spinner Swal to close before re-opening
+    // Choose Camera, otherwise the spinner's pending `Swal.close()` will
+    // close our new popup.
+    let waitedMs = 0
+    while (Swal.isVisible() && waitedMs < 5000) {
+      await new Promise(r => setTimeout(r, 100))
+      waitedMs += 100
+    }
     RC.selectedCamera = null
     return await showTestPopup(RC, onClose, options)
   }
