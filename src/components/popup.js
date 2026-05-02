@@ -1181,7 +1181,7 @@ const createCameraPreviews = async (
     const bottomCaptionText =
       phrases?.RC_BottomCameras?.[RC.L] ||
       'Before 2020, some laptop screens had a camera built into the bottom of the screen.'
-    previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 0 1rem 1rem 1rem; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
+    previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 0 1rem 0 1rem; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
     previewsHTML += `
       <div id="rc-bottom-cameras-caption" style="text-align: center; color: #444; font-size: clamp(12px, 1.6vw, 16px); font-weight: 300; line-height: 1.4; max-width: 70vw; margin: 0 0 0.5rem 0; direction: ${isRTL ? 'rtl' : 'ltr'};">
         ${processInlineFormatting(bottomCaptionText)}
@@ -1209,11 +1209,11 @@ const createCameraPreviews = async (
           data-device-id="${camera.deviceId}"
           data-camera-label="${cleanLabel}"
           data-camera-row="bottom"
-          style="display: flex; flex-direction: column; align-items: center; margin: 0; padding: 5px; border-radius: 8px; transition: all 0.2s ease; box-sizing: border-box; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
+          style="display: flex; flex-direction: column-reverse; align-items: center; margin: 0; padding: 5px 5px 0 5px; border-radius: 8px; transition: all 0.2s ease; box-sizing: border-box; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
         >
           <video 
             id="${previewBottomId}" 
-            style="width: ${previewSize.width}; height: ${previewSize.height}; border: 2px solid #ccc; border-radius: 4px; object-fit: cover; pointer-events: none; box-sizing: border-box;"
+            style="width: ${previewSize.width}; height: ${previewSize.height}; border: 2px solid #ccc; border-radius: 4px; object-fit: cover; pointer-events: none; box-sizing: border-box; transform: scaleX(-1);"
             autoplay 
             muted 
             playsinline
@@ -1232,6 +1232,19 @@ const createCameraPreviews = async (
   // resolution. The same MediaStream object is shared with the bottom
   // row's <video> when the bottom row is rendered, to avoid opening a
   // second getUserMedia per camera.
+  //
+  // Read the experiment-requested frame rate from webgazer.params and
+  // forward it to getUserMedia as `frameRate: { ideal: desiredHz }`
+  // (when set). Without this, the browser opens the tile preview at
+  // whatever the camera's default rate is (typically 30 Hz) and the
+  // tile caption shows 30 Hz even when the study spreadsheet asked for
+  // a different rate. With the constraint, the browser snaps to the
+  // closest supported value and the caption shows it.
+  const desiredHz = RC?.gazeTracker?.webgazer?.params?.desiredCameraHz
+  const frameRateConstraint =
+    typeof desiredHz === 'number' && desiredHz > 0
+      ? { frameRate: { ideal: desiredHz } }
+      : {}
   setTimeout(() => {
     cameras.forEach(async (camera, i) => {
       const videoElement = document.getElementById(`camera-preview-${i}`)
@@ -1258,6 +1271,7 @@ const createCameraPreviews = async (
                 width: { min: 1920, ideal: 7680 },
                 height: { min: 1080, ideal: 4320 },
                 aspectRatio: { min: 1.33, ideal: 1.78, max: 2.33 },
+                ...frameRateConstraint,
               },
             })
           } catch (fullHDError) {
@@ -1268,6 +1282,7 @@ const createCameraPreviews = async (
                   width: { min: 1280, ideal: 7680 },
                   height: { min: 720, ideal: 4320 },
                   aspectRatio: { min: 1.33, ideal: 1.78, max: 2.33 },
+                  ...frameRateConstraint,
                 },
               })
             } catch (hdError) {
@@ -1276,6 +1291,7 @@ const createCameraPreviews = async (
                   deviceId: { exact: camera.deviceId },
                   width: { ideal: 1920 },
                   height: { ideal: 1080 },
+                  ...frameRateConstraint,
                 },
               })
             }
