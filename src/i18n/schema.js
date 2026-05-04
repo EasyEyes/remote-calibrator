@@ -73,6 +73,7 @@ const phrasesData = [
   'RC_screenSizeUSBA',
   'RC_screenSizeUSBC',
   'RC_starting',
+  'RC_LoadingVideo',
   'RC_viewingBlindSpotCredit',
   'RC_viewingBlindSpotRejected',
   'RC_viewingDistance',

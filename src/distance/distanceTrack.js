@@ -35,6 +35,8 @@ import {
   getCameraResolutionXY,
   forceFullscreen,
   getCameraXYPx,
+  showLoadingVideoMessage,
+  hideLoadingVideoMessage,
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
 import { phrases } from '../i18n/schema'
@@ -261,6 +263,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
       viewingDistanceAllowedHeadRotationDeg: 180, // abs(yaw) above this value triggers the "face the screen" nudger
       _showCameraResolutionBool: true, // If true, show original+final resolution with OK button after camera selection
       calibrateDistanceAcceptBottomCameraBool: false, // If true, also show a duplicate row of camera previews fixed at the bottom of the screen on Choose Camera / Choose Screen pages, so participants whose built-in camera is at the bottom-center of the display can pick the video that mirrors them. When the participant clicks a bottom-row preview, cameraXYPx flips to bottom-center and the PiP / Camera Resolution preview / blindspot fixation / etc. all anchor to the bottom edge.
+      calibrateDistanceAllowExternalCameraBool: false, // If true, Choose Camera includes external webcams alongside built-in / unknown. Default false hides externals so trackDistance only ever runs on a built-in (or unclassified) camera. Set true to test bottom-camera support with an external rig.
     },
     trackDistanceOptions,
   )
@@ -291,15 +294,22 @@ RemoteCalibrator.prototype.trackDistance = async function (
     return
   }
 
-  // Skip permission check + "Starting..." screen if camera selection
-  // was already completed (e.g. before the panel in the improved flow).
-  if (!this._cameraSelectionDone) {
-    this._addBackground()
-    this._constructFloatInstructionElement(
-      'gaze-system-instruction',
-      phrases.RC_starting[this.L],
-    )
+ 
+  // Always show a single, centered "Loading video ..." message as soon
+  // as the participant clicks the Distance button. trackDistance can
+  // otherwise leave them staring at a blank screen for several seconds
+  // (sometimes ~30 s) while we re-acquire the camera stream, wait for
+  // the FaceMesh model + first video frame, and preload instruction
+  // media before the first interactive page renders. The message
+  // persists across all those awaits and is dismissed exactly once,
+  // right before the next page is shown (see hideLoadingVideoMessage
+  // calls in `_` below and in objectTestOrchestrator).
+  this._addBackground()
+  showLoadingVideoMessage(this)
 
+  // Skip the camera-permission prompt if camera selection already ran
+  // (e.g. before the panel in the improved flow).
+  if (!this._cameraSelectionDone) {
     let message = `${phrases.RC_requestCamera[this.L]}`
     if (!options.saveSnapshots) {
       message += `<br />${phrases.RC_privacyCamera[this.L]}`
@@ -355,6 +365,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
     // Only show blindspot instruction screen if we're using blindspot test only
     // For object test only or 'both' mode, skip the instruction screen and go directly to the test
     if (!options.useObjectTestData) {
+      // The blindspot intro headline is the next page -- drop the
+      // centered "Loading video ..." message before it renders so the
+      // two don't overlap.
+      hideLoadingVideoMessage()
+
       this._addBackground()
 
       this._replaceBackground(
@@ -402,6 +417,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
     // Show pre-calibration popup before starting any calibration methods
     //only show if calibrateDistanceIsCameraTopCenterBool is true
     if (options.calibrateDistanceIsCameraTopCenterBool) {
+      hideLoadingVideoMessage()
       const preCalibrationResult = await showPreCalibrationPopup(this)
       if (!preCalibrationResult) {
         // User cancelled or didn't select anything, exit gracefully
@@ -429,11 +445,13 @@ RemoteCalibrator.prototype.trackDistance = async function (
       // await objectTest(this, options, getStdDist)
     } else if (options.useObjectTestData === 'creditCard') {
       // Call knownDistanceTest directly for calibration
-
+      hideLoadingVideoMessage()
       await knownDistanceTest(this, options, getStdDist)
     } else if (options.useObjectTestData === 'autoCreditCard') {
+      hideLoadingVideoMessage()
       await justCreditCard(this, options, getStdDist)
     } else if (options.useObjectTestData === 'justCreditCard') {
+      hideLoadingVideoMessage()
       await justCreditCard(this, options, getStdDist)
     } else if (options.useObjectTestData) {
       console.log('=== Starting Object Test Only ===')

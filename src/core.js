@@ -1116,13 +1116,56 @@ RemoteCalibrator.prototype.getFullscreen = async function (f = true) {
 
 /**
  * Set a new language
+ *
+ * Side effect: notifies any listener registered via
+ * `RC.onLanguageChange(...)`. Pages that paint translated text into
+ * the DOM at render time (Choose Camera, etc.) need this hook so they
+ * can re-translate live; without it, text already on screen stays in
+ * the old language because `phrases[key][RC.L]` is only read once at
+ * render time.
  */
 RemoteCalibrator.prototype.newLanguage = function (lang) {
   if (this.checkInitialized()) {
     let data
     this.newLanguageData = data = looseSetLanguage(lang)
     this._lang = this.language.value
+    this._notifyLanguageChange()
     return data
+  }
+}
+
+/**
+ * Subscribe to language changes triggered by `RC.newLanguage(...)`.
+ *
+ * @param {(lang: string) => void} listener  Called with the new
+ *   language code (e.g. 'en-US') after `RC.newLanguage` updates
+ *   `RC._lang` / `RC.language.value`.
+ * @returns {() => void} An unsubscribe function. Always call this
+ *   when the consumer's UI is torn down (e.g. in Swal's `willClose`)
+ *   so closed popups don't keep retranslating ghost DOM nodes.
+ */
+RemoteCalibrator.prototype.onLanguageChange = function (listener) {
+  if (typeof listener !== 'function') return () => {}
+  if (!this._languageChangeListeners) {
+    this._languageChangeListeners = new Set()
+  }
+  this._languageChangeListeners.add(listener)
+  return () => {
+    if (this._languageChangeListeners) {
+      this._languageChangeListeners.delete(listener)
+    }
+  }
+}
+
+RemoteCalibrator.prototype._notifyLanguageChange = function () {
+  if (!this._languageChangeListeners || this._languageChangeListeners.size === 0)
+    return
+  for (const listener of this._languageChangeListeners) {
+    try {
+      listener(this._lang)
+    } catch (e) {
+      console.error('RC language-change listener threw:', e)
+    }
   }
 }
 

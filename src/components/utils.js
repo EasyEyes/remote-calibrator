@@ -210,6 +210,56 @@ export async function enforceFullscreenOnSpacePress(L = 'en', RC = null) {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Show a centered "Loading video ..." message while trackDistance
+ * brings the camera back, loads FaceMesh, and preloads instruction
+ * media before the first interactive page (paper-size selection,
+ * blindspot intro, credit-card test, etc.) renders. Idempotent: a
+ * second call while the message is already on screen is a no-op so
+ * the message stays put across multiple call sites instead of
+ * flickering.
+ *
+ * The message is appended to <body> (not the calibration background)
+ * so `_replaceBackground` calls don't tear it down. Hide explicitly
+ * with `hideLoadingVideoMessage()` right before the next page is
+ * shown.
+ *
+ * @param {object} RC - RemoteCalibrator instance (used for language).
+ */
+export function showLoadingVideoMessage(RC) {
+  if (document.getElementById('rc-loading-video-message')) return
+
+  const msg = document.createElement('div')
+  msg.id = 'rc-loading-video-message'
+  // z-index is below the SweetAlert2 container (.swal2-container,
+  // 999999999) so camera permission / camera selection / fullscreen
+  // popups render on top while the loading message is up. It still
+  // sits above the calibration background (999999990).
+  msg.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 999999992;
+    text-align: center;
+    color: #666;
+    font-size: 1.6rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    pointer-events: none;
+    user-select: none;
+  `
+  msg.textContent =
+    phrases?.RC_LoadingVideo?.[RC?.L] || 'Loading video ...'
+  document.body.appendChild(msg)
+}
+
+export function hideLoadingVideoMessage() {
+  const msg = document.getElementById('rc-loading-video-message')
+  if (msg) msg.remove()
+}
+
+/* -------------------------------------------------------------------------- */
+
 export function constructInstructions(
   headline,
   description = null,

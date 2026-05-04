@@ -40,6 +40,7 @@ async function processLanguageSheet() {
         'RC_ok',
         'RC_cancel',
         'RC_starting',
+        'RC_LoadingVideo',
         'RC_requestCamera',
         'RC_privacyCamera',
         'RC_errorCameraUseDenied',

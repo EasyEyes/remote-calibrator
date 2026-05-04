@@ -48,8 +48,11 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
       _showCameraResolutionBool: true,
       // Whether the bottom-row preview is shown on Choose Camera.
       calibrateDistanceAcceptBottomCameraBool: false,
-      // Hide cameras the label classifier marks external (default true).
-      calibrateDistanceExcludeExternalCamerasBool: true,
+      // EasyEyes glossary: when TRUE, allow the required camera to be
+      // external (built-in, external, or unknown will all be shown).
+      // Default FALSE means only built-in / unknown cameras appear in
+      // Choose Camera. See popup.js _filterCamerasByExternalPolicy.
+      calibrateDistanceAllowExternalCameraBool: false,
       // Forwarded to checkPermissions to hide the privacy line when the
       // experiment is recording snapshots.
       saveSnapshots: false,

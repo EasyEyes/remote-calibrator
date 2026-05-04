@@ -26,6 +26,38 @@ const _incorporationLabel = (RC, incorporation) => {
   return phrases?.RC_unknown?.[lang] || 'unknown'
 }
 
+// Resolve whether external cameras may be shown.
+//
+// Source of truth is `calibrateDistanceAllowExternalCameraBool`
+// (default FALSE per the EasyEyes glossary). When TRUE we show every
+// camera (built-in, external, unknown); when FALSE only built-in /
+// unknown are shown. The legacy `calibrateDistanceExcludeExternalCamerasBool`
+// (default TRUE) is still honored as a fallback so consumers that
+// haven't migrated keep working.
+const _isExternalCameraAllowed = options => {
+  if (
+    options &&
+    typeof options.calibrateDistanceAllowExternalCameraBool === 'boolean'
+  ) {
+    return options.calibrateDistanceAllowExternalCameraBool === true
+  }
+  if (
+    options &&
+    typeof options.calibrateDistanceExcludeExternalCamerasBool === 'boolean'
+  ) {
+    return options.calibrateDistanceExcludeExternalCamerasBool === false
+  }
+  return false
+}
+
+// Apply the external-camera filter to a list returned by
+// getAvailableCameras(). Externals come back from cameraClassifier with
+// `likelyBuiltIn < 0` (built-in >= 0.5, unknown otherwise).
+const _filterCamerasByExternalPolicy = (cameras, options) =>
+  _isExternalCameraAllowed(options)
+    ? cameras
+    : cameras.filter(c => c.likelyBuiltIn >= 0)
+
 const _cameraCaptionHTML = (label, resolution, RC, incorporation) => {
   const clean = _stripHexId(label)
   const tag = _incorporationLabel(RC, incorporation)
@@ -70,31 +102,34 @@ const _getCameraContainersForIndex = index =>
   ].filter(Boolean)
 
 /**
- * Sets the visual state of all containers (top + bottom rows, if the
- * bottom row exists) for the given camera index.
+ * Sets the visual highlight state for the given camera index. Only the
+ * TOP-row container is ever highlighted -- the bottom row (when shown
+ * under `calibrateDistanceAcceptBottomCameraBool`) intentionally stays
+ * neutral so a single visual cue makes clear which video the participant
+ * has currently selected. Pressing RETURN commits the highlighted tile,
+ * which would be ambiguous if both rows lit up at once.
  *
  * @param {number} index - camera index
  * @param {'highlight'|'normal'} state
  */
 const _applyCameraContainerState = (index, state) => {
-  const containers = _getCameraContainersForIndex(index)
-  for (const c of containers) {
-    if (state === 'highlight') {
-      c.style.backgroundColor = '#e8f5e8'
-      c.style.border = '2px solid #28a745'
-      const cap = c.querySelector('.rc-camera-caption')
-      if (cap) {
-        cap.style.color = '#28a745'
-        cap.style.fontWeight = 'bold'
-      }
-    } else {
-      c.style.backgroundColor = 'transparent'
-      c.style.border = '2px solid transparent'
-      const cap = c.querySelector('.rc-camera-caption')
-      if (cap) {
-        cap.style.color = '#666'
-        cap.style.fontWeight = 'normal'
-      }
+  const top = document.getElementById(`camera-preview-container-${index}`)
+  if (!top) return
+  if (state === 'highlight') {
+    top.style.backgroundColor = '#e8f5e8'
+    top.style.border = '2px solid #28a745'
+    const cap = top.querySelector('.rc-camera-caption')
+    if (cap) {
+      cap.style.color = '#28a745'
+      cap.style.fontWeight = 'bold'
+    }
+  } else {
+    top.style.backgroundColor = 'transparent'
+    top.style.border = '2px solid transparent'
+    const cap = top.querySelector('.rc-camera-caption')
+    if (cap) {
+      cap.style.color = '#666'
+      cap.style.fontWeight = 'normal'
     }
   }
 }
@@ -162,9 +197,12 @@ export const showCameraTitleInTopRight = (
 
   const isRTL = RC.LD === RC._CONST.RTL
 
-  // Choose Camera / Choose Screen show a "Device compatibility" eyebrow.
+  // Choose Camera / Choose Screen / Camera resolution all share the
+  // "Device compatibility" eyebrow as the page header.
   const showEyebrow =
-    titleKey === 'RC_ChooseCameraTitle' || titleKey === 'RC_ChooseScreenTitle'
+    titleKey === 'RC_ChooseCameraTitle' ||
+    titleKey === 'RC_ChooseScreenTitle' ||
+    titleKey === 'RC_CameraResolutionTitle'
   const eyebrowText = showEyebrow
     ? phrases?.EE_DeviceCompatibility?.[RC.L] || 'Device compatibility'
     : ''
@@ -178,6 +216,11 @@ export const showCameraTitleInTopRight = (
       : ''
   }<h1>${processInlineFormatting(phrases[titleKey][RC.L])}</h1>`
 
+  // Match the system font used by the Size (1 of 2) page title (which
+  // inherits from `#calibration-background *` in src/css/main.css).
+  const titleFontFamily =
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif"
+
   titleElement.style.cssText = `
     position: fixed;
     top: 2rem;
@@ -188,21 +231,28 @@ export const showCameraTitleInTopRight = (
     text-align: ${isRTL ? 'right' : 'left'};
     direction: ${isRTL ? 'rtl' : 'ltr'};
     pointer-events: none;
+    font-family: ${titleFontFamily};
   `
 
-  // Eyebrow is the page header; H1 below it is a slightly smaller subtitle.
+  // Eyebrow ("Device compatibility") is the page header. Match the
+  // font-family / size / weight of the Size (1 of 2) page <h1>, which
+  // uses the system font at 2.5rem desktop / 1.8rem mobile (see
+  // .calibration-instruction h1 in src/css/main.css).
   const eyebrow = titleElement.querySelector('.rc-camera-title-eyebrow')
   if (eyebrow) {
     eyebrow.style.cssText = `
       margin: 0 0 0.15em 0;
       padding: 0;
-      font-size: clamp(16px, 4vw, 36px);
-      font-weight: 350;
+      font-family: ${titleFontFamily};
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-weight: 700;
       color: #000;
-      line-height: 1.1;
+      line-height: 1;
     `
   }
 
+  // Subtitle (Choose camera / Choose screen / Camera resolution) uses
+  // the same font as the eyebrow but smaller.
   const titleH1 = titleElement.querySelector('h1')
   if (titleH1) {
     const subtitle = !!eyebrow
@@ -210,17 +260,20 @@ export const showCameraTitleInTopRight = (
       ? `
         margin: 0;
         padding: 0;
-        font-size: clamp(14px, 3vw, 28px);
-        font-weight: 300;
-        color: #444;
+        font-family: ${titleFontFamily};
+        font-size: clamp(1.1rem, 2.4vw, 1.5rem);
+        font-weight: 700;
+        color: #000;
         line-height: 1.15;
       `
       : `
         margin: 0;
         padding: 0;
-        font-size: clamp(16px, 4vw, 36px);
-        font-weight: 350;
-        line-height: 1.1;
+        font-family: ${titleFontFamily};
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+        font-weight: 700;
+        color: #000;
+        line-height: 1;
       `
   }
 
@@ -1179,8 +1232,7 @@ const createCameraPreviews = async (
   if (acceptBottomBool) {
     // Column flex so the explanation sits centered above the videos.
     const bottomCaptionText =
-      phrases?.RC_BottomCameras?.[RC.L] ||
-      'Before 2020, some laptop screens had a camera built into the bottom of the screen.'
+      phrases?.RC_BottomCameras?.[RC.L];
     previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 0 1rem 0 1rem; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
     previewsHTML += `
       <div id="rc-bottom-cameras-caption" style="text-align: center; color: #444; font-size: clamp(12px, 1.6vw, 16px); font-weight: 300; line-height: 1.4; max-width: 70vw; margin: 0 0 0.5rem 0; direction: ${isRTL ? 'rtl' : 'ltr'};">
@@ -1192,8 +1244,8 @@ const createCameraPreviews = async (
     for (let i = 0; i < cameras.length; i++) {
       const camera = cameras[i]
       const previewBottomId = `camera-preview-bottom-${i}`
-      const isActive =
-        currentActiveCamera && currentActiveCamera.deviceId === camera.deviceId
+      // The bottom row is never highlighted -- only the matching top
+      // tile lights up to keep a single, unambiguous selection cue.
       const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
       const initialCaption = _cameraCaptionHTML(
         camera.label || `Camera ${i + 1}`,
@@ -1209,7 +1261,7 @@ const createCameraPreviews = async (
           data-device-id="${camera.deviceId}"
           data-camera-label="${cleanLabel}"
           data-camera-row="bottom"
-          style="display: flex; flex-direction: column-reverse; align-items: center; margin: 0; padding: 5px 5px 0 5px; border-radius: 8px; transition: all 0.2s ease; box-sizing: border-box; ${isActive ? 'background-color: #e8f5e8; border: 2px solid #28a745;' : 'border: 2px solid transparent;'}"
+          style="display: flex; flex-direction: column-reverse; align-items: center; margin: 0; padding: 5px 5px 0 5px; border-radius: 8px; transition: all 0.2s ease; box-sizing: border-box; border: 2px solid transparent;"
         >
           <video 
             id="${previewBottomId}" 
@@ -1218,7 +1270,7 @@ const createCameraPreviews = async (
             muted 
             playsinline
           ></video>
-          <div class="rc-camera-caption" style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; word-wrap: break-word; white-space: normal; color: ${isActive ? '#28a745' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; line-height: 1.4;">
+          <div class="rc-camera-caption" style="margin-top: 5px; font-size: 12px; text-align: center; max-width: ${previewSize.width}; word-wrap: break-word; white-space: normal; color: #666; font-weight: normal; line-height: 1.4;">
             ${initialCaption}
           </div>
         </div>
@@ -1664,10 +1716,22 @@ export const showCameraSelectionPopup = async (
 
       // --- "Choose another screen" / "Choose this screen" toggle ---
       let isInChooseAnotherScreenMode = false
-      const originalMessage = processInlineFormatting(message || '').replace(
-        /\n/g,
-        '<br>',
-      )
+
+      // Title key currently painted into the top-right page header.
+      // Mutated by the screen-toggle handler so the language-change
+      // subscription below knows whether to re-translate as
+      // "Choose camera" or "Choose screen".
+      let currentTitleKey = titleKey
+
+      // Re-derive the Choose-Camera instruction HTML at call time so a
+      // language change that happens after this popup opens picks up
+      // the new translation. The `message` parameter snapshot was the
+      // bug -- it locked in whatever language was active at the moment
+      // showTestPopup ran.
+      const getCurrentInstructionHTML = () =>
+        processInlineFormatting(
+          phrases.RC_ChooseCamera?.[RC.L] || message || '',
+        ).replace(/\n/g, '<br>')
 
       const screenBtnHandler = async () => {
         const btn = document.getElementById('rc-choose-another-screen-btn')
@@ -1683,7 +1747,8 @@ export const showCameraSelectionPopup = async (
                 'Drag this window to another screen.',
             ).replace(/\n/g, '<br>')
           }
-          showCameraTitleInTopRight(RC, 'RC_ChooseScreenTitle')
+          currentTitleKey = 'RC_ChooseScreenTitle'
+          showCameraTitleInTopRight(RC, currentTitleKey)
 
           // Hide the original button wrapper, camera arrow, and privacy text
           const btnWrapper = document.getElementById(
@@ -1732,7 +1797,7 @@ export const showCameraSelectionPopup = async (
           isInChooseAnotherScreenMode = false
           await getFullscreen(RC.L, RC)
           if (instrDiv) {
-            instrDiv.innerHTML = originalMessage
+            instrDiv.innerHTML = getCurrentInstructionHTML()
           }
           // Remove the below-text button + arrow and restore the in-row ones
           const belowDiv = document.getElementById('rc-choose-screen-btn-below')
@@ -1756,7 +1821,8 @@ export const showCameraSelectionPopup = async (
               rowBtn.onclick = screenBtnHandler
             }
           }
-          showCameraTitleInTopRight(RC, titleKey)
+          currentTitleKey = titleKey
+          showCameraTitleInTopRight(RC, currentTitleKey)
         }
       }
 
@@ -1773,6 +1839,94 @@ export const showCameraSelectionPopup = async (
       let cameraPollingInterval = null
       RC.highlightedCameraDeviceId = null // Track which camera is highlighted
       RC.cameraSelectionLoading = false // Store loading state on RC object for proper cleanup
+
+      // ─── Live language re-translation ────────────────────────────────
+      //
+      // RC reads phrases[key][RC.L] only at render time, so any text we
+      // already painted (top-right title, instruction, privacy notice,
+      // "Choose another screen" button, per-tile captions) stays in the
+      // old language even after `RC.newLanguage(...)` updates
+      // `RC.language.value`. The Camera Resolution page works because it
+      // re-renders after the language change; Choose Camera doesn't,
+      // because it's already on screen.
+      //
+      // Fix: subscribe to `RC.onLanguageChange` (added in core.js) and
+      // re-paint every translated DOM node from `phrases` using the
+      // current RC.L. Cleanup happens in willClose so a closed popup
+      // doesn't keep retranslating.
+      const retranslateChooseCamera = () => {
+        // Top-right title eyebrow + subtitle. showCameraTitleInTopRight
+        // tears down and rebuilds the element each call, so passing the
+        // current key picks up the new language directly.
+        showCameraTitleInTopRight(RC, currentTitleKey)
+
+        const instrDiv = document.getElementById('rc-camera-instruction-text')
+        if (instrDiv) {
+          instrDiv.innerHTML = isInChooseAnotherScreenMode
+            ? processInlineFormatting(
+                phrases.RC_DragToAnotherScreen?.[RC.L] ||
+                  'Drag this window to another screen.',
+              ).replace(/\n/g, '<br>')
+            : getCurrentInstructionHTML()
+        }
+
+        // Privacy notice is only rendered when the caller passed a
+        // non-empty privacyMessage (i.e. when saveSnapshots is false).
+        const privDiv = document.getElementById('rc-camera-privacy-text')
+        if (privDiv) {
+          privDiv.innerHTML = processInlineFormatting(
+            phrases.RC_CameraPrivacyAssurance?.[RC.L] || privacyMessage || '',
+          ).replace(/\n/g, '<br>')
+        }
+
+        // "Choose another screen" / "Choose this screen" buttons.
+        // Both ids can coexist in the DOM during the toggled state
+        // (the row button is hidden, not removed), so update each by
+        // its parent wrapper to avoid getElementById ambiguity.
+        const rowBtn = document.querySelector(
+          '#rc-choose-screen-btn-wrapper button',
+        )
+        if (rowBtn) {
+          rowBtn.innerHTML = processInlineFormatting(
+            phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
+              'Choose another screen',
+          )
+        }
+        const belowBtn = document.querySelector(
+          '#rc-choose-screen-btn-below button',
+        )
+        if (belowBtn) {
+          belowBtn.innerHTML = processInlineFormatting(
+            phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen',
+          )
+        }
+
+        // Per-tile captions: re-render with the localized
+        // built-in / external / unknown tag for every camera in both
+        // the top and bottom rows.
+        for (let i = 0; i < currentCameras.length; i++) {
+          const containers = _getCameraContainersForIndex(i)
+          for (const container of containers) {
+            _updateCaptionInContainer(container, currentCameras[i], i, RC)
+          }
+        }
+
+        // Bottom-row explanatory caption ("These are the cameras at
+        // the bottom of your screen, ..."). Only present when the
+        // experiment opts in via calibrateDistanceAcceptBottomCameraBool.
+        const bottomCaption = document.getElementById(
+          'rc-bottom-cameras-caption',
+        )
+        if (bottomCaption) {
+          bottomCaption.innerHTML = processInlineFormatting(
+            phrases?.RC_BottomCameras?.[RC.L] || '',
+          )
+        }
+      }
+
+      RC._cameraSelectionLangUnsub = RC.onLanguageChange(
+        retranslateChooseCamera,
+      )
 
       // Force set the popup width via inline styles to ensure it takes effect
       const popupElement = document.querySelector('.camera-selection-popup')
@@ -1803,13 +1957,13 @@ export const showCameraSelectionPopup = async (
                 RC.cameraArray?.find(prev => prev.name === c.label)?.opinion ||
                 null,
             }))
-            // Re-apply the same exclude-external filter.
+            // Re-apply the same external-camera filter (driven by
+            // calibrateDistanceAllowExternalCameraBool).
             const opts = RC._cameraSelectionOptions || {}
-            const excludeExternalPoll =
-              opts.calibrateDistanceExcludeExternalCamerasBool !== false
-            const newCameras = excludeExternalPoll
-              ? newCamerasAll.filter(c => c.likelyBuiltIn >= 0)
-              : newCamerasAll
+            const newCameras = _filterCamerasByExternalPolicy(
+              newCamerasAll,
+              opts,
+            )
             RC._visibleCameras = newCameras
 
             // Check if camera list has changed
@@ -2131,6 +2285,14 @@ export const showCameraSelectionPopup = async (
       }
     },
     willClose: () => {
+      // Drop the language-change subscription before tearing down the
+      // popup so a stale listener can't try to retranslate a DOM that
+      // no longer exists.
+      if (RC._cameraSelectionLangUnsub) {
+        RC._cameraSelectionLangUnsub()
+        RC._cameraSelectionLangUnsub = null
+      }
+
       // Hide the camera title from the top right
       hideCameraTitleFromTopRight()
 
@@ -2579,12 +2741,10 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     opinion: null,
   }))
 
-  // Default TRUE: hide externals; built-in and unknown stay visible.
-  const excludeExternal =
-    options.calibrateDistanceExcludeExternalCamerasBool !== false
-  const cameras = excludeExternal
-    ? allCameras.filter(c => c.likelyBuiltIn >= 0)
-    : allCameras
+  // Default FALSE: hide externals; built-in and unknown stay visible.
+  // Set calibrateDistanceAllowExternalCameraBool to true to include
+  // external cameras alongside built-in / unknown.
+  const cameras = _filterCamerasByExternalPolicy(allCameras, options)
   RC.availableCameras = allCameras
   RC._visibleCameras = cameras
 

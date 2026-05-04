@@ -23,6 +23,7 @@ import {
   isFullscreen,
   fitToViewport,
   getCameraResolutionXY,
+  hideLoadingVideoMessage,
 } from '../../components/utils'
 import { setDefaultVideoPosition } from '../../components/video'
 import { phrases } from '../../i18n/schema'
@@ -621,6 +622,12 @@ export async function objectTestNew(RC, options, callback = undefined) {
 
   // ─── Attach keyboard and show first page ─────────────────────────────
   keyboardHandler.attach()
+
+  // trackDistance has been displaying the centered "Loading video ..."
+  // message continuously since the participant clicked the Distance
+  // button. The first interactive page is about to render -- drop it
+  // now so it doesn't overlap the paper-size selection.
+  hideLoadingVideoMessage()
 
   if (options.calibrateDistanceCenterYourEyesBool) {
     await pageController.showPage(0)
