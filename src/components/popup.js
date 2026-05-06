@@ -102,34 +102,50 @@ const _getCameraContainersForIndex = index =>
   ].filter(Boolean)
 
 /**
- * Sets the visual highlight state for the given camera index. Only the
- * TOP-row container is ever highlighted -- the bottom row (when shown
- * under `calibrateDistanceAcceptBottomCameraBool`) intentionally stays
- * neutral so a single visual cue makes clear which video the participant
- * has currently selected. Pressing RETURN commits the highlighted tile,
- * which would be ambiguous if both rows lit up at once.
+ * Sets the visual highlight state for the given camera index. By default
+ * the state is applied to BOTH the top-row and bottom-row containers
+ * (when the bottom row is shown under
+ * `calibrateDistanceAcceptBottomCameraBool`), e.g. when clearing all
+ * tiles to 'normal'. Pass `row = 'top'` or `row = 'bottom'` to target
+ * only one of the two rows (used by the hover handler so only the tile
+ * the participant is actually pointing at lights up, while the matching
+ * tile in the other row stays neutral).
+ *
+ * The highlighted device is tracked separately via
+ * `RC.highlightedCameraDeviceId` / `RC.selectedCamera`, so RETURN/click
+ * still commit the correct camera regardless of which row's tile is lit.
  *
  * @param {number} index - camera index
  * @param {'highlight'|'normal'} state
+ * @param {'top'|'bottom'|'both'} [row='both']
  */
-const _applyCameraContainerState = (index, state) => {
-  const top = document.getElementById(`camera-preview-container-${index}`)
-  if (!top) return
-  if (state === 'highlight') {
-    top.style.backgroundColor = '#e8f5e8'
-    top.style.border = '2px solid #28a745'
-    const cap = top.querySelector('.rc-camera-caption')
-    if (cap) {
-      cap.style.color = '#28a745'
-      cap.style.fontWeight = 'bold'
-    }
-  } else {
-    top.style.backgroundColor = 'transparent'
-    top.style.border = '2px solid transparent'
-    const cap = top.querySelector('.rc-camera-caption')
-    if (cap) {
-      cap.style.color = '#666'
-      cap.style.fontWeight = 'normal'
+const _applyCameraContainerState = (index, state, row = 'both') => {
+  const top =
+    row === 'top' || row === 'both'
+      ? document.getElementById(`camera-preview-container-${index}`)
+      : null
+  const bot =
+    row === 'bottom' || row === 'both'
+      ? document.getElementById(`camera-preview-container-bottom-${index}`)
+      : null
+  for (const el of [top, bot]) {
+    if (!el) continue
+    if (state === 'highlight') {
+      el.style.backgroundColor = '#e8f5e8'
+      el.style.border = '2px solid #28a745'
+      const cap = el.querySelector('.rc-camera-caption')
+      if (cap) {
+        cap.style.color = '#28a745'
+        cap.style.fontWeight = 'bold'
+      }
+    } else {
+      el.style.backgroundColor = 'transparent'
+      el.style.border = '2px solid transparent'
+      const cap = el.querySelector('.rc-camera-caption')
+      if (cap) {
+        cap.style.color = '#666'
+        cap.style.fontWeight = 'normal'
+      }
     }
   }
 }
@@ -178,6 +194,39 @@ const _removeCameraPreviewsBottom = () => {
     'rc-camera-previews-bottom-outer',
   )
   if (bottomOuter) bottomOuter.remove()
+}
+
+/**
+ * Make the bottom instructional caption use the same rendered content
+ * width as the top instruction/privacy area, so left/right margins line
+ * up in both Choose Camera and Choose Screen modes.
+ */
+const _syncBottomCaptionWidthWithTopLayout = () => {
+  const bottomCaption = document.getElementById('rc-bottom-cameras-caption')
+  if (!bottomCaption) return
+
+  // Prefer the instruction block as the source of truth for horizontal
+  // text margins (this is what the user visually compares against).
+  const instructionBlock = document.getElementById('rc-camera-instruction-text')
+  const topOuter = document.getElementById('rc-camera-previews-outer')
+  const referenceElement = instructionBlock || topOuter
+  if (!referenceElement) return
+
+  const topWidth = Math.round(referenceElement.getBoundingClientRect().width)
+  if (!Number.isFinite(topWidth) || topWidth <= 0) return
+
+  bottomCaption.style.width = `${topWidth}px`
+  bottomCaption.style.maxWidth = 'calc(100vw - 2rem)'
+  bottomCaption.style.marginLeft = 'auto'
+  bottomCaption.style.marginRight = 'auto'
+
+  // Keep horizontal padding identical to the top instruction/privacy
+  // blocks so the text starts/ends on the same x positions.
+  if (instructionBlock) {
+    bottomCaption.style.paddingLeft = instructionBlock.style.paddingLeft || '30px'
+    bottomCaption.style.paddingRight =
+      instructionBlock.style.paddingRight || '30px'
+  }
 }
 
 /**
@@ -781,7 +830,8 @@ const getAvailableCameras = async () => {
       const cameras = devices.filter(device => device.kind === 'videoinput')
       return cameras.map(cam => {
         // MediaDeviceInfo is read-only -- wrap in a plain object.
-        const { score, classification } = likelyBuiltIn(cam)
+        const { score, classification, builtInScore, externalScore } =
+          likelyBuiltIn(cam, cameras)
         return {
           deviceId: cam.deviceId,
           kind: cam.kind,
@@ -789,6 +839,8 @@ const getAvailableCameras = async () => {
           groupId: cam.groupId,
           likelyBuiltIn: score,
           incorporation: classification,
+          builtInScore,
+          externalScore,
         }
       })
     }
@@ -1191,14 +1243,16 @@ const createCameraPreviews = async (
   previewsHTML += `
     <div id="rc-choose-screen-btn-wrapper" style="position: absolute; ${isRTL ? 'left' : 'right'}: 0; top: 50%; transform: translate(${isRTL ? '-100%' : '100%'}, -50%); display: flex; align-items: center; justify-content: center; padding: 5px; z-index: 1;">
       <button id="rc-choose-another-screen-btn" class="rc-button" style="
-        min-width: clamp(120px, 18vw, ${maxW} * 1.35px);
-        width: auto;
-        height: calc(${previewSize.height} / 3 * 1.15 * 0.75);
+        min-width: clamp(150px, 18vw, 260px);
+        max-width: min(36vw, 420px);
+        width: fit-content;
+        height: auto;
+        min-height: calc(${previewSize.height} / 3 * 1.15 * 0.75);
         background: #999 !important;
         border: 2px solid #ccc !important;
         border-radius: 24px !important;
         font-size: clamp(0.8rem, 1.2vw, 1rem) !important;
-        padding: 0.5rem 1rem !important;
+        padding: 0.5rem 1.05rem !important;
         margin: 0 !important;
         cursor: pointer;
         display: flex;
@@ -1206,8 +1260,9 @@ const createCameraPreviews = async (
         justify-content: center;
         text-align: center;
         line-height: 1.3;
-        word-wrap: break-word;
-        ${isRTL ? 'word-break: break-all;' : ''}
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
         box-sizing: border-box;
       ">${processInlineFormatting(phrases.RC_ChooseAnotherScreenButton?.[RC.L] || 'Choose another screen')}</button>
     </div>
@@ -1233,9 +1288,9 @@ const createCameraPreviews = async (
     // Column flex so the explanation sits centered above the videos.
     const bottomCaptionText =
       phrases?.RC_BottomCameras?.[RC.L];
-    previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 0 1rem 0 1rem; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
+    previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 0; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
     previewsHTML += `
-      <div id="rc-bottom-cameras-caption" style="text-align: center; color: #444; font-size: clamp(12px, 1.6vw, 16px); font-weight: 300; line-height: 1.4; max-width: 70vw; margin: 0 0 0.5rem 0; direction: ${isRTL ? 'rtl' : 'ltr'};">
+      <div id="rc-bottom-cameras-caption" style="width: 100%; box-sizing: border-box; padding: 0 30px; text-align: ${isRTL ? 'right' : 'left'}; color: #444; font-size: clamp(12px, 1.6vw, 16px); font-weight: 300; line-height: 1.4; margin: 0 0 0.5rem 0; direction: ${isRTL ? 'rtl' : 'ltr'};">
         ${processInlineFormatting(bottomCaptionText)}
       </div>
     `
@@ -1244,8 +1299,11 @@ const createCameraPreviews = async (
     for (let i = 0; i < cameras.length; i++) {
       const camera = cameras[i]
       const previewBottomId = `camera-preview-bottom-${i}`
-      // The bottom row is never highlighted -- only the matching top
-      // tile lights up to keep a single, unambiguous selection cue.
+      // Bottom tile renders neutral by default -- only the matching
+      // top tile shows the green active-camera highlight on initial
+      // render. Hover (in `_applyCameraContainerState`) mirrors the
+      // highlight onto both rows together so the participant gets
+      // immediate feedback on whichever tile they point at.
       const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
       const initialCaption = _cameraCaptionHTML(
         camera.label || `Camera ${i + 1}`,
@@ -1483,28 +1541,34 @@ const updateCameraPreviews = async (
   const messageKey = 'RC_ChooseCamera'
   updateTitleAndDescription(RC, titleKey, messageKey)
 
-  // Re-add event listeners for new previews, on BOTH rows. Hover/click
-  // state is mirrored across rows so the visual cue is consistent
-  // regardless of which row the participant is interacting with.
+  // Re-add event listeners for new previews, on BOTH rows. Hover only
+  // lights up the hovered tile (the one the participant is pointing
+  // at) -- the matching tile in the other row stays neutral so a
+  // single visual cue tracks the cursor.
   newCameras.forEach((camera, index) => {
     const containers = _getCameraContainersForIndex(index)
 
     for (const container of containers) {
       // Hover highlight - treat as tentative selection
       container.addEventListener('mouseenter', async () => {
+        // The Choose screen page must not indicate any video
+        // selection -- skip hover highlight + tentative camera switch
+        // entirely while the participant is picking which screen.
+        if (RC._inChooseScreenMode) return
+
         const deviceId = container.getAttribute('data-device-id')
         RC.highlightedCameraDeviceId = deviceId
         // Track which row the participant is interacting with so
         // Feature C can map the selection to top vs bottom cameraXYPx.
-        RC.highlightedCameraRow =
-          container.getAttribute('data-camera-row') || 'top'
+        const hoveredRow = container.getAttribute('data-camera-row') || 'top'
+        RC.highlightedCameraRow = hoveredRow
 
-        // Unhighlight every container in BOTH rows...
+        // Clear highlight on every tile in BOTH rows...
         for (let j = 0; j < newCameras.length; j++) {
-          _applyCameraContainerState(j, 'normal')
+          _applyCameraContainerState(j, 'normal', 'both')
         }
-        // ...then highlight the matching device in BOTH rows.
-        _applyCameraContainerState(index, 'highlight')
+        // ...then highlight only the hovered tile (specific row).
+        _applyCameraContainerState(index, 'highlight', hoveredRow)
 
         const selectedCamera = newCameras.find(
           cam => cam.deviceId === deviceId,
@@ -1550,7 +1614,10 @@ const updateCameraPreviews = async (
   // The bottom-row wrapper was just re-inserted as a sibling of the top
   // row inside the Swal popup. Promote it back to <body> so its
   // `position: fixed; bottom: 0` resolves relative to the viewport.
-  if (acceptBottomBool) _promoteCameraPreviewsBottomToBody()
+  if (acceptBottomBool) {
+    _promoteCameraPreviewsBottomToBody()
+    _syncBottomCaptionWidthWithTopLayout()
+  }
 }
 
 /**
@@ -1621,6 +1688,9 @@ export const showCameraSelectionPopup = async (
     if (!RC.cameraArray) {
       RC.cameraArray = allCameras.map(c => ({
         name: c.label || '',
+        class: c.incorporation,
+        builtInScore: c.builtInScore,
+        externalScore: c.externalScore,
         likelyBuiltIn: c.likelyBuiltIn,
         opinion: null,
       }))
@@ -1666,7 +1736,7 @@ export const showCameraSelectionPopup = async (
           ${cameraPreviewsHTML}
         </div>
         <div id="rc-camera-instruction-text" style="background: transparent; padding: 0.5rem 30px; margin-top: 0.5rem; flex-shrink: 0; text-align: ${RC.LD === RC._CONST.RTL ? 'right' : 'left'}; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; width: 100%; box-sizing: border-box; align-self: flex-start;">${processInlineFormatting(message || '').replace(/\n/g, '<br>')}</div>
-        ${privacyMessage ? `<div id="rc-camera-privacy-text" style="font-size: ${(16 / 1.4) * 1.25}px; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; line-height: 1.4; white-space: pre-line; max-width: 500px; text-align: ${RC.LD === RC._CONST.RTL ? 'right' : 'left'}; flex-shrink: 0; margin-top: 12px; padding: 0 30px 0.5rem 30px; align-self: flex-start; box-sizing: border-box;">${processInlineFormatting(privacyMessage).replace(/\n/g, '<br>')}</div>` : ''}
+        ${privacyMessage ? `<div id="rc-camera-privacy-text" style="font-size: ${(16 / 1.4) * 1.25}px; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; line-height: 1.4; white-space: pre-line; width: 100%; text-align: ${RC.LD === RC._CONST.RTL ? 'right' : 'left'}; flex-shrink: 0; margin-top: 12px; padding: 0 30px 0.5rem 30px; align-self: flex-start; box-sizing: border-box;">${processInlineFormatting(privacyMessage).replace(/\n/g, '<br>')}</div>` : ''}
       </div>
     `,
     showConfirmButton: false,
@@ -1709,6 +1779,7 @@ export const showCameraSelectionPopup = async (
       // No-op when the bottom row was not rendered.
       if (RC.calibrateDistanceAcceptBottomCameraBool) {
         _promoteCameraPreviewsBottomToBody()
+        _syncBottomCaptionWidthWithTopLayout()
       }
 
       // Show the camera title now that the popup is visible
@@ -1740,6 +1811,10 @@ export const showCameraSelectionPopup = async (
 
         if (!isInChooseAnotherScreenMode) {
           isInChooseAnotherScreenMode = true
+          // Stash on RC so the re-attached hover listeners inside
+          // updateCameraPreviews (driven by camera-list polling) can
+          // also see we're on the Choose screen page.
+          RC._inChooseScreenMode = true
           await exitFullscreen()
           if (instrDiv) {
             instrDiv.innerHTML = processInlineFormatting(
@@ -1749,6 +1824,15 @@ export const showCameraSelectionPopup = async (
           }
           currentTitleKey = 'RC_ChooseScreenTitle'
           showCameraTitleInTopRight(RC, currentTitleKey)
+
+          // The Choose screen page must not indicate any video
+          // selection -- clear every highlight so no tile looks active
+          // while the participant is choosing which screen to use. The
+          // mouseenter handler below also short-circuits in this mode
+          // so hover doesn't re-light a tile.
+          for (let j = 0; j < cameras.length; j++) {
+            _applyCameraContainerState(j, 'normal', 'both')
+          }
 
           // Hide the original button wrapper, camera arrow, and privacy text
           const btnWrapper = document.getElementById(
@@ -1795,6 +1879,7 @@ export const showCameraSelectionPopup = async (
           belowBtn.onclick = screenBtnHandler
         } else {
           isInChooseAnotherScreenMode = false
+          RC._inChooseScreenMode = false
           await getFullscreen(RC.L, RC)
           if (instrDiv) {
             instrDiv.innerHTML = getCurrentInstructionHTML()
@@ -1823,6 +1908,17 @@ export const showCameraSelectionPopup = async (
           }
           currentTitleKey = titleKey
           showCameraTitleInTopRight(RC, currentTitleKey)
+
+          // Restore the default Choose Camera highlight: top tile of
+          // the currently active camera, all other tiles neutral.
+          if (currentActiveCamera) {
+            const activeIndex = cameras.findIndex(
+              c => c.deviceId === currentActiveCamera.deviceId,
+            )
+            if (activeIndex >= 0) {
+              _applyCameraContainerState(activeIndex, 'highlight', 'top')
+            }
+          }
         }
       }
 
@@ -1839,6 +1935,7 @@ export const showCameraSelectionPopup = async (
       let cameraPollingInterval = null
       RC.highlightedCameraDeviceId = null // Track which camera is highlighted
       RC.cameraSelectionLoading = false // Store loading state on RC object for proper cleanup
+      RC._inChooseScreenMode = false // Read by mouseenter handlers to suppress hover on Choose Screen page
 
       // ─── Live language re-translation ────────────────────────────────
       //
@@ -1935,6 +2032,7 @@ export const showCameraSelectionPopup = async (
         popupElement.style.width = dynamicMaxWidth
         popupElement.style.minWidth = dynamicMaxWidth
         console.log('Applied inline width to popup:', dynamicMaxWidth)
+        _syncBottomCaptionWidthWithTopLayout()
       }
 
       // Start polling for camera changes
@@ -1952,6 +2050,9 @@ export const showCameraSelectionPopup = async (
             RC.availableCameras = newCamerasAll
             RC.cameraArray = newCamerasAll.map(c => ({
               name: c.label || '',
+              class: c.incorporation,
+              builtInScore: c.builtInScore,
+              externalScore: c.externalScore,
               likelyBuiltIn: c.likelyBuiltIn,
               opinion:
                 RC.cameraArray?.find(prev => prev.name === c.label)?.opinion ||
@@ -2156,25 +2257,36 @@ export const showCameraSelectionPopup = async (
       // participants whose camera is at the bottom of the screen; both
       // rows behave identically except that the click handler records
       // which row was chosen via `data-camera-row` (used by Feature C
-      // to set cameraXYPx to top vs bottom centre).
+      // to set cameraXYPx to top vs bottom centre). On hover, only the
+      // hovered tile lights up -- the matching tile in the other row
+      // stays neutral so the green highlight tracks the participant's
+      // cursor as a single visual cue.
       cameras.forEach((camera, index) => {
         const containers = _getCameraContainersForIndex(index)
 
         for (const container of containers) {
           // Hover highlight - treat as tentative selection
           container.addEventListener('mouseenter', async () => {
+            // The Choose screen page must not indicate any video
+            // selection -- skip hover highlight + tentative camera
+            // switch entirely while the participant is picking which
+            // screen to use.
+            if (isInChooseAnotherScreenMode || RC._inChooseScreenMode) return
+
             const deviceId = container.getAttribute('data-device-id')
             RC.highlightedCameraDeviceId = deviceId
-            RC.highlightedCameraRow =
+            const hoveredRow =
               container.getAttribute('data-camera-row') || 'top'
+            RC.highlightedCameraRow = hoveredRow
 
-            // Unhighlight every container in BOTH rows...
+            // Clear highlight on every tile in BOTH rows...
             for (let j = 0; j < cameras.length; j++) {
-              _applyCameraContainerState(j, 'normal')
+              _applyCameraContainerState(j, 'normal', 'both')
             }
-            // ...then highlight the matching device in BOTH rows so the
-            // visual state is consistent regardless of which row is hovered.
-            _applyCameraContainerState(index, 'highlight')
+            // ...then highlight only the hovered tile (specific row),
+            // so the green cue follows the cursor instead of also
+            // lighting up the matching tile in the opposite row.
+            _applyCameraContainerState(index, 'highlight', hoveredRow)
 
             // Actually switch to this camera temporarily
             const selectedCamera = cameras.find(
@@ -2312,6 +2424,10 @@ export const showCameraSelectionPopup = async (
       if (typeof RC.cameraSelectionLoading !== 'undefined') {
         RC.cameraSelectionLoading = false
       }
+
+      // Clear the Choose Screen mode flag so a stale value can't
+      // suppress hover on the next popup.
+      RC._inChooseScreenMode = false
 
       // Remove any existing loading text
       const loadingTextElement = document.getElementById('camera-loading-text')
@@ -2737,6 +2853,9 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   const allCameras = await getAvailableCameras()
   RC.cameraArray = allCameras.map(c => ({
     name: c.label || '',
+    class: c.incorporation,
+    builtInScore: c.builtInScore,
+    externalScore: c.externalScore,
     likelyBuiltIn: c.likelyBuiltIn,
     opinion: null,
   }))
