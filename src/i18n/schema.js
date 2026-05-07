@@ -89,6 +89,7 @@ const phrasesData = [
   'RC_CameraReconnectTitle',
   'RC_CameraReconnectText',
   'RC_CameraReconnectCantFindIt',
+  'RC_CameraReconnecting',
   'RC_Proceed',
   'RC_Quit',
 ]

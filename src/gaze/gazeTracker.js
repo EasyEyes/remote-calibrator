@@ -321,6 +321,21 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
 
   this.webgazer.params.phrases = phrases
   this.webgazer.params.language = this.calibrator.L
+  this.webgazer.params.languageDirection = this.calibrator.LD
+
+  // Keep WebGazer's language + direction in sync with RC so the
+  // camera-reconnect popup (which reads webgazer.params.language via
+  // _getPhrase, and webgazer.params.languageDirection for RTL/LTR
+  // layout) shows the participant's currently-selected language and
+  // direction, not whatever was active when the camera first started.
+  if (typeof this.calibrator.onLanguageChange === 'function') {
+    this._cameraMonitoringLangUnsub = this.calibrator.onLanguageChange(
+      lang => {
+        this.webgazer.params.language = lang || this.calibrator.L
+        this.webgazer.params.languageDirection = this.calibrator.LD
+      },
+    )
+  }
 
   this.webgazer.setOnCameraDisconnected(message => {
     console.warn('GazeTracker: Camera disconnected -', message)
