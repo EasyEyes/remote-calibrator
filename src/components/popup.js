@@ -229,6 +229,42 @@ const _syncBottomCaptionWidthWithTopLayout = () => {
   }
 }
 
+// Enforce LTR/RTL alignment for camera/screen/resolution body text blocks,
+// including nested nodes produced by inline formatting.
+const _applyDirectionalTextAlignment = (element, isRTL) => {
+  if (!element) return
+  const textAlign = isRTL ? 'right' : 'left'
+  const direction = isRTL ? 'rtl' : 'ltr'
+  element.style.textAlign = textAlign
+  element.style.direction = direction
+  element.style.unicodeBidi = 'plaintext'
+
+  const descendants = element.querySelectorAll(
+    'p, li, ul, ol, div, span, blockquote',
+  )
+  descendants.forEach(node => {
+    node.style.textAlign = textAlign
+    node.style.direction = direction
+    node.style.unicodeBidi = 'plaintext'
+  })
+}
+
+const _applyChooseCameraPageTextDirection = RC => {
+  const isRTL = RC.LD === RC._CONST.RTL
+  _applyDirectionalTextAlignment(
+    document.getElementById('rc-camera-instruction-text'),
+    isRTL,
+  )
+  _applyDirectionalTextAlignment(
+    document.getElementById('rc-camera-privacy-text'),
+    isRTL,
+  )
+  _applyDirectionalTextAlignment(
+    document.getElementById('rc-bottom-cameras-caption'),
+    isRTL,
+  )
+}
+
 /**
  * Shows the camera selection title in the top right of the webpage
  * @param {Object} RC - RemoteCalibrator instance
@@ -283,25 +319,23 @@ export const showCameraTitleInTopRight = (
     font-family: ${titleFontFamily};
   `
 
-  // Eyebrow ("Device compatibility") is the page header. Match the
-  // font-family / size / weight of the Size (1 of 2) page <h1>, which
-  // uses the system font at 2.5rem desktop / 1.8rem mobile (see
-  // .calibration-instruction h1 in src/css/main.css).
+  // Eyebrow ("Device compatibility") is a small label above the main
+  // page title (Choose camera / Choose screen / Camera resolution).
   const eyebrow = titleElement.querySelector('.rc-camera-title-eyebrow')
   if (eyebrow) {
     eyebrow.style.cssText = `
       margin: 0 0 0.15em 0;
       padding: 0;
       font-family: ${titleFontFamily};
-      font-size: clamp(1.8rem, 4vw, 2.5rem);
-      font-weight: 700;
-      color: #000;
-      line-height: 1;
+      font-size: clamp(0.95rem, 2.2vw, 1.2rem);
+      font-weight: 600;
+      color: #444;
+      line-height: 1.15;
     `
   }
 
-  // Subtitle (Choose camera / Choose screen / Camera resolution) uses
-  // the same font as the eyebrow but smaller.
+  // Page title (Choose camera / Choose screen / Camera resolution) is
+  // the large heading when the eyebrow is present.
   const titleH1 = titleElement.querySelector('h1')
   if (titleH1) {
     const subtitle = !!eyebrow
@@ -310,10 +344,10 @@ export const showCameraTitleInTopRight = (
         margin: 0;
         padding: 0;
         font-family: ${titleFontFamily};
-        font-size: clamp(1.1rem, 2.4vw, 1.5rem);
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
         font-weight: 700;
         color: #000;
-        line-height: 1.15;
+        line-height: 1.05;
       `
       : `
         margin: 0;
@@ -982,14 +1016,16 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
         webgazerFaceFeedbackBox.style.display = 'none'
       }
 
+      const popupTextAlign = RC.LD === RC._CONST.RTL ? 'right' : 'left'
+
       await Swal.fire({
         ...swalInfoOptions(RC, { showIcon: false }),
         title: processInlineFormatting(
           phrases.RC_ImprovingCameraResolutionTitle[RC.L],
         ),
         html: `
-            <div style="text-align: left; margin: 1rem 0; padding: 0;">
-              <p style="margin: 0; padding: 0; text-align: left; font-style: normal;"> ${processInlineFormatting(phrases.RC_ImprovingCameraResolution[RC.L].replace('𝟙𝟙𝟙', width).replace('𝟚𝟚𝟚', height))}</p>
+            <div style="text-align: ${popupTextAlign}; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; margin: 1rem 0; padding: 0;">
+              <p style="margin: 0; padding: 0; text-align: ${popupTextAlign}; font-style: normal;"> ${processInlineFormatting(phrases.RC_ImprovingCameraResolution[RC.L].replace('𝟙𝟙𝟙', width).replace('𝟚𝟚𝟚', height))}</p>
             </div>
           `,
         showCancelButton: false,
@@ -1012,7 +1048,7 @@ const checkResolutionAfterSelection = async (RC, options = {}) => {
             titleElement.style.padding = '0'
           }
           if (htmlContainer) {
-            htmlContainer.style.textAlign = 'left'
+            htmlContainer.style.textAlign = popupTextAlign
             // Keep original vertical margins for content
             htmlContainer.style.marginLeft = '0'
             htmlContainer.style.marginRight = '0'
@@ -1537,6 +1573,9 @@ const updateCameraPreviews = async (
     oldPreviewsOuter.outerHTML = newPreviewsHTML
   }
 
+  // Keep body text direction correct after re-rendering camera preview DOM.
+  _applyChooseCameraPageTextDirection(RC)
+
   const titleKey = 'RC_ChooseCameraTitle'
   const messageKey = 'RC_ChooseCamera'
   updateTitleAndDescription(RC, titleKey, messageKey)
@@ -1784,6 +1823,7 @@ export const showCameraSelectionPopup = async (
 
       // Show the camera title now that the popup is visible
       showCameraTitleInTopRight(RC, titleKey)
+      _applyChooseCameraPageTextDirection(RC)
 
       // --- "Choose another screen" / "Choose this screen" toggle ---
       let isInChooseAnotherScreenMode = false
@@ -1822,6 +1862,7 @@ export const showCameraSelectionPopup = async (
                 'Drag this window to another screen.',
             ).replace(/\n/g, '<br>')
           }
+          _applyChooseCameraPageTextDirection(RC)
           currentTitleKey = 'RC_ChooseScreenTitle'
           showCameraTitleInTopRight(RC, currentTitleKey)
 
@@ -1884,6 +1925,7 @@ export const showCameraSelectionPopup = async (
           if (instrDiv) {
             instrDiv.innerHTML = getCurrentInstructionHTML()
           }
+          _applyChooseCameraPageTextDirection(RC)
           // Remove the below-text button + arrow and restore the in-row ones
           const belowDiv = document.getElementById('rc-choose-screen-btn-below')
           if (belowDiv) belowDiv.remove()
@@ -2019,6 +2061,8 @@ export const showCameraSelectionPopup = async (
             phrases?.RC_BottomCameras?.[RC.L] || '',
           )
         }
+
+        _applyChooseCameraPageTextDirection(RC)
       }
 
       RC._cameraSelectionLangUnsub = RC.onLanguageChange(
@@ -2140,6 +2184,55 @@ export const showCameraSelectionPopup = async (
       // Start polling
       startCameraPolling()
 
+      const commitCurrentlyHighlightedCamera = () => {
+        // Ignore while not in fullscreen (participant is dragging window)
+        if (!isFullscreen()) return
+
+        // Prevent action if already loading
+        if (RC.cameraSelectionLoading) {
+          return
+        }
+
+        // Find the currently highlighted camera using stored deviceId
+        let hoveredCamera = null
+        if (RC.highlightedCameraDeviceId) {
+          hoveredCamera = cameras.find(
+            cam => cam.deviceId === RC.highlightedCameraDeviceId,
+          )
+        }
+
+        // If no camera is highlighted, use the first camera as default
+        if (!hoveredCamera && cameras.length > 0) {
+          hoveredCamera = cameras[0]
+        }
+
+        if (hoveredCamera) {
+          // Persist which row the participant is committing from. This
+          // is read later to place cameraXYPx at top vs bottom center.
+          RC.selectedCameraRow = RC.highlightedCameraRow || 'top'
+
+          // Set loading state
+          RC.cameraSelectionLoading = true
+
+          // Disable all camera previews during loading (both rows)
+          _setAllCameraContainersDisabled(cameras, true)
+
+          // Call selectCamera and wait for it to complete (same as click handler)
+          window
+            .selectCamera(hoveredCamera.deviceId, hoveredCamera.label)
+            .then(() => {
+              Swal.clickConfirm()
+            })
+            .catch(error => {
+              console.error('Error selecting camera via Enter key:', error)
+              Swal.clickConfirm()
+            })
+        } else {
+          // No camera available, just close
+          Swal.clickConfirm()
+        }
+      }
+
       // Handle keyboard events
       const keydownListener = event => {
         // Prevent space key from triggering other functions
@@ -2150,48 +2243,7 @@ export const showCameraSelectionPopup = async (
         }
 
         if (event.key === 'Enter' || event.key === 'Return') {
-          // Ignore while not in fullscreen (participant is dragging window)
-          if (!isFullscreen()) return
-
-          // Prevent action if already loading
-          if (RC.cameraSelectionLoading) {
-            return
-          }
-
-          // Find the currently highlighted camera using stored deviceId
-          let hoveredCamera = null
-          if (RC.highlightedCameraDeviceId) {
-            hoveredCamera = cameras.find(
-              cam => cam.deviceId === RC.highlightedCameraDeviceId,
-            )
-          }
-
-          // If no camera is highlighted, use the first camera as default
-          if (!hoveredCamera && cameras.length > 0) {
-            hoveredCamera = cameras[0]
-          }
-
-          if (hoveredCamera) {
-            // Set loading state
-            RC.cameraSelectionLoading = true
-
-            // Disable all camera previews during loading (both rows)
-            _setAllCameraContainersDisabled(cameras, true)
-
-            // Call selectCamera and wait for it to complete (same as click handler)
-            window
-              .selectCamera(hoveredCamera.deviceId, hoveredCamera.label)
-              .then(() => {
-                Swal.clickConfirm()
-              })
-              .catch(error => {
-                console.error('Error selecting camera via Enter key:', error)
-                Swal.clickConfirm()
-              })
-          } else {
-            // No camera available, just close
-            Swal.clickConfirm()
-          }
+          commitCurrentlyHighlightedCamera()
         }
       }
 
@@ -2205,7 +2257,7 @@ export const showCameraSelectionPopup = async (
           RC.keypadHandler,
           () => {
             removeKeypadHandler()
-            Swal.clickConfirm()
+            commitCurrentlyHighlightedCamera()
           },
           false,
           ['return'],
@@ -2552,6 +2604,8 @@ const showNoCameraPopup = async (
   mainVideoContainer,
   originalMainVideoDisplay,
 ) => {
+  const textAlign = RC.LD === RC._CONST.RTL ? 'right' : 'left'
+
   // Restore video container display for the popup
   if (mainVideoContainer) {
     mainVideoContainer.style.display = originalMainVideoDisplay
@@ -2560,7 +2614,7 @@ const showNoCameraPopup = async (
   const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
     html: `
-      <p style="text-align: left; margin-top: 1rem; font-size: 1.2rem; line-height: 1.6;">
+      <p style="text-align: ${textAlign}; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; margin-top: 1rem; font-size: 1.2rem; line-height: 1.6;">
         ${processInlineFormatting(phrases.RC_CameraNotFound[RC.L]).replace('\n', '<br />')}
       </p>
     `,
