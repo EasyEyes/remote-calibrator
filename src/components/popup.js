@@ -188,12 +188,25 @@ const _promoteCameraPreviewsBottomToBody = () => {
 /**
  * Removes the bottom-row preview wrapper (whether it currently lives in
  * the Swal popup or has been promoted to <body>).
+ *
+ * Robust to the case where multiple stale copies exist with the same id
+ * (can happen if the Choose Camera popup is opened, closed, then
+ * reopened across a reconnect cycle and willClose timing was off):
+ * loops while any element with the id is present.
  */
 const _removeCameraPreviewsBottom = () => {
-  const bottomOuter = document.getElementById(
-    'rc-camera-previews-bottom-outer',
-  )
-  if (bottomOuter) bottomOuter.remove()
+  let removed = 0
+  let bottomOuter = document.getElementById('rc-camera-previews-bottom-outer')
+  while (bottomOuter) {
+    bottomOuter.remove()
+    removed++
+    bottomOuter = document.getElementById('rc-camera-previews-bottom-outer')
+  }
+  if (removed > 0) {
+    console.log(
+      `[CameraSelectionPopup] _removeCameraPreviewsBottom removed ${removed} element(s)`,
+    )
+  }
 }
 
 /**
@@ -391,11 +404,14 @@ const _recordCameraData = RC => {
 
 // Ask the participant whether an "unknown"-classified camera is built-in.
 // Sets RC.cameraIncorporationReported and back-fills RC.cameraArray.opinion.
-const askCameraIncorporationOpinion = async RC => {
+const askCameraIncorporationOpinion = async (
+  RC,
+  { renderAboveChooseCamera = false } = {},
+) => {
   const Q = phrases?.RC_IsCameraBuiltIn?.[RC.L] ||
     'Check the video. Is its camera built-into this screen?'
-  const yesText = phrases?.RC_Yes?.[RC.L] || 'Yes'
-  const noText = phrases?.RC_No?.[RC.L] || 'No'
+  const yesText = phrases?.RC_YesHasLight?.[RC.L] || 'Yes'
+  const noText = phrases?.RC_NoNoLight?.[RC.L] || 'No'
   const dontKnowText =
     phrases?.RC_DontKnow?.[RC.L] ||
     "Don't know. (All answers are OK -- this won't affect your participation.)"
@@ -430,15 +446,228 @@ const askCameraIncorporationOpinion = async RC => {
 
   let chosenAnswer = null
 
+  if (renderAboveChooseCamera) {
+    console.log(
+      '[UnknownCamPopup] Opening overlay above Choose Camera page for camera:',
+      RC?.selectedCamera?.label,
+      'classification:',
+      RC?.cameraIncorporation,
+    )
+    const existing = document.getElementById('rc-camera-opinion-overlay')
+    if (existing) {
+      console.log(
+        '[UnknownCamPopup] Removing stale overlay before opening new one',
+      )
+      existing.remove()
+    }
+
+    const overlay = document.createElement('div')
+    overlay.id = 'rc-camera-opinion-overlay'
+    overlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      z-index: 10000000002;
+      background: rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    `
+
+    const panel = document.createElement('div')
+    panel.style.cssText = `
+      width: min(860px, 96vw);
+      max-height: 90vh;
+      overflow: auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      padding: 1.25rem 1.5rem;
+      direction: ${isRTL ? 'rtl' : 'ltr'};
+      text-align: ${isRTL ? 'right' : 'left'};
+    `
+    panel.innerHTML = optionsHTML
+
+    const actions = document.createElement('div')
+    actions.style.cssText = 'display: flex; justify-content: center; margin-top: 1rem;'
+    const proceedBtn = document.createElement('button')
+    proceedBtn.className = 'rc-button'
+    proceedBtn.textContent = proceedText
+    proceedBtn.disabled = true
+    proceedBtn.style.background = '#999'
+    proceedBtn.style.cursor = 'not-allowed'
+    actions.appendChild(proceedBtn)
+    panel.appendChild(actions)
+    overlay.appendChild(panel)
+    document.body.appendChild(overlay)
+
+    const opinionContainer = overlay.querySelector('#rc-camera-opinion')
+    const handler = () => {
+      const checked = opinionContainer?.querySelector(
+        'input[name="rc-camera-opinion"]:checked',
+      )
+      if (!checked) return
+      chosenAnswer = checked.value
+      proceedBtn.disabled = false
+      proceedBtn.style.background = '#019267'
+      proceedBtn.style.cursor = 'pointer'
+      proceedBtn.classList.add('rc-go-button')
+    }
+    opinionContainer?.addEventListener('change', handler)
+    opinionContainer?.addEventListener('click', handler)
+
+    let disconnectUnsub = null
+    let disconnectedDuringOverlay = false
+    let trackEndedHandler = null
+    let monitoredTrack = null
+    const overlayResult = await new Promise(resolve => {
+      const keydown = event => {
+        if ((event.key === 'Enter' || event.key === 'Return') && chosenAnswer) {
+          event.preventDefault()
+          event.stopPropagation()
+          resolve('answered')
+        }
+      }
+      document.addEventListener('keydown', keydown, true)
+      proceedBtn.addEventListener('click', () => {
+        if (chosenAnswer) resolve('answered')
+      })
+
+      // Primary disconnect signal: subscribe to GazeTracker's
+      // disconnect callback. Fires when WebGazer's liveMonitor detects
+      // the disconnect and runs showCameraReconnectionPopup.
+      if (RC.gazeTracker?.onCameraDisconnected) {
+        console.log(
+          '[UnknownCamPopup] Subscribing to gazeTracker.onCameraDisconnected',
+        )
+        disconnectUnsub = RC.gazeTracker.onCameraDisconnected(message => {
+          console.log(
+            '[UnknownCamPopup] gazeTracker disconnect callback fired:',
+            message,
+          )
+          disconnectedDuringOverlay = true
+          resolve('disconnected')
+        })
+      } else {
+        console.warn(
+          '[UnknownCamPopup] No gazeTracker.onCameraDisconnected available — cannot subscribe',
+        )
+      }
+
+      // Secondary disconnect signal: listen directly on the active
+      // video track's `ended` event. WebGazer's liveMonitor has a 5s
+      // grace period after a camera switch during which it suppresses
+      // disconnect events; if the participant pulls the unknown
+      // camera within that window we must still react. The track
+      // 'ended' event fires immediately regardless of grace periods.
+      try {
+        const videoEl = document.getElementById('webgazerVideoFeed')
+        const stream = videoEl?.srcObject
+        const track = stream?.getVideoTracks?.()[0]
+        if (track) {
+          monitoredTrack = track
+          trackEndedHandler = () => {
+            console.warn(
+              '[UnknownCamPopup] Active video track "ended" fired directly. readyState:',
+              track.readyState,
+              'gazeTracker.isCameraDisconnected:',
+              RC.gazeTracker?.isCameraDisconnected?.(),
+            )
+            disconnectedDuringOverlay = true
+            resolve('disconnected')
+          }
+          track.addEventListener('ended', trackEndedHandler, { once: true })
+          console.log(
+            '[UnknownCamPopup] Attached track.ended listener; track readyState:',
+            track.readyState,
+          )
+        } else {
+          console.warn(
+            '[UnknownCamPopup] No active video track found to monitor',
+          )
+        }
+      } catch (error) {
+        console.warn(
+          '[UnknownCamPopup] Failed to attach track.ended listener:',
+          error,
+        )
+      }
+
+      overlay._cleanup = () => {
+        document.removeEventListener('keydown', keydown, true)
+        if (disconnectUnsub) {
+          disconnectUnsub()
+          disconnectUnsub = null
+        }
+        if (monitoredTrack && trackEndedHandler) {
+          monitoredTrack.removeEventListener('ended', trackEndedHandler)
+          trackEndedHandler = null
+          monitoredTrack = null
+        }
+      }
+    })
+
+    console.log(
+      '[UnknownCamPopup] Overlay promise resolved. result:',
+      overlayResult,
+      'disconnectedDuringOverlay:',
+      disconnectedDuringOverlay,
+      'isCameraDisconnected:',
+      RC.gazeTracker?.isCameraDisconnected?.(),
+    )
+
+    if (overlay._cleanup) overlay._cleanup()
+    overlay.remove()
+
+    if (overlayResult === 'disconnected' || disconnectedDuringOverlay) {
+      // The parent Choose Camera Swal is closed by
+      // showCameraReconnectionPopup (via Swal.close()) at almost the
+      // same instant our overlay's disconnect callback fires. We
+      // CANNOT keep awaiting reconnect inside this overlay: the
+      // parent's `await Swal.fire(...)` resolves on the same
+      // microtask tick and showTestPopup's post-selection logic would
+      // run before our recursion finishes — that path then calls
+      // _handlePostCameraResolution against a disconnected camera and
+      // crashes EasyEyes.
+      //
+      // Instead, hand control back to the existing disconnect handler
+      // in showTestPopup by clearing the selection state. That branch
+      // (`!result.selectedCamera && isCameraDisconnected()`) already
+      // waits for onCameraReconnected, lets the reconnection spinner
+      // close, then restarts the Choose Camera flow — which will
+      // re-show this overlay naturally once the unknown camera is
+      // re-selected.
+      console.log(
+        '[UnknownCamPopup] Disconnect path: clearing RC.selectedCamera /',
+        'cameraIncorporation / cameraIncorporationReported so the',
+        'parent Choose Camera flow restarts after reconnect.',
+        'Previous selectedCamera:',
+        RC.selectedCamera?.label,
+      )
+      RC.selectedCamera = null
+      RC.cameraIncorporation = null
+      RC.cameraIncorporationReported = null
+      return
+    }
+    console.log(
+      '[UnknownCamPopup] User answered:',
+      chosenAnswer,
+      'for camera:',
+      RC?.selectedCamera?.label,
+    )
+  } else {
+
   // We handle Enter ourselves -- Swal.update re-renders the body and
   // would visually reset the radios.
   let opinionKeydownListener = null
 
-  const result = await Swal.fire({
+    const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
     icon: undefined,
     title: '',
     html: optionsHTML,
+    background: 'rgba(255, 255, 255, 0.96)',
+    backdrop: 'rgba(0, 0, 0, 0.15)',
     confirmButtonText: proceedText,
     showCancelButton: false,
     allowEnterKey: false,
@@ -513,24 +742,25 @@ const askCameraIncorporationOpinion = async RC => {
     },
   })
 
-  // Camera disconnected -- wait for reconnect, then re-show the popup.
+    // Camera disconnected -- wait for reconnect, then re-show the popup.
   // Mirrors the pattern in showCameraSelectionPopup / _handlePostCameraResolution.
-  if (!chosenAnswer && RC.gazeTracker?.isCameraDisconnected()) {
-    RC._isWaitingForCameraReconnect = true
-    await new Promise(resolve => {
-      const unsub = RC.gazeTracker.onCameraReconnected(() => {
-        unsub()
-        RC._isWaitingForCameraReconnect = false
-        resolve()
+    if (!chosenAnswer && RC.gazeTracker?.isCameraDisconnected()) {
+      RC._isWaitingForCameraReconnect = true
+      await new Promise(resolve => {
+        const unsub = RC.gazeTracker.onCameraReconnected(() => {
+          unsub()
+          RC._isWaitingForCameraReconnect = false
+          resolve()
+        })
       })
-    })
-    // Let the reconnection spinner close before we re-open.
-    let waitedMs = 0
-    while (Swal.isVisible() && waitedMs < 5000) {
-      await new Promise(r => setTimeout(r, 100))
-      waitedMs += 100
+      // Let the reconnection spinner close before we re-open.
+      let waitedMs = 0
+      while (Swal.isVisible() && waitedMs < 5000) {
+        await new Promise(r => setTimeout(r, 100))
+        waitedMs += 100
+      }
+      return await askCameraIncorporationOpinion(RC)
     }
-    return await askCameraIncorporationOpinion(RC)
   }
 
   if (!chosenAnswer) return
@@ -1621,24 +1851,52 @@ const updateCameraPreviews = async (
         }
       })
 
-      // Click to commit (same as clicking OK)
+      // Click to commit (same as clicking OK).
+      //
+      // Mirrors the click handler installed in showCameraSelectionPopup's
+      // didOpen for the initial camera list: when the chosen camera is
+      // classified `unknown`, run the inline overlay
+      // (askCameraIncorporationOpinion) BEFORE closing Choose Camera so
+      // the question appears as a modal on top of this page. Without
+      // this branch the post-selection fallback in showTestPopup runs
+      // the legacy Swal version of the question, which is the
+      // standalone popup that shouldn't appear here.
       container.addEventListener('click', async () => {
-        // Prevent action if already loading
         if (RC.cameraSelectionLoading) {
           return
         }
 
         const deviceId = container.getAttribute('data-device-id')
         const label = container.getAttribute('data-camera-label')
-        // Record whether the user clicked the top or bottom row.
-        // Feature C reads this to set cameraXYPx accordingly.
         RC.selectedCameraRow =
           container.getAttribute('data-camera-row') || 'top'
 
         RC.cameraSelectionLoading = true
         _setAllCameraContainersDisabled(newCameras, true)
 
+        console.log(
+          '[ChooseCamera/Polled] Tile clicked (post-rerender). label:',
+          label,
+          'deviceId:',
+          deviceId,
+        )
         await window.selectCamera(deviceId, label)
+        console.log(
+          '[ChooseCamera/Polled] After selectCamera. RC.cameraIncorporation:',
+          RC.cameraIncorporation,
+        )
+        if (RC.cameraIncorporation === 'unknown') {
+          await askCameraIncorporationOpinion(RC, {
+            renderAboveChooseCamera: true,
+          })
+          console.log(
+            '[ChooseCamera/Polled] Returned from unknown overlay.',
+            'cameraIncorporationReported:',
+            RC.cameraIncorporationReported,
+            'RC.selectedCamera:',
+            RC.selectedCamera?.label,
+          )
+        }
         Swal.clickConfirm()
       })
     }
@@ -1678,6 +1936,23 @@ export const showCameraSelectionPopup = async (
   titleKey = 'RC_ChooseCameraTitle',
   acceptBottomBool = false,
 ) => {
+  // Defensive cleanup: if a previous Choose Camera popup left behind
+  // stale body-level elements (camera title, bottom-row preview wrapper,
+  // unknown-camera overlay), wipe them now BEFORE this new popup is
+  // built. Without this, a reconnect cycle that restarts showTestPopup
+  // can leave duplicate bottom-row tiles and overlapping captions on
+  // the page. See bug report from 2026-05-08 (camera disconnected
+  // during the unknown-camera modal).
+  console.log(
+    '[CameraSelectionPopup] Defensive cleanup of stale body-level elements before opening new popup',
+  )
+  hideCameraTitleFromTopRight()
+  _removeCameraPreviewsBottom()
+  const staleOpinionOverlay = document.getElementById(
+    'rc-camera-opinion-overlay',
+  )
+  if (staleOpinionOverlay) staleOpinionOverlay.remove()
+
   // Title will be shown in didOpen callback to avoid flash before popup renders
 
   // Stash the bottom-camera support flag on RC so updateCameraPreviews
@@ -2184,7 +2459,7 @@ export const showCameraSelectionPopup = async (
       // Start polling
       startCameraPolling()
 
-      const commitCurrentlyHighlightedCamera = () => {
+      const commitCurrentlyHighlightedCamera = async () => {
         // Ignore while not in fullscreen (participant is dragging window)
         if (!isFullscreen()) return
 
@@ -2218,15 +2493,18 @@ export const showCameraSelectionPopup = async (
           _setAllCameraContainersDisabled(cameras, true)
 
           // Call selectCamera and wait for it to complete (same as click handler)
-          window
-            .selectCamera(hoveredCamera.deviceId, hoveredCamera.label)
-            .then(() => {
-              Swal.clickConfirm()
-            })
-            .catch(error => {
-              console.error('Error selecting camera via Enter key:', error)
-              Swal.clickConfirm()
-            })
+          try {
+            await window.selectCamera(hoveredCamera.deviceId, hoveredCamera.label)
+            if (RC.cameraIncorporation === 'unknown') {
+              await askCameraIncorporationOpinion(RC, {
+                renderAboveChooseCamera: true,
+              })
+            }
+            Swal.clickConfirm()
+          } catch (error) {
+            console.error('Error selecting camera via Enter key:', error)
+            Swal.clickConfirm()
+          }
         } else {
           // No camera available, just close
           Swal.clickConfirm()
@@ -2380,9 +2658,37 @@ export const showCameraSelectionPopup = async (
             _setAllCameraContainersDisabled(cameras, true)
 
             // Call the same function that OK button would call
+            console.log(
+              '[ChooseCamera] Tile clicked. label:',
+              label,
+              'deviceId:',
+              deviceId,
+            )
             await window.selectCamera(deviceId, label)
+            console.log(
+              '[ChooseCamera] After selectCamera. RC.cameraIncorporation:',
+              RC.cameraIncorporation,
+              'RC.selectedCamera:',
+              RC.selectedCamera?.label,
+            )
+            if (RC.cameraIncorporation === 'unknown') {
+              await askCameraIncorporationOpinion(RC, {
+                renderAboveChooseCamera: true,
+              })
+              console.log(
+                '[ChooseCamera] Returned from unknown overlay.',
+                'RC.selectedCamera:',
+                RC.selectedCamera?.label,
+                'cameraIncorporationReported:',
+                RC.cameraIncorporationReported,
+                'isCameraDisconnected:',
+                RC.gazeTracker?.isCameraDisconnected?.(),
+              )
+            }
 
-            // Close the popup (same as clicking OK)
+            console.log(
+              '[ChooseCamera] Closing Choose Camera Swal via clickConfirm()',
+            )
             Swal.clickConfirm()
           })
         }
@@ -2440,6 +2746,12 @@ export const showCameraSelectionPopup = async (
 
             if (success) {
               RC.selectedCamera = selectedCamera
+              RC.cameraIncorporation = selectedCamera.incorporation || 'unknown'
+              if (RC.cameraIncorporation === 'unknown') {
+                await askCameraIncorporationOpinion(RC, {
+                  renderAboveChooseCamera: true,
+                })
+              }
               Swal.clickConfirm()
             }
           } catch (error) {
@@ -2449,6 +2761,13 @@ export const showCameraSelectionPopup = async (
       }
     },
     willClose: () => {
+      console.log(
+        '[ChooseCamera] willClose firing.',
+        'RC.selectedCamera:',
+        RC.selectedCamera?.label,
+        'isCameraDisconnected:',
+        RC.gazeTracker?.isCameraDisconnected?.(),
+      )
       // Drop the language-change subscription before tearing down the
       // popup so a stale listener can't try to retranslate a DOM that
       // no longer exists.
@@ -2965,9 +3284,14 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     // handler knows we are going to re-run the camera flow ourselves
     // and should NOT also re-run _handlePostCameraResolution.
     if (!result.selectedCamera && RC.gazeTracker?.isCameraDisconnected()) {
+      console.log(
+        '[showTestPopup/single] Disconnect path triggered.',
+        'Awaiting onCameraReconnected then restarting Choose Camera...',
+      )
       RC._isWaitingForCameraReconnect = true
       await new Promise(resolve => {
         const unsub = RC.gazeTracker.onCameraReconnected(() => {
+          console.log('[showTestPopup/single] onCameraReconnected fired')
           unsub()
           RC._isWaitingForCameraReconnect = false
           resolve()
@@ -2981,6 +3305,9 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
         await new Promise(r => setTimeout(r, 100))
         waitedMs += 100
       }
+      console.log(
+        '[showTestPopup/single] Restarting showTestPopup after reconnect',
+      )
       RC.selectedCamera = null
       RC.cameraIncorporation = null
       RC.cameraIncorporationReported = null
@@ -2989,7 +3316,18 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
 
     // Ask opinion when classification is unknown, then run resolution.
     if (result.selectedCamera) {
-      if (RC.cameraIncorporation === 'unknown') {
+      if (
+        RC.cameraIncorporation === 'unknown' &&
+        !RC.cameraIncorporationReported
+      ) {
+        console.log(
+          '[showTestPopup/single] Falling back to legacy unknown popup',
+          '(should NOT happen if overlay flow worked)',
+        )
+        // Keep a live feed visible behind the unknown-camera question.
+        if (mainVideoContainer) {
+          mainVideoContainer.style.display = originalMainVideoDisplay
+        }
         await askCameraIncorporationOpinion(RC)
       }
       _recordCameraData(RC)
@@ -3014,6 +3352,16 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     'RC_ChooseCameraTitle',
     options.calibrateDistanceAcceptBottomCameraBool === true,
   )
+  console.log(
+    '[showTestPopup] showCameraSelectionPopup returned. selectedCamera:',
+    result?.selectedCamera?.label,
+    'isCameraDisconnected:',
+    RC.gazeTracker?.isCameraDisconnected?.(),
+    'RC.cameraIncorporation:',
+    RC.cameraIncorporation,
+    'RC.cameraIncorporationReported:',
+    RC.cameraIncorporationReported,
+  )
 
   // If popup was interrupted by camera disconnection, wait for the
   // reconnection flow to finish and then re-show camera selection.
@@ -3021,9 +3369,14 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   // knows we are going to re-run the camera flow ourselves and should
   // NOT also re-run _handlePostCameraResolution.
   if (!result.selectedCamera && RC.gazeTracker?.isCameraDisconnected()) {
+    console.log(
+      '[showTestPopup] Disconnect path: awaiting reconnect, then',
+      'restarting Choose Camera (selection ignored).',
+    )
     RC._isWaitingForCameraReconnect = true
     await new Promise(resolve => {
       const unsub = RC.gazeTracker.onCameraReconnected(() => {
+        console.log('[showTestPopup] onCameraReconnected fired')
         unsub()
         RC._isWaitingForCameraReconnect = false
         resolve()
@@ -3037,6 +3390,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       await new Promise(r => setTimeout(r, 100))
       waitedMs += 100
     }
+    console.log('[showTestPopup] Restarting showTestPopup after reconnect')
     RC.selectedCamera = null
     RC.cameraIncorporation = null
     RC.cameraIncorporationReported = null
@@ -3045,7 +3399,18 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
 
   // Ask opinion when classification is unknown, then run resolution.
   if (result.selectedCamera) {
-    if (RC.cameraIncorporation === 'unknown') {
+    if (
+      RC.cameraIncorporation === 'unknown' &&
+      !RC.cameraIncorporationReported
+    ) {
+      console.log(
+        '[showTestPopup] Falling back to legacy unknown popup',
+        '(should NOT happen if overlay flow worked)',
+      )
+      // Keep a live feed visible behind the unknown-camera question.
+      if (mainVideoContainer) {
+        mainVideoContainer.style.display = originalMainVideoDisplay
+      }
       await askCameraIncorporationOpinion(RC)
     }
     _recordCameraData(RC)
