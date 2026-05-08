@@ -99,6 +99,12 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   await checkPermissions(this, permMessage)
 
   // 4. "Starting..." message in the same style as the resolution message.
+  // Ensure the standard EasyEyes gray (#eee) background is painted under
+  // the message so this page matches every other RC page. Without this
+  // the body's default (white) shows through and "Connecting to your
+  // webcam(s) ..." looks noticeably lighter than neighboring pages.
+  const _backgroundAddedHere = this.background === null
+  if (_backgroundAddedHere) this._addBackground()
   const startingMsg = document.createElement('div')
   startingMsg.id = 'rc-starting-message'
   startingMsg.style.cssText = `
@@ -148,6 +154,10 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   const leftoverLoading = document.getElementById('camera-loading-text')
   if (leftoverLoading) leftoverLoading.remove()
   hideResolutionSettingMessage()
+
+  // Tear down the gray background we added before "Starting..." so the
+  // consumer app's next page renders against its own page.
+  if (_backgroundAddedHere) this._removeBackground()
 
   // 8. Hide the live video feed so it doesn't bleed into whatever page
   // the consumer app shows next (e.g. consent form, screen-size step).

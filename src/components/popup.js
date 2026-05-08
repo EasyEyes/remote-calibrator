@@ -318,6 +318,10 @@ export const showCameraTitleInTopRight = (
   // inherits from `#calibration-background *` in src/css/main.css).
   const titleFontFamily =
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif"
+  const smallScreen = window.matchMedia('(max-width: 480px)').matches
+  // Match Size-page heading sizes from src/css/main.css:
+  // desktop 2.5rem, mobile 1.8rem.
+  const sizePageTitleSize = smallScreen ? '1.8rem' : '2.5rem'
 
   titleElement.style.cssText = `
     position: fixed;
@@ -340,10 +344,10 @@ export const showCameraTitleInTopRight = (
       margin: 0 0 0.15em 0;
       padding: 0;
       font-family: ${titleFontFamily};
-      font-size: clamp(0.95rem, 2.2vw, 1.2rem);
-      font-weight: 600;
-      color: #444;
-      line-height: 1.15;
+      font-size: 1.4rem;
+      font-weight: 400;
+      color: #000;
+      line-height: 1.6;
     `
   }
 
@@ -357,19 +361,19 @@ export const showCameraTitleInTopRight = (
         margin: 0;
         padding: 0;
         font-family: ${titleFontFamily};
-        font-size: clamp(1.8rem, 4vw, 2.5rem);
-        font-weight: 700;
+        font-size: ${sizePageTitleSize};
+        font-weight: 400;
         color: #000;
-        line-height: 1.05;
+        line-height: ${smallScreen ? '120%' : '100%'};
       `
       : `
         margin: 0;
         padding: 0;
         font-family: ${titleFontFamily};
-        font-size: clamp(1.8rem, 4vw, 2.5rem);
-        font-weight: 700;
+        font-size: ${sizePageTitleSize};
+        font-weight: 400;
         color: #000;
-        line-height: 1;
+        line-height: ${smallScreen ? '120%' : '100%'};
       `
   }
 
@@ -1449,18 +1453,12 @@ const createCameraPreviews = async (
   }
 
   const isRTL = RC.LD === RC._CONST.RTL
-  const arrowChar = isRTL ? '←' : '→'
 
   // Outer wrapper centers the video group
   let previewsHTML = `<div id="rc-camera-previews-outer" style="display: flex; justify-content: center; width: 100%;">`
 
-  // Inner wrapper: relative, so arrow + button are positioned relative to the video group
-  previewsHTML += `<div style="position: relative; display: inline-flex; overflow: visible;">`
-
-  // Arrow positioned just outside the left (LTR) or right (RTL) of the video group
-  previewsHTML += `
-    <div id="rc-camera-arrow" style="position: absolute; ${isRTL ? 'right' : 'left'}: 0; top: 50%; transform: translate(${isRTL ? '100%' : '-100%'}, -50%); font-size: clamp(36pt, 8vw, 72pt); color: #000; user-select: none; pointer-events: none; line-height: 1; z-index: 1;">${arrowChar}</div>
-  `
+  // Inner wrapper holds the video group.
+  previewsHTML += `<div style="display: inline-flex; overflow: visible;">`
 
   // Videos row
   previewsHTML += `<div style="display: flex; flex-wrap: nowrap; gap: 10px; align-items: center;">`
@@ -1505,35 +1503,6 @@ const createCameraPreviews = async (
   // Close the videos flex row
   previewsHTML += '</div>'
 
-  // "Choose another screen" button positioned just outside the right (LTR) or left (RTL) of videos
-  previewsHTML += `
-    <div id="rc-choose-screen-btn-wrapper" style="position: absolute; ${isRTL ? 'left' : 'right'}: 0; top: 50%; transform: translate(${isRTL ? '-100%' : '100%'}, -50%); display: flex; align-items: center; justify-content: center; padding: 5px; z-index: 1;">
-      <button id="rc-choose-another-screen-btn" class="rc-button" style="
-        min-width: clamp(150px, 18vw, 260px);
-        max-width: min(36vw, 420px);
-        width: fit-content;
-        height: auto;
-        min-height: calc(${previewSize.height} / 3 * 1.15 * 0.75);
-        background: #999 !important;
-        border: 2px solid #ccc !important;
-        border-radius: 24px !important;
-        font-size: clamp(0.8rem, 1.2vw, 1rem) !important;
-        padding: 0.5rem 1.05rem !important;
-        margin: 0 !important;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        line-height: 1.3;
-        white-space: normal;
-        overflow-wrap: anywhere;
-        word-break: normal;
-        box-sizing: border-box;
-      ">${processInlineFormatting(phrases.RC_ChooseAnotherScreenButton?.[RC.L] || 'Choose another screen')}</button>
-    </div>
-  `
-
   // Close inner relative wrapper + outer centering wrapper
   previewsHTML += '</div></div>'
 
@@ -1543,8 +1512,7 @@ const createCameraPreviews = async (
   // top row with the same set of cameras. Anchored to the bottom of the
   // viewport via `position: fixed` so participants whose built-in
   // camera is at the bottom of the screen can pick the video they see
-  // themselves looking at. No arrow / "Choose another screen" button is
-  // duplicated here -- those belong to the top row only.
+  // themselves looking at.
   //
   // High z-index keeps the row above any other UI on the page. The
   // wrapper is later promoted to <body> via
@@ -2028,7 +1996,7 @@ export const showCameraSelectionPopup = async (
 
   // Calculate dynamic maxWidth based on number of cameras
   // Each camera preview is approximately 280px wide (272px + padding + margins)
-  // Allow the popup to expand to fit all cameras without artificial width limits
+  // Allow the popup to expand to fit all cameras without artificial width limits.
   const cameraPreviewWidth = 272 // Actual video width
   const cameraPadding = 10 // Padding around each camera
   const cameraMargin = 5 // Margin between cameras
@@ -2036,7 +2004,7 @@ export const showCameraSelectionPopup = async (
   const minWidth = 600 // Minimum width for 2 cameras
   const calculatedWidth = Math.max(
     minWidth,
-    totalCameraWidth * (cameras.length + 1) + 100, // +1 for the "Choose another screen" button
+    totalCameraWidth * cameras.length + 100,
   )
   const dynamicMaxWidth = `${calculatedWidth}px`
 
@@ -2114,15 +2082,55 @@ export const showCameraSelectionPopup = async (
       // the new translation. The `message` parameter snapshot was the
       // bug -- it locked in whatever language was active at the moment
       // showTestPopup ran.
-      const getCurrentInstructionHTML = () =>
-        processInlineFormatting(
-          phrases.RC_ChooseCamera?.[RC.L] || message || '',
-        ).replace(/\n/g, '<br>')
-
+      const makeInlineActionButtonHTML = (id, label) => {
+        const buttonLabel = processInlineFormatting(label || '')
+        return `<button id="${id}" class="rc-button rc-go-button" style="font-size: 1rem !important; padding: 0.5rem 2rem !important; margin: 0 0.2rem;">${buttonLabel}</button>`
+      }
+      const getChooseCameraInstructionHTML = () => {
+        const template =
+          phrases.RC_ChooseCameraWithButton?.[RC.L] ||
+          phrases.RC_ChooseCamera?.[RC.L] ||
+          message ||
+          ''
+        const buttonHTML = makeInlineActionButtonHTML(
+          'rc-choose-another-screen-btn',
+          phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
+            'Choose another screen',
+        )
+        return processInlineFormatting(template)
+          .replace('[[BBB]]', buttonHTML)
+          .replace(/\n/g, '<br>')
+      }
+      const getChooseScreenInstructionHTML = () => {
+        const template =
+          phrases.RC_DragToAnotherScreenWithButton?.[RC.L] ||
+          phrases.RC_DragToAnotherScreen?.[RC.L] ||
+          'Drag this window to another screen.'
+        const buttonHTML = makeInlineActionButtonHTML(
+          'rc-choose-this-screen-btn',
+          phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen',
+        )
+        return processInlineFormatting(template)
+          .replace('[[BBB]]', buttonHTML)
+          .replace(/\n/g, '<br>')
+      }
+      const bindScreenToggleButton = () => {
+        const chooseAnotherScreenBtn = document.getElementById(
+          'rc-choose-another-screen-btn',
+        )
+        if (chooseAnotherScreenBtn) {
+          chooseAnotherScreenBtn.onclick = screenBtnHandler
+        }
+        const chooseThisScreenBtn = document.getElementById(
+          'rc-choose-this-screen-btn',
+        )
+        if (chooseThisScreenBtn) {
+          chooseThisScreenBtn.onclick = screenBtnHandler
+        }
+      }
       const screenBtnHandler = async () => {
-        const btn = document.getElementById('rc-choose-another-screen-btn')
         const instrDiv = document.getElementById('rc-camera-instruction-text')
-        if (!btn) return
+        if (!instrDiv) return
 
         if (!isInChooseAnotherScreenMode) {
           isInChooseAnotherScreenMode = true
@@ -2132,11 +2140,9 @@ export const showCameraSelectionPopup = async (
           RC._inChooseScreenMode = true
           await exitFullscreen()
           if (instrDiv) {
-            instrDiv.innerHTML = processInlineFormatting(
-              phrases.RC_DragToAnotherScreen?.[RC.L] ||
-                'Drag this window to another screen.',
-            ).replace(/\n/g, '<br>')
+            instrDiv.innerHTML = getChooseScreenInstructionHTML()
           }
+          bindScreenToggleButton()
           _applyChooseCameraPageTextDirection(RC)
           currentTitleKey = 'RC_ChooseScreenTitle'
           showCameraTitleInTopRight(RC, currentTitleKey)
@@ -2150,79 +2156,20 @@ export const showCameraSelectionPopup = async (
             _applyCameraContainerState(j, 'normal', 'both')
           }
 
-          // Hide the original button wrapper, camera arrow, and privacy text
-          const btnWrapper = document.getElementById(
-            'rc-choose-screen-btn-wrapper',
-          )
-          if (btnWrapper) btnWrapper.style.display = 'none'
-          const cameraArrow = document.getElementById('rc-camera-arrow')
-          if (cameraArrow) cameraArrow.style.display = 'none'
+          // Hide privacy text while on Choose Screen mode.
           const privacyText = document.getElementById('rc-camera-privacy-text')
           if (privacyText) privacyText.style.display = 'none'
-
-          const isRTL = RC.LD === RC._CONST.RTL
-          const screenArrow = isRTL ? '←' : '→'
-          const belowDiv = document.createElement('div')
-          belowDiv.id = 'rc-choose-screen-btn-below'
-          belowDiv.style.cssText =
-            'display: flex; align-items: center; justify-content: center; margin-top: 0.75rem; flex-shrink: 0; padding-bottom: 0.5rem;'
-          if (isRTL) belowDiv.style.direction = 'rtl'
-
-          const arrowSpan = document.createElement('span')
-          arrowSpan.style.cssText =
-            'font-size: clamp(36pt, 8vw, 72pt); color: #000; user-select: none; pointer-events: none; line-height: 1; flex-shrink: 0;'
-          arrowSpan.textContent = screenArrow
-
-          const belowBtn = document.createElement('button')
-          belowBtn.id = 'rc-choose-another-screen-btn'
-          belowBtn.className = 'rc-button rc-go-button'
-          belowBtn.style.cssText =
-            'font-size: 1rem !important; padding: 0.5rem 2rem !important;'
-          belowBtn.innerHTML = processInlineFormatting(
-            phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen',
-          )
-
-          // Invisible spacer to balance the arrow so button stays centered
-          const spacer = document.createElement('span')
-          spacer.style.cssText =
-            'font-size: clamp(36pt, 8vw, 72pt); visibility: hidden; flex-shrink: 0; line-height: 1;'
-          spacer.textContent = screenArrow
-
-          belowDiv.appendChild(arrowSpan)
-          belowDiv.appendChild(belowBtn)
-          belowDiv.appendChild(spacer)
-          instrDiv.parentElement.appendChild(belowDiv)
-          belowBtn.onclick = screenBtnHandler
         } else {
           isInChooseAnotherScreenMode = false
           RC._inChooseScreenMode = false
           await getFullscreen(RC.L, RC)
           if (instrDiv) {
-            instrDiv.innerHTML = getCurrentInstructionHTML()
+            instrDiv.innerHTML = getChooseCameraInstructionHTML()
           }
+          bindScreenToggleButton()
           _applyChooseCameraPageTextDirection(RC)
-          // Remove the below-text button + arrow and restore the in-row ones
-          const belowDiv = document.getElementById('rc-choose-screen-btn-below')
-          if (belowDiv) belowDiv.remove()
-          const cameraArrow = document.getElementById('rc-camera-arrow')
-          if (cameraArrow) cameraArrow.style.display = ''
           const privacyText = document.getElementById('rc-camera-privacy-text')
           if (privacyText) privacyText.style.display = ''
-          const btnWrapper = document.getElementById(
-            'rc-choose-screen-btn-wrapper',
-          )
-          if (btnWrapper) {
-            btnWrapper.style.display = ''
-            const rowBtn = btnWrapper.querySelector('button')
-            if (rowBtn) {
-              rowBtn.innerHTML = processInlineFormatting(
-                phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
-                  'Choose another screen',
-              )
-              rowBtn.style.background = '#999'
-              rowBtn.onclick = screenBtnHandler
-            }
-          }
           currentTitleKey = titleKey
           showCameraTitleInTopRight(RC, currentTitleKey)
 
@@ -2239,13 +2186,15 @@ export const showCameraSelectionPopup = async (
         }
       }
 
+      const instructionDiv = document.getElementById('rc-camera-instruction-text')
+      if (instructionDiv) {
+        instructionDiv.innerHTML = getChooseCameraInstructionHTML()
+      }
+
       // Store handler so updateCameraPreviews can re-attach it
       window._rcScreenBtnHandler = screenBtnHandler
 
-      const screenBtn = document.getElementById('rc-choose-another-screen-btn')
-      if (screenBtn) {
-        screenBtn.onclick = screenBtnHandler
-      }
+      bindScreenToggleButton()
 
       // Store initial cameras for comparison
       let currentCameras = [...cameras]
@@ -2277,11 +2226,9 @@ export const showCameraSelectionPopup = async (
         const instrDiv = document.getElementById('rc-camera-instruction-text')
         if (instrDiv) {
           instrDiv.innerHTML = isInChooseAnotherScreenMode
-            ? processInlineFormatting(
-                phrases.RC_DragToAnotherScreen?.[RC.L] ||
-                  'Drag this window to another screen.',
-              ).replace(/\n/g, '<br>')
-            : getCurrentInstructionHTML()
+            ? getChooseScreenInstructionHTML()
+            : getChooseCameraInstructionHTML()
+          bindScreenToggleButton()
         }
 
         // Privacy notice is only rendered when the caller passed a
@@ -2291,28 +2238,6 @@ export const showCameraSelectionPopup = async (
           privDiv.innerHTML = processInlineFormatting(
             phrases.RC_CameraPrivacyAssurance?.[RC.L] || privacyMessage || '',
           ).replace(/\n/g, '<br>')
-        }
-
-        // "Choose another screen" / "Choose this screen" buttons.
-        // Both ids can coexist in the DOM during the toggled state
-        // (the row button is hidden, not removed), so update each by
-        // its parent wrapper to avoid getElementById ambiguity.
-        const rowBtn = document.querySelector(
-          '#rc-choose-screen-btn-wrapper button',
-        )
-        if (rowBtn) {
-          rowBtn.innerHTML = processInlineFormatting(
-            phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
-              'Choose another screen',
-          )
-        }
-        const belowBtn = document.querySelector(
-          '#rc-choose-screen-btn-below button',
-        )
-        if (belowBtn) {
-          belowBtn.innerHTML = processInlineFormatting(
-            phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen',
-          )
         }
 
         // Per-tile captions: re-render with the localized
