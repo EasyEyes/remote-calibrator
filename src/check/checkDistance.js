@@ -601,9 +601,7 @@ const trackDistanceCheck = async (
       const lang = RC.language.value
 
       const basePhrase =
-        phrases.RC_produceDistanceLocation?.[lang] ||
-        phrases.RC_produceDistance?.[lang] ||
-        ''
+        phrases.RC_produceDistanceLocation?.[lang]
 
       const replaceTS = hasTiltAndSwivel
         ? phrases.RC_tiltAndSwivel?.[lang] || ''
@@ -611,16 +609,29 @@ const trackDistanceCheck = async (
       const replaceSSS = _saveSnapshotsBool
         ? phrases.RC_snapshot?.[lang] || ''
         : phrases.RC_temporarySnapshot?.[lang] || ''
-      const replaceLLL = hasCenter
-        ? phrases.RC_theCenterLocationShort?.[lang] || ''
-        : hasCamera
-          ? phrases.RC_theCameraLocationShort?.[lang] || ''
-          : phrases.RC_theCenterLocationShort?.[lang] || ''
-      const replaceLLLLLL = hasCenter
-        ? phrases.RC_theCenterLocationLong?.[lang] || ''
-        : hasCamera
-          ? phrases.RC_theCameraLocationLong?.[lang] || ''
-          : phrases.RC_theCenterLocationLong?.[lang] || ''
+      let replaceLLL, replaceLLLLLL
+      if (hasCenter) {
+        replaceLLL = phrases.RC_theCenterLocationShort?.[lang] || ''
+        replaceLLLLLL = phrases.RC_theCenterLocationLong?.[lang] || ''
+      } else if (hasCamera) {
+        const cameraXYPx = getCameraXYPx(RC)
+        const centerY = window.screen.height / 2
+        const cameraAtTopBool = cameraXYPx[1] < centerY
+        if (cameraAtTopBool) {
+          replaceLLL = phrases.RC_theTopCenterLocationShort?.[lang]
+            || 'the top-center of the screen'
+          replaceLLLLLL = phrases.RC_theTopCenterLocationLong?.[lang]
+            || 'the top-center of the screen (and video)'
+        } else {
+          replaceLLL = phrases.RC_theBottomCenterLocationShort?.[lang]
+            || 'the bottom-center of the screen'
+          replaceLLLLLL = phrases.RC_theBottomCenterLocationLong?.[lang]
+            || 'the bottom-center of the screen (and video)'
+        }
+      } else {
+        replaceLLL = phrases.RC_theCenterLocationShort?.[lang] || ''
+        replaceLLLLLL = phrases.RC_theCenterLocationLong?.[lang] || ''
+      }
 
       let instructionBodyPhrase = basePhrase
         .replace(/\[\[TS\]\]/g, replaceTS)
