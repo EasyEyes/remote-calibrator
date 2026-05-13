@@ -575,7 +575,7 @@ class RemoteCalibrator {
   }
 
   /**
-   * @param {{ value: { selectedCameraName: string|null; cameraIncorporation: 'built-in'|'external'|'unknown'|null; cameraIncorporationReported: 'built-in'|'external'|"Don't know"|null; cameraArray: Array<{ name: string; class: 'built-in'|'external'|'unknown'; builtInScore: number; externalScore: number; likelyBuiltIn: number; opinion: 'built-in'|'external'|'dontKnow'|null }>; }; timestamp: number; }} data
+   * @param {{ value: { selectedCameraName: string|null; cameraIncorporation: 'built-in'|'external'|'unknown'|null; cameraIncorporationReported: 'built-in'|'external'|"Don't know"|null; cameraKindOverride?: 'assess'|'built-in'|'external'|'unknown'; cameraArray: Array<{ name: string; class: 'built-in'|'external'|'unknown'; builtInScore: number; externalScore: number; likelyBuiltIn: number; kindOverrideApplied?: boolean; opinion: 'built-in'|'external'|'dontKnow'|null }>; }; timestamp: number; }} data
    */
   set newCameraData(data) {
     this._cameraData.push(data)

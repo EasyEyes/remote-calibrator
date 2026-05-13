@@ -58,6 +58,9 @@ const _filterCamerasByExternalPolicy = (cameras, options) =>
     ? cameras
     : cameras.filter(c => c.likelyBuiltIn >= 0)
 
+/** Returned by `askCameraIncorporationOpinion` when the participant picks "choose another camera". */
+const RC_CAMERA_OPINION_CHOOSE_AGAIN = 'choose-again'
+
 const _cameraCaptionHTML = (label, resolution, RC, incorporation) => {
   const clean = _stripHexId(label)
   const tag = _incorporationLabel(RC, incorporation)
@@ -151,6 +154,23 @@ const _applyCameraContainerState = (index, state, row = 'both') => {
 }
 
 /**
+ * Green "committed selection" styling: only the row the participant
+ * chose (RC.selectedCameraRow) is highlighted for the active device;
+ * the duplicate tile in the other row stays neutral.
+ */
+const _applyCommittedCameraHighlight = (cameras, selectedCamera, RC) => {
+  const activeRow = RC.selectedCameraRow === 'bottom' ? 'bottom' : 'top'
+  cameras.forEach((camera, index) => {
+    const isActive = camera.deviceId === selectedCamera.deviceId
+    if (isActive) {
+      _applyCameraContainerState(index, 'highlight', activeRow)
+    } else {
+      _applyCameraContainerState(index, 'normal', 'both')
+    }
+  })
+}
+
+/**
  * Disables (or re-enables) all preview containers in both rows during
  * loading.
  */
@@ -161,6 +181,14 @@ const _setAllCameraContainersDisabled = (cameras, disabled) => {
       c.style.pointerEvents = disabled ? 'none' : 'auto'
       c.style.opacity = disabled ? '0.6' : '1'
     }
+  }
+}
+
+const _resumeChooseCameraAfterUnknownOpinionDismiss = RC => {
+  RC.cameraSelectionLoading = false
+  const list = RC._visibleCameras
+  if (Array.isArray(list) && list.length > 0) {
+    _setAllCameraContainersDisabled(list, false)
   }
 }
 
@@ -408,6 +436,8 @@ const _recordCameraData = RC => {
 
 // Ask the participant whether an "unknown"-classified camera is built-in.
 // Sets RC.cameraIncorporationReported and back-fills RC.cameraArray.opinion.
+// Resolves with `RC_CAMERA_OPINION_CHOOSE_AGAIN` when the participant picks
+// "choose another camera" (overlay on Choose Camera, or legacy Swal).
 const askCameraIncorporationOpinion = async (
   RC,
   { renderAboveChooseCamera = false } = {},
@@ -419,6 +449,8 @@ const askCameraIncorporationOpinion = async (
   const dontKnowText =
     phrases?.RC_DontKnow?.[RC.L] ||
     "Don't know. (All answers are OK -- this won't affect your participation.)"
+  const chooseAgainText =
+    phrases?.RC_ChooseAnotherCamera?.[RC.L] || 'Oops. Let me choose again.'
   const proceedText = phrases?.T_proceed?.[RC.L] || 'Proceed'
   const isRTL = RC.LD === RC._CONST.RTL
 
@@ -444,6 +476,10 @@ const askCameraIncorporationOpinion = async (
       <div style="${rowStyle}">
         <input id="rc-opinion-dont-know" type="radio" name="rc-camera-opinion" value="dontKnow" style="${inputStyle}" />
         <label for="rc-opinion-dont-know" style="${labelStyle}">${processInlineFormatting(dontKnowText)}</label>
+      </div>
+      <div style="${rowStyle}">
+        <input id="rc-opinion-choose-again" type="radio" name="rc-camera-opinion" value="chooseAgain" style="${inputStyle}" />
+        <label for="rc-opinion-choose-again" style="${labelStyle}">${processInlineFormatting(chooseAgainText)}</label>
       </div>
     </div>
   `
@@ -769,6 +805,13 @@ const askCameraIncorporationOpinion = async (
 
   if (!chosenAnswer) return
 
+  if (chosenAnswer === 'chooseAgain') {
+    if (renderAboveChooseCamera) {
+      _resumeChooseCameraAfterUnknownOpinionDismiss(RC)
+    }
+    return RC_CAMERA_OPINION_CHOOSE_AGAIN
+  }
+
   const reportedMap = {
     'built-in': 'built-in',
     external: 'external',
@@ -1089,17 +1132,44 @@ export const showPopup = async (RC, title, message, onClose = null) => {
   return result
 }
 
+// Resolve the camera-kind override from the options bag and/or the RC
+// instance. Defaults to 'assess'.
+const _resolveCameraKindOverride = (RC, options) => {
+  const fromOptionsUnderscore =
+    options && options._calibrateDistanceCameraKindOverride
+  const fromOptions =
+    options && options.calibrateDistanceCameraKindOverride
+  const fromRCUnderscore = RC && RC._calibrateDistanceCameraKindOverride
+  const fromRC = RC && RC.calibrateDistanceCameraKindOverride
+  return (
+    fromOptionsUnderscore ||
+    fromOptions ||
+    fromRCUnderscore ||
+    fromRC ||
+    'assess'
+  )
+}
+
 // Enumerate cameras and tag each with likelyBuiltIn + incorporation.
 // Labels are only populated after getUserMedia permission is granted.
-const getAvailableCameras = async () => {
+//
+// `kindOverride` is `_calibrateDistanceCameraKindOverride` (default
+// 'assess'). When not 'assess', every camera's incorporation is forced
+// to the override value.
+const getAvailableCameras = async (kindOverride = 'assess') => {
   try {
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
       const devices = await navigator.mediaDevices.enumerateDevices()
       const cameras = devices.filter(device => device.kind === 'videoinput')
       return cameras.map(cam => {
         // MediaDeviceInfo is read-only -- wrap in a plain object.
-        const { score, classification, builtInScore, externalScore } =
-          likelyBuiltIn(cam, cameras)
+        const {
+          score,
+          classification,
+          builtInScore,
+          externalScore,
+          overrideApplied,
+        } = likelyBuiltIn(cam, cameras, kindOverride)
         return {
           deviceId: cam.deviceId,
           kind: cam.kind,
@@ -1109,6 +1179,7 @@ const getAvailableCameras = async () => {
           incorporation: classification,
           builtInScore,
           externalScore,
+          kindOverrideApplied: overrideApplied === true,
         }
       })
     }
@@ -1535,9 +1606,9 @@ const createCameraPreviews = async (
       const previewBottomId = `camera-preview-bottom-${i}`
       // Bottom tile renders neutral by default -- only the matching
       // top tile shows the green active-camera highlight on initial
-      // render. Hover (in `_applyCameraContainerState`) mirrors the
-      // highlight onto both rows together so the participant gets
-      // immediate feedback on whichever tile they point at.
+      // render. Hover highlights only the tile under the cursor; after a
+      // committed click, `_applyCommittedCameraHighlight` greens only
+      // the chosen row.
       const cleanLabel = _stripHexId(camera.label || `Camera ${i + 1}`)
       const initialCaption = _cameraCaptionHTML(
         camera.label || `Camera ${i + 1}`,
@@ -1697,7 +1768,7 @@ const updateTitleAndDescription = (RC, titleKey, messageKey) => {
   const messageDiv = document.getElementById('rc-camera-instruction-text')
   if (messageDiv) {
     messageDiv.innerHTML = processInlineFormatting(
-      phrases[messageKey][RC.L],
+      phrases[messageKey]?.[RC.L] ?? '',
     ).replace(/\n/g, '<br>')
   }
 }
@@ -1774,9 +1845,47 @@ const updateCameraPreviews = async (
   // Keep body text direction correct after re-rendering camera preview DOM.
   _applyChooseCameraPageTextDirection(RC)
 
-  const titleKey = 'RC_ChooseCameraTitle'
-  const messageKey = 'RC_ChooseCamera'
-  updateTitleAndDescription(RC, titleKey, messageKey)
+  // Re-paint the instruction text using the same builders the initial
+  // didOpen render uses, so the `[[BBB]]` placeholder gets substituted
+  // with the live "Choose another screen" / "Choose this screen"
+  // button. Calling the old updateTitleAndDescription here was the
+  // source of the "button disappears, [[BBB]] becomes visible" bug:
+  // it wrote the raw phrase straight into the DOM without performing
+  // the placeholder substitution, so whenever camera-list polling
+  // detected a transient change (hot-plug, deviceId churn after the
+  // permission prompt resolves, etc.) the participant lost the button.
+  const inChooseScreenMode = RC._inChooseScreenMode === true
+  const titleKey = inChooseScreenMode
+    ? 'RC_ChooseScreenTitle'
+    : 'RC_ChooseCameraTitle'
+  showCameraTitleInTopRight(RC, titleKey)
+  const instructionDivForRepaint = document.getElementById(
+    'rc-camera-instruction-text',
+  )
+  if (instructionDivForRepaint) {
+    const buildInstruction = inChooseScreenMode
+      ? RC._getChooseScreenInstructionHTML
+      : RC._getChooseCameraInstructionHTML
+    if (typeof buildInstruction === 'function') {
+      instructionDivForRepaint.innerHTML = buildInstruction()
+    } else {
+      // Fallback: the builders should always be stashed by didOpen, but
+      // if a re-render somehow races the first paint, still strip the
+      // unresolved [[BBB]] token so a raw placeholder never reaches the
+      // participant.
+      const messageKey = inChooseScreenMode
+        ? 'RC_ChooseScreen'
+        : 'RC_ChooseCamera'
+      instructionDivForRepaint.innerHTML = processInlineFormatting(
+        phrases[messageKey]?.[RC.L] ?? '',
+      )
+        .replace(/\[\[BBB\]\]/g, '')
+        .replace(/\n/g, '<br>')
+    }
+  }
+  if (typeof RC._bindScreenToggleButton === 'function') {
+    RC._bindScreenToggleButton()
+  }
 
   // Re-add event listeners for new previews, on BOTH rows. Hover only
   // lights up the hovered tile (the one the participant is pointing
@@ -1854,9 +1963,12 @@ const updateCameraPreviews = async (
           RC.cameraIncorporation,
         )
         if (RC.cameraIncorporation === 'unknown') {
-          await askCameraIncorporationOpinion(RC, {
+          const opinionResult = await askCameraIncorporationOpinion(RC, {
             renderAboveChooseCamera: true,
           })
+          if (opinionResult === RC_CAMERA_OPINION_CHOOSE_AGAIN) {
+            return
+          }
           console.log(
             '[ChooseCamera/Polled] Returned from unknown overlay.',
             'cameraIncorporationReported:',
@@ -1870,10 +1982,16 @@ const updateCameraPreviews = async (
     }
   })
 
-  // Re-attach "Choose another screen" button listener if it exists
-  const newScreenBtn = document.getElementById('rc-choose-another-screen-btn')
-  if (newScreenBtn && window._rcScreenBtnHandler) {
-    newScreenBtn.onclick = window._rcScreenBtnHandler
+  // Defensive fallback: if RC._bindScreenToggleButton wasn't available
+  // above (e.g. a polling tick raced the first didOpen paint), still
+  // wire up the "Choose another screen" button so the toggle works.
+  if (typeof RC._bindScreenToggleButton !== 'function') {
+    const newScreenBtn = document.getElementById(
+      'rc-choose-another-screen-btn',
+    )
+    if (newScreenBtn && window._rcScreenBtnHandler) {
+      newScreenBtn.onclick = window._rcScreenBtnHandler
+    }
   }
 
   // The bottom-row wrapper was just re-inserted as a sibling of the top
@@ -1965,7 +2083,11 @@ export const showCameraSelectionPopup = async (
   // Prefer the pre-filtered list from showTestPopup; enumerate as fallback.
   let cameras = RC._visibleCameras
   if (!cameras || cameras.length === 0) {
-    const allCameras = await getAvailableCameras()
+    const kindOverride = _resolveCameraKindOverride(
+      RC,
+      RC._cameraSelectionOptions,
+    )
+    const allCameras = await getAvailableCameras(kindOverride)
     if (!RC.availableCameras) RC.availableCameras = allCameras
     if (!RC.cameraArray) {
       RC.cameraArray = allCameras.map(c => ({
@@ -1974,6 +2096,7 @@ export const showCameraSelectionPopup = async (
         builtInScore: c.builtInScore,
         externalScore: c.externalScore,
         likelyBuiltIn: c.likelyBuiltIn,
+        kindOverrideApplied: c.kindOverrideApplied === true,
         opinion: null,
       }))
     }
@@ -2088,10 +2211,7 @@ export const showCameraSelectionPopup = async (
       }
       const getChooseCameraInstructionHTML = () => {
         const template =
-          phrases.RC_ChooseCameraWithButton?.[RC.L] ||
-          phrases.RC_ChooseCamera?.[RC.L] ||
-          message ||
-          ''
+          phrases.RC_ChooseCamera?.[RC.L] || message || ''
         const buttonHTML = makeInlineActionButtonHTML(
           'rc-choose-another-screen-btn',
           phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
@@ -2103,7 +2223,7 @@ export const showCameraSelectionPopup = async (
       }
       const getChooseScreenInstructionHTML = () => {
         const template =
-          phrases.RC_DragToAnotherScreenWithButton?.[RC.L] ||
+          phrases.RC_ChooseScreen?.[RC.L] ||
           phrases.RC_DragToAnotherScreen?.[RC.L] ||
           'Drag this window to another screen.'
         const buttonHTML = makeInlineActionButtonHTML(
@@ -2193,6 +2313,14 @@ export const showCameraSelectionPopup = async (
 
       // Store handler so updateCameraPreviews can re-attach it
       window._rcScreenBtnHandler = screenBtnHandler
+
+      // Expose the same builders updateCameraPreviews needs to repaint
+      // the instruction text with the button substituted in. Without
+      // these, the camera-list polling path falls back to writing the
+      // raw phrase (with the literal `[[BBB]]`) into the DOM.
+      RC._getChooseCameraInstructionHTML = getChooseCameraInstructionHTML
+      RC._getChooseScreenInstructionHTML = getChooseScreenInstructionHTML
+      RC._bindScreenToggleButton = bindScreenToggleButton
 
       bindScreenToggleButton()
 
@@ -2289,7 +2417,9 @@ export const showCameraSelectionPopup = async (
 
         cameraPollingInterval = setInterval(async () => {
           try {
-            const newCamerasAll = await getAvailableCameras()
+            const opts = RC._cameraSelectionOptions || {}
+            const kindOverride = _resolveCameraKindOverride(RC, opts)
+            const newCamerasAll = await getAvailableCameras(kindOverride)
             // Refresh the full-list stats (covers hot-plugged cameras).
             RC.availableCameras = newCamerasAll
             RC.cameraArray = newCamerasAll.map(c => ({
@@ -2298,13 +2428,13 @@ export const showCameraSelectionPopup = async (
               builtInScore: c.builtInScore,
               externalScore: c.externalScore,
               likelyBuiltIn: c.likelyBuiltIn,
+              kindOverrideApplied: c.kindOverrideApplied === true,
               opinion:
                 RC.cameraArray?.find(prev => prev.name === c.label)?.opinion ||
                 null,
             }))
             // Re-apply the same external-camera filter (driven by
             // calibrateDistanceAllowExternalCameraBool).
-            const opts = RC._cameraSelectionOptions || {}
             const newCameras = _filterCamerasByExternalPolicy(
               newCamerasAll,
               opts,
@@ -2348,15 +2478,12 @@ export const showCameraSelectionPopup = async (
                     const success = await switchToCamera(RC, selectedCamera)
 
                     if (success) {
-                      // Update visual state of all previews immediately
-                      // (in both top and bottom rows, kept in sync).
+                      _applyCommittedCameraHighlight(
+                        newCameras,
+                        selectedCamera,
+                        RC,
+                      )
                       newCameras.forEach((camera, index) => {
-                        const isActive =
-                          camera.deviceId === selectedCamera.deviceId
-                        _applyCameraContainerState(
-                          index,
-                          isActive ? 'highlight' : 'normal',
-                        )
                         for (const c of _getCameraContainersForIndex(index)) {
                           _updateCaptionInContainer(c, camera, index, RC)
                         }
@@ -2421,9 +2548,12 @@ export const showCameraSelectionPopup = async (
           try {
             await window.selectCamera(hoveredCamera.deviceId, hoveredCamera.label)
             if (RC.cameraIncorporation === 'unknown') {
-              await askCameraIncorporationOpinion(RC, {
+              const opinionResult = await askCameraIncorporationOpinion(RC, {
                 renderAboveChooseCamera: true,
               })
+              if (opinionResult === RC_CAMERA_OPINION_CHOOSE_AGAIN) {
+                return
+              }
             }
             Swal.clickConfirm()
           } catch (error) {
@@ -2483,14 +2613,8 @@ export const showCameraSelectionPopup = async (
             const success = await switchToCamera(RC, selectedCamera)
 
             if (success) {
-              // Update visual state of all previews immediately
-              // (kept in sync across top and bottom rows).
+              _applyCommittedCameraHighlight(cameras, selectedCamera, RC)
               cameras.forEach((camera, index) => {
-                const isActive = camera.deviceId === selectedCamera.deviceId
-                _applyCameraContainerState(
-                  index,
-                  isActive ? 'highlight' : 'normal',
-                )
                 for (const c of _getCameraContainersForIndex(index)) {
                   _updateCaptionInContainer(c, camera, index, RC)
                 }
@@ -2597,9 +2721,12 @@ export const showCameraSelectionPopup = async (
               RC.selectedCamera?.label,
             )
             if (RC.cameraIncorporation === 'unknown') {
-              await askCameraIncorporationOpinion(RC, {
+              const opinionResult = await askCameraIncorporationOpinion(RC, {
                 renderAboveChooseCamera: true,
               })
+              if (opinionResult === RC_CAMERA_OPINION_CHOOSE_AGAIN) {
+                return
+              }
               console.log(
                 '[ChooseCamera] Returned from unknown overlay.',
                 'RC.selectedCamera:',
@@ -2635,18 +2762,21 @@ export const showCameraSelectionPopup = async (
 
       window.unhighlightCamera = deviceId => {
         const cameraIndex = cameras.findIndex(cam => cam.deviceId === deviceId)
-        if (cameraIndex !== -1) {
-          const isActive =
-            currentActiveCamera && currentActiveCamera.deviceId === deviceId
-          for (const container of _getCameraContainersForIndex(cameraIndex)) {
-            container.style.backgroundColor = isActive
-              ? '#e8f5e8'
-              : 'transparent'
-            container.style.border = isActive
-              ? '2px solid #28a745'
-              : '2px solid transparent'
-            container.style.transform = 'scale(1)'
-          }
+        if (cameraIndex === -1) return
+        const isActive =
+          currentActiveCamera && currentActiveCamera.deviceId === deviceId
+        const activeRow = RC.selectedCameraRow === 'bottom' ? 'bottom' : 'top'
+        for (const container of _getCameraContainersForIndex(cameraIndex)) {
+          const row =
+            container.getAttribute('data-camera-row') === 'bottom'
+              ? 'bottom'
+              : 'top'
+          const showGreen = isActive && row === activeRow
+          container.style.backgroundColor = showGreen ? '#e8f5e8' : 'transparent'
+          container.style.border = showGreen
+            ? '2px solid #28a745'
+            : '2px solid transparent'
+          container.style.transform = 'scale(1)'
         }
       }
 
@@ -2673,9 +2803,12 @@ export const showCameraSelectionPopup = async (
               RC.selectedCamera = selectedCamera
               RC.cameraIncorporation = selectedCamera.incorporation || 'unknown'
               if (RC.cameraIncorporation === 'unknown') {
-                await askCameraIncorporationOpinion(RC, {
+                const opinionResult = await askCameraIncorporationOpinion(RC, {
                   renderAboveChooseCamera: true,
                 })
+                if (opinionResult === RC_CAMERA_OPINION_CHOOSE_AGAIN) {
+                  return
+                }
               }
               Swal.clickConfirm()
             }
@@ -2749,6 +2882,12 @@ export const showCameraSelectionPopup = async (
       if (window._rcScreenBtnHandler) {
         delete window._rcScreenBtnHandler
       }
+      // Drop the instruction-builder references so a stray repaint
+      // (e.g. a polling tick that fires while teardown is in flight)
+      // can't write into a popup that's already gone.
+      RC._getChooseCameraInstructionHTML = null
+      RC._getChooseScreenInstructionHTML = null
+      RC._bindScreenToggleButton = null
 
       // DON'T restore video container here - let the next step handle it
       // This prevents the blank page flash between popup close and next UI render
@@ -3148,13 +3287,30 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
 
   // Enumerate + classify ALL cameras (full list goes to RC.cameraArray
   // for CSV stats, regardless of the visible filter below).
-  const allCameras = await getAvailableCameras()
+  //
+  // `_calibrateDistanceCameraKindOverride` (FOR TESTING, default
+  // 'assess') lets a scientist force the kind to 'built-in',
+  // 'external', or 'unknown' regardless of label. Results gathered
+  // with anything other than 'assess' should be excluded from
+  // camera-kind tabulation.
+  const kindOverride = _resolveCameraKindOverride(RC, options)
+  RC.calibrateDistanceCameraKindOverride = kindOverride
+  // Keep the underscored alias for back-compat with anything reading the
+  // glossary name directly.
+  RC._calibrateDistanceCameraKindOverride = kindOverride
+  if (kindOverride && kindOverride !== 'assess') {
+    console.log(
+      `[showTestPopup] TESTING: _calibrateDistanceCameraKindOverride = "${kindOverride}". Forcing every camera's kind to "${kindOverride}". Exclude these results from camera-kind tabulation.`,
+    )
+  }
+  const allCameras = await getAvailableCameras(kindOverride)
   RC.cameraArray = allCameras.map(c => ({
     name: c.label || '',
     class: c.incorporation,
     builtInScore: c.builtInScore,
     externalScore: c.externalScore,
     likelyBuiltIn: c.likelyBuiltIn,
+    kindOverrideApplied: c.kindOverrideApplied === true,
     opinion: null,
   }))
 
@@ -3253,7 +3409,17 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
         if (mainVideoContainer) {
           mainVideoContainer.style.display = originalMainVideoDisplay
         }
-        await askCameraIncorporationOpinion(RC)
+        const opinionResultSingle = await askCameraIncorporationOpinion(RC)
+        if (opinionResultSingle === RC_CAMERA_OPINION_CHOOSE_AGAIN) {
+          if (RC.cameraPollingInterval) {
+            clearInterval(RC.cameraPollingInterval)
+            RC.cameraPollingInterval = null
+          }
+          RC.selectedCamera = null
+          RC.cameraIncorporation = null
+          RC.cameraIncorporationReported = null
+          return await showTestPopup(RC, onClose, options)
+        }
       }
       _recordCameraData(RC)
       await _handlePostCameraResolution(RC, options)
@@ -3336,7 +3502,17 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       if (mainVideoContainer) {
         mainVideoContainer.style.display = originalMainVideoDisplay
       }
-      await askCameraIncorporationOpinion(RC)
+      const opinionResultMulti = await askCameraIncorporationOpinion(RC)
+      if (opinionResultMulti === RC_CAMERA_OPINION_CHOOSE_AGAIN) {
+        if (RC.cameraPollingInterval) {
+          clearInterval(RC.cameraPollingInterval)
+          RC.cameraPollingInterval = null
+        }
+        RC.selectedCamera = null
+        RC.cameraIncorporation = null
+        RC.cameraIncorporationReported = null
+        return await showTestPopup(RC, onClose, options)
+      }
     }
     _recordCameraData(RC)
     await _handlePostCameraResolution(RC, options)

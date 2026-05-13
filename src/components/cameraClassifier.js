@@ -26,6 +26,11 @@ export const classify = score => {
 const _classifyLabel = (device, allDevices = []) => {
   const label = (device?.label || '').toLowerCase().trim()
 
+  // Continuity Camera / iPhone-as-webcam: separate device, not the Mac built-in.
+  if (/iphone/.test(label)) {
+    return { decision: 'external', builtInScore: 0, externalScore: 10 }
+  }
+
   let builtInScore = 0
   let externalScore = 0
 
@@ -113,7 +118,61 @@ const _classifyLabel = (device, allDevices = []) => {
   return { decision, builtInScore, externalScore }
 }
 
-export const likelyBuiltIn = (device, allDevices = []) => {
+/**
+ * Valid values for the `_calibrateDistanceCameraKindOverride` parameter.
+ *
+ *   'assess'   = classify kind normally based on the camera name (default).
+ *   'built-in' = skip assessment, force kind to 'built-in'.
+ *   'external' = skip assessment, force kind to 'external'.
+ *   'unknown'  = skip assessment, force kind to 'unknown'.
+ *
+ * FOR TESTING ONLY. When this is set to anything other than 'assess',
+ * results should be excluded from camera-kind tabulation downstream.
+ */
+export const CAMERA_KIND_OVERRIDE_VALUES = [
+  'assess',
+  'built-in',
+  'external',
+  'unknown',
+]
+
+const _normalizeKindOverride = override => {
+  if (typeof override !== 'string') return 'assess'
+  const v = override.trim().toLowerCase()
+  return CAMERA_KIND_OVERRIDE_VALUES.includes(v) ? v : 'assess'
+}
+
+/**
+ * Score / classify a camera, honoring the optional kind override.
+ *
+ * @param {MediaDeviceInfo|Object} device      The camera to classify.
+ * @param {Array} allDevices                   Full enumerateDevices() list (for the
+ *                                              no-label single-camera fallback).
+ * @param {string} [kindOverride='assess']     `_calibrateDistanceCameraKindOverride`.
+ *                                              When not 'assess', the label-based
+ *                                              assessment is skipped and the kind
+ *                                              is forced to the override value.
+ */
+export const likelyBuiltIn = (device, allDevices = [], kindOverride) => {
+  const override = _normalizeKindOverride(kindOverride)
+
+  // Scientist override: skip the label-based classifier entirely. We still
+  // return numeric scores consistent with the `score >= 0` filter used
+  // downstream (popup.js `_filterCamerasByExternalPolicy`).
+  if (override !== 'assess') {
+    let score
+    if (override === 'built-in') score = 1
+    else if (override === 'external') score = -1
+    else score = 0
+    return {
+      score,
+      classification: override,
+      builtInScore: 0,
+      externalScore: 0,
+      overrideApplied: true,
+    }
+  }
+
   const { decision, builtInScore, externalScore } = _classifyLabel(
     device,
     allDevices,
@@ -133,5 +192,6 @@ export const likelyBuiltIn = (device, allDevices = []) => {
     classification: decision,
     builtInScore,
     externalScore,
+    overrideApplied: false,
   }
 }

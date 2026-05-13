@@ -693,8 +693,8 @@ export function renderStepInstructions({
 
   const navHint = document.createElement('div')
   navHint.style.color = 'black'
-  navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.35)'
-  navHint.style.padding = '0.3rem'
+  navHint.style.backgroundColor = '#eee'
+  navHint.style.padding = '0.3rem 0'
   navHint.style.borderRadius = '4px'
   navHint.style.width = 'fit-content'
   navHint.style.fontSize = 'clamp(0.9em, 2vw, 1em)'
@@ -714,7 +714,7 @@ export function renderStepInstructions({
   )
 
   if (showAllSteps) {
-    navHint.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
+    navHint.style.backgroundColor = '#eee'
   }
 
   // "Read first" / "Already read" note above the step invitation

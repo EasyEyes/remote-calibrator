@@ -51,8 +51,22 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
       // EasyEyes glossary: when TRUE, allow the required camera to be
       // external (built-in, external, or unknown will all be shown).
       // Default FALSE means only built-in / unknown cameras appear in
-      // Choose Camera. See popup.js _filterCamerasByExternalPolicy.
+      // Choose Camera. See popup.js _filterCamerasByExternalPolicy and
+      // cameraClassifier.js for label-based built-in / external / unknown.
       calibrateDistanceAllowExternalCameraBool: false,
+      // FOR TESTING. `calibrateDistanceCameraKindOverride` (glossary
+      // name `_calibrateDistanceCameraKindOverride`; either spelling
+      // is accepted) lets the scientist override the kind
+      // classification of the selected camera so EasyEyes' handling
+      // of the three kinds can be tested without physically having
+      // one of each. Default 'assess'. Allowed values:
+      //   'assess'   = classify as usual based on the camera name.
+      //   'built-in' = skip assessment, force kind to 'built-in'.
+      //   'external' = skip assessment, force kind to 'external'.
+      //   'unknown'  = skip assessment, force kind to 'unknown'.
+      // NOTE: When tabulating camera-kind data, exclude results
+      // collected with this set to anything but 'assess'.
+      calibrateDistanceCameraKindOverride: 'assess',
       // Forwarded to checkPermissions to hide the privacy line when the
       // experiment is recording snapshots.
       saveSnapshots: false,
@@ -173,5 +187,11 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
     cameraArray: this.cameraArray || [],
     cameraIncorporation: this.cameraIncorporation || null,
     cameraIncorporationReported: this.cameraIncorporationReported || null,
+    calibrateDistanceCameraKindOverride:
+      this.calibrateDistanceCameraKindOverride ||
+      this._calibrateDistanceCameraKindOverride ||
+      opts.calibrateDistanceCameraKindOverride ||
+      opts._calibrateDistanceCameraKindOverride ||
+      'assess',
   }
 }

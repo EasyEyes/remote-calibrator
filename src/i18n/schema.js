@@ -70,8 +70,8 @@ const phrasesData = [
   'RC_requestCamera',
   'RC_ChooseAnotherScreenButton',
   'RC_ChooseThisScreenButton',
-  'RC_ChooseCameraWithButton',
-  'RC_DragToAnotherScreenWithButton',
+  'RC_ChooseCamera',
+  'RC_ChooseScreen',
   'RC_screenSize',
   'RC_screenSizeCredit',
   'RC_screenSizeCreditCard',
@@ -98,6 +98,7 @@ const phrasesData = [
   'RC_CameraReconnectText',
   'RC_CameraReconnectCantFindIt',
   'RC_CameraReconnecting',
+  'RC_ChooseAnotherCamera',
   'RC_Proceed',
   'RC_Quit',
 ]
