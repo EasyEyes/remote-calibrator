@@ -182,10 +182,25 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   if (vc) vc.style.display = 'none'
 
   // Surface camera-classification stats alongside the existing result.
+  // `cameraIncorporation` is the REAL label-based classification so it
+  // matches the value written to the CSV record (see _recordCameraData
+  // in popup.js); the `_calibrateDistanceCameraKindOverride` testing
+  // parameter never pollutes this field. The override fact is still
+  // available separately via the `calibrateDistanceCameraKindOverride`
+  // field below.
+  const realIncorporation =
+    this.cameraIncorporationReal != null
+      ? this.cameraIncorporationReal
+      : this.cameraIncorporation || null
   return {
     ...cameraResult,
-    cameraArray: this.cameraArray || [],
-    cameraIncorporation: this.cameraIncorporation || null,
+    cameraArray: Array.isArray(this.cameraArray)
+      ? this.cameraArray.map(entry => ({
+          ...entry,
+          kindOverrideApplied: false,
+        }))
+      : [],
+    cameraIncorporation: realIncorporation,
     cameraIncorporationReported: this.cameraIncorporationReported || null,
     calibrateDistanceCameraKindOverride:
       this.calibrateDistanceCameraKindOverride ||

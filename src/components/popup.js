@@ -422,12 +422,19 @@ export const hideCameraTitleFromTopRight = () => {
 // Idempotent: guarded by RC._cameraDataPushed against retry loops.
 const _recordCameraData = RC => {
   if (RC._cameraDataPushed) return
+  const realIncorporation =
+    RC.cameraIncorporationReal != null
+      ? RC.cameraIncorporationReal
+      : RC.cameraIncorporation || null
+  const sanitizedCameraArray = Array.isArray(RC.cameraArray)
+    ? RC.cameraArray.map(entry => ({ ...entry, kindOverrideApplied: false }))
+    : []
   RC.newCameraData = {
     value: {
       selectedCameraName: RC.selectedCamera?.label || null,
-      cameraIncorporation: RC.cameraIncorporation || null,
+      cameraIncorporation: realIncorporation,
       cameraIncorporationReported: RC.cameraIncorporationReported || null,
-      cameraArray: Array.isArray(RC.cameraArray) ? RC.cameraArray : [],
+      cameraArray: sanitizedCameraArray,
     },
     timestamp: performance.now(),
   }
@@ -686,6 +693,7 @@ const askCameraIncorporationOpinion = async (
       )
       RC.selectedCamera = null
       RC.cameraIncorporation = null
+      RC.cameraIncorporationReal = null
       RC.cameraIncorporationReported = null
       return
     }
@@ -1150,26 +1158,115 @@ const _resolveCameraKindOverride = (RC, options) => {
   )
 }
 
+/**
+ * Commit a chosen camera as the active selection, applying the
+ * `_calibrateDistanceCameraKindOverride` testing parameter to that
+ * single camera only.
+ *
+ * Behavior matches the spec for `_calibrateDistanceCameraKindOverride`:
+ *   1. The chooser-list captions are NEVER mutated (they always show
+ *      the real classification). We achieve this by spreading `camera`
+ *      into a NEW object before overriding -- the underlying entry in
+ *      the `cameras` array stays untouched.
+ *   2. The override is applied at the moment the participant commits a
+ *      choice (click / Enter), forcing `incorporation` to the override
+ *      value on the committed copy. Downstream logic (e.g. the
+ *      "unknown camera" Check-Video popup) reads `RC.cameraIncorporation`
+ *      and so reacts to the overridden kind.
+ *   3. If the participant returns to the chooser and picks a different
+ *      camera, the previous selection's incorporation in the underlying
+ *      list was never overwritten -- it reverts naturally. The new
+ *      selection is then re-overridden via this same helper.
+ *   4. `RC.selectedCamera` and `RC.cameraIncorporation` persist across
+ *      pages, so the overridden kind stays in effect for the rest of
+ *      the session unless/until another camera is chosen.
+ *
+ * IMPORTANT: the override is purely an experiment-time behavior. The
+ * saved camera-kind data (`RC.cameraArray` per-entry and the
+ * `cameraIncorporation` field in the `_recordCameraData` record) always
+ * reflects the REAL label-based classification -- the override does
+ * NOT leak into the CSV. The override fact is reported separately at
+ * the top level (`RC.calibrateDistanceCameraKindOverride`, returned by
+ * RC.selectCamera) so analysts can still exclude override sessions.
+ *
+ * To support this split we keep two fields:
+ *   - `RC.cameraIncorporation` / `RC.selectedCamera.incorporation`
+ *     hold the OVERRIDDEN value (drive experiment branches).
+ *   - `RC.cameraIncorporationReal` / `RC.selectedCamera.incorporationReal`
+ *     hold the REAL value (drive what gets written to data).
+ */
+const _commitSelectedCameraWithOverride = (RC, camera, options) => {
+  if (!camera) {
+    RC.selectedCamera = null
+    RC.cameraIncorporation = null
+    RC.cameraIncorporationReal = null
+    return null
+  }
+  const override = _resolveCameraKindOverride(RC, options)
+  const isOverridden = !!override && override !== 'assess'
+  // `incorporation` on the live RC + selectedCamera = the OVERRIDDEN
+  // value, so experiment-facing logic (Check-Video popup, resolution
+  // page caption, etc.) reacts to the testing override.
+  // `incorporationReal` = the actual label-based classification; this
+  // is what gets written into the saved camera-kind data so the CSV is
+  // not polluted by the testing override.
+  const committed = isOverridden
+    ? {
+        ...camera,
+        incorporation: override,
+        incorporationReal: camera.incorporation,
+        kindOverrideApplied: true,
+      }
+    : {
+        ...camera,
+        incorporationReal: camera.incorporation,
+        kindOverrideApplied: false,
+      }
+  // Re-selecting a (possibly different) camera invalidates any prior
+  // Check-Video answer so the question can be asked fresh for the new
+  // selection.
+  const previousDeviceId = RC.selectedCamera?.deviceId || null
+  if (previousDeviceId && previousDeviceId !== committed.deviceId) {
+    RC.cameraIncorporationReported = null
+  }
+  RC.selectedCamera = committed
+  RC.cameraIncorporation = committed.incorporation || 'unknown'
+  RC.cameraIncorporationReal = committed.incorporationReal || null
+
+  // The saved per-camera array stays purely real-classification data --
+  // we intentionally do NOT flag individual entries with the override.
+  // The override fact is preserved separately at the top level via
+  // `RC.calibrateDistanceCameraKindOverride` (returned by
+  // RC.selectCamera) so analysts can still exclude override sessions.
+
+  if (isOverridden) {
+    console.log(
+      `[CameraKindOverride] Selected "${camera.label}" -> experiment will treat kind as "${override}" (real classification "${camera.incorporation}" is what gets saved to data).`,
+    )
+  }
+  return committed
+}
+
 // Enumerate cameras and tag each with likelyBuiltIn + incorporation.
 // Labels are only populated after getUserMedia permission is granted.
 //
-// `kindOverride` is `_calibrateDistanceCameraKindOverride` (default
-// 'assess'). When not 'assess', every camera's incorporation is forced
-// to the override value.
-const getAvailableCameras = async (kindOverride = 'assess') => {
+// NOTE: classification here is ALWAYS the real label-based assessment.
+// The `_calibrateDistanceCameraKindOverride` testing parameter is NOT
+// applied during enumeration -- it is applied per-selection at commit
+// time via `_commitSelectedCameraWithOverride`, so the chooser list
+// keeps showing each camera's real kind until the participant picks one.
+const getAvailableCameras = async () => {
   try {
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
       const devices = await navigator.mediaDevices.enumerateDevices()
       const cameras = devices.filter(device => device.kind === 'videoinput')
       return cameras.map(cam => {
         // MediaDeviceInfo is read-only -- wrap in a plain object.
-        const {
-          score,
-          classification,
-          builtInScore,
-          externalScore,
-          overrideApplied,
-        } = likelyBuiltIn(cam, cameras, kindOverride)
+        // Always classify with the real label-based assessment;
+        // `_calibrateDistanceCameraKindOverride` is applied later, only
+        // to the camera the participant commits to.
+        const { score, classification, builtInScore, externalScore } =
+          likelyBuiltIn(cam, cameras, 'assess')
         return {
           deviceId: cam.deviceId,
           kind: cam.kind,
@@ -1179,7 +1276,7 @@ const getAvailableCameras = async (kindOverride = 'assess') => {
           incorporation: classification,
           builtInScore,
           externalScore,
-          kindOverrideApplied: overrideApplied === true,
+          kindOverrideApplied: false,
         }
       })
     }
@@ -1880,6 +1977,7 @@ const updateCameraPreviews = async (
         phrases[messageKey]?.[RC.L] ?? '',
       )
         .replace(/\[\[BBB\]\]/g, '')
+        .replace(/\[\[QQQ\]\]/g, '')
         .replace(/\n/g, '<br>')
     }
   }
@@ -1992,6 +2090,10 @@ const updateCameraPreviews = async (
     if (newScreenBtn && window._rcScreenBtnHandler) {
       newScreenBtn.onclick = window._rcScreenBtnHandler
     }
+    const newQuitBtn = document.getElementById('rc-choose-screen-quit-btn')
+    if (newQuitBtn && window._rcChooseScreenQuitHandler) {
+      newQuitBtn.onclick = window._rcChooseScreenQuitHandler
+    }
   }
 
   // The bottom-row wrapper was just re-inserted as a sibling of the top
@@ -2083,11 +2185,7 @@ export const showCameraSelectionPopup = async (
   // Prefer the pre-filtered list from showTestPopup; enumerate as fallback.
   let cameras = RC._visibleCameras
   if (!cameras || cameras.length === 0) {
-    const kindOverride = _resolveCameraKindOverride(
-      RC,
-      RC._cameraSelectionOptions,
-    )
-    const allCameras = await getAvailableCameras(kindOverride)
+    const allCameras = await getAvailableCameras()
     if (!RC.availableCameras) RC.availableCameras = allCameras
     if (!RC.cameraArray) {
       RC.cameraArray = allCameras.map(c => ({
@@ -2205,9 +2303,14 @@ export const showCameraSelectionPopup = async (
       // the new translation. The `message` parameter snapshot was the
       // bug -- it locked in whatever language was active at the moment
       // showTestPopup ran.
-      const makeInlineActionButtonHTML = (id, label) => {
+      const makeInlineActionButtonHTML = (
+        id,
+        label,
+        variantClass = 'rc-go-button',
+        extraStyle = '',
+      ) => {
         const buttonLabel = processInlineFormatting(label || '')
-        return `<button id="${id}" class="rc-button rc-go-button" style="font-size: 1rem !important; padding: 0.5rem 2rem !important; margin: 0 0.2rem;">${buttonLabel}</button>`
+        return `<button id="${id}" class="rc-button ${variantClass}" style="font-size: 1rem !important; padding: 0.5rem 2rem !important; margin: 0 0.2rem;${extraStyle}">${buttonLabel}</button>`
       }
       const getChooseCameraInstructionHTML = () => {
         const template =
@@ -2230,9 +2333,111 @@ export const showCameraSelectionPopup = async (
           'rc-choose-this-screen-btn',
           phrases.RC_ChooseThisScreenButton?.[RC.L] || 'Choose this screen',
         )
+        const quitButtonHTML = makeInlineActionButtonHTML(
+          'rc-choose-screen-quit-btn',
+          phrases.RC_Quit?.[RC.L] || 'Quit',
+          'rc-cancel-button',
+          ' background-color: #dc3545 !important; border-color: #dc3545 !important; color: #fff !important;',
+        )
         return processInlineFormatting(template)
           .replace('[[BBB]]', buttonHTML)
+          .replace(/\[\[QQQ\]\]/g, quitButtonHTML)
           .replace(/\n/g, '<br>')
+      }
+      const chooseScreenQuitHandler = () => {
+        console.log('[ChooseScreen] Quit button pressed — ending study')
+        RC._quitFromChooseScreen = true
+        RC.selectedCamera = null
+        RC.cameraIncorporation = null
+        RC.cameraIncorporationReal = null
+        RC.cameraIncorporationReported = null
+        RC._inChooseScreenMode = false
+
+        // Immediately disconnect the camera so the OS camera indicator
+        // (LED + browser camera badge) turns off as soon as the end-of-
+        // study page appears.
+        //
+        // ORDER MATTERS. Internally, WebGazer attaches a VideoLiveMonitor
+        // to its capture stream (src/WebGazer4RC/src/videoLiveMonitor.mjs).
+        // When ANY track.stop() fires the browser's `'ended'` event on
+        // that monitored track, the monitor's `_onEnded` handler calls
+        // `_emitImmediate('ended')`, which fires WebGazer's onChange
+        // listener (src/WebGazer4RC/src/index.mjs ~line 381), which
+        // calls `showCameraReconnectionPopup(...)`, which calls
+        // `_tryReconnectOriginalCamera()` → getUserMedia → spins up a
+        // NEW MediaStream. Net result: camera LED back on, plus a
+        // surprise reconnect popup. The fix is to call
+        // `webgazer.stopVideo()` FIRST — that detaches the live monitor
+        // (`liveMonitor.stop()` removes the 'ended' listener) BEFORE we
+        // stop any tracks. Once the monitor is detached, stopping the
+        // remaining preview-tile streams is safe.
+        //
+        // We also can't trust webgazer's videoStream to be the only
+        // active stream — Choose Camera mounts its own preview <video>
+        // tiles, each with its own getUserMedia stream and own tracks.
+        // After detaching the monitor, walk every <video> on the page
+        // and stop all of its tracks too.
+        try {
+          if (typeof RC.gazeTracker?.webgazer?.stopVideo === 'function') {
+            RC.gazeTracker.webgazer.stopVideo()
+          }
+        } catch (e) {
+          console.warn('[ChooseScreen] webgazer.stopVideo error:', e)
+        }
+        try {
+          document.querySelectorAll('video').forEach(v => {
+            const stream = v.srcObject
+            if (stream && typeof stream.getTracks === 'function') {
+              stream.getTracks().forEach(track => {
+                try { track.stop() } catch (e) { /* noop */ }
+              })
+            }
+            v.srcObject = null
+          })
+        } catch (e) {
+          console.warn('[ChooseScreen] track-stop error:', e)
+        }
+
+        // Remove the EasyEyes-owned language picker that floats in the
+        // top-right of the Choose Camera / Choose Screen page (id
+        // `camera-page-language-wrapper`, mounted by EasyEyes). It is
+        // logically scoped to the camera-selection pages, so leaving it
+        // on the end-of-study page rendered by _onQuitCallback (where it
+        // has nothing to act on) is misleading.
+        try {
+          const langWrapper = document.getElementById(
+            'camera-page-language-wrapper',
+          )
+          if (langWrapper) langWrapper.remove()
+        } catch (e) {
+          console.warn('[ChooseScreen] language-wrapper remove error:', e)
+        }
+
+        // Close the Choose Camera / Choose Screen popup so its
+        // willClose teardown runs (clears polling, removes listeners,
+        // stops preview streams) before we tear down RC.
+        try {
+          Swal.close()
+        } catch (e) {
+          console.warn('[ChooseScreen] Swal.close error:', e)
+        }
+        // Mirror the Reconnect popup's Quit path: comprehensive RC
+        // cleanup, then invoke the consumer app's onQuit callback so it
+        // can run its end-of-study flow (save data, show final page).
+        if (typeof RC._cleanupAllRC === 'function') {
+          try {
+            RC._cleanupAllRC()
+          } catch (e) {
+            console.warn('[ChooseScreen] _cleanupAllRC error:', e)
+          }
+        }
+        if (typeof RC._onQuitCallback === 'function') {
+          try {
+            RC._onQuitCallback()
+          } catch (e) {
+            console.warn('[ChooseScreen] _onQuitCallback error:', e)
+          }
+        }
       }
       const bindScreenToggleButton = () => {
         const chooseAnotherScreenBtn = document.getElementById(
@@ -2246,6 +2451,12 @@ export const showCameraSelectionPopup = async (
         )
         if (chooseThisScreenBtn) {
           chooseThisScreenBtn.onclick = screenBtnHandler
+        }
+        const chooseScreenQuitBtn = document.getElementById(
+          'rc-choose-screen-quit-btn',
+        )
+        if (chooseScreenQuitBtn) {
+          chooseScreenQuitBtn.onclick = chooseScreenQuitHandler
         }
       }
       const screenBtnHandler = async () => {
@@ -2313,11 +2524,12 @@ export const showCameraSelectionPopup = async (
 
       // Store handler so updateCameraPreviews can re-attach it
       window._rcScreenBtnHandler = screenBtnHandler
+      window._rcChooseScreenQuitHandler = chooseScreenQuitHandler
 
       // Expose the same builders updateCameraPreviews needs to repaint
       // the instruction text with the button substituted in. Without
       // these, the camera-list polling path falls back to writing the
-      // raw phrase (with the literal `[[BBB]]`) into the DOM.
+      // raw phrase (with the literal `[[BBB]]` / `[[QQQ]]`) into the DOM.
       RC._getChooseCameraInstructionHTML = getChooseCameraInstructionHTML
       RC._getChooseScreenInstructionHTML = getChooseScreenInstructionHTML
       RC._bindScreenToggleButton = bindScreenToggleButton
@@ -2418,17 +2630,20 @@ export const showCameraSelectionPopup = async (
         cameraPollingInterval = setInterval(async () => {
           try {
             const opts = RC._cameraSelectionOptions || {}
-            const kindOverride = _resolveCameraKindOverride(RC, opts)
-            const newCamerasAll = await getAvailableCameras(kindOverride)
+            const newCamerasAll = await getAvailableCameras()
             // Refresh the full-list stats (covers hot-plugged cameras).
             RC.availableCameras = newCamerasAll
+            // cameraArray is the per-camera record written to the CSV;
+            // it always reflects the REAL classification with no
+            // override flags (the override testing parameter must not
+            // pollute saved kind data).
             RC.cameraArray = newCamerasAll.map(c => ({
               name: c.label || '',
               class: c.incorporation,
               builtInScore: c.builtInScore,
               externalScore: c.externalScore,
               likelyBuiltIn: c.likelyBuiltIn,
-              kindOverrideApplied: c.kindOverrideApplied === true,
+              kindOverrideApplied: false,
               opinion:
                 RC.cameraArray?.find(prev => prev.name === c.label)?.opinion ||
                 null,
@@ -2489,9 +2704,11 @@ export const showCameraSelectionPopup = async (
                         }
                       })
 
-                      RC.selectedCamera = selectedCamera
-                      RC.cameraIncorporation =
-                        selectedCamera.incorporation || 'unknown'
+                      _commitSelectedCameraWithOverride(
+                        RC,
+                        selectedCamera,
+                        opts,
+                      )
                     }
                   } catch (error) {
                     console.error('Camera switch error:', error)
@@ -2620,9 +2837,11 @@ export const showCameraSelectionPopup = async (
                 }
               })
 
-              RC.selectedCamera = selectedCamera
-              RC.cameraIncorporation =
-                selectedCamera.incorporation || 'unknown'
+              _commitSelectedCameraWithOverride(
+                RC,
+                selectedCamera,
+                RC._cameraSelectionOptions,
+              )
             }
           } catch (error) {
             console.error('Camera switch error:', error)
@@ -2800,8 +3019,11 @@ export const showCameraSelectionPopup = async (
             const success = await switchToCamera(RC, selectedCamera)
 
             if (success) {
-              RC.selectedCamera = selectedCamera
-              RC.cameraIncorporation = selectedCamera.incorporation || 'unknown'
+              _commitSelectedCameraWithOverride(
+                RC,
+                selectedCamera,
+                RC._cameraSelectionOptions,
+              )
               if (RC.cameraIncorporation === 'unknown') {
                 const opinionResult = await askCameraIncorporationOpinion(RC, {
                   renderAboveChooseCamera: true,
@@ -2882,6 +3104,9 @@ export const showCameraSelectionPopup = async (
       if (window._rcScreenBtnHandler) {
         delete window._rcScreenBtnHandler
       }
+      if (window._rcChooseScreenQuitHandler) {
+        delete window._rcChooseScreenQuitHandler
+      }
       // Drop the instruction-builder references so a stray repaint
       // (e.g. a polling tick that fires while teardown is in flight)
       // can't write into a popup that's already gone.
@@ -2952,6 +3177,24 @@ export const showCameraSelectionPopup = async (
     RC.gazeTracker.webgazer.showFaceFeedbackBox(false)
   }
 
+  const quitFromChooseScreen = RC._quitFromChooseScreen === true
+
+  // Final safety cleanup - ensure camera polling is stopped
+  if (RC.cameraPollingInterval) {
+    clearInterval(RC.cameraPollingInterval)
+    RC.cameraPollingInterval = null
+  }
+
+  // Quit-from-Choose-Screen branch: the consumer's _onQuitCallback
+  if (quitFromChooseScreen) {
+    console.log(
+      '[ChooseScreen] Quit acknowledged — hanging camera-selection',
+      'promise so the consumer end-of-study page is not overwritten.',
+    )
+    await new Promise(() => {})
+    return { selectedCamera: null, experimentEnded: true }
+  }
+
   // Get selected camera (only from user selection, no fallback)
   const selectedCamera = RC.selectedCamera
 
@@ -2964,12 +3207,6 @@ export const showCameraSelectionPopup = async (
     !RC.gazeTracker?.isCameraDisconnected()
   ) {
     onClose(selectedCamera)
-  }
-
-  // Final safety cleanup - ensure camera polling is stopped
-  if (RC.cameraPollingInterval) {
-    clearInterval(RC.cameraPollingInterval)
-    RC.cameraPollingInterval = null
   }
 
   return { ...result, selectedCamera }
@@ -3289,10 +3526,14 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   // for CSV stats, regardless of the visible filter below).
   //
   // `_calibrateDistanceCameraKindOverride` (FOR TESTING, default
-  // 'assess') lets a scientist force the kind to 'built-in',
-  // 'external', or 'unknown' regardless of label. Results gathered
-  // with anything other than 'assess' should be excluded from
-  // camera-kind tabulation.
+  // 'assess') lets a scientist force the kind of the SELECTED camera
+  // to 'built-in', 'external', or 'unknown' regardless of label. Per
+  // spec, the override does NOT change the chooser-list captions: every
+  // camera is enumerated with its real classification here, and the
+  // override is applied later (only to the camera the participant
+  // commits to) by `_commitSelectedCameraWithOverride`. Results
+  // gathered with the parameter set to anything other than 'assess'
+  // should be excluded from camera-kind tabulation downstream.
   const kindOverride = _resolveCameraKindOverride(RC, options)
   RC.calibrateDistanceCameraKindOverride = kindOverride
   // Keep the underscored alias for back-compat with anything reading the
@@ -3300,10 +3541,10 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   RC._calibrateDistanceCameraKindOverride = kindOverride
   if (kindOverride && kindOverride !== 'assess') {
     console.log(
-      `[showTestPopup] TESTING: _calibrateDistanceCameraKindOverride = "${kindOverride}". Forcing every camera's kind to "${kindOverride}". Exclude these results from camera-kind tabulation.`,
+      `[showTestPopup] TESTING: _calibrateDistanceCameraKindOverride = "${kindOverride}". The chooser keeps every camera's real kind; the override is applied to the SELECTED camera only at commit time. Exclude these results from camera-kind tabulation.`,
     )
   }
-  const allCameras = await getAvailableCameras(kindOverride)
+  const allCameras = await getAvailableCameras()
   RC.cameraArray = allCameras.map(c => ({
     name: c.label || '',
     class: c.incorporation,
@@ -3391,6 +3632,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       )
       RC.selectedCamera = null
       RC.cameraIncorporation = null
+      RC.cameraIncorporationReal = null
       RC.cameraIncorporationReported = null
       return await showTestPopup(RC, onClose, options)
     }
@@ -3417,6 +3659,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
           }
           RC.selectedCamera = null
           RC.cameraIncorporation = null
+          RC.cameraIncorporationReal = null
           RC.cameraIncorporationReported = null
           return await showTestPopup(RC, onClose, options)
         }
@@ -3484,6 +3727,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     console.log('[showTestPopup] Restarting showTestPopup after reconnect')
     RC.selectedCamera = null
     RC.cameraIncorporation = null
+    RC.cameraIncorporationReal = null
     RC.cameraIncorporationReported = null
     return await showTestPopup(RC, onClose, options)
   }
@@ -3510,6 +3754,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
         }
         RC.selectedCamera = null
         RC.cameraIncorporation = null
+        RC.cameraIncorporationReal = null
         RC.cameraIncorporationReported = null
         return await showTestPopup(RC, onClose, options)
       }
