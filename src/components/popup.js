@@ -1159,42 +1159,59 @@ const _resolveCameraKindOverride = (RC, options) => {
 }
 
 /**
- * Commit a chosen camera as the active selection, applying the
- * `_calibrateDistanceCameraKindOverride` testing parameter to that
- * single camera only.
+ * Display-only: `camera.incorporation` in the cameras array is never
+ * mutated, so the commit pipeline is unchanged --
+ * `_commitSelectedCameraWithOverride` still applies the override only
+ * to the camera the participant picks, and `RC.cameraArray` / the saved
+ * CSV record continue to reflect the real label-based classification.
  *
- * Behavior matches the spec for `_calibrateDistanceCameraKindOverride`:
- *   1. The chooser-list captions are NEVER mutated (they always show
- *      the real classification). We achieve this by spreading `camera`
- *      into a NEW object before overriding -- the underlying entry in
- *      the `cameras` array stays untouched.
- *   2. The override is applied at the moment the participant commits a
- *      choice (click / Enter), forcing `incorporation` to the override
- *      value on the committed copy. Downstream logic (e.g. the
- *      "unknown camera" Check-Video popup) reads `RC.cameraIncorporation`
- *      and so reacts to the overridden kind.
- *   3. If the participant returns to the chooser and picks a different
- *      camera, the previous selection's incorporation in the underlying
- *      list was never overwritten -- it reverts naturally. The new
- *      selection is then re-overridden via this same helper.
- *   4. `RC.selectedCamera` and `RC.cameraIncorporation` persist across
- *      pages, so the overridden kind stays in effect for the rest of
- *      the session unless/until another camera is chosen.
- *
- * IMPORTANT: the override is purely an experiment-time behavior. The
- * saved camera-kind data (`RC.cameraArray` per-entry and the
- * `cameraIncorporation` field in the `_recordCameraData` record) always
- * reflects the REAL label-based classification -- the override does
- * NOT leak into the CSV. The override fact is reported separately at
- * the top level (`RC.calibrateDistanceCameraKindOverride`, returned by
- * RC.selectCamera) so analysts can still exclude override sessions.
- *
- * To support this split we keep two fields:
- *   - `RC.cameraIncorporation` / `RC.selectedCamera.incorporation`
- *     hold the OVERRIDDEN value (drive experiment branches).
- *   - `RC.cameraIncorporationReal` / `RC.selectedCamera.incorporationReal`
- *     hold the REAL value (drive what gets written to data).
+ * @param {Array}  cameras           Camera list rendered as tiles.
+ * @param {number} highlightedIndex  Index of the currently highlighted tile.
+ * @param {'top'|'bottom'} [highlightedRow='top']  Which row holds the highlight.
+ * @param {Object} RC                RemoteCalibrator instance.
  */
+const _applyHoverKindOverride = (
+  cameras,
+  highlightedIndex,
+  highlightedRow,
+  RC,
+) => {
+  if (!Array.isArray(cameras) || cameras.length === 0) return
+  cameras.forEach((cam, j) => {
+    for (const c of _getCameraContainersForIndex(j)) {
+      _updateCaptionInContainer(c, cam, j, RC)
+    }
+  })
+  const override = _resolveCameraKindOverride(RC, RC._cameraSelectionOptions)
+  if (!override || override === 'assess') return
+  if (
+    highlightedIndex == null ||
+    highlightedIndex < 0 ||
+    highlightedIndex >= cameras.length
+  ) {
+    return
+  }
+  const cam = cameras[highlightedIndex]
+  if (!cam) return
+  const row = highlightedRow === 'bottom' ? 'bottom' : 'top'
+  const containerId =
+    row === 'bottom'
+      ? `camera-preview-container-bottom-${highlightedIndex}`
+      : `camera-preview-container-${highlightedIndex}`
+  const container = document.getElementById(containerId)
+  if (!container) return
+  const caption = container.querySelector('.rc-camera-caption')
+  if (caption) {
+    caption.innerHTML = _cameraCaptionHTML(
+      cam.label || `Camera ${highlightedIndex + 1}`,
+      cam.resolution,
+      RC,
+      override,
+    )
+  }
+}
+
+
 const _commitSelectedCameraWithOverride = (RC, camera, options) => {
   if (!camera) {
     RC.selectedCamera = null
@@ -1249,12 +1266,7 @@ const _commitSelectedCameraWithOverride = (RC, camera, options) => {
 
 // Enumerate cameras and tag each with likelyBuiltIn + incorporation.
 // Labels are only populated after getUserMedia permission is granted.
-//
-// NOTE: classification here is ALWAYS the real label-based assessment.
-// The `_calibrateDistanceCameraKindOverride` testing parameter is NOT
-// applied during enumeration -- it is applied per-selection at commit
-// time via `_commitSelectedCameraWithOverride`, so the chooser list
-// keeps showing each camera's real kind until the participant picks one.
+
 const getAvailableCameras = async () => {
   try {
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
@@ -1744,14 +1756,7 @@ const createCameraPreviews = async (
   // resolution. The same MediaStream object is shared with the bottom
   // row's <video> when the bottom row is rendered, to avoid opening a
   // second getUserMedia per camera.
-  //
-  // Read the experiment-requested frame rate from webgazer.params and
-  // forward it to getUserMedia as `frameRate: { ideal: desiredHz }`
-  // (when set). Without this, the browser opens the tile preview at
-  // whatever the camera's default rate is (typically 30 Hz) and the
-  // tile caption shows 30 Hz even when the study spreadsheet asked for
-  // a different rate. With the constraint, the browser snaps to the
-  // closest supported value and the caption shows it.
+ 
   const desiredHz = RC?.gazeTracker?.webgazer?.params?.desiredCameraHz
   const frameRateConstraint =
     typeof desiredHz === 'number' && desiredHz > 0
@@ -1833,6 +1838,35 @@ const createCameraPreviews = async (
             )
             if (captionDiv) captionDiv.innerHTML = captionHTML
             if (bottomCaptionDiv) bottomCaptionDiv.innerHTML = captionHTML
+
+            // The resolution write above used the REAL camera.incorporation,
+            // which would clobber any hover-time override caption already
+            // painted by `_applyHoverKindOverride` (the camera streams
+            // resolve asynchronously, often several seconds after didOpen).
+            // Re-stamp the override tag on whichever caption currently
+            // owns the highlight (top or bottom of this camera), so the
+            // override tracks the highlight instead of flickering back
+            // to the real kind once the resolution arrives.
+            if (RC.highlightedCameraDeviceId === camera.deviceId) {
+              const override = _resolveCameraKindOverride(
+                RC,
+                RC._cameraSelectionOptions,
+              )
+              if (override && override !== 'assess') {
+                const targetCaption =
+                  RC.highlightedCameraRow === 'bottom'
+                    ? bottomCaptionDiv
+                    : captionDiv
+                if (targetCaption) {
+                  targetCaption.innerHTML = _cameraCaptionHTML(
+                    camera.label || `Camera ${i + 1}`,
+                    camera.resolution,
+                    RC,
+                    override,
+                  )
+                }
+              }
+            }
           }
         } catch (error) {
           console.error(
@@ -1942,15 +1976,7 @@ const updateCameraPreviews = async (
   // Keep body text direction correct after re-rendering camera preview DOM.
   _applyChooseCameraPageTextDirection(RC)
 
-  // Re-paint the instruction text using the same builders the initial
-  // didOpen render uses, so the `[[BBB]]` placeholder gets substituted
-  // with the live "Choose another screen" / "Choose this screen"
-  // button. Calling the old updateTitleAndDescription here was the
-  // source of the "button disappears, [[BBB]] becomes visible" bug:
-  // it wrote the raw phrase straight into the DOM without performing
-  // the placeholder substitution, so whenever camera-list polling
-  // detected a transient change (hot-plug, deviceId churn after the
-  // permission prompt resolves, etc.) the participant lost the button.
+
   const inChooseScreenMode = RC._inChooseScreenMode === true
   const titleKey = inChooseScreenMode
     ? 'RC_ChooseScreenTitle'
@@ -2014,6 +2040,10 @@ const updateCameraPreviews = async (
         // ...then highlight only the hovered tile (specific row).
         _applyCameraContainerState(index, 'highlight', hoveredRow)
 
+        // FOR TESTING: the override-kind caption follows the highlight
+        
+        _applyHoverKindOverride(newCameras, index, hoveredRow, RC)
+
         const selectedCamera = newCameras.find(
           cam => cam.deviceId === deviceId,
         )
@@ -2027,15 +2057,7 @@ const updateCameraPreviews = async (
       })
 
       // Click to commit (same as clicking OK).
-      //
-      // Mirrors the click handler installed in showCameraSelectionPopup's
-      // didOpen for the initial camera list: when the chosen camera is
-      // classified `unknown`, run the inline overlay
-      // (askCameraIncorporationOpinion) BEFORE closing Choose Camera so
-      // the question appears as a modal on top of this page. Without
-      // this branch the post-selection fallback in showTestPopup runs
-      // the legacy Swal version of the question, which is the
-      // standalone popup that shouldn't appear here.
+     
       container.addEventListener('click', async () => {
         if (RC.cameraSelectionLoading) {
           return
@@ -2102,6 +2124,27 @@ const updateCameraPreviews = async (
   if (acceptBottomBool) {
     _promoteCameraPreviewsBottomToBody()
     _syncBottomCaptionWidthWithTopLayout()
+  }
+
+  
+  if (!RC._inChooseScreenMode) {
+    let targetIndex = -1
+    let targetRow = 'top'
+    if (RC.highlightedCameraDeviceId) {
+      targetIndex = newCameras.findIndex(
+        c => c.deviceId === RC.highlightedCameraDeviceId,
+      )
+      targetRow = RC.highlightedCameraRow === 'bottom' ? 'bottom' : 'top'
+    }
+    if (targetIndex < 0 && currentActiveCamera) {
+      targetIndex = newCameras.findIndex(
+        c => c.deviceId === currentActiveCamera.deviceId,
+      )
+      targetRow = 'top'
+    }
+    if (targetIndex >= 0) {
+      _applyHoverKindOverride(newCameras, targetIndex, targetRow, RC)
+    }
   }
 }
 
@@ -2512,6 +2555,13 @@ export const showCameraSelectionPopup = async (
             )
             if (activeIndex >= 0) {
               _applyCameraContainerState(activeIndex, 'highlight', 'top')
+              // The override caption follows the highlight: now that
+              // the active camera's top tile is highlighted again,
+              // mirror the override tag onto that same caption (and
+              // reset all others to their real kind).
+              RC.highlightedCameraDeviceId = currentActiveCamera.deviceId
+              RC.highlightedCameraRow = 'top'
+              _applyHoverKindOverride(cameras, activeIndex, 'top', RC)
             }
           }
         }
@@ -2587,6 +2637,37 @@ export const showCameraSelectionPopup = async (
           const containers = _getCameraContainersForIndex(i)
           for (const container of containers) {
             _updateCaptionInContainer(container, currentCameras[i], i, RC)
+          }
+        }
+
+        // The loop above used each camera's REAL incorporation, which
+        // would erase the hover-time override caption on the currently
+        // highlighted tile. Re-stamp the override after retranslating
+        // so the highlight + override stay in sync across language
+        // switches.
+        if (!RC._inChooseScreenMode) {
+          let targetIndex = -1
+          let targetRow = 'top'
+          if (RC.highlightedCameraDeviceId) {
+            targetIndex = currentCameras.findIndex(
+              c => c.deviceId === RC.highlightedCameraDeviceId,
+            )
+            targetRow =
+              RC.highlightedCameraRow === 'bottom' ? 'bottom' : 'top'
+          }
+          if (targetIndex < 0 && currentActiveCamera) {
+            targetIndex = currentCameras.findIndex(
+              c => c.deviceId === currentActiveCamera.deviceId,
+            )
+            targetRow = 'top'
+          }
+          if (targetIndex >= 0) {
+            _applyHoverKindOverride(
+              currentCameras,
+              targetIndex,
+              targetRow,
+              RC,
+            )
           }
         }
 
@@ -2709,6 +2790,28 @@ export const showCameraSelectionPopup = async (
                         selectedCamera,
                         opts,
                       )
+
+                      // Re-stamp the override caption on the committed
+                      // (deviceId, row) tile. Without this, the caption
+                      // reset loop above just left the selected tile
+                      // showing its REAL kind, which is visible behind
+                      // the inline Check Video overlay that opens next
+                      // when the resolved override is 'unknown'.
+                      const committedIndex = newCameras.findIndex(
+                        c => c.deviceId === selectedCamera.deviceId,
+                      )
+                      if (committedIndex >= 0) {
+                        const committedRow =
+                          RC.selectedCameraRow === 'bottom' ? 'bottom' : 'top'
+                        RC.highlightedCameraDeviceId = selectedCamera.deviceId
+                        RC.highlightedCameraRow = committedRow
+                        _applyHoverKindOverride(
+                          newCameras,
+                          committedIndex,
+                          committedRow,
+                          RC,
+                        )
+                      }
                     }
                   } catch (error) {
                     console.error('Camera switch error:', error)
@@ -2842,11 +2945,50 @@ export const showCameraSelectionPopup = async (
                 selectedCamera,
                 RC._cameraSelectionOptions,
               )
+
+              // Re-stamp the override caption on the committed
+              // (deviceId, row) tile. Without this, the caption reset
+              // loop above just left the selected tile showing its
+              // REAL kind, which is visible behind the inline Check
+              // Video overlay that opens when the resolved override
+              // is 'unknown'.
+              const committedIndex = cameras.findIndex(
+                c => c.deviceId === selectedCamera.deviceId,
+              )
+              if (committedIndex >= 0) {
+                const committedRow =
+                  RC.selectedCameraRow === 'bottom' ? 'bottom' : 'top'
+                RC.highlightedCameraDeviceId = selectedCamera.deviceId
+                RC.highlightedCameraRow = committedRow
+                _applyHoverKindOverride(
+                  cameras,
+                  committedIndex,
+                  committedRow,
+                  RC,
+                )
+              }
             }
           } catch (error) {
             console.error('Camera switch error:', error)
           }
           // Remove the finally block that re-enables containers - let the timeout handle it
+        }
+      }
+
+      // Initial paint of the override caption: `createCameraPreviews`
+      // already painted the green highlight onto the active camera's
+      // TOP tile via the inline `isActive` style, so the override-kind
+      // tag belongs there too. Mirror the highlight onto the caption
+      // so the page loads with the hover-style override already showing
+      // on whichever tile is highlighted by default.
+      if (currentActiveCamera) {
+        const activeIndex = cameras.findIndex(
+          c => c.deviceId === currentActiveCamera.deviceId,
+        )
+        if (activeIndex >= 0) {
+          RC.highlightedCameraDeviceId = currentActiveCamera.deviceId
+          RC.highlightedCameraRow = 'top'
+          _applyHoverKindOverride(cameras, activeIndex, 'top', RC)
         }
       }
 
@@ -2886,6 +3028,16 @@ export const showCameraSelectionPopup = async (
             // lighting up the matching tile in the opposite row.
             _applyCameraContainerState(index, 'highlight', hoveredRow)
 
+            // FOR TESTING: the override-kind caption tracks the green
+            // highlight, not the cursor. The highlight just moved to
+            // (index, hoveredRow), so override only that tile's caption
+            // and reset every other tile (including the matching tile
+            // in the opposite row) to its real-kind text. There is
+            // intentionally no mouseleave handler: the override stays
+            // visible as long as the tile remains highlighted, exactly
+            // like the green border itself.
+            _applyHoverKindOverride(cameras, index, hoveredRow, RC)
+
             // Actually switch to this camera temporarily
             const selectedCamera = cameras.find(
               cam => cam.deviceId === deviceId,
@@ -2899,7 +3051,8 @@ export const showCameraSelectionPopup = async (
             }
           })
 
-          // No mouseleave handler - highlighting persists until hovering over something else
+          // No mouseleave handler -- the override caption persists with
+          // the highlight until another tile is hovered.
 
           // Click to commit (same as clicking OK)
           container.addEventListener('click', async () => {
@@ -3024,6 +3177,28 @@ export const showCameraSelectionPopup = async (
                 selectedCamera,
                 RC._cameraSelectionOptions,
               )
+
+              // Re-stamp the override caption on the committed
+              // (deviceId, row) tile so the Choose Camera page visible
+              // behind the inline Check Video overlay (opened just
+              // below when override resolves to 'unknown') shows the
+              // override kind on the selected tile, not the real kind.
+              const committedIndex = cameras.findIndex(
+                c => c.deviceId === selectedCamera.deviceId,
+              )
+              if (committedIndex >= 0) {
+                const committedRow =
+                  RC.selectedCameraRow === 'bottom' ? 'bottom' : 'top'
+                RC.highlightedCameraDeviceId = selectedCamera.deviceId
+                RC.highlightedCameraRow = committedRow
+                _applyHoverKindOverride(
+                  cameras,
+                  committedIndex,
+                  committedRow,
+                  RC,
+                )
+              }
+
               if (RC.cameraIncorporation === 'unknown') {
                 const opinionResult = await askCameraIncorporationOpinion(RC, {
                   renderAboveChooseCamera: true,

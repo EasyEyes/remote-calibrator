@@ -37,10 +37,7 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
 
   const opts = Object.assign(
     {
-      // Camera resolution / framerate the experiment wants. Forwarded to
-      // gazeTracker._init so findBestCameraMode / setCameraConstraints use
-      // them, and to showTestPopup so the Camera Resolution page can show
-      // the requested vs achieved values.
+      // Camera resolution / framerate the experiment wants. 
       calibrateDistanceCameraResolution: [640, 480],
       calibrateDistanceCameraHz: 60,
       // Whether to show the Camera Resolution page after Choose Camera /
@@ -48,50 +45,23 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
       _showCameraResolutionBool: true,
       // Whether the bottom-row preview is shown on Choose Camera.
       calibrateDistanceAcceptBottomCameraBool: false,
-      // EasyEyes glossary: when TRUE, allow the required camera to be
-      // external (built-in, external, or unknown will all be shown).
-      // Default FALSE means only built-in / unknown cameras appear in
-      // Choose Camera. See popup.js _filterCamerasByExternalPolicy and
-      // cameraClassifier.js for label-based built-in / external / unknown.
       calibrateDistanceAllowExternalCameraBool: false,
-      // FOR TESTING. `calibrateDistanceCameraKindOverride` (glossary
-      // name `_calibrateDistanceCameraKindOverride`; either spelling
-      // is accepted) lets the scientist override the kind
-      // classification of the selected camera so EasyEyes' handling
-      // of the three kinds can be tested without physically having
-      // one of each. Default 'assess'. Allowed values:
-      //   'assess'   = classify as usual based on the camera name.
-      //   'built-in' = skip assessment, force kind to 'built-in'.
-      //   'external' = skip assessment, force kind to 'external'.
-      //   'unknown'  = skip assessment, force kind to 'unknown'.
-      // NOTE: When tabulating camera-kind data, exclude results
-      // collected with this set to anything but 'assess'.
       calibrateDistanceCameraKindOverride: 'assess',
       // Forwarded to checkPermissions to hide the privacy line when the
       // experiment is recording snapshots.
       saveSnapshots: false,
       // Forwarded to showTestPopup → checkResolutionAfterSelection.
       resolutionWarningThreshold: undefined,
-      // Whether to request fullscreen before showing Choose Camera. The
-      // popup's click + Enter-to-proceed handlers in
-      // showCameraSelectionPopup short-circuit when !isFullscreen(), so
-      // we must enter fullscreen first or every click on a camera tile
-      // will be silently ignored. Defaults to true to match the panel
-      // flow (panel.js sets fullscreen: true and calls getFullscreen
-      // before running camera selection).
+      // Whether to request fullscreen before showing Choose Camera
       fullscreen: true,
     },
     options,
   )
 
-  // 1. Enter fullscreen FIRST. The Choose Camera popup's click and
-  // Enter-key handlers gate on isFullscreen(); if we open the popup
-  // outside fullscreen the participant can't proceed. We do this before
-  // gazeTracker init so the popup that getFullscreen may briefly show
-  // doesn't race with the camera permission prompt.
+ 
   await this.getFullscreen(opts.fullscreen)
 
-  // 2. gazeTracker init (distance mode) — sets desired resolution / Hz.
+  
   if (!this.gazeTracker.checkInitialized('distance')) {
     this.gazeTracker._init(
       {
@@ -105,18 +75,14 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
     )
   }
 
-  // 3. Camera permissions.
+ 
   let permMessage = `${phrases.RC_requestCamera[this.L]}`
   if (!opts.saveSnapshots) {
     permMessage += `<br />${phrases.RC_privacyCamera[this.L]}`
   }
   await checkPermissions(this, permMessage)
 
-  // 4. "Starting..." message in the same style as the resolution message.
-  // Ensure the standard EasyEyes gray (#eee) background is painted under
-  // the message so this page matches every other RC page. Without this
-  // the body's default (white) shows through and "Connecting to your
-  // webcam(s) ..." looks noticeably lighter than neighboring pages.
+ 
   const _backgroundAddedHere = this.background === null
   if (_backgroundAddedHere) this._addBackground()
   const startingMsg = document.createElement('div')
@@ -138,7 +104,7 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   startingMsg.textContent = phrases.RC_starting[this.L]
   document.body.appendChild(startingMsg)
 
-  // 5. Load FaceMesh model + start video.
+  // Load FaceMesh model + start video.
   await this.gazeTracker.webgazer.getTracker().loadModel()
   await new Promise(resolve => {
     const pipWidthPx =
@@ -148,23 +114,21 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
     })
   })
 
-  // Remove "Starting..." message before the popup opens.
+
   startingMsg.remove()
 
-  // 6. Camera selection + (optionally) Camera Resolution page.
+
   const cameraResult = await showTestPopup(this, null, opts)
   if (cameraResult?.experimentEnded) {
     console.log('[RC.selectCamera] Experiment ended — no cameras detected')
   }
 
-  // 7. Only mark done if a camera was actually selected. If the
-  // participant ended the experiment from the no-camera popup we leave
-  // _cameraSelectionDone false so a downstream caller could retry.
+  
   if (!cameraResult?.experimentEnded) {
     this._cameraSelectionDone = true
   }
 
-  // Clean up any leftover loading text from the popup flow.
+  // clean up any leftover loading text from the popup flow.
   const leftoverLoading = document.getElementById('camera-loading-text')
   if (leftoverLoading) leftoverLoading.remove()
   hideResolutionSettingMessage()
@@ -173,21 +137,12 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   // consumer app's next page renders against its own page.
   if (_backgroundAddedHere) this._removeBackground()
 
-  // 8. Hide the live video feed so it doesn't bleed into whatever page
-  // the consumer app shows next (e.g. consent form, screen-size step).
-  // The video container is re-shown when trackDistance / objectTestNew
-  // start.
+  // hide the live video feed so it doesn't bleed into whatever page
   this.showVideo(false)
   const vc = document.getElementById('webgazerVideoContainer')
   if (vc) vc.style.display = 'none'
 
-  // Surface camera-classification stats alongside the existing result.
-  // `cameraIncorporation` is the REAL label-based classification so it
-  // matches the value written to the CSV record (see _recordCameraData
-  // in popup.js); the `_calibrateDistanceCameraKindOverride` testing
-  // parameter never pollutes this field. The override fact is still
-  // available separately via the `calibrateDistanceCameraKindOverride`
-  // field below.
+
   const realIncorporation =
     this.cameraIncorporationReal != null
       ? this.cameraIncorporationReal
