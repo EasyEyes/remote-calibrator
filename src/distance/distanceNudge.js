@@ -165,12 +165,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           // Defensive: another nudger (e.g. the yaw nudger) may have
           // replaced #calibration-nudger's contents since this interval
           // was created. Bail out silently rather than crashing.
-          if (
-            !moveElement ||
-            !guideNumNow ||
-            !guideNumDesired ||
-            !canUseKeypad
-          )
+          if (!moveElement || !guideNumNow || !guideNumDesired || !canUseKeypad)
             return
 
           moveElement.innerHTML = getMoveInner(
@@ -243,7 +238,7 @@ const withinRange = (value, target, toleranceRatio) => {
 const startCorrecting = RC => {
   RC._addNudger(`<div id="rc-distance-correct">
   <p id="rc-distance-correct-instruction"></p>
-  <p id="rc-distance-correct-guide">${phrases.RC_distanceTrackingGuide1[RC.L]
+  <p id="rc-distance-correct-guide">${phrases.RC_distanceTrackingGuide[RC.L]
     .replace(
       '[[N11]]',
       `<span class="rc-distance-num rc-distance-now" id="rc-distance-now"></span>`,
