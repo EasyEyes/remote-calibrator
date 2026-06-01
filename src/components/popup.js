@@ -237,6 +237,10 @@ const _removeCameraPreviewsBottom = () => {
   }
 }
 
+// Shared fine-print typography for RC_CameraPrivacyAssurance and RC_BottomCameras.
+const _chooseCameraFinePrintStyle = isRTL =>
+  `color: #444; font-size: clamp(12px, 1.6vw, 16px); font-weight: 300; line-height: 1.4; direction: ${isRTL ? 'rtl' : 'ltr'}; text-align: ${isRTL ? 'right' : 'left'};`
+
 /**
  * Make the bottom instructional caption use the same rendered content
  * width as the top instruction/privacy area, so left/right margins line
@@ -1702,9 +1706,9 @@ const createCameraPreviews = async (
     // Column flex so the explanation sits centered above the videos.
     const bottomCaptionText =
       phrases?.RC_BottomCameras?.[RC.L];
-    previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 0; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
+    previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 2rem 0 0 0; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
     previewsHTML += `
-      <div id="rc-bottom-cameras-caption" style="width: 100%; box-sizing: border-box; padding: 0 30px; text-align: ${isRTL ? 'right' : 'left'}; color: #444; font-size: clamp(12px, 1.6vw, 16px); font-weight: 300; line-height: 1.4; margin: 0 0 0.5rem 0; direction: ${isRTL ? 'rtl' : 'ltr'};">
+      <div id="rc-bottom-cameras-caption" style="width: 100%; box-sizing: border-box; padding: 0 30px; ${_chooseCameraFinePrintStyle(isRTL)} margin: 0 0 0.5rem 0;">
         ${processInlineFormatting(bottomCaptionText)}
       </div>
     `
@@ -2282,7 +2286,7 @@ export const showCameraSelectionPopup = async (
           ${cameraPreviewsHTML}
         </div>
         <div id="rc-camera-instruction-text" style="background: transparent; padding: 0.5rem 30px; margin-top: 0.5rem; flex-shrink: 0; text-align: ${RC.LD === RC._CONST.RTL ? 'right' : 'left'}; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; width: 100%; box-sizing: border-box; align-self: flex-start;">${processInlineFormatting(message || '').replace(/\n/g, '<br>')}</div>
-        ${privacyMessage ? `<div id="rc-camera-privacy-text" style="font-size: ${(16 / 1.4) * 1.25}px; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; line-height: 1.4; white-space: pre-line; width: 100%; text-align: ${RC.LD === RC._CONST.RTL ? 'right' : 'left'}; flex-shrink: 0; margin-top: 12px; padding: 0 30px 0.5rem 30px; align-self: flex-start; box-sizing: border-box;">${processInlineFormatting(privacyMessage).replace(/\n/g, '<br>')}</div>` : ''}
+        ${privacyMessage ? `<div id="rc-camera-privacy-text" style="${_chooseCameraFinePrintStyle(RC.LD === RC._CONST.RTL)} white-space: pre-line; width: 100%; flex-shrink: 0; margin-top: 2rem; margin-bottom: 2rem; padding: 0 30px; align-self: flex-start; box-sizing: border-box;">${processInlineFormatting(privacyMessage).replace(/\n/g, '<br>')}</div>` : ''}
       </div>
     `,
     showConfirmButton: false,
