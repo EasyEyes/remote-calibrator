@@ -1158,7 +1158,10 @@ RemoteCalibrator.prototype.onLanguageChange = function (listener) {
 }
 
 RemoteCalibrator.prototype._notifyLanguageChange = function () {
-  if (!this._languageChangeListeners || this._languageChangeListeners.size === 0)
+  if (
+    !this._languageChangeListeners ||
+    this._languageChangeListeners.size === 0
+  )
     return
   for (const listener of this._languageChangeListeners) {
     try {
@@ -1245,7 +1248,9 @@ RemoteCalibrator.prototype._cleanupAllRC = function () {
   this._removeBackground()
 
   if (this._panelStatus?.hasPanel) {
-    try { this.removePanel() } catch (e) {
+    try {
+      this.removePanel()
+    } catch (e) {
       console.warn('[RC _cleanupAllRC] removePanel error:', e)
     }
   }

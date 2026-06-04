@@ -131,7 +131,7 @@ async function processLanguageSheet() {
 
   for (const phrase in data) {
     for (const lang in data[phrase]) {
-      if (data[phrase][lang].includes('Loading') && lang !== 'en-US') {
+      if (data[phrase][lang].includes('Loading') && lang !== 'en') {
         console.error(
           new Error(
             `Phrases are not ready for ${lang} yet. Please try again later.`,

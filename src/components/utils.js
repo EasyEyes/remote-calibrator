@@ -2,7 +2,6 @@
 // https://gist.github.com/paulirish/1579671
 
 import Swal from 'sweetalert2'
-import { remoteCalibratorPhrases } from '../i18n/phrases'
 import { phrases } from '../i18n/schema'
 ;(function () {
   let lastTime = 0
@@ -248,8 +247,7 @@ export function showLoadingVideoMessage(RC) {
     pointer-events: none;
     user-select: none;
   `
-  msg.textContent =
-    phrases?.RC_LoadingVideo?.[RC?.L] || 'Loading video ...'
+  msg.textContent = phrases?.RC_LoadingVideo?.[RC?.L] || 'Loading video ...'
   document.body.appendChild(msg)
 }
 
@@ -434,8 +432,7 @@ export const getCameraResolutionXY = RC => {
  *
  * Defaults to top-camera behaviour when the flag has not been set yet.
  */
-export const isBottomCenterCamera = RC =>
-  RC?.selectedCameraRow === 'bottom'
+export const isBottomCenterCamera = RC => RC?.selectedCameraRow === 'bottom'
 
 /**
  * Returns the camera anchor point [x, y] in **screen** CSS pixels

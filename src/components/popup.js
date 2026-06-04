@@ -65,9 +65,7 @@ const _cameraCaptionHTML = (label, resolution, RC, incorporation) => {
   const clean = _stripHexId(label)
   const tag = _incorporationLabel(RC, incorporation)
   if (!resolution || !resolution.width) {
-    return tag
-      ? `<div>${clean}</div><div>${tag}</div>`
-      : `<div>${clean}</div>`
+    return tag ? `<div>${clean}</div><div>${tag}</div>` : `<div>${clean}</div>`
   }
   const hz = resolution.frameRate
     ? `, ${Math.round(resolution.frameRate)} Hz`
@@ -205,9 +203,7 @@ const _resumeChooseCameraAfterUnknownOpinionDismiss = RC => {
  * direct child of <body> ensures it is truly viewport-fixed.
  */
 const _promoteCameraPreviewsBottomToBody = () => {
-  const bottomOuter = document.getElementById(
-    'rc-camera-previews-bottom-outer',
-  )
+  const bottomOuter = document.getElementById('rc-camera-previews-bottom-outer')
   if (bottomOuter && bottomOuter.parentElement !== document.body) {
     document.body.appendChild(bottomOuter)
   }
@@ -268,7 +264,8 @@ const _syncBottomCaptionWidthWithTopLayout = () => {
   // Keep horizontal padding identical to the top instruction/privacy
   // blocks so the text starts/ends on the same x positions.
   if (instructionBlock) {
-    bottomCaption.style.paddingLeft = instructionBlock.style.paddingLeft || '30px'
+    bottomCaption.style.paddingLeft =
+      instructionBlock.style.paddingLeft || '30px'
     bottomCaption.style.paddingRight =
       instructionBlock.style.paddingRight || '30px'
   }
@@ -453,7 +450,8 @@ const askCameraIncorporationOpinion = async (
   RC,
   { renderAboveChooseCamera = false } = {},
 ) => {
-  const Q = phrases?.RC_IsCameraBuiltIn?.[RC.L] ||
+  const Q =
+    phrases?.RC_IsCameraBuiltIn?.[RC.L] ||
     'Check the video. Is its camera built-into this screen?'
   const yesText = phrases?.RC_YesHasLight?.[RC.L] || 'Yes'
   const noText = phrases?.RC_NoNoLight?.[RC.L] || 'No'
@@ -540,7 +538,8 @@ const askCameraIncorporationOpinion = async (
     panel.innerHTML = optionsHTML
 
     const actions = document.createElement('div')
-    actions.style.cssText = 'display: flex; justify-content: center; margin-top: 1rem;'
+    actions.style.cssText =
+      'display: flex; justify-content: center; margin-top: 1rem;'
     const proceedBtn = document.createElement('button')
     proceedBtn.className = 'rc-button'
     proceedBtn.textContent = proceedText
@@ -708,94 +707,93 @@ const askCameraIncorporationOpinion = async (
       RC?.selectedCamera?.label,
     )
   } else {
-
-  // We handle Enter ourselves -- Swal.update re-renders the body and
-  // would visually reset the radios.
-  let opinionKeydownListener = null
+    // We handle Enter ourselves -- Swal.update re-renders the body and
+    // would visually reset the radios.
+    let opinionKeydownListener = null
 
     const result = await Swal.fire({
-    ...swalInfoOptions(RC, { showIcon: false }),
-    icon: undefined,
-    title: '',
-    html: optionsHTML,
-    background: 'rgba(255, 255, 255, 0.96)',
-    backdrop: 'rgba(0, 0, 0, 0.15)',
-    confirmButtonText: proceedText,
-    showCancelButton: false,
-    allowEnterKey: false,
-    allowOutsideClick: false,
-    allowEscapeKey: false,
-    customClass: {
-      popup: 'my__swal2__container',
-      htmlContainer: `my__swal2__html rc-lang-${RC.LD.toLowerCase()}`,
-      confirmButton: 'rc-button',
-    },
-    didOpen: () => {
-      const confirmBtn = Swal.getConfirmButton()
-      if (confirmBtn) {
-        confirmBtn.disabled = true
-        confirmBtn.style.background = '#999'
-        confirmBtn.style.cursor = 'not-allowed'
-      }
-
-      // Delegated listener handles click / keyboard / label clicks alike.
-      const enableProceed = value => {
-        chosenAnswer = value
+      ...swalInfoOptions(RC, { showIcon: false }),
+      icon: undefined,
+      title: '',
+      html: optionsHTML,
+      background: 'rgba(255, 255, 255, 0.96)',
+      backdrop: 'rgba(0, 0, 0, 0.15)',
+      confirmButtonText: proceedText,
+      showCancelButton: false,
+      allowEnterKey: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      customClass: {
+        popup: 'my__swal2__container',
+        htmlContainer: `my__swal2__html rc-lang-${RC.LD.toLowerCase()}`,
+        confirmButton: 'rc-button',
+      },
+      didOpen: () => {
+        const confirmBtn = Swal.getConfirmButton()
         if (confirmBtn) {
-          confirmBtn.disabled = false
-          confirmBtn.style.background = '#019267'
-          confirmBtn.style.cursor = 'pointer'
-          confirmBtn.classList.add('rc-go-button')
+          confirmBtn.disabled = true
+          confirmBtn.style.background = '#999'
+          confirmBtn.style.cursor = 'not-allowed'
         }
-      }
-      const opinionContainer = document.getElementById('rc-camera-opinion')
-      if (opinionContainer) {
-        const handler = () => {
-          const checked = opinionContainer.querySelector(
-            'input[name="rc-camera-opinion"]:checked',
+
+        // Delegated listener handles click / keyboard / label clicks alike.
+        const enableProceed = value => {
+          chosenAnswer = value
+          if (confirmBtn) {
+            confirmBtn.disabled = false
+            confirmBtn.style.background = '#019267'
+            confirmBtn.style.cursor = 'pointer'
+            confirmBtn.classList.add('rc-go-button')
+          }
+        }
+        const opinionContainer = document.getElementById('rc-camera-opinion')
+        if (opinionContainer) {
+          const handler = () => {
+            const checked = opinionContainer.querySelector(
+              'input[name="rc-camera-opinion"]:checked',
+            )
+            if (checked) enableProceed(checked.value)
+          }
+          opinionContainer.addEventListener('change', handler)
+          opinionContainer.addEventListener('click', handler)
+        }
+
+        // Enter commits only after a radio has been picked.
+        opinionKeydownListener = event => {
+          if (event.key !== 'Enter' && event.key !== 'Return') return
+          if (!chosenAnswer) return
+          event.preventDefault()
+          event.stopPropagation()
+          Swal.clickConfirm()
+        }
+        document.addEventListener('keydown', opinionKeydownListener, true)
+
+        // EasyEyes keypad support (matches the rest of the camera flow).
+        if (RC.keypadHandler) {
+          const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+            null,
+            RC.keypadHandler,
+            () => {
+              if (!chosenAnswer) return
+              removeKeypadHandler()
+              Swal.clickConfirm()
+            },
+            false,
+            ['return'],
+            RC,
           )
-          if (checked) enableProceed(checked.value)
         }
-        opinionContainer.addEventListener('change', handler)
-        opinionContainer.addEventListener('click', handler)
-      }
-
-      // Enter commits only after a radio has been picked.
-      opinionKeydownListener = event => {
-        if (event.key !== 'Enter' && event.key !== 'Return') return
-        if (!chosenAnswer) return
-        event.preventDefault()
-        event.stopPropagation()
-        Swal.clickConfirm()
-      }
-      document.addEventListener('keydown', opinionKeydownListener, true)
-
-      // EasyEyes keypad support (matches the rest of the camera flow).
-      if (RC.keypadHandler) {
-        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
-          null,
-          RC.keypadHandler,
-          () => {
-            if (!chosenAnswer) return
-            removeKeypadHandler()
-            Swal.clickConfirm()
-          },
-          false,
-          ['return'],
-          RC,
-        )
-      }
-    },
-    willClose: () => {
-      if (opinionKeydownListener) {
-        document.removeEventListener('keydown', opinionKeydownListener, true)
-        opinionKeydownListener = null
-      }
-    },
-  })
+      },
+      willClose: () => {
+        if (opinionKeydownListener) {
+          document.removeEventListener('keydown', opinionKeydownListener, true)
+          opinionKeydownListener = null
+        }
+      },
+    })
 
     // Camera disconnected -- wait for reconnect, then re-show the popup.
-  // Mirrors the pattern in showCameraSelectionPopup / _handlePostCameraResolution.
+    // Mirrors the pattern in showCameraSelectionPopup / _handlePostCameraResolution.
     if (!chosenAnswer && RC.gazeTracker?.isCameraDisconnected()) {
       RC._isWaitingForCameraReconnect = true
       await new Promise(resolve => {
@@ -925,10 +923,10 @@ export const showResolutionSettingMessage = RC => {
       user-select: none;
     `
 
-    const lang = RC?.L || RC?.language?.value || 'en-US'
+    const lang = RC?.L || RC?.language?.value || 'en'
     let text =
       phrases?.RC_SettingWebcamResolution?.[lang] ||
-      phrases?.RC_SettingWebcamResolution?.['en-US'] ||
+      phrases?.RC_SettingWebcamResolution?.['en'] ||
       'Setting webcam resolution ...\nCurrently [[M11]]×[[M22]], [[M33]] Hz\nRequested [[M44]]×[[M55]], [[M66]] Hz'
 
     // M11-M33: current camera values; M44-M66: requested values
@@ -1149,8 +1147,7 @@ export const showPopup = async (RC, title, message, onClose = null) => {
 const _resolveCameraKindOverride = (RC, options) => {
   const fromOptionsUnderscore =
     options && options._calibrateDistanceCameraKindOverride
-  const fromOptions =
-    options && options.calibrateDistanceCameraKindOverride
+  const fromOptions = options && options.calibrateDistanceCameraKindOverride
   const fromRCUnderscore = RC && RC._calibrateDistanceCameraKindOverride
   const fromRC = RC && RC.calibrateDistanceCameraKindOverride
   return (
@@ -1214,7 +1211,6 @@ const _applyHoverKindOverride = (
     )
   }
 }
-
 
 const _commitSelectedCameraWithOverride = (RC, camera, options) => {
   if (!camera) {
@@ -1622,9 +1618,7 @@ const createCameraPreviews = async (
     ? Number.parseInt(videoContainer.style.height || '240')
     : 240
   const viewportW =
-    window.innerWidth ||
-    document.documentElement?.clientWidth ||
-    1024
+    window.innerWidth || document.documentElement?.clientWidth || 1024
   const previewWidthPx = Math.round(
     Math.min(maxW, Math.max(120, viewportW * 0.18)),
   )
@@ -1704,8 +1698,7 @@ const createCameraPreviews = async (
   // resolves relative to the viewport.
   if (acceptBottomBool) {
     // Column flex so the explanation sits centered above the videos.
-    const bottomCaptionText =
-      phrases?.RC_BottomCameras?.[RC.L];
+    const bottomCaptionText = phrases?.RC_BottomCameras?.[RC.L]
     previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 2rem 0 0 0; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
     previewsHTML += `
       <div id="rc-bottom-cameras-caption" style="width: 100%; box-sizing: border-box; padding: 0 30px; ${_chooseCameraFinePrintStyle(isRTL)} margin: 0 0 0.5rem 0;">
@@ -1760,7 +1753,7 @@ const createCameraPreviews = async (
   // resolution. The same MediaStream object is shared with the bottom
   // row's <video> when the bottom row is rendered, to avoid opening a
   // second getUserMedia per camera.
- 
+
   const desiredHz = RC?.gazeTracker?.webgazer?.params?.desiredCameraHz
   const frameRateConstraint =
     typeof desiredHz === 'number' && desiredHz > 0
@@ -1777,9 +1770,8 @@ const createCameraPreviews = async (
         ? document.getElementById(`camera-preview-container-bottom-${i}`)
         : null
       const captionDiv = container?.querySelector('.rc-camera-caption')
-      const bottomCaptionDiv = bottomContainer?.querySelector(
-        '.rc-camera-caption',
-      )
+      const bottomCaptionDiv =
+        bottomContainer?.querySelector('.rc-camera-caption')
 
       if (videoElement) {
         try {
@@ -1980,7 +1972,6 @@ const updateCameraPreviews = async (
   // Keep body text direction correct after re-rendering camera preview DOM.
   _applyChooseCameraPageTextDirection(RC)
 
-
   const inChooseScreenMode = RC._inChooseScreenMode === true
   const titleKey = inChooseScreenMode
     ? 'RC_ChooseScreenTitle'
@@ -2045,12 +2036,10 @@ const updateCameraPreviews = async (
         _applyCameraContainerState(index, 'highlight', hoveredRow)
 
         // FOR TESTING: the override-kind caption follows the highlight
-        
+
         _applyHoverKindOverride(newCameras, index, hoveredRow, RC)
 
-        const selectedCamera = newCameras.find(
-          cam => cam.deviceId === deviceId,
-        )
+        const selectedCamera = newCameras.find(cam => cam.deviceId === deviceId)
         if (selectedCamera && RC.gazeTracker?.webgazer) {
           try {
             await switchToCamera(RC, selectedCamera)
@@ -2061,7 +2050,7 @@ const updateCameraPreviews = async (
       })
 
       // Click to commit (same as clicking OK).
-     
+
       container.addEventListener('click', async () => {
         if (RC.cameraSelectionLoading) {
           return
@@ -2110,9 +2099,7 @@ const updateCameraPreviews = async (
   // above (e.g. a polling tick raced the first didOpen paint), still
   // wire up the "Choose another screen" button so the toggle works.
   if (typeof RC._bindScreenToggleButton !== 'function') {
-    const newScreenBtn = document.getElementById(
-      'rc-choose-another-screen-btn',
-    )
+    const newScreenBtn = document.getElementById('rc-choose-another-screen-btn')
     if (newScreenBtn && window._rcScreenBtnHandler) {
       newScreenBtn.onclick = window._rcScreenBtnHandler
     }
@@ -2130,7 +2117,6 @@ const updateCameraPreviews = async (
     _syncBottomCaptionWidthWithTopLayout()
   }
 
-  
   if (!RC._inChooseScreenMode) {
     let targetIndex = -1
     let targetRow = 'top'
@@ -2360,8 +2346,7 @@ export const showCameraSelectionPopup = async (
         return `<button id="${id}" class="rc-button ${variantClass}" style="font-size: 1rem !important; padding: 0.5rem 2rem !important; margin: 0 0.2rem;${extraStyle}">${buttonLabel}</button>`
       }
       const getChooseCameraInstructionHTML = () => {
-        const template =
-          phrases.RC_ChooseCamera?.[RC.L] || message || ''
+        const template = phrases.RC_ChooseCamera?.[RC.L] || message || ''
         const buttonHTML = makeInlineActionButtonHTML(
           'rc-choose-another-screen-btn',
           phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
@@ -2436,7 +2421,11 @@ export const showCameraSelectionPopup = async (
             const stream = v.srcObject
             if (stream && typeof stream.getTracks === 'function') {
               stream.getTracks().forEach(track => {
-                try { track.stop() } catch (e) { /* noop */ }
+                try {
+                  track.stop()
+                } catch (e) {
+                  /* noop */
+                }
               })
             }
             v.srcObject = null
@@ -2571,7 +2560,9 @@ export const showCameraSelectionPopup = async (
         }
       }
 
-      const instructionDiv = document.getElementById('rc-camera-instruction-text')
+      const instructionDiv = document.getElementById(
+        'rc-camera-instruction-text',
+      )
       if (instructionDiv) {
         instructionDiv.innerHTML = getChooseCameraInstructionHTML()
       }
@@ -2656,8 +2647,7 @@ export const showCameraSelectionPopup = async (
             targetIndex = currentCameras.findIndex(
               c => c.deviceId === RC.highlightedCameraDeviceId,
             )
-            targetRow =
-              RC.highlightedCameraRow === 'bottom' ? 'bottom' : 'top'
+            targetRow = RC.highlightedCameraRow === 'bottom' ? 'bottom' : 'top'
           }
           if (targetIndex < 0 && currentActiveCamera) {
             targetIndex = currentCameras.findIndex(
@@ -2666,12 +2656,7 @@ export const showCameraSelectionPopup = async (
             targetRow = 'top'
           }
           if (targetIndex >= 0) {
-            _applyHoverKindOverride(
-              currentCameras,
-              targetIndex,
-              targetRow,
-              RC,
-            )
+            _applyHoverKindOverride(currentCameras, targetIndex, targetRow, RC)
           }
         }
 
@@ -2870,7 +2855,10 @@ export const showCameraSelectionPopup = async (
 
           // Call selectCamera and wait for it to complete (same as click handler)
           try {
-            await window.selectCamera(hoveredCamera.deviceId, hoveredCamera.label)
+            await window.selectCamera(
+              hoveredCamera.deviceId,
+              hoveredCamera.label,
+            )
             if (RC.cameraIncorporation === 'unknown') {
               const opinionResult = await askCameraIncorporationOpinion(RC, {
                 renderAboveChooseCamera: true,
@@ -3148,7 +3136,9 @@ export const showCameraSelectionPopup = async (
               ? 'bottom'
               : 'top'
           const showGreen = isActive && row === activeRow
-          container.style.backgroundColor = showGreen ? '#e8f5e8' : 'transparent'
+          container.style.backgroundColor = showGreen
+            ? '#e8f5e8'
+            : 'transparent'
           container.style.border = showGreen
             ? '2px solid #28a745'
             : '2px solid transparent'
@@ -3494,10 +3484,10 @@ export const _handlePostCameraResolution = async (RC, options) => {
       selectedIncorporation,
     )
 
-    const lang = RC?.L || RC?.language?.value || 'en-US'
+    const lang = RC?.L || RC?.language?.value || 'en'
     const settingText =
       phrases?.RC_SettingWebcamResolution?.[lang] ||
-      phrases?.RC_SettingWebcamResolution?.['en-US'] ||
+      phrases?.RC_SettingWebcamResolution?.['en'] ||
       'Setting webcam resolution ...'
 
     const resolutionResult = await Swal.fire({
@@ -3530,7 +3520,8 @@ export const _handlePostCameraResolution = async (RC, options) => {
         // Position button horizontally centered, shifted down by ~1/3
         const actions = popup?.querySelector('.swal2-actions')
         if (actions) {
-          actions.style.cssText = 'position: fixed; top: 66%; left: 50%; transform: translateX(-50%); margin: 0;'
+          actions.style.cssText =
+            'position: fixed; top: 66%; left: 50%; transform: translateX(-50%); margin: 0;'
         }
 
         const confirmBtn = Swal.getConfirmButton()
