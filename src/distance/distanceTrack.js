@@ -294,7 +294,6 @@ RemoteCalibrator.prototype.trackDistance = async function (
     return
   }
 
- 
   // Always show a single, centered "Loading video ..." message as soon
   // as the participant clicks the Distance button. trackDistance can
   // otherwise leave them staring at a blank screen for several seconds
@@ -576,14 +575,15 @@ RemoteCalibrator.prototype.setViewingDistanceAllowedPreciseBool = function (
  *
  * @param {number} value Allowed absolute yaw in degrees. Non-finite values fall back to 180.
  */
-RemoteCalibrator.prototype.setViewingDistanceAllowedHeadRotationDeg =
-  function (value = 180) {
-    const deg = Number.isFinite(value) ? value : 180
-    this._viewingDistanceAllowedHeadRotationDeg = deg
-    trackingOptions.viewingDistanceAllowedHeadRotationDeg = deg
-    if (this._distanceTrackNudging)
-      this._distanceTrackNudging.headRotationAllowedDeg = deg
-  }
+RemoteCalibrator.prototype.setViewingDistanceAllowedHeadRotationDeg = function (
+  value = 180,
+) {
+  const deg = Number.isFinite(value) ? value : 180
+  this._viewingDistanceAllowedHeadRotationDeg = deg
+  trackingOptions.viewingDistanceAllowedHeadRotationDeg = deg
+  if (this._distanceTrackNudging)
+    this._distanceTrackNudging.headRotationAllowedDeg = deg
+}
 
 /* -------------------------------------------------------------------------- */
 

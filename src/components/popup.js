@@ -62,9 +62,7 @@ const _cameraCaptionHTML = (label, resolution, RC, incorporation) => {
   const clean = _stripHexId(label)
   const tag = _incorporationLabel(RC, incorporation)
   if (!resolution || !resolution.width) {
-    return tag
-      ? `<div>${clean}</div><div>${tag}</div>`
-      : `<div>${clean}</div>`
+    return tag ? `<div>${clean}</div><div>${tag}</div>` : `<div>${clean}</div>`
   }
   const hz = resolution.frameRate
     ? `, ${Math.round(resolution.frameRate)} Hz`
@@ -161,9 +159,7 @@ const _setAllCameraContainersDisabled = (cameras, disabled) => {
  * direct child of <body> ensures it is truly viewport-fixed.
  */
 const _promoteCameraPreviewsBottomToBody = () => {
-  const bottomOuter = document.getElementById(
-    'rc-camera-previews-bottom-outer',
-  )
+  const bottomOuter = document.getElementById('rc-camera-previews-bottom-outer')
   if (bottomOuter && bottomOuter.parentElement !== document.body) {
     document.body.appendChild(bottomOuter)
   }
@@ -174,9 +170,7 @@ const _promoteCameraPreviewsBottomToBody = () => {
  * the Swal popup or has been promoted to <body>).
  */
 const _removeCameraPreviewsBottom = () => {
-  const bottomOuter = document.getElementById(
-    'rc-camera-previews-bottom-outer',
-  )
+  const bottomOuter = document.getElementById('rc-camera-previews-bottom-outer')
   if (bottomOuter) bottomOuter.remove()
 }
 
@@ -309,7 +303,8 @@ const _recordCameraData = RC => {
 // Ask the participant whether an "unknown"-classified camera is built-in.
 // Sets RC.cameraIncorporationReported and back-fills RC.cameraArray.opinion.
 const askCameraIncorporationOpinion = async RC => {
-  const Q = phrases?.RC_IsCameraBuiltIn?.[RC.L] ||
+  const Q =
+    phrases?.RC_IsCameraBuiltIn?.[RC.L] ||
     'Check the video. Is its camera built-into this screen?'
   const yesText = phrases?.RC_Yes?.[RC.L] || 'Yes'
   const noText = phrases?.RC_No?.[RC.L] || 'No'
@@ -1116,9 +1111,7 @@ const createCameraPreviews = async (
     ? Number.parseInt(videoContainer.style.height || '240')
     : 240
   const viewportW =
-    window.innerWidth ||
-    document.documentElement?.clientWidth ||
-    1024
+    window.innerWidth || document.documentElement?.clientWidth || 1024
   const previewWidthPx = Math.round(
     Math.min(maxW, Math.max(120, viewportW * 0.18)),
   )
@@ -1231,8 +1224,7 @@ const createCameraPreviews = async (
   // resolves relative to the viewport.
   if (acceptBottomBool) {
     // Column flex so the explanation sits centered above the videos.
-    const bottomCaptionText =
-      phrases?.RC_BottomCameras?.[RC.L];
+    const bottomCaptionText = phrases?.RC_BottomCameras?.[RC.L]
     previewsHTML += `<div id="rc-camera-previews-bottom-outer" style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 0 1rem 0 1rem; box-sizing: border-box; z-index: 9147483649; pointer-events: auto;">`
     previewsHTML += `
       <div id="rc-bottom-cameras-caption" style="text-align: center; color: #444; font-size: clamp(12px, 1.6vw, 16px); font-weight: 300; line-height: 1.4; max-width: 70vw; margin: 0 0 0.5rem 0; direction: ${isRTL ? 'rtl' : 'ltr'};">
@@ -1308,9 +1300,8 @@ const createCameraPreviews = async (
         ? document.getElementById(`camera-preview-container-bottom-${i}`)
         : null
       const captionDiv = container?.querySelector('.rc-camera-caption')
-      const bottomCaptionDiv = bottomContainer?.querySelector(
-        '.rc-camera-caption',
-      )
+      const bottomCaptionDiv =
+        bottomContainer?.querySelector('.rc-camera-caption')
 
       if (videoElement) {
         try {
@@ -1506,9 +1497,7 @@ const updateCameraPreviews = async (
         // ...then highlight the matching device in BOTH rows.
         _applyCameraContainerState(index, 'highlight')
 
-        const selectedCamera = newCameras.find(
-          cam => cam.deviceId === deviceId,
-        )
+        const selectedCamera = newCameras.find(cam => cam.deviceId === deviceId)
         if (selectedCamera && RC.gazeTracker?.webgazer) {
           try {
             await switchToCamera(RC, selectedCamera)
@@ -2141,8 +2130,7 @@ export const showCameraSelectionPopup = async (
               })
 
               RC.selectedCamera = selectedCamera
-              RC.cameraIncorporation =
-                selectedCamera.incorporation || 'unknown'
+              RC.cameraIncorporation = selectedCamera.incorporation || 'unknown'
             }
           } catch (error) {
             console.error('Camera switch error:', error)
@@ -2561,7 +2549,8 @@ export const _handlePostCameraResolution = async (RC, options) => {
         // Position button horizontally centered, shifted down by ~1/3
         const actions = popup?.querySelector('.swal2-actions')
         if (actions) {
-          actions.style.cssText = 'position: fixed; top: 66%; left: 50%; transform: translateX(-50%); margin: 0;'
+          actions.style.cssText =
+            'position: fixed; top: 66%; left: 50%; transform: translateX(-50%); margin: 0;'
         }
 
         const confirmBtn = Swal.getConfirmButton()

@@ -166,12 +166,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           // Defensive: another nudger (e.g. the yaw nudger) may have
           // replaced #calibration-nudger's contents since this interval
           // was created. Bail out silently rather than crashing.
-          if (
-            !moveElement ||
-            !guideNumNow ||
-            !guideNumDesired ||
-            !canUseKeypad
-          )
+          if (!moveElement || !guideNumNow || !guideNumDesired || !canUseKeypad)
             return
 
           moveElement.innerHTML = getMoveInner(

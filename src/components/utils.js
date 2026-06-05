@@ -249,8 +249,7 @@ export function showLoadingVideoMessage(RC) {
     pointer-events: none;
     user-select: none;
   `
-  msg.textContent =
-    phrases?.RC_LoadingVideo?.[RC?.L] || 'Loading video ...'
+  msg.textContent = phrases?.RC_LoadingVideo?.[RC?.L] || 'Loading video ...'
   document.body.appendChild(msg)
 }
 
@@ -275,7 +274,9 @@ export function constructInstructions(
   // copy. processInlineFormatting is idempotent, preserves newlines/HTML, and
   // is a no-op for plain text, so existing instructions render unchanged.
   const fmtHeadline = processInlineFormatting(headline)
-  const fmtHeadline2 = headline2 ? processInlineFormatting(headline2) : headline2
+  const fmtHeadline2 = headline2
+    ? processInlineFormatting(headline2)
+    : headline2
   const fmtDescription = description
     ? processInlineFormatting(description)
     : description
@@ -443,8 +444,7 @@ export const getCameraResolutionXY = RC => {
  *
  * Defaults to top-camera behaviour when the flag has not been set yet.
  */
-export const isBottomCenterCamera = RC =>
-  RC?.selectedCameraRow === 'bottom'
+export const isBottomCenterCamera = RC => RC?.selectedCameraRow === 'bottom'
 
 /**
  * Returns the camera anchor point [x, y] in **screen** CSS pixels

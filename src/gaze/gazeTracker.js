@@ -1,6 +1,11 @@
 import webgazer from '../WebGazer4RC/src/index.mjs'
 
-import { safeExecuteFunc, toFixedNumber, getFullscreen, isFullscreen } from '../components/utils'
+import {
+  safeExecuteFunc,
+  toFixedNumber,
+  getFullscreen,
+  isFullscreen,
+} from '../components/utils'
 import { checkWebgazerReady } from '../components/video'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
@@ -330,7 +335,11 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
     // selection, resolution, etc.) that may block keyboard events (e.g.
     // SPACE) after the camera reconnects and the page is restored.
     if (this.calibrator.popupKeydownListener) {
-      document.removeEventListener('keydown', this.calibrator.popupKeydownListener, true)
+      document.removeEventListener(
+        'keydown',
+        this.calibrator.popupKeydownListener,
+        true,
+      )
       this.calibrator.popupKeydownListener = null
     }
 
