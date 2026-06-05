@@ -111,6 +111,7 @@ dist
 test-exec
 .DS_Store
 .vscode
+.idea
 
 package-lock.json
 
