@@ -1,4 +1,5 @@
 import { phrases } from '../i18n/schema'
+import { remoteCalibratorPhrases } from '../i18n/phrases'
 export const swalInfoOptions = (RC, { showIcon }) => {
   return {
     icon: showIcon ? 'info' : undefined,

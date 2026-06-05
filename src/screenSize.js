@@ -25,7 +25,6 @@ import {
 import { bindKeys, unbindKeys } from './components/keyBinder'
 import { addButtons } from './components/buttons'
 import { phrases } from './i18n/schema'
-import { replacePhraseToken } from './i18n/replacePhraseToken'
 import { processInlineFormatting } from './distance/markdownInstructionParser'
 import { setUpEasyEyesKeypadHandler } from './extensions/keypadHandler'
 import { swalInfoOptions } from './components/swalOptions'
@@ -242,8 +241,10 @@ RemoteCalibrator.prototype.screenSize = function (
   if (!['usba', 'usbc', 'card'].includes(options.defaultObject))
     options.defaultObject = 'card'
 
-  options.description += `<br /><br /><b class="rc-size-obj-selection">${replacePhraseToken(
-    phrases.RC_screenSizeHave[this.L],
+  options.description += `<br /><br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
+    this.L
+  ].replace(
+    '[[xxx]]',
     `<select id="matching-obj"><option value="usba"${
       options.defaultObject === 'usba' ? ' selected' : ''
     }>${phrases.RC_screenSizeUSBA[this.L]}</option><option value="usbc"${
@@ -345,8 +346,10 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
       // Add the object selection dropdown to the continue text
       const fullDescription =
         continueDescription +
-        `<br /><br /><b class="rc-size-obj-selection">${replacePhraseToken(
-          phrases.RC_screenSizeHave[RC.L],
+        `<br /><br /><b class="rc-size-obj-selection">${phrases.RC_screenSizeHave[
+          RC.L
+        ].replace(
+          '[[xxx]]',
           `<select id="matching-obj"><option value="usba"${
             options.defaultObject === 'usba' ? ' selected' : ''
           }>${phrases.RC_screenSizeUSBA[RC.L]}</option><option value="usbc"${

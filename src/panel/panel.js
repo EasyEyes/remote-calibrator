@@ -270,27 +270,27 @@ RemoteCalibrator.prototype.panel = async function (
 const _validTaskList = {
   screenSize: {
     use: 1,
-    name: phrases.RC_screenSize?.['en'],
+    name: phrases.RC_screenSize['en-US'],
     phraseHandle: 'RC_screenSize',
   },
   measureDistance: {
     use: 1,
-    name: phrases.RC_viewingDistance?.['en'],
+    name: phrases.RC_viewingDistance['en-US'],
     phraseHandle: 'RC_viewingDistance',
   },
   trackDistance: {
     use: 2,
-    name: phrases.RC_distanceTracking?.['en'],
+    name: phrases.RC_distanceTracking['en-US'],
     phraseHandle: 'RC_distanceTracking',
   },
   trackGaze: {
     use: 2,
-    name: phrases.RC_gazeTracking?.['en'],
+    name: phrases.RC_gazeTracking['en-US'],
     phraseHandle: 'RC_gazeTracking',
   },
   performance: {
     use: 1,
-    name: phrases.RC_performance?.['en'],
+    name: phrases.RC_performance['en-US'],
     phraseHandle: 'RC_performance',
   },
 }
