@@ -4,6 +4,7 @@
 import Swal from 'sweetalert2'
 import { remoteCalibratorPhrases } from '../i18n/phrases'
 import { phrases } from '../i18n/schema'
+import { processInlineFormatting } from '../distance/markdownInstructionParser'
 ;(function () {
   let lastTime = 0
   const vendors = ['ms', 'moz', 'webkit', 'o']
@@ -270,11 +271,19 @@ export function constructInstructions(
   useDescriptionClassOnly = false,
   headlineId = 'instruction-title',
 ) {
+  // Enable inline markdown (**bold**, *italic*, `code`, etc.) in instruction
+  // copy. processInlineFormatting is idempotent, preserves newlines/HTML, and
+  // is a no-op for plain text, so existing instructions render unchanged.
+  const fmtHeadline = processInlineFormatting(headline)
+  const fmtHeadline2 = headline2 ? processInlineFormatting(headline2) : headline2
+  const fmtDescription = description
+    ? processInlineFormatting(description)
+    : description
   return `<div class="calibration-instruction${
     scrollable ? ' calibration-instruction-scrollable' : ''
-  }${position === 'left' ? ' calibration-instruction-left' : ''}"><h1 id="${headlineId}" style="white-space: pre-line; text-align: start; margin: 0 0 3rem 0;">${headline}</h1>${headline2 ? '<h1 style="white-space: pre-line; text-align: start; margin: 0 0 4rem 0;">' + headline2 + '</h1>' : ''}${
-    description
-      ? `<p id="instruction-body" class="${useDescriptionClassOnly ? descriptionClass : 'calibration-description ' + descriptionClass}">${description}</p></div>`
+  }${position === 'left' ? ' calibration-instruction-left' : ''}"><h1 id="${headlineId}" style="white-space: pre-line; text-align: start; margin: 0 0 3rem 0;">${fmtHeadline}</h1>${fmtHeadline2 ? '<h1 style="white-space: pre-line; text-align: start; margin: 0 0 4rem 0;">' + fmtHeadline2 + '</h1>' : ''}${
+    fmtDescription
+      ? `<p id="instruction-body" class="${useDescriptionClassOnly ? descriptionClass : 'calibration-description ' + descriptionClass}">${fmtDescription}</p></div>`
       : ''
   }`
 }

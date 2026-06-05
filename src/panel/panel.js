@@ -4,6 +4,7 @@ import { safeExecuteFunc, blurAll } from '../components/utils'
 import RemoteCalibrator from '../core'
 import { _setDebugControl } from './panelDebugControl'
 import { phrases } from '../i18n/schema'
+import { processInlineFormatting } from '../distance/markdownInstructionParser'
 import { PanelState } from './panelState'
 import { checkPermissions } from '../components/mediaPermission'
 import {
@@ -161,8 +162,12 @@ RemoteCalibrator.prototype.panel = async function (
   if (options.i18n) {
     panel.innerHTML += `<div class="rc-panel-language-parent" id="rc-panel-language-parent"></div>`
   }
-  panel.innerHTML += `<h1 class="rc-panel-title" id="rc-panel-title">${options.headline}</h1>`
-  panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${options.description}</p>`
+  panel.innerHTML += `<h1 class="rc-panel-title" id="rc-panel-title">${processInlineFormatting(
+    options.headline,
+  )}</h1>`
+  panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${processInlineFormatting(
+    options.description,
+  )}</p>`
   panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
 
   // --- Camera selection before panel is visible ---
@@ -484,10 +489,11 @@ const _activateStepAt = (RC, current, tasks, options, finalCallback) => {
           const { headline, nextHeadline, description, nextDescription } =
             options
           if (headline !== nextHeadline)
-            document.querySelector('#rc-panel-title').innerHTML = nextHeadline
+            document.querySelector('#rc-panel-title').innerHTML =
+              processInlineFormatting(nextHeadline)
           if (description !== nextDescription)
             document.querySelector('#rc-panel-description').innerHTML =
-              nextDescription
+              processInlineFormatting(nextDescription)
 
           e.onclick = () => {
             RC._panelStatus.panelFinished = true

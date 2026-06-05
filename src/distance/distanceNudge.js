@@ -3,6 +3,7 @@ import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { phrases } from '../i18n/schema'
 import { addButtons } from '../components/buttons'
 import { sleep } from '../components/utils'
+import { processInlineFormatting } from './markdownInstructionParser'
 
 // ── Input-blocking infrastructure for the nudger ──
 // When the nudger is visible we intercept ALL user-input events during the
@@ -192,7 +193,9 @@ RemoteCalibrator.prototype.nudgeDistance = function (
             this._distanceTrackNudging.distanceDesired >
               this._distanceTrackNudging.needEasyEyesKeypadBeyondCm
           ) {
-            canUseKeypad.innerHTML = ` ${phrases.RC_canUsePhoneKeypad[this.L]}`
+            canUseKeypad.innerHTML = ` ${processInlineFormatting(
+              phrases.RC_canUsePhoneKeypad[this.L],
+            )}`
           } else {
             canUseKeypad.innerHTML = ''
           }
@@ -243,7 +246,9 @@ const withinRange = (value, target, toleranceRatio) => {
 const startCorrecting = RC => {
   RC._addNudger(`<div id="rc-distance-correct">
   <p id="rc-distance-correct-instruction"></p>
-  <p id="rc-distance-correct-guide">${phrases.RC_distanceTrackingGuide1[RC.L]
+  <p id="rc-distance-correct-guide">${processInlineFormatting(
+    phrases.RC_distanceTrackingGuide1[RC.L],
+  )
     .replace(
       '[[N11]]',
       `<span class="rc-distance-num rc-distance-now" id="rc-distance-now"></span>`,
@@ -424,10 +429,11 @@ RemoteCalibrator.prototype.nudgeHeadRotation = function (
     if (!instructionEl || !nowEl || !allowedEl || !sideEl) return
 
     const currentYaw = Number.isFinite(state.headYawDeg) ? state.headYawDeg : 0
-    instructionEl.innerHTML =
+    instructionEl.innerHTML = processInlineFormatting(
       (phrases.RC_distanceTrackingFaceScreen &&
         phrases.RC_distanceTrackingFaceScreen[this.L]) ||
-      'Face the screen'
+        'Face the screen',
+    )
     nowEl.innerHTML = String(Math.round(Math.abs(currentYaw)))
     allowedEl.innerHTML = String(Math.round(allowedDeg))
     sideEl.innerHTML = getYawSideLabel(this, currentYaw)

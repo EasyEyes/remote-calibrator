@@ -4,6 +4,7 @@ import LeaderLine from 'leader-line-new'
 // import { crossLH, crossLW } from '../components/onCanvas'
 import { safeExecuteFunc } from '../components/utils'
 import { phrases } from '../i18n/schema'
+import { processInlineFormatting } from '../distance/markdownInstructionParser'
 
 // import Arrow from '../media/arrow.svg'
 import { GazeCalibrationDot } from './gazeCalibration'
@@ -53,9 +54,9 @@ RemoteCalibrator.prototype.nudgeGaze = function (
   }
 
   // float instruction
-  const instP = `<p class="float-instruction gaze-nudge-instruction" id="float-instruction">${
-    phrases.RC_gazeTrackingNudge[this.L]
-  }</p>`
+  const instP = `<p class="float-instruction gaze-nudge-instruction" id="float-instruction">${processInlineFormatting(
+    phrases.RC_gazeTrackingNudge[this.L],
+  )}</p>`
   b.innerHTML += instP
 
   // gaze fixation
