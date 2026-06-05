@@ -241,9 +241,7 @@ const withinRange = (value, target, toleranceRatio) => {
 const startCorrecting = RC => {
   RC._addNudger(`<div id="rc-distance-correct">
   <p id="rc-distance-correct-instruction"></p>
-  <p id="rc-distance-correct-guide">${processInlineFormatting(
-    phrases.RC_distanceTrackingGuide1[RC.L],
-  )
+  <p id="rc-distance-correct-guide">${phrases.RC_distanceTrackingGuide[RC.L]
     .replace(
       '[[N11]]',
       `<span class="rc-distance-num rc-distance-now" id="rc-distance-now"></span>`,

@@ -87,7 +87,9 @@ export const repositionVideoForCameraMonitoring = (
       .toLowerCase()
       .split(',')
       .map(s => s.trim())
-    shouldPositionAtCamera = optionsArray.includes('camera')
+    const hasCamera = optionsArray.includes('camera')
+    const hasCenter = optionsArray.includes('center')
+    shouldPositionAtCamera = hasCamera && !hasCenter
     shouldShowCross = optionsArray.includes('tiltandswivel')
   }
 
@@ -152,8 +154,9 @@ export const repositionVideoForCameraMonitoring = (
       removeFixationCrossFromVideo()
     }
   } else {
-    // Clear camera mode flag
+    // Clear mode flags so setDefaultVideoPosition doesn't skip
     delete videoContainer.dataset.cameraMode
+    delete videoContainer.dataset.screenCenterMode
 
     // Default positioning (centered on screen)
     setDefaultVideoPosition(RC, videoContainer)

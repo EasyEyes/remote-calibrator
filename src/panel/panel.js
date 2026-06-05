@@ -641,7 +641,13 @@ const _runCameraSelectionBeforePanel = async (RC, tdOpts) => {
   }
   await checkPermissions(RC, permMessage)
 
-  // 3. Show "Starting..." in the same style as the resolution message
+  // 3. Show "Starting..." in the same style as the resolution message.
+  // Ensure the standard EasyEyes gray (#eee) background is painted under
+  // the message so this page matches every other RC page. Without this
+  // the body's default (white) shows through and "Connecting to your
+  // webcam(s) ..." looks noticeably lighter than neighboring pages.
+  const _backgroundAddedHere = RC.background === null
+  if (_backgroundAddedHere) RC._addBackground()
   const startingMsg = document.createElement('div')
   startingMsg.id = 'rc-starting-message'
   startingMsg.style.cssText = `
@@ -689,6 +695,10 @@ const _runCameraSelectionBeforePanel = async (RC, tdOpts) => {
   const leftoverLoading = document.getElementById('camera-loading-text')
   if (leftoverLoading) leftoverLoading.remove()
   hideResolutionSettingMessage()
+
+  // Tear down the gray background we added before "Starting..." so the
+  // panel renders cleanly against its own background below.
+  if (_backgroundAddedHere) RC._removeBackground()
 
   // 6. Hide video so it doesn't show during screenSize (credit card step)
   RC.showVideo(false)

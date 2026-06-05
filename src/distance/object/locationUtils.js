@@ -9,7 +9,10 @@
  */
 
 import { setDefaultVideoPosition } from '../../components/video'
-import { isBottomCenterCamera } from '../../components/utils'
+import {
+  isBottomCenterCamera,
+  getCameraXYPxViewport,
+} from '../../components/utils'
 
 /* ============================================================================
  * VALID LOCATIONS
@@ -561,8 +564,35 @@ export function positionVideoForLocation(RC, location, offsetPx = 0) {
     parseInt(videoContainer.style.height) || videoContainer.offsetHeight || 0
 
   if (location === 'camera') {
-    delete videoContainer.dataset.screenCenterMode
-    setDefaultVideoPosition(RC, videoContainer)
+    // Prevent setDefaultVideoPosition's resize handler from overriding
+    // this explicit positioning (same guard used by non-camera locations).
+    videoContainer.dataset.screenCenterMode = 'true'
+    delete videoContainer.dataset.cameraMode
+
+    if (videoContainer._resizeHandler) {
+      window.removeEventListener('resize', videoContainer._resizeHandler)
+      videoContainer._resizeHandler = null
+      videoContainer._hasResizeListener = false
+    }
+
+    const cameraXYPx = getCameraXYPxViewport(RC)
+    const centerY = window.innerHeight / 2
+    const cameraAtTopBool = cameraXYPx[1] < centerY
+
+    videoContainer.style.zIndex = 999999999999
+    videoContainer.style.position = 'fixed'
+    videoContainer.style.transform = 'none'
+    videoContainer.style.right = 'unset'
+    videoContainer.style.left = `${cameraXYPx[0] - videoWidth / 2}px`
+
+    if (cameraAtTopBool) {
+      videoContainer.style.top = '0px'
+      videoContainer.style.bottom = 'unset'
+    } else {
+      videoContainer.style.top = 'unset'
+      videoContainer.style.bottom = '0px'
+    }
+
     removeBigCircle()
     return
   }
