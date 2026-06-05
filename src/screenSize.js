@@ -30,6 +30,12 @@ import { processInlineFormatting } from './distance/markdownInstructionParser'
 import { setUpEasyEyesKeypadHandler } from './extensions/keypadHandler'
 import { swalInfoOptions } from './components/swalOptions'
 import { showPauseBeforeNewObject } from './distance/distance'
+import {
+  buildScreenDataFromCache,
+  loadValidScreenSizeCache,
+  resolveCalibrateScreenSizeCacheBool,
+  saveScreenSizeCache,
+} from './screenSizeCache'
 
 RemoteCalibrator.prototype._displaySize = function (forInit = false) {
   ////
@@ -94,6 +100,42 @@ function createSizeScaleDistribution() {
 // Create the distribution once at module level
 const sizeScaleDistribution = createSizeScaleDistribution()
 
+function finishScreenSizeCalibration(
+  RC,
+  screenData,
+  options,
+  callback,
+  screenSizeMeasurements,
+) {
+  const fromCache = Boolean(screenData.fromCache)
+  console.log(
+    `[screenSize] finishScreenSizeCalibration: source=${fromCache ? 'localStorage cache' : 'credit-card measurement'}, ` +
+      `size=${screenData.value.screenWidthCm}×${screenData.value.screenHeightCm} cm, PPI=${screenData.value.screenPpi}`,
+  )
+  RC.newScreenData = screenData
+  if (screenSizeMeasurements) {
+    RC.screenSizeMeasurements = screenSizeMeasurements
+  }
+  const willSaveCache = resolveCalibrateScreenSizeCacheBool(options)
+  if (willSaveCache) {
+    console.log(
+      '[screenSize] Persisting calibration to localStorage (next participant on this monitor can skip card UI)',
+    )
+    saveScreenSizeCache(screenData.value)
+  } else {
+    console.log(
+      '[screenSize] Not writing localStorage (cache disabled or cache-hit path)',
+    )
+  }
+  if (options.check) {
+    console.log('[screenSize] Running optional ruler check (_checkScreenSize)')
+    RC._checkScreenSize(callback, screenData, options.checkCallback)
+  } else {
+    console.log('[screenSize] Invoking screenSize callback')
+    safeExecuteFunc(callback, screenData)
+  }
+}
+
 RemoteCalibrator.prototype.screenSize = function (
   screenSizeOptions = {},
   callback = undefined,
@@ -126,9 +168,50 @@ RemoteCalibrator.prototype.screenSize = function (
       check: false,
       checkCallback: null,
       calibrateDistanceAllowedRatioPxPerCm: 1.03, // Ratio threshold - last two measurements must satisfy max(M1/M2, M2/M1) <= threshold
+      calibrateScreenSizeCacheBool: true, // EasyEyes _calibrateScreenSizeCacheBool: reuse size from localStorage when monitor matches
     },
     screenSizeOptions,
   )
+
+  console.log(
+    '[screenSize] screenSize() started — checking localStorage cache first',
+  )
+  if (resolveCalibrateScreenSizeCacheBool(options)) {
+    const cachedEntry = loadValidScreenSizeCache()
+    if (cachedEntry) {
+      console.log(
+        '[screenSize] Cache hit — skipping credit-card UI and finishing immediately',
+      )
+      const screenData = buildScreenDataFromCache(
+        cachedEntry,
+        options.decimalPlace,
+      )
+      const pxPerCm = toFixedNumber(screenData.value.screenPpi / 2.54, 1)
+      finishScreenSizeCalibration(
+        this,
+        screenData,
+        { ...options, calibrateScreenSizeCacheBool: false },
+        callback,
+        {
+          fromCache: true,
+          pxPerCm: [pxPerCm],
+          chosen: [pxPerCm],
+          mean: pxPerCm,
+          acceptedLength: [],
+          acceptedRatioLength: [],
+          rejectedLength: [],
+          rejectedRatioLength: [],
+          historyLength: [],
+        },
+      )
+      return
+    }
+    console.log('[screenSize] Cache miss — showing credit-card calibration UI')
+  } else {
+    console.log(
+      '[screenSize] Cache disabled by option — showing credit-card calibration UI',
+    )
+  }
 
   // Force fullscreen unconditionally on Size page arrival
   forceFullscreen(this.L, this)
@@ -752,12 +835,13 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         toFixedN,
       )
 
-      RC.newScreenData = screenData
       const singlePxPerCm = toFixedNumber(
         measurementState.measurements[0].ppi / 2.54,
         1,
       )
-      RC.screenSizeMeasurements = {
+      breakFunction()
+
+      finishScreenSizeCalibration(RC, screenData, options, callback, {
         pxPerCm: [singlePxPerCm],
         chosen: [singlePxPerCm],
         mean: singlePxPerCm,
@@ -766,12 +850,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
         rejectedLength: measurementState.rejectedLength,
         rejectedRatioLength: measurementState.rejectedRatioLength,
         historyLength: measurementState.historyLength,
-      }
-      breakFunction()
-
-      if (options.check)
-        RC._checkScreenSize(callback, screenData, options.checkCallback)
-      else safeExecuteFunc(callback, screenData)
+      })
 
       return
     }
@@ -806,9 +885,9 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
           toFixedN,
         )
 
-        // ! Record data
-        RC.newScreenData = screenData
-        RC.screenSizeMeasurements = {
+        breakFunction()
+
+        finishScreenSizeCalibration(RC, screenData, options, callback, {
           pxPerCm: measurementState.measurements.map(m =>
             toFixedNumber(m.ppi / 2.54, 1),
           ),
@@ -822,15 +901,7 @@ function performMeasurement(RC, parent, options, callback, measurementState) {
           rejectedLength: measurementState.rejectedLength,
           rejectedRatioLength: measurementState.rejectedRatioLength,
           historyLength: measurementState.historyLength,
-        }
-
-        // Remove listeners and DOM
-        breakFunction()
-
-        // ! Call the callback function
-        if (options.check)
-          RC._checkScreenSize(callback, screenData, options.checkCallback)
-        else safeExecuteFunc(callback, screenData)
+        })
 
         return
       } else {
