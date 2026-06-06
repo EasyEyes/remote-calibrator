@@ -37,7 +37,7 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
 
   const opts = Object.assign(
     {
-      // Camera resolution / framerate the experiment wants. 
+      // Camera resolution / framerate the experiment wants.
       calibrateDistanceCameraResolution: [640, 480],
       calibrateDistanceCameraHz: 60,
       // Whether to show the Camera Resolution page after Choose Camera /
@@ -58,10 +58,8 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
     options,
   )
 
- 
   await this.getFullscreen(opts.fullscreen)
 
-  
   if (!this.gazeTracker.checkInitialized('distance')) {
     this.gazeTracker._init(
       {
@@ -75,14 +73,12 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
     )
   }
 
- 
   let permMessage = `${phrases.RC_requestCamera[this.L]}`
   if (!opts.saveSnapshots) {
     permMessage += `<br />${phrases.RC_privacyCamera[this.L]}`
   }
   await checkPermissions(this, permMessage)
 
- 
   const _backgroundAddedHere = this.background === null
   if (_backgroundAddedHere) this._addBackground()
   const startingMsg = document.createElement('div')
@@ -114,16 +110,13 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
     })
   })
 
-
   startingMsg.remove()
-
 
   const cameraResult = await showTestPopup(this, null, opts)
   if (cameraResult?.experimentEnded) {
     console.log('[RC.selectCamera] Experiment ended — no cameras detected')
   }
 
-  
   if (!cameraResult?.experimentEnded) {
     this._cameraSelectionDone = true
   }
@@ -141,7 +134,6 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   this.showVideo(false)
   const vc = document.getElementById('webgazerVideoContainer')
   if (vc) vc.style.display = 'none'
-
 
   const realIncorporation =
     this.cameraIncorporationReal != null

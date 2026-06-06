@@ -334,12 +334,10 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
   // layout) shows the participant's currently-selected language and
   // direction, not whatever was active when the camera first started.
   if (typeof this.calibrator.onLanguageChange === 'function') {
-    this._cameraMonitoringLangUnsub = this.calibrator.onLanguageChange(
-      lang => {
-        this.webgazer.params.language = lang || this.calibrator.L
-        this.webgazer.params.languageDirection = this.calibrator.LD
-      },
-    )
+    this._cameraMonitoringLangUnsub = this.calibrator.onLanguageChange(lang => {
+      this.webgazer.params.language = lang || this.calibrator.L
+      this.webgazer.params.languageDirection = this.calibrator.LD
+    })
   }
 
   this.webgazer.setOnCameraDisconnected(message => {
