@@ -625,6 +625,192 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
 }
 
 /**
+ * Substitutes custom tokens (e.g. [[BBB]]) in rendered HTML.
+ *
+ * @private
+ * @param {string} html - HTML string
+ * @param {Object<string, string>} [tokenReplacements={}] - Token → HTML map
+ * @returns {string}
+ */
+function applyTokenReplacements(html, tokenReplacements = {}) {
+  let result = html
+  for (const [token, replacement] of Object.entries(tokenReplacements)) {
+    result = result.split(token).join(replacement)
+  }
+  return result
+}
+
+/**
+ * Strips the list marker prefix that buildStepInstructionsFromMarkdown
+ * bakes into step.text ("1. ", "- ", etc.).
+ *
+ * @private
+ * @param {InstructionStep} step
+ * @returns {string}
+ */
+function stripListMarkerFromStepText(step) {
+  if (step.number != null) {
+    return step.text.replace(new RegExp(`^${step.number}\\.\\s`), '')
+  }
+  if (/^[-*+]\s/.test(step.text)) {
+    return step.text.replace(/^[-*+]\s/, '')
+  }
+  return step.text
+}
+
+const _OL_STYLE =
+  'margin: 0.25em 0; padding-inline-start: 1.5em; list-style-position: outside;'
+const _UL_STYLE =
+  'margin: 0.25em 0; padding-inline-start: 1.5em; list-style-position: outside;'
+
+/**
+ * Renders a parsed instruction model as HTML with real list elements so
+ * wrapped lines hang-indent correctly.
+ *
+ * @public
+ * @param {InstructionModel} model - Output of buildStepInstructionsFromMarkdown
+ * @param {Object} [options={}]
+ * @param {Object<string, string>} [options.tokenReplacements={}] - Token → HTML map
+ * @returns {string} HTML string
+ */
+export function renderInstructionModelToHTML(model, options = {}) {
+  const { tokenReplacements = {} } = options
+  if (!model?.sections?.length) return ''
+
+  const parts = []
+
+  for (const section of model.sections) {
+    if (section.title) {
+      parts.push(
+        `<div class="rc-md-section-title" style="margin: 0.5em 0; font-weight: 600;">${applyTokenReplacements(section.title, tokenReplacements)}</div>`,
+      )
+    }
+
+    const steps = section.steps || []
+    let i = 0
+    while (i < steps.length) {
+      const step = steps[i]
+
+      if (step.isHr) {
+        parts.push(step.text)
+        i++
+        continue
+      }
+
+      if (step.isBlockquote || step.isCodeBlock) {
+        parts.push(applyTokenReplacements(step.text, tokenReplacements))
+        i++
+        continue
+      }
+
+      if (step.isTask) {
+        parts.push(
+          `<div class="rc-md-task" style="margin: 0.25em 0;">${applyTokenReplacements(step.text, tokenReplacements)}</div>`,
+        )
+        i++
+        continue
+      }
+
+      if (step.number != null) {
+        const items = []
+        const baseLevel = step.level || 0
+        while (i < steps.length) {
+          const s = steps[i]
+          if (
+            s.isHr ||
+            s.isBlockquote ||
+            s.isCodeBlock ||
+            s.isTask ||
+            s.number == null ||
+            (s.level || 0) !== baseLevel
+          ) {
+            break
+          }
+          const itemText = applyTokenReplacements(
+            stripListMarkerFromStepText(s),
+            tokenReplacements,
+          )
+          items.push(`<li style="margin: 0.15em 0;">${itemText}</li>`)
+          i++
+        }
+        const nestStyle =
+          baseLevel > 0
+            ? `margin-left: ${baseLevel * 1.25}em; ${_OL_STYLE}`
+            : _OL_STYLE
+        parts.push(`<ol style="${nestStyle}">${items.join('')}</ol>`)
+        continue
+      }
+
+      if (/^[-*+]\s/.test(step.text)) {
+        const items = []
+        const baseLevel = step.level || 0
+        while (i < steps.length) {
+          const s = steps[i]
+          if (
+            s.isHr ||
+            s.isBlockquote ||
+            s.isCodeBlock ||
+            s.isTask ||
+            s.number != null ||
+            !/^[-*+]\s/.test(s.text) ||
+            (s.level || 0) !== baseLevel
+          ) {
+            break
+          }
+          const itemText = applyTokenReplacements(
+            stripListMarkerFromStepText(s),
+            tokenReplacements,
+          )
+          items.push(`<li style="margin: 0.15em 0;">${itemText}</li>`)
+          i++
+        }
+        const nestStyle =
+          baseLevel > 0
+            ? `margin-left: ${baseLevel * 1.25}em; ${_UL_STYLE}`
+            : _UL_STYLE
+        parts.push(`<ul style="${nestStyle}">${items.join('')}</ul>`)
+        continue
+      }
+
+      parts.push(
+        `<p class="rc-md-p" style="margin: 0.25em 0;">${applyTokenReplacements(step.text, tokenReplacements)}</p>`,
+      )
+      i++
+    }
+  }
+
+  return parts.join('')
+}
+
+/**
+ * Parses Markdown instruction text and renders it as HTML with real lists.
+ *
+ * @public
+ * @param {string} markdownText - Markdown-formatted instruction text
+ * @param {Object} [options={}]
+ * @param {Object<string, string>} [options.tokenReplacements={}] - Token → HTML map
+ * @param {number} [options.spacesPerLevel=2] - Spaces per indentation level
+ * @returns {string} HTML string
+ *
+ * @example
+ * renderMarkdownInstructionToHTML(
+ *   '1. First step\\n2. Click [[BBB]]',
+ *   { tokenReplacements: { '[[BBB]]': '<button>Go</button>' } },
+ * )
+ */
+export function renderMarkdownInstructionToHTML(markdownText, options = {}) {
+  if (typeof markdownText !== 'string' || !markdownText.trim()) {
+    return ''
+  }
+
+  const { tokenReplacements = {}, spacesPerLevel = 2 } = options
+  const model = buildStepInstructionsFromMarkdown(markdownText, {
+    spacesPerLevel,
+  })
+  return renderInstructionModelToHTML(model, { tokenReplacements })
+}
+
+/**
  * Builds flattened navigation index from sections.
  *
  * @private
