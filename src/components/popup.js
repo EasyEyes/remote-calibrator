@@ -3,7 +3,10 @@ import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from './swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
-import { processInlineFormatting } from '../distance/markdownInstructionParser'
+import {
+  processInlineFormatting,
+  renderMarkdownInstructionToHTML,
+} from '../distance/markdownInstructionParser'
 import { likelyBuiltIn } from './cameraClassifier'
 
 /**
@@ -238,6 +241,24 @@ const _chooseCameraFinePrintStyle = isRTL =>
   `color: #444; font-size: clamp(12px, 1.6vw, 16px); font-weight: 300; line-height: 1.4; direction: ${isRTL ? 'rtl' : 'ltr'}; text-align: ${isRTL ? 'right' : 'left'};`
 
 /**
+ * Renders camera/screen instruction phrases with block-level Markdown parsing
+ * so numbered lists become real <ol>/<li> and wrapped lines hang-indent.
+ * Falls back to inline formatting + <br> if parsing fails.
+ */
+const _buildCameraInstructionHTML = (template, tokenReplacements = {}) => {
+  if (!template) return ''
+  try {
+    return renderMarkdownInstructionToHTML(template, { tokenReplacements })
+  } catch (_e) {
+    let html = processInlineFormatting(template)
+    for (const [token, replacement] of Object.entries(tokenReplacements)) {
+      html = html.split(token).join(replacement)
+    }
+    return html.replace(/\n/g, '<br>')
+  }
+}
+
+/**
  * Make the bottom instructional caption use the same rendered content
  * width as the top instruction/privacy area, so left/right margins line
  * up in both Choose Camera and Choose Screen modes.
@@ -253,13 +274,33 @@ const _syncBottomCaptionWidthWithTopLayout = () => {
   const referenceElement = instructionBlock || topOuter
   if (!referenceElement) return
 
-  const topWidth = Math.round(referenceElement.getBoundingClientRect().width)
+  const rect = referenceElement.getBoundingClientRect()
+  const topWidth = Math.round(rect.width)
   if (!Number.isFinite(topWidth) || topWidth <= 0) return
+
+  // The bottom caption lives in a full-viewport-width fixed container
+  // (`rc-camera-previews-bottom-outer`, left:0/right:0) that centers its
+  // children via `align-items: center`. Merely centering the caption only
+  // lines it up with the instruction list / privacy footnote when the Swal
+  // popup is itself perfectly centered in the viewport -- which it isn't
+  // (scrollbar compensation and popup chrome shift it a few px), so the
+  // caption's left margin ended up off. Instead, pin the caption's leading
+  // edge to the instruction block's actual viewport x so its margin matches
+  // the numbered list and the privacy footnote exactly.
+  const isRTL = getComputedStyle(referenceElement).direction === 'rtl'
 
   bottomCaption.style.width = `${topWidth}px`
   bottomCaption.style.maxWidth = 'calc(100vw - 2rem)'
-  bottomCaption.style.marginLeft = 'auto'
-  bottomCaption.style.marginRight = 'auto'
+  bottomCaption.style.alignSelf = isRTL ? 'flex-end' : 'flex-start'
+
+  if (isRTL) {
+    const rightInset = Math.round(window.innerWidth - rect.right)
+    bottomCaption.style.marginRight = `${Math.max(0, rightInset)}px`
+    bottomCaption.style.marginLeft = '0'
+  } else {
+    bottomCaption.style.marginLeft = `${Math.max(0, Math.round(rect.left))}px`
+    bottomCaption.style.marginRight = '0'
+  }
 
   // Keep horizontal padding identical to the top instruction/privacy
   // blocks so the text starts/ends on the same x positions.
@@ -1894,9 +1935,9 @@ const updateTitleAndDescription = (RC, titleKey, messageKey) => {
   showCameraTitleInTopRight(RC, titleKey)
   const messageDiv = document.getElementById('rc-camera-instruction-text')
   if (messageDiv) {
-    messageDiv.innerHTML = processInlineFormatting(
+    messageDiv.innerHTML = _buildCameraInstructionHTML(
       phrases[messageKey]?.[RC.L] ?? '',
-    ).replace(/\n/g, '<br>')
+    )
   }
 }
 
@@ -1994,12 +2035,10 @@ const updateCameraPreviews = async (
       const messageKey = inChooseScreenMode
         ? 'RC_ChooseScreen'
         : 'RC_ChooseCamera'
-      instructionDivForRepaint.innerHTML = processInlineFormatting(
+      instructionDivForRepaint.innerHTML = _buildCameraInstructionHTML(
         phrases[messageKey]?.[RC.L] ?? '',
+        { '[[BBB]]': '', '[[QQQ]]': '' },
       )
-        .replace(/\[\[BBB\]\]/g, '')
-        .replace(/\[\[QQQ\]\]/g, '')
-        .replace(/\n/g, '<br>')
     }
   }
   if (typeof RC._bindScreenToggleButton === 'function') {
@@ -2271,7 +2310,7 @@ export const showCameraSelectionPopup = async (
         <div style="flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; width: 100%;">
           ${cameraPreviewsHTML}
         </div>
-        <div id="rc-camera-instruction-text" style="background: transparent; padding: 0.5rem 30px; margin-top: 0.5rem; flex-shrink: 0; text-align: ${RC.LD === RC._CONST.RTL ? 'right' : 'left'}; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; width: 100%; box-sizing: border-box; align-self: flex-start;">${processInlineFormatting(message || '').replace(/\n/g, '<br>')}</div>
+        <div id="rc-camera-instruction-text" style="background: transparent; padding: 0.5rem 30px; margin-top: 0.5rem; flex-shrink: 0; text-align: ${RC.LD === RC._CONST.RTL ? 'right' : 'left'}; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; width: 100%; box-sizing: border-box; align-self: flex-start;">${_buildCameraInstructionHTML(message || '')}</div>
         ${privacyMessage ? `<div id="rc-camera-privacy-text" style="${_chooseCameraFinePrintStyle(RC.LD === RC._CONST.RTL)} white-space: pre-line; width: 100%; flex-shrink: 0; margin-top: 2rem; margin-bottom: 2rem; padding: 0 30px; align-self: flex-start; box-sizing: border-box;">${processInlineFormatting(privacyMessage).replace(/\n/g, '<br>')}</div>` : ''}
       </div>
     `,
@@ -2352,9 +2391,7 @@ export const showCameraSelectionPopup = async (
           phrases.RC_ChooseAnotherScreenButton?.[RC.L] ||
             'Choose another screen',
         )
-        return processInlineFormatting(template)
-          .replace('[[BBB]]', buttonHTML)
-          .replace(/\n/g, '<br>')
+        return _buildCameraInstructionHTML(template, { '[[BBB]]': buttonHTML })
       }
       const getChooseScreenInstructionHTML = () => {
         const template =
@@ -2371,10 +2408,10 @@ export const showCameraSelectionPopup = async (
           'rc-cancel-button',
           ' background-color: #dc3545 !important; border-color: #dc3545 !important; color: #fff !important;',
         )
-        return processInlineFormatting(template)
-          .replace('[[BBB]]', buttonHTML)
-          .replace(/\[\[QQQ\]\]/g, quitButtonHTML)
-          .replace(/\n/g, '<br>')
+        return _buildCameraInstructionHTML(template, {
+          '[[BBB]]': buttonHTML,
+          '[[QQQ]]': quitButtonHTML,
+        })
       }
       const chooseScreenQuitHandler = () => {
         console.log('[ChooseScreen] Quit button pressed — ending study')
