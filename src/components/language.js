@@ -14,7 +14,7 @@ export function looseSetLanguage(lang) {
   if (shortKeys.includes(shortLang))
     return constructLangData(originalKeys[shortKeys.indexOf(shortLang)])
 
-  return constructLangData('en-US')
+  return constructLangData('en')
 }
 
 function constructLangData(lang) {

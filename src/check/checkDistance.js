@@ -600,8 +600,7 @@ const trackDistanceCheck = async (
       const _saveSnapshotsBool = RC._saveSnapshotsBool === true
       const lang = RC.language.value
 
-      const basePhrase =
-        phrases.RC_produceDistanceLocation?.[lang]
+      const basePhrase = phrases.RC_produceDistanceLocation?.[lang]
 
       const replaceTS = hasTiltAndSwivel
         ? phrases.RC_tiltAndSwivel?.[lang] || ''
@@ -618,15 +617,19 @@ const trackDistanceCheck = async (
         const centerY = window.screen.height / 2
         const cameraAtTopBool = cameraXYPx[1] < centerY
         if (cameraAtTopBool) {
-          replaceLLL = phrases.RC_theTopCenterLocationShort?.[lang]
-            || 'the top-center of the screen'
-          replaceLLLLLL = phrases.RC_theTopCenterLocationLong?.[lang]
-            || 'the top-center of the screen (and video)'
+          replaceLLL =
+            phrases.RC_theTopCenterLocationShort?.[lang] ||
+            'the top-center of the screen'
+          replaceLLLLLL =
+            phrases.RC_theTopCenterLocationLong?.[lang] ||
+            'the top-center of the screen (and video)'
         } else {
-          replaceLLL = phrases.RC_theBottomCenterLocationShort?.[lang]
-            || 'the bottom-center of the screen'
-          replaceLLLLLL = phrases.RC_theBottomCenterLocationLong?.[lang]
-            || 'the bottom-center of the screen (and video)'
+          replaceLLL =
+            phrases.RC_theBottomCenterLocationShort?.[lang] ||
+            'the bottom-center of the screen'
+          replaceLLLLLL =
+            phrases.RC_theBottomCenterLocationLong?.[lang] ||
+            'the bottom-center of the screen (and video)'
         }
       } else {
         replaceLLL = phrases.RC_theCenterLocationShort?.[lang] || ''

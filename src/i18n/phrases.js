@@ -1,8 +1,26 @@
 /*
-  Do not modify this file! Run npm `npm run phrases` at ROOT of this project to fetch from the Google Sheets.
-  https://docs.google.com/spreadsheets/d/1UFfNikfLuo8bSromE34uWDuJrMPFiJG3VpoQKdCGkII/edit#gid=0
+  ============================ DO NOT DELETE THIS FILE ============================
+
+  The CURRENT approach to phrases is the EasyEyes phrases API
+  (/.netlify/functions/phrases), which the threshold compiler passes into
+  rc.init({ languagePhrasesJSON }). Newer remote-calibrator builds do NOT import
+  this file at all, so `remoteCalibratorPhrases` looks UNUSED in this repo.
+
+  IT IS NOT SAFE TO REMOVE. Older remote-calibrator versions (~0.8.50–0.9.139),
+  which are pinned and loaded at runtime by already-published experiments, fetch
+  this exact file over the CDN:
+      cdn.jsdelivr.net/gh/EasyEyes/remote-calibrator@latest/src/i18n/phrases.js
+  and read the `remoteCalibratorPhrases` export as their base phrase table.
+  Deleting this file (or this const) makes @latest 404 and breaks the calibration
+  UI of EVERY one of those live experiments retroactively.
+
+  Keep this file present, with full content, in every release/tag. It is frozen
+  compatibility ballast for old clients — not dead code.
+
+  ================================================================================
 */
 
+// noinspection JSUnusedGlobalSymbols -- intentionally unused in this repo; frozen runtime fallback fetched over CDN by older remote-calibrator versions in already-published experiments (see comment above). Do not remove.
 export const remoteCalibratorPhrases = {
   EE_languageNameEnglish: {
     'en-US': 'English (US)',

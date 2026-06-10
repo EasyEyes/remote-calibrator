@@ -2,7 +2,6 @@
 // https://gist.github.com/paulirish/1579671
 
 import Swal from 'sweetalert2'
-import { remoteCalibratorPhrases } from '../i18n/phrases'
 import { phrases } from '../i18n/schema'
 import { processInlineFormatting } from '../distance/markdownInstructionParser'
 ;(function () {
