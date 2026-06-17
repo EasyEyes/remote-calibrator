@@ -168,7 +168,7 @@ RemoteCalibrator.prototype.screenSize = function (
       check: false,
       checkCallback: null,
       calibrateDistanceAllowedRatioPxPerCm: 1.03, // Ratio threshold - last two measurements must satisfy max(M1/M2, M2/M1) <= threshold
-      calibrateScreenSizeCacheBool: true, // EasyEyes _calibrateScreenSizeCacheBool: reuse size from localStorage when monitor matches
+      _calibrateScreenSizeCacheBool: true, // EasyEyes _calibrateScreenSizeCacheBool: reuse size from localStorage when monitor matches
     },
     screenSizeOptions,
   )

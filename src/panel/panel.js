@@ -11,6 +11,10 @@ import {
   showTestPopup,
   hideResolutionSettingMessage,
 } from '../components/popup'
+import {
+  loadValidScreenSizeCache,
+  resolveCalibrateScreenSizeCacheBool,
+} from '../screenSizeCache'
 
 // Icons from Google Material UI
 import Camera from '../media/photo-camera.svg'
@@ -106,6 +110,12 @@ RemoteCalibrator.prototype.panel = async function (
     console.error('Cannot find the parent element.')
     return false
   }
+
+  // If a screenSize task is present and its cache is enabled with a valid
+  // entry in localStorage, silently retrieve the size and drop the Size
+  // button so it never appears in the panel. (EasyEyes
+  // _calibrateScreenSizeCacheBool, default TRUE.)
+  tasks = _silentlyResolveCachedScreenSize(this, tasks)
 
   const options = Object.assign(
     {
@@ -558,6 +568,53 @@ const _finishStepAt = index => {
 const _getTaskName = task => {
   if (typeof task === 'string') return task
   return task.name
+}
+
+/**
+ * If a screenSize task is in the list and (a) the cache option is enabled
+ * and (b) a valid cached entry exists for the current monitor, silently
+ * invoke RC.screenSize(...) so the data is restored and the task's user
+ * callback fires, then drop the task from the rendered panel so the Size
+ * button never appears. Falls back to leaving the task in place if the
+ * cache is missing, disabled, or the silent invocation throws.
+ */
+const _silentlyResolveCachedScreenSize = (RC, tasks) => {
+  const remaining = []
+  for (const task of tasks) {
+    if (_getTaskName(task) !== 'screenSize') {
+      remaining.push(task)
+      continue
+    }
+
+    const isObjectTask = typeof task === 'object' && task !== null
+    const taskOptions = isObjectTask ? task.options || {} : {}
+
+    if (!resolveCalibrateScreenSizeCacheBool(taskOptions)) {
+      remaining.push(task)
+      continue
+    }
+
+    const cached = loadValidScreenSizeCache()
+    if (!cached) {
+      remaining.push(task)
+      continue
+    }
+
+    console.log(
+      '[panel] screenSize cache available — silently retrieving size from localStorage and removing the Size button from the panel',
+    )
+    try {
+      const userCallback = isObjectTask ? task.callback || null : null
+      RC.screenSize(taskOptions, userCallback)
+    } catch (err) {
+      console.log(
+        '[panel] Silent screenSize cache retrieval failed — falling back to showing the Size button',
+        err,
+      )
+      remaining.push(task)
+    }
+  }
+  return remaining
 }
 
 const _getTaskOptionsCallbacks = (
