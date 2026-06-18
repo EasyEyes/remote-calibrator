@@ -12,6 +12,7 @@ import {
   hideResolutionSettingMessage,
 } from '../components/popup'
 import {
+  hasStoredScreenSizeCacheEntry,
   loadValidScreenSizeCache,
   resolveCalibrateScreenSizeCacheBool,
 } from '../screenSizeCache'
@@ -111,12 +112,6 @@ RemoteCalibrator.prototype.panel = async function (
     return false
   }
 
-  // If a screenSize task is present and its cache is enabled with a valid
-  // entry in localStorage, silently retrieve the size and drop the Size
-  // button so it never appears in the panel. (EasyEyes
-  // _calibrateScreenSizeCacheBool, default TRUE.)
-  tasks = _silentlyResolveCachedScreenSize(this, tasks)
-
   const options = Object.assign(
     {
       headline: phrases.RC_panelTitle[this.L],
@@ -134,7 +129,51 @@ RemoteCalibrator.prototype.panel = async function (
     panelOptions,
   )
 
-  this.getFullscreen(options.fullscreen)
+  // Enter fullscreen BEFORE checking the screen-size cache. The cached monitor
+  // fingerprint stores the window position (screenLeft/screenTop), which reads
+  // (0,0) only in fullscreen — the state in which the cache is always saved
+  // (screenSize calibration forces fullscreen). If we checked while still
+  // windowed, the position would be offset by the browser chrome (e.g.
+  // top=122) and never match, so the Size button would wrongly appear even
+  // with a valid cache.
+  await this.getFullscreen(options.fullscreen)
+
+  // If a screenSize task is present and its cache is enabled with a valid
+  // entry for the current monitor, silently retrieve the size and drop the
+  // Size button so it never appears in the panel. (EasyEyes
+  // _calibrateScreenSizeCacheBool, default TRUE.)
+  tasks = _silentlyResolveCachedScreenSize(this, tasks)
+
+  // The fullscreen transition (notably on macOS) can take a moment to settle,
+  // so window.screenLeft/Top may still report the windowed position right
+  // after getFullscreen resolves. If a cacheable screenSize task survived but
+  // a cache entry actually exists, wait for the geometry to stabilize and try
+  // once more before giving up and showing the Size button.
+  if (_hasCacheableScreenSizeTask(tasks) && hasStoredScreenSizeCacheEntry()) {
+    await _waitForFullscreenGeometrySettled()
+    tasks = _silentlyResolveCachedScreenSize(this, tasks)
+  }
+
+  // If pre-resolution (e.g. a valid screen-size cache) leaves no tasks to
+  // perform, there is nothing to render. Previously the panel still drew its
+  // heading/description but produced zero step buttons (and no Next button by
+  // default), stranding the participant on a "press the button" page with
+  // nothing to click. Instead, fire the completion callback and resolve so the
+  // caller (EasyEyes) proceeds straight to the experiment. The desired
+  // behavior maps cleanly here:
+  //   - size cached + distance requested  → trackDistance keeps the list
+  //     non-empty, so the Distance button still shows (handled below).
+  //   - size cached + distance not requested → list is now empty, so we skip
+  //     the whole Size & Distance page instead of showing a buttonless page.
+  if (tasks.length === 0) {
+    console.log(
+      '[panel] No tasks to display — all requested calibrations already satisfied (e.g. cached screen size). Skipping the panel page and auto-completing.',
+    )
+    this._panelStatus.hasPanel = false
+    this._panelStatus.panelFinished = true
+    safeExecuteFunc(callback, { timestamp: performance.now() })
+    return resolveOnFinish === null ? true : resolveOnFinish
+  }
 
   // initialize panel state for tracking
   this._panelState = new PanelState()
@@ -578,6 +617,44 @@ const _getTaskName = task => {
  * button never appears. Falls back to leaving the task in place if the
  * cache is missing, disabled, or the silent invocation throws.
  */
+/**
+ * Whether the task list still contains a screenSize task whose cache option is
+ * enabled (i.e. one that could yet be served from a valid cache).
+ */
+const _hasCacheableScreenSizeTask = tasks =>
+  tasks.some(task => {
+    if (_getTaskName(task) !== 'screenSize') return false
+    const opts =
+      typeof task === 'object' && task !== null ? task.options || {} : {}
+    return resolveCalibrateScreenSizeCacheBool(opts)
+  })
+
+/**
+ * Wait until the browser window geometry (screenLeft/screenTop) stops changing,
+ * which signals that a fullscreen transition has finished and the cached
+ * monitor fingerprint can be compared reliably. Resolves early once geometry is
+ * stable for a few frames, and is capped by maxMs so it never blocks for long.
+ */
+const _waitForFullscreenGeometrySettled = async (maxMs = 1200) => {
+  if (typeof requestAnimationFrame !== 'function') return
+  const start = performance.now()
+  let last = null
+  let stableFrames = 0
+  while (performance.now() - start < maxMs) {
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise(resolve => requestAnimationFrame(() => resolve()))
+    const cur = `${window.screenLeft ?? window.screenX},${
+      window.screenTop ?? window.screenY
+    }`
+    if (cur === last) {
+      if (++stableFrames >= 3) break
+    } else {
+      stableFrames = 0
+      last = cur
+    }
+  }
+}
+
 const _silentlyResolveCachedScreenSize = (RC, tasks) => {
   const remaining = []
   for (const task of tasks) {

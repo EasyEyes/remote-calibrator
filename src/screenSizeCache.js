@@ -74,6 +74,21 @@ function logFingerprintMismatch(stored, current) {
 }
 
 /**
+ * Whether ANY screen-size cache entry exists in localStorage, regardless of
+ * whether it matches the current monitor. Used to decide if it's worth waiting
+ * for the fullscreen geometry to settle before re-checking validity.
+ * @returns {boolean}
+ */
+export function hasStoredScreenSizeCacheEntry() {
+  try {
+    if (typeof localStorage === 'undefined') return false
+    return localStorage.getItem(EASY_EYES_SCREEN_SIZE_STORAGE_KEY) != null
+  } catch {
+    return false
+  }
+}
+
+/**
  * @returns {object | null} Parsed cache entry if fingerprint matches current monitor.
  */
 export function loadValidScreenSizeCache() {
