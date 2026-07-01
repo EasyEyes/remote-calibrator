@@ -16,6 +16,12 @@ import {
   fitContentToAvailableSpace,
 } from '../../components/handPreference'
 import { fitStepperBoxToHeight } from '../stepByStepInstructionHelps'
+import { processInlineFormatting } from '../markdownInstructionParser'
+
+// Fallback text used only if the runtime phrases table has no
+// RC_TakeOffYourGlasses entry yet (the source of truth is the phrases sheet).
+const RC_TAKE_OFF_YOUR_GLASSES_FALLBACK =
+  '<span style="font-size: 200%;">Take off your glasses.\n</span>Contacts are ok. If you\'re wearing glasses, please take them off while measuring viewing distance. You\'ll put them back on later.'
 
 /* ============================================================================
  * MEASUREMENT PAGE RENDERER FACTORY
@@ -177,6 +183,10 @@ export function createMeasurementPageRenderer(dependencies) {
 
     // Show explanation button
     if (explanationButton) explanationButton.style.display = 'block'
+
+    // Hide the "take off your glasses" corner text by default; it is shown
+    // again explicitly on measurement pages via showMeasurementPage.
+    hideTakeOffGlasses()
   }
 
   /**
@@ -196,6 +206,141 @@ export function createMeasurementPageRenderer(dependencies) {
         .replace('[[N1]]', n1.toString())
         .replace('[[N2]]', n2.toString())
     }
+  }
+
+  const TAKE_OFF_GLASSES_ID = 'rc-take-off-your-glasses'
+
+  /**
+   * Write the "Take off your glasses" instruction into the corner opposite the
+   * title (upper-right for LTR, upper-left for RTL), matching the point size of
+   * the later "Put your glasses back on" screen (heading2 = 18pt).
+   */
+  const renderTakeOffGlasses = () => {
+    if (!title || !title.parentNode) return
+
+    const raw =
+      phrases?.RC_TakeOffYourGlasses?.[RC.L] || RC_TAKE_OFF_YOUR_GLASSES_FALLBACK
+    if (!raw) return
+
+    let titleRaw = ''
+    let bodyRaw = raw
+    const spanMatch = raw.match(/<span[^>]*>([\s\S]*?)<\/span>([\s\S]*)/i)
+    if (spanMatch) {
+      titleRaw = spanMatch[1]
+      bodyRaw = spanMatch[2]
+    } else {
+      const nl = raw.indexOf('\n')
+      if (nl >= 0) {
+        titleRaw = raw.slice(0, nl)
+        bodyRaw = raw.slice(nl + 1)
+      }
+    }
+    titleRaw = titleRaw.replace(/\s+/g, ' ').trim()
+    bodyRaw = bodyRaw
+      .replace(/^\s+/, '')
+      .replace(/^["'""]+|["'""]+$/g, '')
+      .trim()
+
+    const isRTL = RC.LD === RC._CONST.RTL
+
+    let el = document.getElementById(TAKE_OFF_GLASSES_ID)
+    if (!el) {
+      el = document.createElement('div')
+      el.id = TAKE_OFF_GLASSES_ID
+      el.className = 'heading2'
+      title.parentNode.appendChild(el)
+    }
+
+    el.dir = RC.LD.toLowerCase()
+    el.style.position = 'absolute'
+    el.style.top = '0'
+    el.style.margin = '0'
+    el.style.padding = '0'
+    el.style.width = 'auto'
+    el.style.pointerEvents = 'none'
+    el.style.zIndex = '5'
+    el.style.display = 'block'
+    el.style.textAlign = isRTL ? 'right' : 'left'
+    // Corner inset: 1rem from the right (LTR) / left (RTL) edge — the same inner
+    // margin the illustration container below uses, so they share an edge.
+    // Cap the initial width so the body never flashes full-width before align().
+    el.style.maxWidth = '40vw'
+    if (isRTL) {
+      el.style.left = '1rem'
+      el.style.right = 'auto'
+    } else {
+      el.style.right = '1rem'
+      el.style.left = 'auto'
+    }
+
+    // Two stacked block lines in one column, sharing the same start edge: an
+    // enlarged one-line title and a body that wraps beneath it (see align()).
+    el.innerHTML =
+      `<div class="rc-take-off-your-glasses-title" style="font-size:200%;line-height:1;white-space:nowrap;margin:0;padding:0;">${processInlineFormatting(titleRaw)}</div>` +
+      `<div class="rc-take-off-your-glasses-body" style="margin:0.5rem 0 0 0;padding:0;line-height:1.3;white-space:normal;">${processInlineFormatting(bodyRaw)}</div>`
+
+    // Tight glyph bounding box (accounts for per-font-size side bearing).
+    const textRect = elem => {
+      const r = document.createRange()
+      r.selectNodeContents(elem)
+      return r.getBoundingClientRect()
+    }
+
+    const align = () => {
+      const titleEl = el.querySelector('.rc-take-off-your-glasses-title')
+      const bodyEl = el.querySelector('.rc-take-off-your-glasses-body')
+      if (!titleEl || !bodyEl || !document.getElementById(TAKE_OFF_GLASSES_ID))
+        return
+
+      // Right edge (LTR) / left edge (RTL) uses a 1rem inset — the same inner
+      // margin the illustration container below uses — so the text block and the
+      // illustration share the same outer margin.
+      if (isRTL) {
+        el.style.left = '1rem'
+        el.style.right = 'auto'
+      } else {
+        el.style.right = '1rem'
+        el.style.left = 'auto'
+      }
+
+      // Keep a constant point size (heading2 base with the phrase's own 200%
+      // first line) so it matches RC_PutYourGlassesBackOn on every screen — no
+      // per-screen shrinking. Size the corner box to the title's true one-line
+      // text width (measured via Range, so it is independent of the current box
+      // width) and let the body wrap onto multiple lines within that width so
+      // the whole block stays in the corner.
+      titleEl.style.transform = ''
+      const titleTextWidth = Math.ceil(textRect(titleEl).width) + 2
+      if (titleTextWidth > 0) el.style.width = `${titleTextWidth}px`
+
+      // Compensate the enlarged title's larger side bearing so its first glyph
+      // lines up exactly with the body's first glyph (no indent).
+      const tRect = textRect(titleEl)
+      const bRect = textRect(bodyEl)
+      if (tRect.width > 0 && bRect.width > 0) {
+        const delta = isRTL ? bRect.right - tRect.right : bRect.left - tRect.left
+        if (Math.abs(delta) > 0.5) {
+          titleEl.style.transform = `translateX(${delta}px)`
+        }
+      }
+
+      // Align the title top edge with the Distance title.
+      const currentTop = parseFloat(el.style.top) || 0
+      const topDelta =
+        title.getBoundingClientRect().top - titleEl.getBoundingClientRect().top
+      el.style.top = `${currentTop + topDelta}px`
+    }
+
+    requestAnimationFrame(() => {
+      align()
+      setTimeout(align, 60)
+      setTimeout(align, 200)
+    })
+  }
+
+  const hideTakeOffGlasses = () => {
+    const el = document.getElementById(TAKE_OFF_GLASSES_ID)
+    if (el) el.style.display = 'none'
   }
 
   /**
@@ -272,6 +417,10 @@ export function createMeasurementPageRenderer(dependencies) {
     const currentMeasurement = locationIndex + 1 + pageNumberOffset // Convert to 1-indexed + offset
     const displayTotal = totalLocations + pageNumberOffset
     renderProgressTitle(currentMeasurement, displayTotal)
+
+    // Ask the participant to remove their glasses during viewing-distance
+    // measurement (opposite corner from the title).
+    renderTakeOffGlasses()
 
     if (onProgressUpdate) {
       onProgressUpdate(currentMeasurement, displayTotal)
@@ -490,6 +639,10 @@ export function createMeasurementPageRenderer(dependencies) {
     if (arrowIndicators) {
       arrowIndicators.remove()
       arrowIndicators = null
+    }
+    const takeOff = document.getElementById(TAKE_OFF_GLASSES_ID)
+    if (takeOff && takeOff.parentNode) {
+      takeOff.parentNode.removeChild(takeOff)
     }
     lastInstructionsMarginTopPx = null
   }
