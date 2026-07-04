@@ -224,10 +224,13 @@ export function createMeasurementPageRenderer(dependencies) {
 
     let titleRaw = ''
     let bodyRaw = raw
-    const spanMatch = raw.match(/<span[^>]*>([\s\S]*?)<\/span>([\s\S]*)/i)
+    let titleFontSize = '200%'
+    const spanMatch = raw.match(/<span([^>]*)>([\s\S]*?)<\/span>([\s\S]*)/i)
     if (spanMatch) {
-      titleRaw = spanMatch[1]
-      bodyRaw = spanMatch[2]
+      const fontSizeMatch = spanMatch[1].match(/font-size:\s*([\d.]+%)/i)
+      if (fontSizeMatch) titleFontSize = fontSizeMatch[1]
+      titleRaw = spanMatch[2]
+      bodyRaw = spanMatch[3]
     } else {
       const nl = raw.indexOf('\n')
       if (nl >= 0) {
@@ -276,7 +279,7 @@ export function createMeasurementPageRenderer(dependencies) {
     // Two stacked block lines in one column, sharing the same start edge: an
     // enlarged one-line title and a body that wraps beneath it (see align()).
     el.innerHTML =
-      `<div class="rc-take-off-your-glasses-title" style="font-size:200%;line-height:1;white-space:nowrap;margin:0;padding:0;">${processInlineFormatting(titleRaw)}</div>` +
+      `<div class="rc-take-off-your-glasses-title" style="font-size:${titleFontSize};line-height:1;white-space:nowrap;margin:0;padding:0;">${processInlineFormatting(titleRaw)}</div>` +
       `<div class="rc-take-off-your-glasses-body" style="margin:0.5rem 0 0 0;padding:0;line-height:1.3;white-space:normal;">${processInlineFormatting(bodyRaw)}</div>`
 
     // Tight glyph bounding box (accounts for per-font-size side bearing).
@@ -303,9 +306,9 @@ export function createMeasurementPageRenderer(dependencies) {
         el.style.left = 'auto'
       }
 
-      // Keep a constant point size (heading2 base with the phrase's own 200%
-      // first line) so it matches RC_PutYourGlassesBackOn on every screen — no
-      // per-screen shrinking. Size the corner box to the title's true one-line
+      // Keep a constant point size (heading2 base with the phrase's own
+      // first-line font-size) so it matches RC_PutYourGlassesBackOn on every
+      // screen — no per-screen shrinking. Size the corner box to the title's true one-line
       // text width (measured via Range, so it is independent of the current box
       // width) and let the body wrap onto multiple lines within that width so
       // the whole block stays in the corner.
