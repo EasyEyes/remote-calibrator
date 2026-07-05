@@ -219,28 +219,49 @@ export function createMeasurementPageRenderer(dependencies) {
     if (!title || !title.parentNode) return
 
     const raw =
-      phrases?.RC_TakeOffYourGlasses?.[RC.L] || RC_TAKE_OFF_YOUR_GLASSES_FALLBACK
+      phrases?.RC_TakeOffYourGlasses?.[RC.L] ||
+      RC_TAKE_OFF_YOUR_GLASSES_FALLBACK
     if (!raw) return
+
+    // Split text into a first-line title and a wrapping body at the first
+    // newline or <br>.
+    const splitFirstLine = text => {
+      const brk = text.match(/\n|<br\s*\/?\s*>/i)
+      if (!brk) return { title: text, body: '' }
+      return {
+        title: text.slice(0, brk.index),
+        body: text.slice(brk.index + brk[0].length),
+      }
+    }
 
     let titleRaw = ''
     let bodyRaw = raw
     let titleFontSize = '200%'
+    let bodyFontSize = ''
     const spanMatch = raw.match(/<span([^>]*)>([\s\S]*?)<\/span>([\s\S]*)/i)
     if (spanMatch) {
       const fontSizeMatch = spanMatch[1].match(/font-size:\s*([\d.]+%)/i)
       if (fontSizeMatch) titleFontSize = fontSizeMatch[1]
-      titleRaw = spanMatch[2]
-      bodyRaw = spanMatch[3]
-    } else {
-      const nl = raw.indexOf('\n')
-      if (nl >= 0) {
-        titleRaw = raw.slice(0, nl)
-        bodyRaw = raw.slice(nl + 1)
+      if (spanMatch[3].trim()) {
+        // Old format: the span wraps only the title; the body follows it.
+        titleRaw = spanMatch[2]
+        bodyRaw = spanMatch[3]
+      } else {
+        // New format: the span wraps the whole phrase, so its font-size
+        // applies to both lines and the first line is the title.
+        const parts = splitFirstLine(spanMatch[2])
+        titleRaw = parts.title
+        bodyRaw = parts.body
+        bodyFontSize = titleFontSize
       }
+    } else {
+      const parts = splitFirstLine(raw)
+      titleRaw = parts.title
+      bodyRaw = parts.body
     }
     titleRaw = titleRaw.replace(/\s+/g, ' ').trim()
     bodyRaw = bodyRaw
-      .replace(/^\s+/, '')
+      .replace(/^(\s|<br\s*\/?\s*>)+/i, '')
       .replace(/^["'""]+|["'""]+$/g, '')
       .trim()
 
@@ -277,10 +298,11 @@ export function createMeasurementPageRenderer(dependencies) {
     }
 
     // Two stacked block lines in one column, sharing the same start edge: an
-    // enlarged one-line title and a body that wraps beneath it (see align()).
+    // enlarged title and a body, both wrapping within the column width that
+    // align() computes from the space beside the video.
     el.innerHTML =
-      `<div class="rc-take-off-your-glasses-title" style="font-size:${titleFontSize};line-height:1;white-space:nowrap;margin:0;padding:0;">${processInlineFormatting(titleRaw)}</div>` +
-      `<div class="rc-take-off-your-glasses-body" style="margin:0.5rem 0 0 0;padding:0;line-height:1.3;white-space:normal;">${processInlineFormatting(bodyRaw)}</div>`
+      `<div class="rc-take-off-your-glasses-title" style="font-size:${titleFontSize};line-height:1.1;white-space:normal;margin:0;padding:0;">${processInlineFormatting(titleRaw)}</div>` +
+      `<div class="rc-take-off-your-glasses-body" style="margin:0.5rem 0 0 0;padding:0;line-height:1.3;white-space:normal;${bodyFontSize ? `font-size:${bodyFontSize};` : ''}">${processInlineFormatting(bodyRaw)}</div>`
 
     // Tight glyph bounding box (accounts for per-font-size side bearing).
     const textRect = elem => {
@@ -307,21 +329,38 @@ export function createMeasurementPageRenderer(dependencies) {
       }
 
       // Keep a constant point size (heading2 base with the phrase's own
-      // first-line font-size) so it matches RC_PutYourGlassesBackOn on every
-      // screen — no per-screen shrinking. Size the corner box to the title's true one-line
-      // text width (measured via Range, so it is independent of the current box
-      // width) and let the body wrap onto multiple lines within that width so
-      // the whole block stays in the corner.
+      // font-size) so it matches RC_PutYourGlassesBackOn on every screen — no
+      // per-screen shrinking. Size the corner box to the full space between
+      // the screen edge and the near edge of the video, so text wraps within
+      // that column: with RTL right-alignment (LTR left-alignment) the lines
+      // hug the video edge, and nothing spills past the screen edge.
       titleEl.style.transform = ''
-      const titleTextWidth = Math.ceil(textRect(titleEl).width) + 2
-      if (titleTextWidth > 0) el.style.width = `${titleTextWidth}px`
+      const remPx =
+        parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      const videoEl = document.getElementById('webgazerVideoContainer')
+      let availableWidth = Math.floor(window.innerWidth * 0.4)
+      if (videoEl) {
+        const vRect = videoEl.getBoundingClientRect()
+        if (vRect.width > 0) {
+          // 1rem corner inset (matching the illustration container) plus a
+          // 1rem gap between the text block and the video.
+          const space = isRTL
+            ? vRect.left - 2 * remPx
+            : window.innerWidth - vRect.right - 2 * remPx
+          if (space > 6 * remPx) availableWidth = Math.floor(space)
+        }
+      }
+      el.style.maxWidth = ''
+      el.style.width = `${availableWidth}px`
 
       // Compensate the enlarged title's larger side bearing so its first glyph
       // lines up exactly with the body's first glyph (no indent).
       const tRect = textRect(titleEl)
       const bRect = textRect(bodyEl)
       if (tRect.width > 0 && bRect.width > 0) {
-        const delta = isRTL ? bRect.right - tRect.right : bRect.left - tRect.left
+        const delta = isRTL
+          ? bRect.right - tRect.right
+          : bRect.left - tRect.left
         if (Math.abs(delta) > 0.5) {
           titleEl.style.transform = `translateX(${delta}px)`
         }
