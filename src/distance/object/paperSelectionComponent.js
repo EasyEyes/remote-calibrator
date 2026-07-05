@@ -441,7 +441,7 @@ export function createPaperSelectionComponent(config) {
     radio.onchange = () => {
       selectedPaperOption = option.key
       selectedPaperLengthCm = option.lengthCm
-      selectedPaperLabel = option.label
+      selectedPaperLabel = option.label.replace(/<[^>]*>/g, '')
       paperValidationMessage.style.display = 'none'
       if (_onSelectionChange) {
         _onSelectionChange({
@@ -453,7 +453,7 @@ export function createPaperSelectionComponent(config) {
     }
 
     const labelSpan = document.createElement('span')
-    labelSpan.textContent = option.label
+    labelSpan.innerHTML = option.label
     labelSpan.style.fontSize = 'clamp(1rem, 2.5vmin, 1.3rem)'
 
     row.appendChild(radio)

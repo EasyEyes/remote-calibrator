@@ -56,7 +56,7 @@ function detectInstructionFormat(text) {
 
   // Check for Markdown patterns
   const hasMarkdownHeading = /^#{1,6}\s+.+$/m.test(text)
-  const hasMarkdownList = /^\s*(\d+\.|-|\*|\+)\s+.+$/m.test(text)
+  const hasMarkdownList = /^\s*([\d٠-٩۰-۹]+\.|-|\*|\+)\s+.+$/m.test(text)
 
   if (hasMarkdownHeading || hasMarkdownList) {
     return InstructionFormat.MARKDOWN

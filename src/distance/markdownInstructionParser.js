@@ -229,9 +229,11 @@ export function processInlineFormatting(text) {
  * @param {string} line - Line to parse
  * @returns {{indent: number, marker: string, content: string, isTask: boolean, taskChecked: boolean}|null} Parsed list item or null
  */
+const NUMBERED_MARKER_RE = /^[\d٠-٩۰-۹]+$/
+
 function parseListItem(line) {
   // Match numbered list: "1. text" or "  1. text"
-  const numberedMatch = line.match(/^(\s*)(\d+)\.\s+(.+)$/)
+  const numberedMatch = line.match(/^(\s*)([\d٠-٩۰-۹]+)\.\s+(.+)$/)
   if (numberedMatch) {
     return {
       indent: numberedMatch[1].length,
@@ -515,7 +517,7 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
           ? '<input type="checkbox" checked disabled style="margin-right: 0.5rem;">'
           : '<input type="checkbox" disabled style="margin-right: 0.5rem;">'
         displayText = `${checkbox}${formattedText}`
-      } else if (/^\d+$/.test(marker)) {
+      } else if (NUMBERED_MARKER_RE.test(marker)) {
         // Numbered: "1. text"
         displayText = `${marker}. ${formattedText}`
       } else {
@@ -525,7 +527,7 @@ export function buildStepInstructionsFromMarkdown(markdownText, options = {}) {
 
       // Create step
       const step = {
-        number: /^\d+$/.test(marker) ? marker : null,
+        number: NUMBERED_MARKER_RE.test(marker) ? marker : null,
         text: displayText,
         level,
         isTask,
