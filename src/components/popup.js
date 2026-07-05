@@ -287,20 +287,14 @@ const _syncBottomCaptionWidthWithTopLayout = () => {
   // caption's left margin ended up off. Instead, pin the caption's leading
   // edge to the instruction block's actual viewport x so its margin matches
   // the numbered list and the privacy footnote exactly.
-  const isRTL = getComputedStyle(referenceElement).direction === 'rtl'
-
   bottomCaption.style.width = `${topWidth}px`
   bottomCaption.style.maxWidth = 'calc(100vw - 2rem)'
-  bottomCaption.style.alignSelf = isRTL ? 'flex-end' : 'flex-start'
 
-  if (isRTL) {
-    const rightInset = Math.round(window.innerWidth - rect.right)
-    bottomCaption.style.marginRight = `${Math.max(0, rightInset)}px`
-    bottomCaption.style.marginLeft = '0'
-  } else {
-    bottomCaption.style.marginLeft = `${Math.max(0, Math.round(rect.left))}px`
-    bottomCaption.style.marginRight = '0'
-  }
+  const parent = bottomCaption.parentElement
+  if (parent) parent.style.direction = 'ltr'
+  bottomCaption.style.alignSelf = 'flex-start'
+  bottomCaption.style.marginLeft = `${Math.max(0, Math.round(rect.left))}px`
+  bottomCaption.style.marginRight = '0'
 
   // Keep horizontal padding identical to the top instruction/privacy
   // blocks so the text starts/ends on the same x positions.
