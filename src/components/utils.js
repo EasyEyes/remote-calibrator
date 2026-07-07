@@ -241,15 +241,110 @@ export function showLoadingVideoMessage(RC) {
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 999999992;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
-    color: #666;
-    font-size: 1.6rem;
+    color: #333;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     pointer-events: none;
     user-select: none;
   `
-  msg.textContent = phrases?.RC_LoadingVideo?.[RC?.L] || 'Loading video ...'
+
+  // Spinner: light gray ring with a blue arc, rotating.
+  const spinner = document.createElement('div')
+  spinner.id = 'rc-loading-video-spinner'
+  spinner.style.cssText = `
+    width: 48px;
+    height: 48px;
+    box-sizing: border-box;
+    border: 4px solid #e6e6e6;
+    border-top-color: #1a73e8;
+    border-radius: 50%;
+  `
+  msg.appendChild(spinner)
+  try {
+    spinner.animate(
+      [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }],
+      { duration: 900, iterations: Infinity, easing: 'linear' },
+    )
+  } catch {
+    // Web Animations API unavailable — the static ring is an acceptable fallback.
+  }
+
+  const label = document.createElement('div')
+  label.id = 'rc-loading-video-label'
+  // Prefer the plural phrase; fall back to the older singular phrase (which
+  // may already be translated in the International Phrases doc), then to an
+  // English default so the label is never blank if the phrase isn't loaded.
+  label.textContent =
+    phrases?.RC_LoadingVideos?.[RC?.L] ||
+    'Loading videos …'
+  label.style.cssText = `
+    margin-top: 1.1rem;
+    font-size: 1.4rem;
+    color: #333;
+  `
+  msg.appendChild(label)
+
+  // Progress bar: blue fill on a light gray track.
+  const track = document.createElement('div')
+  track.id = 'rc-loading-video-progress'
+  track.style.cssText = `
+    width: 360px;
+    max-width: 70vw;
+    height: 8px;
+    margin-top: 1rem;
+    background: #e6e6e6;
+    border-radius: 4px;
+    overflow: hidden;
+  `
+  const fill = document.createElement('div')
+  fill.id = 'rc-loading-video-progress-fill'
+  fill.style.cssText = `
+    width: 0%;
+    height: 100%;
+    background: #1a73e8;
+    border-radius: 4px;
+    transition: width 0.2s ease;
+  `
+  track.appendChild(fill)
+  msg.appendChild(track)
+
+  const percent = document.createElement('div')
+  percent.id = 'rc-loading-video-percent'
+  percent.textContent = '0%'
+  percent.style.cssText = `
+    margin-top: 0.6rem;
+    font-size: 1rem;
+    color: #666;
+  `
+  msg.appendChild(percent)
+
   document.body.appendChild(msg)
+}
+
+/**
+ * Update the loading popup's progress bar and percentage. Safe to call
+ * before the popup exists (no-op) and idempotent.
+ *
+ * @param {number} loaded - Number of assets finished loading.
+ * @param {number} total  - Total number of assets to load.
+ */
+export function setLoadingVideoProgress(loaded, total) {
+  const msg = document.getElementById('rc-loading-video-message')
+  if (!msg) return
+
+  const fill = msg.querySelector('#rc-loading-video-progress-fill')
+  const percent = msg.querySelector('#rc-loading-video-percent')
+  if (!fill) return
+
+  const safeTotal = Number.isFinite(total) && total > 0 ? total : 0
+  const safeLoaded = Math.max(0, Math.min(loaded || 0, safeTotal))
+  const pct = safeTotal ? Math.round((safeLoaded / safeTotal) * 100) : 0
+
+  fill.style.width = `${pct}%`
+  if (percent) percent.textContent = `${pct}%`
 }
 
 export function hideLoadingVideoMessage() {

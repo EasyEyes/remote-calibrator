@@ -24,6 +24,7 @@ import {
   fitToViewport,
   getCameraResolutionXY,
   hideLoadingVideoMessage,
+  setLoadingVideoProgress,
 } from '../../components/utils'
 import { setDefaultVideoPosition } from '../../components/video'
 import { phrases } from '../../i18n/schema'
@@ -63,7 +64,6 @@ import {
   DEFAULT_OFFSET_CM,
   DEFAULT_CAMERA_WIDTH_VPX,
   FALLBACK_PPI,
-  FIRST_BLOCKING_PRELOAD_COUNT,
   MEDIA_PRELOAD_PRIORITY_KEYS,
   CM_PER_INCH,
   DOM_ID,
@@ -158,24 +158,29 @@ async function preloadAllInstructionMedia() {
     }
   })
 
-  const firstBatch = ordered.slice(0, FIRST_BLOCKING_PRELOAD_COUNT)
-  const remaining = ordered.slice(FIRST_BLOCKING_PRELOAD_COUNT)
+  const total = ordered.length
+  let completed = 0
+  setLoadingVideoProgress(0, total)
 
-  await Promise.all(firstBatch.map(fetchBlobOnce)).catch(error => {
-    debugLog('preload', 'Error preloading initial media:', error)
-  })
+  // Wrap each fetch so the loading popup's progress bar advances as each
+  // asset finishes. fetchBlobOnce is idempotent (cached), so cached assets
+  // resolve immediately and still count toward progress.
+  const trackOne = url =>
+    fetchBlobOnce(url)
+      .catch(err => {
+        debugLog('preload', 'Error preloading media url:', err)
+        return null
+      })
+      .finally(() => {
+        completed += 1
+        setLoadingVideoProgress(completed, total)
+      })
 
-  if (remaining.length && !window.__eeInstructionMediaPreloaderPromise) {
-    window.__eeInstructionMediaPreloaderPromise = (async () => {
-      for (const url of remaining) {
-        try {
-          await fetchBlobOnce(url)
-        } catch (err) {
-          debugLog('preload', 'Error preloading media url:', err)
-        }
-      }
-    })()
-  }
+  // Block on ALL instruction media so the progress bar visibly fills from
+  // 0% to 100% while the "Loading videos ..." popup is on screen. The
+  // browser caps concurrency per host, so these effectively stream in
+  // batches and the bar advances as each one lands.
+  await Promise.all(ordered.map(trackOne))
 }
 
 /**
