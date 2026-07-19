@@ -2,6 +2,7 @@ const assert = require('node:assert')
 
 require('./loadPhrases.test')
 require('./replacePhraseToken.test')
+require('./language.test')
 
 const { JSDOM } = require('jsdom')
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>')
