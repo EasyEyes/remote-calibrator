@@ -1,7 +1,7 @@
 import { phrases } from '../i18n/schema'
 
 export function looseSetLanguage(lang) {
-  const originalKeys = Object.keys(phrases.EE_languageNameNative)
+  const originalKeys = Object.keys(phrases.EE_LanguageNativeName)
   if (originalKeys.includes(lang)) return constructLangData(lang)
 
   const shortKeys = []
@@ -21,9 +21,9 @@ function constructLangData(lang) {
   return {
     value: {
       language: lang,
-      languageNameEnglish: phrases.EE_languageNameEnglish[lang],
-      languageNameNative: phrases.EE_languageNameNative[lang],
-      languageDirection: phrases.EE_languageDirection[lang],
+      languageNameEnglish: phrases.EE_LanguageEnglishName[lang],
+      languageNameNative: phrases.EE_LanguageNativeName[lang],
+      languageDirection: phrases.EE_LanguageDirection[lang],
       languagePhraseSource: phrases.EE_phraseSource[lang],
     },
     timestamp: performance.now(),
@@ -31,5 +31,5 @@ function constructLangData(lang) {
 }
 
 export function spaceForLanguage(L) {
-  return phrases.EE_languageUsesSpacesBool[L] === 'TRUE' ? ' ' : ''
+  return phrases.EE_LanguageUsesSpacesBool[L] === 'TRUE' ? ' ' : ''
 }

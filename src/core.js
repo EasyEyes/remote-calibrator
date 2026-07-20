@@ -207,11 +207,11 @@ class RemoteCalibrator {
 
   get supportedLanguages() {
     const a = []
-    for (const l in phrases.EE_languageNameEnglish) {
+    for (const l in phrases.EE_LanguageEnglishName) {
       a.push({
         language: l,
-        languageNameEnglish: phrases.EE_languageNameEnglish[l],
-        languageNameNative: phrases.EE_languageNameNative[l],
+        languageNameEnglish: phrases.EE_LanguageEnglishName[l],
+        languageNameNative: phrases.EE_LanguageNativeName[l],
       })
     }
 
