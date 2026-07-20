@@ -55,7 +55,7 @@ function constructLangData(lang) {
   return {
     value: {
       language: lang,
-      languageNameEnglish: phrases.EE_languageNameEnglish[lang],
+      languageNameEnglish: phrases.EE_LanguageEnglishName[lang],
       languageNameNative: phrases.EE_languageNameNative[lang],
       languageDirection: phrases.EE_languageDirection[lang],
       languagePhraseSource: phrases.EE_phraseSource[lang],

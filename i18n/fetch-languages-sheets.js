@@ -2,6 +2,7 @@ const process = require('node:process')
 const fs = require('node:fs')
 const XLSX = require('xlsx')
 const google = require('googleapis')
+const { splitPhraseRow } = require('./phrase-row')
 
 const auth = new google.Auth.GoogleAuth({
   keyFile: `${__dirname}/credentials.json`,
@@ -26,11 +27,11 @@ async function processLanguageSheet() {
 
   const data = {}
   for (const phrase of rowsJSON) {
-    const { language, ...translations } = phrase
+    const { phraseKey, translations } = splitPhraseRow(phrase)
 
     if (
       [
-        'EE_languageNameEnglish',
+        'EE_LanguageEnglishName',
         'EE_languageNameNative',
         'EE_languageDirection',
         'EE_phraseSource',
@@ -124,9 +125,9 @@ async function processLanguageSheet() {
         'RC_panelButton',
         'RC_panelUsesWebcam',
         'RC_panelUsesWebcamPhone',
-      ].includes(language)
+      ].includes(phraseKey)
     )
-      data[language] = translations
+      data[phraseKey] = translations
   }
 
   for (const phrase in data) {
@@ -209,11 +210,13 @@ phrasesData.map(phrase => {
   )
 }
 
-require('node:dns').resolve('www.google.com', function (err) {
-  if (err) {
-    console.log('No internet connection. Skip fetching phrases.')
-  } else {
-    console.log('Fetching up-to-date phrases...')
-    processLanguageSheet()
-  }
-})
+if (require.main === module) {
+  require('node:dns').resolve('www.google.com', function (err) {
+    if (err) {
+      console.log('No internet connection. Skip fetching phrases.')
+    } else {
+      console.log('Fetching up-to-date phrases...')
+      processLanguageSheet()
+    }
+  })
+}

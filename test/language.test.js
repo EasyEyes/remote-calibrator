@@ -2,11 +2,32 @@ const assert = require('node:assert')
 
 const { looseSetLanguage } = require('../src/components/language')
 const { phrases } = require('../src/i18n/schema')
+const { splitPhraseRow } = require('../i18n/phrase-row')
+
+describe('phrase spreadsheet ingestion', function () {
+  it('reads the phrase key from EE_LanguageCode only', function () {
+    assert.deepEqual(
+      splitPhraseRow({
+        EE_LanguageCode: 'EE_LanguageEnglishName',
+        en: 'English',
+      }),
+      {
+        phraseKey: 'EE_LanguageEnglishName',
+        translations: { en: 'English' },
+      },
+    )
+    assert.equal(
+      splitPhraseRow({ language: 'EE_languageNameEnglish', en: 'English' })
+        .phraseKey,
+      undefined,
+    )
+  })
+})
 
 describe('language compatibility', function () {
   before(function () {
     Object.assign(phrases, {
-      EE_languageNameEnglish: {
+      EE_LanguageEnglishName: {
         en: 'English',
         fil: 'Filipino',
         'pt-pt': 'Portuguese',
