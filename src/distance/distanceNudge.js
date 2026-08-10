@@ -2,8 +2,57 @@ import RemoteCalibrator from '../core'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { phrases } from '../i18n/schema'
 import { addButtons } from '../components/buttons'
-import { sleep } from '../components/utils'
+import { safeExecuteFunc, sleep } from '../components/utils'
 import { processInlineFormatting } from './markdownInstructionParser'
+
+/**
+ * Recalibrate viewing distance mid-experiment, from the nudger's
+ * recalibrate button. Invokes the host app's lifecycle hooks (passed in
+ * the trackDistance options) around the re-track: onRecalibrateStart
+ * before teardown (the host gates its trial), onRecalibrateEnd once the
+ * new session produces its first live tracking frame (the host resumes
+ * and regenerates stimuli at the fresh distance).
+ *
+ * The re-track calibrates at the CURRENT desired distance — the host's
+ * per-block setDistanceDesired may have moved it since the original
+ * trackDistance options were captured.
+ */
+RemoteCalibrator.prototype._restartViewingDistanceTracking = async function (
+  trackingConfig,
+) {
+  const options = trackingConfig?.options ?? {}
+
+  safeExecuteFunc(options.onRecalibrateStart)
+
+  // preserveVideo: the re-track starts immediately after — the camera
+  // stream must survive the teardown.
+  this.endDistance(false, true, true)
+  this._addBackground()
+  await sleep(2000)
+
+  const restartOptions = { ...options }
+  const currentDesired = this._distanceTrackNudging?.distanceDesired
+  if (Number.isFinite(currentDesired))
+    restartOptions.desiredDistanceCm = currentDesired
+
+  // callbackTrack fires on every live tracking frame; the end hook must
+  // fire exactly once, on the first frame of the new session.
+  let endHookFired = false
+  const callbackTrack = trackingConfig?.callbackTrack
+  const wrappedCallbackTrack = (data) => {
+    if (!endHookFired) {
+      endHookFired = true
+      safeExecuteFunc(options.onRecalibrateEnd)
+    }
+    if (callbackTrack) safeExecuteFunc(callbackTrack, data)
+  }
+
+  await this.trackDistance(
+    restartOptions,
+    trackingConfig?.callbackStatic,
+    wrappedCallbackTrack,
+  )
+}
 
 // ── Input-blocking infrastructure for the nudger ──
 // When the nudger is visible we intercept ALL user-input events during the
@@ -105,14 +154,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
       }
 
       const restartViewingDistanceTracking = async () => {
-        this.endDistance()
-        this._addBackground()
-        await sleep(2000)
-        this.trackDistance(
-          trackingConfig.options,
-          trackingConfig.callbackStatic,
-          trackingConfig.callbackTrack,
-        )
+        this._restartViewingDistanceTracking(trackingConfig)
       }
 
       // Bind keys
@@ -140,12 +182,9 @@ RemoteCalibrator.prototype.nudgeDistance = function (
             }
           : {}
 
-        // Temporarily hide recalibrate button while keeping code intact
-        if (allowRecalibrate && false) {
-          // Changed from: if (allowRecalibrate) {
+        if (allowRecalibrate) {
           buttonConfig = {
             ...buttonConfig,
-            // TODO double check the callback function here
             custom: {
               callback: restartViewingDistanceTracking,
               content: phrases.RC_distanceTrackingRedo[this.L],
@@ -153,8 +192,7 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           }
         }
 
-        if (cancelable || (allowRecalibrate && false))
-          // Changed from: if (cancelable || allowRecalibrate)
+        if (cancelable || allowRecalibrate)
           addButtons(
             this.L,
             this.nudger,

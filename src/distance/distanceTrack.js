@@ -39,6 +39,7 @@ import {
   hideLoadingVideoMessage,
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
+import { ensureVideoPlaying } from './ensureVideoPlaying'
 import { phrases } from '../i18n/schema'
 import { spaceForLanguage } from '../components/language'
 import { checkPermissions } from '../components/mediaPermission'
@@ -1658,7 +1659,7 @@ export const calculateNearestPoints = (
   let eyeToCameraCm = 0
   let eyeToPointCm = 0
 
-  if (webcamToEyeDistance === 0) {
+  if (webcamToEyeDistance === 0 || method === 'blindspot') {
     //blindspot
     try {
       const { d_cm, d_px } = solveEyeToScreenCm(
@@ -1831,7 +1832,6 @@ const renderDistanceResult = async (
 
   // Check if video is ready
   if (!video) {
-    // console.log('././video not ready', video.readyState)
     return
   }
 
@@ -1839,6 +1839,7 @@ const renderDistanceResult = async (
 
   // Use the factored out mesh data retrieval
   const meshData = await getMeshData(RC, trackingOptions.calibrateDistancePupil)
+  ensureVideoPlaying(document.getElementById('webgazerVideoFeed'))
 
   if (meshData) {
     const { mesh, leftEye, rightEye, currentIPDDistance, ipdShrinkage } =
@@ -3062,7 +3063,11 @@ RemoteCalibrator.prototype.resumeDistance = function (showIrisesBool = false) {
   return null
 }
 
-RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
+RemoteCalibrator.prototype.endDistance = function (
+  endAll = false,
+  _r = true,
+  preserveVideo = false,
+) {
   if (this.gazeTracker.checkInitialized('distance', true)) {
     iRepeatOptions.break = true
     if (rafId) {
@@ -3228,7 +3233,7 @@ RemoteCalibrator.prototype.endDistance = function (endAll = false, _r = true) {
     this.endNudger()
 
     this._distanceTrackingFullyInitialized = false
-    if (_r) this.gazeTracker.end('distance', endAll)
+    if (_r) this.gazeTracker.end('distance', endAll, preserveVideo)
     return this
   }
   return null

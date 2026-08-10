@@ -226,11 +226,16 @@ GazeTracker.prototype.resume = function () {
   this.webgazer.resume()
 }
 
-GazeTracker.prototype.end = function (type, endAll = false) {
+GazeTracker.prototype.end = function (type, endAll = false, preserveVideo = false) {
   if (!this.checkInitialized(type, true)) return
 
+  // preserveVideo: mid-experiment recalibration re-tracks immediately, so
+  // the camera stream and video elements must survive — re-acquisition
+  // would prompt for permission and, worse, webgazer.end(true) stops the
+  // tracks and removes the video container, leaving the re-track frozen.
   const endEverything =
-    endAll || !this._initialized.gaze || !this._initialized.distance
+    !preserveVideo &&
+    (endAll || !this._initialized.gaze || !this._initialized.distance)
 
   if (type === 'gaze') {
     this._endGaze()

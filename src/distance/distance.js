@@ -424,7 +424,7 @@ function saveCalibrationAttempt(
   }
 
   // Calculate missing values
-  const ppi = RC.screenPpi.value
+  const ppi = RC.screenPpi ? RC.screenPpi.value : 96 / 2.54
   const pxPerCmValue = ppi / 2.54 // Convert PPI to pixels per cm
   const ipdCmValue = RC._CONST.IPD_CM // Standard IPD in cm (6.3cm)
   const cameraWidth = cameraResolutionXYVpx ? cameraResolutionXYVpx[0] : null
@@ -495,7 +495,7 @@ function saveCalibrationAttempt(
 
   //unless isObject, delete objectRulerIntervalCm from Common
   if (!isObject || isPaper) {
-    if (COMMON.objectRulerIntervalCm) {
+    if (COMMON?.objectRulerIntervalCm) {
       delete COMMON.objectRulerIntervalCm
     }
   }
@@ -3179,6 +3179,19 @@ export async function blindSpotTestNew(
   const calibrationFactor = Math.round(
     Math.sqrt(rightEyeFactor * leftEyeFactor),
   )
+
+  // The live tracking loop keys off RC.calibrationFOverWidth, which only the
+  // object-test paths set. Derive it here too: calibrationFactor = fVpx*IPD_CM,
+  // and fOverWidth = fVpx / cameraWidthVpx.
+  const cameraWidthVpx = getCameraResolutionXY(RC)[0]
+  if (cameraWidthVpx > 0) {
+    RC.calibrationFOverWidth =
+      calibrationFactor / RC._CONST.IPD_CM / cameraWidthVpx
+  } else {
+    console.error(
+      'Blindspot: camera width unavailable; calibrationFOverWidth not set',
+    )
+  }
 
   const data = {
     value: toFixedNumber(eyeToCameraCmMedian, options.decimalPlace || 1),

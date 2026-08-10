@@ -11,6 +11,10 @@ global.self = dom.window.self
 global.navigator = dom.window.navigator
 global.screen = dom.window.screen
 
+// Loads src/index.js — must come after the JSDOM globals above.
+require('./recalibrateRestart.test')
+require('./ensureVideoPlaying.test')
+
 const packageJSON = require('../package.json')
 
 describe('Installation', function () {
