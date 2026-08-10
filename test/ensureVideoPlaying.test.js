@@ -14,7 +14,9 @@ const assert = require('node:assert')
  * stream is live.
  */
 describe('ensureVideoPlaying (auto-resume paused tracking video)', function () {
-  const { ensureVideoPlaying } = require('../src/distance/ensureVideoPlaying.js')
+  const {
+    ensureVideoPlaying,
+  } = require('../src/distance/ensureVideoPlaying.js')
 
   it('calls play() on a paused video element', function () {
     let playCalls = 0
@@ -27,7 +29,11 @@ describe('ensureVideoPlaying (auto-resume paused tracking video)', function () {
       },
     }
     ensureVideoPlaying(video)
-    assert.strictEqual(playCalls, 1, 'play() must be called on a paused element')
+    assert.strictEqual(
+      playCalls,
+      1,
+      'play() must be called on a paused element',
+    )
   })
 
   it('does not call play() on an already-playing element', function () {

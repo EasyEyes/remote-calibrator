@@ -28,7 +28,11 @@ async function processLanguageSheet() {
   for (const phrase of rowsJSON) {
     // The phrase-name column header is being renamed from `language` to
     // `EE_LanguageCode`. Support both so this keeps working across the change.
-    const { language: legacyLanguage, EE_LanguageCode, ...translations } = phrase
+    const {
+      language: legacyLanguage,
+      EE_LanguageCode,
+      ...translations
+    } = phrase
     const language = EE_LanguageCode ?? legacyLanguage
 
     if (

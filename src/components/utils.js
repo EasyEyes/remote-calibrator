@@ -277,9 +277,7 @@ export function showLoadingVideoMessage(RC) {
   // Prefer the plural phrase; fall back to the older singular phrase (which
   // may already be translated in the International Phrases doc), then to an
   // English default so the label is never blank if the phrase isn't loaded.
-  label.textContent =
-    phrases?.RC_LoadingVideos?.[RC?.L] ||
-    'Loading videos …'
+  label.textContent = phrases?.RC_LoadingVideos?.[RC?.L] || 'Loading videos …'
   label.style.cssText = `
     margin-top: 1.1rem;
     font-size: 1.4rem;

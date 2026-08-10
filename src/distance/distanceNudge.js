@@ -39,7 +39,7 @@ RemoteCalibrator.prototype._restartViewingDistanceTracking = async function (
   // fire exactly once, on the first frame of the new session.
   let endHookFired = false
   const callbackTrack = trackingConfig?.callbackTrack
-  const wrappedCallbackTrack = (data) => {
+  const wrappedCallbackTrack = data => {
     if (!endHookFired) {
       endHookFired = true
       safeExecuteFunc(options.onRecalibrateEnd)

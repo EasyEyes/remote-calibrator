@@ -73,11 +73,11 @@ describe('Recalibrate-restart from nudger', function () {
       // End hook fired exactly once (first live frame), callback delegated
       // every frame.
       assert.deepEqual(
-        calls.filter((c) => c === 'onRecalibrateEnd'),
+        calls.filter(c => c === 'onRecalibrateEnd'),
         ['onRecalibrateEnd'],
       )
       assert.deepEqual(
-        calls.filter((c) => c === 'callbackTrack'),
+        calls.filter(c => c === 'callbackTrack'),
         ['callbackTrack', 'callbackTrack'],
       )
     })
@@ -113,7 +113,7 @@ describe('Recalibrate-restart from nudger', function () {
     const withMockedWebgazerEnd = (gt, fn) => {
       const endCalls = []
       const origWebgazerEnd = gt.webgazer.end
-      gt.webgazer.end = (endAll) => endCalls.push(endAll)
+      gt.webgazer.end = endAll => endCalls.push(endAll)
       let result
       try {
         fn()

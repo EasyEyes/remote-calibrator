@@ -226,7 +226,11 @@ GazeTracker.prototype.resume = function () {
   this.webgazer.resume()
 }
 
-GazeTracker.prototype.end = function (type, endAll = false, preserveVideo = false) {
+GazeTracker.prototype.end = function (
+  type,
+  endAll = false,
+  preserveVideo = false,
+) {
   if (!this.checkInitialized(type, true)) return
 
   // preserveVideo: mid-experiment recalibration re-tracks immediately, so
