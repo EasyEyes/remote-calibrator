@@ -164,7 +164,7 @@ RemoteCalibrator.prototype.getEquipment = async function (
 
   const proceedButton = document.createElement('button')
   proceedButton.className = 'rc-button'
-  proceedButton.textContent = phrases.T_proceed[lang]
+  proceedButton.innerHTML = phrases.T_proceed[lang]
   proceedButton.disabled = true
   proceedButton.style.border = '2px solid #ccc'
   proceedButton.style.backgroundColor = '#ccc'

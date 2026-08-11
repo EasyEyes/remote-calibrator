@@ -1623,7 +1623,7 @@ export function createObjectTestUI(context) {
     textBox.style.padding = '0px'
 
     const textElement = document.createElement('div')
-    textElement.innerText = text
+    textElement.innerHTML = text
     textElement.style.color = 'rgb(0, 0, 0)'
     textElement.style.fontWeight = 'normal'
     textElement.style.fontSize = '1.2em'
@@ -1637,7 +1637,7 @@ export function createObjectTestUI(context) {
     textContainer.appendChild(textBox)
 
     const updateText = newText => {
-      textElement.innerText = newText
+      textElement.innerHTML = newText
       setTimeout(() => {
         const rect = textBox.getBoundingClientRect()
         textContainer.dimensions = {
@@ -1892,7 +1892,7 @@ export function createObjectTestUI(context) {
       ? phrases.RC_viewingDistanceObjectTooShort[RC.L]
       : phrases.RC_RightEdge[RC.L]
 
-    if (rightLabel.textElement.innerText !== newText) {
+    if (rightLabel.textElement.innerHTML !== newText) {
       rightLabel.updateText(newText)
     }
   }
@@ -2288,7 +2288,7 @@ export function createObjectTestUI(context) {
   // Legacy distance.js L9718-9875
   const proceedButton = document.createElement('button')
   proceedButton.className = 'rc-button'
-  proceedButton.textContent = phrases.T_proceed[RC.L]
+  proceedButton.innerHTML = phrases.T_proceed[RC.L]
   proceedButton.style.border = '2px solid #019267'
   proceedButton.style.backgroundColor = '#019267'
   proceedButton.style.color = 'white'
@@ -2431,7 +2431,7 @@ export function createObjectTestUI(context) {
   // Legacy distance.js L9877-9904
   const explanationButton = document.createElement('button')
   explanationButton.className = 'rc-button'
-  explanationButton.textContent = phrases.RC_viewingDistanceIntroTitle[RC.L]
+  explanationButton.innerHTML = phrases.RC_viewingDistanceIntroTitle[RC.L]
   explanationButton.style.border = '2px solid #999'
   explanationButton.style.backgroundColor = '#999'
   explanationButton.style.color = 'white'

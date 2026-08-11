@@ -97,7 +97,7 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
     pointer-events: none;
     user-select: none;
   `
-  startingMsg.textContent = phrases.RC_starting[this.L]
+  startingMsg.innerHTML = phrases.RC_starting[this.L]
   document.body.appendChild(startingMsg)
 
   // Load FaceMesh model + start video.

@@ -798,7 +798,7 @@ const _runCameraSelectionBeforePanel = async (RC, tdOpts) => {
     pointer-events: none;
     user-select: none;
   `
-  startingMsg.textContent = phrases.RC_starting[RC.L]
+  startingMsg.innerHTML = phrases.RC_starting[RC.L]
   document.body.appendChild(startingMsg)
 
   // 4. Load FaceMesh model + start video
