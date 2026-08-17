@@ -857,7 +857,7 @@ const _drawMeasurementOverlay = (
   const { isPaperMode, eye, leftTextWords, rightTextWords } =
     measurementOverlayState
 
-  // 1. Draw static eye-side text on the video
+  // 1. Draw static eye-side text alongside the video
   _drawEyeSideText(videoRect, leftTextWords, rightTextWords)
 
   // 2. Draw paper tube circles and (optionally) connecting tangent lines
@@ -875,10 +875,12 @@ const _drawMeasurementOverlay = (
 }
 
 /**
- * Draw eye-side instruction text on the video, one word per line.
- * Left text is left-aligned against the left margin of the video.
- * Right text is right-aligned against the right margin of the video.
- * Both are vertically centered within the video.
+ * Draw eye-side instruction text just OUTSIDE the video, one word per line.
+ * Left text sits to the left of the video, right-aligned so it hugs the
+ * video's left edge. Right text sits to the right of the video, left-aligned
+ * so it hugs the video's right edge. Both are vertically centered on the
+ * video. Keeping the text off the video keeps it legible regardless of what
+ * the camera sees.
  */
 const _drawEyeSideText = (videoRect, leftTextWords, rightTextWords) => {
   if (!irisCtx) return
@@ -886,30 +888,42 @@ const _drawEyeSideText = (videoRect, leftTextWords, rightTextWords) => {
   // Scale font size relative to video height for readability
   const fontSize = Math.max(14, Math.min(28, videoRect.height * 0.06))
   const lineHeight = fontSize * 1.3
-  const margin = Math.max(8, videoRect.width * 0.02)
+  const gap = Math.max(6, videoRect.width * 0.015)
 
   irisCtx.font = `bold ${fontSize}px Arial, sans-serif`
   irisCtx.fillStyle = 'black'
 
-  // Draw left-side text (left-aligned)
+  const widestWord = words =>
+    words.reduce((max, w) => Math.max(max, irisCtx.measureText(w).width), 0)
+
+  const topOf = words =>
+    videoRect.top +
+    (videoRect.height - words.length * lineHeight) / 2 +
+    fontSize * 0.85
+
+  // Left of the video, right-aligned against the video's left edge
   if (leftTextWords && leftTextWords.length > 0) {
-    const totalH = leftTextWords.length * lineHeight
-    const startY =
-      videoRect.top + (videoRect.height - totalH) / 2 + fontSize * 0.85
-    irisCtx.textAlign = 'left'
+    const startY = topOf(leftTextWords)
+    // Keep the longest word on screen if the video sits near the left edge
+    const x = Math.max(widestWord(leftTextWords), videoRect.left - gap)
+    irisCtx.textAlign = 'right'
     leftTextWords.forEach((word, i) => {
-      irisCtx.fillText(word, videoRect.left + margin, startY + i * lineHeight)
+      irisCtx.fillText(word, x, startY + i * lineHeight)
     })
   }
 
-  // Draw right-side text (right-aligned)
+  // Right of the video, left-aligned against the video's right edge
   if (rightTextWords && rightTextWords.length > 0) {
-    const totalH = rightTextWords.length * lineHeight
-    const startY =
-      videoRect.top + (videoRect.height - totalH) / 2 + fontSize * 0.85
-    irisCtx.textAlign = 'right'
+    const startY = topOf(rightTextWords)
+    const canvasW = irisCanvas ? irisCanvas.width : window.innerWidth
+    // Keep the longest word on screen if the video sits near the right edge
+    const x = Math.min(
+      videoRect.right + gap,
+      canvasW - widestWord(rightTextWords),
+    )
+    irisCtx.textAlign = 'left'
     rightTextWords.forEach((word, i) => {
-      irisCtx.fillText(word, videoRect.right - margin, startY + i * lineHeight)
+      irisCtx.fillText(word, x, startY + i * lineHeight)
     })
   }
 

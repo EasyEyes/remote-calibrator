@@ -238,18 +238,23 @@ export function createMeasurementPageRenderer(dependencies) {
     let bodyRaw = raw
     let titleFontSize = '200%'
     let bodyFontSize = ''
-    const spanMatch = raw.match(/<span([^>]*)>([\s\S]*?)<\/span>([\s\S]*)/i)
+    // Anchored so that anything preceding the span (e.g. a 🚫 before an
+    // enlarged 👓) is captured and kept rather than silently dropped.
+    const spanMatch = raw.match(
+      /^([\s\S]*?)<span([^>]*)>([\s\S]*?)<\/span>([\s\S]*)$/i,
+    )
     if (spanMatch) {
-      const fontSizeMatch = spanMatch[1].match(/font-size:\s*([\d.]+%)/i)
+      const [, beforeSpan, spanAttrs, spanBody, afterSpan] = spanMatch
+      const fontSizeMatch = spanAttrs.match(/font-size:\s*([\d.]+%)/i)
       if (fontSizeMatch) titleFontSize = fontSizeMatch[1]
-      if (spanMatch[3].trim()) {
+      if (afterSpan.trim()) {
         // Old format: the span wraps only the title; the body follows it.
-        titleRaw = spanMatch[2]
-        bodyRaw = spanMatch[3]
+        titleRaw = beforeSpan + spanBody
+        bodyRaw = afterSpan
       } else {
         // New format: the span wraps the whole phrase, so its font-size
         // applies to both lines and the first line is the title.
-        const parts = splitFirstLine(spanMatch[2])
+        const parts = splitFirstLine(beforeSpan + spanBody)
         titleRaw = parts.title
         bodyRaw = parts.body
         bodyFontSize = titleFontSize

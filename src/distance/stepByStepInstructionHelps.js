@@ -810,7 +810,13 @@ export function renderStepInstructions({
     appendLine('…', 'current', 0)
   }
 
-  // On-screen ▲ / ▼ controls in upper-right / lower-right.
+  // On-screen ▲ / ▼ controls in upper-right / lower-right. Each arrow is shown
+  // only while it can actually move the Stepper: no ▲ at the top of the text,
+  // no ▼ at the bottom. Recomputed on every render, so the arrow reappears as
+  // soon as we step away from that end.
+  const atTop = safeFlatIndex <= 0
+  const atBottom = safeFlatIndex >= totalSteps - 1
+
   const arrowBaseStyle = el => {
     el.style.position = 'absolute'
     el.style.right = '0.5rem'
@@ -830,8 +836,10 @@ export function renderStepInstructions({
   arrowBaseStyle(arrowDown)
   arrowDown.style.bottom = '0.35rem'
 
-  if (showAllSteps) {
+  if (showAllSteps || atTop) {
     arrowUp.style.display = 'none'
+  }
+  if (showAllSteps || atBottom) {
     arrowDown.style.display = 'none'
   }
 
@@ -909,6 +917,10 @@ export function renderStepInstructions({
   }
 }
 
+// Inline font-size each stepper descendant carried before the first fit, so
+// repeated fits never lose an author-specified size.
+const authoredFontSize = new WeakMap()
+
 /**
  * Adjust the stepper box's font-size (and internal spacing proportionally) so
  * that its rendered height fits within `availableHeightPx`.
@@ -957,9 +969,16 @@ export function fitStepperBoxToHeight(
       el = el.parentElement
     }
 
-    // Force every descendant inside the stepper box to inherit the new size
+    // Force every descendant inside the stepper box to inherit the new size,
+    // except those whose markup asked for a specific size (e.g. a phrase that
+    // enlarges an emoji with <span style="font-size:200%">). Relative sizes
+    // stay relative to the fitted size, so those elements still shrink with
+    // the box.
     stepperBox.querySelectorAll('*').forEach(child => {
-      child.style.fontSize = 'inherit'
+      if (!authoredFontSize.has(child)) {
+        authoredFontSize.set(child, child.style.fontSize || '')
+      }
+      child.style.fontSize = authoredFontSize.get(child) || 'inherit'
       child.style.lineHeight = 'inherit'
     })
 

@@ -33,13 +33,13 @@ import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
 
 /**
  * Show a full-screen prompt asking the participant to put their glasses
- * back on, with an OK button.  Uses the same Swal styling as the rest
+ * back on, with a Proceed button.  Uses the same Swal styling as the rest
  * of the distance calibration / check pages.
  */
 export async function showPutGlassesBackOnScreen(RC) {
   await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
-    confirmButtonText: phrases.RC_ok[RC.L],
+    confirmButtonText: phrases.T_proceed?.[RC.L],
     title:
       '<p class="heading2">' +
       processInlineFormatting(phrases.RC_PutYourGlassesBackOn[RC.L]) +
