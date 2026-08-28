@@ -33,6 +33,7 @@
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@biomejs/biome": "1.9.4",
+    "@tensorflow-models/hand-pose-detection": "^2.0.1",
     "animate.css": "^4.1.1",
     "autoprefixer": "^10.4.20",
     "babel-loader": "^9.2.1",

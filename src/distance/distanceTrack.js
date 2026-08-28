@@ -52,6 +52,19 @@ import {
 } from '../components/popup'
 import { processInlineFormatting } from './markdownInstructionParser'
 import { objectTestNew } from './object'
+import {
+  TUBE_CROP_MODES,
+  armTubeTracker,
+  configureTubeTracker,
+  disarmTubeTracker,
+  getFaceMeshVideoInput,
+  getTubeCropMode,
+  renderTubeCropDisplay,
+  renderTubeTrackerDebug,
+  setTubeGuideQuad,
+  tubeTrackerForcesRed,
+  updateTubeTracker,
+} from './object/tubeTemplateTracker'
 
 const originalStyles = {
   video: false,
@@ -263,6 +276,8 @@ RemoteCalibrator.prototype.trackDistance = async function (
       _showCameraResolutionBool: true, // If true, show original+final resolution with OK button after camera selection
       calibrateDistanceAcceptBottomCameraBool: false, // If true, also show a duplicate row of camera previews fixed at the bottom of the screen on Choose Camera / Choose Screen pages, so participants whose built-in camera is at the bottom-center of the display can pick the video that mirrors them. When the participant clicks a bottom-row preview, cameraXYPx flips to bottom-center and the PiP / Camera Resolution preview / blindspot fixation / etc. all anchor to the bottom edge.
       calibrateDistanceAllowExternalCameraBool: false, // If true, Choose Camera includes external webcams alongside built-in / unknown. Default false hides externals so trackDistance only ever runs on a built-in (or unclassified) camera. Set true to test bottom-camera support with an external rig.
+      _calibrateDistanceCropOutTubeDebugBool: true, // FOR TESTING (default false). When true, shows a real-time debug view of the paper-tube tracker: a compact status panel (top-right, plain-language state, green = passing / red = waiting or holding), side-by-side previews of the full camera frame vs the exact frame fed to Google FaceMesh (the face band), an event log, and overlay annotations on the video (tube guide quad in magenta with its paper-like fill fraction, face band lines in yellow, live tube box in red/green with its confidence, face bounding box in cyan). Can also be toggled at any time from the browser console with window.rcTubeDebug(true) / window.rcTubeDebug(false). Display-only: has no effect on the calibration logic.
+      _calibrateDistanceCropOutTube: 'crop', // BETA. 'dontCrop' | 'crop' | 'cropButShowWhole' (either spelling, with or without leading underscore, accepted). During distance calibration with the paper tube, controls whether the paper tube is cropped out of the video fed to Google FaceMesh. 'dontCrop' (default) = the tube tracker is DISABLED entirely — never armed, no detection, no red hold, no masking; behavior is identical to before this feature existed. Otherwise TWO MECHANISMS: (1) FACE BAND — the frame fed to FaceMesh is ALWAYS masked ONE-SIDED: everything beyond the tube-side face band edge (face bounding box + margin, on the side the participant holds the tube) is blanked, so the paper can never bias FaceMesh regardless of where it is; the other side stays open, since the tube cannot be there and a single mask edge halves the chance of clipping the face; (2) GUIDE SAMPLING — the tracker watches inside the drawn tube guide (the black lines) for a paper-like luminance jump, samples the median color of those pixels as the tube's true appearance under the participant's lighting, then tracks that color frame-to-frame with a confidence score; while the sampled tube confidently overlaps the face band the irises are kept red (space bar disabled), releasing once it is clear. 'crop' = FaceMesh sees only the face band; once the sampled tube is clear of the band, the on-screen video is also clipped to the band (the guide and tube stay visible while the participant aligns). Recommended for participants, who can simply be instructed to move the tube out of the displayed video. 'cropButShowWhole' = FaceMesh sees only the face band; the participant sees the whole frame with the masked region dimmed (for debugging).
       calibrateDistanceCameraKindOverride: 'assess', // FOR TESTING (glossary name `_calibrateDistanceCameraKindOverride`; either spelling accepted). Override the kind classification of the SELECTED camera so EasyEyes' handling of the three kinds can be tested without physically having one of each. 'assess' (default) = classify as usual based on the camera name. 'built-in' / 'external' / 'unknown' = skip assessment and force that kind for the camera the participant commits to. On the Choose Camera page each tile still shows its REAL classification by default; hovering a tile temporarily previews the override kind in that tile's caption (and reverts on mouseleave) -- this is display-only and does not mutate the camera list. The override is committed only when the participant actually selects a camera; if they return and pick another, the previous selection reverts to its real kind. The selection (and its overridden kind) persists across pages for the rest of the session. NOTE: When tabulating camera-kind data, exclude results collected with anything other than 'assess'.
     },
     trackDistanceOptions,
@@ -482,6 +497,34 @@ RemoteCalibrator.prototype.trackDistance = async function (
     options.calibrateDistanceTubeDiameterCm
   trackingOptions.calibrateDistanceDrawPaperTubeBool =
     options.calibrateDistanceDrawPaperTubeBool
+  // _calibrateDistanceCropOutTube — accept either spelling and normalize
+  {
+    const rawCropOutTube =
+      trackDistanceOptions._calibrateDistanceCropOutTube ??
+      trackDistanceOptions.calibrateDistanceCropOutTube ??
+      options._calibrateDistanceCropOutTube
+    const cropOutTube = TUBE_CROP_MODES.includes(rawCropOutTube)
+      ? rawCropOutTube
+      : 'dontCrop'
+    if (!TUBE_CROP_MODES.includes(rawCropOutTube))
+      console.warn(
+        `_calibrateDistanceCropOutTube: unrecognized value "${rawCropOutTube}", using "dontCrop"`,
+      )
+    options._calibrateDistanceCropOutTube = cropOutTube
+    trackingOptions._calibrateDistanceCropOutTube = cropOutTube
+    // Debug view of the tube tracker — accept either spelling
+    const cropOutTubeDebugBool =
+      (trackDistanceOptions._calibrateDistanceCropOutTubeDebugBool ??
+        trackDistanceOptions.calibrateDistanceCropOutTubeDebugBool ??
+        options._calibrateDistanceCropOutTubeDebugBool) === true
+    options._calibrateDistanceCropOutTubeDebugBool = cropOutTubeDebugBool
+    configureTubeTracker({
+      cropMode: cropOutTube,
+      // Only turn debug ON from the option; never turn it off here, so a
+      // console toggle (window.rcTubeDebug) is not clobbered.
+      debugBool: cropOutTubeDebugBool || undefined,
+    })
+  }
   trackingOptions.calibrateDistanceFocalLengthRange =
     options.calibrateDistanceFocalLengthRange
   // Store on RC instance for access from other modules
@@ -662,10 +705,29 @@ let measurementOverlayState = null
 
 /**
  * Configure the measurement overlay drawn on the iris canvas.
- * @param {object} config - { isPaperMode, eye, leftTextWords, rightTextWords }
+ * @param {object} config - { isPaperMode, eye, leftTextWords, rightTextWords,
+ *                            enableTubeTracking }
  */
 export function setMeasurementOverlay(config) {
   measurementOverlayState = config
+  // Arm the paper-tube tracker (_calibrateDistanceCropOutTube) on paper
+  // measurement pages. It watches inside the drawn tube guide for the paper,
+  // samples its color there, and keeps any color sampled on earlier pages.
+  // With 'dontCrop' (the default) the tracker is never armed at all — no
+  // detection, no red hold, no masking: identical to legacy behavior.
+  if (
+    config?.isPaperMode &&
+    config?.enableTubeTracking &&
+    getTubeCropMode() !== 'dontCrop'
+  ) {
+    armTubeTracker(RC_instance, {
+      eye: config.eye,
+      tubeCm: trackingOptions.calibrateDistanceTubeDiameterCm,
+      ipdCm: RC_instance?._CONST?.IPD_CM,
+    })
+  } else {
+    disarmTubeTracker()
+  }
 }
 
 /**
@@ -673,6 +735,7 @@ export function setMeasurementOverlay(config) {
  */
 export function clearMeasurementOverlay() {
   measurementOverlayState = null
+  disarmTubeTracker()
 }
 
 // FPS throttling variables
@@ -836,6 +899,16 @@ const drawIrisAndPupil = () => {
   if (measurementOverlayState && videoRect) {
     _drawMeasurementOverlay(videoRect, leftPxScreen, rightPxScreen, ipdScreenPx)
   }
+
+  // ========== Paper-tube crop display (_calibrateDistanceCropOutTube) ==========
+  // 'crop': clip the on-screen video to the face band once the tube is clear.
+  // 'cropButShowWhole': dim the region not passed to Google FaceMesh.
+  if (videoRect) {
+    renderTubeCropDisplay(irisCtx, videoRect)
+    // Real-time debug annotations (_calibrateDistanceCropOutTubeDebugBool or
+    // window.rcTubeDebug(true)) — no-op when debug is off.
+    renderTubeTrackerDebug(irisCtx, videoRect)
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -860,7 +933,9 @@ const _drawMeasurementOverlay = (
   // 1. Draw static eye-side text alongside the video
   _drawEyeSideText(videoRect, leftTextWords, rightTextWords)
 
-  // 2. Draw paper tube circles and (optionally) connecting tangent lines
+  // 2. Draw paper tube circles and (optionally) connecting tangent lines.
+  // The tangent-line geometry is always computed (even when not drawn) and
+  // fed to the tube tracker, which watches inside the guide for the paper.
   if (isPaperMode && leftPxScreen && rightPxScreen && ipdScreenPx > 0) {
     const smallCircle = _drawTubeCircles(
       leftPxScreen,
@@ -868,9 +943,11 @@ const _drawMeasurementOverlay = (
       ipdScreenPx,
       eye,
     )
-    if (trackingOptions.calibrateDistanceDrawPaperTubeBool) {
-      _drawTubeLines(smallCircle)
-    }
+    _drawTubeLines(
+      smallCircle,
+      videoRect,
+      trackingOptions.calibrateDistanceDrawPaperTubeBool,
+    )
   }
 }
 
@@ -986,8 +1063,14 @@ const _drawTubeCircles = (leftPx, rightPx, ipdScreenPx, eye) => {
  *   cos(α − θ) = (r − R) / d
  * where θ = atan2(Cy−cy, Cx−cx) and d = dist(centers).
  * Each α yields a tangent point on each circle at (center + radius·(cosα, sinα)).
+ *
+ * The quadrilateral bounded by the two tangent lines, from the small circle
+ * down to the bottom edge of the video, is where the participant holds the
+ * tube — it is passed to the tube tracker (setTubeGuideQuad) every frame so
+ * the tracker can watch it for the paper's arrival and sample its color.
+ * The geometry is computed even when drawing is disabled (drawBool false).
  */
-const _drawTubeLines = smallCircle => {
+const _drawTubeLines = (smallCircle, videoRect, drawBool = true) => {
   if (!irisCtx || !smallCircle) return
 
   const bigEl = document.getElementById('rc-big-circle-target')
@@ -1025,6 +1108,32 @@ const _drawTubeLines = smallCircle => {
   const P1y = Cy + R * Math.sin(alpha1)
   const P2x = Cx + R * Math.cos(alpha2)
   const P2y = Cy + R * Math.sin(alpha2)
+
+  // Feed the tracker the guide region ON THE VIDEO: tangent points at the
+  // small circle down to where each tangent line crosses the video's bottom
+  // edge (the big circle sits below the video). Ordered as a simple polygon.
+  if (videoRect && P1y > p1y && P2y > p2y) {
+    const bottomY = videoRect.bottom
+    const t1 = (bottomY - p1y) / (P1y - p1y)
+    const t2 = (bottomY - p2y) / (P2y - p2y)
+    if (t1 > 0 && t2 > 0) {
+      const b1x = p1x + Math.min(t1, 1) * (P1x - p1x)
+      const b1y = p1y + Math.min(t1, 1) * (P1y - p1y)
+      const b2x = p2x + Math.min(t2, 1) * (P2x - p2x)
+      const b2y = p2y + Math.min(t2, 1) * (P2y - p2y)
+      setTubeGuideQuad(
+        [
+          { x: p1x, y: p1y },
+          { x: b1x, y: b1y },
+          { x: b2x, y: b2y },
+          { x: p2x, y: p2y },
+        ],
+        videoRect,
+      )
+    }
+  }
+
+  if (!drawBool) return
 
   irisCtx.strokeStyle = 'black'
   irisCtx.lineWidth = 0.9
@@ -1298,8 +1407,14 @@ export const startIrisDrawingWithMesh = async RC => {
         // }
       }
       // Compute active status based on freshness window (no motion required)
-      irisTrackingIsActive =
+      const rawIrisTrackingActive =
         currentTime - lastIrisValidTime <= IRIS_VALIDITY_WINDOW_MS
+      // Paper-tube tracker (_calibrateDistanceCropOutTube): samples the tube
+      // inside the drawn guide, tracks its color, and keeps the eyes red
+      // (space bar disabled) while the tube overlaps the face band that
+      // Google FaceMesh sees.
+      updateTubeTracker(meshData, rawIrisTrackingActive)
+      irisTrackingIsActive = rawIrisTrackingActive && !tubeTrackerForcesRed()
       lastIrisTrackingTime = currentTime
     }
 
@@ -1333,7 +1448,11 @@ export const getMeshData = async (
   calibrateDistancePupil = 'iris',
   meshSamples = [],
 ) => {
-  const video = document.getElementById('webgazerVideoCanvas')
+  // When paper-tube cropping is enabled (_calibrateDistanceCropOutTube),
+  // feed FaceMesh a copy of the frame masked to the face band (everything
+  // outside two vertical lines around the face blanked out); otherwise this
+  // is simply the webgazerVideoCanvas (same dimensions either way).
+  const video = getFaceMeshVideoInput()
   if (!video) {
     console.log('Video canvas not ready for mesh data retrieval')
     return null

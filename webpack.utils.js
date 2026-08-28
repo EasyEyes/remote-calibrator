@@ -1,10 +1,38 @@
+const path = require('path')
 const webpack = require('webpack')
 
 // const ESLintPlugin = require('eslint-webpack-plugin')
 const WebpackModules = require('webpack-modules')
 
+// Resolve TensorFlow.js to the copy installed with the WebGazer4RC submodule
+// so packages imported from the root (e.g. hand-pose-detection) share the
+// same tfjs instance as FaceMesh instead of bundling a second copy.
+const webgazerModules = path.resolve(__dirname, 'src/WebGazer4RC/node_modules')
+
 const config = {
   entry: './src',
+  resolve: {
+    alias: {
+      '@tensorflow/tfjs-core': path.join(
+        webgazerModules,
+        '@tensorflow/tfjs-core',
+      ),
+      '@tensorflow/tfjs-converter': path.join(
+        webgazerModules,
+        '@tensorflow/tfjs-converter',
+      ),
+      '@tensorflow/tfjs-backend-webgl': path.join(
+        webgazerModules,
+        '@tensorflow/tfjs-backend-webgl',
+      ),
+      '@tensorflow/tfjs-backend-cpu': path.join(
+        webgazerModules,
+        '@tensorflow/tfjs-backend-cpu',
+      ),
+      // Only the tfjs runtime is used; stub out the MediaPipe wasm runtime.
+      '@mediapipe/hands': false,
+    },
+  },
   module: {
     rules: [
       {

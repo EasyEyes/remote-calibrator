@@ -87,6 +87,7 @@ import {
 } from './object'
 import woodSvg from '../media/AdobeStock_1568677429.svg'
 import { captureVideoFrame } from '../check/captureVideoFrame'
+import { getFaceMeshVideoInput } from './object/tubeTemplateTracker'
 
 // import { soundFeedback } from '../components/sound'
 let soundFeedback
@@ -671,7 +672,9 @@ export async function measureIntraocularDistancePx(
   meshSamples = [],
   calibrateDistanceIpdUsesZBool = true,
 ) {
-  let video = document.getElementById('webgazerVideoCanvas')
+  // Respect the face-band mask (_calibrateDistanceCropOutTube): FaceMesh
+  // only sees the face band, so the tube cannot bias the IPD sample.
+  let video = getFaceMeshVideoInput()
   if (!video) return null
   const model = await RC.gazeTracker.webgazer.getTracker().model
   const faces = await model.estimateFaces(video)
