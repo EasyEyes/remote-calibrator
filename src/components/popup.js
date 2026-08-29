@@ -306,6 +306,57 @@ const _syncBottomCaptionWidthWithTopLayout = () => {
   }
 }
 
+/**
+ * Align the instruction / privacy text of the Choose Camera page with the
+ * left margin of the EasyEyes Device Compatibility pages, whose body content
+ * starts at 20vw from the viewport edge. The text lives inside a centered
+ * Swal popup, so the offset is applied as popup-relative padding when the
+ * popup edge is left of 20vw, or as a negative margin (pulling the block out
+ * of the popup box; the popup/container use overflow: visible) when the
+ * popup edge is already right of 20vw — padding alone could never move the
+ * text that direction, which used to leave the page misaligned. Must run
+ * BEFORE _syncBottomCaptionWidthWithTopLayout so the bottom caption copies
+ * the adjusted geometry.
+ */
+const _alignCameraTextWithCompatPages = RC => {
+  const instructionBlock = document.getElementById('rc-camera-instruction-text')
+  if (!instructionBlock) return
+  const privacyBlock = document.getElementById('rc-camera-privacy-text')
+  const isRTL = RC.LD === RC._CONST.RTL
+  const side = isRTL ? 'paddingRight' : 'paddingLeft'
+  const marginSide = isRTL ? 'marginRight' : 'marginLeft'
+  // Reset before measuring so repeated calls stay stable.
+  const resetBlock = block => {
+    block.style[side] = '0px'
+    block.style[marginSide] = '0px'
+    block.style.width = '100%'
+  }
+  resetBlock(instructionBlock)
+  if (privacyBlock) resetBlock(privacyBlock)
+  const rect = instructionBlock.getBoundingClientRect()
+  if (!rect.width) {
+    instructionBlock.style[side] = '30px'
+    return
+  }
+  const target = window.innerWidth * 0.2 // 20vw, the compat pages' body inset
+  const edge = isRTL ? window.innerWidth - rect.right : rect.left
+  const delta = Math.round(target - edge)
+  const applyOffset = block => {
+    if (delta >= 0) {
+      // Popup edge is left of the compat margin: pad inward to reach it.
+      block.style[side] = `${delta}px`
+    } else {
+      // Popup edge is already right of the compat margin: padding cannot
+      // move text left of the popup box, so pull the block outward with a
+      // negative margin (and widen it so the trailing edge stays put).
+      block.style[marginSide] = `${delta}px`
+      block.style.width = `calc(100% + ${-delta}px)`
+    }
+  }
+  applyOffset(instructionBlock)
+  if (privacyBlock) applyOffset(privacyBlock)
+}
+
 // Enforce LTR/RTL alignment for camera/screen/resolution body text blocks,
 // including nested nodes produced by inline formatting.
 const _applyDirectionalTextAlignment = (element, isRTL) => {
@@ -2142,6 +2193,10 @@ const updateCameraPreviews = async (
     }
   }
 
+  // Keep the instruction text's leading edge on the compat pages' margin
+  // after the preview DOM is rebuilt.
+  _alignCameraTextWithCompatPages(RC)
+
   // The bottom-row wrapper was just re-inserted as a sibling of the top
   // row inside the Swal popup. Promote it back to <body> so its
   // `position: fixed; bottom: 0` resolves relative to the viewport.
@@ -2339,6 +2394,10 @@ export const showCameraSelectionPopup = async (
         htmlContainer.style.maxHeight = 'calc(100vh - 2rem)'
         htmlContainer.style.overflow = 'visible'
       }
+
+      // Match the Device Compatibility pages' text margin before the
+      // bottom caption copies the instruction block's padding.
+      _alignCameraTextWithCompatPages(RC)
 
       // Move the bottom-row preview wrapper out of the Swal popup and
       // onto <body> so its `position: fixed; bottom: 0` resolves
@@ -2717,6 +2776,7 @@ export const showCameraSelectionPopup = async (
         popupElement.style.width = dynamicMaxWidth
         popupElement.style.minWidth = dynamicMaxWidth
         console.log('Applied inline width to popup:', dynamicMaxWidth)
+        _alignCameraTextWithCompatPages(RC)
         _syncBottomCaptionWidthWithTopLayout()
       }
 
