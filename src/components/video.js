@@ -68,47 +68,75 @@ export function checkWebcamStatus() {
 
 /* ----------------------------- WebGazer Video ----------------------------- */
 
+// How long to wait for WebGazer to create its video container before giving
+// up. The container appears as soon as the camera stream is acquired, so a
+// deadline this generous is only ever reached when the camera never started.
+const WEBGAZER_READY_TIMEOUT_MS = 20000
+
 /**
  *
  * Check if WebGazer video is ready. If so, set the style for it.
  *
+ * @param {Function} [onTimeout] - Called if the video container never
+ *   appears. Without this the poll below ran forever, leaving the caller's
+ *   promise unsettled and the study stuck on its loading screen.
  */
-export function checkWebgazerReady(RC, pipWidthPx, opacity, WG, callback) {
+export function checkWebgazerReady(
+  RC,
+  pipWidthPx,
+  opacity,
+  WG,
+  callback,
+  onTimeout,
+) {
+  const deadline = performance.now() + WEBGAZER_READY_TIMEOUT_MS
   const c = setInterval(() => {
     const v = document.getElementById('webgazerVideoContainer')
-    if (v) {
-      clearInterval(c)
-
-      // Hide video container initially - popup or next step will show it when ready
-      // This prevents the blank page with just video on top
-      v.style.display = 'none'
-
-      v.style.height = `${
-        (pipWidthPx / Number.parseInt(v.style.width)) *
-        Number.parseInt(v.style.height)
-      }px`
-      v.style.width = `${pipWidthPx}px`
-      v.style.opacity = opacity
-      WG.setVideoViewerSize(
-        Number.parseInt(v.style.width),
-        Number.parseInt(v.style.height),
-      )
-
-      // Set position
-      setDefaultVideoPosition(RC, v)
-
-      // Set video opacity and transitions
-      RC.videoOpacity()
-      if (RC.isMobile.value)
-        v.style.transition =
-          'right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
-      else
-        v.style.transition =
-          'left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
-
-      // Call callback immediately (was 700ms delay)
-      safeExecuteFunc(callback)
+    if (!v) {
+      if (performance.now() > deadline) {
+        clearInterval(c)
+        console.error(
+          `[RC] WebGazer video container did not appear within ${WEBGAZER_READY_TIMEOUT_MS}ms.`,
+        )
+        safeExecuteFunc(
+          onTimeout,
+          new Error('Timed out waiting for the camera video to start.'),
+        )
+      }
+      return
     }
+
+    clearInterval(c)
+
+    // Hide video container initially - popup or next step will show it when ready
+    // This prevents the blank page with just video on top
+    v.style.display = 'none'
+
+    v.style.height = `${
+      (pipWidthPx / Number.parseInt(v.style.width)) *
+      Number.parseInt(v.style.height)
+    }px`
+    v.style.width = `${pipWidthPx}px`
+    v.style.opacity = opacity
+    WG.setVideoViewerSize(
+      Number.parseInt(v.style.width),
+      Number.parseInt(v.style.height),
+    )
+
+    // Set position
+    setDefaultVideoPosition(RC, v)
+
+    // Set video opacity and transitions
+    RC.videoOpacity()
+    if (RC.isMobile.value)
+      v.style.transition =
+        'right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
+    else
+      v.style.transition =
+        'left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
+
+    // Call callback immediately (was 700ms delay)
+    safeExecuteFunc(callback)
   }, 100)
 }
 

@@ -43,40 +43,76 @@ export default class GazeTracker {
     this._onReconnectCallbacks = new Set()
   }
 
-  begin({ pipWidthPx }, callback) {
-    if (this.checkInitialized('gaze', true)) {
-      if (!this._running.gaze) {
-        this.webgazer.begin(this.videoFailed.bind(this))
-        this._running.gaze = true
+  // Start WebGazer's video, reporting failure through `onError` instead of
+  // leaving the caller's callback unfired. `_runningVideo` is only set once
+  // the stream is actually up, so a retry can start it again rather than
+  // short-circuiting and waiting for a video that will never appear.
+  _startVideo(shouldStart, start, { pipWidthPx }, callback, onError) {
+    // Both the start promise and the readiness deadline can report the same
+    // failure, so only the first one is passed on.
+    let failed = false
+    const fail = error => {
+      if (failed) return
+      failed = true
+      this._runningVideo = false
+      if (typeof onError === 'function') onError(error)
+      else console.error('[RC] Camera video failed to start:', error)
+    }
+
+    if (shouldStart) {
+      let started
+      try {
+        started = start()
+      } catch (error) {
+        fail(error)
+        return
+      }
+      if (started && typeof started.then === 'function') {
+        started
+          .then(() => {
+            this._runningVideo = true
+            this.setupCameraMonitoring()
+          })
+          .catch(fail)
+      } else {
         this._runningVideo = true
         this.setupCameraMonitoring()
       }
+    }
 
-      checkWebgazerReady(
-        this.calibrator,
-        pipWidthPx,
-        this.calibrator.params.videoOpacity,
-        this.webgazer,
+    checkWebgazerReady(
+      this.calibrator,
+      pipWidthPx,
+      this.calibrator.params.videoOpacity,
+      this.webgazer,
+      callback,
+      fail,
+    )
+  }
+
+  begin({ pipWidthPx }, callback, onError) {
+    if (this.checkInitialized('gaze', true)) {
+      const shouldStart = !this._running.gaze
+      if (shouldStart) this._running.gaze = true
+      this._startVideo(
+        shouldStart,
+        () => this.webgazer.begin(this.videoFailed.bind(this)),
+        { pipWidthPx },
         callback,
+        onError,
       )
     }
   }
 
-  beginVideo({ pipWidthPx }, callback) {
+  beginVideo({ pipWidthPx }, callback, onError) {
     // Begin video only
     if (this.checkInitialized('distance', true)) {
-      if (!this._runningVideo) {
-        this.webgazer.beginVideo(this.videoFailed.bind(this))
-        this._runningVideo = true
-        this.setupCameraMonitoring()
-      }
-
-      checkWebgazerReady(
-        this.calibrator,
-        pipWidthPx,
-        this.calibrator.params.videoOpacity,
-        this.webgazer,
+      this._startVideo(
+        !this._runningVideo,
+        () => this.webgazer.beginVideo(this.videoFailed.bind(this)),
+        { pipWidthPx },
         callback,
+        onError,
       )
     }
   }

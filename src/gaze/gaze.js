@@ -33,7 +33,16 @@ RemoteCalibrator.prototype.trackGaze = async function (
   ////
 
   if (this.gazeTracker.webgazer.getTracker().modelLoaded === false) {
-    this.gazeTracker.webgazer.getTracker().loadModel()
+    // Warm the model in the background. The catch is required: an unhandled
+    // rejection here reaches PsychoJS's onunhandledrejection handler, which
+    // aborts the whole experiment. The model is loaded again (and awaited)
+    // where it is actually needed.
+    this.gazeTracker.webgazer
+      .getTracker()
+      .loadModel()
+      .catch(error => {
+        console.error('[RC] Background face-model load failed:', error)
+      })
   }
 
   const options = Object.assign(

@@ -8,6 +8,10 @@ import {
   renderMarkdownInstructionToHTML,
 } from '../distance/markdownInstructionParser'
 import { likelyBuiltIn } from './cameraClassifier'
+import {
+  finalizeCameraFindTiming,
+  logCameraFindResults,
+} from '../cameraFindTiming.js'
 
 /**
  * Remove parenthesized hex device IDs from camera labels.
@@ -522,10 +526,14 @@ const _recordCameraData = RC => {
       cameraIncorporation: realIncorporation,
       cameraIncorporationReported: RC.cameraIncorporationReported || null,
       cameraArray: sanitizedCameraArray,
+      // How long finding the camera took, so the distribution of durations
+      // can be plotted across computers. See RC.selectCamera.
+      ...(RC.cameraFindTiming || {}),
     },
     timestamp: performance.now(),
   }
   RC._cameraDataPushed = true
+  logCameraFindResults(RC)
 }
 
 // Ask the participant whether an "unknown"-classified camera is built-in.
@@ -1669,6 +1677,102 @@ const switchToCamera = async (RC, selectedCamera) => {
 }
 
 /**
+ * Resolution / Hz shown under each camera tile on Choose Camera.
+ *
+ * Priority:
+ *  1. Live WebGazer stream for this device (what findBestCameraMode negotiated)
+ *  2. Preview track getSettings() (actual preview stream)
+ *  3. Study params desiredCameraResolution / desiredCameraHz
+ *
+ * We deliberately do NOT use getCapabilities().max — that reports the
+ * hardware ceiling (e.g. 1920×1920 @ 30 Hz on a MacBook) rather than what
+ * the experiment requested (e.g. 640×480 @ 15 Hz).
+ */
+const _resolveCameraCaptionResolution = (RC, camera, videoTrack) => {
+  const webgazer = RC?.gazeTracker?.webgazer
+  const vp = webgazer?.videoParamsToReport
+  const activeId = webgazer?.params?.activeCamera?.id
+
+  if (
+    vp?.width &&
+    vp?.height &&
+    camera?.deviceId &&
+    activeId &&
+    camera.deviceId === activeId
+  ) {
+    return {
+      width: vp.width,
+      height: vp.height,
+      frameRate: vp.frameRate ? Math.round(vp.frameRate) : 0,
+    }
+  }
+
+  const settings = videoTrack?.getSettings?.() || {}
+  if (settings.width && settings.height) {
+    return {
+      width: settings.width,
+      height: settings.height,
+      frameRate: settings.frameRate ? Math.round(settings.frameRate) : 0,
+    }
+  }
+
+  const desiredRes = webgazer?.params?.desiredCameraResolution
+  const desiredHz = webgazer?.params?.desiredCameraHz
+  if (Array.isArray(desiredRes) && desiredRes.length >= 2) {
+    return {
+      width: desiredRes[0],
+      height: desiredRes[1],
+      frameRate: typeof desiredHz === 'number' ? Math.round(desiredHz) : 0,
+    }
+  }
+
+  return { width: 0, height: 0, frameRate: 0 }
+}
+
+/**
+ * Open a preview stream for one camera tile (new vs legacy constraints).
+ * When the study sets desiredCameraResolution / desiredCameraHz, previews
+ * request those ideals so the caption matches _calibrateDistanceCameraResolution
+ * and _calibrateDistanceCameraHz.
+ */
+const _openCameraPreviewStream = async (RC, camera) => {
+  const desiredRes = RC?.gazeTracker?.webgazer?.params?.desiredCameraResolution
+  const desiredHz = RC?.gazeTracker?.webgazer?.params?.desiredCameraHz
+  const frameRateConstraint =
+    typeof desiredHz === 'number' && desiredHz > 0
+      ? { frameRate: { ideal: desiredHz } }
+      : {}
+
+  const widthIdeal =
+    Array.isArray(desiredRes) && desiredRes[0] > 0 ? desiredRes[0] : 1280
+  const heightIdeal =
+    Array.isArray(desiredRes) && desiredRes[1] > 0 ? desiredRes[1] : 720
+
+  const base = {
+    deviceId: { exact: camera.deviceId },
+    aspectRatio: { min: 1.33, ideal: 1.78, max: 2.33 },
+    ...frameRateConstraint,
+  }
+
+  return navigator.mediaDevices.getUserMedia({
+    video: {
+      ...base,
+      width: { ideal: widthIdeal },
+      height: { ideal: heightIdeal },
+    },
+  })
+}
+
+/**
+ * Detach a preview <video> from its stream and release the camera.
+ */
+const _releasePreviewStream = videoElement => {
+  if (!videoElement || !videoElement.srcObject) return
+  videoElement.srcObject.getTracks().forEach(track => track.stop())
+  videoElement.srcObject = null
+}
+
+/**
  * Creates video previews for all available cameras
  * @param {Array} cameras - Array of camera devices
  * @param {Object} RC - RemoteCalibrator instance
@@ -1840,11 +1944,6 @@ const createCameraPreviews = async (
   // row's <video> when the bottom row is rendered, to avoid opening a
   // second getUserMedia per camera.
 
-  const desiredHz = RC?.gazeTracker?.webgazer?.params?.desiredCameraHz
-  const frameRateConstraint =
-    typeof desiredHz === 'number' && desiredHz > 0
-      ? { frameRate: { ideal: desiredHz } }
-      : {}
   setTimeout(() => {
     cameras.forEach(async (camera, i) => {
       const videoElement = document.getElementById(`camera-preview-${i}`)
@@ -1861,40 +1960,7 @@ const createCameraPreviews = async (
 
       if (videoElement) {
         try {
-          // Use optimized constraints: min 1920, fallback to 1280, then ideal-only
-          let stream
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              video: {
-                deviceId: { exact: camera.deviceId },
-                width: { min: 1920, ideal: 7680 },
-                height: { min: 1080, ideal: 4320 },
-                aspectRatio: { min: 1.33, ideal: 1.78, max: 2.33 },
-                ...frameRateConstraint,
-              },
-            })
-          } catch (fullHDError) {
-            try {
-              stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                  deviceId: { exact: camera.deviceId },
-                  width: { min: 1280, ideal: 7680 },
-                  height: { min: 720, ideal: 4320 },
-                  aspectRatio: { min: 1.33, ideal: 1.78, max: 2.33 },
-                  ...frameRateConstraint,
-                },
-              })
-            } catch (hdError) {
-              stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                  deviceId: { exact: camera.deviceId },
-                  width: { ideal: 1920 },
-                  height: { ideal: 1080 },
-                  ...frameRateConstraint,
-                },
-              })
-            }
-          }
+          const stream = await _openCameraPreviewStream(RC, camera);
 
           videoElement.srcObject = stream
           // Share the same stream with the bottom row.
@@ -1902,16 +1968,13 @@ const createCameraPreviews = async (
             bottomVideoElement.srcObject = stream
           }
 
-          // Get resolution + frame rate and update caption
           const videoTrack = stream.getVideoTracks()[0]
           if (videoTrack) {
-            const settings = videoTrack.getSettings()
-            const width = settings.width || 0
-            const height = settings.height || 0
-            const frameRate = settings.frameRate
-              ? Math.round(settings.frameRate)
-              : 0
-            camera.resolution = { width, height, frameRate }
+            camera.resolution = _resolveCameraCaptionResolution(
+              RC,
+              camera,
+              videoTrack,
+            )
             const captionHTML = _cameraCaptionHTML(
               camera.label || `Camera ${i + 1}`,
               camera.resolution,
@@ -2017,10 +2080,7 @@ const updateCameraPreviews = async (
   // <video> doesn't keep a dangling reference.
   oldCameras.forEach((camera, index) => {
     const videoElement = document.getElementById(`camera-preview-${index}`)
-    if (videoElement && videoElement.srcObject) {
-      const stream = videoElement.srcObject
-      stream.getTracks().forEach(track => track.stop())
-    }
+    _releasePreviewStream(videoElement)
     const bottomVideoElement = document.getElementById(
       `camera-preview-bottom-${index}`,
     )
@@ -2379,6 +2439,8 @@ export const showCameraSelectionPopup = async (
       confirmButton: 'rc-button rc-go-button',
     },
     didOpen: () => {
+      finalizeCameraFindTiming(RC, { cameraCount: cameras.length })
+
       // Make popup seamless with background and responsive
       const popup = Swal.getPopup()
       if (popup) {
@@ -3403,10 +3465,7 @@ export const showCameraSelectionPopup = async (
       // <video> element doesn't keep a dangling reference).
       cameras.forEach((camera, index) => {
         const videoElement = document.getElementById(`camera-preview-${index}`)
-        if (videoElement && videoElement.srcObject) {
-          const stream = videoElement.srcObject
-          stream.getTracks().forEach(track => track.stop())
-        }
+        _releasePreviewStream(videoElement)
         const bottomVideoElement = document.getElementById(
           `camera-preview-bottom-${index}`,
         )
@@ -3503,6 +3562,8 @@ const showNoCameraPopup = async (
     cancelButtonText: phrases.RC_OK[RC.L],
     allowEnterKey: true,
     didOpen: () => {
+      finalizeCameraFindTiming(RC, { cameraCount: 0 })
+
       // Handle keyboard events
       const keydownListener = event => {
         if (event.key === 'Enter' || event.key === 'Return') {
@@ -3755,6 +3816,43 @@ export const _handlePostCameraResolution = async (RC, options) => {
   }
 }
 
+// How long to wait for a disconnected camera to come back before retrying
+// camera selection anyway.
+const CAMERA_RECONNECT_TIMEOUT_MS = 60000
+
+/**
+ * Wait for the camera to reconnect, giving up after
+ * CAMERA_RECONNECT_TIMEOUT_MS. The deadline matters: if the reconnect event
+ * never arrives (the camera comes back under a new deviceId, or the event is
+ * missed), an unbounded wait strands the study on the reconnect screen with
+ * no way forward. Timing out lets the caller re-enumerate and carry on.
+ */
+const _awaitCameraReconnect = async (RC, logPrefix) => {
+  const reconnected = await new Promise(resolve => {
+    let settled = false
+    const finish = value => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      unsub()
+      RC._isWaitingForCameraReconnect = false
+      resolve(value)
+    }
+    const timer = setTimeout(() => {
+      console.warn(
+        `${logPrefix} No reconnect within ${CAMERA_RECONNECT_TIMEOUT_MS}ms —`,
+        'retrying camera selection anyway.',
+      )
+      finish(false)
+    }, CAMERA_RECONNECT_TIMEOUT_MS)
+    const unsub = RC.gazeTracker.onCameraReconnected(() => {
+      console.log(`${logPrefix} onCameraReconnected fired`)
+      finish(true)
+    })
+  })
+  return reconnected
+}
+
 /**
  * Shows a unified popup for all tests with camera selection
  * @param {Object} RC - RemoteCalibrator instance
@@ -3872,14 +3970,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
         'Awaiting onCameraReconnected then restarting Choose Camera...',
       )
       RC._isWaitingForCameraReconnect = true
-      await new Promise(resolve => {
-        const unsub = RC.gazeTracker.onCameraReconnected(() => {
-          console.log('[showTestPopup/single] onCameraReconnected fired')
-          unsub()
-          RC._isWaitingForCameraReconnect = false
-          resolve()
-        })
-      })
+      await _awaitCameraReconnect(RC, '[showTestPopup/single]')
       // Wait for the reconnection spinner Swal to close before
       // re-opening Choose Camera, otherwise the spinner's pending
       // `Swal.close()` will close our new popup.
@@ -3969,14 +4060,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       'restarting Choose Camera (selection ignored).',
     )
     RC._isWaitingForCameraReconnect = true
-    await new Promise(resolve => {
-      const unsub = RC.gazeTracker.onCameraReconnected(() => {
-        console.log('[showTestPopup] onCameraReconnected fired')
-        unsub()
-        RC._isWaitingForCameraReconnect = false
-        resolve()
-      })
-    })
+    await _awaitCameraReconnect(RC, '[showTestPopup]')
     // Wait for the reconnection spinner Swal to close before re-opening
     // Choose Camera, otherwise the spinner's pending `Swal.close()` will
     // close our new popup.
