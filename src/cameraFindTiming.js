@@ -9,6 +9,11 @@ export function finalizeCameraFindTiming(RC, { cameraCount = null } = {}) {
   const cameraFindSec = Number(
     ((performance.now() - RC._cameraFindStartMs) / 1000).toFixed(3),
   )
+  // Clear the clock so only the FIRST appearance of Choose Camera is
+  // measured. The popup can re-open later (camera disconnect → reconnect,
+  // no-camera retry loop), and re-measuring from the original start would
+  // fold participant wait time into the metric.
+  RC._cameraFindStartMs = null
   RC.cameraFindTiming = {
     ...(RC.cameraFindTiming || {}),
     cameraFindSec,

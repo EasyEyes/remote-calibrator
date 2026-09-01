@@ -6,11 +6,15 @@ import {
   getFullscreen,
   isFullscreen,
 } from '../components/utils'
-import { checkWebgazerReady } from '../components/video'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
 import { phrases } from '../i18n/schema'
 import { _handlePostCameraResolution } from '../components/popup'
+import {
+  createCameraSession,
+  resetCameraSession,
+  startCameraSession,
+} from '../cameraSession'
 
 /**
  * The gaze tracker object to wrap all gaze-related functions
@@ -35,6 +39,8 @@ export default class GazeTracker {
     } // Either viewing distance or gaze
     this._runningVideo = false
 
+    this._cameraSession = createCameraSession()
+
     this._toFixedN = 1
 
     this._cameraDisconnected = false
@@ -43,78 +49,38 @@ export default class GazeTracker {
     this._onReconnectCallbacks = new Set()
   }
 
-  // Start WebGazer's video, reporting failure through `onError` instead of
-  // leaving the caller's callback unfired. `_runningVideo` is only set once
-  // the stream is actually up, so a retry can start it again rather than
-  // short-circuiting and waiting for a video that will never appear.
-  _startVideo(shouldStart, start, { pipWidthPx }, callback, onError) {
-    // Both the start promise and the readiness deadline can report the same
-    // failure, so only the first one is passed on.
-    let failed = false
-    const fail = error => {
-      if (failed) return
-      failed = true
-      this._runningVideo = false
-      if (typeof onError === 'function') onError(error)
-      else console.error('[RC] Camera video failed to start:', error)
-    }
-
-    if (shouldStart) {
-      let started
-      try {
-        started = start()
-      } catch (error) {
-        fail(error)
-        return
-      }
-      if (started && typeof started.then === 'function') {
-        started
-          .then(() => {
-            this._runningVideo = true
-            this.setupCameraMonitoring()
-          })
-          .catch(fail)
-      } else {
-        this._runningVideo = true
-        this.setupCameraMonitoring()
-      }
-    }
-
-    checkWebgazerReady(
-      this.calibrator,
-      pipWidthPx,
-      this.calibrator.params.videoOpacity,
-      this.webgazer,
-      callback,
-      fail,
-    )
+  // One Promise owns camera startup. begin() / beginVideo() are thin
+  // wrappers so existing callback-style callers keep working.
+  startCameraSession(options) {
+    return startCameraSession(this, options)
   }
 
   begin({ pipWidthPx }, callback, onError) {
-    if (this.checkInitialized('gaze', true)) {
-      const shouldStart = !this._running.gaze
-      if (shouldStart) this._running.gaze = true
-      this._startVideo(
-        shouldStart,
-        () => this.webgazer.begin(this.videoFailed.bind(this)),
-        { pipWidthPx },
-        callback,
-        onError,
-      )
-    }
+    if (!this.checkInitialized('gaze', true)) return
+    this.startCameraSession({
+      videoOnly: false,
+      pipWidthPx,
+      requireModel: true,
+    })
+      .then(() => safeExecuteFunc(callback))
+      .catch(error => {
+        if (typeof onError === 'function') onError(error)
+        else console.error('[RC] Gaze tracking failed to start:', error)
+      })
   }
 
   beginVideo({ pipWidthPx }, callback, onError) {
-    // Begin video only
-    if (this.checkInitialized('distance', true)) {
-      this._startVideo(
-        !this._runningVideo,
-        () => this.webgazer.beginVideo(this.videoFailed.bind(this)),
-        { pipWidthPx },
-        callback,
-        onError,
-      )
-    }
+    if (!this.checkInitialized('distance', true)) return
+    this.startCameraSession({
+      videoOnly: true,
+      pipWidthPx,
+      requireModel: false,
+    })
+      .then(() => safeExecuteFunc(callback))
+      .catch(error => {
+        if (typeof onError === 'function') onError(error)
+        else console.error('[RC] Camera video failed to start:', error)
+      })
   }
 
   videoFailed(videoInputs) {
@@ -126,13 +92,21 @@ export default class GazeTracker {
     //     defaultSwalOptions.customClass.htmlContainer +
     //     ' my__swal2__html__center'
 
+    // TODO The RC_errorCameraUseDenied entry in the phrases database
+    // contains the wrong copy (the device-compatibility sentence), so a
+    // fixed English message is used until the phrase is corrected upstream.
+    const cameraUseDeniedMessage =
+      'This study needs your camera, but the browser could not start it. ' +
+      'Please allow camera access for this page and make sure no other ' +
+      'app is using the camera, then refresh the page to try again.'
+
     Swal.fire({
       ...defaultSwalOptions,
       icon: 'error',
       iconColor: this.calibrator._CONST.COLOR.DARK_RED,
       showConfirmButton: false,
       html: videoInputs.length
-        ? phrases.RC_errorCameraUseDenied[this.calibrator.L]
+        ? cameraUseDeniedMessage
         : phrases.RC_errorNoCamera[this.calibrator.L],
     })
   }
@@ -300,6 +274,7 @@ GazeTracker.prototype.end = function (
     }
     this.webgazer.end(true)
     this._runningVideo = false
+    resetCameraSession(this)
   } else {
     this._initialized[type] = false
     this._running[type] = false

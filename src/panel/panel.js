@@ -801,15 +801,21 @@ const _runCameraSelectionBeforePanel = async (RC, tdOpts) => {
   startingMsg.innerHTML = phrases.RC_starting[RC.L]
   document.body.appendChild(startingMsg)
 
-  // 4. Load FaceMesh model + start video
-  await RC.gazeTracker.webgazer.getTracker().loadModel()
-  await new Promise(resolve => {
-    const pipWidthPx =
-      RC._CONST.N.VIDEO_W[RC.isMobile.value ? 'MOBILE' : 'DESKTOP']
-    RC.gazeTracker.beginVideo({ pipWidthPx }, () => {
-      resolve()
+  // 4. One camera session owns model load + video start. Failures must
+  // not reject into the consumer's global handler or leave this promise
+  // unsettled. Continue to the Choose Camera popup, which handles the
+  // no-camera case itself.
+  const pipWidthPx =
+    RC._CONST.N.VIDEO_W[RC.isMobile.value ? 'MOBILE' : 'DESKTOP']
+  try {
+    await RC.gazeTracker.startCameraSession({
+      videoOnly: true,
+      pipWidthPx,
+      requireModel: false,
     })
-  })
+  } catch (error) {
+    console.error('[RC.panel] Camera session failed to start:', error)
+  }
 
   // Remove "Starting..." message
   startingMsg.remove()

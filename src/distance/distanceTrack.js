@@ -637,14 +637,26 @@ const startTrackingPupils = async (
   callbackTrack,
   trackingConfig,
 ) => {
-  await RC.gazeTracker.webgazer.getTracker().loadModel()
+  // Called fire-and-forget from trackDistance, so this function must not
+  // throw: an unhandled rejection reaches PsychoJS's onunhandledrejection
+  // handler, which aborts the whole experiment.
+  try {
+    await RC.gazeTracker.startCameraSession({
+      videoOnly: true,
+      pipWidthPx: trackingOptions.pipWidthPx,
+      requireModel: true,
+    })
+  } catch (error) {
+    console.error(
+      '[RC] Camera session failed; cannot start distance tracking:',
+      error,
+    )
+    return
+  }
 
-  RC.gazeTracker.beginVideo({ pipWidthPx: trackingOptions.pipWidthPx }, () => {
-    RC._removeFloatInstructionElement()
-
-    safeExecuteFunc(beforeCallbackTrack)
-    _tracking(RC, trackingOptions, callbackTrack, trackingConfig)
-  })
+  RC._removeFloatInstructionElement()
+  safeExecuteFunc(beforeCallbackTrack)
+  _tracking(RC, trackingOptions, callbackTrack, trackingConfig)
 }
 
 const eyeDist = (a, b, useZ = true) => {

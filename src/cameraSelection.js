@@ -112,42 +112,27 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   startingMsg.innerHTML = phrases.RC_starting[this.L]
   document.body.appendChild(startingMsg)
 
-  // Load FaceMesh model + start video. Both steps can fail (a flaky model
-  // download, a camera the OS won't hand over), and both used to leave this
-  // promise unsettled or reject into the consumer's global handler, which
-  // ends the study. Failures are surfaced as the standard no-camera page
-  // instead, so the participant can retry or quit.
+  // Load FaceMesh model + start video as one session. Failures used to
+  // leave this promise unsettled or reject into the consumer's global
+  // handler, which ends the study. They are now one rejection on
+  // startCameraSession, surfaced here as the standard no-camera page.
   let startupError = null
-  const modelStart = performance.now()
+  const videoStart = performance.now()
+  const pipWidthPx =
+    this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP']
   try {
-    await this.gazeTracker.webgazer.getTracker().loadModel()
+    await this.gazeTracker.startCameraSession({
+      videoOnly: true,
+      pipWidthPx,
+      requireModel: false,
+    })
   } catch (error) {
     startupError = error
-    console.error('[RC.selectCamera] Face model failed to load:', error)
+    console.error('[RC.selectCamera] Camera session failed to start:', error)
   }
-  const cameraModelLoadSec = (performance.now() - modelStart) / 1000
-
-  // The video is started even when the model failed: the camera itself may
-  // be fine, and beginVideo retries the model download, so a network blip
-  // during the first attempt does not have to end the session.
-  const videoStart = performance.now()
-  await new Promise(resolve => {
-    const pipWidthPx =
-      this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP']
-    this.gazeTracker.beginVideo(
-      { pipWidthPx },
-      () => {
-        startupError = null
-        resolve()
-      },
-      error => {
-        startupError = error
-        console.error('[RC.selectCamera] Camera video failed to start:', error)
-        resolve()
-      },
-    )
-  })
   const cameraVideoStartSec = (performance.now() - videoStart) / 1000
+  const sessionTimings = this.gazeTracker._cameraSession?.lastTimings || {}
+  const cameraModelLoadSec = sessionTimings.modelSec ?? null
 
   startingMsg.remove()
 
@@ -156,7 +141,10 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
   this.cameraFindTiming = {
     cameraFindSec: null,
     cameraPermissionSec: Number(cameraPermissionSec.toFixed(3)),
-    cameraModelLoadSec: Number(cameraModelLoadSec.toFixed(3)),
+    cameraModelLoadSec:
+      cameraModelLoadSec != null
+        ? Number(Number(cameraModelLoadSec).toFixed(3))
+        : null,
     cameraVideoStartSec: Number(cameraVideoStartSec.toFixed(3)),
     cameraEnumerateSec:
       typeof probeTiming.enumerateMs === 'number'

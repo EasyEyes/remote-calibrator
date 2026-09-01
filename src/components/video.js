@@ -68,18 +68,51 @@ export function checkWebcamStatus() {
 
 /* ----------------------------- WebGazer Video ----------------------------- */
 
-// How long to wait for WebGazer to create its video container before giving
-// up. The container appears as soon as the camera stream is acquired, so a
-// deadline this generous is only ever reached when the camera never started.
-const WEBGAZER_READY_TIMEOUT_MS = 20000
+/**
+ * Style the WebGazer video container now that init() has put it in the
+ * DOM. Callers used to poll for the element; the session owner waits on
+ * the begin/beginVideo promise instead, then calls this once.
+ */
+export function applyWebgazerVideoStyle(RC, pipWidthPx, opacity, WG) {
+  const v = document.getElementById('webgazerVideoContainer')
+  if (!v) {
+    throw new Error(
+      'WebGazer video container was not created after camera startup.',
+    )
+  }
+
+  // Hide until the popup or next step shows it — prevents a blank page
+  // with just the video on top.
+  v.style.display = 'none'
+
+  if (typeof pipWidthPx === 'number' && pipWidthPx > 0) {
+    const currentWidth = Number.parseInt(v.style.width, 10)
+    const currentHeight = Number.parseInt(v.style.height, 10)
+    if (currentWidth > 0) {
+      v.style.height = `${(pipWidthPx / currentWidth) * currentHeight}px`
+    }
+    v.style.width = `${pipWidthPx}px`
+    WG.setVideoViewerSize(
+      Number.parseInt(v.style.width, 10),
+      Number.parseInt(v.style.height, 10),
+    )
+  }
+
+  v.style.opacity = opacity
+  setDefaultVideoPosition(RC, v)
+
+  RC.videoOpacity()
+  if (RC.isMobile.value)
+    v.style.transition =
+      'right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
+  else
+    v.style.transition =
+      'left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
+}
 
 /**
- *
- * Check if WebGazer video is ready. If so, set the style for it.
- *
- * @param {Function} [onTimeout] - Called if the video container never
- *   appears. Without this the poll below ran forever, leaving the caller's
- *   promise unsettled and the study stuck on its loading screen.
+ * @deprecated Camera startup no longer polls the DOM. Kept as a thin
+ * wrapper around applyWebgazerVideoStyle for any leftover callers.
  */
 export function checkWebgazerReady(
   RC,
@@ -89,55 +122,12 @@ export function checkWebgazerReady(
   callback,
   onTimeout,
 ) {
-  const deadline = performance.now() + WEBGAZER_READY_TIMEOUT_MS
-  const c = setInterval(() => {
-    const v = document.getElementById('webgazerVideoContainer')
-    if (!v) {
-      if (performance.now() > deadline) {
-        clearInterval(c)
-        console.error(
-          `[RC] WebGazer video container did not appear within ${WEBGAZER_READY_TIMEOUT_MS}ms.`,
-        )
-        safeExecuteFunc(
-          onTimeout,
-          new Error('Timed out waiting for the camera video to start.'),
-        )
-      }
-      return
-    }
-
-    clearInterval(c)
-
-    // Hide video container initially - popup or next step will show it when ready
-    // This prevents the blank page with just video on top
-    v.style.display = 'none'
-
-    v.style.height = `${
-      (pipWidthPx / Number.parseInt(v.style.width)) *
-      Number.parseInt(v.style.height)
-    }px`
-    v.style.width = `${pipWidthPx}px`
-    v.style.opacity = opacity
-    WG.setVideoViewerSize(
-      Number.parseInt(v.style.width),
-      Number.parseInt(v.style.height),
-    )
-
-    // Set position
-    setDefaultVideoPosition(RC, v)
-
-    // Set video opacity and transitions
-    RC.videoOpacity()
-    if (RC.isMobile.value)
-      v.style.transition =
-        'right 0.5s, top 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
-    else
-      v.style.transition =
-        'left 0.5s, bottom 0.5s, width 0.5s, height 0.5s, border-radius 0.5s'
-
-    // Call callback immediately (was 700ms delay)
+  try {
+    applyWebgazerVideoStyle(RC, pipWidthPx, opacity, WG)
     safeExecuteFunc(callback)
-  }, 100)
+  } catch (error) {
+    safeExecuteFunc(onTimeout, error)
+  }
 }
 
 export function setDefaultVideoPosition(RC, v) {
