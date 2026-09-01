@@ -2536,7 +2536,7 @@ export function createObjectTestUI(context) {
         eye: 'right',
         leftTextWords: null,
         rightTextWords: splitPhraseToWords('RC_UseRightEye'),
-        enableTubeTracking: true, // paper-tube template tracking (_calibrateDistanceCropOutTube)
+        enableTubeTracking: true, // _calibrateDistanceExcludeTube
       })
     } else {
       setMeasurementOverlay({
@@ -2544,7 +2544,7 @@ export function createObjectTestUI(context) {
         eye: 'left',
         leftTextWords: splitPhraseToWords('RC_UseLeftEye'),
         rightTextWords: null,
-        enableTubeTracking: true, // paper-tube template tracking (_calibrateDistanceCropOutTube)
+        enableTubeTracking: true, // _calibrateDistanceExcludeTube
       })
     }
   }
