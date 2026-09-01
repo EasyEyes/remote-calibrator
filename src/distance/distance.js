@@ -672,8 +672,6 @@ export async function measureIntraocularDistancePx(
   meshSamples = [],
   calibrateDistanceIpdUsesZBool = true,
 ) {
-  // Respect the face-band mask (_calibrateDistanceCropOutTube): FaceMesh
-  // only sees the face band, so the tube cannot bias the IPD sample.
   let video = getFaceMeshVideoInput()
   if (!video) return null
   const model = await RC.gazeTracker.webgazer.getTracker().model
