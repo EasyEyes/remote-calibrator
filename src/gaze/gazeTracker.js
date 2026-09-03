@@ -52,7 +52,20 @@ export default class GazeTracker {
   // One Promise owns camera startup. begin() / beginVideo() are thin
   // wrappers so existing callback-style callers keep working.
   startCameraSession(options) {
-    return startCameraSession(this, options)
+    return this._startCameraSessionWithRetry(options)
+  }
+
+  async _startCameraSessionWithRetry(options) {
+    this._lastCameraSessionOptions = { ...options }
+    while (true) {
+      try {
+        return await startCameraSession(this, options)
+      } catch (error) {
+        const retry = await this._promptCameraRetry(error)
+        if (!retry) throw error
+        resetCameraSession(this)
+      }
+    }
   }
 
   begin({ pipWidthPx }, callback, onError) {
@@ -83,32 +96,73 @@ export default class GazeTracker {
       })
   }
 
-  videoFailed(videoInputs) {
+  async _promptCameraRetry(error) {
     const defaultSwalOptions = swalInfoOptions(this.calibrator, {
       showIcon: true,
     })
-    // if (videoInputs.length === 0)
-    //   defaultSwalOptions.customClass.htmlContainer =
-    //     defaultSwalOptions.customClass.htmlContainer +
-    //     ' my__swal2__html__center'
+    const RC = this.calibrator
+    const noCamera = /can't find any video input|no video input/i.test(
+      `${error?.message || ''} ${error?.cause?.message || ''}`,
+    )
 
-    // TODO The RC_errorCameraUseDenied entry in the phrases database
-    // contains the wrong copy (the device-compatibility sentence), so a
-    // fixed English message is used until the phrase is corrected upstream.
-    const cameraUseDeniedMessage =
-      'This study needs your camera, but the browser could not start it. ' +
-      'Please allow camera access for this page and make sure no other ' +
-      'app is using the camera, then refresh the page to try again.'
+    // Each async operation that can fail during startup gets its own
+    // message. The i18n keys are looked up on `phrases`; if the phrases
+    // sheet does not include them yet the popup falls back to the
+    // English default so the participant is never left with a blank
+    // popup.
+    const cameraConnectDefault =
+      'This study needs your camera, but the browser couldn’t start it. ' +
+      'If there’s a popup asking for camera access, then click Yes. ' +
+      'Otherwise click Try Again. If that doesn’t work, reload this page.'
+    const modelDownloadDefault =
+      'This study couldn’t download the face-tracking files it needs. ' +
+      'Check your internet connection, then click Try Again. ' +
+      'If that doesn’t work, reload this page.'
 
-    Swal.fire({
+    let message
+    if (noCamera) {
+      message = phrases.RC_errorNoCamera?.[RC.L] || phrases.RC_errorNoCamera?.['en-US']
+    } else if (error?.phase === 'model') {
+      // Model files are downloaded over the network, so this reuses the
+      // same "failed to load media" phrase as the instruction media popup.
+      message =
+        phrases.RC_errorFailedToLoadMedia?.[RC.L] ||
+        phrases.RC_errorFailedToLoadMedia?.['en-US'] ||
+        modelDownloadDefault
+    } else {
+      // Covers phase 'camera' and 'timeout' (permission denied, camera
+      // busy or unreadable, or startup taking too long).
+      message =
+        phrases.RC_errorCameraUseDenied?.[RC.L] ||
+        phrases.RC_errorCameraUseDenied?.['en-US'] ||
+        cameraConnectDefault
+    }
+
+    const startingMsg = document.getElementById('rc-starting-message')
+    if (startingMsg) startingMsg.style.display = 'none'
+
+    await Swal.fire({
       ...defaultSwalOptions,
       icon: 'error',
-      iconColor: this.calibrator._CONST.COLOR.DARK_RED,
-      showConfirmButton: false,
-      html: videoInputs.length
-        ? cameraUseDeniedMessage
-        : phrases.RC_errorNoCamera[this.calibrator.L],
+      iconColor: RC._CONST.COLOR.DARK_RED,
+      showConfirmButton: true,
+      showCancelButton: false,
+      confirmButtonText: phrases.RC_TryAgain?.[RC.L] || 'Try again',
+      html: message,
     })
+
+    if (!isFullscreen()) {
+      await getFullscreen(RC.L, RC)
+    }
+    return true
+  }
+
+  videoFailed(videoInputs) {
+    return this._promptCameraRetry(
+      videoInputs?.length
+        ? new Error('Camera failed to start')
+        : new Error("We can't find any video input devices."),
+    )
   }
 
   attachNewCallback(callback) {

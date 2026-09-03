@@ -173,7 +173,7 @@ export async function startCameraSession(gazeTracker, options = {}) {
         const start = videoOnly
           ? webgazer.beginVideo.bind(webgazer)
           : webgazer.begin.bind(webgazer)
-        await start(gazeTracker.videoFailed.bind(gazeTracker), signal)
+        await start(() => {}, signal)
       }
 
       throwIfStale()

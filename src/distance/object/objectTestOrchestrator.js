@@ -132,7 +132,7 @@ export const globalPointXYPx = { value: [window.screen.width / 2, 0] }
  * Preload instruction media assets with priority ordering.
  * Blocks on the first few highest-priority assets, then continues in background.
  */
-async function preloadAllInstructionMedia() {
+async function preloadAllInstructionMedia(RC) {
   const allUrls = []
   const maps = [test_assetMap].filter(Boolean)
   maps.forEach(m => {
@@ -166,7 +166,7 @@ async function preloadAllInstructionMedia() {
   // asset finishes. fetchBlobOnce is idempotent (cached), so cached assets
   // resolve immediately and still count toward progress.
   const trackOne = url =>
-    fetchBlobOnce(url)
+    fetchBlobOnce(url, RC)
       .catch(err => {
         debugLog('preload', 'Error preloading media url:', err)
         return null
@@ -314,7 +314,7 @@ export async function objectTestNew(RC, options, callback = undefined) {
   const saveQueue = createMeasurementSaveQueue()
 
   // ─── Preload media ───────────────────────────────────────────────────
-  await preloadAllInstructionMedia()
+  await preloadAllInstructionMedia(RC)
 
   // ─── Shared context object ───────────────────────────────────────────
   // This is passed to all modules so they can access shared state and dependencies.
