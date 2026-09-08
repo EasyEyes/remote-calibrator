@@ -1253,9 +1253,7 @@ RemoteCalibrator.prototype.setOnQuit = function (callback) {
  * @returns {Function} Unsubscribe function
  */
 RemoteCalibrator.prototype.onCameraDisconnected = function (fn) {
-  return this.gazeTracker
-    ? this.gazeTracker.onCameraDisconnected(fn)
-    : () => {}
+  return this.gazeTracker ? this.gazeTracker.onCameraDisconnected(fn) : () => {}
 }
 
 /**
@@ -1265,9 +1263,7 @@ RemoteCalibrator.prototype.onCameraDisconnected = function (fn) {
  * @returns {Function} Unsubscribe function
  */
 RemoteCalibrator.prototype.onCameraReconnected = function (fn) {
-  return this.gazeTracker
-    ? this.gazeTracker.onCameraReconnected(fn)
-    : () => {}
+  return this.gazeTracker ? this.gazeTracker.onCameraReconnected(fn) : () => {}
 }
 
 /**

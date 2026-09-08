@@ -1960,7 +1960,7 @@ const createCameraPreviews = async (
 
       if (videoElement) {
         try {
-          const stream = await _openCameraPreviewStream(RC, camera);
+          const stream = await _openCameraPreviewStream(RC, camera)
 
           videoElement.srcObject = stream
           // Share the same stream with the bottom row.

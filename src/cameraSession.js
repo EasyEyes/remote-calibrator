@@ -101,12 +101,7 @@ export async function startCameraSession(gazeTracker, options = {}) {
     !needGazeLoop &&
     modelSatisfied
   ) {
-    applyWebgazerVideoStyle(
-      RC,
-      pipWidthPx,
-      RC.params.videoOpacity,
-      webgazer,
-    )
+    applyWebgazerVideoStyle(RC, pipWidthPx, RC.params.videoOpacity, webgazer)
     return
   }
 
@@ -181,23 +176,14 @@ export async function startCameraSession(gazeTracker, options = {}) {
       const modelError = await modelPromise
       throwIfStale()
 
-      if (
-        requireModel &&
-        modelError &&
-        !webgazer.getTracker().modelLoaded
-      ) {
-        throw new CameraSessionError(
-          'Face model failed to load',
-          { phase: 'model', cause: modelError },
-        )
+      if (requireModel && modelError && !webgazer.getTracker().modelLoaded) {
+        throw new CameraSessionError('Face model failed to load', {
+          phase: 'model',
+          cause: modelError,
+        })
       }
 
-      applyWebgazerVideoStyle(
-        RC,
-        pipWidthPx,
-        RC.params.videoOpacity,
-        webgazer,
-      )
+      applyWebgazerVideoStyle(RC, pipWidthPx, RC.params.videoOpacity, webgazer)
 
       gazeTracker._runningVideo = true
       gazeTracker.setupCameraMonitoring()
@@ -206,8 +192,7 @@ export async function startCameraSession(gazeTracker, options = {}) {
       session.state = CAMERA_SESSION_STATES.ready
       session.error = null
       session.lastTimings = {
-        modelSec:
-          modelMs != null ? Number((modelMs / 1000).toFixed(3)) : null,
+        modelSec: modelMs != null ? Number((modelMs / 1000).toFixed(3)) : null,
         totalSec: Number(((performance.now() - startedAt) / 1000).toFixed(3)),
       }
     } catch (error) {
@@ -217,9 +202,7 @@ export async function startCameraSession(gazeTracker, options = {}) {
         session.lastTimings = {
           modelSec:
             modelMs != null ? Number((modelMs / 1000).toFixed(3)) : null,
-          totalSec: Number(
-            ((performance.now() - startedAt) / 1000).toFixed(3),
-          ),
+          totalSec: Number(((performance.now() - startedAt) / 1000).toFixed(3)),
         }
         if (!webgazer.params.videoIsOn) {
           gazeTracker._runningVideo = false

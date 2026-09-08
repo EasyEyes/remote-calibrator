@@ -121,7 +121,8 @@ export default class GazeTracker {
 
     let message
     if (noCamera) {
-      message = phrases.RC_errorNoCamera?.[RC.L] || phrases.RC_errorNoCamera?.['en-US']
+      message =
+        phrases.RC_errorNoCamera?.[RC.L] || phrases.RC_errorNoCamera?.['en-US']
     } else if (error?.phase === 'model') {
       // Model files are downloaded over the network, so this reuses the
       // same "failed to load media" phrase as the instruction media popup.
@@ -492,7 +493,10 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
   })
 
   this.webgazer.setOnQuit(reason => {
-    console.log('GazeTracker: Quit requested from camera reconnect popup', reason)
+    console.log(
+      'GazeTracker: Quit requested from camera reconnect popup',
+      reason,
+    )
     if (typeof this.calibrator._onQuitCallback === 'function') {
       this.calibrator._cleanupAllRC()
       this.calibrator._onQuitCallback(reason)

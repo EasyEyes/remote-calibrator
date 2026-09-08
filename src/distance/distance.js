@@ -3466,9 +3466,11 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     const firstBatch = orderedUrls.slice(0, firstBlockingCount)
     const remaining = orderedUrls.slice(firstBlockingCount)
 
-    await Promise.all(firstBatch.map(url => fetchBlobOnce(url, this))).catch(error => {
-      console.error('error preloading initial media...', error)
-    })
+    await Promise.all(firstBatch.map(url => fetchBlobOnce(url, this))).catch(
+      error => {
+        console.error('error preloading initial media...', error)
+      },
+    )
 
     if (remaining.length) {
       if (!window.__eeInstructionMediaPreloaderPromise) {

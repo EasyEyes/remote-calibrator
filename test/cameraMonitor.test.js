@@ -15,7 +15,7 @@ const {
   findBestCameraMode,
 } = require('../src/WebGazer4RC/src/index.mjs')
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const sleep = ms => new Promise(r => setTimeout(r, ms))
 
 // ── fakes ────────────────────────────────────────────────────────────────────
 function fakeTrack(readyState = 'live') {
@@ -27,10 +27,10 @@ function fakeTrack(readyState = 'live') {
       ;(this.listeners[ev] = this.listeners[ev] || []).push(fn)
     },
     removeEventListener(ev, fn) {
-      this.listeners[ev] = (this.listeners[ev] || []).filter((f) => f !== fn)
+      this.listeners[ev] = (this.listeners[ev] || []).filter(f => f !== fn)
     },
     dispatch(ev) {
-      ;(this.listeners[ev] || []).forEach((f) => f())
+      ;(this.listeners[ev] || []).forEach(f => f())
     },
   }
 }
@@ -42,7 +42,7 @@ function fakeStream(track) {
 function makeMonitor(track) {
   const m = new VideoLiveMonitor(fakeStream(track), null, 10)
   const events = []
-  m.onChange((snap) => events.push(snap))
+  m.onChange(snap => events.push(snap))
   return { m, events }
 }
 
@@ -55,7 +55,7 @@ describe('VideoLiveMonitor suspend', () => {
     track.readyState = 'ended'
     track.dispatch('ended')
     assert.equal(
-      events.filter((e) => e.status === 'ended').length,
+      events.filter(e => e.status === 'ended').length,
       0,
       'no emission while suspended',
     )
@@ -75,7 +75,7 @@ describe('VideoLiveMonitor suspend', () => {
     // New track's death is also invisible: still suspended.
     newTrack.readyState = 'ended'
     newTrack.dispatch('ended')
-    assert.equal(events.filter((e) => e.status === 'ended').length, 0)
+    assert.equal(events.filter(e => e.status === 'ended').length, 0)
     assert.equal(m.track, newTrack, 'monitor switched to the new stream')
     m.stop()
   })
@@ -89,7 +89,7 @@ describe('VideoLiveMonitor suspend', () => {
     track.readyState = 'ended'
     track.dispatch('ended')
     assert.ok(
-      events.some((e) => e.status === 'ended'),
+      events.some(e => e.status === 'ended'),
       're-armed monitor reports the ended track',
     )
     m.stop()
@@ -104,10 +104,10 @@ describe('VideoLiveMonitor suspend', () => {
     m.unsuspend()
     track.readyState = 'ended'
     track.dispatch('ended')
-    assert.equal(events.filter((e) => e.status === 'ended').length, 0)
+    assert.equal(events.filter(e => e.status === 'ended').length, 0)
     m.unsuspend()
     track.dispatch('ended')
-    assert.ok(events.some((e) => e.status === 'ended'))
+    assert.ok(events.some(e => e.status === 'ended'))
     m.stop()
   })
 
@@ -168,20 +168,20 @@ describe('GazeTracker quit/disconnect plumbing', () => {
       LD: 'ltr',
       popupKeydownListener: null,
       _cleanupAllRC: () => {},
-      _onQuitCallback: (r) => {
+      _onQuitCallback: r => {
         quitReason = r
       },
     }
     const gt = new GazeTracker(calibrator)
     gt.webgazer = {
       params: {},
-      setOnQuit: (cb) => {
+      setOnQuit: cb => {
         captured.onQuit = cb
       },
-      setOnCameraDisconnected: (cb) => {
+      setOnCameraDisconnected: cb => {
         captured.onDisconnected = cb
       },
-      setOnCameraReconnected: (cb) => {
+      setOnCameraReconnected: cb => {
         captured.onReconnected = cb
       },
     }
@@ -191,7 +191,9 @@ describe('GazeTracker quit/disconnect plumbing', () => {
     assert.equal(quitReason.trigger, 'cameraReconnectPopup')
 
     const seen = []
-    gt.onCameraDisconnected((message, snapshot) => seen.push({ message, snapshot }))
+    gt.onCameraDisconnected((message, snapshot) =>
+      seen.push({ message, snapshot }),
+    )
     captured.onDisconnected('Camera status: ended', {
       status: 'ended',
       trackReadyState: 'ended',
@@ -203,7 +205,7 @@ describe('GazeTracker quit/disconnect plumbing', () => {
 })
 
 describe('Choose-Screen quit reason', () => {
-  it("popup.js quit handler passes a trigger to _onQuitCallback (not bare)", () => {
+  it('popup.js quit handler passes a trigger to _onQuitCallback (not bare)', () => {
     // The Choose-Screen Quit is a VOLUNTARY flow exit, not a camera
     // disconnect: without a trigger the consumer labels it with the
     // camera-reconnect-popup default, which would be specifically wrong.
@@ -215,7 +217,7 @@ describe('Choose-Screen quit reason', () => {
     )
     assert.ok(
       src.includes("RC._onQuitCallback({ trigger: 'chooseScreenQuit' })"),
-      'Choose-Screen quit must pass { trigger: \'chooseScreenQuit\' } so the consumer records the real cause',
+      "Choose-Screen quit must pass { trigger: 'chooseScreenQuit' } so the consumer records the real cause",
     )
   })
 })
@@ -227,7 +229,7 @@ describe('findBestCameraMode bounded probing (upstream 0.9.160 architecture)', (
     let current = { width: 640, height: 480, frameRate: 30 }
     const track = {
       readyState: 'live',
-      applyConstraints: async (c) => {
+      applyConstraints: async c => {
         calls.push(c)
         if (delayMs) await sleep(delayMs)
         const v = c.video || c
@@ -269,7 +271,10 @@ describe('findBestCameraMode bounded probing (upstream 0.9.160 architecture)', (
     // (plus at most one ideal-retry if exact is rejected) — never a sweep.
     const { calls } = installFakeCamera({ withCapabilities: true })
     const result = await findBestCameraMode(null, 1920, 1080, 30)
-    assert.ok(calls.length <= 2, `expected ≤2 applyConstraints, got ${calls.length}`)
+    assert.ok(
+      calls.length <= 2,
+      `expected ≤2 applyConstraints, got ${calls.length}`,
+    )
     assert.ok(Number.isFinite(result.width))
     assert.ok(Number.isFinite(result.height))
     assert.ok(result.frameRate > 0)
