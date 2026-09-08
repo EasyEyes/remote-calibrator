@@ -2322,6 +2322,14 @@ export const showCameraSelectionPopup = async (
   )
   if (staleOpinionOverlay) staleOpinionOverlay.remove()
 
+  // The selection UI owns the camera while this popup is open: camera
+  // previews open and close their own getUserMedia streams and cameras
+  // switch on commit, so RC's own stream churn must not read as a
+  // participant-side disconnect. Suspended here; re-armed (fresh grace
+  // period, current stream) in willClose. A camera that genuinely dies
+  // during selection surfaces as the selection flow failing visibly.
+  RC.gazeTracker?.webgazer?.suspendCameraMonitor?.()
+
   // Title will be shown in didOpen callback to avoid flash before popup renders
 
   // Stash the bottom-camera support flag on RC so updateCameraPreviews
@@ -2621,7 +2629,10 @@ export const showCameraSelectionPopup = async (
         }
         if (typeof RC._onQuitCallback === 'function') {
           try {
-            RC._onQuitCallback()
+            // Voluntary exit from the screen chooser — NOT a camera
+            // disconnect. The trigger names the real cause so consumer
+            // apps don't record it under the reconnect-popup default.
+            RC._onQuitCallback({ trigger: 'chooseScreenQuit' })
           } catch (e) {
             console.warn('[ChooseScreen] _onQuitCallback error:', e)
           }
@@ -3477,6 +3488,10 @@ export const showCameraSelectionPopup = async (
       // Remove the bottom-row wrapper that was promoted to <body> so it
       // doesn't outlive the popup.
       _removeCameraPreviewsBottom()
+
+      // The selection UI no longer owns the camera: re-arm the disconnect
+      // monitor on the current stream (no-op if never suspended).
+      RC.gazeTracker?.webgazer?.resumeCameraMonitor?.()
 
       // DON'T restore video container here - let the next step handle it
       // This prevents the blank page flash between popup close and next UI render

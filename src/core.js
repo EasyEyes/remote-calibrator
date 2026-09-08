@@ -1233,10 +1233,41 @@ RemoteCalibrator.prototype._removeBackground = function () {
  * Register a callback for when the participant clicks Quit on the camera
  * reconnect popup. The consumer app (e.g. EasyEyes) uses this to trigger
  * its end-of-study flow (save data, show final page).
+ *
+ * The callback receives a reason object when the deployed build provides
+ * one: `{ trigger: 'cameraReconnectPopup', snapshot: { status,
+ * trackReadyState, streamActive } | null, cameraLabel, resumeAttempts,
+ * quitAfterFailedResume }`. Older builds call back with no argument.
  * @param {Function} callback
  */
 RemoteCalibrator.prototype.setOnQuit = function (callback) {
   this._onQuitCallback = callback
+}
+
+/**
+ * Register a callback for camera disconnection events — fired when the
+ * camera monitor detects the stream died and the reconnect popup appears.
+ * Receives (message, snapshot); returns an unsubscribe function. Available
+ * once the gaze tracker exists (after init).
+ * @param {Function} fn
+ * @returns {Function} Unsubscribe function
+ */
+RemoteCalibrator.prototype.onCameraDisconnected = function (fn) {
+  return this.gazeTracker
+    ? this.gazeTracker.onCameraDisconnected(fn)
+    : () => {}
+}
+
+/**
+ * Register a callback for successful camera reconnection (participant
+ * clicked Resume and the camera came back). Returns an unsubscribe function.
+ * @param {Function} fn
+ * @returns {Function} Unsubscribe function
+ */
+RemoteCalibrator.prototype.onCameraReconnected = function (fn) {
+  return this.gazeTracker
+    ? this.gazeTracker.onCameraReconnected(fn)
+    : () => {}
 }
 
 /**

@@ -414,8 +414,8 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
     })
   }
 
-  this.webgazer.setOnCameraDisconnected(message => {
-    console.warn('GazeTracker: Camera disconnected -', message)
+  this.webgazer.setOnCameraDisconnected((message, snapshot) => {
+    console.warn('GazeTracker: Camera disconnected -', message, snapshot)
     this._cameraDisconnected = true
 
     // Remove any stale capture-phase key listener from popups (camera
@@ -430,7 +430,7 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
       this.calibrator.popupKeydownListener = null
     }
 
-    this._onDisconnectCallbacks.forEach(fn => fn(message))
+    this._onDisconnectCallbacks.forEach(fn => fn(message, snapshot))
   })
 
   this.webgazer.setOnCameraReconnected(async () => {
@@ -491,11 +491,11 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
     }
   })
 
-  this.webgazer.setOnQuit(() => {
-    console.log('GazeTracker: Quit requested from camera reconnect popup')
+  this.webgazer.setOnQuit(reason => {
+    console.log('GazeTracker: Quit requested from camera reconnect popup', reason)
     if (typeof this.calibrator._onQuitCallback === 'function') {
       this.calibrator._cleanupAllRC()
-      this.calibrator._onQuitCallback()
+      this.calibrator._onQuitCallback(reason)
     }
   })
 }

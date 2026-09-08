@@ -15,6 +15,7 @@ global.screen = dom.window.screen
 // Loads src/index.js — must come after the JSDOM globals above.
 require('./recalibrateRestart.test')
 require('./ensureVideoPlaying.test')
+require('./cameraMonitor.test')
 
 const packageJSON = require('../package.json')
 
