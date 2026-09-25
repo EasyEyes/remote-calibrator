@@ -454,7 +454,7 @@ export async function handleSpaceOnPage3(context) {
             return
           }
           if (event.key === 'Enter' || event.key === 'Return') {
-            document.getElementById('ok-button-page3').click()
+            document.getElementById('ok-button-page3')?.click()
           }
         }
         document.addEventListener('keydown', keydownListener, true)

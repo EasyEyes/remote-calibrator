@@ -65,6 +65,7 @@ export function createMeasurementState({
   let totalIterations = isPaperSelectionModeBool
     ? 1
     : Math.max(1, Math.floor(objectMeasurementCount || 1))
+  const initialTotalIterations = totalIterations
   let measurements = []
   let consistentPair = null
   let lastAttemptWasTooShortBool = false
@@ -141,6 +142,17 @@ export function createMeasurementState({
     /** Whether all required iterations are complete. */
     get isComplete() {
       return currentIteration >= totalIterations
+    },
+
+    /** Restore the just-created state (used by "New object" restart). */
+    reset() {
+      currentIteration = 1
+      totalIterations = initialTotalIterations
+      measurements = []
+      consistentPair = null
+      lastAttemptWasTooShortBool = false
+      rejectionCount = 0
+      factorRejectionCount = 0
     },
 
     /**

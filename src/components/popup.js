@@ -3,6 +3,7 @@ import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from './swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
+import { cameraCommitGate } from './cameraCommitGate'
 import {
   processInlineFormatting,
   renderMarkdownInstructionToHTML,
@@ -2985,8 +2986,9 @@ export const showCameraSelectionPopup = async (
       startCameraPolling()
 
       const commitCurrentlyHighlightedCamera = async () => {
-        // Ignore while not in fullscreen (participant is dragging window)
-        if (!isFullscreen()) return
+        // Enter fullscreen on the commit gesture instead of silently
+        // ignoring it (a windowed page used to ignore every commit).
+        if (!(await cameraCommitGate(RC))) return
 
         // Prevent action if already loading
         if (RC.cameraSelectionLoading) {
@@ -3212,8 +3214,9 @@ export const showCameraSelectionPopup = async (
 
           // Click to commit (same as clicking OK)
           container.addEventListener('click', async () => {
-            // Ignore clicks while not in fullscreen (participant is dragging window)
-            if (!isFullscreen()) return
+            // Enter fullscreen on the commit gesture instead of silently
+            // ignoring it (a windowed page used to ignore every commit).
+            if (!(await cameraCommitGate(RC))) return
 
             // Prevent action if already loading
             if (RC.cameraSelectionLoading) {

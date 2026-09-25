@@ -2720,6 +2720,16 @@ export function createObjectTestUI(context) {
       firstMeasurement = val
     },
 
+    // "New object" restart (page 3): clear ruler-measurement iteration
+    // state and any paper selection made for the discarded object.
+    resetMeasurementState: () => measurementState.reset(),
+    resetPaperSelectionState: () => {
+      selectedPaperOption = null
+      selectedPaperLengthCm = null
+      paperSuggestionValue = ''
+      preferRightHandBool = true
+    },
+
     getStepInstructionModel: () => stepInstructionModel,
     setStepInstructionModel: val => {
       stepInstructionModel = val

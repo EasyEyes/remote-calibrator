@@ -52,6 +52,19 @@ import {
 } from '../components/popup'
 import { processInlineFormatting } from './markdownInstructionParser'
 import { objectTestNew } from './object'
+
+// A divergent face-pose frame (lateral offset = tan of yaw → ∞) computes a
+// non-finite on-screen position. Published tracking data must carry either a
+// finite 2-vector or null — "no valid estimate this frame" — so consumers
+// never store garbage. Never substitute a stale position: distanceCm etc.
+// remain raw, and a fabricated position would contradict them.
+export const finitePairOrNull = pair =>
+  Array.isArray(pair) &&
+  pair.length === 2 &&
+  Number.isFinite(pair[0]) &&
+  Number.isFinite(pair[1])
+    ? [pair[0], pair[1]]
+    : null
 import {
   armTubeTracker,
   configureTubeTracker,
@@ -2103,18 +2116,18 @@ const renderDistanceResult = async (
 
       RC.improvedDistanceTrackingData = {
         left: {
-          nearestXYPx: nearestXYPx_left,
+          nearestXYPx: finitePairOrNull(nearestXYPx_left),
           nearestDistanceCm: nearestDistanceCm_left,
           distanceCm: distanceCm_left,
         },
         right: {
-          nearestXYPx: nearestXYPx_right,
+          nearestXYPx: finitePairOrNull(nearestXYPx_right),
           nearestDistanceCm: nearestDistanceCm_right,
           distanceCm: distanceCm_right,
         },
         nearEye: nearestEye,
         distanceCm: distanceCm,
-        nearestXYPx: nearestXYPx,
+        nearestXYPx: finitePairOrNull(nearestXYPx),
         nearestDistanceCm: nearestDistanceCm,
         // oldDistanceCm: screenCenterToEyeDistance,
         ipdDistancePx: correctedIPD,
