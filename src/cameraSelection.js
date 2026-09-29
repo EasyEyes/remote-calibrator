@@ -188,11 +188,15 @@ async function selectCamera(options = {}) {
         : null,
     }
 
-    const cameraResult = await untilInteractionEnds(
-      this,
-      showTestPopup(this, null, opts),
-      { experimentEnded: true, selectedCamera: null },
-    )
+    // A participant who ended at the camera-startup popup (userEnded) ends
+    // explained here — no second popup. EasyEyes treats {experimentEnded:true}
+    // as the no-camera incompatibility exit.
+    const cameraResult = startupError?.userEnded
+      ? { experimentEnded: true, selectedCamera: null }
+      : await untilInteractionEnds(this, showTestPopup(this, null, opts), {
+          experimentEnded: true,
+          selectedCamera: null,
+        })
     if (interactionEnded(this)) return cameraResult
     if (cameraResult?.experimentEnded) {
       console.log('[RC.selectCamera] Experiment ended — no cameras detected')

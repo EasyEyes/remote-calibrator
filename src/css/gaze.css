@@ -64,9 +64,15 @@
   position: fixed !important;
   transform-origin: bottom left;
   border-radius: 5px;
-  opacity: 1 !important;
+  /* Default only, no !important: hideVideoElement hides the container via
+     inline opacity on Safari (display stays block there so Safari does not
+     optimize the video element out) — a stylesheet !important would veto
+     that, making the container impossible to hide. */
+  opacity: 1;
   overflow: hidden;
-  /* pointer-events: none; */
+  /* Display-only: a leaked visible box must never eat the clicks of
+     content it overlaps (field: RSVP response words). */
+  pointer-events: none;
   user-select: none;
 }
 

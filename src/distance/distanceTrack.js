@@ -83,6 +83,12 @@ const originalStyles = {
   video: false,
 }
 
+// The tracking loop closes over its callbackTrack; a reconfigure-only
+// re-track cannot otherwise hand the running loop its new (wrapped)
+// callback, and onRecalibrateEnd would be silently dropped. The loop
+// consults this mutable binding first.
+let _liveTrackCallback = null
+
 // Pre-calibration popup similar to equipment popup
 const showPreCalibrationPopup = async RC => {
   // Hide the resolution setting message before showing this popup
@@ -229,11 +235,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
     trackDistanceOptions.control === false
   )
     description = processInlineFormatting(
-      phrases.RC_viewingDistanceIntroLiMethod[this.L],
+      phrases.RC_viewingDistanceIntroLiMethod?.[this.L] ?? '',
     )
   else
     description = processInlineFormatting(
-      phrases.RC_viewingDistanceIntroLiMethod[this.L],
+      phrases.RC_viewingDistanceIntroLiMethod?.[this.L] ?? '',
     )
 
   const options = Object.assign(
@@ -261,11 +267,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
       nearPoint: true,
       showNearPoint: false,
       control: true, // CONTROL (EasyEyes) or AUTOMATIC (Li et al., 2018)
-      headline: `${phrases.RC_distanceTrackingTitle[this.L]}`,
+      headline: `${phrases.RC_distanceTrackingTitle?.[this.L] ?? ''}`,
       description:
         description +
         spaceForLanguage(this.L) +
-        phrases.RC_distanceTrackingIntroEnd[this.L],
+        (phrases.RC_distanceTrackingIntroEnd?.[this.L] ?? ''),
       check: false,
       checkCallback: null,
       showCancelButton: true,
@@ -328,7 +334,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
     this.showVideo(options.showVideo)
     this.showFaceOverlay(options.showFaceOverlay)
 
-    // TODO Attach new callbackTrack
+    // Attach the new callbackTrack to the RUNNING loop via the live
+    // binding: a reconfigure-only re-track must still fire the caller's
+    // wrapped callback (onRecalibrateEnd) on the next tracking frame.
+    _liveTrackCallback = callbackTrack
+    this.gazeTracker.defaultDistanceTrackCallback = callbackTrack
     return
   }
 
@@ -1554,6 +1564,9 @@ const _tracking = async (
   callbackTrack,
   trackingConfig,
 ) => {
+  // A fresh full tracking session owns the live callback: any callback a
+  // previous reconfigure-only re-track attached is superseded.
+  _liveTrackCallback = callbackTrack
   // const video = document.getElementById('webgazerVideoCanvas')
   RC.improvedDistanceTrackingData = {
     left: {
@@ -2258,9 +2271,10 @@ const renderDistanceResult = async (
 
       /* -------------------------------------------------------------------------- */
 
-      if (callbackTrack && typeof callbackTrack === 'function') {
-        RC.gazeTracker.defaultDistanceTrackCallback = callbackTrack
-        callbackTrack(data)
+      const trackCallback = _liveTrackCallback ?? callbackTrack
+      if (trackCallback && typeof trackCallback === 'function') {
+        RC.gazeTracker.defaultDistanceTrackCallback = trackCallback
+        trackCallback(data)
       }
     }
   } else {
@@ -3269,6 +3283,8 @@ RemoteCalibrator.prototype.endDistance = function (
     trackingOptions.desiredDistanceMonitorAllowRecalibrate = true
     trackingOptions.calibrateDistanceCorrectForHeadRotation = 'none'
     trackingOptions.viewingDistanceAllowedHeadRotationDeg = 180
+
+    _liveTrackCallback = null
 
     stdDist.current = null
     stdFactor = null

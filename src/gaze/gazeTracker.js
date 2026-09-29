@@ -143,19 +143,30 @@ export default class GazeTracker {
     if (startingMsg) startingMsg.style.display = 'none'
 
     const observation = observeDialog(RC, 'camera-startup-retry')
-    const result = await Swal.fire({
+    const decision = await Swal.fire({
       ...defaultSwalOptions,
       didDestroy: observation.didDestroy,
       icon: 'error',
       iconColor: RC._CONST.COLOR.DARK_RED,
       showConfirmButton: true,
-      showCancelButton: false,
+      // Offer an exit: retrying a dead camera (permission denied, no
+      // device, held by another app) can trap the participant in this
+      // popup forever (field: "wouldnt connect to camera and then it froze").
+      showCancelButton: true,
       confirmButtonText: phrases.RC_TryAgain?.[RC.L] || 'Try again',
+      cancelButtonText: phrases.RC_OK?.[RC.L] || 'OK',
       html: message,
     })
       .then()
       .catch(observation.failed)
-    observation.settled(result)
+    observation.settled(decision)
+
+    // Participant chose to end: mark the error so cameraSelection can
+    // return {experimentEnded: true} (no second popup) and stop retrying.
+    if (!decision.isConfirmed) {
+      error.userEnded = true
+      return false
+    }
 
     if (!isFullscreen()) {
       await getFullscreen(RC.L, RC)

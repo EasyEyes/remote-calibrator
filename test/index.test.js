@@ -22,6 +22,8 @@ require('./interactionManagement.test')
 require('./objectRecoveryOwnership.test')
 require('./cameraRecoveryDeadEnds.test')
 require('./interactionTermination.test')
+require('./cameraFailureExits.test')
+require('./nudgerInputBlock.test')
 
 const packageJSON = require('../package.json')
 

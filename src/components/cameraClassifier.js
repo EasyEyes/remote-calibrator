@@ -80,6 +80,18 @@ const _classifyLabel = (device, allDevices = []) => {
   )
     externalScore += 7
 
+  // --- VIRTUAL CAMERAS (screen capture / phone-as-webcam mirrors) ---
+  // Not built into this screen, so their position is unknown — useless
+  // for near-point geometry. Classify external (excluded by the default
+  // policy) instead of "unknown": field sessions completed on
+  // "OBS Virtual Camera" while the real webcam was excluded.
+  if (
+    /virtual\s*(camera|webcam|video)|\bobs\b|snap\s*camera|droidcam|iriun|epoccam|manycam|camtwist|xsplit|\bvcam\b|screen[- ]?capture|continuity\s*camera/i.test(
+      label,
+    )
+  )
+    externalScore += 7
+
   // Classic external webcam indicators
   if (/usb( ?2\.0| ?3\.0)? camera|generic uvc|uvc camera|webcam/.test(label))
     externalScore += 3

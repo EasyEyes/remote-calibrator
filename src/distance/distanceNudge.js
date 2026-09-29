@@ -533,7 +533,13 @@ RemoteCalibrator.prototype._removeNudger = function () {
     // There is a nudger and remove successfully
     return true
   }
-  // Cannot find the nudger
+  // Cannot find the nudger — the element was already gone from the DOM.
+  // Reset the bookkeeping anyway: a stale _nudger.element would make
+  // resumeNudger() re-install the input blockers with nothing visible.
+  this._nudger = {
+    element: null,
+    nudgerPaused: false,
+  }
   return false
 }
 
@@ -546,7 +552,16 @@ RemoteCalibrator.prototype.pauseNudger = function () {
 RemoteCalibrator.prototype.resumeNudger = function () {
   this._nudger.nudgerPaused = false
   document.body.classList.remove('hide-nudger')
-  if (this.nudger) _blockAllInput(this)
+  // Only block input while the nudger is actually on the page. A stale
+  // element reference (Swal collisions, teardown) must not become an
+  // invisible block where hover works but every click and key is dead.
+  if (this.nudger) {
+    if (this.nudger.isConnected) {
+      _blockAllInput(this)
+    } else {
+      this._nudger.element = null // self-heal the stale reference
+    }
+  }
 }
 
 RemoteCalibrator.prototype.endNudger = function () {

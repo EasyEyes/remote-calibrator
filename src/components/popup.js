@@ -3601,16 +3601,52 @@ export const showCameraSelectionPopup = async (
 }
 
 /**
- * Shows a popup when no cameras are detected
+ * Message for the no-camera page. Tells the two causes apart:
+ * cameras found but excluded by the study's camera policy (externals are
+ * hidden by default) is NOT "no cameras detected" — field feedback
+ * ("Kept saying my camera wasn't there. it was.") shows participants
+ * chase phantom driver problems when the page lies. Phrase keys are
+ * optional (they arrive via rc.init's languagePhrasesJSON); English
+ * fallbacks keep the page renderable either way.
+ * @param {Object} RC - RemoteCalibrator instance
+ * @param {{anyCamerasFound?: boolean}} [opts]
+ * @returns {string} pre-inline-formatting message text
+ */
+export const noCameraMessage = (RC, { anyCamerasFound } = {}) => {
+  const L = RC?.L
+  if (anyCamerasFound) {
+    return (
+      phrases.RC_errorNoBuiltInCamera?.[L] ||
+      phrases.RC_errorNoBuiltInCamera?.['en-US'] ||
+      'A camera was found, but it is not built into this screen. ' +
+        'This study measures viewing distance with a built-in camera, so it ' +
+        'cannot use a separate (external or virtual) webcam. ' +
+        'If this computer has a built-in camera, close other apps using it and ' +
+        'click Try again. Otherwise, this study cannot run on this computer.'
+    )
+  }
+  return (
+    phrases.RC_CameraNotFound?.[L] ||
+    phrases.RC_CameraNotFound?.['en-US'] ||
+    "We couldn't find any cameras on this computer. Check that a camera is connected and not in use by another app, then click Try again."
+  )
+}
+
+/**
+ * Shows a popup when no usable camera is available — none detected, or
+ * every detected camera excluded by the study's camera policy.
  * @param {Object} RC - RemoteCalibrator instance
  * @param {Element} mainVideoContainer - Main video container element
  * @param {string} originalMainVideoDisplay - Original display style
+ * @param {{anyCamerasFound?: boolean}} [opts] - cameras were detected, but
+ *        excluded by policy
  * @returns {Promise<string>} - 'retry' or 'end'
  */
 const showNoCameraPopup = async (
   RC,
   mainVideoContainer,
   originalMainVideoDisplay,
+  { anyCamerasFound } = {},
 ) => {
   const textAlign = RC.LD === RC._CONST.RTL ? 'right' : 'left'
 
@@ -3625,12 +3661,12 @@ const showNoCameraPopup = async (
     didDestroy: observation.didDestroy,
     html: `
       <p style="text-align: ${textAlign}; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; margin-top: 1rem; font-size: 1.2rem; line-height: 1.6;">
-        ${processInlineFormatting(phrases.RC_CameraNotFound[RC.L]).replace('\n', '<br />')}
+        ${processInlineFormatting(noCameraMessage(RC, { anyCamerasFound })).replace('\n', '<br />')}
       </p>
     `,
     showCancelButton: true,
-    confirmButtonText: phrases.RC_TryAgain[RC.L],
-    cancelButtonText: phrases.RC_OK[RC.L],
+    confirmButtonText: phrases.RC_TryAgain?.[RC.L] || 'Try again',
+    cancelButtonText: phrases.RC_OK?.[RC.L] || 'OK',
     allowEnterKey: true,
     didOpen: () => {
       finalizeCameraFindTiming(RC, { cameraCount: 0 })
@@ -4017,6 +4053,9 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       RC,
       mainVideoContainer,
       originalMainVideoDisplay,
+      // Honesty: a camera that was found and then excluded by policy is a
+      // different message than no camera at all.
+      { anyCamerasFound: allCameras.length > 0 },
     )
     if (noCameraResult === 'retry') {
       // Recursively call showTestPopup to retry camera detection
