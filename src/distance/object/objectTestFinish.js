@@ -1,3 +1,5 @@
+import { interactionEnded } from '../../interactionTermination'
+import { waitForCameraRecovery } from '../../cameraRecoveryInteraction'
 /**
  * objectTestFinish.js
  *
@@ -26,6 +28,7 @@ import { phrases } from '../../i18n/schema'
 import { processInlineFormatting } from '../markdownInstructionParser'
 import { setUpEasyEyesKeypadHandler } from '../../extensions/keypadHandler'
 import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
+import { interactionParent } from '../../interactionLifecycle'
 
 // ---------------------------------------------------------------------------
 // "Put Your Glasses Back On" screen
@@ -37,29 +40,69 @@ import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
  * of the distance calibration / check pages.
  */
 export async function showPutGlassesBackOnScreen(RC) {
-  await Swal.fire({
-    ...swalInfoOptions(RC, { showIcon: false }),
-    confirmButtonText: phrases.T_proceed?.[RC.L],
-    title:
-      '<p class="heading2">' +
-      processInlineFormatting(phrases.RC_PutYourGlassesBackOn[RC.L]) +
-      '</p>',
-    didOpen: () => {
-      if (RC.keypadHandler) {
-        const removeKeypadHandler = setUpEasyEyesKeypadHandler(
-          null,
-          RC.keypadHandler,
-          () => {
-            removeKeypadHandler()
-            Swal.clickConfirm()
-          },
-          false,
-          ['space'],
-          RC,
-        )
+  const lifecycle = RC._interactionLifecycle
+  const interaction = lifecycle?.beginScope(
+    'glasses-reminder',
+    interactionParent(RC),
+  )
+  let views = 0
+  let outcome = null
+  const finish = () => {
+    if (views === 0 && outcome) lifecycle?.endScope(interaction, outcome)
+  }
+  try {
+    while (true) {
+      if (lifecycle?.getSnapshot().recovery) {
+        if (!(await waitForCameraRecovery(RC))) {
+          outcome = 'cancelled'
+          finish()
+          return false
+        }
       }
-    },
-  })
+      if (lifecycle?.getSnapshot().status === 'ended') return false
+      let removeKeypadHandler
+      views++
+      const result = await Swal.fire({
+        ...swalInfoOptions(RC, { showIcon: false }),
+        confirmButtonText: phrases.T_proceed?.[RC.L],
+        didDestroy: () => {
+          removeKeypadHandler?.()
+          views--
+          finish()
+        },
+        title:
+          '<p class="heading2">' +
+          processInlineFormatting(phrases.RC_PutYourGlassesBackOn[RC.L]) +
+          '</p>',
+        didOpen: () => {
+          if (RC.keypadHandler) {
+            removeKeypadHandler = setUpEasyEyesKeypadHandler(
+              null,
+              RC.keypadHandler,
+              () => {
+                removeKeypadHandler?.()
+                Swal.clickConfirm()
+              },
+              false,
+              ['space'],
+              RC,
+            )
+          }
+        },
+      })
+      removeKeypadHandler?.()
+      // Recovery can close this Swal. That is an interruption, not Proceed.
+      // Keep the parent step pending until recovery's dialog is destroyed,
+      // then show the reminder again and require its own confirmation.
+      if (!result?.isConfirmed && lifecycle?.getSnapshot().recovery) continue
+      outcome = result?.isConfirmed ? 'completed' : 'cancelled'
+      finish()
+      return result?.isConfirmed === true
+    }
+  } catch (error) {
+    lifecycle?.endScope(interaction, 'failed')
+    throw error
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -414,6 +457,9 @@ export async function finishObjectTest(context) {
     return
   }
   objectTestHasFinishedRef.value = true
+  // Measurement UI ownership ends here, before the glasses reminder, distance
+  // check or blindspot flow. Camera recovery must never restart this old page.
+  context._releaseCameraRecovery?.()
   console.log('=== objectTestFinishFunction STARTING (first and only call) ===')
 
   // ===================== CLEANUP DOM =====================
@@ -617,6 +663,7 @@ export async function finishObjectTest(context) {
     document.removeEventListener('keyup', handleKeyPress)
 
     setTimeout(() => {
+      if (interactionEnded(RC)) return
       RC._addBackground()
 
       RC._replaceBackground(
@@ -719,7 +766,10 @@ export async function finishObjectTest(context) {
             options.calibrateDistanceCorrectForHeadRotation,
           )
         } else {
-          await showPutGlassesBackOnScreen(RC)
+          if (!(await showPutGlassesBackOnScreen(RC))) {
+            RC._removeBackground()
+            return
+          }
           if (typeof callback === 'function') {
             callback(data)
           }
@@ -792,7 +842,10 @@ export async function finishObjectTest(context) {
       checkForProblems(data)
       console.log('=== END DEBUG ===')
 
-      await showPutGlassesBackOnScreen(RC)
+      if (!(await showPutGlassesBackOnScreen(RC))) {
+        RC._removeBackground()
+        return
+      }
 
       if (typeof callback === 'function') {
         callback(data)
@@ -821,6 +874,7 @@ export async function finishObjectTest(context) {
  * Legacy: distance.js lines 4458-4486
  */
 function cleanupBeforeCheckDistance(context) {
+  context._releaseCameraRecovery?.()
   const {
     removeArrowIndicatorsFromDOM,
     instructionsUI,
@@ -861,15 +915,6 @@ function cleanupBeforeCheckDistance(context) {
   }
 
   document.removeEventListener('keydown', handlePaperStepperNav)
-
-  // Unsubscribe camera disconnect/reconnect handlers so they don't fire
-  // during the subsequent _checkDistance / equipment page.
-  if (typeof context._unsubCameraDisconnect === 'function') {
-    context._unsubCameraDisconnect()
-  }
-  if (typeof context._unsubCameraReconnect === 'function') {
-    context._unsubCameraReconnect()
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -900,6 +945,7 @@ function cleanupBeforeCheckDistance(context) {
  * @param {object}     context.RC
  */
 export function cleanupAllResources(context) {
+  context._releaseCameraRecovery?.()
   const {
     handleKeyPress,
     handleInstructionNav,
@@ -969,14 +1015,6 @@ export function cleanupAllResources(context) {
   clearMeasurementOverlay()
   removeBigCircle()
 
-  // Unsubscribe camera disconnect/reconnect handlers
-  if (typeof context._unsubCameraDisconnect === 'function') {
-    context._unsubCameraDisconnect()
-  }
-  if (typeof context._unsubCameraReconnect === 'function') {
-    context._unsubCameraReconnect()
-  }
-
   // Clean up background
   RC._removeBackground()
 }
@@ -992,6 +1030,7 @@ export function cleanupAllResources(context) {
  * @param {function} objectTestFn - The objectTest function to call for restart
  */
 export function breakAndRestart(context, objectTestFn) {
+  context._releaseCameraRecovery?.()
   const {
     RC,
     options,
@@ -1025,13 +1064,6 @@ export function breakAndRestart(context, objectTestFn) {
   }
   if (buttonContainer?.parentNode) {
     buttonContainer.parentNode.removeChild(buttonContainer)
-  }
-
-  if (typeof context._unsubCameraDisconnect === 'function') {
-    context._unsubCameraDisconnect()
-  }
-  if (typeof context._unsubCameraReconnect === 'function') {
-    context._unsubCameraReconnect()
   }
 
   objectTestFn(RC, options, callback)

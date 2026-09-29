@@ -1,4 +1,5 @@
 import Swal from 'sweetalert2'
+import { observeDialog } from '../interactionLifecycle'
 
 import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from './swalOptions'
@@ -12,8 +13,10 @@ export const checkPermissions = async (RC, message) => {
       .query({ name: 'camera' })
       .then(async permissionObj => {
         if (permissionObj.state === 'prompt') {
-          return await Swal.fire({
+          const observation = observeDialog(RC, 'camera-permission')
+          const result = await Swal.fire({
             ...swalInfoOptions(RC, { showIcon: false }),
+            didDestroy: observation.didDestroy,
             icon: undefined,
             imageUrl: AllowCam,
             imageWidth: 480,
@@ -23,6 +26,10 @@ export const checkPermissions = async (RC, message) => {
             // and is a no-op for plain text, so existing messages are unchanged.
             html: processInlineFormatting(message),
           })
+            .then()
+            .catch(observation.failed)
+          observation.settled(result)
+          return result
         }
       })
       .catch(error => {

@@ -1,3 +1,5 @@
+import Swal from 'sweetalert2'
+import { installInteractionInputBoundary } from './interactionTermination'
 /**
  *
  * The fundamental functions, e.g. init
@@ -21,6 +23,7 @@ import { looseSetLanguage } from './components/language'
 import { phrases } from './i18n/schema'
 import { loadPhrases } from './i18n/loadPhrases'
 import { clearAllHandlers_key_resp_allKeys } from './extensions/keypadHandler'
+import { createInteractionLifecycle } from './interactionLifecycle'
 
 // eslint-disable-next-line no-undef
 export const env = process.env.BUILD_TARGET
@@ -154,6 +157,9 @@ class RemoteCalibrator {
 
     // Quit callback (set by consumer app via setOnQuit)
     this._onQuitCallback = null
+    this._releaseInteractionInputBoundary =
+      installInteractionInputBoundary(this)
+    this._interactionLifecycle = createInteractionLifecycle()
   }
 
   /* --------------------------------- GETTERS -------------------------------- */
@@ -1244,6 +1250,47 @@ RemoteCalibrator.prototype.setOnQuit = function (callback) {
   this._onQuitCallback = callback
 }
 
+/** Versioned observation API. Subscription starts with the current snapshot. */
+RemoteCalibrator.prototype.getInteractionSnapshot = function () {
+  return this._interactionLifecycle.getSnapshot()
+}
+
+RemoteCalibrator.prototype.onInteractionChange = function (observer) {
+  return this._interactionLifecycle.subscribe(observer)
+}
+
+/** Optional host capability: RC keeps its UI; the host coordinates interruptions. */
+RemoteCalibrator.prototype.attachInteractionHost = function (host) {
+  if (!host || typeof host.isInputBlocked !== 'function') {
+    throw new TypeError('Interaction host must supply isInputBlocked')
+  }
+  const lease = Object.freeze({
+    handlesFullscreenRecovery: host.handlesFullscreenRecovery === true,
+    allowsInputEvent:
+      typeof host.allowsInputEvent === 'function'
+        ? host.allowsInputEvent
+        : () => false,
+    isInputBlocked: host.isInputBlocked,
+  })
+  this._interactionHost = lease
+  return () => {
+    if (this._interactionHost === lease) this._interactionHost = null
+  }
+}
+
+RemoteCalibrator.prototype.isInteractionInputBlocked = function () {
+  if (
+    this._interactionEnding ||
+    this._interactionLifecycle?.getSnapshot().recovery
+  )
+    return true
+  try {
+    return this._interactionHost?.isInputBlocked() === true
+  } catch (_) {
+    return false
+  }
+}
+
 /**
  * Register a callback for camera disconnection events — fired when the
  * camera monitor detects the stream died and the reconnect popup appears.
@@ -1272,45 +1319,51 @@ RemoteCalibrator.prototype.onCameraReconnected = function (fn) {
  * end-of-study page is not polluted by leftover RC UI.
  */
 RemoteCalibrator.prototype._cleanupAllRC = function () {
-  this._removeBackground()
-
-  if (this._panelStatus?.hasPanel) {
+  if (this._interactionEnding) return
+  this._interactionEnding = true
+  const attempt = fn => {
     try {
-      this.removePanel()
-    } catch (e) {
-      console.warn('[RC _cleanupAllRC] removePanel error:', e)
+      fn()
+    } catch (error) {
+      console.warn('[RC cleanup]', error)
     }
   }
-
-  this._cleanupDistanceCalibrationElements()
-
-  try {
-    if (this.gazeTracker?._initialized?.gaze) this.endGaze()
-  } catch (e) {
-    console.warn('[RC _cleanupAllRC] endGaze error:', e)
+  this._interactionHost = null
+  attempt(() => this._releaseInteractionInputBoundary?.())
+  for (const cleanup of [...(this._interactionDisposers || [])])
+    attempt(cleanup)
+  this._interactionDisposers?.clear()
+  attempt(() => Swal.close())
+  attempt(() => this._removeNudger?.())
+  attempt(() => this._removeBackground())
+  if (this._panelStatus?.hasPanel) attempt(() => this.removePanel())
+  attempt(() => this._cleanupDistanceCalibrationElements())
+  if (this.gazeTracker?._initialized?.gaze) attempt(() => this.endGaze())
+  if (this.gazeTracker?._initialized?.distance)
+    attempt(() => this.endDistance())
+  attempt(() => this.gazeTracker?.webgazer?.stopVideo?.())
+  for (const id of [
+    'webgazerVideoContainer',
+    'webgazerGazeDot',
+    'webgazerFaceOverlay',
+    'webgazerFaceFeedbackBox',
+  ]) {
+    const element = document.getElementById(id)
+    if (element) element.style.display = 'none'
   }
-  try {
-    if (this.gazeTracker?._initialized?.distance) this.endDistance()
-  } catch (e) {
-    console.warn('[RC _cleanupAllRC] endDistance error:', e)
+  for (const id of [
+    'rc-starting-message',
+    'rc-big-circle-target',
+    'rc-camera-title-top-right',
+    'rc-camera-previews-bottom-outer',
+    'rc-resolution-video-wrapper',
+    'camera-page-language-wrapper',
+  ]) {
+    document.getElementById(id)?.remove()
   }
-
-  const vc = document.getElementById('webgazerVideoContainer')
-  if (vc) vc.style.display = 'none'
-
-  const gazeDot = document.getElementById('webgazerGazeDot')
-  if (gazeDot) gazeDot.style.display = 'none'
-
-  const faceOverlay = document.getElementById('webgazerFaceOverlay')
-  if (faceOverlay) faceOverlay.style.display = 'none'
-
-  const faceFeedbackBox = document.getElementById('webgazerFaceFeedbackBox')
-  if (faceFeedbackBox) faceFeedbackBox.style.display = 'none'
-
-  const bigCircle = document.getElementById('rc-big-circle-target')
-  if (bigCircle) bigCircle.remove()
-
-  document.body.classList.remove('lock-view')
+  document.body.classList.remove('lock-view', 'hide-nudger')
+  // Terminal notification follows resource cleanup, never just dialog closure.
+  this._interactionLifecycle?.terminate()
 }
 
 /**

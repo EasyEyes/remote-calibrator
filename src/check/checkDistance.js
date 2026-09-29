@@ -1,3 +1,4 @@
+import { interactionEnded, onInteractionEnd } from '../interactionTermination'
 import RemoteCalibrator from '../core'
 import { takeInput } from '../components/checkInput'
 import {
@@ -247,10 +248,17 @@ const trackDistanceCheck = async (
   // Track all space bar listeners for proper cleanup
   const activeListeners = []
 
-  const quit = () => {
+  let cleaned = false
+  const cleanup = () => {
+    if (cleaned) return
+    cleaned = true
     clearMeasurementOverlay()
     stopVideoTrimming()
     RC._removeBackground()
+  }
+  const quit = () => {
+    cleanup()
+    if (interactionEnded(RC)) return
     if (!isTrack) safeExecuteFunc(distanceCallback, distanceData, false)
     callbackStatic(distanceData)
   }
@@ -304,6 +312,7 @@ const trackDistanceCheck = async (
         // Silently handle errors - face detection might not always work
       }
 
+      if (cleaned || interactionEnded(RC)) return
       if (IPDPx && RC.screenHeightCm?.value) {
         // Get camera video dimensions
         const videoCanvas = document.getElementById('webgazerVideoCanvas')
@@ -349,712 +358,523 @@ const trackDistanceCheck = async (
     }
   }
 
-  //if participant has equipment
-  //if the unit is inches, convert calibrateDistanceCheckCm to inches and round to integer
-  //discard negative, zero, and values exceeding equipment length
+  const unregisterCleanup = onInteractionEnd(RC, cleanup)
+  try {
+    if (interactionEnded(RC)) return
+    //if participant has equipment
+    //if the unit is inches, convert calibrateDistanceCheckCm to inches and round to integer
+    //discard negative, zero, and values exceeding equipment length
 
-  // Ensure RC.sizeCheckJSON exists even if checkSize is never called (no equipment)
-  if (!RC.sizeCheckJSON) {
-    RC.sizeCheckJSON = {
-      _calibrateDistanceAllowedRatioPxPerCm:
+    // Ensure RC.sizeCheckJSON exists even if checkSize is never called (no equipment)
+    if (!RC.sizeCheckJSON) {
+      RC.sizeCheckJSON = {
+        _calibrateDistanceAllowedRatioPxPerCm:
+          calibrateDistanceAllowedRatioPxPerCm,
+        calibrationPxPerCm: null,
+        screenWidthCm: null,
+        rulerUnit: RC.equipment?.value?.unit || null,
+        pxPerCm: [],
+        lengthMeasuredPx: [],
+        lengthRequestedCm: [],
+        acceptedLength: [],
+        acceptedRatioLength: [],
+        rejectedLength: [],
+        rejectedRatioLength: [],
+        historyLength: [],
+      }
+    }
+
+    if (RC.equipment?.value?.has) {
+      // Show dummy test page right after equipment is confirmed
+      RC.pauseNudger()
+      await checkSize(
+        RC,
+        calibrateDistanceCheckLengthCm,
+        calibrateDistanceChecking,
+        stepperHistory,
         calibrateDistanceAllowedRatioPxPerCm,
-      calibrationPxPerCm: null,
-      screenWidthCm: null,
-      rulerUnit: RC.equipment?.value?.unit || null,
-      pxPerCm: [],
-      lengthMeasuredPx: [],
-      lengthRequestedCm: [],
-      acceptedLength: [],
-      acceptedRatioLength: [],
-      rejectedLength: [],
-      rejectedRatioLength: [],
-      historyLength: [],
-    }
-  }
-
-  if (RC.equipment?.value?.has) {
-    // Show dummy test page right after equipment is confirmed
-    RC.pauseNudger()
-    await checkSize(
-      RC,
-      calibrateDistanceCheckLengthCm,
-      calibrateDistanceChecking,
-      stepperHistory,
-      calibrateDistanceAllowedRatioPxPerCm,
-    )
-    RC.resumeNudger()
-    // Start video trimming for screen center distance measurement
-    // only trim video if calibrateDistanceCenterYourEyesBool is true AND not using camera positioning
-    // Video trimming centers the video, which conflicts with camera positioning
-    const checkingOptions = calibrateDistanceChecking
-    let shouldPositionAtCamera = false
-
-    if (checkingOptions && typeof checkingOptions === 'string') {
-      const optionsArray = checkingOptions
-        .toLowerCase()
-        .split(',')
-        .map(s => s.trim())
-      shouldPositionAtCamera = optionsArray.includes('camera')
-    }
-
-    if (calibrateDistanceCenterYourEyesBool && !shouldPositionAtCamera) {
-      startVideoTrimming()
-    }
-
-    calibrateDistanceCheckCm = calibrateDistanceCheckCm.map(cm =>
-      RC.equipment?.value?.unit === 'inches'
-        ? Math.round(Number(cm) / 2.54)
-        : Math.round(Number(cm)),
-    )
-
-    calibrateDistanceCheckCm = calibrateDistanceCheckCm.filter(
-      cm => cm > 0 && cm <= RC.equipment?.value?.length,
-    )
-
-    if (calibrateDistanceCheckCm.length === 0) {
-      console.warn('No valid distances to check.')
-      quit()
-      return
-    }
-
-    RC._removeBackground()
-    RC.pauseNudger()
-    createProgressBar(RC, calibrateDistanceChecking)
-    createViewingDistanceDiv(RC)
-    RC.calibrateDistanceMeasuredCm = []
-    RC.calibrateDistanceRequestedCm = []
-    // Initialize IPD and requested distance arrays
-    RC.calibrateDistanceIPDPixels = []
-    RC.calibrateDistanceRequestedDistances = []
-    RC.calibrateDistanceEyeFeetXYPx = []
-    let skippedDistancesCount = 0
-    const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
-
-    const pxPerCm = ppi / 2.54
-
-    let cameraResolutionXY = ''
-    let cameraResolutionMaxXY = ''
-    let cameraHz = null
-    let webcamMaxHz = null
-    let horizontalVpx = null
-    if (
-      RC.gazeTracker &&
-      RC.gazeTracker.webgazer &&
-      RC.gazeTracker.webgazer.videoParamsToReport
-    ) {
-      const vp = RC.gazeTracker.webgazer.videoParamsToReport
-      const res = getCameraResolutionXY(RC)
-      const height = res[1]
-      const width = res[0]
-      const maxHeight = vp.maxHeight
-      const maxWidth = vp.maxWidth
-      const w = Math.max(maxHeight, maxWidth)
-      const h = Math.min(maxHeight, maxWidth)
-      cameraResolutionXY = `${width}x${height}`
-      cameraResolutionMaxXY = `${w},${h}`
-      cameraHz = vp.frameRate || null
-      webcamMaxHz = vp.maxFrameRate || null
-      horizontalVpx = width
-    }
-
-    // Helper function to safely round centimeter values (2 decimal places)
-    const safeRoundCm = value => {
-      if (value == null || isNaN(value)) return null
-      return parseFloat(value).toFixed(2)
-    }
-
-    // Helper function to safely round ratio values (exactly 4 decimal places, no float noise)
-    const safeRoundRatio = value => {
-      if (value == null || isNaN(value)) return null
-      return parseFloat(Number(value).toFixed(4))
-    }
-
-    let calibrationFVpx = null
-    let calibrationFOverWidth = null
-    try {
-      if (stdDist.current && stdDist.current.calibrationFactor) {
-        calibrationFVpx = stdDist.current.calibrationFactor / RC._CONST.IPD_CM
-        calibrationFOverWidth = safeRoundRatio(calibrationFVpx / horizontalVpx)
-      }
-    } catch (e) {}
-
-    RC.distanceCheckJSON = {
-      // Text parameters first
-      _calibrateDistanceChecking: calibrateDistanceChecking,
-      _calibrateDistance: calibrateDistance,
-      _calibrateDistancePupil: calibrateDistancePupil,
-      _calibrateDistanceAllowedRatioFOverWidth:
-        calibrateDistanceAllowedRatioFOverWidth,
-      historyPreferRightHandBool: [],
-      // Parameters with few values (before arrays with 8 values).
-      // cameraXYPx is the anchor point of the participant's camera in
-      // SCREEN CSS px: top-centre for top-camera setups, bottom-centre
-      // for bottom-camera setups (driven by RC.selectedCameraRow set
-      // on the Choose Camera page when
-      // calibrateDistanceAcceptBottomCameraBool is true).
-      cameraXYPx: getCameraXYPx(RC),
-      pxPerCm: safeRoundCm(pxPerCm),
-      webcamMaxXYVpx: cameraResolutionMaxXY,
-      webcamMaxHz: webcamMaxHz,
-      ipdCm: safeRoundCm(RC._CONST.IPD_CM),
-      calibrationFOverWidth: calibrationFOverWidth, // median(calibration) as ratio
-      rulerUnit: RC.equipment?.value?.unit,
-      // Plot lists: accepted (grow/shrink), rejected (grow only, more recent of pair)
-      acceptedFOverWidth: [],
-      acceptedRatioFOverWidth: [],
-      acceptedLocation: [],
-      acceptedPointXYPx: [],
-      rejectedFOverWidth: [],
-      rejectedRatioFOverWidth: [],
-      rejectedLocation: [],
-      rejectedPointXYPx: [],
-      historyFOverWidth: [], // Array of the fOverWidth estimate of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
-      historyEyesToFootCm: [], // Array of the rulerBasedEyesToFootCm values of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
-      // Per-snapshot metrics for accepted and rejected (saved for analysis)
-      acceptedLeftEyeFootXYPx: [],
-      acceptedRightEyeFootXYPx: [],
-      acceptedIpdOverWidth: [],
-      acceptedRulerBasedEyesToFootCm: [],
-      acceptedRulerBasedEyesToPointCm: [],
-      acceptedImageBasedEyesToFootCm: [],
-      acceptedImageBasedEyesToPointCm: [],
-      acceptedPreferRightHandBool: [],
-      rejectedLeftEyeFootXYPx: [],
-      rejectedRightEyeFootXYPx: [],
-      rejectedIpdOverWidth: [],
-      rejectedRulerBasedEyesToFootCm: [],
-      rejectedRulerBasedEyesToPointCm: [],
-      rejectedImageBasedEyesToFootCm: [],
-      rejectedImageBasedEyesToPointCm: [],
-      rejectedPreferRightHandBool: [],
-      // Arrays with 8 values (one per snapshot)
-      fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
-      fOverWidth: [], // fVpx / cameraWidthVpx
-      ipdOverWidth: [], // ipdVpx / window.innerWidth
-      ipdOverWidthXYZ: [], // ipdXYZVpx / cameraWidthVpx (always 3D)
-      imageBasedEyesToFootCm: [], //calibrationFVpx * ipdCm / ipdVpx
-      imageBasedEyesToPointCm: [], //sqrt(imageBasedEyesToFootCm**2 + footToPoint**2)
-      rulerBasedEyesToPointCm: [], //requestedEyesToPointCm
-      rulerBasedEyesToFootCm: [], //sqrt(rulerBasedEyesToPointCm**2 - footToPoint**2)
-      pointXYPx: [],
-      cameraResolutionXYVpx: [],
-      cameraHz: [],
-      requestedEyesToPointCm: [],
-      footToPointCm: [],
-      rightEyeFootXYPx: [],
-      leftEyeFootXYPx: [],
-      footXYPx: [],
-      acceptedHeadYawDeg: [],
-      acceptedIpdUncorrectedOverWidth: [],
-      acceptedIpdCorrectedOverWidth: [],
-      rejectedHeadYawDeg: [],
-      rejectedIpdUncorrectedOverWidth: [],
-      rejectedIpdCorrectedOverWidth: [],
-      historyHeadYawDeg: [],
-      historyIpdUncorrectedOverWidth: [],
-      historyIpdCorrectedOverWidth: [],
-    }
-
-    // Include spot parameter only if _calibrateDistance === 'blindspot'
-    if (calibrateDistance === 'blindspot') {
-      RC.distanceCheckJSON._calibrateDistanceSpotXYDeg =
-        calibrateDistanceSpotXYDeg
-    }
-
-    let _showingReadFirstPopupDist = false
-    let checkDistMovieContainer = null
-
-    for (let i = 0; i < calibrateDistanceCheckCm.length; i++) {
-      let register = true
-      const cm = calibrateDistanceCheckCm[i]
-      const index = i + 1
-
-      // Track space bar listeners for this iteration
-      const iterationListeners = []
-
-      // Stepper progress closure for SPACE gating (set inside the try block below)
-      let getStepperProgress = () => null
-
-      updateProgressBar(
-        (index / calibrateDistanceCheckCm.length) * 100,
-        index,
-        calibrateDistanceCheckCm.length,
       )
-      updateViewingDistanceDiv(
-        cm,
-        getLocalizedUnit(RC.equipment?.value?.unit, RC.L),
-      )
-
-      // Single phrase RC_produceDistanceLocation with placeholders [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
+      RC.resumeNudger()
+      // Start video trimming for screen center distance measurement
+      // only trim video if calibrateDistanceCenterYourEyesBool is true AND not using camera positioning
+      // Video trimming centers the video, which conflicts with camera positioning
       const checkingOptions = calibrateDistanceChecking
-      const optionsArray =
-        checkingOptions && typeof checkingOptions === 'string'
-          ? checkingOptions
-              .toLowerCase()
-              .split(',')
-              .map(s => s.trim())
-          : []
-      const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
-      const hasCamera = optionsArray.includes('camera')
-      const hasCenter = optionsArray.includes('center')
-      const _saveSnapshotsBool = RC._saveSnapshotsBool === true
-      const lang = RC.language.value
+      let shouldPositionAtCamera = false
 
-      const basePhrase = phrases.RC_produceDistanceLocation?.[lang]
+      if (checkingOptions && typeof checkingOptions === 'string') {
+        const optionsArray = checkingOptions
+          .toLowerCase()
+          .split(',')
+          .map(s => s.trim())
+        shouldPositionAtCamera = optionsArray.includes('camera')
+      }
 
-      const replaceTS = hasTiltAndSwivel
-        ? phrases.RC_tiltAndSwivel?.[lang] || ''
-        : ''
-      const replaceSSS = _saveSnapshotsBool
-        ? phrases.RC_snapshot?.[lang] || ''
-        : phrases.RC_temporarySnapshot?.[lang] || ''
-      let replaceLLL, replaceLLLLLL
-      if (hasCenter) {
-        replaceLLL = phrases.RC_theCenterLocationShort?.[lang] || ''
-        replaceLLLLLL = phrases.RC_theCenterLocationLong?.[lang] || ''
-      } else if (hasCamera) {
-        const cameraXYPx = getCameraXYPx(RC)
-        const centerY = window.screen.height / 2
-        const cameraAtTopBool = cameraXYPx[1] < centerY
-        if (cameraAtTopBool) {
-          replaceLLL =
-            phrases.RC_theTopCenterLocationShort?.[lang] ||
-            'the top-center of the screen'
-          replaceLLLLLL =
-            phrases.RC_theTopCenterLocationLong?.[lang] ||
-            'the top-center of the screen (and video)'
-        } else {
-          replaceLLL =
-            phrases.RC_theBottomCenterLocationShort?.[lang] ||
-            'the bottom-center of the screen'
-          replaceLLLLLL =
-            phrases.RC_theBottomCenterLocationLong?.[lang] ||
-            'the bottom-center of the screen (and video)'
+      if (calibrateDistanceCenterYourEyesBool && !shouldPositionAtCamera) {
+        startVideoTrimming()
+      }
+
+      calibrateDistanceCheckCm = calibrateDistanceCheckCm.map(cm =>
+        RC.equipment?.value?.unit === 'inches'
+          ? Math.round(Number(cm) / 2.54)
+          : Math.round(Number(cm)),
+      )
+
+      calibrateDistanceCheckCm = calibrateDistanceCheckCm.filter(
+        cm => cm > 0 && cm <= RC.equipment?.value?.length,
+      )
+
+      if (calibrateDistanceCheckCm.length === 0) {
+        console.warn('No valid distances to check.')
+        quit()
+        return
+      }
+
+      RC._removeBackground()
+      RC.pauseNudger()
+      createProgressBar(RC, calibrateDistanceChecking)
+      createViewingDistanceDiv(RC)
+      RC.calibrateDistanceMeasuredCm = []
+      RC.calibrateDistanceRequestedCm = []
+      // Initialize IPD and requested distance arrays
+      RC.calibrateDistanceIPDPixels = []
+      RC.calibrateDistanceRequestedDistances = []
+      RC.calibrateDistanceEyeFeetXYPx = []
+      let skippedDistancesCount = 0
+      const ppi = RC.screenPpi ? RC.screenPpi.value : RC._CONST.N.PPI_DONT_USE
+
+      const pxPerCm = ppi / 2.54
+
+      let cameraResolutionXY = ''
+      let cameraResolutionMaxXY = ''
+      let cameraHz = null
+      let webcamMaxHz = null
+      let horizontalVpx = null
+      if (
+        RC.gazeTracker &&
+        RC.gazeTracker.webgazer &&
+        RC.gazeTracker.webgazer.videoParamsToReport
+      ) {
+        const vp = RC.gazeTracker.webgazer.videoParamsToReport
+        const res = getCameraResolutionXY(RC)
+        const height = res[1]
+        const width = res[0]
+        const maxHeight = vp.maxHeight
+        const maxWidth = vp.maxWidth
+        const w = Math.max(maxHeight, maxWidth)
+        const h = Math.min(maxHeight, maxWidth)
+        cameraResolutionXY = `${width}x${height}`
+        cameraResolutionMaxXY = `${w},${h}`
+        cameraHz = vp.frameRate || null
+        webcamMaxHz = vp.maxFrameRate || null
+        horizontalVpx = width
+      }
+
+      // Helper function to safely round centimeter values (2 decimal places)
+      const safeRoundCm = value => {
+        if (value == null || isNaN(value)) return null
+        return parseFloat(value).toFixed(2)
+      }
+
+      // Helper function to safely round ratio values (exactly 4 decimal places, no float noise)
+      const safeRoundRatio = value => {
+        if (value == null || isNaN(value)) return null
+        return parseFloat(Number(value).toFixed(4))
+      }
+
+      let calibrationFVpx = null
+      let calibrationFOverWidth = null
+      try {
+        if (stdDist.current && stdDist.current.calibrationFactor) {
+          calibrationFVpx = stdDist.current.calibrationFactor / RC._CONST.IPD_CM
+          calibrationFOverWidth = safeRoundRatio(
+            calibrationFVpx / horizontalVpx,
+          )
         }
-      } else {
-        replaceLLL = phrases.RC_theCenterLocationShort?.[lang] || ''
-        replaceLLLLLL = phrases.RC_theCenterLocationLong?.[lang] || ''
+      } catch (e) {}
+
+      RC.distanceCheckJSON = {
+        // Text parameters first
+        _calibrateDistanceChecking: calibrateDistanceChecking,
+        _calibrateDistance: calibrateDistance,
+        _calibrateDistancePupil: calibrateDistancePupil,
+        _calibrateDistanceAllowedRatioFOverWidth:
+          calibrateDistanceAllowedRatioFOverWidth,
+        historyPreferRightHandBool: [],
+        // Parameters with few values (before arrays with 8 values).
+        // cameraXYPx is the anchor point of the participant's camera in
+        // SCREEN CSS px: top-centre for top-camera setups, bottom-centre
+        // for bottom-camera setups (driven by RC.selectedCameraRow set
+        // on the Choose Camera page when
+        // calibrateDistanceAcceptBottomCameraBool is true).
+        cameraXYPx: getCameraXYPx(RC),
+        pxPerCm: safeRoundCm(pxPerCm),
+        webcamMaxXYVpx: cameraResolutionMaxXY,
+        webcamMaxHz: webcamMaxHz,
+        ipdCm: safeRoundCm(RC._CONST.IPD_CM),
+        calibrationFOverWidth: calibrationFOverWidth, // median(calibration) as ratio
+        rulerUnit: RC.equipment?.value?.unit,
+        // Plot lists: accepted (grow/shrink), rejected (grow only, more recent of pair)
+        acceptedFOverWidth: [],
+        acceptedRatioFOverWidth: [],
+        acceptedLocation: [],
+        acceptedPointXYPx: [],
+        rejectedFOverWidth: [],
+        rejectedRatioFOverWidth: [],
+        rejectedLocation: [],
+        rejectedPointXYPx: [],
+        historyFOverWidth: [], // Array of the fOverWidth estimate of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
+        historyEyesToFootCm: [], // Array of the rulerBasedEyesToFootCm values of each snapshot, regardless of whether it was rejected. In the order than the snapshots were taken.
+        // Per-snapshot metrics for accepted and rejected (saved for analysis)
+        acceptedLeftEyeFootXYPx: [],
+        acceptedRightEyeFootXYPx: [],
+        acceptedIpdOverWidth: [],
+        acceptedRulerBasedEyesToFootCm: [],
+        acceptedRulerBasedEyesToPointCm: [],
+        acceptedImageBasedEyesToFootCm: [],
+        acceptedImageBasedEyesToPointCm: [],
+        acceptedPreferRightHandBool: [],
+        rejectedLeftEyeFootXYPx: [],
+        rejectedRightEyeFootXYPx: [],
+        rejectedIpdOverWidth: [],
+        rejectedRulerBasedEyesToFootCm: [],
+        rejectedRulerBasedEyesToPointCm: [],
+        rejectedImageBasedEyesToFootCm: [],
+        rejectedImageBasedEyesToPointCm: [],
+        rejectedPreferRightHandBool: [],
+        // Arrays with 8 values (one per snapshot)
+        fVpx: [], // ipdVpx * rulerBasedEyesToFootCm / ipdCm
+        fOverWidth: [], // fVpx / cameraWidthVpx
+        ipdOverWidth: [], // ipdVpx / window.innerWidth
+        ipdOverWidthXYZ: [], // ipdXYZVpx / cameraWidthVpx (always 3D)
+        imageBasedEyesToFootCm: [], //calibrationFVpx * ipdCm / ipdVpx
+        imageBasedEyesToPointCm: [], //sqrt(imageBasedEyesToFootCm**2 + footToPoint**2)
+        rulerBasedEyesToPointCm: [], //requestedEyesToPointCm
+        rulerBasedEyesToFootCm: [], //sqrt(rulerBasedEyesToPointCm**2 - footToPoint**2)
+        pointXYPx: [],
+        cameraResolutionXYVpx: [],
+        cameraHz: [],
+        requestedEyesToPointCm: [],
+        footToPointCm: [],
+        rightEyeFootXYPx: [],
+        leftEyeFootXYPx: [],
+        footXYPx: [],
+        acceptedHeadYawDeg: [],
+        acceptedIpdUncorrectedOverWidth: [],
+        acceptedIpdCorrectedOverWidth: [],
+        rejectedHeadYawDeg: [],
+        rejectedIpdUncorrectedOverWidth: [],
+        rejectedIpdCorrectedOverWidth: [],
+        historyHeadYawDeg: [],
+        historyIpdUncorrectedOverWidth: [],
+        historyIpdCorrectedOverWidth: [],
       }
 
-      let instructionBodyPhrase = basePhrase
-        .replace(/\[\[TS\]\]/g, replaceTS)
-        .replace(/\[\[SSS\]\]/g, replaceSSS)
-        .replace(/\[\[LLL\]\]/g, replaceLLL)
-        .replace(/\[\[LLLLLL\]\]/g, replaceLLLLLL)
-
-      // Step-by-step uses the same single phrase key
-      const phraseKeyMapping = {
-        RC_produceDistanceLocation_MD: 'RC_produceDistanceLocation',
+      // Include spot parameter only if _calibrateDistance === 'blindspot'
+      if (calibrateDistance === 'blindspot') {
+        RC.distanceCheckJSON._calibrateDistanceSpotXYDeg =
+          calibrateDistanceSpotXYDeg
       }
-      const phraseKeyForSteps = 'RC_produceDistanceLocation_MD'
 
-      // Keep the title, render step-by-step body ourselves
-      {
-        const html = constructInstructions(
-          phrases.RC_produceDistanceTitle[RC.language.value]
-            .replace('[[N22]]', index)
-            .replace('[[N33]]', calibrateDistanceCheckCm.length),
-          '',
-          false,
-          'bodyText',
-          'left',
-          null,
-          false,
-          'check-distance-instruction-title',
+      let _showingReadFirstPopupDist = false
+      let checkDistMovieContainer = null
+
+      for (let i = 0; i < calibrateDistanceCheckCm.length; i++) {
+        if (interactionEnded(RC)) return
+        let register = true
+        const cm = calibrateDistanceCheckCm[i]
+        const index = i + 1
+
+        // Track space bar listeners for this iteration
+        const iterationListeners = []
+        const iterationCleanups = []
+        const cleanupIteration = () => {
+          iterationListeners.forEach(listener =>
+            document.removeEventListener('keyup', listener),
+          )
+          iterationCleanups.splice(0).forEach(cleanup => cleanup())
+        }
+        const releaseIteration = onInteractionEnd(RC, cleanupIteration)
+
+        // Stepper progress closure for SPACE gating (set inside the try block below)
+        let getStepperProgress = () => null
+
+        updateProgressBar(
+          (index / calibrateDistanceCheckCm.length) * 100,
+          index,
+          calibrateDistanceCheckCm.length,
         )
-        RC._replaceBackground(html)
-      }
+        updateViewingDistanceDiv(
+          cm,
+          getLocalizedUnit(RC.equipment?.value?.unit, RC.L),
+        )
 
-      const instructionElement = document.querySelector(
-        '.calibration-instruction',
-      )
+        // Single phrase RC_produceDistanceLocation with placeholders [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
+        const checkingOptions = calibrateDistanceChecking
+        const optionsArray =
+          checkingOptions && typeof checkingOptions === 'string'
+            ? checkingOptions
+                .toLowerCase()
+                .split(',')
+                .map(s => s.trim())
+            : []
+        const hasTiltAndSwivel = optionsArray.includes('tiltandswivel')
+        const hasCamera = optionsArray.includes('camera')
+        const hasCenter = optionsArray.includes('center')
+        const _saveSnapshotsBool = RC._saveSnapshotsBool === true
+        const lang = RC.language.value
 
-      // Add RTL class if language is RTL
-      if (RC.LD === RC._CONST.RTL && instructionElement) {
-        instructionElement.classList.add('rtl')
-      }
+        const basePhrase = phrases.RC_produceDistanceLocation?.[lang]
 
-      // Constrain the title to the space left of the live video so it wraps
-      // rather than being hidden behind the video (which can appear anywhere).
-      // Recalculated on resize since the video can move.
-      const video = document.getElementById('webgazerVideoContainer')
-      const titleEl = document.getElementById(
-        'check-distance-instruction-title',
-      )
-      const updateTitleWidth = () => {
-        if (!titleEl) return
-        titleEl.style.minWidth = '0'
-        titleEl.style.overflowWrap = 'break-word'
-        titleEl.style.maxWidth = ''
-        const v = document.getElementById('webgazerVideoContainer')
-        if (v) {
-          const videoRect = v.getBoundingClientRect()
-          const titleRect = titleEl.getBoundingClientRect()
-          const gap = 20
-          const availableWidth = videoRect.left - titleRect.left - gap
-          if (availableWidth > 0) {
-            titleEl.style.maxWidth = `${availableWidth}px`
-          }
-        }
-      }
-      updateTitleWidth()
-      let titleResizeHandler = () => updateTitleWidth()
-      window.addEventListener('resize', titleResizeHandler)
-
-      // Build single-column (left-only) step-by-step UI in the instruction body
-      let navHandlerRef = null
-      // Ensure an instruction body exists; constructInstructions omits it when body is empty
-      let instructionBody = document.getElementById('instruction-body')
-      if (!instructionBody) {
-        const container = document.querySelector('.calibration-instruction')
-        if (container) {
-          instructionBody = document.createElement('div')
-          instructionBody.id = 'instruction-body'
-          instructionBody.className = 'calibration-description bodyText'
-          container.appendChild(instructionBody)
-        }
-      }
-      if (instructionBody) {
-        instructionBody.innerHTML = ''
-        instructionBody.style.width = '100%'
-        instructionBody.style.maxWidth = '100%'
-        instructionBody.style.pointerEvents = 'auto'
-        instructionBody.style.paddingBottom = '0'
-        instructionBody.style.overflow = 'hidden'
-
-        const PROGRESS_BAR_H = 40
-
-        // Top margin so content starts at videoHeight + 15px from screen top,
-        // measured relative to where instructionBody sits (below the title).
-        const videoEl = document.getElementById('webgazerVideoContainer')
-        if (videoEl) {
-          const videoH = videoEl.getBoundingClientRect().height || 0
-          const bodyTop = instructionBody.getBoundingClientRect().top
-          const needed = videoH + 15 - bodyTop
-          instructionBody.style.marginTop =
-            needed > 0 ? `${Math.ceil(needed)}px` : '0'
-        }
-
-        // Constrain max-height so nothing extends behind the progress bar
-        void instructionBody.offsetHeight
-        const bodyTopAfterMargin = instructionBody.getBoundingClientRect().top
-        const maxH = window.innerHeight - PROGRESS_BAR_H - bodyTopAfterMargin
-        if (maxH > 0) {
-          instructionBody.style.maxHeight = `${Math.floor(maxH)}px`
-        }
-
-        const instrParent = instructionBody.closest('.calibration-instruction')
-        if (instrParent) instrParent.style.overflow = 'hidden'
-
-        const scalableWrapper = document.createElement('div')
-        scalableWrapper.id = 'check-dist-scalable-wrapper'
-        scalableWrapper.style.width = '100%'
-        scalableWrapper.style.transformOrigin = 'top left'
-        instructionBody.appendChild(scalableWrapper)
-
-        const ui = createStepInstructionsUI(scalableWrapper, {
-          layout: 'leftOnly',
-          leftWidth: '100%',
-          leftPaddingStart: '0rem',
-          leftPaddingEnd: '1rem',
-          fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
-          lineHeight: '1.4',
-        })
-
-        if (!checkDistMovieContainer) {
-          checkDistMovieContainer = document.createElement('div')
-          checkDistMovieContainer.id = 'check-dist-movie-container'
-          checkDistMovieContainer.style.position = 'fixed'
-          checkDistMovieContainer.style.bottom = '44px'
-          checkDistMovieContainer.style.width = '50vw'
-          checkDistMovieContainer.style.maxWidth = '50vw'
-          checkDistMovieContainer.style.maxHeight = 'calc(45vh - 44px)'
-          checkDistMovieContainer.style.padding = '0.5rem'
-          checkDistMovieContainer.style.boxSizing = 'border-box'
-          checkDistMovieContainer.style.zIndex = '999999996'
-          checkDistMovieContainer.style.pointerEvents = 'none'
-          checkDistMovieContainer.style.overflow = 'hidden'
-          if (RC.LD === RC._CONST.RTL) {
-            checkDistMovieContainer.style.left = '0'
-            checkDistMovieContainer.style.right = 'auto'
+        const replaceTS = hasTiltAndSwivel
+          ? phrases.RC_tiltAndSwivel?.[lang] || ''
+          : ''
+        const replaceSSS = _saveSnapshotsBool
+          ? phrases.RC_snapshot?.[lang] || ''
+          : phrases.RC_temporarySnapshot?.[lang] || ''
+        let replaceLLL, replaceLLLLLL
+        if (hasCenter) {
+          replaceLLL = phrases.RC_theCenterLocationShort?.[lang] || ''
+          replaceLLLLLL = phrases.RC_theCenterLocationLong?.[lang] || ''
+        } else if (hasCamera) {
+          const cameraXYPx = getCameraXYPx(RC)
+          const centerY = window.screen.height / 2
+          const cameraAtTopBool = cameraXYPx[1] < centerY
+          if (cameraAtTopBool) {
+            replaceLLL =
+              phrases.RC_theTopCenterLocationShort?.[lang] ||
+              'the top-center of the screen'
+            replaceLLLLLL =
+              phrases.RC_theTopCenterLocationLong?.[lang] ||
+              'the top-center of the screen (and video)'
           } else {
-            checkDistMovieContainer.style.right = '0'
-            checkDistMovieContainer.style.left = 'auto'
+            replaceLLL =
+              phrases.RC_theBottomCenterLocationShort?.[lang] ||
+              'the bottom-center of the screen'
+            replaceLLLLLL =
+              phrases.RC_theBottomCenterLocationLong?.[lang] ||
+              'the bottom-center of the screen (and video)'
           }
-          document.body.appendChild(checkDistMovieContainer)
+        } else {
+          replaceLLL = phrases.RC_theCenterLocationShort?.[lang] || ''
+          replaceLLLLLL = phrases.RC_theCenterLocationLong?.[lang] || ''
         }
 
-        // For checkDistance.js: use RC_produceDistanceLocation and apply [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
-        const actualPhraseKey =
-          phraseKeyMapping[phraseKeyForSteps] ||
-          phraseKeyForSteps.replace('_MD', '')
-        let rawStepText = phrases[actualPhraseKey]?.[RC.language.value] || ''
-        rawStepText = rawStepText
+        let instructionBodyPhrase = basePhrase
           .replace(/\[\[TS\]\]/g, replaceTS)
           .replace(/\[\[SSS\]\]/g, replaceSSS)
           .replace(/\[\[LLL\]\]/g, replaceLLL)
           .replace(/\[\[LLLLLL\]\]/g, replaceLLLLLL)
 
-        // Debug logging
-        console.log('🔍 checkDistance phrase debug:', {
-          phraseKeyRequested: phraseKeyForSteps,
-          actualPhraseKey: actualPhraseKey,
-          language: RC.language.value,
-          phraseExists: !!phrases[actualPhraseKey],
-          rawStepTextFound: !!rawStepText,
-          textLength: rawStepText.length,
-          textPreview: rawStepText.substring(0, 100),
+        // Step-by-step uses the same single phrase key
+        const phraseKeyMapping = {
+          RC_produceDistanceLocation_MD: 'RC_produceDistanceLocation',
+        }
+        const phraseKeyForSteps = 'RC_produceDistanceLocation_MD'
+
+        // Keep the title, render step-by-step body ourselves
+        {
+          const html = constructInstructions(
+            phrases.RC_produceDistanceTitle[RC.language.value]
+              .replace('[[N22]]', index)
+              .replace('[[N33]]', calibrateDistanceCheckCm.length),
+            '',
+            false,
+            'bodyText',
+            'left',
+            null,
+            false,
+            'check-distance-instruction-title',
+          )
+          RC._replaceBackground(html)
+        }
+
+        const instructionElement = document.querySelector(
+          '.calibration-instruction',
+        )
+
+        // Add RTL class if language is RTL
+        if (RC.LD === RC._CONST.RTL && instructionElement) {
+          instructionElement.classList.add('rtl')
+        }
+
+        // Constrain the title to the space left of the live video so it wraps
+        // rather than being hidden behind the video (which can appear anywhere).
+        // Recalculated on resize since the video can move.
+        const video = document.getElementById('webgazerVideoContainer')
+        const titleEl = document.getElementById(
+          'check-distance-instruction-title',
+        )
+        const updateTitleWidth = () => {
+          if (!titleEl) return
+          titleEl.style.minWidth = '0'
+          titleEl.style.overflowWrap = 'break-word'
+          titleEl.style.maxWidth = ''
+          const v = document.getElementById('webgazerVideoContainer')
+          if (v) {
+            const videoRect = v.getBoundingClientRect()
+            const titleRect = titleEl.getBoundingClientRect()
+            const gap = 20
+            const availableWidth = videoRect.left - titleRect.left - gap
+            if (availableWidth > 0) {
+              titleEl.style.maxWidth = `${availableWidth}px`
+            }
+          }
+        }
+        updateTitleWidth()
+        let titleResizeHandler = () => updateTitleWidth()
+        window.addEventListener('resize', titleResizeHandler)
+
+        // Build single-column (left-only) step-by-step UI in the instruction body
+        let navHandlerRef = null
+        iterationCleanups.push(() => {
+          if (titleResizeHandler)
+            window.removeEventListener('resize', titleResizeHandler)
+          if (navHandlerRef)
+            document.removeEventListener('keydown', navHandlerRef)
         })
+        // Ensure an instruction body exists; constructInstructions omits it when body is empty
+        let instructionBody = document.getElementById('instruction-body')
+        if (!instructionBody) {
+          const container = document.querySelector('.calibration-instruction')
+          if (container) {
+            instructionBody = document.createElement('div')
+            instructionBody.id = 'instruction-body'
+            instructionBody.className = 'calibration-description bodyText'
+            container.appendChild(instructionBody)
+          }
+        }
+        if (instructionBody) {
+          instructionBody.innerHTML = ''
+          instructionBody.style.width = '100%'
+          instructionBody.style.maxWidth = '100%'
+          instructionBody.style.pointerEvents = 'auto'
+          instructionBody.style.paddingBottom = '0'
+          instructionBody.style.overflow = 'hidden'
 
-        const chosenStepText = String(rawStepText)
-          .replace('[[N11]]', cm)
-          .replace('[[UUU]]', RC.equipment?.value?.unit || '')
+          const PROGRESS_BAR_H = 40
 
-        try {
-          const stepModel = parseInstructions(chosenStepText, {
-            assetMap: test_assetMap,
+          // Top margin so content starts at videoHeight + 15px from screen top,
+          // measured relative to where instructionBody sits (below the title).
+          const videoEl = document.getElementById('webgazerVideoContainer')
+          if (videoEl) {
+            const videoH = videoEl.getBoundingClientRect().height || 0
+            const bodyTop = instructionBody.getBoundingClientRect().top
+            const needed = videoH + 15 - bodyTop
+            instructionBody.style.marginTop =
+              needed > 0 ? `${Math.ceil(needed)}px` : '0'
+          }
+
+          // Constrain max-height so nothing extends behind the progress bar
+          void instructionBody.offsetHeight
+          const bodyTopAfterMargin = instructionBody.getBoundingClientRect().top
+          const maxH = window.innerHeight - PROGRESS_BAR_H - bodyTopAfterMargin
+          if (maxH > 0) {
+            instructionBody.style.maxHeight = `${Math.floor(maxH)}px`
+          }
+
+          const instrParent = instructionBody.closest(
+            '.calibration-instruction',
+          )
+          if (instrParent) instrParent.style.overflow = 'hidden'
+
+          const scalableWrapper = document.createElement('div')
+          scalableWrapper.id = 'check-dist-scalable-wrapper'
+          scalableWrapper.style.width = '100%'
+          scalableWrapper.style.transformOrigin = 'top left'
+          instructionBody.appendChild(scalableWrapper)
+
+          const ui = createStepInstructionsUI(scalableWrapper, {
+            layout: 'leftOnly',
+            leftWidth: '100%',
+            leftPaddingStart: '0rem',
+            leftPaddingEnd: '1rem',
+            fontSize: 'clamp(1.1em, 2.5vw, 1.4em)',
+            lineHeight: '1.4',
           })
 
-          // Debug: Log the parsed model structure to find duplicate videos
-          console.log('🎬 stepModel structure:', {
-            sectionsCount: stepModel.sections?.length,
-            flatStepsCount: stepModel.flatSteps?.length,
-            sections: stepModel.sections?.map((s, i) => ({
-              sectionIdx: i,
-              title: s.title,
-              stepsCount: s.steps?.length,
-              sectionMediaUrls: s.mediaUrls,
-              steps: s.steps?.map((st, j) => ({
-                stepIdx: j,
-                textPreview: st.text?.substring(0, 50),
-                mediaUrls: st.mediaUrls,
+          if (!checkDistMovieContainer) {
+            checkDistMovieContainer = document.createElement('div')
+            checkDistMovieContainer.id = 'check-dist-movie-container'
+            checkDistMovieContainer.style.position = 'fixed'
+            checkDistMovieContainer.style.bottom = '44px'
+            checkDistMovieContainer.style.width = '50vw'
+            checkDistMovieContainer.style.maxWidth = '50vw'
+            checkDistMovieContainer.style.maxHeight = 'calc(45vh - 44px)'
+            checkDistMovieContainer.style.padding = '0.5rem'
+            checkDistMovieContainer.style.boxSizing = 'border-box'
+            checkDistMovieContainer.style.zIndex = '999999996'
+            checkDistMovieContainer.style.pointerEvents = 'none'
+            checkDistMovieContainer.style.overflow = 'hidden'
+            if (RC.LD === RC._CONST.RTL) {
+              checkDistMovieContainer.style.left = '0'
+              checkDistMovieContainer.style.right = 'auto'
+            } else {
+              checkDistMovieContainer.style.right = '0'
+              checkDistMovieContainer.style.left = 'auto'
+            }
+            document.body.appendChild(checkDistMovieContainer)
+          }
+
+          // For checkDistance.js: use RC_produceDistanceLocation and apply [[TS]], [[SSS]], [[LLL]], [[LLLLLL]]
+          const actualPhraseKey =
+            phraseKeyMapping[phraseKeyForSteps] ||
+            phraseKeyForSteps.replace('_MD', '')
+          let rawStepText = phrases[actualPhraseKey]?.[RC.language.value] || ''
+          rawStepText = rawStepText
+            .replace(/\[\[TS\]\]/g, replaceTS)
+            .replace(/\[\[SSS\]\]/g, replaceSSS)
+            .replace(/\[\[LLL\]\]/g, replaceLLL)
+            .replace(/\[\[LLLLLL\]\]/g, replaceLLLLLL)
+
+          // Debug logging
+          console.log('🔍 checkDistance phrase debug:', {
+            phraseKeyRequested: phraseKeyForSteps,
+            actualPhraseKey: actualPhraseKey,
+            language: RC.language.value,
+            phraseExists: !!phrases[actualPhraseKey],
+            rawStepTextFound: !!rawStepText,
+            textLength: rawStepText.length,
+            textPreview: rawStepText.substring(0, 100),
+          })
+
+          const chosenStepText = String(rawStepText)
+            .replace('[[N11]]', cm)
+            .replace('[[UUU]]', RC.equipment?.value?.unit || '')
+
+          try {
+            const stepModel = parseInstructions(chosenStepText, {
+              assetMap: test_assetMap,
+            })
+
+            // Debug: Log the parsed model structure to find duplicate videos
+            console.log('🎬 stepModel structure:', {
+              sectionsCount: stepModel.sections?.length,
+              flatStepsCount: stepModel.flatSteps?.length,
+              sections: stepModel.sections?.map((s, i) => ({
+                sectionIdx: i,
+                title: s.title,
+                stepsCount: s.steps?.length,
+                sectionMediaUrls: s.mediaUrls,
+                steps: s.steps?.map((st, j) => ({
+                  stepIdx: j,
+                  textPreview: st.text?.substring(0, 50),
+                  mediaUrls: st.mediaUrls,
+                })),
               })),
-            })),
-          })
-
-          let stepIndex = 0
-          const maxIdx = (stepModel.flatSteps?.length || 1) - 1
-
-          const handlePrev = () => {
-            if (stepIndex > 0) {
-              stepIndex--
-            }
-            // Always re-render to provide visual feedback (even if only one step)
-            doRender()
-          }
-
-          const handleNext = () => {
-            if (stepIndex < maxIdx) {
-              stepIndex++
-              if (stepIndex >= maxIdx) {
-                RC._readInstructionPhraseKeys.add(actualPhraseKey)
-              }
-            }
-            doRender()
-          }
-
-          // On small screens, after the stepper is fitted, harmonize the
-          // nav-hint italic text and hand-preference font sizes to 0.7× the
-          // stepper font so there are only TWO font sizes: the stepper (focal
-          // point) and subdued surrounding text.
-          const harmonizeCheckDistFonts = () => {
-            const stepperBox = scalableWrapper.querySelector('.rc-stepper-box')
-            const navHintEl = scalableWrapper.querySelector(
-              '.rc-stepper-nav-hint',
-            )
-            const handSelector = scalableWrapper.querySelector(
-              '.rc-hand-preference-selector',
-            )
-            const stepperFontPx = parseFloat(stepperBox?.style.fontSize) || 18
-
-            if (stepperFontPx >= 17.5) return
-
-            const RATIO = 0.7
-            const MIN_FONT = 8
-            let surroundingFontPx = Math.max(MIN_FONT, stepperFontPx * RATIO)
-
-            if (navHintEl && navHintEl.style.display !== 'none') {
-              const applyNavFont = fontPx => {
-                const px = `${fontPx}px`
-                navHintEl.style.fontSize = px
-                navHintEl.querySelectorAll(':scope > div').forEach(child => {
-                  child.style.fontSize = px
-                  child.style.lineHeight = '1.3'
-                  child.querySelectorAll('*').forEach(desc => {
-                    desc.style.fontSize = 'inherit'
-                    desc.style.lineHeight = 'inherit'
-                  })
-                })
-              }
-
-              applyNavFont(surroundingFontPx)
-              void navHintEl.offsetHeight
-
-              const availableWidth = navHintEl.clientWidth
-              if (availableWidth > 0) {
-                let shrinkRatio = 1
-                navHintEl.querySelectorAll(':scope > div').forEach(child => {
-                  const savedWS = child.style.whiteSpace
-                  const savedMW = child.style.maxWidth
-                  child.style.whiteSpace = 'nowrap'
-                  child.style.maxWidth = 'none'
-                  void child.offsetWidth
-                  const neededWidth = child.scrollWidth
-                  child.style.whiteSpace = savedWS
-                  child.style.maxWidth = savedMW || ''
-                  if (neededWidth > availableWidth) {
-                    shrinkRatio = Math.min(
-                      shrinkRatio,
-                      availableWidth / neededWidth,
-                    )
-                  }
-                })
-                if (shrinkRatio < 1) {
-                  surroundingFontPx = Math.max(
-                    MIN_FONT,
-                    surroundingFontPx * shrinkRatio,
-                  )
-                  applyNavFont(surroundingFontPx)
-                }
-              }
-            }
-
-            if (handSelector) {
-              const px = `${surroundingFontPx}px`
-              const savedPIS = handSelector.style.paddingInlineStart || '0'
-              const titleDiv = handSelector.querySelector('div')
-              const labels = handSelector.querySelectorAll('label')
-              const radios = handSelector.querySelectorAll(
-                'input[type="radio"]',
-              )
-
-              handSelector.style.paddingTop = `${surroundingFontPx * 0.4}px`
-              handSelector.style.paddingBottom = `${surroundingFontPx * 0.15}px`
-              handSelector.style.paddingInlineStart = savedPIS
-              handSelector.style.gap = `${surroundingFontPx * 0.15}px`
-
-              if (titleDiv) {
-                titleDiv.style.fontSize = px
-                titleDiv.style.marginBottom = `${surroundingFontPx * 0.15}px`
-                titleDiv.querySelectorAll('*').forEach(el => {
-                  el.style.fontSize = 'inherit'
-                  el.style.lineHeight = 'inherit'
-                })
-              }
-
-              labels.forEach(l => {
-                l.style.fontSize = px
-                l.style.lineHeight = '1.2'
-              })
-
-              const radioSz = Math.max(10, surroundingFontPx * 0.85)
-              radios.forEach(r => {
-                r.style.width = `${radioSz}px`
-                r.style.height = `${radioSz}px`
-              })
-            }
-          }
-
-          const doRender = () => {
-            renderStepInstructions({
-              model: stepModel,
-              flatIndex: stepIndex,
-              elements: {
-                leftText: ui.leftText,
-                rightText: null,
-                mediaContainer: ui.mediaContainer,
-              },
-              options: {
-                thresholdFraction: 0.4,
-                useCurrentSectionOnly: true,
-                resolveMediaUrl: resolveInstructionMediaUrl,
-                layout: 'leftOnly',
-                stepperHistory: stepperHistory,
-                readFirstPhraseKey: actualPhraseKey,
-                readPhraseKeys: RC._readInstructionPhraseKeys,
-                onPrev: handlePrev,
-                onNext: handleNext,
-                bottomOffset: 40, // Account for progress bar height
-              },
-              lang: RC.language.value,
-              langDirection: RC.LD,
-              phrases: phrases,
             })
 
-            if (checkDistMovieContainer) {
-              checkDistMovieContainer.innerHTML = ''
-              while (ui.mediaContainer.firstChild) {
-                checkDistMovieContainer.appendChild(
-                  ui.mediaContainer.firstChild,
-                )
+            let stepIndex = 0
+            const maxIdx = (stepModel.flatSteps?.length || 1) - 1
+
+            const handlePrev = () => {
+              if (stepIndex > 0) {
+                stepIndex--
               }
-              const movedMedia =
-                checkDistMovieContainer.querySelector('video, img')
-              if (movedMedia) {
-                movedMedia.style.maxHeight = '100%'
-              }
-              const distContainer = document.getElementById(
-                'calibration-trackDistance-check-viewingDistance-container',
-              )
-              if (distContainer) {
-                const hasMovie = checkDistMovieContainer.children.length > 0
-                if (hasMovie) {
-                  distContainer.style.height = '55%'
-                } else {
-                  distContainer.style.height = '100%'
-                }
-                const vdDiv = document.getElementById('viewing-distance-p')
-                const uDiv = document.getElementById(
-                  'calibration-trackDistance-check-viewingDistance-units',
-                )
-                if (vdDiv && uDiv) {
-                  adjustFontSize(vdDiv, uDiv)
-                }
-              }
+              // Always re-render to provide visual feedback (even if only one step)
+              doRender()
             }
 
-            // Debug: Check DOM for all video/img elements after render
-            const allVideos = instructionBody.querySelectorAll('video')
-            const allImages = instructionBody.querySelectorAll('img')
-            console.log('🖼️ DOM media elements after render:', {
-              stepIndex,
-              videosCount: allVideos.length,
-              imagesCount: allImages.length,
-              videoSrcs: Array.from(allVideos).map(v =>
-                v.src?.substring(0, 80),
-              ),
-              imageSrcs: Array.from(allImages).map(i =>
-                i.src?.substring(0, 80),
-              ),
-              mediaContainerChildren: ui.mediaContainer.children.length,
-              leftTextChildren: ui.leftText.children.length,
-            })
-
-            fitContentToAvailableSpace({
-              wrapper: scalableWrapper,
-              navHintEl: scalableWrapper.querySelector('.rc-stepper-nav-hint'),
-              stepperBox: scalableWrapper.querySelector('.rc-stepper-box'),
-              handSelector: scalableWrapper.querySelector(
-                '.rc-hand-preference-selector',
-              ),
-              barHeight: 40,
-              fillTarget: 0.95,
-              fitStepper: fitStepperBoxToHeight,
-            })
-            harmonizeCheckDistFonts()
-            requestAnimationFrame(() => setTimeout(harmonizeCheckDistFonts, 80))
-          }
-          doRender()
-
-          // Expose stepper progress for SPACE gating in the keyup handler
-          getStepperProgress = () => ({
-            current: stepIndex,
-            max: (stepModel.flatSteps?.length || 1) - 1,
-          })
-
-          const navHandler = e => {
-            if (e.key === 'ArrowDown') {
-              const maxIdx = (stepModel.flatSteps?.length || 1) - 1
+            const handleNext = () => {
               if (stepIndex < maxIdx) {
                 stepIndex++
                 if (stepIndex >= maxIdx) {
@@ -1062,460 +882,293 @@ const trackDistanceCheck = async (
                 }
               }
               doRender()
-              e.preventDefault()
-              e.stopPropagation()
-            } else if (e.key === 'ArrowUp') {
-              if (stepIndex > 0) {
-                stepIndex--
-              }
-              doRender()
-              e.preventDefault()
-              e.stopPropagation()
             }
-          }
-          navHandlerRef = navHandler
-          document.addEventListener('keydown', navHandlerRef)
 
-          // Hand-preference selector below stepper
-          const existingHandSel = scalableWrapper.querySelector(
-            '.rc-hand-preference-selector',
-          )
-          if (existingHandSel) existingHandSel.remove()
-          const handSel = createHandPreferenceSelector({
-            phrases,
-            lang: RC.language.value,
-            preferRight: preferRightHandBool,
-            onChange: isRight => {
-              preferRightHandBool = isRight
-              updateHandOverlay()
-            },
-            objectPhraseKey: 'RC_measuringStickOrTape',
-            compact: false,
-          })
-          updateHandOverlay()
-          scalableWrapper.appendChild(handSel)
-
-          fitContentToAvailableSpace({
-            wrapper: scalableWrapper,
-            navHintEl: scalableWrapper.querySelector('.rc-stepper-nav-hint'),
-            stepperBox: scalableWrapper.querySelector('.rc-stepper-box'),
-            handSelector: handSel,
-            barHeight: 40,
-            fillTarget: 0.95,
-            fitStepper: fitStepperBoxToHeight,
-          })
-          harmonizeCheckDistFonts()
-          requestAnimationFrame(() => setTimeout(harmonizeCheckDistFonts, 80))
-        } catch (e) {
-          // Fallback to plain text if parsing fails
-          instructionBody.innerText = instructionBodyPhrase
-            .replace('[[N11]]', cm)
-            .replace('[[UUU]]', RC.equipment?.value?.unit || '')
-        }
-      }
-
-      //wait for return key press
-      await new Promise(async resolve => {
-        if (!calibrateDistanceCheckSecs) calibrateDistanceCheckSecs = 0
-
-        setTimeout(async () => {
-          // Store the last captured face image
-          let lastCapturedFaceImage = null
-
-          async function keyupListener(event) {
-            if (event.key === ' ' && register) {
-              // Gate SPACE: require stepper to be on the last step (unless already read)
-              const alreadyReadDist = RC._readInstructionPhraseKeys.has(
-                'RC_produceDistanceLocation',
+            // On small screens, after the stepper is fitted, harmonize the
+            // nav-hint italic text and hand-preference font sizes to 0.7× the
+            // stepper font so there are only TWO font sizes: the stepper (focal
+            // point) and subdued surrounding text.
+            const harmonizeCheckDistFonts = () => {
+              const stepperBox =
+                scalableWrapper.querySelector('.rc-stepper-box')
+              const navHintEl = scalableWrapper.querySelector(
+                '.rc-stepper-nav-hint',
               )
-              if (!alreadyReadDist) {
-                const progress = getStepperProgress()
-                if (progress && progress.current < progress.max) {
-                  if (!_showingReadFirstPopupDist) {
-                    _showingReadFirstPopupDist = true
-                    ;(async () => {
-                      await showPopup(
-                        RC,
-                        '',
-                        phrases.EE_SpaceBarDisabledUntilInstructionsFullyRead?.[
-                          RC.language.value
-                        ] || '',
+              const handSelector = scalableWrapper.querySelector(
+                '.rc-hand-preference-selector',
+              )
+              const stepperFontPx = parseFloat(stepperBox?.style.fontSize) || 18
+
+              if (stepperFontPx >= 17.5) return
+
+              const RATIO = 0.7
+              const MIN_FONT = 8
+              let surroundingFontPx = Math.max(MIN_FONT, stepperFontPx * RATIO)
+
+              if (navHintEl && navHintEl.style.display !== 'none') {
+                const applyNavFont = fontPx => {
+                  const px = `${fontPx}px`
+                  navHintEl.style.fontSize = px
+                  navHintEl.querySelectorAll(':scope > div').forEach(child => {
+                    child.style.fontSize = px
+                    child.style.lineHeight = '1.3'
+                    child.querySelectorAll('*').forEach(desc => {
+                      desc.style.fontSize = 'inherit'
+                      desc.style.lineHeight = 'inherit'
+                    })
+                  })
+                }
+
+                applyNavFont(surroundingFontPx)
+                void navHintEl.offsetHeight
+
+                const availableWidth = navHintEl.clientWidth
+                if (availableWidth > 0) {
+                  let shrinkRatio = 1
+                  navHintEl.querySelectorAll(':scope > div').forEach(child => {
+                    const savedWS = child.style.whiteSpace
+                    const savedMW = child.style.maxWidth
+                    child.style.whiteSpace = 'nowrap'
+                    child.style.maxWidth = 'none'
+                    void child.offsetWidth
+                    const neededWidth = child.scrollWidth
+                    child.style.whiteSpace = savedWS
+                    child.style.maxWidth = savedMW || ''
+                    if (neededWidth > availableWidth) {
+                      shrinkRatio = Math.min(
+                        shrinkRatio,
+                        availableWidth / neededWidth,
                       )
-                      _showingReadFirstPopupDist = false
-                    })()
+                    }
+                  })
+                  if (shrinkRatio < 1) {
+                    surroundingFontPx = Math.max(
+                      MIN_FONT,
+                      surroundingFontPx * shrinkRatio,
+                    )
+                    applyNavFont(surroundingFontPx)
                   }
-                  return
                 }
               }
-              RC._readInstructionPhraseKeys.add('RC_produceDistanceLocation')
 
-              // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
-              const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
-              if (!canProceed) {
-                // Key press flushed - not in fullscreen, now in fullscreen after 4 second wait
-                // Wait for a new key press (do nothing, just return)
-                return
-              }
-
-              // Check if iris tracking is active before proceeding
-              if (!irisTrackingIsActive) {
-                console.log('Iris tracking not active - ignoring space bar')
-                return
-              }
-
-              // Remove the event listener immediately to prevent multiple rapid presses
-              document.removeEventListener('keyup', keyupListener)
-              // Remove from active listeners tracking
-              const index = iterationListeners.indexOf(keyupListener)
-              if (index > -1) iterationListeners.splice(index, 1)
-
-              // Play camera shutter sound
-              if (cameraShutterSound) {
-                cameraShutterSound()
-              }
-
-              // Capture the video frame immediately on space press
-              lastCapturedFaceImage = captureVideoFrame(RC)
-              //Todo: first place the capture occurs
-              console.log(
-                'checkDistance.js keyupListener() saveSnapshots option:',
-                saveSnapshots ?? false,
-              )
-
-              // Validate face mesh data with retry mechanism
-              const faceValidation = await validateFaceMeshSamples(
-                RC,
-                calibrateDistancePupil,
-                calibrateDistanceChecking,
-                RC.calibrateDistanceIpdUsesZBool !== false,
-                calibrateDistanceCorrectForHeadRotation,
-              )
-
-              if (!faceValidation.isValid) {
-                console.log(
-                  '=== FACE MESH VALIDATION FAILED - SHOWING RETRY POPUP ===',
+              if (handSelector) {
+                const px = `${surroundingFontPx}px`
+                const savedPIS = handSelector.style.paddingInlineStart || '0'
+                const titleDiv = handSelector.querySelector('div')
+                const labels = handSelector.querySelectorAll('label')
+                const radios = handSelector.querySelectorAll(
+                  'input[type="radio"]',
                 )
 
-                // Show face blocked popup
-                await showFaceBlockedPopup(
-                  RC,
-                  lastCapturedFaceImage,
-                  saveSnapshots,
-                )
+                handSelector.style.paddingTop = `${surroundingFontPx * 0.4}px`
+                handSelector.style.paddingBottom = `${surroundingFontPx * 0.15}px`
+                handSelector.style.paddingInlineStart = savedPIS
+                handSelector.style.gap = `${surroundingFontPx * 0.15}px`
 
-                // Clean up the captured image for privacy
-                lastCapturedFaceImage = null
-
-                // Re-add the space key listener after popup closes for retry
-                document.addEventListener('keyup', keyupListener)
-                // Track this listener for cleanup
-                iterationListeners.push(keyupListener)
-
-                // Don't resolve - let user try again
-                console.log('=== RETRYING FACE MESH VALIDATION ===')
-                return
-              }
-
-              // Face mesh validation passed - proceed with measurement
-              console.log(
-                '=== FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===',
-              )
-              register = false
-
-              // Re-add the listener (though register=false will prevent processing)
-              document.addEventListener('keyup', keyupListener)
-              // Track this listener for cleanup
-              iterationListeners.push(keyupListener)
-
-              // Determine which distance to save based on calibrateDistanceChecking option
-              let measuredDistanceCm = RC.viewingDistanceCm.value // Default to eye-to-camera
-
-              if (
-                calibrateDistanceChecking &&
-                typeof calibrateDistanceChecking === 'string'
-              ) {
-                const optionsArray = calibrateDistanceChecking
-                  .toLowerCase()
-                  .split(',')
-                  .map(s => s.trim())
-
-                // If includes "camera", use eye-to-camera distance (distanceCm)
-                if (optionsArray.includes('camera')) {
-                  measuredDistanceCm =
-                    RC.improvedDistanceTrackingData?.distanceCm ||
-                    RC.viewingDistanceCm.value
+                if (titleDiv) {
+                  titleDiv.style.fontSize = px
+                  titleDiv.style.marginBottom = `${surroundingFontPx * 0.15}px`
+                  titleDiv.querySelectorAll('*').forEach(el => {
+                    el.style.fontSize = 'inherit'
+                    el.style.lineHeight = 'inherit'
+                  })
                 }
-                // If includes "center", use eye-to-center distance (distanceCm_left or distanceCm_right based on nearEye)
-                if (optionsArray.includes('center')) {
-                  const nearEye =
-                    RC.improvedDistanceTrackingData?.nearEye || 'left'
-                  if (nearEye === 'left') {
-                    measuredDistanceCm =
-                      RC.improvedDistanceTrackingData?.left?.distanceCm ||
-                      RC.viewingDistanceCm.value
+
+                labels.forEach(l => {
+                  l.style.fontSize = px
+                  l.style.lineHeight = '1.2'
+                })
+
+                const radioSz = Math.max(10, surroundingFontPx * 0.85)
+                radios.forEach(r => {
+                  r.style.width = `${radioSz}px`
+                  r.style.height = `${radioSz}px`
+                })
+              }
+            }
+
+            const doRender = () => {
+              renderStepInstructions({
+                model: stepModel,
+                flatIndex: stepIndex,
+                elements: {
+                  leftText: ui.leftText,
+                  rightText: null,
+                  mediaContainer: ui.mediaContainer,
+                },
+                options: {
+                  thresholdFraction: 0.4,
+                  useCurrentSectionOnly: true,
+                  resolveMediaUrl: resolveInstructionMediaUrl,
+                  layout: 'leftOnly',
+                  stepperHistory: stepperHistory,
+                  readFirstPhraseKey: actualPhraseKey,
+                  readPhraseKeys: RC._readInstructionPhraseKeys,
+                  onPrev: handlePrev,
+                  onNext: handleNext,
+                  bottomOffset: 40, // Account for progress bar height
+                },
+                lang: RC.language.value,
+                langDirection: RC.LD,
+                phrases: phrases,
+              })
+
+              if (checkDistMovieContainer) {
+                checkDistMovieContainer.innerHTML = ''
+                while (ui.mediaContainer.firstChild) {
+                  checkDistMovieContainer.appendChild(
+                    ui.mediaContainer.firstChild,
+                  )
+                }
+                const movedMedia =
+                  checkDistMovieContainer.querySelector('video, img')
+                if (movedMedia) {
+                  movedMedia.style.maxHeight = '100%'
+                }
+                const distContainer = document.getElementById(
+                  'calibration-trackDistance-check-viewingDistance-container',
+                )
+                if (distContainer) {
+                  const hasMovie = checkDistMovieContainer.children.length > 0
+                  if (hasMovie) {
+                    distContainer.style.height = '55%'
                   } else {
-                    measuredDistanceCm =
-                      RC.improvedDistanceTrackingData?.right?.distanceCm ||
-                      RC.viewingDistanceCm.value
+                    distContainer.style.height = '100%'
+                  }
+                  const vdDiv = document.getElementById('viewing-distance-p')
+                  const uDiv = document.getElementById(
+                    'calibration-trackDistance-check-viewingDistance-units',
+                  )
+                  if (vdDiv && uDiv) {
+                    adjustFontSize(vdDiv, uDiv)
                   }
                 }
               }
 
-              const distanceFromRC = Number(measuredDistanceCm.toFixed(1))
-
-              const cameraResolutionXYVpx = getCameraResolutionXY(RC)
-              RC.distanceCheckJSON.cameraResolutionXYVpx.push(
-                cameraResolutionXYVpx,
-              )
-              RC.distanceCheckJSON.cameraHz.push(
-                RC.gazeTracker?.webgazer?.videoParamsToReport?.frameRate ||
-                  null,
-              )
-
-              RC.calibrateDistanceMeasuredCm.push(distanceFromRC)
-              RC.calibrateDistanceRequestedCm.push(
-                Number(
-                  RC.equipment?.value?.unit === 'inches'
-                    ? (cm * 2.54).toFixed(1)
-                    : cm.toFixed(1),
+              // Debug: Check DOM for all video/img elements after render
+              const allVideos = instructionBody.querySelectorAll('video')
+              const allImages = instructionBody.querySelectorAll('img')
+              console.log('🖼️ DOM media elements after render:', {
+                stepIndex,
+                videosCount: allVideos.length,
+                imagesCount: allImages.length,
+                videoSrcs: Array.from(allVideos).map(v =>
+                  v.src?.substring(0, 80),
                 ),
-              )
-              const EyeFeetXYPxLeft = faceValidation.nearestXYPx_left
-              const EyeFeetXYPxRight = faceValidation.nearestXYPx_right
-
-              // Store the averaged IPD pixels from validation test
-              RC.calibrateDistanceIPDPixels.push(faceValidation.ipdPixels)
-              RC.calibrateDistanceEyeFeetXYPx.push(
-                EyeFeetXYPxLeft,
-                EyeFeetXYPxRight,
-              )
-              RC.calibrateDistanceRequestedDistances.push(
-                Number(
-                  RC.equipment?.value?.unit === 'inches'
-                    ? (cm * 2.54).toFixed(1)
-                    : cm.toFixed(1),
+                imageSrcs: Array.from(allImages).map(i =>
+                  i.src?.substring(0, 80),
                 ),
-              )
-              const requestedEyesToPointCm =
-                Math.round(
-                  RC.equipment?.value?.unit === 'inches'
-                    ? cm * 2.54 * 10
-                    : cm * 10,
-                ) / 10
+                mediaContainerChildren: ui.mediaContainer.children.length,
+                leftTextChildren: ui.leftText.children.length,
+              })
 
-              const rulerBasedEyesToFootCm = Math.sqrt(
-                requestedEyesToPointCm ** 2 - faceValidation.footToPointCm ** 2,
+              fitContentToAvailableSpace({
+                wrapper: scalableWrapper,
+                navHintEl: scalableWrapper.querySelector(
+                  '.rc-stepper-nav-hint',
+                ),
+                stepperBox: scalableWrapper.querySelector('.rc-stepper-box'),
+                handSelector: scalableWrapper.querySelector(
+                  '.rc-hand-preference-selector',
+                ),
+                barHeight: 40,
+                fillTarget: 0.95,
+                fitStepper: fitStepperBoxToHeight,
+              })
+              harmonizeCheckDistFonts()
+              requestAnimationFrame(() =>
+                setTimeout(harmonizeCheckDistFonts, 80),
               )
-              let ipdOverWidth = null
-              let correctedIpd = null
-              let ipdUncorrectedOverWidth = null
-              try {
-                const cameraResolutionXYVpx = getCameraResolutionXY(RC)
-                const horizontalVpx = cameraResolutionXYVpx[0]
-                ipdOverWidth = correctIpdForHeadRotation(
-                  faceValidation.ipdPixels / horizontalVpx,
-                  faceValidation.ipdShrinkage,
-                )
-                correctedIpd = correctIpdForHeadRotation(
-                  faceValidation.ipdPixels,
-                  faceValidation.ipdShrinkage,
-                )
-                ipdUncorrectedOverWidth =
-                  faceValidation.ipdPixels / horizontalVpx
-                const imageBasedEyesToFootCm =
-                  (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
-                RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
-                  safeRoundCm(imageBasedEyesToFootCm),
-                )
-                const imageBasedEyesToPointCm = Math.sqrt(
-                  imageBasedEyesToFootCm ** 2 +
-                    faceValidation.footToPointCm ** 2,
-                )
-
-                RC.distanceCheckJSON.imageBasedEyesToPointCm.push(
-                  safeRoundCm(imageBasedEyesToPointCm),
-                )
-              } catch (e) {
-                RC.distanceCheckJSON.imageBasedEyesToFootCm.push(null)
-                RC.distanceCheckJSON.imageBasedEyesToPointCm.push(null)
-              }
-              RC.distanceCheckJSON.rulerBasedEyesToFootCm.push(
-                safeRoundCm(rulerBasedEyesToFootCm),
-              )
-              RC.distanceCheckJSON.rulerBasedEyesToPointCm.push(
-                safeRoundCm(requestedEyesToPointCm),
-              )
-              RC.distanceCheckJSON.requestedEyesToPointCm.push(
-                safeRoundCm(requestedEyesToPointCm),
-              )
-              const currentFVpx =
-                Math.round(
-                  ((correctedIpd * rulerBasedEyesToFootCm) / RC._CONST.IPD_CM) *
-                    10,
-                ) / 10
-              RC.distanceCheckJSON.fVpx.push(currentFVpx)
-              // Calculate and store fOverWidth = fVpx / cameraWidth
-              const currentFOverWidth = currentFVpx / cameraResolutionXYVpx[0]
-              RC.distanceCheckJSON.fOverWidth.push(
-                safeRoundRatio(currentFOverWidth),
-              )
-              // History lists: record every snapshot regardless of acceptance
-              RC.distanceCheckJSON.historyFOverWidth.push(
-                safeRoundRatio(currentFOverWidth),
-              )
-              RC.distanceCheckJSON.historyEyesToFootCm.push(
-                safeRoundCm(rulerBasedEyesToFootCm),
-              )
-              RC.distanceCheckJSON.historyPreferRightHandBool.push(
-                preferRightHandBool,
-              )
-              RC.distanceCheckJSON.pointXYPx.push([
-                faceValidation.pointXYPx[0],
-                faceValidation.pointXYPx[1],
-              ])
-              RC.distanceCheckJSON.footToPointCm.push(
-                safeRoundCm(faceValidation.footToPointCm),
-              )
-              RC.distanceCheckJSON.ipdOverWidth.push(
-                safeRoundRatio(ipdOverWidth),
-              )
-              RC.distanceCheckJSON.ipdOverWidthXYZ.push(
-                safeRoundRatio(ipdOverWidth),
-              )
-              RC.distanceCheckJSON.rightEyeFootXYPx.push([
-                faceValidation.nearestXYPx_right[0],
-                faceValidation.nearestXYPx_right[1],
-              ])
-              RC.distanceCheckJSON.leftEyeFootXYPx.push([
-                faceValidation.nearestXYPx_left[0],
-                faceValidation.nearestXYPx_left[1],
-              ])
-              RC.distanceCheckJSON.footXYPx.push([
-                faceValidation.footXYPx[0],
-                faceValidation.footXYPx[1],
-              ])
-              RC.distanceCheckJSON.historyHeadYawDeg.push(
-                faceValidation.yawDeg ?? null,
-              )
-              RC.distanceCheckJSON.historyIpdUncorrectedOverWidth.push(
-                safeRoundRatio(ipdUncorrectedOverWidth),
-              )
-              RC.distanceCheckJSON.historyIpdCorrectedOverWidth.push(
-                safeRoundRatio(ipdOverWidth),
-              )
-              // Plot lists: accepted (ratio is NaN for first)
-              const prevAccepted =
-                RC.distanceCheckJSON.acceptedFOverWidth.length > 0
-                  ? RC.distanceCheckJSON.acceptedFOverWidth[
-                      RC.distanceCheckJSON.acceptedFOverWidth.length - 1
-                    ]
-                  : null
-              RC.distanceCheckJSON.acceptedFOverWidth.push(
-                safeRoundRatio(currentFOverWidth),
-              )
-              RC.distanceCheckJSON.acceptedRatioFOverWidth.push(
-                prevAccepted === null
-                  ? NaN
-                  : (safeRoundRatio(currentFOverWidth / prevAccepted) ?? NaN),
-              )
-              RC.distanceCheckJSON.acceptedLocation.push(
-                calibrateDistanceChecking,
-              )
-              RC.distanceCheckJSON.acceptedPointXYPx.push([
-                faceValidation.pointXYPx[0],
-                faceValidation.pointXYPx[1],
-              ])
-              RC.distanceCheckJSON.acceptedLeftEyeFootXYPx.push([
-                faceValidation.nearestXYPx_left[0],
-                faceValidation.nearestXYPx_left[1],
-              ])
-              RC.distanceCheckJSON.acceptedRightEyeFootXYPx.push([
-                faceValidation.nearestXYPx_right[0],
-                faceValidation.nearestXYPx_right[1],
-              ])
-              RC.distanceCheckJSON.acceptedIpdOverWidth.push(
-                safeRoundRatio(ipdOverWidth),
-              )
-              RC.distanceCheckJSON.acceptedRulerBasedEyesToFootCm.push(
-                safeRoundCm(rulerBasedEyesToFootCm),
-              )
-              RC.distanceCheckJSON.acceptedRulerBasedEyesToPointCm.push(
-                safeRoundCm(requestedEyesToPointCm),
-              )
-              RC.distanceCheckJSON.acceptedImageBasedEyesToFootCm.push(
-                RC.distanceCheckJSON.imageBasedEyesToFootCm.length > 0
-                  ? RC.distanceCheckJSON.imageBasedEyesToFootCm[
-                      RC.distanceCheckJSON.imageBasedEyesToFootCm.length - 1
-                    ]
-                  : null,
-              )
-              RC.distanceCheckJSON.acceptedImageBasedEyesToPointCm.push(
-                RC.distanceCheckJSON.imageBasedEyesToPointCm.length > 0
-                  ? RC.distanceCheckJSON.imageBasedEyesToPointCm[
-                      RC.distanceCheckJSON.imageBasedEyesToPointCm.length - 1
-                    ]
-                  : null,
-              )
-              RC.distanceCheckJSON.acceptedPreferRightHandBool.push(
-                preferRightHandBool,
-              )
-              RC.distanceCheckJSON.acceptedHeadYawDeg.push(
-                faceValidation.yawDeg ?? null,
-              )
-              RC.distanceCheckJSON.acceptedIpdUncorrectedOverWidth.push(
-                safeRoundRatio(ipdUncorrectedOverWidth),
-              )
-              RC.distanceCheckJSON.acceptedIpdCorrectedOverWidth.push(
-                safeRoundRatio(ipdOverWidth),
-              )
-
-              // Clean up the captured image for privacy
-              lastCapturedFaceImage = null
-
-              document.removeEventListener('keydown', keyupListener)
-              removeKeypadHandler()
-              if (navHandlerRef) {
-                document.removeEventListener('keydown', navHandlerRef)
-                navHandlerRef = null
-              }
-              if (titleResizeHandler) {
-                window.removeEventListener('resize', titleResizeHandler)
-                titleResizeHandler = null
-              }
-              resolve()
             }
-            //check for the x key to skip (only allowed if requested distance > 60 cm)
-            else if (
-              event.key === 'x' &&
-              register &&
-              cm >
-                (RC.equipment?.value?.unit === 'inches'
-                  ? Math.round(60 / 2.54)
-                  : 60)
-            ) {
-              register = false
-              skippedDistancesCount++
-              //remove distance from requested list
-              calibrateDistanceCheckCm.splice(i, 1)
-              i--
-              document.removeEventListener('keydown', keyupListener)
-              removeKeypadHandler()
-              if (navHandlerRef) {
-                document.removeEventListener('keydown', navHandlerRef)
-                navHandlerRef = null
+            doRender()
+
+            // Expose stepper progress for SPACE gating in the keyup handler
+            getStepperProgress = () => ({
+              current: stepIndex,
+              max: (stepModel.flatSteps?.length || 1) - 1,
+            })
+
+            const navHandler = e => {
+              if (e.key === 'ArrowDown') {
+                const maxIdx = (stepModel.flatSteps?.length || 1) - 1
+                if (stepIndex < maxIdx) {
+                  stepIndex++
+                  if (stepIndex >= maxIdx) {
+                    RC._readInstructionPhraseKeys.add(actualPhraseKey)
+                  }
+                }
+                doRender()
+                e.preventDefault()
+                e.stopPropagation()
+              } else if (e.key === 'ArrowUp') {
+                if (stepIndex > 0) {
+                  stepIndex--
+                }
+                doRender()
+                e.preventDefault()
+                e.stopPropagation()
               }
-              if (titleResizeHandler) {
-                window.removeEventListener('resize', titleResizeHandler)
-                titleResizeHandler = null
-              }
-              resolve()
             }
+            navHandlerRef = navHandler
+            document.addEventListener('keydown', navHandlerRef)
+
+            // Hand-preference selector below stepper
+            const existingHandSel = scalableWrapper.querySelector(
+              '.rc-hand-preference-selector',
+            )
+            if (existingHandSel) existingHandSel.remove()
+            const handSel = createHandPreferenceSelector({
+              phrases,
+              lang: RC.language.value,
+              preferRight: preferRightHandBool,
+              onChange: isRight => {
+                preferRightHandBool = isRight
+                updateHandOverlay()
+              },
+              objectPhraseKey: 'RC_measuringStickOrTape',
+              compact: false,
+            })
+            updateHandOverlay()
+            scalableWrapper.appendChild(handSel)
+
+            fitContentToAvailableSpace({
+              wrapper: scalableWrapper,
+              navHintEl: scalableWrapper.querySelector('.rc-stepper-nav-hint'),
+              stepperBox: scalableWrapper.querySelector('.rc-stepper-box'),
+              handSelector: handSel,
+              barHeight: 40,
+              fillTarget: 0.95,
+              fitStepper: fitStepperBoxToHeight,
+            })
+            harmonizeCheckDistFonts()
+            requestAnimationFrame(() => setTimeout(harmonizeCheckDistFonts, 80))
+          } catch (e) {
+            // Fallback to plain text if parsing fails
+            instructionBody.innerText = instructionBodyPhrase
+              .replace('[[N11]]', cm)
+              .replace('[[UUU]]', RC.equipment?.value?.unit || '')
           }
-          const removeKeypadHandler = setUpEasyEyesKeypadHandler(
-            null,
-            RC.keypadHandler,
-            async value => {
-              if (value === 'space') {
+        }
+
+        //wait for return key press
+        await new Promise(async resolve => {
+          const releaseWait = onInteractionEnd(RC, () => resolve(false))
+          const complete = resolve
+          resolve = value => {
+            releaseWait()
+            complete(value)
+          }
+          if (!calibrateDistanceCheckSecs) calibrateDistanceCheckSecs = 0
+
+          const inputTimer = setTimeout(async () => {
+            if (interactionEnded(RC)) return
+            // Store the last captured face image
+            let lastCapturedFaceImage = null
+
+            async function keyupListener(event) {
+              if (interactionEnded(RC) || RC.isInteractionInputBlocked?.())
+                return
+              if (event.key === ' ' && register) {
                 // Gate SPACE: require stepper to be on the last step (unless already read)
                 const alreadyReadDist = RC._readInstructionPhraseKeys.has(
                   'RC_produceDistanceLocation',
@@ -1542,13 +1195,25 @@ const trackDistanceCheck = async (
                 }
                 RC._readInstructionPhraseKeys.add('RC_produceDistanceLocation')
 
-                // Check if iris tracking is active before proceeding
-                if (!irisTrackingIsActive) {
-                  console.log(
-                    'Iris tracking not active - ignoring space keypad',
-                  )
+                // Enforce fullscreen - if not in fullscreen, force it, wait 4 seconds, and ignore this key press
+                const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
+                if (!canProceed) {
+                  // Key press flushed - not in fullscreen, now in fullscreen after 4 second wait
+                  // Wait for a new key press (do nothing, just return)
                   return
                 }
+
+                // Check if iris tracking is active before proceeding
+                if (!irisTrackingIsActive) {
+                  console.log('Iris tracking not active - ignoring space bar')
+                  return
+                }
+
+                // Remove the event listener immediately to prevent multiple rapid presses
+                document.removeEventListener('keyup', keyupListener)
+                // Remove from active listeners tracking
+                const index = iterationListeners.indexOf(keyupListener)
+                if (index > -1) iterationListeners.splice(index, 1)
 
                 // Play camera shutter sound
                 if (cameraShutterSound) {
@@ -1557,8 +1222,9 @@ const trackDistanceCheck = async (
 
                 // Capture the video frame immediately on space press
                 lastCapturedFaceImage = captureVideoFrame(RC)
+                //Todo: first place the capture occurs
                 console.log(
-                  'distance.js onSpaceSnap() saveSnapshots option:',
+                  'checkDistance.js keyupListener() saveSnapshots option:',
                   saveSnapshots ?? false,
                 )
 
@@ -1573,7 +1239,7 @@ const trackDistanceCheck = async (
 
                 if (!faceValidation.isValid) {
                   console.log(
-                    '=== KEYPAD: FACE MESH VALIDATION FAILED - SHOWING RETRY POPUP ===',
+                    '=== FACE MESH VALIDATION FAILED - SHOWING RETRY POPUP ===',
                   )
 
                   // Show face blocked popup
@@ -1586,15 +1252,26 @@ const trackDistanceCheck = async (
                   // Clean up the captured image for privacy
                   lastCapturedFaceImage = null
 
+                  // Re-add the space key listener after popup closes for retry
+                  document.addEventListener('keyup', keyupListener)
+                  // Track this listener for cleanup
+                  iterationListeners.push(keyupListener)
+
                   // Don't resolve - let user try again
-                  console.log('=== KEYPAD: RETRYING FACE MESH VALIDATION ===')
+                  console.log('=== RETRYING FACE MESH VALIDATION ===')
                   return
                 }
 
                 // Face mesh validation passed - proceed with measurement
                 console.log(
-                  '=== KEYPAD: FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===',
+                  '=== FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===',
                 )
+                register = false
+
+                // Re-add the listener (though register=false will prevent processing)
+                document.addEventListener('keyup', keyupListener)
+                // Track this listener for cleanup
+                iterationListeners.push(keyupListener)
 
                 // Determine which distance to save based on calibrateDistanceChecking option
                 let measuredDistanceCm = RC.viewingDistanceCm.value // Default to eye-to-camera
@@ -1643,34 +1320,39 @@ const trackDistanceCheck = async (
 
                 RC.calibrateDistanceMeasuredCm.push(distanceFromRC)
                 RC.calibrateDistanceRequestedCm.push(
-                  Math.round(
+                  Number(
                     RC.equipment?.value?.unit === 'inches'
-                      ? cm * 2.54 * 10
-                      : cm * 10,
-                  ) / 10,
+                      ? (cm * 2.54).toFixed(1)
+                      : cm.toFixed(1),
+                  ),
                 )
-
                 const EyeFeetXYPxLeft = faceValidation.nearestXYPx_left
                 const EyeFeetXYPxRight = faceValidation.nearestXYPx_right
+
+                // Store the averaged IPD pixels from validation test
+                RC.calibrateDistanceIPDPixels.push(faceValidation.ipdPixels)
                 RC.calibrateDistanceEyeFeetXYPx.push(
                   EyeFeetXYPxLeft,
                   EyeFeetXYPxRight,
                 )
-
-                // Store the averaged IPD pixels from validation test
-                RC.calibrateDistanceIPDPixels.push(faceValidation.ipdPixels)
                 RC.calibrateDistanceRequestedDistances.push(
+                  Number(
+                    RC.equipment?.value?.unit === 'inches'
+                      ? (cm * 2.54).toFixed(1)
+                      : cm.toFixed(1),
+                  ),
+                )
+                const requestedEyesToPointCm =
                   Math.round(
                     RC.equipment?.value?.unit === 'inches'
                       ? cm * 2.54 * 10
                       : cm * 10,
-                  ) / 10,
-                )
+                  ) / 10
 
-                RC.distanceCheckJSON.pointXYPx.push([
-                  faceValidation.pointXYPx[0],
-                  faceValidation.pointXYPx[1],
-                ])
+                const rulerBasedEyesToFootCm = Math.sqrt(
+                  requestedEyesToPointCm ** 2 -
+                    faceValidation.footToPointCm ** 2,
+                )
                 let ipdOverWidth = null
                 let correctedIpd = null
                 let ipdUncorrectedOverWidth = null
@@ -1704,37 +1386,30 @@ const trackDistanceCheck = async (
                   RC.distanceCheckJSON.imageBasedEyesToFootCm.push(null)
                   RC.distanceCheckJSON.imageBasedEyesToPointCm.push(null)
                 }
-                const requestedEyesToPointCm =
-                  RC.equipment?.value?.unit === 'inches' ? cm * 2.54 : cm
-                const rulerBasedEyesToFootCm = Math.sqrt(
-                  requestedEyesToPointCm ** 2 -
-                    faceValidation.footToPointCm ** 2,
+                RC.distanceCheckJSON.rulerBasedEyesToFootCm.push(
+                  safeRoundCm(rulerBasedEyesToFootCm),
                 )
                 RC.distanceCheckJSON.rulerBasedEyesToPointCm.push(
                   safeRoundCm(requestedEyesToPointCm),
                 )
-                RC.distanceCheckJSON.rulerBasedEyesToFootCm.push(
-                  safeRoundCm(rulerBasedEyesToFootCm),
-                )
                 RC.distanceCheckJSON.requestedEyesToPointCm.push(
                   safeRoundCm(requestedEyesToPointCm),
                 )
-                const currentFVpxKeypad =
+                const currentFVpx =
                   Math.round(
                     ((correctedIpd * rulerBasedEyesToFootCm) /
                       RC._CONST.IPD_CM) *
                       10,
                   ) / 10
-                RC.distanceCheckJSON.fVpx.push(currentFVpxKeypad)
+                RC.distanceCheckJSON.fVpx.push(currentFVpx)
                 // Calculate and store fOverWidth = fVpx / cameraWidth
-                const currentFOverWidthKeypad =
-                  currentFVpxKeypad / cameraResolutionXYVpx[0]
+                const currentFOverWidth = currentFVpx / cameraResolutionXYVpx[0]
                 RC.distanceCheckJSON.fOverWidth.push(
-                  safeRoundRatio(currentFOverWidthKeypad),
+                  safeRoundRatio(currentFOverWidth),
                 )
                 // History lists: record every snapshot regardless of acceptance
                 RC.distanceCheckJSON.historyFOverWidth.push(
-                  safeRoundRatio(currentFOverWidthKeypad),
+                  safeRoundRatio(currentFOverWidth),
                 )
                 RC.distanceCheckJSON.historyEyesToFootCm.push(
                   safeRoundCm(rulerBasedEyesToFootCm),
@@ -1742,6 +1417,10 @@ const trackDistanceCheck = async (
                 RC.distanceCheckJSON.historyPreferRightHandBool.push(
                   preferRightHandBool,
                 )
+                RC.distanceCheckJSON.pointXYPx.push([
+                  faceValidation.pointXYPx[0],
+                  faceValidation.pointXYPx[1],
+                ])
                 RC.distanceCheckJSON.footToPointCm.push(
                   safeRoundCm(faceValidation.footToPointCm),
                 )
@@ -1749,9 +1428,7 @@ const trackDistanceCheck = async (
                   safeRoundRatio(ipdOverWidth),
                 )
                 RC.distanceCheckJSON.ipdOverWidthXYZ.push(
-                  safeRoundRatio(
-                    faceValidation.ipdXYZPixels / cameraResolutionXYVpx[0],
-                  ),
+                  safeRoundRatio(ipdOverWidth),
                 )
                 RC.distanceCheckJSON.rightEyeFootXYPx.push([
                   faceValidation.nearestXYPx_right[0],
@@ -1775,21 +1452,19 @@ const trackDistanceCheck = async (
                   safeRoundRatio(ipdOverWidth),
                 )
                 // Plot lists: accepted (ratio is NaN for first)
-                const prevAcceptedKeypad =
+                const prevAccepted =
                   RC.distanceCheckJSON.acceptedFOverWidth.length > 0
                     ? RC.distanceCheckJSON.acceptedFOverWidth[
                         RC.distanceCheckJSON.acceptedFOverWidth.length - 1
                       ]
                     : null
                 RC.distanceCheckJSON.acceptedFOverWidth.push(
-                  safeRoundRatio(currentFOverWidthKeypad),
+                  safeRoundRatio(currentFOverWidth),
                 )
                 RC.distanceCheckJSON.acceptedRatioFOverWidth.push(
-                  prevAcceptedKeypad === null
+                  prevAccepted === null
                     ? NaN
-                    : (safeRoundRatio(
-                        currentFOverWidthKeypad / prevAcceptedKeypad,
-                      ) ?? NaN),
+                    : (safeRoundRatio(currentFOverWidth / prevAccepted) ?? NaN),
                 )
                 RC.distanceCheckJSON.acceptedLocation.push(
                   calibrateDistanceChecking,
@@ -1845,309 +1520,697 @@ const trackDistanceCheck = async (
                 // Clean up the captured image for privacy
                 lastCapturedFaceImage = null
 
+                document.removeEventListener('keydown', keyupListener)
                 removeKeypadHandler()
-                cleanupFontAdjustment() // Clean up font adjustment listeners
-                document.removeEventListener('keyup', keyupListener)
+                if (navHandlerRef) {
+                  document.removeEventListener('keydown', navHandlerRef)
+                  navHandlerRef = null
+                }
+                if (titleResizeHandler) {
+                  window.removeEventListener('resize', titleResizeHandler)
+                  titleResizeHandler = null
+                }
                 resolve()
               }
               //check for the x key to skip (only allowed if requested distance > 60 cm)
               else if (
-                value === '❌' &&
+                event.key === 'x' &&
+                register &&
                 cm >
                   (RC.equipment?.value?.unit === 'inches'
                     ? Math.round(60 / 2.54)
                     : 60)
               ) {
+                register = false
                 skippedDistancesCount++
                 //remove distance from requested list
                 calibrateDistanceCheckCm.splice(i, 1)
                 i--
+                document.removeEventListener('keydown', keyupListener)
                 removeKeypadHandler()
-                cleanupFontAdjustment() // Clean up font adjustment listeners
-                document.removeEventListener('keyup', keyupListener)
+                if (navHandlerRef) {
+                  document.removeEventListener('keydown', navHandlerRef)
+                  navHandlerRef = null
+                }
+                if (titleResizeHandler) {
+                  window.removeEventListener('resize', titleResizeHandler)
+                  titleResizeHandler = null
+                }
                 resolve()
               }
-            },
-            false,
-            ['space', '❌'],
-            RC,
-            true,
-          )
-
-          document.addEventListener('keyup', keyupListener)
-          // Track this listener for cleanup
-          iterationListeners.push(keyupListener)
-        }, calibrateDistanceCheckSecs * 1000)
-      })
-
-      // COMPLIANCE CHECK: Starting from the second fOverWidth estimate,
-      // compare newFOverWidth with oldFOverWidth using log ratio
-      // Only run if the last 2 snapshots are both accepted (not yet rejected)
-      const fArr = RC.distanceCheckJSON.fOverWidth
-      const aArr = RC.distanceCheckJSON.acceptedFOverWidth
-      const lastTwoAccepted =
-        fArr.length >= 2 &&
-        aArr.length >= 2 &&
-        fArr[fArr.length - 1] === aArr[aArr.length - 1] &&
-        fArr[fArr.length - 2] === aArr[aArr.length - 2]
-
-      if (lastTwoAccepted) {
-        const newFOverWidth =
-          RC.distanceCheckJSON.fOverWidth[
-            RC.distanceCheckJSON.fOverWidth.length - 1
-          ]
-        const oldFOverWidth =
-          RC.distanceCheckJSON.fOverWidth[
-            RC.distanceCheckJSON.fOverWidth.length - 2
-          ]
-
-        const T_fow = calibrateDistanceAllowedRatioFOverWidth
-        const fowRatio = newFOverWidth / oldFOverWidth
-        const fowRoundedPct = Math.round(100 * fowRatio)
-        const fowLower = Math.round(100 / T_fow)
-        const fowUpper = Math.round(100 * T_fow)
-        const fowAccepted =
-          fowRoundedPct >= fowLower && fowRoundedPct <= fowUpper
-
-        console.log('[fOverWidth Check] Old fOverWidth:', oldFOverWidth)
-        console.log('[fOverWidth Check] New fOverWidth:', newFOverWidth)
-        console.log(
-          `[fOverWidth Check] Rounded ratio: ${fowRoundedPct}%, interval: [${fowLower}%, ${fowUpper}%]`,
-        )
-
-        if (!fowAccepted) {
-          console.warn(
-            `[fOverWidth Check] MISMATCH: Ratio is ${fowRoundedPct}% (oldFOverWidth=${oldFOverWidth}, newFOverWidth=${newFOverWidth}). Rejecting BOTH measurements.`,
-          )
-
-          // Remove the last TWO measurements from all arrays
-          RC.calibrateDistanceMeasuredCm.pop()
-          RC.calibrateDistanceMeasuredCm.pop()
-          RC.calibrateDistanceRequestedCm.pop()
-          RC.calibrateDistanceRequestedCm.pop()
-          RC.calibrateDistanceIPDPixels.pop()
-          RC.calibrateDistanceIPDPixels.pop()
-          RC.calibrateDistanceRequestedDistances.pop()
-          RC.calibrateDistanceRequestedDistances.pop()
-          // EyeFeetXYPx has 2 entries per measurement (left and right)
-          RC.calibrateDistanceEyeFeetXYPx.pop()
-          RC.calibrateDistanceEyeFeetXYPx.pop()
-          RC.calibrateDistanceEyeFeetXYPx.pop()
-          RC.calibrateDistanceEyeFeetXYPx.pop()
-
-          // Rejected plot lists: capture before popping (only the more recent of the two fOverWidth values)
-          const fOverWidthArray = RC.distanceCheckJSON.fOverWidth
-          const moreRecentFOverWidth =
-            fOverWidthArray[fOverWidthArray.length - 1]
-          RC.distanceCheckJSON.rejectedFOverWidth.push(
-            safeRoundRatio(moreRecentFOverWidth),
-          )
-          RC.distanceCheckJSON.rejectedRatioFOverWidth.push(
-            safeRoundRatio(
-              fOverWidthArray[fOverWidthArray.length - 1] /
-                fOverWidthArray[fOverWidthArray.length - 2],
-            ),
-          )
-          RC.distanceCheckJSON.rejectedLocation.push(calibrateDistanceChecking)
-          RC.distanceCheckJSON.rejectedPointXYPx.push([
-            ...RC.distanceCheckJSON.pointXYPx[
-              RC.distanceCheckJSON.pointXYPx.length - 1
-            ],
-          ])
-          // Rejected per-snapshot metrics: push both rejected snapshots (more recent first, then previous)
-          for (let ri = 1; ri >= 0; ri--) {
-            const idx = RC.distanceCheckJSON.leftEyeFootXYPx.length - 1 - ri
-            RC.distanceCheckJSON.rejectedLeftEyeFootXYPx.push(
-              RC.distanceCheckJSON.leftEyeFootXYPx[idx]
-                ? [...RC.distanceCheckJSON.leftEyeFootXYPx[idx]]
-                : null,
-            )
-            RC.distanceCheckJSON.rejectedRightEyeFootXYPx.push(
-              RC.distanceCheckJSON.rightEyeFootXYPx[idx]
-                ? [...RC.distanceCheckJSON.rightEyeFootXYPx[idx]]
-                : null,
-            )
-            RC.distanceCheckJSON.rejectedIpdOverWidth.push(
-              RC.distanceCheckJSON.ipdOverWidth[idx] ?? null,
-            )
-            RC.distanceCheckJSON.rejectedRulerBasedEyesToFootCm.push(
-              RC.distanceCheckJSON.rulerBasedEyesToFootCm[idx] ?? null,
-            )
-            RC.distanceCheckJSON.rejectedRulerBasedEyesToPointCm.push(
-              RC.distanceCheckJSON.rulerBasedEyesToPointCm[idx] ?? null,
-            )
-            RC.distanceCheckJSON.rejectedImageBasedEyesToFootCm.push(
-              RC.distanceCheckJSON.imageBasedEyesToFootCm[idx] ?? null,
-            )
-            RC.distanceCheckJSON.rejectedImageBasedEyesToPointCm.push(
-              RC.distanceCheckJSON.imageBasedEyesToPointCm[idx] ?? null,
-            )
-            RC.distanceCheckJSON.rejectedPreferRightHandBool.push(
-              RC.distanceCheckJSON.historyPreferRightHandBool[idx] ?? null,
-            )
-            RC.distanceCheckJSON.rejectedHeadYawDeg.push(
-              RC.distanceCheckJSON.historyHeadYawDeg[idx] ?? null,
-            )
-            RC.distanceCheckJSON.rejectedIpdUncorrectedOverWidth.push(
-              RC.distanceCheckJSON.historyIpdUncorrectedOverWidth[idx] ?? null,
-            )
-            RC.distanceCheckJSON.rejectedIpdCorrectedOverWidth.push(
-              RC.distanceCheckJSON.historyIpdCorrectedOverWidth[idx] ?? null,
-            )
-          }
-
-          // Remove the last TWO from distanceCheckJSON per-snapshot arrays so the
-          // next measurement is compared to the last accepted (same as calibration).
-          for (let popCount = 0; popCount < 2; popCount++) {
-            RC.distanceCheckJSON.fOverWidth.pop()
-            RC.distanceCheckJSON.fVpx.pop()
-            RC.distanceCheckJSON.ipdOverWidth.pop()
-            RC.distanceCheckJSON.ipdOverWidthXYZ.pop()
-            RC.distanceCheckJSON.imageBasedEyesToFootCm.pop()
-            RC.distanceCheckJSON.imageBasedEyesToPointCm.pop()
-            RC.distanceCheckJSON.rulerBasedEyesToPointCm.pop()
-            RC.distanceCheckJSON.rulerBasedEyesToFootCm.pop()
-            RC.distanceCheckJSON.pointXYPx.pop()
-            RC.distanceCheckJSON.cameraResolutionXYVpx.pop()
-            RC.distanceCheckJSON.requestedEyesToPointCm.pop()
-            RC.distanceCheckJSON.footToPointCm.pop()
-            RC.distanceCheckJSON.rightEyeFootXYPx.pop()
-            RC.distanceCheckJSON.leftEyeFootXYPx.pop()
-            RC.distanceCheckJSON.footXYPx.pop()
-          }
-          // Shrink accepted lists: remove the two rejected entries
-          for (let popCount = 0; popCount < 2; popCount++) {
-            RC.distanceCheckJSON.acceptedFOverWidth.pop()
-            RC.distanceCheckJSON.acceptedRatioFOverWidth.pop()
-            RC.distanceCheckJSON.acceptedLocation.pop()
-            RC.distanceCheckJSON.acceptedPointXYPx.pop()
-            RC.distanceCheckJSON.acceptedLeftEyeFootXYPx.pop()
-            RC.distanceCheckJSON.acceptedRightEyeFootXYPx.pop()
-            RC.distanceCheckJSON.acceptedIpdOverWidth.pop()
-            RC.distanceCheckJSON.acceptedRulerBasedEyesToFootCm.pop()
-            RC.distanceCheckJSON.acceptedRulerBasedEyesToPointCm.pop()
-            RC.distanceCheckJSON.acceptedImageBasedEyesToFootCm.pop()
-            RC.distanceCheckJSON.acceptedImageBasedEyesToPointCm.pop()
-            RC.distanceCheckJSON.acceptedPreferRightHandBool.pop()
-            RC.distanceCheckJSON.acceptedHeadYawDeg.pop()
-            RC.distanceCheckJSON.acceptedIpdUncorrectedOverWidth.pop()
-            RC.distanceCheckJSON.acceptedIpdCorrectedOverWidth.pop()
-          }
-
-          const errorMessage =
-            phrases.RC_focalLengthMismatch?.[RC.language.value]
-              ?.replace('[[N1]]', fowRoundedPct.toString())
-              .replace('[[TT1]]', fowLower.toString())
-              .replace('[[TT2]]', fowUpper.toString()) ||
-            `The last two snapshots are inconsistent. Your new distance is ${fowRoundedPct}% of that expected from your previous snapshot. Try again. Click OK or press RETURN.`
-
-          // Show popup error message and wait for OK
-          await Swal.fire({
-            ...swalInfoOptions(RC, { showIcon: false }),
-            icon: '',
-            title: '',
-            html: processInlineFormatting(errorMessage),
-            allowEnterKey: true,
-            focusConfirm: true,
-            confirmButtonText: phrases.RC_ok?.[RC.L],
-            didOpen: () => {
-              // Prevent Space key from triggering the OK button (only allow Return/Enter)
-              const confirmBtn = Swal.getConfirmButton()
-              if (confirmBtn) {
-                confirmBtn.addEventListener('keydown', e => {
-                  if (e.key === ' ' || e.code === 'Space') {
-                    e.preventDefault()
-                    e.stopPropagation()
+            }
+            const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+              null,
+              RC.keypadHandler,
+              async value => {
+                if (value === 'space') {
+                  // Gate SPACE: require stepper to be on the last step (unless already read)
+                  const alreadyReadDist = RC._readInstructionPhraseKeys.has(
+                    'RC_produceDistanceLocation',
+                  )
+                  if (!alreadyReadDist) {
+                    const progress = getStepperProgress()
+                    if (progress && progress.current < progress.max) {
+                      if (!_showingReadFirstPopupDist) {
+                        _showingReadFirstPopupDist = true
+                        ;(async () => {
+                          await showPopup(
+                            RC,
+                            '',
+                            phrases
+                              .EE_SpaceBarDisabledUntilInstructionsFullyRead?.[
+                              RC.language.value
+                            ] || '',
+                          )
+                          _showingReadFirstPopupDist = false
+                        })()
+                      }
+                      return
+                    }
                   }
-                })
-              }
-            },
-          })
+                  RC._readInstructionPhraseKeys.add(
+                    'RC_produceDistanceLocation',
+                  )
 
-          // Go back 2 iterations to remeasure both rejected distances
-          // Set i to i - 2 so the next iteration starts at i - 1
-          i = i - 2
+                  // Check if iris tracking is active before proceeding
+                  if (!irisTrackingIsActive) {
+                    console.log(
+                      'Iris tracking not active - ignoring space keypad',
+                    )
+                    return
+                  }
 
-          const acceptedCount = RC.distanceCheckJSON.acceptedFOverWidth.length
+                  // Play camera shutter sound
+                  if (cameraShutterSound) {
+                    cameraShutterSound()
+                  }
+
+                  // Capture the video frame immediately on space press
+                  lastCapturedFaceImage = captureVideoFrame(RC)
+                  console.log(
+                    'distance.js onSpaceSnap() saveSnapshots option:',
+                    saveSnapshots ?? false,
+                  )
+
+                  // Validate face mesh data with retry mechanism
+                  const faceValidation = await validateFaceMeshSamples(
+                    RC,
+                    calibrateDistancePupil,
+                    calibrateDistanceChecking,
+                    RC.calibrateDistanceIpdUsesZBool !== false,
+                    calibrateDistanceCorrectForHeadRotation,
+                  )
+
+                  if (!faceValidation.isValid) {
+                    console.log(
+                      '=== KEYPAD: FACE MESH VALIDATION FAILED - SHOWING RETRY POPUP ===',
+                    )
+
+                    // Show face blocked popup
+                    await showFaceBlockedPopup(
+                      RC,
+                      lastCapturedFaceImage,
+                      saveSnapshots,
+                    )
+
+                    // Clean up the captured image for privacy
+                    lastCapturedFaceImage = null
+
+                    // Don't resolve - let user try again
+                    console.log('=== KEYPAD: RETRYING FACE MESH VALIDATION ===')
+                    return
+                  }
+
+                  // Face mesh validation passed - proceed with measurement
+                  console.log(
+                    '=== KEYPAD: FACE MESH VALIDATION PASSED - SAVING MEASUREMENT ===',
+                  )
+
+                  // Determine which distance to save based on calibrateDistanceChecking option
+                  let measuredDistanceCm = RC.viewingDistanceCm.value // Default to eye-to-camera
+
+                  if (
+                    calibrateDistanceChecking &&
+                    typeof calibrateDistanceChecking === 'string'
+                  ) {
+                    const optionsArray = calibrateDistanceChecking
+                      .toLowerCase()
+                      .split(',')
+                      .map(s => s.trim())
+
+                    // If includes "camera", use eye-to-camera distance (distanceCm)
+                    if (optionsArray.includes('camera')) {
+                      measuredDistanceCm =
+                        RC.improvedDistanceTrackingData?.distanceCm ||
+                        RC.viewingDistanceCm.value
+                    }
+                    // If includes "center", use eye-to-center distance (distanceCm_left or distanceCm_right based on nearEye)
+                    if (optionsArray.includes('center')) {
+                      const nearEye =
+                        RC.improvedDistanceTrackingData?.nearEye || 'left'
+                      if (nearEye === 'left') {
+                        measuredDistanceCm =
+                          RC.improvedDistanceTrackingData?.left?.distanceCm ||
+                          RC.viewingDistanceCm.value
+                      } else {
+                        measuredDistanceCm =
+                          RC.improvedDistanceTrackingData?.right?.distanceCm ||
+                          RC.viewingDistanceCm.value
+                      }
+                    }
+                  }
+
+                  const distanceFromRC = Number(measuredDistanceCm.toFixed(1))
+
+                  const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+                  RC.distanceCheckJSON.cameraResolutionXYVpx.push(
+                    cameraResolutionXYVpx,
+                  )
+                  RC.distanceCheckJSON.cameraHz.push(
+                    RC.gazeTracker?.webgazer?.videoParamsToReport?.frameRate ||
+                      null,
+                  )
+
+                  RC.calibrateDistanceMeasuredCm.push(distanceFromRC)
+                  RC.calibrateDistanceRequestedCm.push(
+                    Math.round(
+                      RC.equipment?.value?.unit === 'inches'
+                        ? cm * 2.54 * 10
+                        : cm * 10,
+                    ) / 10,
+                  )
+
+                  const EyeFeetXYPxLeft = faceValidation.nearestXYPx_left
+                  const EyeFeetXYPxRight = faceValidation.nearestXYPx_right
+                  RC.calibrateDistanceEyeFeetXYPx.push(
+                    EyeFeetXYPxLeft,
+                    EyeFeetXYPxRight,
+                  )
+
+                  // Store the averaged IPD pixels from validation test
+                  RC.calibrateDistanceIPDPixels.push(faceValidation.ipdPixels)
+                  RC.calibrateDistanceRequestedDistances.push(
+                    Math.round(
+                      RC.equipment?.value?.unit === 'inches'
+                        ? cm * 2.54 * 10
+                        : cm * 10,
+                    ) / 10,
+                  )
+
+                  RC.distanceCheckJSON.pointXYPx.push([
+                    faceValidation.pointXYPx[0],
+                    faceValidation.pointXYPx[1],
+                  ])
+                  let ipdOverWidth = null
+                  let correctedIpd = null
+                  let ipdUncorrectedOverWidth = null
+                  try {
+                    const cameraResolutionXYVpx = getCameraResolutionXY(RC)
+                    const horizontalVpx = cameraResolutionXYVpx[0]
+                    ipdOverWidth = correctIpdForHeadRotation(
+                      faceValidation.ipdPixels / horizontalVpx,
+                      faceValidation.ipdShrinkage,
+                    )
+                    correctedIpd = correctIpdForHeadRotation(
+                      faceValidation.ipdPixels,
+                      faceValidation.ipdShrinkage,
+                    )
+                    ipdUncorrectedOverWidth =
+                      faceValidation.ipdPixels / horizontalVpx
+                    const imageBasedEyesToFootCm =
+                      (calibrationFOverWidth * RC._CONST.IPD_CM) / ipdOverWidth
+                    RC.distanceCheckJSON.imageBasedEyesToFootCm.push(
+                      safeRoundCm(imageBasedEyesToFootCm),
+                    )
+                    const imageBasedEyesToPointCm = Math.sqrt(
+                      imageBasedEyesToFootCm ** 2 +
+                        faceValidation.footToPointCm ** 2,
+                    )
+
+                    RC.distanceCheckJSON.imageBasedEyesToPointCm.push(
+                      safeRoundCm(imageBasedEyesToPointCm),
+                    )
+                  } catch (e) {
+                    RC.distanceCheckJSON.imageBasedEyesToFootCm.push(null)
+                    RC.distanceCheckJSON.imageBasedEyesToPointCm.push(null)
+                  }
+                  const requestedEyesToPointCm =
+                    RC.equipment?.value?.unit === 'inches' ? cm * 2.54 : cm
+                  const rulerBasedEyesToFootCm = Math.sqrt(
+                    requestedEyesToPointCm ** 2 -
+                      faceValidation.footToPointCm ** 2,
+                  )
+                  RC.distanceCheckJSON.rulerBasedEyesToPointCm.push(
+                    safeRoundCm(requestedEyesToPointCm),
+                  )
+                  RC.distanceCheckJSON.rulerBasedEyesToFootCm.push(
+                    safeRoundCm(rulerBasedEyesToFootCm),
+                  )
+                  RC.distanceCheckJSON.requestedEyesToPointCm.push(
+                    safeRoundCm(requestedEyesToPointCm),
+                  )
+                  const currentFVpxKeypad =
+                    Math.round(
+                      ((correctedIpd * rulerBasedEyesToFootCm) /
+                        RC._CONST.IPD_CM) *
+                        10,
+                    ) / 10
+                  RC.distanceCheckJSON.fVpx.push(currentFVpxKeypad)
+                  // Calculate and store fOverWidth = fVpx / cameraWidth
+                  const currentFOverWidthKeypad =
+                    currentFVpxKeypad / cameraResolutionXYVpx[0]
+                  RC.distanceCheckJSON.fOverWidth.push(
+                    safeRoundRatio(currentFOverWidthKeypad),
+                  )
+                  // History lists: record every snapshot regardless of acceptance
+                  RC.distanceCheckJSON.historyFOverWidth.push(
+                    safeRoundRatio(currentFOverWidthKeypad),
+                  )
+                  RC.distanceCheckJSON.historyEyesToFootCm.push(
+                    safeRoundCm(rulerBasedEyesToFootCm),
+                  )
+                  RC.distanceCheckJSON.historyPreferRightHandBool.push(
+                    preferRightHandBool,
+                  )
+                  RC.distanceCheckJSON.footToPointCm.push(
+                    safeRoundCm(faceValidation.footToPointCm),
+                  )
+                  RC.distanceCheckJSON.ipdOverWidth.push(
+                    safeRoundRatio(ipdOverWidth),
+                  )
+                  RC.distanceCheckJSON.ipdOverWidthXYZ.push(
+                    safeRoundRatio(
+                      faceValidation.ipdXYZPixels / cameraResolutionXYVpx[0],
+                    ),
+                  )
+                  RC.distanceCheckJSON.rightEyeFootXYPx.push([
+                    faceValidation.nearestXYPx_right[0],
+                    faceValidation.nearestXYPx_right[1],
+                  ])
+                  RC.distanceCheckJSON.leftEyeFootXYPx.push([
+                    faceValidation.nearestXYPx_left[0],
+                    faceValidation.nearestXYPx_left[1],
+                  ])
+                  RC.distanceCheckJSON.footXYPx.push([
+                    faceValidation.footXYPx[0],
+                    faceValidation.footXYPx[1],
+                  ])
+                  RC.distanceCheckJSON.historyHeadYawDeg.push(
+                    faceValidation.yawDeg ?? null,
+                  )
+                  RC.distanceCheckJSON.historyIpdUncorrectedOverWidth.push(
+                    safeRoundRatio(ipdUncorrectedOverWidth),
+                  )
+                  RC.distanceCheckJSON.historyIpdCorrectedOverWidth.push(
+                    safeRoundRatio(ipdOverWidth),
+                  )
+                  // Plot lists: accepted (ratio is NaN for first)
+                  const prevAcceptedKeypad =
+                    RC.distanceCheckJSON.acceptedFOverWidth.length > 0
+                      ? RC.distanceCheckJSON.acceptedFOverWidth[
+                          RC.distanceCheckJSON.acceptedFOverWidth.length - 1
+                        ]
+                      : null
+                  RC.distanceCheckJSON.acceptedFOverWidth.push(
+                    safeRoundRatio(currentFOverWidthKeypad),
+                  )
+                  RC.distanceCheckJSON.acceptedRatioFOverWidth.push(
+                    prevAcceptedKeypad === null
+                      ? NaN
+                      : (safeRoundRatio(
+                          currentFOverWidthKeypad / prevAcceptedKeypad,
+                        ) ?? NaN),
+                  )
+                  RC.distanceCheckJSON.acceptedLocation.push(
+                    calibrateDistanceChecking,
+                  )
+                  RC.distanceCheckJSON.acceptedPointXYPx.push([
+                    faceValidation.pointXYPx[0],
+                    faceValidation.pointXYPx[1],
+                  ])
+                  RC.distanceCheckJSON.acceptedLeftEyeFootXYPx.push([
+                    faceValidation.nearestXYPx_left[0],
+                    faceValidation.nearestXYPx_left[1],
+                  ])
+                  RC.distanceCheckJSON.acceptedRightEyeFootXYPx.push([
+                    faceValidation.nearestXYPx_right[0],
+                    faceValidation.nearestXYPx_right[1],
+                  ])
+                  RC.distanceCheckJSON.acceptedIpdOverWidth.push(
+                    safeRoundRatio(ipdOverWidth),
+                  )
+                  RC.distanceCheckJSON.acceptedRulerBasedEyesToFootCm.push(
+                    safeRoundCm(rulerBasedEyesToFootCm),
+                  )
+                  RC.distanceCheckJSON.acceptedRulerBasedEyesToPointCm.push(
+                    safeRoundCm(requestedEyesToPointCm),
+                  )
+                  RC.distanceCheckJSON.acceptedImageBasedEyesToFootCm.push(
+                    RC.distanceCheckJSON.imageBasedEyesToFootCm.length > 0
+                      ? RC.distanceCheckJSON.imageBasedEyesToFootCm[
+                          RC.distanceCheckJSON.imageBasedEyesToFootCm.length - 1
+                        ]
+                      : null,
+                  )
+                  RC.distanceCheckJSON.acceptedImageBasedEyesToPointCm.push(
+                    RC.distanceCheckJSON.imageBasedEyesToPointCm.length > 0
+                      ? RC.distanceCheckJSON.imageBasedEyesToPointCm[
+                          RC.distanceCheckJSON.imageBasedEyesToPointCm.length -
+                            1
+                        ]
+                      : null,
+                  )
+                  RC.distanceCheckJSON.acceptedPreferRightHandBool.push(
+                    preferRightHandBool,
+                  )
+                  RC.distanceCheckJSON.acceptedHeadYawDeg.push(
+                    faceValidation.yawDeg ?? null,
+                  )
+                  RC.distanceCheckJSON.acceptedIpdUncorrectedOverWidth.push(
+                    safeRoundRatio(ipdUncorrectedOverWidth),
+                  )
+                  RC.distanceCheckJSON.acceptedIpdCorrectedOverWidth.push(
+                    safeRoundRatio(ipdOverWidth),
+                  )
+
+                  // Clean up the captured image for privacy
+                  lastCapturedFaceImage = null
+
+                  removeKeypadHandler()
+                  cleanupIteration() // Clean up font adjustment listeners
+                  document.removeEventListener('keyup', keyupListener)
+                  resolve()
+                }
+                //check for the x key to skip (only allowed if requested distance > 60 cm)
+                else if (
+                  value === '❌' &&
+                  cm >
+                    (RC.equipment?.value?.unit === 'inches'
+                      ? Math.round(60 / 2.54)
+                      : 60)
+                ) {
+                  skippedDistancesCount++
+                  //remove distance from requested list
+                  calibrateDistanceCheckCm.splice(i, 1)
+                  i--
+                  removeKeypadHandler()
+                  cleanupIteration() // Clean up font adjustment listeners
+                  document.removeEventListener('keyup', keyupListener)
+                  resolve()
+                }
+              },
+              false,
+              ['space', '❌'],
+              RC,
+              true,
+            )
+
+            iterationCleanups.push(removeKeypadHandler)
+            document.addEventListener('keyup', keyupListener)
+            // Track this listener for cleanup
+            iterationListeners.push(keyupListener)
+          }, calibrateDistanceCheckSecs * 1000)
+          iterationCleanups.push(() => clearTimeout(inputTimer))
+        })
+
+        cleanupIteration()
+        releaseIteration()
+        if (interactionEnded(RC)) return
+        // COMPLIANCE CHECK: Starting from the second fOverWidth estimate,
+        // compare newFOverWidth with oldFOverWidth using log ratio
+        // Only run if the last 2 snapshots are both accepted (not yet rejected)
+        const fArr = RC.distanceCheckJSON.fOverWidth
+        const aArr = RC.distanceCheckJSON.acceptedFOverWidth
+        const lastTwoAccepted =
+          fArr.length >= 2 &&
+          aArr.length >= 2 &&
+          fArr[fArr.length - 1] === aArr[aArr.length - 1] &&
+          fArr[fArr.length - 2] === aArr[aArr.length - 2]
+
+        if (lastTwoAccepted) {
+          const newFOverWidth =
+            RC.distanceCheckJSON.fOverWidth[
+              RC.distanceCheckJSON.fOverWidth.length - 1
+            ]
+          const oldFOverWidth =
+            RC.distanceCheckJSON.fOverWidth[
+              RC.distanceCheckJSON.fOverWidth.length - 2
+            ]
+
+          const T_fow = calibrateDistanceAllowedRatioFOverWidth
+          const fowRatio = newFOverWidth / oldFOverWidth
+          const fowRoundedPct = Math.round(100 * fowRatio)
+          const fowLower = Math.round(100 / T_fow)
+          const fowUpper = Math.round(100 * T_fow)
+          const fowAccepted =
+            fowRoundedPct >= fowLower && fowRoundedPct <= fowUpper
+
+          console.log('[fOverWidth Check] Old fOverWidth:', oldFOverWidth)
+          console.log('[fOverWidth Check] New fOverWidth:', newFOverWidth)
           console.log(
-            `[fOverWidth Check] After rejection: ${acceptedCount} accepted, continuing from index ${i + 1}`,
+            `[fOverWidth Check] Rounded ratio: ${fowRoundedPct}%, interval: [${fowLower}%, ${fowUpper}%]`,
           )
+
+          if (!fowAccepted) {
+            console.warn(
+              `[fOverWidth Check] MISMATCH: Ratio is ${fowRoundedPct}% (oldFOverWidth=${oldFOverWidth}, newFOverWidth=${newFOverWidth}). Rejecting BOTH measurements.`,
+            )
+
+            // Remove the last TWO measurements from all arrays
+            RC.calibrateDistanceMeasuredCm.pop()
+            RC.calibrateDistanceMeasuredCm.pop()
+            RC.calibrateDistanceRequestedCm.pop()
+            RC.calibrateDistanceRequestedCm.pop()
+            RC.calibrateDistanceIPDPixels.pop()
+            RC.calibrateDistanceIPDPixels.pop()
+            RC.calibrateDistanceRequestedDistances.pop()
+            RC.calibrateDistanceRequestedDistances.pop()
+            // EyeFeetXYPx has 2 entries per measurement (left and right)
+            RC.calibrateDistanceEyeFeetXYPx.pop()
+            RC.calibrateDistanceEyeFeetXYPx.pop()
+            RC.calibrateDistanceEyeFeetXYPx.pop()
+            RC.calibrateDistanceEyeFeetXYPx.pop()
+
+            // Rejected plot lists: capture before popping (only the more recent of the two fOverWidth values)
+            const fOverWidthArray = RC.distanceCheckJSON.fOverWidth
+            const moreRecentFOverWidth =
+              fOverWidthArray[fOverWidthArray.length - 1]
+            RC.distanceCheckJSON.rejectedFOverWidth.push(
+              safeRoundRatio(moreRecentFOverWidth),
+            )
+            RC.distanceCheckJSON.rejectedRatioFOverWidth.push(
+              safeRoundRatio(
+                fOverWidthArray[fOverWidthArray.length - 1] /
+                  fOverWidthArray[fOverWidthArray.length - 2],
+              ),
+            )
+            RC.distanceCheckJSON.rejectedLocation.push(
+              calibrateDistanceChecking,
+            )
+            RC.distanceCheckJSON.rejectedPointXYPx.push([
+              ...RC.distanceCheckJSON.pointXYPx[
+                RC.distanceCheckJSON.pointXYPx.length - 1
+              ],
+            ])
+            // Rejected per-snapshot metrics: push both rejected snapshots (more recent first, then previous)
+            for (let ri = 1; ri >= 0; ri--) {
+              const idx = RC.distanceCheckJSON.leftEyeFootXYPx.length - 1 - ri
+              RC.distanceCheckJSON.rejectedLeftEyeFootXYPx.push(
+                RC.distanceCheckJSON.leftEyeFootXYPx[idx]
+                  ? [...RC.distanceCheckJSON.leftEyeFootXYPx[idx]]
+                  : null,
+              )
+              RC.distanceCheckJSON.rejectedRightEyeFootXYPx.push(
+                RC.distanceCheckJSON.rightEyeFootXYPx[idx]
+                  ? [...RC.distanceCheckJSON.rightEyeFootXYPx[idx]]
+                  : null,
+              )
+              RC.distanceCheckJSON.rejectedIpdOverWidth.push(
+                RC.distanceCheckJSON.ipdOverWidth[idx] ?? null,
+              )
+              RC.distanceCheckJSON.rejectedRulerBasedEyesToFootCm.push(
+                RC.distanceCheckJSON.rulerBasedEyesToFootCm[idx] ?? null,
+              )
+              RC.distanceCheckJSON.rejectedRulerBasedEyesToPointCm.push(
+                RC.distanceCheckJSON.rulerBasedEyesToPointCm[idx] ?? null,
+              )
+              RC.distanceCheckJSON.rejectedImageBasedEyesToFootCm.push(
+                RC.distanceCheckJSON.imageBasedEyesToFootCm[idx] ?? null,
+              )
+              RC.distanceCheckJSON.rejectedImageBasedEyesToPointCm.push(
+                RC.distanceCheckJSON.imageBasedEyesToPointCm[idx] ?? null,
+              )
+              RC.distanceCheckJSON.rejectedPreferRightHandBool.push(
+                RC.distanceCheckJSON.historyPreferRightHandBool[idx] ?? null,
+              )
+              RC.distanceCheckJSON.rejectedHeadYawDeg.push(
+                RC.distanceCheckJSON.historyHeadYawDeg[idx] ?? null,
+              )
+              RC.distanceCheckJSON.rejectedIpdUncorrectedOverWidth.push(
+                RC.distanceCheckJSON.historyIpdUncorrectedOverWidth[idx] ??
+                  null,
+              )
+              RC.distanceCheckJSON.rejectedIpdCorrectedOverWidth.push(
+                RC.distanceCheckJSON.historyIpdCorrectedOverWidth[idx] ?? null,
+              )
+            }
+
+            // Remove the last TWO from distanceCheckJSON per-snapshot arrays so the
+            // next measurement is compared to the last accepted (same as calibration).
+            for (let popCount = 0; popCount < 2; popCount++) {
+              RC.distanceCheckJSON.fOverWidth.pop()
+              RC.distanceCheckJSON.fVpx.pop()
+              RC.distanceCheckJSON.ipdOverWidth.pop()
+              RC.distanceCheckJSON.ipdOverWidthXYZ.pop()
+              RC.distanceCheckJSON.imageBasedEyesToFootCm.pop()
+              RC.distanceCheckJSON.imageBasedEyesToPointCm.pop()
+              RC.distanceCheckJSON.rulerBasedEyesToPointCm.pop()
+              RC.distanceCheckJSON.rulerBasedEyesToFootCm.pop()
+              RC.distanceCheckJSON.pointXYPx.pop()
+              RC.distanceCheckJSON.cameraResolutionXYVpx.pop()
+              RC.distanceCheckJSON.requestedEyesToPointCm.pop()
+              RC.distanceCheckJSON.footToPointCm.pop()
+              RC.distanceCheckJSON.rightEyeFootXYPx.pop()
+              RC.distanceCheckJSON.leftEyeFootXYPx.pop()
+              RC.distanceCheckJSON.footXYPx.pop()
+            }
+            // Shrink accepted lists: remove the two rejected entries
+            for (let popCount = 0; popCount < 2; popCount++) {
+              RC.distanceCheckJSON.acceptedFOverWidth.pop()
+              RC.distanceCheckJSON.acceptedRatioFOverWidth.pop()
+              RC.distanceCheckJSON.acceptedLocation.pop()
+              RC.distanceCheckJSON.acceptedPointXYPx.pop()
+              RC.distanceCheckJSON.acceptedLeftEyeFootXYPx.pop()
+              RC.distanceCheckJSON.acceptedRightEyeFootXYPx.pop()
+              RC.distanceCheckJSON.acceptedIpdOverWidth.pop()
+              RC.distanceCheckJSON.acceptedRulerBasedEyesToFootCm.pop()
+              RC.distanceCheckJSON.acceptedRulerBasedEyesToPointCm.pop()
+              RC.distanceCheckJSON.acceptedImageBasedEyesToFootCm.pop()
+              RC.distanceCheckJSON.acceptedImageBasedEyesToPointCm.pop()
+              RC.distanceCheckJSON.acceptedPreferRightHandBool.pop()
+              RC.distanceCheckJSON.acceptedHeadYawDeg.pop()
+              RC.distanceCheckJSON.acceptedIpdUncorrectedOverWidth.pop()
+              RC.distanceCheckJSON.acceptedIpdCorrectedOverWidth.pop()
+            }
+
+            const errorMessage =
+              phrases.RC_focalLengthMismatch?.[RC.language.value]
+                ?.replace('[[N1]]', fowRoundedPct.toString())
+                .replace('[[TT1]]', fowLower.toString())
+                .replace('[[TT2]]', fowUpper.toString()) ||
+              `The last two snapshots are inconsistent. Your new distance is ${fowRoundedPct}% of that expected from your previous snapshot. Try again. Click OK or press RETURN.`
+
+            // Show popup error message and wait for OK
+            await Swal.fire({
+              ...swalInfoOptions(RC, { showIcon: false }),
+              icon: '',
+              title: '',
+              html: processInlineFormatting(errorMessage),
+              allowEnterKey: true,
+              focusConfirm: true,
+              confirmButtonText: phrases.RC_ok?.[RC.L],
+              didOpen: () => {
+                // Prevent Space key from triggering the OK button (only allow Return/Enter)
+                const confirmBtn = Swal.getConfirmButton()
+                if (confirmBtn) {
+                  confirmBtn.addEventListener('keydown', e => {
+                    if (e.key === ' ' || e.code === 'Space') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }
+                  })
+                }
+              },
+            })
+
+            // Go back 2 iterations to remeasure both rejected distances
+            // Set i to i - 2 so the next iteration starts at i - 1
+            i = i - 2
+
+            const acceptedCount = RC.distanceCheckJSON.acceptedFOverWidth.length
+            console.log(
+              `[fOverWidth Check] After rejection: ${acceptedCount} accepted, continuing from index ${i + 1}`,
+            )
+          }
         }
       }
+
+      if (checkDistMovieContainer && checkDistMovieContainer.parentNode) {
+        checkDistMovieContainer.parentNode.removeChild(checkDistMovieContainer)
+        checkDistMovieContainer = null
+      }
+
+      removeProgressBar(RC, calibrateDistanceChecking)
+      removeViewingDistanceDiv()
+
+      RC.distanceCheckJSON.snapshotsTaken =
+        RC.distanceCheckJSON.historyFOverWidth.length
+      RC.distanceCheckJSON.snapshotsRejected =
+        RC.distanceCheckJSON.rejectedFOverWidth.length
+
+      // Hide video container after all measurements are complete
+      const videoContainer = document.getElementById('webgazerVideoContainer')
+      if (videoContainer) {
+        videoContainer.style.display = 'none'
+      }
+
+      // Log the captured IPD data for debugging
+      console.log('=== IPD Data Captured During Distance Checking ===')
+      console.log('Total measurements:', RC.calibrateDistanceIPDPixels.length)
+      console.log('IPD Pixels Array:', RC.calibrateDistanceIPDPixels)
+      console.log(
+        'Requested Distances Array (cm):',
+        RC.calibrateDistanceRequestedDistances,
+      )
+      console.log(
+        'Measured Distances Array (cm):',
+        RC.calibrateDistanceMeasuredCm,
+      )
+      console.log('=================================================')
+
+      //join the arrays into a string
+      //show thank you message
+      await Swal.fire({
+        ...swalInfoOptions(RC, {
+          showIcon: false,
+        }),
+        title:
+          '<p class="heading2">' +
+          processInlineFormatting(
+            phrases.RC_AllDistancesRecorded[RC.language.value].replace(
+              '[[N11]]',
+              RC.calibrateDistanceRequestedCm.length,
+            ),
+          ) +
+          '</p>',
+        didOpen: () => {
+          if (RC.keypadHandler) {
+            const removeKeypadHandler = setUpEasyEyesKeypadHandler(
+              null,
+              RC.keypadHandler,
+              () => {
+                removeKeypadHandler()
+                Swal.clickConfirm()
+              },
+              false,
+              ['space'],
+              RC,
+            )
+          }
+        },
+      })
+
+      RC.resumeNudger()
     }
 
-    if (checkDistMovieContainer && checkDistMovieContainer.parentNode) {
-      checkDistMovieContainer.parentNode.removeChild(checkDistMovieContainer)
-      checkDistMovieContainer = null
+    if (RC._showPutGlassesBackOn) {
+      RC._showPutGlassesBackOn = false
+      if (!(await showPutGlassesBackOnScreen(RC))) return
     }
 
-    removeProgressBar(RC, calibrateDistanceChecking)
-    removeViewingDistanceDiv()
-
-    RC.distanceCheckJSON.snapshotsTaken =
-      RC.distanceCheckJSON.historyFOverWidth.length
-    RC.distanceCheckJSON.snapshotsRejected =
-      RC.distanceCheckJSON.rejectedFOverWidth.length
-
-    // Hide video container after all measurements are complete
-    const videoContainer = document.getElementById('webgazerVideoContainer')
-    if (videoContainer) {
-      videoContainer.style.display = 'none'
-    }
-
-    // Log the captured IPD data for debugging
-    console.log('=== IPD Data Captured During Distance Checking ===')
-    console.log('Total measurements:', RC.calibrateDistanceIPDPixels.length)
-    console.log('IPD Pixels Array:', RC.calibrateDistanceIPDPixels)
-    console.log(
-      'Requested Distances Array (cm):',
-      RC.calibrateDistanceRequestedDistances,
-    )
-    console.log(
-      'Measured Distances Array (cm):',
-      RC.calibrateDistanceMeasuredCm,
-    )
-    console.log('=================================================')
-
-    //join the arrays into a string
-    //show thank you message
-    await Swal.fire({
-      ...swalInfoOptions(RC, {
-        showIcon: false,
-      }),
-      title:
-        '<p class="heading2">' +
-        processInlineFormatting(
-          phrases.RC_AllDistancesRecorded[RC.language.value].replace(
-            '[[N11]]',
-            RC.calibrateDistanceRequestedCm.length,
-          ),
-        ) +
-        '</p>',
-      didOpen: () => {
-        if (RC.keypadHandler) {
-          const removeKeypadHandler = setUpEasyEyesKeypadHandler(
-            null,
-            RC.keypadHandler,
-            () => {
-              removeKeypadHandler()
-              Swal.clickConfirm()
-            },
-            false,
-            ['space'],
-            RC,
-          )
-        }
-      },
-    })
-
-    RC.resumeNudger()
+    quit()
+  } finally {
+    cleanup()
+    unregisterCleanup()
   }
-
-  if (RC._showPutGlassesBackOn) {
-    RC._showPutGlassesBackOn = false
-    await showPutGlassesBackOnScreen(RC)
-  }
-
-  quit()
 }

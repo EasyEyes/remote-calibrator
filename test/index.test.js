@@ -17,6 +17,11 @@ require('./recalibrateRestart.test')
 require('./ensureVideoPlaying.test')
 require('./cameraMonitor.test')
 require('./cameraCommitGate.test')
+require('./interactionLifecycle.test')
+require('./interactionManagement.test')
+require('./objectRecoveryOwnership.test')
+require('./cameraRecoveryDeadEnds.test')
+require('./interactionTermination.test')
 
 const packageJSON = require('../package.json')
 

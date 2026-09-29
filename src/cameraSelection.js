@@ -1,3 +1,7 @@
+import {
+  interactionEnded,
+  untilInteractionEnds,
+} from './interactionTermination'
 /**
  * Public RC.selectCamera(options) method.
  *
@@ -23,8 +27,11 @@ import { phrases } from './i18n/schema'
 import { checkPermissions } from './components/mediaPermission'
 import { showTestPopup, hideResolutionSettingMessage } from './components/popup'
 import { logCameraFindResults } from './cameraFindTiming.js'
+import { interactionParent } from './interactionLifecycle'
 
-RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
+async function selectCamera(options = {}) {
+  if (interactionEnded(this))
+    return { experimentEnded: true, selectedCamera: null }
   if (!this.checkInitialized()) return null
 
   // Idempotent: if camera selection already ran (e.g. from the panel
@@ -36,66 +43,77 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
     return { selectedCamera: this.selectedCamera || null, alreadyDone: true }
   }
 
-  const opts = Object.assign(
-    {
-      // Camera resolution / framerate the experiment wants.
-      calibrateDistanceCameraResolution: [640, 480],
-      calibrateDistanceCameraHz: 60,
-      // Whether to show the Camera Resolution page after Choose Camera /
-      // Choose Screen.
-      _showCameraResolutionBool: true,
-      // Whether the bottom-row preview is shown on Choose Camera.
-      calibrateDistanceAcceptBottomCameraBool: false,
-      calibrateDistanceAllowExternalCameraBool: false,
-      calibrateDistanceCameraKindOverride: 'assess',
-      // Forwarded to checkPermissions to hide the privacy line when the
-      // experiment is recording snapshots.
-      saveSnapshots: false,
-      // Forwarded to showTestPopup → checkResolutionAfterSelection.
-      resolutionWarningThreshold: undefined,
-      // Whether to request fullscreen before showing Choose Camera
-      fullscreen: true,
-    },
-    options,
+  const lifecycle = this._interactionLifecycle
+  const interaction = lifecycle?.beginScope(
+    'camera-selection',
+    interactionParent(this),
   )
-
-  await this.getFullscreen(opts.fullscreen)
-
-  if (!this.gazeTracker.checkInitialized('distance')) {
-    this.gazeTracker._init(
+  this._cameraSelectionInteraction = interaction
+  try {
+    const opts = Object.assign(
       {
-        toFixedN: 1,
-        showVideo: true,
-        showFaceOverlay: false,
-        desiredCameraResolution: opts.calibrateDistanceCameraResolution,
-        desiredCameraHz: opts.calibrateDistanceCameraHz,
+        // Camera resolution / framerate the experiment wants.
+        calibrateDistanceCameraResolution: [640, 480],
+        calibrateDistanceCameraHz: 60,
+        // Whether to show the Camera Resolution page after Choose Camera /
+        // Choose Screen.
+        _showCameraResolutionBool: true,
+        // Whether the bottom-row preview is shown on Choose Camera.
+        calibrateDistanceAcceptBottomCameraBool: false,
+        calibrateDistanceAllowExternalCameraBool: false,
+        calibrateDistanceCameraKindOverride: 'assess',
+        // Forwarded to checkPermissions to hide the privacy line when the
+        // experiment is recording snapshots.
+        saveSnapshots: false,
+        // Forwarded to showTestPopup → checkResolutionAfterSelection.
+        resolutionWarningThreshold: undefined,
+        // Whether to request fullscreen before showing Choose Camera
+        fullscreen: true,
       },
-      'distance',
+      options,
     )
-  }
 
-  let permMessage = `${phrases.RC_requestCamera[this.L]}`
-  if (!opts.saveSnapshots) {
-    permMessage += `<br />${phrases.RC_privacyCamera[this.L]}`
-  }
+    await this.getFullscreen(opts.fullscreen)
+    if (interactionEnded(this))
+      return { experimentEnded: true, selectedCamera: null }
 
-  // Time spent waiting for the participant to grant camera permission is
-  // theirs, not ours, so it is measured separately and excluded from
-  // cameraFindSec below.
-  const permissionStart = performance.now()
-  await checkPermissions(this, permMessage)
-  const cameraPermissionSec = (performance.now() - permissionStart) / 1000
+    if (!this.gazeTracker.checkInitialized('distance')) {
+      this.gazeTracker._init(
+        {
+          toFixedN: 1,
+          showVideo: true,
+          showFaceOverlay: false,
+          desiredCameraResolution: opts.calibrateDistanceCameraResolution,
+          desiredCameraHz: opts.calibrateDistanceCameraHz,
+        },
+        'distance',
+      )
+    }
 
-  // Clock for "how long did EasyEyes take to find the camera?", reported in
-  // the results so the distribution can be compared across computers.
-  // Final cameraFindSec is set in showTestPopup when Choose Camera appears.
-  this._cameraFindStartMs = performance.now()
+    let permMessage = `${phrases.RC_requestCamera[this.L]}`
+    if (!opts.saveSnapshots) {
+      permMessage += `<br />${phrases.RC_privacyCamera[this.L]}`
+    }
 
-  const _backgroundAddedHere = this.background === null
-  if (_backgroundAddedHere) this._addBackground()
-  const startingMsg = document.createElement('div')
-  startingMsg.id = 'rc-starting-message'
-  startingMsg.style.cssText = `
+    // Time spent waiting for the participant to grant camera permission is
+    // theirs, not ours, so it is measured separately and excluded from
+    // cameraFindSec below.
+    const permissionStart = performance.now()
+    await checkPermissions(this, permMessage)
+    if (interactionEnded(this))
+      return { experimentEnded: true, selectedCamera: null }
+    const cameraPermissionSec = (performance.now() - permissionStart) / 1000
+
+    // Clock for "how long did EasyEyes take to find the camera?", reported in
+    // the results so the distribution can be compared across computers.
+    // Final cameraFindSec is set in showTestPopup when Choose Camera appears.
+    this._cameraFindStartMs = performance.now()
+
+    const _backgroundAddedHere = this.background === null
+    if (_backgroundAddedHere) this._addBackground()
+    const startingMsg = document.createElement('div')
+    startingMsg.id = 'rc-starting-message'
+    startingMsg.style.cssText = `
     position: fixed;
     top: 50%;
     left: 50%;
@@ -109,110 +127,140 @@ RemoteCalibrator.prototype.selectCamera = async function (options = {}) {
     pointer-events: none;
     user-select: none;
   `
-  startingMsg.innerHTML = phrases.RC_starting[this.L]
-  document.body.appendChild(startingMsg)
+    startingMsg.innerHTML = phrases.RC_starting[this.L]
+    document.body.appendChild(startingMsg)
 
-  // Load FaceMesh model + start video as one session. Failures used to
-  // leave this promise unsettled or reject into the consumer's global
-  // handler, which ends the study. They are now one rejection on
-  // startCameraSession, surfaced here as the standard no-camera page.
-  let startupError = null
-  const videoStart = performance.now()
-  const pipWidthPx =
-    this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP']
-  try {
-    await this.gazeTracker.startCameraSession({
-      videoOnly: true,
-      pipWidthPx,
-      requireModel: false,
-    })
+    // Load FaceMesh model + start video as one session. Failures used to
+    // leave this promise unsettled or reject into the consumer's global
+    // handler, which ends the study. They are now one rejection on
+    // startCameraSession, surfaced here as the standard no-camera page.
+    let startupError = null
+    const videoStart = performance.now()
+    const pipWidthPx =
+      this._CONST.N.VIDEO_W[this.isMobile.value ? 'MOBILE' : 'DESKTOP']
+    try {
+      await this.gazeTracker.startCameraSession({
+        videoOnly: true,
+        pipWidthPx,
+        requireModel: false,
+      })
+    } catch (error) {
+      startupError = error
+      console.error('[RC.selectCamera] Camera session failed to start:', error)
+    }
+    if (interactionEnded(this)) {
+      this.gazeTracker.webgazer?.stopVideo?.()
+      startingMsg.remove()
+      return { experimentEnded: true, selectedCamera: null }
+    }
+    const cameraVideoStartSec = (performance.now() - videoStart) / 1000
+    const sessionTimings = this.gazeTracker._cameraSession?.lastTimings || {}
+    const cameraModelLoadSec = sessionTimings.modelSec ?? null
+
+    startingMsg.remove()
+
+    // Partial timings (cameraFindSec finalized when Choose Camera is visible).
+    const probeTiming = this.gazeTracker?.webgazer?.cameraTiming || {}
+    this.cameraFindTiming = {
+      cameraFindSec: null,
+      cameraPermissionSec: Number(cameraPermissionSec.toFixed(3)),
+      cameraModelLoadSec:
+        cameraModelLoadSec != null
+          ? Number(Number(cameraModelLoadSec).toFixed(3))
+          : null,
+      cameraVideoStartSec: Number(cameraVideoStartSec.toFixed(3)),
+      cameraEnumerateSec:
+        typeof probeTiming.enumerateMs === 'number'
+          ? Number((probeTiming.enumerateMs / 1000).toFixed(3))
+          : null,
+      cameraFirstStreamSec:
+        typeof probeTiming.firstStreamMs === 'number'
+          ? Number((probeTiming.firstStreamMs / 1000).toFixed(3))
+          : null,
+      cameraProbeSec:
+        typeof probeTiming.probeMs === 'number'
+          ? Number((probeTiming.probeMs / 1000).toFixed(3))
+          : null,
+      cameraProbeCount: probeTiming.probeCount ?? null,
+      cameraProbeMethod: probeTiming.probeMethod ?? null,
+      cameraStartupError: startupError
+        ? startupError.name || String(startupError.message || startupError)
+        : null,
+    }
+
+    const cameraResult = await untilInteractionEnds(
+      this,
+      showTestPopup(this, null, opts),
+      { experimentEnded: true, selectedCamera: null },
+    )
+    if (interactionEnded(this)) return cameraResult
+    if (cameraResult?.experimentEnded) {
+      console.log('[RC.selectCamera] Experiment ended — no cameras detected')
+    }
+
+    if (!cameraResult?.experimentEnded) {
+      this._cameraSelectionDone = true
+    }
+
+    // Log final timing again after Choose Camera flow (cameraFindSec set in popup).
+    if (this.cameraFindTiming?.cameraFindSec != null) {
+      logCameraFindResults(this)
+    }
+
+    // clean up any leftover loading text from the popup flow.
+    const leftoverLoading = document.getElementById('camera-loading-text')
+    if (leftoverLoading) leftoverLoading.remove()
+    hideResolutionSettingMessage()
+
+    // Tear down the gray background we added before "Starting..." so the
+    // consumer app's next page renders against its own page.
+    if (_backgroundAddedHere) this._removeBackground()
+
+    // hide the live video feed so it doesn't bleed into whatever page
+    this.showVideo(false)
+    const vc = document.getElementById('webgazerVideoContainer')
+    if (vc) vc.style.display = 'none'
+
+    const realIncorporation =
+      this.cameraIncorporationReal != null
+        ? this.cameraIncorporationReal
+        : this.cameraIncorporation || null
+    lifecycle?.endScope(
+      interaction,
+      cameraResult?.experimentEnded ? 'cancelled' : 'completed',
+    )
+    return {
+      ...cameraResult,
+      ...this.cameraFindTiming,
+      cameraArray: Array.isArray(this.cameraArray)
+        ? this.cameraArray.map(entry => ({
+            ...entry,
+            kindOverrideApplied: false,
+          }))
+        : [],
+      cameraIncorporation: realIncorporation,
+      cameraIncorporationReported: this.cameraIncorporationReported || null,
+      calibrateDistanceCameraKindOverride:
+        this.calibrateDistanceCameraKindOverride ||
+        this._calibrateDistanceCameraKindOverride ||
+        opts.calibrateDistanceCameraKindOverride ||
+        opts._calibrateDistanceCameraKindOverride ||
+        'assess',
+    }
   } catch (error) {
-    startupError = error
-    console.error('[RC.selectCamera] Camera session failed to start:', error)
+    lifecycle?.endScope(interaction, 'failed')
+    throw error
+  } finally {
+    if (this._cameraSelectionInteraction === interaction)
+      this._cameraSelectionInteraction = null
   }
-  const cameraVideoStartSec = (performance.now() - videoStart) / 1000
-  const sessionTimings = this.gazeTracker._cameraSession?.lastTimings || {}
-  const cameraModelLoadSec = sessionTimings.modelSec ?? null
+}
 
-  startingMsg.remove()
-
-  // Partial timings (cameraFindSec finalized when Choose Camera is visible).
-  const probeTiming = this.gazeTracker?.webgazer?.cameraTiming || {}
-  this.cameraFindTiming = {
-    cameraFindSec: null,
-    cameraPermissionSec: Number(cameraPermissionSec.toFixed(3)),
-    cameraModelLoadSec:
-      cameraModelLoadSec != null
-        ? Number(Number(cameraModelLoadSec).toFixed(3))
-        : null,
-    cameraVideoStartSec: Number(cameraVideoStartSec.toFixed(3)),
-    cameraEnumerateSec:
-      typeof probeTiming.enumerateMs === 'number'
-        ? Number((probeTiming.enumerateMs / 1000).toFixed(3))
-        : null,
-    cameraFirstStreamSec:
-      typeof probeTiming.firstStreamMs === 'number'
-        ? Number((probeTiming.firstStreamMs / 1000).toFixed(3))
-        : null,
-    cameraProbeSec:
-      typeof probeTiming.probeMs === 'number'
-        ? Number((probeTiming.probeMs / 1000).toFixed(3))
-        : null,
-    cameraProbeCount: probeTiming.probeCount ?? null,
-    cameraProbeMethod: probeTiming.probeMethod ?? null,
-    cameraStartupError: startupError
-      ? startupError.name || String(startupError.message || startupError)
-      : null,
-  }
-
-  const cameraResult = await showTestPopup(this, null, opts)
-  if (cameraResult?.experimentEnded) {
-    console.log('[RC.selectCamera] Experiment ended — no cameras detected')
-  }
-
-  if (!cameraResult?.experimentEnded) {
-    this._cameraSelectionDone = true
-  }
-
-  // Log final timing again after Choose Camera flow (cameraFindSec set in popup).
-  if (this.cameraFindTiming?.cameraFindSec != null) {
-    logCameraFindResults(this)
-  }
-
-  // clean up any leftover loading text from the popup flow.
-  const leftoverLoading = document.getElementById('camera-loading-text')
-  if (leftoverLoading) leftoverLoading.remove()
-  hideResolutionSettingMessage()
-
-  // Tear down the gray background we added before "Starting..." so the
-  // consumer app's next page renders against its own page.
-  if (_backgroundAddedHere) this._removeBackground()
-
-  // hide the live video feed so it doesn't bleed into whatever page
-  this.showVideo(false)
-  const vc = document.getElementById('webgazerVideoContainer')
-  if (vc) vc.style.display = 'none'
-
-  const realIncorporation =
-    this.cameraIncorporationReal != null
-      ? this.cameraIncorporationReal
-      : this.cameraIncorporation || null
-  return {
-    ...cameraResult,
-    ...this.cameraFindTiming,
-    cameraArray: Array.isArray(this.cameraArray)
-      ? this.cameraArray.map(entry => ({
-          ...entry,
-          kindOverrideApplied: false,
-        }))
-      : [],
-    cameraIncorporation: realIncorporation,
-    cameraIncorporationReported: this.cameraIncorporationReported || null,
-    calibrateDistanceCameraKindOverride:
-      this.calibrateDistanceCameraKindOverride ||
-      this._calibrateDistanceCameraKindOverride ||
-      opts.calibrateDistanceCameraKindOverride ||
-      opts._calibrateDistanceCameraKindOverride ||
-      'assess',
-  }
+// Settle cancellation even while the browser is still answering a permission or
+// fullscreen request. The implementation checks termination after each await.
+RemoteCalibrator.prototype.selectCamera = function (options = {}) {
+  return untilInteractionEnds(this, selectCamera.call(this, options), {
+    experimentEnded: true,
+    selectedCamera: null,
+  })
 }

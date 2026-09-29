@@ -1,3 +1,5 @@
+import { onInteractionEnd } from '../../interactionTermination'
+import { subscribeCameraRecovery } from '../../cameraRecoveryScope'
 /**
  * objectTestOrchestrator.js
  *
@@ -554,76 +556,79 @@ export async function objectTestNew(RC, options, callback = undefined) {
   }
 
   // ─── Camera disconnection handling ─────────────────────────────────
-  let cameraDisconnectedDuringTest = false
-
-  const unsubDisconnect = RC.gazeTracker.onCameraDisconnected(() => {
-    cameraDisconnectedDuringTest = true
-    keyboardHandler.detach()
-    debugLog('orchestrator', 'Camera disconnected – keyboard input blocked')
+  const unregisterCleanup = onInteractionEnd(RC, () => {
+    keyboardHandler.cleanup()
+    cleanupAllResources({ ...context, ...deps })
   })
-
-  const unsubReconnect = RC.gazeTracker.onCameraReconnected(() => {
-    if (!cameraDisconnectedDuringTest) return
-    cameraDisconnectedDuringTest = false
-
-    const currentPage = pageController.getCurrentPage()
-    debugLog(
-      'orchestrator',
-      `Camera reconnected on page ${currentPage} – restoring UI`,
-    )
-
-    if (currentPage === 3) {
-      // On the measurement page: discard in-progress samples and roll back
-      // the location manager so the participant retakes this measurement.
-      const locationManager = deps.locationManager
-      if (locationManager && locationManager.getCurrentIndex() > 0) {
-        locationManager.rejectAndGoBack(1)
-      }
-
-      const faceMeshSamplesPage3 = deps.getFaceMeshSamplesPage3()
-      const meshSamplesDuringPage3 = deps.getMeshSamplesDuringPage3()
-      if (faceMeshSamplesPage3) faceMeshSamplesPage3.length = 0
-      if (meshSamplesDuringPage3) meshSamplesDuringPage3.length = 0
-
-      const resetPageConfig = buildMeasurementPageConfig(
-        locationManager,
-        options.saveSnapshots || false,
-        deps.getPreferRightHandBool(),
-        getOffsetPx(),
+  const releaseCameraRecovery = subscribeCameraRecovery(RC.gazeTracker, {
+    onDisconnect: () => {
+      keyboardHandler.detach()
+      debugLog('orchestrator', 'Camera disconnected – keyboard input blocked')
+    },
+    onReconnect: () => {
+      const currentPage = pageController.getCurrentPage()
+      debugLog(
+        'orchestrator',
+        `Camera reconnected on page ${currentPage} – restoring UI`,
       )
 
-      if (resetPageConfig && deps.measurementPageRenderer) {
-        deps.measurementPageRenderer.showMeasurementPage({
-          ...resetPageConfig,
-          pageNumberOffset: deps.state?.isPaperSelectionMode ? 2 : 0,
-          setStepModel: (model, index, phraseKey) => {
-            deps.setStepInstructionModel(model)
-            if (index != null) deps.setCurrentStepFlatIndex(index)
-            const maxIdx = (model?.flatSteps?.length || 1) - 1
-            if (deps.getCurrentStepFlatIndex() > maxIdx)
-              deps.setCurrentStepFlatIndex(maxIdx)
-            if (phraseKey) deps.setCurrentStepperPhraseKey(phraseKey)
-          },
-          onHandPreferenceChange: isRight => {
-            deps.setPreferRightHandBool(isRight)
-            deps.updateMeasurementOverlayForLocation()
-          },
-        })
-      }
-    } else {
-      // On pages 0, 1, 2, or tubeCheck: simply re-show the current page
-      // so the UI is refreshed without jumping to the measurement phase.
-      pageController.showPage(currentPage)
-    }
+      if (currentPage === 3) {
+        // On the measurement page: discard in-progress samples and roll back
+        // the location manager so the participant retakes this measurement.
+        const locationManager = deps.locationManager
+        if (locationManager && locationManager.getCurrentIndex() > 0) {
+          locationManager.rejectAndGoBack(1)
+        }
 
-    keyboardHandler.attach()
+        const faceMeshSamplesPage3 = deps.getFaceMeshSamplesPage3()
+        const meshSamplesDuringPage3 = deps.getMeshSamplesDuringPage3()
+        if (faceMeshSamplesPage3) faceMeshSamplesPage3.length = 0
+        if (meshSamplesDuringPage3) meshSamplesDuringPage3.length = 0
+
+        const resetPageConfig = buildMeasurementPageConfig(
+          locationManager,
+          options.saveSnapshots || false,
+          deps.getPreferRightHandBool(),
+          getOffsetPx(),
+        )
+
+        if (resetPageConfig && deps.measurementPageRenderer) {
+          deps.measurementPageRenderer.showMeasurementPage({
+            ...resetPageConfig,
+            pageNumberOffset: deps.state?.isPaperSelectionMode ? 2 : 0,
+            setStepModel: (model, index, phraseKey) => {
+              deps.setStepInstructionModel(model)
+              if (index != null) deps.setCurrentStepFlatIndex(index)
+              const maxIdx = (model?.flatSteps?.length || 1) - 1
+              if (deps.getCurrentStepFlatIndex() > maxIdx)
+                deps.setCurrentStepFlatIndex(maxIdx)
+              if (phraseKey) deps.setCurrentStepperPhraseKey(phraseKey)
+            },
+            onHandPreferenceChange: isRight => {
+              deps.setPreferRightHandBool(isRight)
+              deps.updateMeasurementOverlayForLocation()
+            },
+          })
+        }
+      } else {
+        // On pages 0, 1, 2, or tubeCheck: simply re-show the current page
+        // so the UI is refreshed without jumping to the measurement phase.
+        pageController.showPage(currentPage)
+      }
+
+      keyboardHandler.attach()
+    },
+    onRelease: () => keyboardHandler.detach(),
   })
 
-  // Expose unsub functions so objectTestFinish can clean them up
-  context._unsubCameraDisconnect = unsubDisconnect
-  context._unsubCameraReconnect = unsubReconnect
-  deps._unsubCameraDisconnect = unsubDisconnect
-  deps._unsubCameraReconnect = unsubReconnect
+  // Shared by spread contexts: finishing, cancelling or restarting the step
+  // revokes the same recovery subscription before another page takes over.
+  const release = () => {
+    unregisterCleanup()
+    releaseCameraRecovery()
+  }
+  context._releaseCameraRecovery = release
+  deps._releaseCameraRecovery = release
 
   // ─── Attach keyboard and show first page ─────────────────────────────
   keyboardHandler.attach()

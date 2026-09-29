@@ -659,6 +659,7 @@ const startTrackingPupils = async (
   callbackTrack,
   trackingConfig,
 ) => {
+  const recalibrationInteraction = RC._recalibrationInteraction
   // Called fire-and-forget from trackDistance, so this function must not
   // throw: an unhandled rejection reaches PsychoJS's onunhandledrejection
   // handler, which aborts the whole experiment.
@@ -673,6 +674,9 @@ const startTrackingPupils = async (
       '[RC] Camera session failed; cannot start distance tracking:',
       error,
     )
+    RC._interactionLifecycle?.endScope(recalibrationInteraction, 'failed')
+    if (RC._recalibrationInteraction === recalibrationInteraction)
+      RC._recalibrationInteraction = null
     return
   }
 
@@ -3393,6 +3397,13 @@ RemoteCalibrator.prototype.endDistance = function (
 
     this._distanceTrackingFullyInitialized = false
     if (_r) this.gazeTracker.end('distance', endAll, preserveVideo)
+    if (!preserveVideo) {
+      this._interactionLifecycle?.endScope(
+        this._recalibrationInteraction,
+        'cancelled',
+      )
+      this._recalibrationInteraction = null
+    }
     return this
   }
   return null

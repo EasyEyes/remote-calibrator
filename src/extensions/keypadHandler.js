@@ -36,6 +36,7 @@ export const setUpEasyEyesKeypadHandler = (
   const removeHandler = onVariableChange_key_resp_allKeys(
     keypadHandler,
     newValue => {
+      if (RC?.isInteractionInputBlocked?.()) return
       if (keys.includes(newValue.name)) {
         keypadHandler.all_keys.current = []
 

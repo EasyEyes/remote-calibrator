@@ -53,6 +53,7 @@ export function resetCameraSession(gazeTracker) {
     }
   }
   gazeTracker._cameraSession = createCameraSession()
+  gazeTracker.calibrator?._interactionLifecycle?.camera('unknown')
 }
 
 const _isAbort = error =>
@@ -191,6 +192,8 @@ export async function startCameraSession(gazeTracker, options = {}) {
 
       session.state = CAMERA_SESSION_STATES.ready
       session.error = null
+      if (gazeTracker._cameraSession === session)
+        RC._interactionLifecycle?.camera('ready')
       session.lastTimings = {
         modelSec: modelMs != null ? Number((modelMs / 1000).toFixed(3)) : null,
         totalSec: Number(((performance.now() - startedAt) / 1000).toFixed(3)),
@@ -199,6 +202,8 @@ export async function startCameraSession(gazeTracker, options = {}) {
       if (generation === session.generation) {
         session.state = CAMERA_SESSION_STATES.failed
         session.error = error
+        if (gazeTracker._cameraSession === session)
+          RC._interactionLifecycle?.camera('failed')
         session.lastTimings = {
           modelSec:
             modelMs != null ? Number((modelMs / 1000).toFixed(3)) : null,

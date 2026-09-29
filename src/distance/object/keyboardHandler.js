@@ -1,3 +1,4 @@
+import { interactionEnded } from '../../interactionTermination'
 /**
  * keyboardHandler.js
  *
@@ -67,7 +68,12 @@ export function createKeyboardHandler(deps) {
   // ── handleInstructionNav ──────────────────────────────────────────────
   // Dispatches ArrowUp / ArrowDown to step through instructions on pages 2-4.
 
+  const blocked = () =>
+    interactionEnded(RC) ||
+    RC.isInteractionInputBlocked?.() ||
+    RC._interactionLifecycle?.getSnapshot().recovery
   const handleInstructionNav = e => {
+    if (blocked()) return
     const page = pageController.getCurrentPage()
     if (![2, 3, 4].includes(page) || !state.stepInstructionModel) return
 
@@ -92,6 +98,7 @@ export function createKeyboardHandler(deps) {
   // ── handleKeyPress ────────────────────────────────────────────────────
 
   const handleKeyPress = e => {
+    if (blocked()) return
     // Only process keydown events for actual key actions.
     // keyup is listened to so that detach() can remove it, but we ignore keyup here.
     if (e.type === 'keyup') return
@@ -167,6 +174,7 @@ export function createKeyboardHandler(deps) {
         detach()
         ;(async () => {
           const canProceed = await enforceFullscreenOnSpacePress(RC.L, RC)
+          if (blocked()) return
           if (!canProceed) {
             attach()
             return
@@ -214,6 +222,7 @@ export function createKeyboardHandler(deps) {
   // ── Lifecycle helpers ─────────────────────────────────────────────────
 
   function attach() {
+    if (interactionEnded(RC)) return
     debugLog(CATEGORY, 'attach listeners')
     document.addEventListener('keydown', handleKeyPress)
     document.addEventListener('keyup', handleKeyPress)

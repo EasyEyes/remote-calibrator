@@ -1,9 +1,16 @@
+import { interactionEnded } from '../interactionTermination'
+import {
+  emptyCameraPreviewsHTML,
+  bindMissingCameraActions,
+  createCameraRefresh,
+} from './cameraPickerRecovery'
 import Swal from 'sweetalert2'
 import { phrases } from '../i18n/schema'
 import { swalInfoOptions } from './swalOptions'
 import { setUpEasyEyesKeypadHandler } from '../extensions/keypadHandler'
 import { exitFullscreen, getFullscreen, isFullscreen } from './utils'
 import { cameraCommitGate } from './cameraCommitGate'
+import { observeDialog } from '../interactionLifecycle'
 import {
   processInlineFormatting,
   renderMarkdownInstructionToHTML,
@@ -1216,6 +1223,8 @@ export const showPopup = async (RC, title, message, onClose = null) => {
     },
   })
 
+  if (interactionEnded(RC)) return { isConfirmed: false }
+
   // Restore original z-index of video container
   if (videoContainer) {
     videoContainer.style.zIndex = originalZIndex
@@ -1789,7 +1798,11 @@ const createCameraPreviews = async (
   acceptBottomBool = false,
 ) => {
   if (cameras.length === 0) {
-    return '<p style="color: #666; font-style: italic;">No cameras detected</p>'
+    return emptyCameraPreviewsHTML({
+      message: phrases.RC_CameraNotFound?.[RC.L] || 'No cameras detected',
+      retry: phrases.RC_TryAgain?.[RC.L] || 'Try again',
+      quit: phrases.RC_Quit?.[RC.L] || 'Quit',
+    })
   }
 
   // Responsive preview sizing: max matches original, scales down for small windows.
@@ -2064,6 +2077,7 @@ const updateCameraPreviews = async (
   currentActiveCamera,
   oldCameras = [],
   privacyMessage,
+  isCurrent = () => true,
 ) => {
   const previewContainer = document.querySelector(
     '.camera-selection-popup .swal2-html-container',
@@ -2099,6 +2113,8 @@ const updateCameraPreviews = async (
     currentActiveCamera,
     acceptBottomBool,
   )
+
+  if (!isCurrent()) return
 
   // Replace the entire previews outer wrapper (arrow + videos + button)
   // and the separate bottom-row wrapper. The new HTML contains both, so
@@ -2197,6 +2213,7 @@ const updateCameraPreviews = async (
       // Click to commit (same as clicking OK).
 
       container.addEventListener('click', async () => {
+        if (!(await cameraCommitGate(RC))) return
         if (RC.cameraSelectionLoading) {
           return
         }
@@ -2419,8 +2436,14 @@ export const showCameraSelectionPopup = async (
   )
   const dynamicMaxWidth = `${calculatedWidth}px`
 
+  const observation = observeDialog(RC, 'choose-camera')
+  let cameraRefresh = null
+  const lifecycle = RC._interactionLifecycle
+  let screenInteraction = null
+  let screenIntent = null
   const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
+    didDestroy: observation.didDestroy,
     icon: undefined,
     title: '', // Remove the default title since we're adding our own
     html: `
@@ -2640,6 +2663,10 @@ export const showCameraSelectionPopup = async (
         }
       }
       const bindScreenToggleButton = () => {
+        bindMissingCameraActions(Swal.getPopup(), {
+          retry: () => cameraRefresh?.run(),
+          quit: chooseScreenQuitHandler,
+        })
         const chooseAnotherScreenBtn = document.getElementById(
           'rc-choose-another-screen-btn',
         )
@@ -2669,6 +2696,11 @@ export const showCameraSelectionPopup = async (
           // updateCameraPreviews (driven by camera-list polling) can
           // also see we're on the Choose screen page.
           RC._inChooseScreenMode = true
+          screenInteraction = lifecycle?.beginScope(
+            'choose-screen',
+            observation.id,
+          )
+          screenIntent = lifecycle?.beginFullscreenIntent('choose-screen')
           await exitFullscreen()
           if (instrDiv) {
             instrDiv.innerHTML = getChooseScreenInstructionHTML()
@@ -2703,6 +2735,10 @@ export const showCameraSelectionPopup = async (
           if (privacyText) privacyText.style.display = ''
           currentTitleKey = titleKey
           showCameraTitleInTopRight(RC, currentTitleKey)
+          lifecycle?.endFullscreenIntent(screenIntent)
+          lifecycle?.endScope(screenInteraction, 'completed')
+          screenIntent = null
+          screenInteraction = null
 
           // Restore the default Choose Camera highlight: top tile of
           // the currently active camera, all other tiles neutral.
@@ -2862,10 +2898,10 @@ export const showCameraSelectionPopup = async (
           RC.cameraPollingInterval = null
         }
 
-        cameraPollingInterval = setInterval(async () => {
-          try {
+        cameraRefresh = createCameraRefresh({
+          read: getAvailableCameras,
+          apply: async (newCamerasAll, isCurrent) => {
             const opts = RC._cameraSelectionOptions || {}
-            const newCamerasAll = await getAvailableCameras()
             // Refresh the full-list stats (covers hot-plugged cameras).
             RC.availableCameras = newCamerasAll
             // cameraArray is the per-camera record written to the CSV;
@@ -2904,6 +2940,8 @@ export const showCameraSelectionPopup = async (
               console.log('Camera list changed, updating UI...')
               const oldCameras = [...currentCameras]
               currentCameras = [...newCameras]
+              cameras = [...newCameras]
+              RC.highlightedCameraDeviceId = null
 
               // Update the UI with new cameras
               await updateCameraPreviews(
@@ -2912,7 +2950,9 @@ export const showCameraSelectionPopup = async (
                 currentActiveCamera,
                 oldCameras,
                 privacyMessage,
+                isCurrent,
               )
+              if (!isCurrent()) return
 
               // Update global selectCamera function with new cameras
               window.selectCamera = async (deviceId, label) => {
@@ -2973,10 +3013,11 @@ export const showCameraSelectionPopup = async (
                 }
               }
             }
-          } catch (error) {
-            console.error('Error polling for camera changes:', error)
-          }
-        }, 100) // Check every 100ms
+          },
+          onError: error =>
+            console.error('Error polling for camera changes:', error),
+        })
+        cameraPollingInterval = setInterval(() => cameraRefresh.run(), 100)
 
         // Store the interval reference for cleanup
         RC.cameraPollingInterval = cameraPollingInterval
@@ -3039,8 +3080,8 @@ export const showCameraSelectionPopup = async (
             Swal.clickConfirm()
           }
         } else {
-          // No camera available, just close
-          Swal.clickConfirm()
+          // Stay on the picker until a real camera can be committed.
+          await cameraRefresh?.run()
         }
       }
 
@@ -3384,6 +3425,7 @@ export const showCameraSelectionPopup = async (
         'isCameraDisconnected:',
         RC.gazeTracker?.isCameraDisconnected?.(),
       )
+      cameraRefresh?.dispose()
       // Drop the language-change subscription before tearing down the
       // popup so a stale listener can't try to retranslate a DOM that
       // no longer exists.
@@ -3495,11 +3537,21 @@ export const showCameraSelectionPopup = async (
       // The selection UI no longer owns the camera: re-arm the disconnect
       // monitor on the current stream (no-op if never suspended).
       RC.gazeTracker?.webgazer?.resumeCameraMonitor?.()
+      lifecycle?.endFullscreenIntent(screenIntent)
+      lifecycle?.endScope(screenInteraction, 'cancelled')
 
       // DON'T restore video container here - let the next step handle it
       // This prevents the blank page flash between popup close and next UI render
     },
   })
+    // SweetAlert is thenable; .then() returns the native Promise with .catch().
+    .then()
+    .catch(observation.failed)
+
+  if (interactionEnded(RC)) {
+    observation.settled({ isConfirmed: false })
+    return { selectedCamera: null, experimentEnded: true }
+  }
 
   // Restore original z-index of video container
   if (videoContainer) {
@@ -3522,13 +3574,12 @@ export const showCameraSelectionPopup = async (
     RC.cameraPollingInterval = null
   }
 
+  observation.settled({
+    isConfirmed: !quitFromChooseScreen && !!RC.selectedCamera,
+  })
   // Quit-from-Choose-Screen branch: the consumer's _onQuitCallback
   if (quitFromChooseScreen) {
-    console.log(
-      '[ChooseScreen] Quit acknowledged — hanging camera-selection',
-      'promise so the consumer end-of-study page is not overwritten.',
-    )
-    await new Promise(() => {})
+    console.log('[ChooseScreen] Quit acknowledged; camera selection cancelled.')
     return { selectedCamera: null, experimentEnded: true }
   }
 
@@ -3568,8 +3619,10 @@ const showNoCameraPopup = async (
     mainVideoContainer.style.display = originalMainVideoDisplay
   }
 
+  const observation = observeDialog(RC, 'camera-unavailable')
   const result = await Swal.fire({
     ...swalInfoOptions(RC, { showIcon: false }),
+    didDestroy: observation.didDestroy,
     html: `
       <p style="text-align: ${textAlign}; direction: ${RC.LD === RC._CONST.RTL ? 'rtl' : 'ltr'}; margin-top: 1rem; font-size: 1.2rem; line-height: 1.6;">
         ${processInlineFormatting(phrases.RC_CameraNotFound[RC.L]).replace('\n', '<br />')}
@@ -3620,6 +3673,9 @@ const showNoCameraPopup = async (
       }
     },
   })
+    .then()
+    .catch(observation.failed)
+  observation.settled(result)
 
   return result.isConfirmed ? 'retry' : 'end'
 }
@@ -3660,8 +3716,10 @@ export const _handlePostCameraResolution = async (RC, options) => {
       phrases?.RC_SettingWebcamResolution?.['en'] ||
       'Setting webcam resolution ...'
 
+    const observation = observeDialog(RC, 'camera-resolution')
     const resolutionResult = await Swal.fire({
       ...swalInfoOptions(RC, { showIcon: false }),
+      didDestroy: observation.didDestroy,
       icon: undefined,
       title: '',
       html: '',
@@ -3796,6 +3854,9 @@ export const _handlePostCameraResolution = async (RC, options) => {
         }
       },
     })
+      .then()
+      .catch(observation.failed)
+    observation.settled(resolutionResult)
 
     // If the resolution Swal was interrupted by camera disconnection,
     // wait for reconnection and then re-show the resolution page.
@@ -3879,6 +3940,8 @@ const _awaitCameraReconnect = async (RC, logPrefix) => {
  * @returns {Promise} - Promise that resolves when popup is closed with selected camera
  */
 export const showTestPopup = async (RC, onClose = null, options = {}) => {
+  if (interactionEnded(RC))
+    return { selectedCamera: null, experimentEnded: true }
   // Initialize the flag only if it doesn't exist yet (first time)
   if (RC.resolutionWarningShown === undefined) {
     RC.resolutionWarningShown = false
@@ -3982,6 +4045,8 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
     // Set _isWaitingForCameraReconnect so GazeTracker's reconnect
     // handler knows we are going to re-run the camera flow ourselves
     // and should NOT also re-run _handlePostCameraResolution.
+    if (result.experimentEnded || interactionEnded(RC))
+      return { selectedCamera: null, experimentEnded: true }
     if (!result.selectedCamera && RC.gazeTracker?.isCameraDisconnected()) {
       console.log(
         '[showTestPopup/single] Disconnect path triggered.',
@@ -4072,6 +4137,8 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   // Set _isWaitingForCameraReconnect so GazeTracker's reconnect handler
   // knows we are going to re-run the camera flow ourselves and should
   // NOT also re-run _handlePostCameraResolution.
+  if (result.experimentEnded || interactionEnded(RC))
+    return { selectedCamera: null, experimentEnded: true }
   if (!result.selectedCamera && RC.gazeTracker?.isCameraDisconnected()) {
     console.log(
       '[showTestPopup] Disconnect path: awaiting reconnect, then',

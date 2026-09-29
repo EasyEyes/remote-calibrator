@@ -7,9 +7,9 @@ import {
   isFullscreen,
 } from '../components/utils'
 import Swal from 'sweetalert2'
+import { observeDialog } from '../interactionLifecycle'
 import { swalInfoOptions } from '../components/swalOptions'
 import { phrases } from '../i18n/schema'
-import { _handlePostCameraResolution } from '../components/popup'
 import {
   createCameraSession,
   resetCameraSession,
@@ -142,8 +142,10 @@ export default class GazeTracker {
     const startingMsg = document.getElementById('rc-starting-message')
     if (startingMsg) startingMsg.style.display = 'none'
 
-    await Swal.fire({
+    const observation = observeDialog(RC, 'camera-startup-retry')
+    const result = await Swal.fire({
       ...defaultSwalOptions,
+      didDestroy: observation.didDestroy,
       icon: 'error',
       iconColor: RC._CONST.COLOR.DARK_RED,
       showConfirmButton: true,
@@ -151,6 +153,9 @@ export default class GazeTracker {
       confirmButtonText: phrases.RC_TryAgain?.[RC.L] || 'Try again',
       html: message,
     })
+      .then()
+      .catch(observation.failed)
+    observation.settled(result)
 
     if (!isFullscreen()) {
       await getFullscreen(RC.L, RC)
@@ -399,6 +404,43 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
   if (this._cameraMonitoringSetUp) return
   this._cameraMonitoringSetUp = true
 
+  // The recovery view can outlive camera readiness (spinner/close animation).
+  const lifecycle = this.calibrator._interactionLifecycle
+  let recovery = null
+  let quitRequested = false
+  const requestQuit = reason => {
+    if (quitRequested || this.calibrator._interactionEnding) return
+    quitRequested = true
+    this.calibrator._cleanupAllRC()
+    this.calibrator._onQuitCallback?.(reason)
+  }
+  this.webgazer.setOnRecoveryInteraction?.(event => {
+    if (event.phase === 'awaiting-resume') {
+      // A new disconnect can arrive before the previous view's close animation
+      // ends. Keep a continuous interaction until the newest recovery releases UI.
+      const id =
+        lifecycle?.getSnapshot().recovery?.id ?? lifecycle?.beginRecovery()
+      recovery = { sourceId: event.id, id }
+    }
+    if (!recovery || recovery.sourceId !== event.id) return
+    if (event.phase === 'ended') {
+      if (event.outcome !== 'completed') {
+        requestQuit({
+          trigger: 'cameraReconnectPopup',
+          reason: 'recovery-' + event.outcome,
+        })
+        recovery = null
+        return
+      }
+      lifecycle?.endRecovery(recovery.id, event.outcome)
+      recovery = null
+    } else {
+      lifecycle?.recoveryPhase(recovery.id, event.phase)
+      if (event.phase === 'attempting') lifecycle?.camera('reconnecting')
+      if (event.phase === 'retry') lifecycle?.camera('failed')
+    }
+  })
+
   this.webgazer.params.phrases = phrases
   this.webgazer.params.language = this.calibrator.L
   this.webgazer.params.languageDirection = this.calibrator.LD
@@ -416,8 +458,10 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
   }
 
   this.webgazer.setOnCameraDisconnected((message, snapshot) => {
+    if (this.calibrator._interactionEnding) return
     console.warn('GazeTracker: Camera disconnected -', message, snapshot)
     this._cameraDisconnected = true
+    lifecycle?.camera('disconnected')
 
     // Remove any stale capture-phase key listener from popups (camera
     // selection, resolution, etc.) that may block keyboard events (e.g.
@@ -435,6 +479,7 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
   })
 
   this.webgazer.setOnCameraReconnected(async () => {
+    if (this.calibrator._interactionEnding) return
     const vc = document.getElementById('webgazerVideoContainer')
     console.log('GazeTracker: Camera reconnected', {
       showVideoParam: this.webgazer.params.showVideo,
@@ -443,53 +488,22 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
       subscriberCount: this._onReconnectCallbacks.size,
     })
     this._cameraDisconnected = false
-
-    // Capture whether a popup (showTestPopup / _handlePostCameraResolution
-    // retry) is already waiting for this reconnection. If so, that popup
-    // will re-run the camera-selection / resolution flow itself, and we
-    // must NOT trigger _handlePostCameraResolution again here, or we'd
-    // end up showing the Camera Resolution page twice.
-    const popupWillHandle =
-      this.calibrator._isWaitingForCameraReconnect === true
+    lifecycle?.camera('ready')
 
     this._onReconnectCallbacks.forEach(fn => fn())
 
-    if (!isFullscreen()) {
+    if (
+      !isFullscreen() &&
+      !this.calibrator._interactionHost?.handlesFullscreenRecovery
+    ) {
       console.log('GazeTracker: Restoring fullscreen after camera reconnection')
       await getFullscreen(this.calibrator.L, this.calibrator)
     }
 
-    // Re-run the resolution-setting code (and re-show the "Camera resolution"
-    // page if `_showCameraResolutionBool === true`) on every reconnect, so
-    // that the camera ends up at the correct resolution even when the
-    // reconnection happens AFTER the participant has already moved past the
-    // initial resolution page.
-    if (
-      !popupWillHandle &&
-      this.calibrator._cameraSelectionOptions &&
-      typeof _handlePostCameraResolution === 'function'
-    ) {
-      // Wait for any open Swal (e.g. the reconnection spinner from
-      // showCameraReconnectionPopup) to close, so our resolution page
-      // does not collide with it.
-      let waitedMs = 0
-      while (Swal.isVisible() && waitedMs < 5000) {
-        await new Promise(r => setTimeout(r, 100))
-        waitedMs += 100
-      }
-
-      try {
-        await _handlePostCameraResolution(
-          this.calibrator,
-          this.calibrator._cameraSelectionOptions,
-        )
-      } catch (error) {
-        console.error(
-          'GazeTracker: _handlePostCameraResolution after reconnect failed',
-          error,
-        )
-      }
-    }
+    // WebGazer already restores the camera stream and resolution. Recovery
+    // must not replay a completed calibration page or change preview visibility.
+    // An interrupted picker/resolution flow owns its own reconnect subscription
+    // and can retry its still-pending step; background tracking cannot open it.
   })
 
   this.webgazer.setOnQuit(reason => {
@@ -497,10 +511,7 @@ GazeTracker.prototype.setupCameraMonitoring = function () {
       'GazeTracker: Quit requested from camera reconnect popup',
       reason,
     )
-    if (typeof this.calibrator._onQuitCallback === 'function') {
-      this.calibrator._cleanupAllRC()
-      this.calibrator._onQuitCallback(reason)
-    }
+    requestQuit(reason)
   })
 }
 

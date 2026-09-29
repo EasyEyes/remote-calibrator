@@ -1,3 +1,4 @@
+import { nudgerAllowsInput } from '../cameraRecoveryInteraction'
 import RemoteCalibrator from '../core'
 import { bindKeys, unbindKeys } from '../components/keyBinder'
 import { phrases } from '../i18n/schema'
@@ -22,36 +23,49 @@ RemoteCalibrator.prototype._restartViewingDistanceTracking = async function (
 ) {
   const options = trackingConfig?.options ?? {}
 
-  safeExecuteFunc(options.onRecalibrateStart)
+  const lifecycle = this._interactionLifecycle
+  const interaction = lifecycle?.beginScope('recalibration')
+  this._recalibrationInteraction = interaction
+  try {
+    safeExecuteFunc(options.onRecalibrateStart)
 
-  // preserveVideo: the re-track starts immediately after — the camera
-  // stream must survive the teardown.
-  this.endDistance(false, true, true)
-  this._addBackground()
-  await sleep(2000)
+    // preserveVideo: the re-track starts immediately after — the camera
+    // stream must survive the teardown.
+    this.endDistance(false, true, true)
+    this._addBackground()
+    await sleep(2000)
 
-  const restartOptions = { ...options }
-  const currentDesired = this._distanceTrackNudging?.distanceDesired
-  if (Number.isFinite(currentDesired))
-    restartOptions.desiredDistanceCm = currentDesired
+    const restartOptions = { ...options }
+    const currentDesired = this._distanceTrackNudging?.distanceDesired
+    if (Number.isFinite(currentDesired))
+      restartOptions.desiredDistanceCm = currentDesired
 
-  // callbackTrack fires on every live tracking frame; the end hook must
-  // fire exactly once, on the first frame of the new session.
-  let endHookFired = false
-  const callbackTrack = trackingConfig?.callbackTrack
-  const wrappedCallbackTrack = data => {
-    if (!endHookFired) {
-      endHookFired = true
-      safeExecuteFunc(options.onRecalibrateEnd)
+    // callbackTrack fires on every live tracking frame; the end hook must
+    // fire exactly once, on the first frame of the new session.
+    let endHookFired = false
+    const callbackTrack = trackingConfig?.callbackTrack
+    const wrappedCallbackTrack = data => {
+      if (!endHookFired) {
+        endHookFired = true
+        lifecycle?.endScope(interaction, 'completed')
+        if (this._recalibrationInteraction === interaction)
+          this._recalibrationInteraction = null
+        safeExecuteFunc(options.onRecalibrateEnd)
+      }
+      if (callbackTrack) safeExecuteFunc(callbackTrack, data)
     }
-    if (callbackTrack) safeExecuteFunc(callbackTrack, data)
-  }
 
-  await this.trackDistance(
-    restartOptions,
-    trackingConfig?.callbackStatic,
-    wrappedCallbackTrack,
-  )
+    await this.trackDistance(
+      restartOptions,
+      trackingConfig?.callbackStatic,
+      wrappedCallbackTrack,
+    )
+  } catch (error) {
+    lifecycle?.endScope(interaction, 'failed')
+    if (this._recalibrationInteraction === interaction)
+      this._recalibrationInteraction = null
+    throw error
+  }
 }
 
 // ── Input-blocking infrastructure for the nudger ──
@@ -81,14 +95,13 @@ const _blockedEvents = [
 
 let _inputBlockers = []
 
-function _blockAllInput() {
+function _blockAllInput(RC) {
   if (_inputBlockers.length > 0) return // already blocking
 
   _blockedEvents.forEach(eventName => {
     const handler = e => {
-      const nudger = document.getElementById('calibration-nudger')
-      // Allow events whose target lives inside the nudger (its own buttons)
-      if (nudger && nudger.contains(e.target)) return
+      // Recovery temporarily owns interaction above this nudger.
+      if (nudgerAllowsInput(RC, e.target)) return
       e.stopPropagation()
       e.stopImmediatePropagation()
       e.preventDefault()
@@ -500,7 +513,7 @@ RemoteCalibrator.prototype._addNudger = function (inner) {
   if (inner) b.innerHTML = inner
   this._nudger.element = b
 
-  _blockAllInput()
+  _blockAllInput(this)
 
   return this.nudger
 }
@@ -533,7 +546,7 @@ RemoteCalibrator.prototype.pauseNudger = function () {
 RemoteCalibrator.prototype.resumeNudger = function () {
   this._nudger.nudgerPaused = false
   document.body.classList.remove('hide-nudger')
-  if (this.nudger) _blockAllInput()
+  if (this.nudger) _blockAllInput(this)
 }
 
 RemoteCalibrator.prototype.endNudger = function () {

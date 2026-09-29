@@ -1,3 +1,4 @@
+import { interactionEnded, onInteractionEnd } from '../interactionTermination'
 import tinycolor from 'tinycolor2'
 
 import { safeExecuteFunc, blurAll } from '../components/utils'
@@ -51,6 +52,10 @@ RemoteCalibrator.prototype.removePanel = function () {
   this._distanceTrackingFullyInitialized = false
   _clearPanelIntervals(this)
 
+  if (this._panelCallbackInteraction !== this._panelInteraction) {
+    this._interactionLifecycle?.endScope(this._panelInteraction, 'cancelled')
+    this._panelInteraction = null
+  }
   return true
 }
 
@@ -112,206 +117,249 @@ RemoteCalibrator.prototype.panel = async function (
     return false
   }
 
-  const options = Object.assign(
-    {
-      headline: phrases.RC_panelTitle[this.L],
-      description: phrases.RC_panelIntro[this.L],
-      showNextButton: false,
-      nextHeadline: phrases.RC_panelTitleNext[this.L],
-      nextDescription: phrases.RC_panelIntroNext[this.L],
-      nextButton: phrases.RC_panelButton[this.L],
-      color: '#3490de',
-      debug: false,
-      i18n: true,
-      fullscreen: true,
-      _demoActivateAll: false, // ! Private
-    },
-    panelOptions,
-  )
+  const lifecycle = this._interactionLifecycle
+  if (__reset__) lifecycle?.endScope(this._panelInteraction, 'cancelled')
+  let interaction = null
+  const originalCallback = callback
+  callback = data => {
+    if (interactionEnded(this)) return
+    this._panelCallbackInteraction = interaction
+    let result
+    try {
+      result = originalCallback?.(data)
+    } catch (error) {
+      lifecycle?.endScope(interaction, 'failed')
+      throw error
+    }
+    const finish = () => {
+      if (this._panelCallbackInteraction === interaction)
+        this._panelCallbackInteraction = null
+      lifecycle?.endScope(interaction, 'completed')
+      if (this._panelInteraction === interaction) this._panelInteraction = null
+    }
+    if (result?.then)
+      return Promise.resolve(result).then(finish, error => {
+        if (this._panelCallbackInteraction === interaction)
+          this._panelCallbackInteraction = null
+        lifecycle?.endScope(interaction, 'failed')
+        console.error('[RC panel callback]', error)
+      })
+    else finish()
+  }
+  try {
+    const options = Object.assign(
+      {
+        headline: phrases.RC_panelTitle[this.L],
+        description: phrases.RC_panelIntro[this.L],
+        showNextButton: false,
+        nextHeadline: phrases.RC_panelTitleNext[this.L],
+        nextDescription: phrases.RC_panelIntroNext[this.L],
+        nextButton: phrases.RC_panelButton[this.L],
+        color: '#3490de',
+        debug: false,
+        i18n: true,
+        fullscreen: true,
+        _demoActivateAll: false, // ! Private
+      },
+      panelOptions,
+    )
 
-  // Enter fullscreen BEFORE checking the screen-size cache. The cached monitor
-  // fingerprint stores the window position (screenLeft/screenTop), which reads
-  // (0,0) only in fullscreen — the state in which the cache is always saved
-  // (screenSize calibration forces fullscreen). If we checked while still
-  // windowed, the position would be offset by the browser chrome (e.g.
-  // top=122) and never match, so the Size button would wrongly appear even
-  // with a valid cache.
-  await this.getFullscreen(options.fullscreen)
+    // Enter fullscreen BEFORE checking the screen-size cache. The cached monitor
+    // fingerprint stores the window position (screenLeft/screenTop), which reads
+    // (0,0) only in fullscreen — the state in which the cache is always saved
+    // (screenSize calibration forces fullscreen). If we checked while still
+    // windowed, the position would be offset by the browser chrome (e.g.
+    // top=122) and never match, so the Size button would wrongly appear even
+    // with a valid cache.
+    await this.getFullscreen(options.fullscreen)
+    if (interactionEnded(this)) return false
 
-  // If a screenSize task is present and its cache is enabled with a valid
-  // entry for the current monitor, silently retrieve the size and drop the
-  // Size button so it never appears in the panel. (EasyEyes
-  // _calibrateScreenSizeCacheBool, default TRUE.)
-  tasks = _silentlyResolveCachedScreenSize(this, tasks)
-
-  // The fullscreen transition (notably on macOS) can take a moment to settle,
-  // so window.screenLeft/Top may still report the windowed position right
-  // after getFullscreen resolves. If a cacheable screenSize task survived but
-  // a cache entry actually exists, wait for the geometry to stabilize and try
-  // once more before giving up and showing the Size button.
-  if (_hasCacheableScreenSizeTask(tasks) && hasStoredScreenSizeCacheEntry()) {
-    await _waitForFullscreenGeometrySettled()
+    // If a screenSize task is present and its cache is enabled with a valid
+    // entry for the current monitor, silently retrieve the size and drop the
+    // Size button so it never appears in the panel. (EasyEyes
+    // _calibrateScreenSizeCacheBool, default TRUE.)
     tasks = _silentlyResolveCachedScreenSize(this, tasks)
-  }
 
-  // If pre-resolution (e.g. a valid screen-size cache) leaves no tasks to
-  // perform, there is nothing to render. Previously the panel still drew its
-  // heading/description but produced zero step buttons (and no Next button by
-  // default), stranding the participant on a "press the button" page with
-  // nothing to click. Instead, fire the completion callback and resolve so the
-  // caller (EasyEyes) proceeds straight to the experiment. The desired
-  // behavior maps cleanly here:
-  //   - size cached + distance requested  → trackDistance keeps the list
-  //     non-empty, so the Distance button still shows (handled below).
-  //   - size cached + distance not requested → list is now empty, so we skip
-  //     the whole Size & Distance page instead of showing a buttonless page.
-  if (tasks.length === 0) {
+    // The fullscreen transition (notably on macOS) can take a moment to settle,
+    // so window.screenLeft/Top may still report the windowed position right
+    // after getFullscreen resolves. If a cacheable screenSize task survived but
+    // a cache entry actually exists, wait for the geometry to stabilize and try
+    // once more before giving up and showing the Size button.
+    if (_hasCacheableScreenSizeTask(tasks) && hasStoredScreenSizeCacheEntry()) {
+      await _waitForFullscreenGeometrySettled()
+      if (interactionEnded(this)) return false
+      tasks = _silentlyResolveCachedScreenSize(this, tasks)
+    }
+
+    // If pre-resolution (e.g. a valid screen-size cache) leaves no tasks to
+    // perform, there is nothing to render. Previously the panel still drew its
+    // heading/description but produced zero step buttons (and no Next button by
+    // default), stranding the participant on a "press the button" page with
+    // nothing to click. Instead, fire the completion callback and resolve so the
+    // caller (EasyEyes) proceeds straight to the experiment. The desired
+    // behavior maps cleanly here:
+    //   - size cached + distance requested  → trackDistance keeps the list
+    //     non-empty, so the Distance button still shows (handled below).
+    //   - size cached + distance not requested → list is now empty, so we skip
+    //     the whole Size & Distance page instead of showing a buttonless page.
+    if (tasks.length === 0) {
+      console.log(
+        '[panel] No tasks to display — all requested calibrations already satisfied (e.g. cached screen size). Skipping the panel page and auto-completing.',
+      )
+      this._panelStatus.hasPanel = false
+      this._panelStatus.panelFinished = true
+      await callback({ timestamp: performance.now() })
+      return resolveOnFinish === null ? true : resolveOnFinish
+    }
+
+    interaction = lifecycle?.beginScope('calibration-panel')
+    this._panelInteraction = interaction
+
+    // initialize panel state for tracking
+    this._panelState = new PanelState()
+    this._panelState.initFromTasks(tasks)
     console.log(
-      '[panel] No tasks to display — all requested calibrations already satisfied (e.g. cached screen size). Skipping the panel page and auto-completing.',
+      '[PanelState] Panel initialized with tasks:',
+      tasks.map(t => (typeof t === 'string' ? t : t.name)),
     )
-    this._panelStatus.hasPanel = false
-    this._panelStatus.panelFinished = true
-    safeExecuteFunc(callback, { timestamp: performance.now() })
-    return resolveOnFinish === null ? true : resolveOnFinish
-  }
+    this._panelState.logState('Panel initialized')
 
-  // initialize panel state for tracking
-  this._panelState = new PanelState()
-  this._panelState.initFromTasks(tasks)
-  console.log(
-    '[PanelState] Panel initialized with tasks:',
-    tasks.map(t => (typeof t === 'string' ? t : t.name)),
-  )
-  this._panelState.logState('Panel initialized')
-
-  // Set theme color
-  const darkerColor = tinycolor(options.color).darken(20).toString()
-  document.documentElement.style.setProperty(
-    '--rc-panel-theme-color',
-    options.color,
-  )
-  document.documentElement.style.setProperty(
-    '--rc-panel-darken-color',
-    darkerColor,
-  )
-  document.documentElement.style.setProperty(
-    '--rc-panel-theme-color-semi',
-    `${options.color}66`,
-  )
-  document.documentElement.style.setProperty(
-    '--rc-panel-darken-color-semi',
-    `${darkerColor}88`,
-  )
-
-  const panel = document.createElement('div')
-  panel.className = panel.id = 'rc-panel'
-  if (this.LD === this._CONST.RTL) panel.className += ' rc-lang-rtl'
-  else panel.className += ' rc-lang-ltr'
-
-  if (options.i18n) {
-    panel.innerHTML += `<div class="rc-panel-language-parent" id="rc-panel-language-parent"></div>`
-  }
-  panel.innerHTML += `<h1 class="rc-panel-title" id="rc-panel-title">${processInlineFormatting(
-    options.headline,
-  )}</h1>`
-  panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${processInlineFormatting(
-    options.description,
-  )}</p>`
-  panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
-
-  // --- Camera selection before panel is visible ---
-  // If any task is trackDistance and camera hasn't been selected yet,
-  // run the full webcam pipeline now, before appending the panel to the DOM.
-  if (!this._cameraSelectionDone) {
-    const tdTask = tasks.find(
-      t => (typeof t === 'string' ? t : t.name) === 'trackDistance',
+    // Set theme color
+    const darkerColor = tinycolor(options.color).darken(20).toString()
+    document.documentElement.style.setProperty(
+      '--rc-panel-theme-color',
+      options.color,
     )
-    if (tdTask) {
-      const tdOpts = typeof tdTask === 'object' ? tdTask.options || {} : {}
-      await _runCameraSelectionBeforePanel(this, tdOpts)
-    }
-  }
-
-  hideResolutionSettingMessage()
-
-  if (!__reset__) parentElement.appendChild(panel)
-  else parentElement.replaceChild(panel, this._panel.panel) // ! reset
-
-  const steps = panel.querySelector('#rc-panel-steps')
-  const panelObserver = new ResizeObserver(() => {
-    _setStepsClassesSL(steps, panel.offsetWidth, this.LD)
-  })
-  panelObserver.observe(panel)
-  _setStepsClassesSL(steps, panel.offsetWidth, this.LD)
-
-  if (tasks.length === 0) {
-    steps.className += ' rc-panel-no-steps'
-  } else {
-    for (const t in tasks) {
-      const b = _newStepBlock(this, t, tasks[t], options)
-      steps.appendChild(b)
-    }
-  }
-
-  if (options.showNextButton || options._demoActivateAll)
-    steps.appendChild(_nextStepBlock(tasks.length, options))
-
-  // Activate the first one
-  const current = { index: 0, finished: [] }
-  _activateStepAt(this, current, tasks, options, callback)
-
-  this._panel.panel = panel
-  this._panel.panelObserver = panelObserver
-  this._panel.panelTasks = tasks
-  this._panel.panelParent = parent
-
-  const tempOptions = { ...options }
-  if (options.headline === phrases.RC_panelTitle[this.L])
-    tempOptions.headline = undefined
-  if (options.description === phrases.RC_panelIntro[this.L])
-    tempOptions.description = undefined
-  if (options.nextHeadline === phrases.RC_panelTitleNext[this.L])
-    tempOptions.nextHeadline = undefined
-  if (options.nextDescription === phrases.RC_panelIntroNext[this.L])
-    tempOptions.nextDescription = undefined
-  if (options.nextButton === phrases.RC_panelButton[this.L])
-    tempOptions.nextButton = undefined
-
-  this._panel.panelOptions = tempOptions
-
-  this._panel.panelCallback = callback
-  this._panel.panelResolve = resolveOnFinish
-
-  this._panelStatus.hasPanel = true
-  this._panelStatus.panelFinished = false
-
-  // Simple space key blocking - just add event listener to the panel element itself
-  panel.addEventListener('keydown', e => {
-    if (e.key === ' ') {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-  })
-
-  if (options.i18n)
-    _setLanguagePicker(
-      this,
-      document.querySelector('#rc-panel-language-parent'),
+    document.documentElement.style.setProperty(
+      '--rc-panel-darken-color',
       darkerColor,
     )
+    document.documentElement.style.setProperty(
+      '--rc-panel-theme-color-semi',
+      `${options.color}66`,
+    )
+    document.documentElement.style.setProperty(
+      '--rc-panel-darken-color-semi',
+      `${darkerColor}88`,
+    )
 
-  if (options.debug) _setDebugControl(this, panel, tasks, callback)
-  if (resolveOnFinish === null) resolveOnFinish = true
+    const panel = document.createElement('div')
+    panel.className = panel.id = 'rc-panel'
+    if (this.LD === this._CONST.RTL) panel.className += ' rc-lang-rtl'
+    else panel.className += ' rc-lang-ltr'
 
-  return new Promise(resolve => {
-    const _ = setInterval(() => {
-      if (this._panelStatus.panelFinished) {
-        clearInterval(_)
-        resolve(resolveOnFinish)
+    if (options.i18n) {
+      panel.innerHTML += `<div class="rc-panel-language-parent" id="rc-panel-language-parent"></div>`
+    }
+    panel.innerHTML += `<h1 class="rc-panel-title" id="rc-panel-title">${processInlineFormatting(
+      options.headline,
+    )}</h1>`
+    panel.innerHTML += `<p class="rc-panel-description" id="rc-panel-description">${processInlineFormatting(
+      options.description,
+    )}</p>`
+    panel.innerHTML += '<div class="rc-panel-steps" id="rc-panel-steps"></div>'
+
+    // --- Camera selection before panel is visible ---
+    // If any task is trackDistance and camera hasn't been selected yet,
+    // run the full webcam pipeline now, before appending the panel to the DOM.
+    if (!this._cameraSelectionDone) {
+      const tdTask = tasks.find(
+        t => (typeof t === 'string' ? t : t.name) === 'trackDistance',
+      )
+      if (tdTask) {
+        const tdOpts = typeof tdTask === 'object' ? tdTask.options || {} : {}
+        await _runCameraSelectionBeforePanel(this, tdOpts)
       }
-    }, 100)
-    this._panelStatus.panelResolveIntervals.push(_)
-  })
+    }
+
+    if (interactionEnded(this)) return false
+    hideResolutionSettingMessage()
+
+    if (!__reset__) parentElement.appendChild(panel)
+    else parentElement.replaceChild(panel, this._panel.panel) // ! reset
+
+    const steps = panel.querySelector('#rc-panel-steps')
+    const panelObserver = new ResizeObserver(() => {
+      _setStepsClassesSL(steps, panel.offsetWidth, this.LD)
+    })
+    panelObserver.observe(panel)
+    _setStepsClassesSL(steps, panel.offsetWidth, this.LD)
+
+    if (tasks.length === 0) {
+      steps.className += ' rc-panel-no-steps'
+    } else {
+      for (const t in tasks) {
+        const b = _newStepBlock(this, t, tasks[t], options)
+        steps.appendChild(b)
+      }
+    }
+
+    if (options.showNextButton || options._demoActivateAll)
+      steps.appendChild(_nextStepBlock(tasks.length, options))
+
+    // Activate the first one
+    const current = { index: 0, finished: [] }
+    _activateStepAt(this, current, tasks, options, callback)
+
+    this._panel.panel = panel
+    this._panel.panelObserver = panelObserver
+    this._panel.panelTasks = tasks
+    this._panel.panelParent = parent
+
+    const tempOptions = { ...options }
+    if (options.headline === phrases.RC_panelTitle[this.L])
+      tempOptions.headline = undefined
+    if (options.description === phrases.RC_panelIntro[this.L])
+      tempOptions.description = undefined
+    if (options.nextHeadline === phrases.RC_panelTitleNext[this.L])
+      tempOptions.nextHeadline = undefined
+    if (options.nextDescription === phrases.RC_panelIntroNext[this.L])
+      tempOptions.nextDescription = undefined
+    if (options.nextButton === phrases.RC_panelButton[this.L])
+      tempOptions.nextButton = undefined
+
+    this._panel.panelOptions = tempOptions
+
+    this._panel.panelCallback = originalCallback
+    this._panel.panelResolve = resolveOnFinish
+
+    this._panelStatus.hasPanel = true
+    this._panelStatus.panelFinished = false
+
+    // Simple space key blocking - just add event listener to the panel element itself
+    panel.addEventListener('keydown', e => {
+      if (e.key === ' ') {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    })
+
+    if (options.i18n)
+      _setLanguagePicker(
+        this,
+        document.querySelector('#rc-panel-language-parent'),
+        darkerColor,
+      )
+
+    if (options.debug) _setDebugControl(this, panel, tasks, callback)
+    if (resolveOnFinish === null) resolveOnFinish = true
+
+    return new Promise(resolve => {
+      const release = onInteractionEnd(this, () => resolve(false))
+      const _ = setInterval(() => {
+        if (this._panelStatus.panelFinished) {
+          clearInterval(_)
+          release()
+          resolve(resolveOnFinish)
+        }
+      }, 100)
+      this._panelStatus.panelResolveIntervals.push(_)
+    })
+  } catch (error) {
+    lifecycle?.endScope(interaction, 'failed')
+    if (this._panelInteraction === interaction) this._panelInteraction = null
+    throw error
+  }
 }
 
 /**
