@@ -874,8 +874,10 @@ const _runCameraSelectionBeforePanel = async (RC, tdOpts) => {
     console.log('Experiment ended - no cameras detected')
   }
 
-  // 5. Only mark done if a camera was actually selected
-  if (!cameraResult?.experimentEnded) {
+  // 5. Only mark done if a camera was actually selected — a camera-less
+  // outcome must leave the flag false so a later selectCamera re-runs the
+  // flow instead of fast-pathing to "no camera".
+  if (cameraResult?.selectedCamera) {
     RC._cameraSelectionDone = true
   }
 

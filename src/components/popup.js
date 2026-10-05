@@ -3618,11 +3618,10 @@ export const noCameraMessage = (RC, { anyCamerasFound } = {}) => {
     return (
       phrases.RC_errorNoBuiltInCamera?.[L] ||
       phrases.RC_errorNoBuiltInCamera?.['en-US'] ||
-      'A camera was found, but it is not built into this screen. ' +
-        'This study measures viewing distance with a built-in camera, so it ' +
-        'cannot use a separate (external or virtual) webcam. ' +
-        'If this computer has a built-in camera, close other apps using it and ' +
-        'click Try again. Otherwise, this study cannot run on this computer.'
+      'This study needs a built-in camera to measure viewing distance. ' +
+        'A camera was found, but it isn\u2019t built into your screen, so it won\u2019t work. ' +
+        'If this computer actually has a built-in camera and we\u2019re failing to find it, ' +
+        'close any other app that might be using it, and then click **Try again**.'
     )
   }
   return (
@@ -3672,11 +3671,11 @@ const showNoCameraPopup = async (
       finalizeCameraFindTiming(RC, { cameraCount: 0 })
 
       // Handle keyboard events
+      // ESC deliberately inert (as in every RC popup): a stray Escape must
+      // never end the study without a deliberate click on OK.
       const keydownListener = event => {
         if (event.key === 'Enter' || event.key === 'Return') {
           Swal.clickConfirm() // Try Again
-        } else if (event.key === 'Escape') {
-          Swal.clickCancel() // End Experiment
         }
       }
 

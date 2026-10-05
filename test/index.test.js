@@ -23,7 +23,9 @@ require('./objectRecoveryOwnership.test')
 require('./cameraRecoveryDeadEnds.test')
 require('./interactionTermination.test')
 require('./cameraFailureExits.test')
+require('./cameraSelectionDoneFlag.test')
 require('./nudgerInputBlock.test')
+require('./escNeverEndsSession.test')
 
 const packageJSON = require('../package.json')
 

@@ -16,7 +16,7 @@ import {
  *   gazeTracker._init('distance')  →  checkPermissions
  *   →  loadModel  →  beginVideo  →  showTestPopup
  *
- * Sets `RC._cameraSelectionDone = true` on success so the panel
+ * Sets `RC._cameraSelectionDone = true` only when a camera was actually
  * pre-flight (`_runCameraSelectionBeforePanel`) and the in-task
  * `showTestPopup` calls in trackDistance / object tests will all skip
  * and avoid double-prompting the user.
@@ -202,7 +202,11 @@ async function selectCamera(options = {}) {
       console.log('[RC.selectCamera] Experiment ended — no cameras detected')
     }
 
-    if (!cameraResult?.experimentEnded) {
+    // Done means a camera was actually selected and locked in. A camera-less
+    // outcome (dismissed or undriven popup, early bail-out) must leave the
+    // flag false so the next selectCamera runs the full flow again — hosts
+    // map the fast path's null camera to "no camera detected".
+    if (cameraResult?.selectedCamera) {
       this._cameraSelectionDone = true
     }
 

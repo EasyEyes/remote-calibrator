@@ -428,7 +428,11 @@ RemoteCalibrator.prototype.trackDistance = async function (
       if (cameraResult?.experimentEnded) {
         console.log('Experiment ended - no cameras detected')
       }
-      this._cameraSelectionDone = true
+      // Done only when a camera was actually selected — never on an ended
+      // or camera-less outcome, or later flows would skip selection.
+      if (cameraResult?.selectedCamera) {
+        this._cameraSelectionDone = true
+      }
     }
 
     // Mark that camera selection has been done to avoid calling it again in calibration methods
