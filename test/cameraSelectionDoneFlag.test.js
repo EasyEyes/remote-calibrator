@@ -109,3 +109,34 @@ describe('camera selection done-flag semantics', function () {
     )
   })
 })
+
+describe('camera selection fast path requires a still-selected camera', function () {
+  const src = srcOf('cameraSelection.js')
+
+  it('the done flag alone must not fast-path when selectedCamera was cleared', function () {
+    // Field/sim proof (0.9.165): the panel pre-flight selected a camera
+    // (flag set), a later reset cleared RC.selectedCamera, and the fast
+    // path still returned { selectedCamera: null, alreadyDone: true } with
+    // no UI — hosts ended the session as "no camera". Fast-pathing is only
+    // meaningful while the selected camera is still present.
+    const fastPath =
+      /if \(([^)]*_cameraSelectionDone[^)]*)\)\s*\{[\s\S]*?alreadyDone:\s*true/
+    assert.ok(
+      fastPath.test(src),
+      'expected the fast path in cameraSelection.js',
+    )
+    const m = fastPath.exec(src)[0]
+    const guard = fastPath.exec(src)[1]
+    assert.match(
+      guard,
+      /this\.selectedCamera/,
+      'fast-path guard must also require this.selectedCamera — a selection ' +
+        'that was later cleared must fall through to the real flow',
+    )
+    assert.doesNotMatch(
+      m,
+      /selectedCamera:\s*this\.selectedCamera\s*\|\|\s*null/,
+      'fast path must not launder a cleared selection into null+alreadyDone',
+    )
+  })
+})

@@ -35,12 +35,16 @@ async function selectCamera(options = {}) {
   if (!this.checkInitialized()) return null
 
   // Idempotent: if camera selection already ran (e.g. from the panel
-  // pre-flight) just return.
-  if (this._cameraSelectionDone) {
+  // pre-flight) AND the selected camera is still present, skip. A selection
+  // that was later cleared (reset paths null RC.selectedCamera) must fall
+  // through to the real flow — flag-alone fast-pathing launders the cleared
+  // selection into { selectedCamera: null, alreadyDone: true }, which hosts
+  // end the session on with no UI (field/sim, 0.9.165).
+  if (this._cameraSelectionDone && this.selectedCamera) {
     console.log(
       '[RC.selectCamera] Camera selection already completed — skipping',
     )
-    return { selectedCamera: this.selectedCamera || null, alreadyDone: true }
+    return { selectedCamera: this.selectedCamera, alreadyDone: true }
   }
 
   const lifecycle = this._interactionLifecycle
