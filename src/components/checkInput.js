@@ -125,10 +125,10 @@ export const takeInput = async (
       ) {
         // FRACTION
         valid = true
+        const fractionParts = formInputElementFFraction.value.split('/')
         numericalValue =
           Number.parseInt(formInputElementFInteger.value) +
-          // biome-ignore lint/security/noGlobalEval: the best way to parse fractions
-          eval(formInputElementFFraction.value)
+          (fractionParts.length === 2 ? Number(fractionParts[0]) / Number(fractionParts[1]) : 0)
         inputValue = `${formInputElementFInteger.value} ${formInputElementFFraction.value}`
       } else if (!unitIsFraction && validInput(formInputElement.value)) {
         // OTHERS
@@ -198,8 +198,7 @@ const validInputFraction = text => {
     validInputInteger(numbers[0]) &&
     validInputInteger(numbers[1]) &&
     powerOf2(numbers[1]) &&
-    // biome-ignore lint/security/noGlobalEval: the best way to parse fractions
-    eval(text) < 1
+    Number(numbers[0]) / Number(numbers[1]) < 1
   )
 }
 
