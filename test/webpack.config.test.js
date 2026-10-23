@@ -3,7 +3,6 @@ const path = require('node:path')
 const webpack = require('webpack')
 
 const { CleanWebpackPlugin } = require('clean-webpack-plugin')
-const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
 
 const packageJSON = require('../package.json')
 const config = require('../webpack.utils.js').config
@@ -25,7 +24,6 @@ module.exports = {
   plugins: [
     ...plugins,
     new CleanWebpackPlugin(),
-    new NodePolyfillPlugin(),
     new webpack.IgnorePlugin({
       resourceRegExp: /^canvas$/,
     }),
