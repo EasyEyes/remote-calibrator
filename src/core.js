@@ -87,7 +87,7 @@ class RemoteCalibrator {
       distanceCorrectEnabled: false, // Whether to correct or not, used for endNudger
       distanceDesired: null,
       distanceAllowedRatio: null,
-      needEasyEyesKeypadBeyondCm: null,
+      needKeypadBeyondCm: null,
       // Head rotation nudging
       headRotationCorrecting: null, // setInterval for head rotation nudger
       headRotationCorrectingEnabled: false, // Whether head-rotation nudging is active

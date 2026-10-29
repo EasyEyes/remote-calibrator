@@ -235,9 +235,9 @@ RemoteCalibrator.prototype.nudgeDistance = function (
           )
 
           if (
-            this._distanceTrackNudging.needEasyEyesKeypadBeyondCm &&
+            this._distanceTrackNudging.needKeypadBeyondCm &&
             this._distanceTrackNudging.distanceDesired >
-              this._distanceTrackNudging.needEasyEyesKeypadBeyondCm
+              this._distanceTrackNudging.needKeypadBeyondCm
           ) {
             canUseKeypad.innerHTML = ` ${processInlineFormatting(
               phrases.RC_canUsePhoneKeypad[this.L],
@@ -325,12 +325,12 @@ const validateAllowedRatio = ratio => {
 RemoteCalibrator.prototype.setDistanceDesired = function (
   d,
   allowedRatio = null,
-  needEasyEyesKeypadBeyondCm = null,
+  needKeypadBeyondCm = null,
 ) {
   this._distanceTrackNudging.distanceDesired = d
-  if (needEasyEyesKeypadBeyondCm)
-    this._distanceTrackNudging.needEasyEyesKeypadBeyondCm =
-      needEasyEyesKeypadBeyondCm
+  if (needKeypadBeyondCm)
+    this._distanceTrackNudging.needKeypadBeyondCm =
+      needKeypadBeyondCm
   if (allowedRatio && validateAllowedRatio(allowedRatio))
     this._distanceTrackNudging.distanceAllowedRatio = allowedRatio
   return d
