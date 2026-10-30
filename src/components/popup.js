@@ -20,6 +20,14 @@ import {
   finalizeCameraFindTiming,
   logCameraFindResults,
 } from '../cameraFindTiming.js'
+import {
+  cameraErrorSnapshot,
+  recordCameraAttemptEvent,
+  recordCameraChoices,
+  recordCameraSelection,
+  recordCameraUnavailable,
+  updateCameraAttempt,
+} from '../cameraAttempt.js'
 
 /**
  * Remove parenthesized hex device IDs from camera labels.
@@ -1353,6 +1361,7 @@ const _commitSelectedCameraWithOverride = (RC, camera, options) => {
   RC.selectedCamera = committed
   RC.cameraIncorporation = committed.incorporation || 'unknown'
   RC.cameraIncorporationReal = committed.incorporationReal || null
+  recordCameraSelection(RC, committed)
 
   // The saved per-camera array stays purely real-classification data --
   // we intentionally do NOT flag individual entries with the override.
@@ -1371,7 +1380,7 @@ const _commitSelectedCameraWithOverride = (RC, camera, options) => {
 // Enumerate cameras and tag each with likelyBuiltIn + incorporation.
 // Labels are only populated after getUserMedia permission is granted.
 
-const getAvailableCameras = async () => {
+const getAvailableCameras = async (RC = null) => {
   try {
     if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
       const devices = await navigator.mediaDevices.enumerateDevices()
@@ -1399,6 +1408,14 @@ const getAvailableCameras = async () => {
     return []
   } catch (error) {
     console.error('Error getting camera devices:', error)
+    if (RC) {
+      updateCameraAttempt(RC, {
+        enumerationError: cameraErrorSnapshot(error),
+      })
+      recordCameraAttemptEvent(RC, 'camera-enumeration-failed', {
+        reason: cameraErrorSnapshot(error)?.reason || 'unknown',
+      })
+    }
     return []
   }
 }
@@ -2392,7 +2409,7 @@ export const showCameraSelectionPopup = async (
   // Prefer the pre-filtered list from showTestPopup; enumerate as fallback.
   let cameras = RC._visibleCameras
   if (!cameras || cameras.length === 0) {
-    const allCameras = await getAvailableCameras()
+    const allCameras = await getAvailableCameras(RC)
     if (!RC.availableCameras) RC.availableCameras = allCameras
     if (!RC.cameraArray) {
       RC.cameraArray = allCameras.map(c => ({
@@ -2406,6 +2423,7 @@ export const showCameraSelectionPopup = async (
       }))
     }
     cameras = allCameras
+    recordCameraChoices(RC, allCameras, cameras)
   }
 
   // Get current active camera
@@ -2899,7 +2917,7 @@ export const showCameraSelectionPopup = async (
         }
 
         cameraRefresh = createCameraRefresh({
-          read: getAvailableCameras,
+          read: () => getAvailableCameras(RC),
           apply: async (newCamerasAll, isCurrent) => {
             const opts = RC._cameraSelectionOptions || {}
             // Refresh the full-list stats (covers hot-plugged cameras).
@@ -2926,6 +2944,7 @@ export const showCameraSelectionPopup = async (
               opts,
             )
             RC._visibleCameras = newCameras
+            recordCameraChoices(RC, newCamerasAll, newCameras)
 
             // Check if camera list has changed
             const hasChanged =
@@ -4019,7 +4038,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
       `[showTestPopup] TESTING: _calibrateDistanceCameraKindOverride = "${kindOverride}". The chooser keeps every camera's real kind; the override is applied to the SELECTED camera only at commit time. Exclude these results from camera-kind tabulation.`,
     )
   }
-  const allCameras = await getAvailableCameras()
+  const allCameras = await getAvailableCameras(RC)
   RC.cameraArray = allCameras.map(c => ({
     name: c.label || '',
     class: c.incorporation,
@@ -4036,6 +4055,7 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   const cameras = _filterCamerasByExternalPolicy(allCameras, options)
   RC.availableCameras = allCameras
   RC._visibleCameras = cameras
+  recordCameraChoices(RC, allCameras, cameras)
 
   let conditionalPrivacyCamera = ''
   if (!options.saveSnapshots) {
@@ -4045,6 +4065,10 @@ export const showTestPopup = async (RC, onClose = null, options = {}) => {
   // Handle different camera scenarios (after exclude-external filter)
   if (cameras.length === 0) {
     // No cameras detected - show retry popup
+    recordCameraUnavailable(
+      RC,
+      allCameras.length > 0 ? 'external-only' : 'no-camera',
+    )
     // Make sure no title is shown since we're not showing camera selection
     hideCameraTitleFromTopRight()
 

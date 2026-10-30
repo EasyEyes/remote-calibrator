@@ -232,5 +232,9 @@ describe('Late calibration completion', () => {
       experimentEnded: true,
       selectedCamera: null,
     })
+    assert.deepEqual(rc.getCameraAttempt().outcome, {
+      type: 'cancelled',
+      reason: 'host-terminated',
+    })
   })
 })

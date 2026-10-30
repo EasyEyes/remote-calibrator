@@ -27,6 +27,12 @@ import { phrases } from './i18n/schema'
 import { checkPermissions } from './components/mediaPermission'
 import { showTestPopup, hideResolutionSettingMessage } from './components/popup'
 import { logCameraFindResults } from './cameraFindTiming.js'
+import {
+  beginCameraAttempt,
+  cameraFailureReason,
+  recordCameraAttemptEvent,
+  updateCameraAttempt,
+} from './cameraAttempt.js'
 import { interactionParent } from './interactionLifecycle'
 
 async function selectCamera(options = {}) {
@@ -46,6 +52,9 @@ async function selectCamera(options = {}) {
     )
     return { selectedCamera: this.selectedCamera, alreadyDone: true }
   }
+
+  beginCameraAttempt(this)
+  updateCameraAttempt(this, { phase: 'fullscreen' })
 
   const lifecycle = this._interactionLifecycle
   const interaction = lifecycle?.beginScope(
@@ -103,10 +112,18 @@ async function selectCamera(options = {}) {
     // theirs, not ours, so it is measured separately and excluded from
     // cameraFindSec below.
     const permissionStart = performance.now()
+    updateCameraAttempt(this, {
+      phase: 'permission',
+      permission: 'requesting',
+    })
     await checkPermissions(this, permMessage)
     if (interactionEnded(this))
       return { experimentEnded: true, selectedCamera: null }
     const cameraPermissionSec = (performance.now() - permissionStart) / 1000
+    updateCameraAttempt(this, {
+      phase: 'camera-startup',
+      permission: 'checked',
+    })
 
     // Clock for "how long did EasyEyes take to find the camera?", reported in
     // the results so the distribution can be compared across computers.
@@ -191,6 +208,21 @@ async function selectCamera(options = {}) {
         ? startupError.name || String(startupError.message || startupError)
         : null,
     }
+    updateCameraAttempt(this, {
+      phase: startupError ? 'camera-startup-failed' : 'choosing-camera',
+      permission: startupError
+        ? cameraFailureReason(startupError) === 'permission-denied'
+          ? 'denied'
+          : 'checked'
+        : 'granted',
+      startupError,
+      timings: this.cameraFindTiming,
+    })
+    recordCameraAttemptEvent(
+      this,
+      startupError ? 'camera-startup-failed' : 'camera-started',
+      startupError ? { reason: cameraFailureReason(startupError) } : {},
+    )
 
     // A participant who ended at the camera-startup popup (userEnded) ends
     // explained here — no second popup. EasyEyes treats {experimentEnded:true}
@@ -241,6 +273,23 @@ async function selectCamera(options = {}) {
       interaction,
       cameraResult?.experimentEnded ? 'cancelled' : 'completed',
     )
+    const attempt = this._cameraAttempt || {}
+    const outcome = cameraResult?.selectedCamera
+      ? { type: 'selected', reason: null }
+      : cameraResult?.experimentEnded
+        ? {
+            type:
+              attempt.unavailableReason || startupError
+                ? 'unavailable'
+                : 'cancelled',
+            reason:
+              (startupError
+                ? cameraFailureReason(startupError)
+                : attempt.unavailableReason) || 'participant-ended',
+          }
+        : { type: 'completed', reason: null }
+    updateCameraAttempt(this, { phase: 'completed', outcome })
+    recordCameraAttemptEvent(this, 'camera-attempt-settled', outcome)
     return {
       ...cameraResult,
       ...this.cameraFindTiming,
@@ -260,6 +309,14 @@ async function selectCamera(options = {}) {
         'assess',
     }
   } catch (error) {
+    updateCameraAttempt(this, {
+      phase: 'failed',
+      startupError: error,
+      outcome: { type: 'failed', reason: cameraFailureReason(error) },
+    })
+    recordCameraAttemptEvent(this, 'camera-attempt-failed', {
+      reason: cameraFailureReason(error),
+    })
     lifecycle?.endScope(interaction, 'failed')
     throw error
   } finally {
@@ -274,5 +331,13 @@ RemoteCalibrator.prototype.selectCamera = function (options = {}) {
   return untilInteractionEnds(this, selectCamera.call(this, options), {
     experimentEnded: true,
     selectedCamera: null,
+  }).then(result => {
+    if (interactionEnded(this) && this._cameraAttempt?.outcome === null) {
+      updateCameraAttempt(this, {
+        phase: 'cancelled',
+        outcome: { type: 'cancelled', reason: 'host-terminated' },
+      })
+    }
+    return result
   })
 }

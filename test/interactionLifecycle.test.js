@@ -378,6 +378,11 @@ describe('RC lifecycle integration', () => {
       assert.equal(result.experimentEnded, true)
       assert.equal(result.selectedCamera, null)
       assert.equal(RC._cameraSelectionDone, false)
+      assert.deepEqual(RC.getCameraAttempt().outcome, {
+        type: 'unavailable',
+        reason: 'no-camera',
+      })
+      assert.equal(RC.getCameraAttempt().phase, 'completed')
       assert.deepEqual(calls, ['add', 'remove', ['video', false]])
       assert.deepEqual(RC.getInteractionSnapshot().scopes, [])
       assert.equal(document.getElementById('rc-starting-message'), null)
@@ -608,6 +613,10 @@ describe('RC lifecycle integration', () => {
       if (event) events.push(event)
     })
     await assert.rejects(RC.selectCamera(), actual => actual === error)
+    assert.deepEqual(RC.getCameraAttempt().outcome, {
+      type: 'failed',
+      reason: 'camera-startup-failed',
+    })
     assert.deepEqual(
       events.map(e => e.type),
       ['scope.begin', 'scope.end'],

@@ -329,8 +329,7 @@ RemoteCalibrator.prototype.setDistanceDesired = function (
 ) {
   this._distanceTrackNudging.distanceDesired = d
   if (needKeypadBeyondCm)
-    this._distanceTrackNudging.needKeypadBeyondCm =
-      needKeypadBeyondCm
+    this._distanceTrackNudging.needKeypadBeyondCm = needKeypadBeyondCm
   if (allowedRatio && validateAllowedRatio(allowedRatio))
     this._distanceTrackNudging.distanceAllowedRatio = allowedRatio
   return d

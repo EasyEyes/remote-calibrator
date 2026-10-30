@@ -2,6 +2,7 @@
  * Camera-find timing helpers. Logs to the console and merges into RC.newCameraData
  * so EasyEyes can plot cameraFindSec across computers.
  */
+import { updateCameraAttempt } from './cameraAttempt.js'
 
 export function finalizeCameraFindTiming(RC, { cameraCount = null } = {}) {
   if (typeof RC._cameraFindStartMs !== 'number') return RC.cameraFindTiming
@@ -25,6 +26,7 @@ export function finalizeCameraFindTiming(RC, { cameraCount = null } = {}) {
 
 export function logCameraFindResults(RC) {
   const t = RC.cameraFindTiming || {}
+  updateCameraAttempt(RC, { timings: t })
   const payload = {
     cameraFindSec: t.cameraFindSec ?? null,
     cameraPermissionSec: t.cameraPermissionSec ?? null,
