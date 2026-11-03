@@ -24,7 +24,7 @@ function constructLangData(lang) {
       languageNameEnglish: phrases.EE_LanguageEnglishName[lang],
       languageNameNative: phrases.EE_LanguageNativeName[lang],
       languageDirection: phrases.EE_LanguageDirection[lang],
-      languagePhraseSource: phrases.EE_phraseSource[lang],
+      languagePhraseSource: phrases.EE_phraseSource?.[lang],
     },
     timestamp: performance.now(),
   }

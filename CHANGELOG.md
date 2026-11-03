@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Allow initialization when optional `EE_phraseSource` provenance metadata is absent.
+
 ## [0.7.14] - 2024-06-22
 
 Fixed a bug where the viewing distance tracking setup may never end.

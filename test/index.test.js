@@ -1,6 +1,7 @@
 const assert = require('node:assert')
 
 require('./loadPhrases.test')
+require('./language.test')
 require('./replacePhraseToken.test')
 require('./markdownRendering.test')
 
