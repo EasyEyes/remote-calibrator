@@ -31,7 +31,7 @@ import {
 import { setDefaultVideoPosition } from '../../components/video'
 import { phrases } from '../../i18n/schema'
 import { test_assetMap } from '../assetMap'
-import { fetchBlobOnce } from '../instructionMediaCache'
+import { fetchBlobOnce, isInstructionMediaSealed } from '../instructionMediaCache'
 import {
   createStepInstructionsUI,
   renderStepInstructions,
@@ -135,6 +135,7 @@ export const globalPointXYPx = { value: [window.screen.width / 2, 0] }
  * Blocks on the first few highest-priority assets, then continues in background.
  */
 async function preloadAllInstructionMedia(RC) {
+  if (isInstructionMediaSealed()) return
   const allUrls = []
   const maps = [test_assetMap].filter(Boolean)
   maps.forEach(m => {

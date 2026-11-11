@@ -1,3 +1,4 @@
+import { getObjectMeasurementPhraseKey } from './locationInstructions.js'
 /**
  * objectTestUI.js
  *
@@ -486,27 +487,10 @@ export function createObjectTestUI(context) {
     const minInch = minCm / 2.54
     const maxInch = maxCm / 2.54
 
-    const phraseKeyMapping = {
-      RC_UseObjectToSetViewingDistanceTapePage1_MD:
-        'RC_UseObjectToSetViewingDistanceTapeStepperPage1',
-      RC_UseObjectToSetViewingDistanceRulerPage1_MD:
-        'RC_UseObjectToSetViewingDistanceRulerStepperPage1',
-      RC_UseObjectToSetViewingDistanceTapePage2_MD:
-        'RC_UseObjectToSetViewingDistanceTapeStepperPage2',
-      RC_UseObjectToSetViewingDistanceRulerPage2_MD:
-        'RC_UseObjectToSetViewingDistanceRulerStepperPage2',
-    }
-
-    const phraseKey =
-      measurementState.currentIteration === 1
-        ? showLength
-          ? 'RC_UseObjectToSetViewingDistanceTapePage1_MD'
-          : 'RC_UseObjectToSetViewingDistanceRulerPage1_MD'
-        : showLength
-          ? 'RC_UseObjectToSetViewingDistanceTapePage2_MD'
-          : 'RC_UseObjectToSetViewingDistanceRulerPage2_MD'
-
-    const actualPhraseKey = phraseKeyMapping[phraseKey]
+    const actualPhraseKey = getObjectMeasurementPhraseKey(
+      showLength,
+      measurementState.currentIteration === 1,
+    )
     currentStepperPhraseKey = actualPhraseKey
     const chosenText = (phrases[actualPhraseKey]?.[RC.L] || '')
       .replace('[[IN1]]', minInch.toFixed(0))
@@ -746,7 +730,7 @@ export function createObjectTestUI(context) {
     }
   }
 
-  initPaperStepper()
+  if (isPaperSelectionMode) initPaperStepper()
 
   // Up/Down navigation for paper selection stepper
   // Legacy distance.js L4858-4895

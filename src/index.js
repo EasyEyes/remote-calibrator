@@ -5,6 +5,7 @@ import './const'
 import './screenSize'
 
 import './distance/distance'
+import './distance/preloadInstructionMedia'
 import './distance/distanceTrack'
 import './distance/distanceNudge'
 import './distance/interPupillaryDistance'

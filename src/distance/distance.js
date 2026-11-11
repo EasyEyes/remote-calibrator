@@ -45,6 +45,7 @@ import {
 } from './assetMap'
 import {
   fetchBlobOnce,
+  isInstructionMediaSealed,
   resolveInstructionMediaUrl,
 } from './instructionMediaCache'
 import {
@@ -3458,33 +3459,12 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
   }
 
   const preloadAllInstructionMedia = async () => {
+    if (isInstructionMediaSealed()) return
     const orderedUrls = buildInstructionMediaPreloadOrder()
     console.log('orderedUrls...', orderedUrls)
     if (!orderedUrls.length) return
 
-    const firstBlockingCount = 3
-    const firstBatch = orderedUrls.slice(0, firstBlockingCount)
-    const remaining = orderedUrls.slice(firstBlockingCount)
-
-    await Promise.all(firstBatch.map(url => fetchBlobOnce(url, this))).catch(
-      error => {
-        console.error('error preloading initial media...', error)
-      },
-    )
-
-    if (remaining.length) {
-      if (!window.__eeInstructionMediaPreloaderPromise) {
-        window.__eeInstructionMediaPreloaderPromise = (async () => {
-          for (const url of remaining) {
-            try {
-              await fetchBlobOnce(url, this)
-            } catch (err) {
-              console.error('error preloading media url...', err)
-            }
-          }
-        })()
-      }
-    }
+    await Promise.all(orderedUrls.map(url => fetchBlobOnce(url, RC)))
   }
 
   await preloadAllInstructionMedia()

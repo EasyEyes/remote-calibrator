@@ -494,6 +494,14 @@ export function createAnchoredStepperUI(referenceEl, options = {}) {
   }
 }
 
+// The last attachment on a step wins. Section attachments are its fallback.
+export function getStepInstructionMediaUrl(section, step) {
+  return (
+    step?.mediaUrls?.filter(Boolean).at(-1) ??
+    section?.mediaUrls?.filter(Boolean).at(-1)
+  )
+}
+
 // Render the step-by-step view into a given UI created by createStepInstructionsUI
 export function renderStepInstructions({
   model,
@@ -879,14 +887,11 @@ export function renderStepInstructions({
   if (bottomOffset > 0) {
     mediaContainer.style.marginBottom = `${bottomOffset}px`
   }
-  // Prefer media linked to the current step; fallback to section-level media
-  const currentStepObj = sections[curSectionIdx]?.steps?.[curStepIdx] || null
-  const stepMediaUrls = (currentStepObj?.mediaUrls || []).filter(Boolean)
-  const sectionMediaUrls = (sections[curSectionIdx]?.mediaUrls || []).filter(
-    Boolean,
+  const section = sections[curSectionIdx]
+  const chosen = getStepInstructionMediaUrl(
+    section,
+    section?.steps?.[curStepIdx],
   )
-  const mediaUrls = stepMediaUrls.length ? stepMediaUrls : sectionMediaUrls
-  const chosen = mediaUrls.length ? mediaUrls[mediaUrls.length - 1] : null
   if (chosen) {
     const srcUrl = resolveMediaUrl(chosen)
     if (/\.mp4(\?|$)/i.test(chosen)) {
