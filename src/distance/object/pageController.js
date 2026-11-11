@@ -21,6 +21,11 @@ import {
 import { debugLog, debugWarn } from './debugLogger'
 
 import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
+import {
+  blockDistanceCalibrationAttempt,
+  updateDistanceCalibrationAttempt,
+  observeDistanceCalibrationPage,
+} from './distanceCalibrationAttempt'
 /**
  * Sentinel value for the tube-check page, matching legacy `TUBE_CHECK_PAGE`.
  * @type {string}
@@ -284,7 +289,7 @@ export function createPageController(deps) {
    * @param {number|string} pageNumber - The page to show (0, 1, 2, 'tubeCheck', 3).
    * @returns {Promise<void>}
    */
-  const showPage = async pageNumber => {
+  const showPageUnobserved = async pageNumber => {
     const previousPage = currentPage
     currentPage = pageNumber
     if (setCurrentPage) setCurrentPage(pageNumber)
@@ -716,6 +721,13 @@ export function createPageController(deps) {
     }
   }
 
+  const showPage = pageNumber =>
+    observeDistanceCalibrationPage(RC, pageNumber, {
+      isPaperSelectionMode,
+      getCurrentLocation: () => locationManager.getCurrentLocationInfo(),
+      render: () => showPageUnobserved(pageNumber),
+    })
+
   // ──────────────────────────────────────────────────────────────────────
   // nextPage — legacy distance.js L7173-7479
   // ──────────────────────────────────────────────────────────────────────
@@ -739,6 +751,7 @@ export function createPageController(deps) {
         const selectedPaperLengthCm = getSelectedPaperLengthCm()
 
         if (!selectedPaperOption || selectedPaperLengthCm === null) {
+          blockDistanceCalibrationAttempt(RC, 'paper-selection-required')
           paperValidationMessage.textContent =
             phrases.RC_PleaseSelectAnOption[RC.L]
           paperValidationMessage.style.display = 'block'
@@ -747,6 +760,13 @@ export function createPageController(deps) {
           }
           return false
         }
+
+        updateDistanceCalibrationAttempt(RC, {
+          selectedPaperOption,
+          selectedPaperLengthCm,
+          matchHalfLengthBool: getMatchHalfLengthBool?.() ?? null,
+          lastBlockedReason: null,
+        })
 
         const paperTimestamp = performance.now()
         setFirstMeasurement(selectedPaperLengthCm)

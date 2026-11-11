@@ -23,6 +23,7 @@ import './check/checkDistance'
 
 import './panel/panel'
 import './cameraAttempt'
+import './distance/object/distanceCalibrationAttempt'
 import './cameraSelection'
 import './customization'
 

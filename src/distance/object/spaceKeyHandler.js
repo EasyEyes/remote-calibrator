@@ -15,6 +15,11 @@ import { debugLog, debugError } from './debugLogger'
 import { DEFAULT_FOCAL_TOLERANCE_RATIO } from './objectTestConstants'
 import { correctIpdForHeadRotation } from '../headYaw'
 import { objectLengthCmGlobal, globalPointXYPx } from './objectTestOrchestrator'
+import {
+  blockDistanceCalibrationAttempt,
+  recordDistanceCalibrationEvent,
+  updateDistanceCalibrationAttempt,
+} from './distanceCalibrationAttempt'
 
 const CATEGORY = 'spaceKey'
 
@@ -64,6 +69,7 @@ export async function handleSpaceOnTubeCheck(context) {
       CATEGORY,
       'SPACE ignored on tube check page – tape not yet adjusted',
     )
+    blockDistanceCalibrationAttempt(RC, 'tube-not-adjusted')
     reattachKeydown()
     return
   }
@@ -75,11 +81,18 @@ export async function handleSpaceOnTubeCheck(context) {
 
   if (!expectedCm || expectedCm <= 0) {
     debugError(CATEGORY, 'Tube check: invalid expectedCm, skipping check')
+    blockDistanceCalibrationAttempt(RC, 'invalid-expected-length', {
+      expectedCm: expectedCm ?? null,
+    })
     reattachKeydown()
     return
   }
 
   const ratio = estimatedCm / expectedCm
+
+  // matchHalfLengthBool is only decided now, when the tube-check page has the
+  // paper and screen diagonals — the paper-commit snapshot predates it.
+  updateDistanceCalibrationAttempt(RC, { matchHalfLengthBool })
 
   stateManager.pushEstimatedLength(estimatedCm, ratio)
 
@@ -100,6 +113,18 @@ export async function handleSpaceOnTubeCheck(context) {
   const lower = Math.round(100 / threshold)
   const upper = Math.round(100 * threshold)
   const accepted = pctOfExpected >= lower && pctOfExpected <= upper
+
+  recordDistanceCalibrationEvent(RC, 'tube-check', {
+    accepted,
+    estimatedCm,
+    expectedCm,
+    pctOfExpected,
+    allowedRatioPct: [lower, upper],
+  })
+  if (!accepted)
+    updateDistanceCalibrationAttempt(RC, {
+      lastRejectionReason: 'tube-length-mismatch',
+    })
 
   console.log(
     `Tube check: accepted=${accepted}, threshold=${matchHalfLengthBool ? ratioThresholdHalf : ratioThresholdFull}`,
@@ -402,6 +427,11 @@ export async function handleSpaceOnPage3(context) {
     validSamples.length < 5 ||
     faceMeshSamplesPage3.some(sample => isNaN(sample))
   ) {
+    blockDistanceCalibrationAttempt(RC, 'face-samples-invalid', {
+      validSampleCount: validSamples.length,
+      requiredSampleCount: 5,
+      totalSampleCount: faceMeshSamplesPage3.length,
+    })
     // Use the image captured at space press
     const capturedImage = lastCapturedFaceImage
 
@@ -709,6 +739,9 @@ export async function handleSpaceOnPage3(context) {
       ipdCorrectedOverWidth: ipdOverWidth,
       cameraResolution: cameraRes,
       locationIndex: locationManager.getCurrentIndex(),
+      rejectionReason: 'focal-length-mismatch',
+      focalRatioPct: focalRoundedPct,
+      allowedRatioPct: [focalLower, focalUpper],
     })
     console.log(
       `Queued rejected measurement for location ${failLocInfo.locEye}`,
@@ -733,6 +766,9 @@ export async function handleSpaceOnPage3(context) {
 
     // Reject measurements and go back using locationManager
     locationManager.rejectAndGoBack(1)
+    updateDistanceCalibrationAttempt(RC, {
+      currentLocation: locationManager.getCurrentLocationInfo(),
+    })
 
     // Reset face mesh samples for retry
     faceMeshSamplesPage3.length = 0
@@ -857,6 +893,10 @@ export async function handleSpaceOnPage3(context) {
 
   // Check if there are more locations
   const hasMoreLocations = locationManager.advanceToNext()
+  if (hasMoreLocations)
+    updateDistanceCalibrationAttempt(RC, {
+      currentLocation: locationManager.getCurrentLocationInfo(),
+    })
   console.log('page 3:5 globalPointXYPx:', globalPointXYPx.value)
 
   if (hasMoreLocations) {

@@ -23,8 +23,32 @@ import { debugLog, debugError } from './debugLogger'
  *
  * @returns {object} Queue manager with push/reject/save methods
  */
-export function createMeasurementSaveQueue() {
+export function createMeasurementSaveQueue({ onChange } = {}) {
   const queue = []
+  const notify = (type, entry, result) => {
+    try {
+      onChange?.({ type, entry, entries: [...queue], result })
+    } catch (error) {
+      // Diagnostics must never change calibration behavior.
+      debugError('saveQueue', 'Measurement telemetry observer failed:', error)
+    }
+  }
+  const notifyError = error => {
+    try {
+      onChange?.({
+        type: 'persistence-failed',
+        entry: null,
+        entries: [...queue],
+        error,
+      })
+    } catch (observerError) {
+      debugError(
+        'saveQueue',
+        'Measurement persistence-error observer failed:',
+        observerError,
+      )
+    }
+  }
 
   return {
     /**
@@ -42,6 +66,7 @@ export function createMeasurementSaveQueue() {
      */
     pushAccepted(entry) {
       queue.push({ ...entry, accepted: true })
+      notify('accepted', queue[queue.length - 1])
       debugLog('saveQueue', `Queued accepted measurement for ${entry.locEye}`)
     },
 
@@ -53,6 +78,7 @@ export function createMeasurementSaveQueue() {
      */
     pushRejected(entry) {
       queue.push({ ...entry, accepted: false })
+      notify('rejected', queue[queue.length - 1])
       debugLog('saveQueue', `Queued rejected measurement for ${entry.locEye}`)
     },
 
@@ -65,6 +91,7 @@ export function createMeasurementSaveQueue() {
       for (let i = queue.length - 2; i >= 0; i--) {
         if (queue[i].accepted) {
           queue[i].accepted = false
+          notify('retroactive-rejection', queue[i])
           debugLog(
             'saveQueue',
             `Retroactively rejected queued measurement at index ${i} ` +
@@ -194,12 +221,15 @@ export function createMeasurementSaveQueue() {
             `in chronological order`,
         )
 
-        return {
+        const result = {
           acceptedCount,
           rejectedCount,
           totalCount: allMeasurementObjects.length,
         }
+        notify('persistence-succeeded', null, result)
+        return result
       } catch (error) {
+        notifyError(error)
         debugError(
           'saveQueue',
           'Error in bulk save of measurement attempts:',

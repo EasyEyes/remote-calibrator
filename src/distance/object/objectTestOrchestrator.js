@@ -116,6 +116,16 @@ import { createKeyboardHandler } from './keyboardHandler'
 import { finishObjectTest, cleanupAllResources } from './objectTestFinish'
 import { createObjectTestUI } from './objectTestUI'
 import { debugLog } from './debugLogger'
+import {
+  beginDistanceCalibrationAttempt,
+  completeDistanceCalibrationAttempt,
+  createDistanceCalibrationMediaTracker,
+  recordDistanceCalibrationEvent,
+  recordDistanceCalibrationMeasurement,
+  restoreDistanceCalibrationCameraPage,
+  settleDistanceCalibrationAttempt,
+  updateDistanceCalibrationAttempt,
+} from './distanceCalibrationAttempt'
 
 // Sound effects (conditionally loaded to avoid issues in test environments)
 let soundFeedback, cameraShutterSound, stampOfApprovalSound
@@ -161,22 +171,27 @@ async function preloadAllInstructionMedia(RC) {
   })
 
   const total = ordered.length
-  let completed = 0
   setLoadingVideoProgress(0, total)
+  const media = createDistanceCalibrationMediaTracker(
+    RC,
+    total,
+    setLoadingVideoProgress,
+  )
+  const mediaId = url =>
+    String(url).split('/').pop().split('?')[0].slice(0, 200)
 
   // Wrap each fetch so the loading popup's progress bar advances as each
   // asset finishes. fetchBlobOnce is idempotent (cached), so cached assets
   // resolve immediately and still count toward progress.
   const trackOne = url =>
-    fetchBlobOnce(url, RC)
-      .catch(err => {
+    fetchBlobOnce(url, RC).then(
+      () => media.succeeded(),
+      err => {
         debugLog('preload', 'Error preloading media url:', err)
+        media.failed(mediaId(url), err)
         return null
-      })
-      .finally(() => {
-        completed += 1
-        setLoadingVideoProgress(completed, total)
-      })
+      },
+    )
 
   // Block on ALL instruction media so the progress bar visibly fills from
   // 0% to 100% while the "Loading videos ..." popup is on screen. The
@@ -193,7 +208,7 @@ async function preloadAllInstructionMedia(RC) {
  * @param {object} options - Calibration options
  * @param {function} [callback] - Completion callback
  */
-export async function objectTestNew(RC, options, callback = undefined) {
+async function objectTestNewImpl(RC, options, callback = undefined) {
   debugLog('orchestrator', 'objectTestNew called')
 
   RC._addBackground()
@@ -299,6 +314,9 @@ export async function objectTestNew(RC, options, callback = undefined) {
   const calibrateDistanceLocations = parseLocationsArray(
     options.calibrateDistanceLocations,
   )
+  updateDistanceCalibrationAttempt(RC, {
+    expectedLocationCount: calibrateDistanceLocations.length,
+  })
 
   // ─── State managers ──────────────────────────────────────────────────
   const stateManager = createObjectTestStateManager({
@@ -313,7 +331,9 @@ export async function objectTestNew(RC, options, callback = undefined) {
     isPaperSelectionModeBool,
   })
 
-  const saveQueue = createMeasurementSaveQueue()
+  const saveQueue = createMeasurementSaveQueue({
+    onChange: change => recordDistanceCalibrationMeasurement(RC, change),
+  })
 
   // ─── Preload media ───────────────────────────────────────────────────
   await preloadAllInstructionMedia(RC)
@@ -412,6 +432,7 @@ export async function objectTestNew(RC, options, callback = undefined) {
 
   // ─── Show initial popup before creating UI ─────────────────────────
   if (!options.cameraSelectionDone) {
+    updateDistanceCalibrationAttempt(RC, { phase: 'camera-selection' })
     await showTestPopup(RC, null, options)
   }
 
@@ -421,6 +442,11 @@ export async function objectTestNew(RC, options, callback = undefined) {
   // the measurementPageRenderer and locationManager, and returns a `deps`
   // object that satisfies every property pageController/keyboardHandler expect.
   const deps = createObjectTestUI(context)
+  updateDistanceCalibrationAttempt(RC, {
+    selectedPaperOption: deps.getSelectedPaperOption(),
+    selectedPaperLengthCm: deps.getSelectedPaperLengthCm(),
+    matchHalfLengthBool: deps.getMatchHalfLengthBool(),
+  })
 
   // ─── Create page controller ──────────────────────────────────────────
   const pageController = createPageController(deps)
@@ -476,38 +502,51 @@ export async function objectTestNew(RC, options, callback = undefined) {
       setMeshSamplesDuringPage4Array: deps.setMeshSamplesDuringPage4Array,
       setFaceMeshSamplesPage3Array: deps.setFaceMeshSamplesPage3Array,
       setMeshSamplesDuringPage3Array: deps.setMeshSamplesDuringPage3Array,
-      objectTestFinishFunction: () =>
-        finishObjectTest({
-          ...context,
-          ...deps,
-          objectTestHasFinishedRef: {
-            get value() {
-              return deps.getObjectTestHasFinished()
+      objectTestFinishFunction: async () => {
+        updateDistanceCalibrationAttempt(RC, { phase: 'finishing' })
+        try {
+          const result = await finishObjectTest({
+            ...context,
+            ...deps,
+            objectTestHasFinishedRef: {
+              get value() {
+                return deps.getObjectTestHasFinished()
+              },
+              set value(v) {
+                deps.setObjectTestHasFinished(v)
+              },
             },
-            set value(v) {
-              deps.setObjectTestHasFinished(v)
-            },
-          },
-          firstMeasurement: deps.getFirstMeasurement(),
-          startX: deps.getStartX(),
-          startY: deps.getStartY(),
-          endX: deps.getEndX(),
-          endY: deps.getEndY(),
-          screenWidth: deps.getScreenWidth(),
-          arrowIndicators: deps.getArrowIndicators(),
-          intraocularDistanceCm: null,
-          faceMeshSamplesPage3: deps.getFaceMeshSamplesPage3(),
-          faceMeshSamplesPage4: deps.getFaceMeshSamplesPage4(),
-          isPaperSelectionMode: deps.state?.isPaperSelectionMode,
-          selectedPaperOption: deps.getSelectedPaperOption(),
-          selectedPaperLabel: deps.getSelectedPaperOption()
-            ? deps
-                .getPaperSelectionOptions()
-                ?.find(o => o.key === deps.getSelectedPaperOption())?.label
-            : null,
-          selectedPaperLengthCm: deps.getSelectedPaperLengthCm(),
-          paperSuggestionValue: deps.getPaperSuggestionValue(),
-        }),
+            firstMeasurement: deps.getFirstMeasurement(),
+            startX: deps.getStartX(),
+            startY: deps.getStartY(),
+            endX: deps.getEndX(),
+            endY: deps.getEndY(),
+            screenWidth: deps.getScreenWidth(),
+            arrowIndicators: deps.getArrowIndicators(),
+            intraocularDistanceCm: null,
+            faceMeshSamplesPage3: deps.getFaceMeshSamplesPage3(),
+            faceMeshSamplesPage4: deps.getFaceMeshSamplesPage4(),
+            isPaperSelectionMode: deps.state?.isPaperSelectionMode,
+            selectedPaperOption: deps.getSelectedPaperOption(),
+            selectedPaperLabel: deps.getSelectedPaperOption()
+              ? deps
+                  .getPaperSelectionOptions()
+                  ?.find(o => o.key === deps.getSelectedPaperOption())?.label
+              : null,
+            selectedPaperLengthCm: deps.getSelectedPaperLengthCm(),
+            paperSuggestionValue: deps.getPaperSuggestionValue(),
+          })
+          completeDistanceCalibrationAttempt(RC)
+          return result
+        } catch (error) {
+          settleDistanceCalibrationAttempt(
+            RC,
+            'failed',
+            error?.message || String(error),
+          )
+          throw error
+        }
+      },
       setPreferRightHandBool: deps.setPreferRightHandBool,
       setArrowIndicators: deps.setArrowIndicators,
       lastCapturedFaceImage: deps.getLastCapturedFaceImage(),
@@ -557,11 +596,14 @@ export async function objectTestNew(RC, options, callback = undefined) {
 
   // ─── Camera disconnection handling ─────────────────────────────────
   const unregisterCleanup = onInteractionEnd(RC, () => {
+    settleDistanceCalibrationAttempt(RC, 'cancelled', 'interaction-ended')
     keyboardHandler.cleanup()
     cleanupAllResources({ ...context, ...deps })
   })
   const releaseCameraRecovery = subscribeCameraRecovery(RC.gazeTracker, {
     onDisconnect: () => {
+      updateDistanceCalibrationAttempt(RC, { phase: 'camera-recovery' })
+      recordDistanceCalibrationEvent(RC, 'camera-disconnected')
       keyboardHandler.detach()
       debugLog('orchestrator', 'Camera disconnected – keyboard input blocked')
     },
@@ -571,52 +613,58 @@ export async function objectTestNew(RC, options, callback = undefined) {
         'orchestrator',
         `Camera reconnected on page ${currentPage} – restoring UI`,
       )
+      return restoreDistanceCalibrationCameraPage(RC, {
+        currentPage,
+        isPaperSelectionMode: isPaperSelectionModeBool,
+        getCurrentLocation: () =>
+          deps.locationManager?.getCurrentLocationInfo?.() || null,
+        attach: () => keyboardHandler.attach(),
+        render: async () => {
+          if (currentPage === 3) {
+            // On the measurement page: discard in-progress samples and roll back
+            // the location manager so the participant retakes this measurement.
+            const locationManager = deps.locationManager
+            if (locationManager && locationManager.getCurrentIndex() > 0) {
+              locationManager.rejectAndGoBack(1)
+            }
 
-      if (currentPage === 3) {
-        // On the measurement page: discard in-progress samples and roll back
-        // the location manager so the participant retakes this measurement.
-        const locationManager = deps.locationManager
-        if (locationManager && locationManager.getCurrentIndex() > 0) {
-          locationManager.rejectAndGoBack(1)
-        }
+            const faceMeshSamplesPage3 = deps.getFaceMeshSamplesPage3()
+            const meshSamplesDuringPage3 = deps.getMeshSamplesDuringPage3()
+            if (faceMeshSamplesPage3) faceMeshSamplesPage3.length = 0
+            if (meshSamplesDuringPage3) meshSamplesDuringPage3.length = 0
 
-        const faceMeshSamplesPage3 = deps.getFaceMeshSamplesPage3()
-        const meshSamplesDuringPage3 = deps.getMeshSamplesDuringPage3()
-        if (faceMeshSamplesPage3) faceMeshSamplesPage3.length = 0
-        if (meshSamplesDuringPage3) meshSamplesDuringPage3.length = 0
+            const resetPageConfig = buildMeasurementPageConfig(
+              locationManager,
+              options.saveSnapshots || false,
+              deps.getPreferRightHandBool(),
+              getOffsetPx(),
+            )
 
-        const resetPageConfig = buildMeasurementPageConfig(
-          locationManager,
-          options.saveSnapshots || false,
-          deps.getPreferRightHandBool(),
-          getOffsetPx(),
-        )
-
-        if (resetPageConfig && deps.measurementPageRenderer) {
-          deps.measurementPageRenderer.showMeasurementPage({
-            ...resetPageConfig,
-            pageNumberOffset: deps.state?.isPaperSelectionMode ? 2 : 0,
-            setStepModel: (model, index, phraseKey) => {
-              deps.setStepInstructionModel(model)
-              if (index != null) deps.setCurrentStepFlatIndex(index)
-              const maxIdx = (model?.flatSteps?.length || 1) - 1
-              if (deps.getCurrentStepFlatIndex() > maxIdx)
-                deps.setCurrentStepFlatIndex(maxIdx)
-              if (phraseKey) deps.setCurrentStepperPhraseKey(phraseKey)
-            },
-            onHandPreferenceChange: isRight => {
-              deps.setPreferRightHandBool(isRight)
-              deps.updateMeasurementOverlayForLocation()
-            },
-          })
-        }
-      } else {
-        // On pages 0, 1, 2, or tubeCheck: simply re-show the current page
-        // so the UI is refreshed without jumping to the measurement phase.
-        pageController.showPage(currentPage)
-      }
-
-      keyboardHandler.attach()
+            if (resetPageConfig && deps.measurementPageRenderer) {
+              await deps.measurementPageRenderer.showMeasurementPage({
+                ...resetPageConfig,
+                pageNumberOffset: deps.state?.isPaperSelectionMode ? 2 : 0,
+                setStepModel: (model, index, phraseKey) => {
+                  deps.setStepInstructionModel(model)
+                  if (index != null) deps.setCurrentStepFlatIndex(index)
+                  const maxIdx = (model?.flatSteps?.length || 1) - 1
+                  if (deps.getCurrentStepFlatIndex() > maxIdx)
+                    deps.setCurrentStepFlatIndex(maxIdx)
+                  if (phraseKey) deps.setCurrentStepperPhraseKey(phraseKey)
+                },
+                onHandPreferenceChange: isRight => {
+                  deps.setPreferRightHandBool(isRight)
+                  deps.updateMeasurementOverlayForLocation()
+                },
+              })
+            }
+          } else {
+            // On pages 0, 1, 2, or tubeCheck: simply re-show the current page
+            // so the UI is refreshed without jumping to the measurement phase.
+            await pageController.showPage(currentPage)
+          }
+        },
+      })
     },
     onRelease: () => keyboardHandler.detach(),
   })
@@ -643,5 +691,24 @@ export async function objectTestNew(RC, options, callback = undefined) {
     await pageController.showPage(0)
   } else {
     await pageController.showPage(2)
+  }
+}
+
+export async function objectTestNew(RC, options, callback = undefined) {
+  beginDistanceCalibrationAttempt(RC, { mode: options.useObjectTestData })
+  try {
+    const result = await objectTestNewImpl(RC, options, callback)
+    // Typical mode returns synchronously after calibration. Object/paper modes
+    // remain interactive after the first page and settle in finishObjectTest.
+    if (options.useObjectTestData === 'typical')
+      completeDistanceCalibrationAttempt(RC)
+    return result
+  } catch (error) {
+    settleDistanceCalibrationAttempt(
+      RC,
+      'failed',
+      error?.message || String(error),
+    )
+    throw error
   }
 }
