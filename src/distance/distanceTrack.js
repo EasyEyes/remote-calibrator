@@ -35,8 +35,6 @@ import {
   getCameraResolutionXY,
   forceFullscreen,
   getCameraXYPx,
-  showLoadingVideoMessage,
-  hideLoadingVideoMessage,
 } from '../components/utils'
 import { iRepeat } from '../components/iRepeat'
 import { ensureVideoPlaying } from './ensureVideoPlaying'
@@ -342,9 +340,7 @@ RemoteCalibrator.prototype.trackDistance = async function (
     return
   }
 
-  // Always show a single, centered "Loading video ..." message as soon
   this._addBackground()
-  showLoadingVideoMessage(this)
 
   // Skip the camera-permission prompt if camera selection already ran
   // (e.g. before the panel in the improved flow).
@@ -404,11 +400,6 @@ RemoteCalibrator.prototype.trackDistance = async function (
     // Only show blindspot instruction screen if we're using blindspot test only
     // For object test only or 'both' mode, skip the instruction screen and go directly to the test
     if (!options.useObjectTestData) {
-      // The blindspot intro headline is the next page -- drop the
-      // centered "Loading video ..." message before it renders so the
-      // two don't overlap.
-      hideLoadingVideoMessage()
-
       this._addBackground()
 
       this._replaceBackground(
@@ -460,7 +451,6 @@ RemoteCalibrator.prototype.trackDistance = async function (
     // Show pre-calibration popup before starting any calibration methods
     //only show if calibrateDistanceIsCameraTopCenterBool is true
     if (options.calibrateDistanceIsCameraTopCenterBool) {
-      hideLoadingVideoMessage()
       const preCalibrationResult = await showPreCalibrationPopup(this)
       if (!preCalibrationResult) {
         // User cancelled or didn't select anything, exit gracefully
@@ -488,13 +478,10 @@ RemoteCalibrator.prototype.trackDistance = async function (
       // await objectTest(this, options, getStdDist)
     } else if (options.useObjectTestData === 'creditCard') {
       // Call knownDistanceTest directly for calibration
-      hideLoadingVideoMessage()
       await knownDistanceTest(this, options, getStdDist)
     } else if (options.useObjectTestData === 'autoCreditCard') {
-      hideLoadingVideoMessage()
       await justCreditCard(this, options, getStdDist)
     } else if (options.useObjectTestData === 'justCreditCard') {
-      hideLoadingVideoMessage()
       await justCreditCard(this, options, getStdDist)
     } else if (options.useObjectTestData) {
       console.log('=== Starting Object Test Only ===')

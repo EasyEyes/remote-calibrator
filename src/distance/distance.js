@@ -44,8 +44,7 @@ import {
   distanceCalibrationAssetMap,
 } from './assetMap'
 import {
-  fetchBlobOnce,
-  isInstructionMediaSealed,
+  preloadInstructionMediaWithProgress,
   resolveInstructionMediaUrl,
 } from './instructionMediaCache'
 import {
@@ -3458,16 +3457,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     return ordered
   }
 
-  const preloadAllInstructionMedia = async () => {
-    if (isInstructionMediaSealed()) return
-    const orderedUrls = buildInstructionMediaPreloadOrder()
-    console.log('orderedUrls...', orderedUrls)
-    if (!orderedUrls.length) return
-
-    await Promise.all(orderedUrls.map(url => fetchBlobOnce(url, RC)))
-  }
-
-  await preloadAllInstructionMedia()
+  await preloadInstructionMediaWithProgress(
+    RC,
+    buildInstructionMediaPreloadOrder(),
+  )
 
   // ===================== KNOWN DISTANCE TEST COMMON DATA =====================
   const knownDistanceTestCommonData = {

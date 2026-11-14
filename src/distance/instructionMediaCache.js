@@ -4,7 +4,13 @@
 
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
-import { getFullscreen, isFullscreen } from '../components/utils'
+import {
+  getFullscreen,
+  hideLoadingVideoMessage,
+  isFullscreen,
+  setLoadingVideoProgress,
+  showLoadingVideoMessage,
+} from '../components/utils'
 import { phrases } from '../i18n/schema'
 
 const MEDIA_FETCH_ATTEMPTS = 3
@@ -164,6 +170,31 @@ export const fetchBlobOnce = (url, RC = null) => {
 
   mediaFetchCache.set(url, p)
   return p
+}
+
+// The fallback progress screen belongs to the downloads it describes.
+export async function preloadInstructionMediaWithProgress(RC, urls) {
+  if (mediaSealed) return
+  const pending = urls.filter(url => !mediaBlobCache.has(url))
+  if (!pending.length) return
+
+  showLoadingVideoMessage(RC)
+  let completed = 0
+  try {
+    const results = await Promise.allSettled(
+      pending.map(async url => {
+        try {
+          await fetchBlobOnce(url, RC)
+        } finally {
+          setLoadingVideoProgress(++completed, pending.length)
+        }
+      }),
+    )
+    const failure = results.find(result => result.status === 'rejected')
+    if (failure) throw failure.reason
+  } finally {
+    hideLoadingVideoMessage()
+  }
 }
 
 export const resolveInstructionMediaUrl = url => {

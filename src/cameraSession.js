@@ -147,8 +147,13 @@ export async function startCameraSession(gazeTracker, options = {}) {
     try {
       throwIfStale()
 
+      console.log(
+        webgazer.getTracker().modelLoaded
+          ? '[RC.cameraSession] Face model already loaded (preloaded), camera startup will not wait for it'
+          : '[RC.cameraSession] Face model not preloaded, loading it during camera startup',
+      )
       // Kick the model download so it overlaps camera acquire. init()
-      // joins the same in-flight load via _modelLoadingInProgress.
+      // joins the same in-flight load on the tracker instance.
       const modelPromise = webgazer
         .getTracker()
         .loadModel()

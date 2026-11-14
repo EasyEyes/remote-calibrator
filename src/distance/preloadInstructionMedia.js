@@ -43,4 +43,7 @@ RemoteCalibrator.prototype.preloadInstructionMedia = async function ({
     cacheInstructionMedia(url, await loadBlob(downloadUrl))
   }
   sealInstructionMedia()
+  console.log(
+    `[RC.preloadInstructionMedia] ${urls.length} instruction media file(s) cached and sealed`,
+  )
 }

@@ -143,6 +143,15 @@ const ensureHandDetector = () => {
     })
 }
 
+/** Resolves once the detector for the current tweak is ready; rejects on failure. */
+export const preloadHandDetector = async () => {
+  if (handDetector) return
+  handDetectorFailed = false
+  ensureHandDetector()
+  await handDetectorPromise
+  if (!handDetector) throw new Error('Hand detector failed to load')
+}
+
 const maybeUpdateHands = t => {
   if (!handDetector || handEstimateInFlight) return
   if (t - lastHandCheckTime < handCheckMs) return

@@ -211,18 +211,8 @@ export async function enforceFullscreenOnSpacePress(L = 'en', RC = null) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Show a centered "Loading video ..." message while trackDistance
- * brings the camera back, loads FaceMesh, and preloads instruction
- * media before the first interactive page (paper-size selection,
- * blindspot intro, credit-card test, etc.) renders. Idempotent: a
- * second call while the message is already on screen is a no-op so
- * the message stays put across multiple call sites instead of
- * flickering.
- *
- * The message is appended to <body> (not the calibration background)
- * so `_replaceBackground` calls don't tear it down. Hide explicitly
- * with `hideLoadingVideoMessage()` right before the next page is
- * shown.
+ * Show a centered progress message while instruction media downloads.
+ * The message lives on the body so background changes leave it visible.
  *
  * @param {object} RC - RemoteCalibrator instance (used for language).
  */

@@ -25,13 +25,11 @@ import {
   isFullscreen,
   fitToViewport,
   getCameraResolutionXY,
-  hideLoadingVideoMessage,
-  setLoadingVideoProgress,
 } from '../../components/utils'
 import { setDefaultVideoPosition } from '../../components/video'
 import { phrases } from '../../i18n/schema'
 import { test_assetMap } from '../assetMap'
-import { fetchBlobOnce, isInstructionMediaSealed } from '../instructionMediaCache'
+import { preloadInstructionMediaWithProgress } from '../instructionMediaCache'
 import {
   createStepInstructionsUI,
   renderStepInstructions,
@@ -130,12 +128,7 @@ if (env !== 'mocha') {
 export const objectLengthCmGlobal = { value: null }
 export const globalPointXYPx = { value: [window.screen.width / 2, 0] }
 
-/**
- * Preload instruction media assets with priority ordering.
- * Blocks on the first few highest-priority assets, then continues in background.
- */
 async function preloadAllInstructionMedia(RC) {
-  if (isInstructionMediaSealed()) return
   const allUrls = []
   const maps = [test_assetMap].filter(Boolean)
   maps.forEach(m => {
@@ -161,29 +154,9 @@ async function preloadAllInstructionMedia(RC) {
     }
   })
 
-  const total = ordered.length
-  let completed = 0
-  setLoadingVideoProgress(0, total)
-
-  // Wrap each fetch so the loading popup's progress bar advances as each
-  // asset finishes. fetchBlobOnce is idempotent (cached), so cached assets
-  // resolve immediately and still count toward progress.
-  const trackOne = url =>
-    fetchBlobOnce(url, RC)
-      .catch(err => {
-        debugLog('preload', 'Error preloading media url:', err)
-        return null
-      })
-      .finally(() => {
-        completed += 1
-        setLoadingVideoProgress(completed, total)
-      })
-
-  // Block on ALL instruction media so the progress bar visibly fills from
-  // 0% to 100% while the "Loading videos ..." popup is on screen. The
-  // browser caps concurrency per host, so these effectively stream in
-  // batches and the bar advances as each one lands.
-  await Promise.all(ordered.map(trackOne))
+  await preloadInstructionMediaWithProgress(RC, ordered).catch(error =>
+    debugLog('preload', 'Error preloading instruction media:', error),
+  )
 }
 
 /**
@@ -633,12 +606,6 @@ export async function objectTestNew(RC, options, callback = undefined) {
 
   // ─── Attach keyboard and show first page ─────────────────────────────
   keyboardHandler.attach()
-
-  // trackDistance has been displaying the centered "Loading video ..."
-  // message continuously since the participant clicked the Distance
-  // button. The first interactive page is about to render -- drop it
-  // now so it doesn't overlap the paper-size selection.
-  hideLoadingVideoMessage()
 
   if (options.calibrateDistanceCenterYourEyesBool) {
     await pageController.showPage(0)

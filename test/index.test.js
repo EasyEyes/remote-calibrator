@@ -176,3 +176,5 @@ describe('Tracking nearestXYPx publish sanitization', function () {
     assert.ok(uses >= 3, `expected >=3 uses (left/right/main), got ${uses}`)
   })
 })
+
+require('./instructionMediaSealGuard.test')
