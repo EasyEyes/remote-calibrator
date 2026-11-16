@@ -14,7 +14,10 @@ import {
  * Mirrors the init sequence that trackDistance / objectTestNew /
  * blindSpotTestNew perform internally:
  *   gazeTracker._init('distance')  →  checkPermissions
- *   →  loadModel  →  beginVideo  →  showTestPopup
+ *   →  beginVideo  →  showTestPopup
+ *
+ * It only connects the camera. The face model is loaded later, by
+ * RC.preloadModels on the host's media-loading page, or by trackDistance.
  *
  * Sets `RC._cameraSelectionDone = true` only when a camera was actually
  * pre-flight (`_runCameraSelectionBeforePanel`) and the in-task
@@ -151,7 +154,7 @@ async function selectCamera(options = {}) {
     startingMsg.innerHTML = phrases.RC_starting[this.L]
     document.body.appendChild(startingMsg)
 
-    // Load FaceMesh model + start video as one session. Failures used to
+    // Start the video (camera only, no face model). Failures used to
     // leave this promise unsettled or reject into the consumer's global
     // handler, which ends the study. They are now one rejection on
     // startCameraSession, surfaced here as the standard no-camera page.

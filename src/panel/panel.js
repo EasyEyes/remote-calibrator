@@ -797,9 +797,10 @@ const _getTaskOptionsCallbacks = (
 /**
  * Initialise the webcam pipeline and run camera selection before the panel
  * step buttons become active.  Mirrors the init sequence that trackDistance
- * performs (gazeTracker._init → permissions → loadModel → beginVideo →
- * showTestPopup) so that when trackDistance runs later it can skip all of
- * that and go straight to calibration.
+ * performs (gazeTracker._init → permissions → beginVideo → showTestPopup)
+ * so that when trackDistance runs later it can skip all of that and go
+ * straight to calibration. The face model is not loaded here; trackDistance
+ * loads it.
  */
 const _runCameraSelectionBeforePanel = async (RC, tdOpts) => {
   // 1. gazeTracker init (distance mode) — sets desired resolution/Hz

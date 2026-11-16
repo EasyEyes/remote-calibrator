@@ -67,7 +67,7 @@ const _isAbort = error =>
  * @param {object} [options]
  * @param {boolean} [options.videoOnly=true]  beginVideo vs begin (gaze loop)
  * @param {number}  [options.pipWidthPx]
- * @param {boolean} [options.requireModel=false]  fail the session if FaceMesh never loaded
+ * @param {boolean} [options.requireModel=false]  load FaceMesh and fail the session if it never loads; a videoOnly start without it opens only the camera
  * @param {number}  [options.timeoutMs]
  */
 export async function startCameraSession(gazeTracker, options = {}) {
@@ -147,28 +147,29 @@ export async function startCameraSession(gazeTracker, options = {}) {
     try {
       throwIfStale()
 
-      console.log(
-        webgazer.getTracker().modelLoaded
-          ? '[RC.cameraSession] Face model already loaded (preloaded), camera startup will not wait for it'
-          : '[RC.cameraSession] Face model not preloaded, loading it during camera startup',
-      )
-      // Kick the model download so it overlaps camera acquire. init()
-      // joins the same in-flight load on the tracker instance.
-      const modelPromise = webgazer
-        .getTracker()
-        .loadModel()
-        .then(() => {
-          modelMs = performance.now() - startedAt
-          return null
-        })
-        .catch(error => {
-          modelMs = performance.now() - startedAt
-          console.error(
-            '[RC] Face model failed to load during camera startup:',
-            error,
-          )
-          return error
-        })
+      // A plain camera connection (Choose Camera, panel pre-flight) must not
+      // touch the face model: the host preloads it on its media-loading page
+      // after Device Compatibility. Only callers that use the model right
+      // away (tracking, gaze) load it here, overlapped with camera acquire.
+      const loadModel = requireModel || !videoOnly
+      let modelPromise = Promise.resolve(null)
+      if (loadModel) {
+        modelPromise = webgazer
+          .getTracker()
+          .loadModel()
+          .then(() => {
+            modelMs = performance.now() - startedAt
+            return null
+          })
+          .catch(error => {
+            modelMs = performance.now() - startedAt
+            console.error(
+              '[RC] Face model failed to load during camera startup:',
+              error,
+            )
+            return error
+          })
+      }
 
       if (needCamera || needGazeLoop) {
         const start = videoOnly
