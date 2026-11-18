@@ -12,6 +12,7 @@
 import { buildStepInstructions } from './stepByStepInstructionHelps.js'
 import {
   buildStepInstructionsFromMarkdown,
+  extractMediaFromText,
   validateInstructionModel,
 } from './markdownInstructionParser.js'
 
@@ -58,7 +59,10 @@ function detectInstructionFormat(text) {
   const hasMarkdownHeading = /^#{1,6}\s+.+$/m.test(text)
   const hasMarkdownList = /^\s*([\d٠-٩۰-۹]+\.|-|\*|\+)\s+.+$/m.test(text)
 
-  if (hasMarkdownHeading || hasMarkdownList) {
+  // Short instructions can be just a paragraph followed by a video/image.
+  // Use the renderer's own media extractor so detection agrees with parsing.
+  const hasMarkdownMedia = extractMediaFromText(text).urls.length > 0
+  if (hasMarkdownHeading || hasMarkdownList || hasMarkdownMedia) {
     return InstructionFormat.MARKDOWN
   }
 

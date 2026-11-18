@@ -4,7 +4,13 @@
 
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
-import { getFullscreen, isFullscreen } from '../components/utils'
+import {
+  getFullscreen,
+  hideLoadingVideoMessage,
+  isFullscreen,
+  setLoadingVideoProgress,
+  showLoadingVideoMessage,
+} from '../components/utils'
 import { phrases } from '../i18n/schema'
 
 const MEDIA_FETCH_ATTEMPTS = 3
@@ -24,12 +30,28 @@ const mediaFetchCache =
   new Map()
 
 let _mediaRetryPrompt = null
+let mediaSealed = false
+export const isInstructionMediaSealed = () => mediaSealed
+export const sealInstructionMedia = () => {
+  mediaSealed = true
+}
+export const cacheInstructionMedia = (url, blob) => {
+  if (mediaBlobCache.has(url)) return mediaBlobCache.get(url)
+  const entry = { objectUrl: URL.createObjectURL(blob), blob, mime: blob.type }
+  mediaBlobCache.set(url, entry)
+  return entry
+}
 
 const _sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const _fetchBlobWithTimeout = async (url, timeoutMs) => {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  let timer
+  const reset = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => controller.abort(), timeoutMs)
+  }
+  reset()
   try {
     const resp = await fetch(url, {
       mode: 'cors',
@@ -37,7 +59,17 @@ const _fetchBlobWithTimeout = async (url, timeoutMs) => {
       signal: controller.signal,
     })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    return await resp.blob()
+    reset()
+    const reader = resp.body?.getReader()
+    if (!reader) return await resp.blob()
+    const chunks = []
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      reset()
+    }
+    return new Blob(chunks, { type: resp.headers.get('Content-Type') || '' })
   } finally {
     clearTimeout(timer)
   }
@@ -112,6 +144,10 @@ export const fetchBlobOnce = (url, RC = null) => {
   if (!url) return Promise.resolve(null)
   if (mediaBlobCache.has(url)) return Promise.resolve(mediaBlobCache.get(url))
   if (mediaFetchCache.has(url)) return mediaFetchCache.get(url)
+  if (mediaSealed)
+    return Promise.reject(
+      new Error(`Instruction media was not preloaded: ${url}`),
+    )
 
   const p = (async () => {
     try {
@@ -136,12 +172,39 @@ export const fetchBlobOnce = (url, RC = null) => {
   return p
 }
 
+// The fallback progress screen belongs to the downloads it describes.
+export async function preloadInstructionMediaWithProgress(RC, urls) {
+  if (mediaSealed) return
+  const pending = urls.filter(url => !mediaBlobCache.has(url))
+  if (!pending.length) return
+
+  showLoadingVideoMessage(RC)
+  let completed = 0
+  try {
+    const results = await Promise.allSettled(
+      pending.map(async url => {
+        try {
+          await fetchBlobOnce(url, RC)
+        } finally {
+          setLoadingVideoProgress(++completed, pending.length)
+        }
+      }),
+    )
+    const failure = results.find(result => result.status === 'rejected')
+    if (failure) throw failure.reason
+  } finally {
+    hideLoadingVideoMessage()
+  }
+}
+
 export const resolveInstructionMediaUrl = url => {
   if (!url) return url
   const key = String(url).trim()
   const cached = mediaBlobCache && mediaBlobCache.get(key)
   if (cached && cached.objectUrl) return cached.objectUrl
 
+  if (mediaSealed)
+    throw new Error(`Instruction media was not preloaded: ${key}`)
   if (!mediaFetchCache.has(key)) {
     try {
       fetchBlobOnce(key)

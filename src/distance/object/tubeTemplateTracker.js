@@ -111,6 +111,20 @@ export const configureTubeTracker = ({
   }
 }
 
+/**
+ * Download and initialize the hand detector a mode will use, without
+ * arming tracking. Resolves immediately for modes that need no detector.
+ */
+export const preloadExcludeTubeModel = (mode, tweak) => {
+  const resolved = normalizeExcludeTubeMode(mode) || 'doNothing'
+  if (resolved === 'excludeHand') {
+    handExclude.applyHandTweak(parseExcludeTubeTweak(tweak))
+    return handExclude.preloadHandDetector()
+  }
+  if (isCropMode(resolved)) return tubeLegacy.preloadHandDetector()
+  return Promise.resolve()
+}
+
 export const getTubeCropMode = () => excludeMode
 
 export const getExcludeTubeMode = () => excludeMode

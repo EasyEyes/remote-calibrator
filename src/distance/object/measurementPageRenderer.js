@@ -1,3 +1,4 @@
+import { getMeasurementLocationPhraseKey } from './locationInstructions.js'
 /**
  * measurementPageRenderer.js
  *
@@ -8,7 +9,6 @@
 import {
   getArrowPositionForLocation,
   positionVideoForLocation,
-  getLocationInstructionPhraseKey,
   buildLocationInstructions,
 } from './locationUtils'
 import {
@@ -399,16 +399,6 @@ export function createMeasurementPageRenderer(dependencies) {
    * @param {boolean} saveSnapshots - Whether snapshots are saved
    * @returns {string} The instruction phrase key to use
    */
-  const getInstructionPhraseKey = (isFirst, location, saveSnapshots) => {
-    // Try new location-aware phrases first
-    const newPhraseKey = 'RC_UseObjectToSetViewingDistanceToLocationFirstPage'
-
-    // Check if the new phrase exists
-    if (phrases?.[newPhraseKey]?.[RC.L]) {
-      return newPhraseKey
-    }
-  }
-
   /**
    * Show a measurement page for a specific location.
    * This is the main function that replaces the hard-coded Page 3/Page 4 logic.
@@ -499,7 +489,7 @@ export function createMeasurementPageRenderer(dependencies) {
     }
 
     // 6. Get instruction text
-    const phraseKey = getInstructionPhraseKey(isFirst, location, saveSnapshots)
+    const phraseKey = getMeasurementLocationPhraseKey(phrases, RC.L)
     let instructionText = ''
 
     // Check if we should use new location-aware phrases with placeholders
@@ -521,26 +511,6 @@ export function createMeasurementPageRenderer(dependencies) {
     } else {
       // Use legacy phrase directly
       instructionText = phrases?.[phraseKey]?.[RC.L] || ''
-    }
-
-    // If no instructions found, try fallback phrases
-    if (!instructionText) {
-      console.warn(
-        `  No instruction text found for ${phraseKey}, trying fallbacks...`,
-      )
-      const fallbackKeys = [
-        'RC_UseObjectToSetViewingDistancePage3',
-        'RC_UseObjectToSetViewingDistanceStepperPage3',
-        'RC_UseObjectToSetViewingDistanceCenterPage4',
-        'RC_UseObjectToSetViewingDistanceStepperPage4',
-      ]
-      for (const key of fallbackKeys) {
-        if (phrases?.[key]?.[RC.L]) {
-          instructionText = phrases[key][RC.L]
-          console.log(`  Found fallback instruction with key: ${key}`)
-          break
-        }
-      }
     }
 
     console.log(`  Instruction text length: ${instructionText?.length || 0}`)

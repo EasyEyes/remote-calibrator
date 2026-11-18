@@ -1,3 +1,4 @@
+import { resolveInstructionMediaUrl } from './instructionMediaCache'
 import { phrases } from '../i18n/schema'
 import Swal from 'sweetalert2'
 import { swalInfoOptions } from '../components/swalOptions'
@@ -2251,6 +2252,7 @@ export async function justCreditCard(RC, options, callback = undefined) {
           mediaContainer: mediaContainer,
         },
         options: {
+          resolveMediaUrl: resolveInstructionMediaUrl,
           showAllSteps: false,
           thresholdFraction: 0.6,
           useCurrentSectionOnly: true,

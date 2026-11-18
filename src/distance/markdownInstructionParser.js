@@ -97,7 +97,7 @@ const MEDIA_EXTENSION_REGEX = new RegExp(
  * extractMediaFromText('Step 1 ![demo](video.mp4) instructions')
  * // Returns: { cleanText: 'Step 1  instructions', urls: ['video.mp4'] }
  */
-function extractMediaFromText(text) {
+export function extractMediaFromText(text) {
   const urls = []
 
   // Extract image syntax: ![alt](url)
@@ -194,31 +194,52 @@ export function processInlineFormatting(text) {
     return text
   }
 
-  return (
-    text
-      // Headings: # to ###### at start of line → <h1> to <h6>
-      .replace(/^######\s+(.+)$/gm, '<h6 style="margin: 0.5em 0;">$1</h6>')
-      .replace(/^#####\s+(.+)$/gm, '<h5 style="margin: 0.5em 0;">$1</h5>')
-      .replace(/^####\s+(.+)$/gm, '<h4 style="margin: 0.5em 0;">$1</h4>')
-      .replace(/^###\s+(.+)$/gm, '<h3 style="margin: 0.5em 0;">$1</h3>')
-      .replace(/^##\s+(.+)$/gm, '<h2 style="margin: 0.5em 0;">$1</h2>')
-      .replace(/^#\s+(.+)$/gm, '<h1 style="margin: 0.5em 0;">$1</h1>')
-      // Escape sequences: \* \_ \` etc. → preserve literal characters
-      .replace(/\\([\\`*_{}[\]()#+\-.!])/g, '&#92;$1')
-      // Bold: **text** or __text__
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/__([^_]+)__/g, '<strong>$1</strong>')
-      // Italic: *text* or _text_
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/_([^_]+)_/g, '<em>$1</em>')
-      // Code: `text`
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Strikethrough: ~~text~~
-      .replace(/~~([^~]+)~~/g, '<del>$1</del>')
-      // Line breaks: <br> or <br/> (HTML-style)
-      .replace(/<br\s*\/?>/gi, '<br>')
-      // Line breaks: double space + newline (Markdown-style)
-      .replace(/  \n/g, '<br>')
+  // Phrase loading formats whole instructions before media URLs are extracted.
+  // Protect link destinations, HTML attributes and bare URLs from emphasis
+  // rules so underscores in filenames/query strings remain literal bytes.
+  const protectedValues = []
+  const protect = value => {
+    const token = `\uE000${protectedValues.length}\uE001`
+    protectedValues.push(value)
+    return token
+  }
+  const protectedText = text
+    .replace(
+      /(!?\[[^\]]*\]\()([^()]*(?:\([^()]*\)[^()]*)*)(\))/g,
+      (_, open, destination, close) => open + protect(destination) + close,
+    )
+    .replace(/<[^>]+>/g, tag =>
+      /^<br\s*\/?>$/i.test(tag) ? tag : protect(tag),
+    )
+    .replace(/(?:https?:\/\/|blob:|data:)[^\s<>"']+/g, protect)
+
+  const formatted = protectedText
+    // Headings: # to ###### at start of line → <h1> to <h6>
+    .replace(/^######\s+(.+)$/gm, '<h6 style="margin: 0.5em 0;">$1</h6>')
+    .replace(/^#####\s+(.+)$/gm, '<h5 style="margin: 0.5em 0;">$1</h5>')
+    .replace(/^####\s+(.+)$/gm, '<h4 style="margin: 0.5em 0;">$1</h4>')
+    .replace(/^###\s+(.+)$/gm, '<h3 style="margin: 0.5em 0;">$1</h3>')
+    .replace(/^##\s+(.+)$/gm, '<h2 style="margin: 0.5em 0;">$1</h2>')
+    .replace(/^#\s+(.+)$/gm, '<h1 style="margin: 0.5em 0;">$1</h1>')
+    // Escape sequences: \* \_ \` etc. → preserve literal characters
+    .replace(/\\([\\`*_{}[\]()#+\-.!])/g, '&#92;$1')
+    // Bold: **text** or __text__
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+    // Italic: *text* or _text_
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/_([^_]+)_/g, '<em>$1</em>')
+    // Code: `text`
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // Strikethrough: ~~text~~
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+    // Line breaks: <br> or <br/> (HTML-style)
+    .replace(/<br\s*\/?>/gi, '<br>')
+    // Line breaks: double space + newline (Markdown-style)
+    .replace(/  \n/g, '<br>')
+  return formatted.replace(
+    /\uE000(\d+)\uE001/g,
+    (_, index) => protectedValues[Number(index)],
   )
 }
 

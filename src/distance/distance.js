@@ -44,7 +44,7 @@ import {
   distanceCalibrationAssetMap,
 } from './assetMap'
 import {
-  fetchBlobOnce,
+  preloadInstructionMediaWithProgress,
   resolveInstructionMediaUrl,
 } from './instructionMediaCache'
 import {
@@ -3457,37 +3457,10 @@ export async function knownDistanceTest(RC, options, callback = undefined) {
     return ordered
   }
 
-  const preloadAllInstructionMedia = async () => {
-    const orderedUrls = buildInstructionMediaPreloadOrder()
-    console.log('orderedUrls...', orderedUrls)
-    if (!orderedUrls.length) return
-
-    const firstBlockingCount = 3
-    const firstBatch = orderedUrls.slice(0, firstBlockingCount)
-    const remaining = orderedUrls.slice(firstBlockingCount)
-
-    await Promise.all(firstBatch.map(url => fetchBlobOnce(url, this))).catch(
-      error => {
-        console.error('error preloading initial media...', error)
-      },
-    )
-
-    if (remaining.length) {
-      if (!window.__eeInstructionMediaPreloaderPromise) {
-        window.__eeInstructionMediaPreloaderPromise = (async () => {
-          for (const url of remaining) {
-            try {
-              await fetchBlobOnce(url, this)
-            } catch (err) {
-              console.error('error preloading media url...', err)
-            }
-          }
-        })()
-      }
-    }
-  }
-
-  await preloadAllInstructionMedia()
+  await preloadInstructionMediaWithProgress(
+    RC,
+    buildInstructionMediaPreloadOrder(),
+  )
 
   // ===================== KNOWN DISTANCE TEST COMMON DATA =====================
   const knownDistanceTestCommonData = {

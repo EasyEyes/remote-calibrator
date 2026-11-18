@@ -1,5 +1,5 @@
-import { phrases } from './schema'
-import { processInlineFormatting } from '../distance/markdownInstructionParser'
+import { phrases } from './schema.js'
+import { processInlineFormatting } from '../distance/markdownInstructionParser.js'
 
 // Pre-render every phrase value from Markdown → HTML at load time so that
 // all reads from `phrases[key][lang]` return ready-to-insert HTML.

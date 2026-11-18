@@ -1,6 +1,10 @@
 {
   "name": "remote-calibrator",
+<<<<<<< HEAD
   "version": "0.9.170",
+=======
+  "version": "0.9.170-beta.2",
+>>>>>>> eager-loading
   "description": "Useful calibration tools for remote psychophysics experiments",
   "main": "lib/RemoteCalibrator.min.js",
   "directories": {
